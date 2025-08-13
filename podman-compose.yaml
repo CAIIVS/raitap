@@ -4,8 +4,8 @@ x-airflow-common:
   &airflow-common
   # In order to add custom dependencies or upgrade provider distributions you can use your extended image.
   # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
-  # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
-  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:3.0.4}
+  # and uncomment the "build" line below, Then run `docker-compose build` to build the image-names.
+  image-name: ${AIRFLOW_image-name_NAME:-apache/airflow:3.0.4}
   # build: .
   environment:
     &airflow-common-env
@@ -24,11 +24,11 @@ x-airflow-common:
     # yamllint enable rule:line-length
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
     # WARNING: Use _PIP_ADDITIONAL_REQUIREMENTS option ONLY for a quick checks
-    # for other purpose (development, test and especially production usage) build/extend Airflow image.
+    # for other purpose (development, test and especially production usage) build/extend Airflow image-name.
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
     # The following line can be used to set a custom config file, stored in the local config folder
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
-  volumes:
+  mounts:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
@@ -43,12 +43,12 @@ x-airflow-common:
 
 services:
   postgres:
-    image: postgres:13
+    image-name: postgres:13
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
-    volumes:
+    mounts:
       - postgres-db-volume:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
@@ -60,7 +60,7 @@ services:
   redis:
     # Redis is limited to 7.2-bookworm due to licencing change
     # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
-    image: redis:7.2-bookworm
+    image-name: redis:7.2-bookworm
     expose:
       - 6379
     healthcheck:
@@ -216,7 +216,7 @@ services:
         echo "Airflow version:"
         /entrypoint airflow version
         echo
-        echo "Files in shared volumes:"
+        echo "Files in shared mounts:"
         echo
         ls -la /opt/airflow/{logs,dags,plugins,config}
         echo
@@ -224,7 +224,7 @@ services:
         echo
         /entrypoint airflow config list >/dev/null
         echo
-        echo "Files in shared volumes:"
+        echo "Files in shared mounts:"
         echo
         ls -la /opt/airflow/{logs,dags,plugins,config}
         echo
@@ -232,11 +232,11 @@ services:
         echo
         chown -R "${AIRFLOW_UID}:0" /opt/airflow/
         echo
-        echo "Change ownership of files in shared volumes to ${AIRFLOW_UID}:0"
+        echo "Change ownership of files in shared mounts to ${AIRFLOW_UID}:0"
         echo
         chown -v -R "${AIRFLOW_UID}:0" /opt/airflow/{logs,dags,plugins,config}
         echo
-        echo "Files in shared volumes:"
+        echo "Files in shared mounts:"
         echo
         ls -la /opt/airflow/{logs,dags,plugins,config}
 
