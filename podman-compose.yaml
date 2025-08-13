@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "XXXX:5000"
+    depends_on:
+      - redis
+
+  redis:
+    image: docker.io/library/redis:7-alpine
+    privileged: false

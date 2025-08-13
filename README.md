@@ -12,7 +12,7 @@ The four dimensions are:
 
 ## Development Milestones
 February 2023	CertAInty project is launched.  
-August 2023		First documentation is created. 
+August 2023		First documentation is created.  
 January 2024	DGX Cluster migrated to new hardware.  
 August 2024		DGX Cluster migrated to new software.  
 
