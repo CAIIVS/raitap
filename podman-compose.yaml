@@ -4,7 +4,7 @@ services:
   web:
     build: .
     ports:
-      - "XXXX:5000"
+      - "8660:5000"
     depends_on:
       - redis
 
