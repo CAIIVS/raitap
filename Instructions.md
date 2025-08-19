@@ -70,3 +70,7 @@ Run podman compose:
 ```
 podman-compose -f simple_podman_compose.yaml up --build
 ```
+
+If it works correctly, there will be messages in the terminal from the postgres, redis, and airflow-apiserver services.
+
+Access the airflow apiserver in your browser on e. g. http://sandiego.zhaw.ch:8660/. This command depends on which worker you have been connected to when you asked for an interactive session.
