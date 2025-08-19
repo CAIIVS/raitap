@@ -17,8 +17,8 @@ services:
     image: docker.io/library/postgres:13
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 30s
+      interval: 30s
+      timeout: 10s
       retries: 5
       start_period: 60s
     restart: always
@@ -30,3 +30,12 @@ services:
       - "8080:8660"
     environment:
       _AIRFLOW_DB_MIGRATE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: tech_assessment_platform
+      _AIRFLOW_WWW_USER_PASSWORD: TAP_airflow_password
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
