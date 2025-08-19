@@ -4,8 +4,7 @@ services:
   redis:
       # Redis is limited to 7.2-bookworm due to licencing change
       # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
-      image-name: docker.io/library/redis:7.2-bookworm
-      privileged: false
+      image: docker.io/library/redis:7.2-bookworm
  
   postgres:
     image: postgres:13
