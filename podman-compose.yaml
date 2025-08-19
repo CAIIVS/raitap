@@ -67,8 +67,8 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 30s
-      retries: 50
-      start_period: 30s
+      retries: 5
+      start_period: 60s
     restart: always
 
   airflow-apiserver:
