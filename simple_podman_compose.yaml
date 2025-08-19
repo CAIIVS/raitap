@@ -27,12 +27,12 @@ services:
     image: docker.io/apache/airflow:slim-3.0.5rc3-python3.9
     command: api-server
     ports:
-      - "8660:8080"
+      - "${AIRFLOW_WEBSERVER_PORT}:8080"
     environment:
       _AIRFLOW_DB_MIGRATE: 'true'
       _AIRFLOW_WWW_USER_CREATE: 'true'
-      _AIRFLOW_WWW_USER_USERNAME: tech_assessment_platform
-      _AIRFLOW_WWW_USER_PASSWORD: TAP_airflow_password
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_USERNAME}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_PASSWORD}
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/version"]
       interval: 30s
