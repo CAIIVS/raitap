@@ -15,3 +15,16 @@ services:
   
   postgres:
     image: docker.io/library/postgres:13
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+    restart: always
+  
+  airflow-apiserver:
+    <<: docker.io/library/apache/airflow:slim-3.0.5rc3-python3.9
+    command: api-server
+    ports:
+      - "8080:8660"
