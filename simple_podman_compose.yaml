@@ -2,17 +2,16 @@ version: '3.8'
  
 services:
   redis:
-      # Redis is limited to 7.2-bookworm due to licencing change
-      # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
-      image: docker.io/library/redis:7.2-bookworm
-  healthcheck:
-    test: ["CMD", "redis-cli", "ping"]
-    interval: 10s
-    timeout: 30s
-    retries: 5
-    start_period: 60s
-  restart: always
+    # Redis is limited to 7.2-bookworm due to licencing change
+    # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
+    image: docker.io/library/redis:7.2-bookworm
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+    restart: always
   
   postgres:
     image: docker.io/library/postgres:13
-    
