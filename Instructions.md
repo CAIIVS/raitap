@@ -68,5 +68,5 @@ source /raid/persistent_scratch/foro/venvs/podcomp/bin/activate
 Run podman compose:
 
 ```
-podman-compose -f podman-compose.yaml up --build
+podman-compose -f simple_podman_compose.yaml up --build
 ```
