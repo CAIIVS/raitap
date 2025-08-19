@@ -3,7 +3,7 @@ version: '3.8'
 services:
 
   redis:
-    image-name: redis:7.2-bookworm
+    image: redis:7.2-bookworm
  
   postgres:
-    image-name: postgres:13
+    image: postgres:13
