@@ -24,6 +24,7 @@ services:
     restart: always
   
   airflow-apiserver:
+    env_file: ".env"
     image: docker.io/apache/airflow:slim-3.0.5rc3-python3.9
     command: api-server
     ports:
@@ -51,5 +52,5 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 30s
+      start_period: 60s
     restart: always
