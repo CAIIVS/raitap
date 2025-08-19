@@ -24,7 +24,7 @@ services:
     restart: always
   
   airflow-apiserver:
-    image: docker.io/library/airflow:slim-3.0.5rc3-python3.9
+    image: docker.io/apache/airflow:slim-3.0.5rc3-python3.9
     command: api-server
     ports:
       - "8080:8660"
