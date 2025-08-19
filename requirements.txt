@@ -1,2 +1,3 @@
 flask
 redis
+apache-airflow[celery]==3.0.4
