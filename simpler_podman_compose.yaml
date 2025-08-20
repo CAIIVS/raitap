@@ -28,7 +28,11 @@ services:
     restart: always
   
   airflow-webserver:
-    <<: *airflow-common
+    environment:
+      _AIRFLOW_DB_MIGRATE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_USERNAME}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_PASSWORD}
     command: airflow webserver -p ${AIRFLOW_WEBSERVER_PORT}
     container_name: airflow-webserver
     ports:
