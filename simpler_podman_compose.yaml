@@ -35,7 +35,6 @@ services:
       _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_USERNAME}
       _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_PASSWORD}
     command: airflow webserver -p ${AIRFLOW_WEBSERVER_PORT}
-    container_name: airflow-webserver
     ports:
       - "${AIRFLOW_WEBSERVER_PORT}:${AIRFLOW_WEBSERVER_PORT}"
     healthcheck:
