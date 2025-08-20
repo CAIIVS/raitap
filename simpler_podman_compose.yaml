@@ -36,14 +36,14 @@ services:
       _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_PASSWORD}
     command: airflow webserver -p ${AIRFLOW_WEBSERVER_PORT}
     ports:
-      - "${AIRFLOW_WEBSERVER_PORT}:${AIRFLOW_WEBSERVER_PORT}"
+      - "${AIRFLOW_WEBSERVER_PORT}:8080"
     healthcheck:
       test:
         [
           "CMD",
           "curl",
           "--fail",
-          "http://localhost:${AIRFLOW_WEBSERVER_PORT}/health",
+          "http://localhost:8080/health",
         ]
       interval: 30s
       timeout: 10s
