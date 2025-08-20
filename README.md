@@ -1,4 +1,4 @@
-<img src="images/tech_Assessment_platform_logo.png" width="800">
+<img src="images/tech_assessment_platform_logo.png" width="800">
 
 ## Purpose
 The certainty pipeline is dedicated to the certification of responsible AI.
