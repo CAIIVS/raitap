@@ -27,24 +27,29 @@ services:
       start_period: 60s
     restart: always
   
-  airflow-apiserver:
-    env_file: ".env"
-    image: docker.io/apache/airflow:slim-3.0.5rc3-python3.9
-    command: api-server
+  airflow-webserver:
+    <<: *airflow-common
+    command: airflow webserver -p ${AIRFLOW_WEBSERVER_PORT}
+    container_name: airflow-webserver
     ports:
-      - "${AIRFLOW_WEBSERVER_PORT}:8080"
-    environment:
-      _AIRFLOW_DB_MIGRATE: 'true'
-      _AIRFLOW_WWW_USER_CREATE: 'true'
-      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_USERNAME}
-      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_PASSWORD}
+      - "${AIRFLOW_WEBSERVER_PORT}:${AIRFLOW_WEBSERVER_PORT}"
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/version"]
+      test:
+        [
+          "CMD",
+          "curl",
+          "--fail",
+          "http://localhost:${AIRFLOW_WEBSERVER_PORT}/health",
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 30s
     restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
 
   airflow-scheduler:
     image: docker.io/apache/airflow:slim-3.0.5rc3-python3.9
