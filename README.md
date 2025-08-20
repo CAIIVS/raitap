@@ -1,4 +1,5 @@
-# Tech Assessment Platform
+<img src="images/tech_Assessment_platform_logo.png" width="800">
+
 ## Purpose
 The certainty pipeline is dedicated to the certification of responsible AI.
 Four dimensions can be certified following MLOps practices.
