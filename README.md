@@ -21,13 +21,20 @@ August 2024		DGX Cluster migrated to new software.
 ### Overview over Cluster Migration Update (Summer 2024)
 | Functionality         | Pre 2024          | Current Version   |
 | --------              | --------          | ---               |
-| Data Access   	    | Insecure Access	| Secure Access     |
-| Cluster Access    	| SSH       	    | SSH               |
-| Autostart	            | Docker	        | Podman            |
+| Data Access   	      | Insecure Access	  | Secure Access     |
+| Cluster Access    	  | SSH       	      | SSH               |
+| Autostart	            | Docker	          | Podman            |
 | CI/CD	                | GitHub            | GitHub            |
-| Job Scheduling	    | AirFlow           | AirFlow           |
-| Artifact Gathering	| MLFlow	        | MLFlow            |
-| Dataset Management	| Oxen              | Oxen              |
-| Job resubmit          | No resubmit	    | Every sunday      |
+| Job Scheduling	      | AirFlow           | AirFlow           |
+| Artifact Gathering	  | MLFlow	          | MLFlow            |
+| Dataset Management	  | Oxen              | Oxen              |
+| Job resubmit          | No resubmit	      | Every sunday      |
 
 
+## Design Decisions
+Open Questions to be discussed:
+* Shared user (access for multiple developers/operators)?
+* Environments instead of containers (faster, lightweight)?
+* Minimal example approach (less error-prone)?
+* AirFlow, MLFlow and Oxen? Versions?
+* Automatic Restart (reduces maintenance burden)?
