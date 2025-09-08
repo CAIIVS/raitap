@@ -37,4 +37,5 @@ Open Questions to be discussed:
 * Environments instead of containers (faster, lightweight)?
 * Minimal example approach (less error-prone)?
 * AirFlow, MLFlow and Oxen? Versions?
+* Status on GitHub
 * Automatic Restart (reduces maintenance burden)?
