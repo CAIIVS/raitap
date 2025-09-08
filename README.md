@@ -39,3 +39,5 @@ Open Questions to be discussed:
 * AirFlow, MLFlow and Oxen? Versions?
 * Status on GitHub
 * Automatic Restart (reduces maintenance burden)?
+
+Define Setup
