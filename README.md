@@ -32,12 +32,10 @@ August 2024		DGX Cluster migrated to new software.
 
 
 ## Design Decisions
-Open Questions to be discussed:
-* Shared user (access for multiple developers/operators)?
-* Environments instead of containers (faster, lightweight)?
-* Minimal example approach (less error-prone)?
-* AirFlow, MLFlow and Oxen? Versions?
-* Status on GitHub
-* Automatic Restart (reduces maintenance burden)?
+**Non-personal Account.** By having an extra account that is bound to Ricardo rather than the personal account of the developer, there are no problems with joint maintenance by several developers and by leaving staff.
 
-Define Setup
+**ONNX Standard.** This standard is framework-independent, working well for tensorflow and pytorch. With few adjustments to the code this standard should be attainable for every use case. Versioning is easy too.
+
+**Hydra instead of AirFlow.** Use of Hydra keeps all programming in python language. This library is more flexible, faster, and more resource-efficient. Containers are no longer required and config files make the jobs readable and structured. While there is some initial workload to get up to speed with Hydra, there is less work during operation and further development of the tech assessment platform.
+
+**Oxen on wait.** Dataset versioning is not as important as other aspects of the tech assessment platform. Therefore it can be integrated at a later time. This corresponds to a minimal viable product approach.
