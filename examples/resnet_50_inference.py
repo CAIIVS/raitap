@@ -1,10 +1,9 @@
 from transformers import AutoImageProcessor, ResNetForImageClassification
 import torch
 from datasets import load_dataset
-import json
 
-# Load Model
-torch_model = ResNetForImageClassification.from_pretrained("microsoft/resnet-50")
+# Load ResNet 50 Model
+model = ResNetForImageClassification.from_pretrained("microsoft/resnet-50")
 
 print('Model loaded.')
 
@@ -19,14 +18,10 @@ processor = AutoImageProcessor.from_pretrained("microsoft/resnet-50")
 inputs = processor(image, return_tensors="pt")
 example_input = inputs['pixel_values']
 
-print('example_inputs:', example_input)
+# Inference from Dataset
+with torch.no_grad():
+    logits = model(example_input).logits
 
-# Export model to ONNX
-onnx_program = torch.onnx.export(torch_model, example_input, dynamo=True)
+predicted_label = logits.argmax(-1).item()
 
-onnx_program.save("models/resnet_50.onnx")
-
-print('Model exported.')
-
-# Save Label Dictionary to File
-json.dump(torch_model.config.id2label, open( "id2label.json", 'w' ))
+print('Predicted label:', model.config.id2label[predicted_label])
