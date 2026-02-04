@@ -6,8 +6,8 @@ Four dimensions can be certified following MLOps practices.
 
 The four dimensions are:
 * Transparency
-* Reliability
-* Safety and security
+* Robustness
+* Security
 * Autonomy and control
 
 For more information read
