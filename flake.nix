@@ -65,40 +65,55 @@
         # Python environments for CPU-only (fast, uses binary cache)
         makeCpuEnvsForPython = dist:
           dist.withPackages (p:
+            let
+              mpl = (p.matplotlib.override { enableQt = true; });
+            in 
             with p; [
               numpy
-              h5py
               safetensors
-              (matplotlib.override { enableQt = true; })
+              mpl
               torch
               torchvision
               scikit-learn
+              hydra-core
+              mlflow.override { matplotlib = mlp; }
+              shap
             ]);
 
         # Python environments for ROCm
         makeRocmEnvsForPython = dist:
           dist.withPackages (p:
+            let
+              mpl = (p.matplotlib.override { enableQt = true; });
+            in 
             with p; [
               numpy
-              h5py
               safetensors
-              (matplotlib.override { enableQt = true; })
+              mpl
               torchWithRocm
               (torchvision.override { torch = torchWithRocm; })
               scikit-learn
+              hydra-core
+              mlflow.override { matplotlib = mlp; }
+              shap
             ]);
 
         # Python environments for CUDA
         makeCudaEnvsForPython = dist:
           dist.withPackages (p:
+            let
+              mpl = (p.matplotlib.override { enableQt = true; });
+            in 
             with p; [
               numpy
-              h5py
               safetensors
-              (matplotlib.override { enableQt = true; })
+              mpl
               torchWithCuda
               (torchvision.override { torch = torchWithCuda; })
               scikit-learn
+              hydra-core
+              mlflow.override { matplotlib = mlp; }
+              shap
             ]);
 
         pyDists = with pkgs; [
