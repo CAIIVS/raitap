@@ -2,7 +2,7 @@ from transformers import AutoImageProcessor, ResNetForImageClassification
 import torch
 from datasets import load_dataset
 
-# Load ResNet 50 Model
+# Load ResNet 50 Pytorch Model
 model = ResNetForImageClassification.from_pretrained("microsoft/resnet-50")
 
 print('Model loaded.')
