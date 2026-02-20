@@ -1,4 +1,6 @@
-<img src="assets/images/tech_assessment_platform_logo.png" width="800">
+# Tech Assessment Platform
+
+<img src="assets/images/tech_assessment_platform_logo.png" width="400">
 
 ## Purpose
 
@@ -22,7 +24,7 @@ Additional references on XAI aspects:
 * [Interpretable Machine Learning](https://christophm.github.io/interpretable-ml-book/).
 * [One Explanation Does Not Fit All](https://doi.org/10.48550/arXiv.1909.03012)
 
-## Get it running
+## Getting it running
 
 ### Prerequisites
 

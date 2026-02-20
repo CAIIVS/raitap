@@ -7,7 +7,7 @@
 * Python 3.13 or higher
 * [uv](https://docs.astral.sh/uv/) package manager
 
-### Set up
+### Setup
 
 1. Clone the repository
 2. Install the dependencies by running
@@ -33,6 +33,7 @@
 
 ## Useful commands
 
+* `uv sync` installs the dependencies defined in `uv.lock`.
 * `uv run ruff check --fix .` lints all Python files and applies auto-fixes where possible. Omit the `--fix` flag to only check for issues without modifying files.
 * `uv run ruff format .` formats all Python files according to the configured style.
 * `uv run cz commit` opens an interactive prompt to create a commit message following the conventional commits format. You can also use the VSCode extension.
