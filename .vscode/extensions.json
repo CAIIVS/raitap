@@ -1,9 +1,11 @@
 {
     // See https://go.microsoft.com/fwlink/?LinkId=827846 to learn about workspace recommendations.
     "recommendations": [
+        // Necessary
         "ms-python.python",
         "ms-python.vscode-pylance",
         "charliermarsh.ruff",
+        // Optional
         "formulahendry.code-runner",
         "usernamehw.errorlens",
         "sleistner.vscode-fileutils",
