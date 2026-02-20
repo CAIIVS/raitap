@@ -1,38 +1,19 @@
 version: 2
 updates:
-  # Production dependencies - only security and major updates
+  # Python dependencies - only security and major updates
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
-    allow:
-      - dependency-name: "hydra-core"
-      - dependency-name: "mlflow"
-      - dependency-name: "numpy"
-      - dependency-name: "torch"
+    open-pull-requests-limit: 10
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-minor", "version-update:semver-patch"]
     labels:
-      - "deps:prod"
-
-  # Dev dependencies - only security and major updates
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    allow:
-      - dependency-name: "ruff"
-      - dependency-name: "pre-commit"
-      - dependency-name: "commitizen"
-      - dependency-name: "pyright"
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
-    labels:
-      - "deps:dev"
+      - "dependencies"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps(dev)"
 
   # Monitor GitHub Actions - only security and major updates
   - package-ecosystem: "github-actions"
