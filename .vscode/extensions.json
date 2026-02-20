@@ -1,0 +1,13 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=827846 to learn about workspace recommendations.
+    "recommendations": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "formulahendry.code-runner",
+        "usernamehw.errorlens",
+        "sleistner.vscode-fileutils",
+        "christian-kohler.path-intellisense",
+        "tamasfe.even-better-toml",
+        "vivaxy.vscode-conventional-commits"
+    ],
+}
