@@ -50,6 +50,9 @@ jobs:
       - name: Run Ruff formatter
         run: uv run ruff format .
       
+      - name: Run Pyright type checker
+        run: uv run pyright
+      
       - name: Check for changes
         id: check-changes
         run: |

@@ -44,6 +44,7 @@ dev = [
     "ruff>=0.8.0",
     "pre-commit>=4.0.0",
     "commitizen>=3.0.0",
+    "pyright>=1.1.390",
 ]
 
 [build-system]
@@ -87,3 +88,20 @@ version_scheme = "semver"
 version_provider = "pep621"
 update_changelog_on_bump = true
 major_version_zero = true
+
+[tool.pyright]
+include = ["src"]
+exclude = [
+    "**/.*",
+    "**/.venv",
+    "**/__pycache__",
+    "**/node_modules",
+    "**/build",
+    "**/dist",
+]
+pythonVersion = "3.13"
+typeCheckingMode = "standard"
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportUnusedImport = true
+reportUnusedVariable = true

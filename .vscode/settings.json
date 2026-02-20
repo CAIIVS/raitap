@@ -1,5 +1,4 @@
 {
-    "python.analysis.typeCheckingMode": "standard",
     "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
     "[python]": {
         "editor.defaultFormatter": "charliermarsh.ruff"

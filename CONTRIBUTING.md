@@ -36,4 +36,5 @@
 * `uv sync` installs the dependencies defined in `uv.lock`.
 * `uv run ruff check --fix .` lints all Python files and applies auto-fixes where possible. Omit the `--fix` flag to only check for issues without modifying files.
 * `uv run ruff format .` formats all Python files according to the configured style.
+* `uv run pyright` runs type checking on all Python files to catch type errors.
 * `uv run cz commit` opens an interactive prompt to create a commit message following the conventional commits format. You can also use the VSCode extension.
