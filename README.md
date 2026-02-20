@@ -1,5 +1,3 @@
-# Tech Assessment Platform
-
 <img src="assets/images/tech_assessment_platform_logo.png" width="400">
 
 ## Purpose
