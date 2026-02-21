@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 
-class TransparencyFramework(str, Enum):
+class TransparencyFramework(StrEnum):
     captum = "captum"
     shap = "shap"
 
@@ -19,8 +18,8 @@ class ModelConfig:
 @dataclass
 class DataConfig:
     name: str = "isic2018"
-    description: Optional[str] = None
-    directory: Optional[str] = None
+    description: str | None = None
+    directory: str | None = None
 
 
 @dataclass
