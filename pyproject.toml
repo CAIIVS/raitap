@@ -4,7 +4,8 @@ dynamic = ["version"]
 authors = [
     { name = "Philipp Denzel", email = "denp@zhaw.ch" },
     { name = "Oliver Forster", email = "foro@zhaw.ch" },
-    # add your name / email here
+    { name = "Stanislas Laurent", email = "lauresta@students.zhaw.ch" },
+    { name = "Jonas Vonderhagen", email = "vondejon@students.zhaw.ch"}
 ]
 maintainers = [
     { name = "Philipp Denzel", email = "denp@zhaw.ch" },
