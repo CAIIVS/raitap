@@ -8,6 +8,7 @@ def main(cfg):
     print("Configuration:")
     print(OmegaConf.to_yaml(cfg, resolve=True))
     print(f"Selected model: {cfg.model.name}")
+    print(f"Transparency: {cfg.transparency.framework}")
 
     # Check where Hydra is running from
     import os
