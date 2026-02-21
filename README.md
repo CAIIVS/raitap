@@ -69,20 +69,17 @@ to the code this standard should be attainable for every use case.
 This projectt uses `hydra` for configuration management. The configuration files are located in the `configs` directory.
 Configs are organized hierachically:
 
-- `config.yaml` is the **main configuration file**, which includes the default values for all parameters and references
-  to other config files.
-- **config groups** (swappable components) are located in subdirectories of `configs` and contain specific
-  configurations for different components of the project (e.g., models, data, transparency methods).
-- **config overrides** can be specified at runtime to modify the behavior of the application without changing the config
-  files.
+* `config.yaml` is the **main configuration file**, which includes the default values for all parameters and references to other config files.
+* **config groups** (swappable components) are located in subdirectories of `configs` and contain specific configurations for different components of the project (e.g., models, data, transparency methods).
+* **config overrides** can be specified at runtime to modify the behavior of the application without changing the config files.
 
 ### Where configs live
 
-- Base config: `src/raitap/configs/config.yaml`
-- Config groups:
-    - `src/raitap/configs/model/` (e.g., `resnet50.yaml`, `vit_b32.yaml`)
-    - `src/raitap/configs/data/` (e.g., `isic2018.yaml`, `malaria.yaml`)
-    - `src/raitap/configs/transparency/` (e.g., `shap.yaml`, `captum.yaml`)
+* Base config: `src/raitap/configs/config.yaml`
+* Config groups:
+  * `src/raitap/configs/model/` (e.g., `resnet50.yaml`, `vit_b32.yaml`)
+  * `src/raitap/configs/data/` (e.g., `isic2018.yaml`, `malaria.yaml`)
+  * `src/raitap/configs/transparency/` (e.g., `shap.yaml`, `captum.yaml`)
 
 ### Running with the default configuration
 

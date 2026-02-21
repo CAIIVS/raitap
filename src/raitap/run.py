@@ -1,7 +1,8 @@
 import hydra
-from configs.register import register_configs
-from configs.schema import AppConfig
 from omegaconf import OmegaConf
+
+from .configs.register import register_configs
+from .configs.schema import AppConfig
 
 register_configs()
 

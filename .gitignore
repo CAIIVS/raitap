@@ -49,6 +49,9 @@ Thumbs.db
 mlruns/
 mlartifacts/
 
+# Hydra outputs
+outputs/
+
 # Logs
 *.log
 logs/
