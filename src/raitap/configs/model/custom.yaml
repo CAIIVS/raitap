@@ -1,0 +1,4 @@
+# Config for using your own custom model
+# Set name to null and provide your model directly in code
+name: null
+pretrained: false

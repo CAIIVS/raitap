@@ -11,7 +11,13 @@ class TransparencyFramework(StrEnum):
 
 @dataclass
 class ModelConfig:
-    name: str = "default_model"
+    """
+    Optional configuration for convenience model loading.
+    For custom models, ignore this config and pass your model directly
+    to the transparency methods.
+    """
+
+    name: str | None = None  # e.g., "resnet50", or None for custom models
     pretrained: bool = True
 
 

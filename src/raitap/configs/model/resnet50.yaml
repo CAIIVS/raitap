@@ -1,2 +1,4 @@
+# Optional config for loading pretrained ResNet50
+# Use this for examples/demos. For custom models, ignore this config.
 name: resnet50
 pretrained: true

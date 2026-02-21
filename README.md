@@ -22,73 +22,119 @@ Additional references on XAI aspects:
 * [Interpretable Machine Learning](https://christophm.github.io/interpretable-ml-book/).
 * [One Explanation Does Not Fit All](https://doi.org/10.48550/arXiv.1909.03012)
 
-## Getting it running
+## Quick Start
 
 ### Prerequisites
 
 * Python 3.13 or higher
 * [uv](https://docs.astral.sh/uv/) package manager
 
-### Running the project
-
-1. Clone the repository
-2. Install the dependencies by running
-
-    ```bash
-    uv sync
-    ```
-
-3. Run the example use case with `TODO`
-
-For development setup and contribution guidelines, refer to [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Design Decisions
-
-### Key Characteristics
-
-* Easily executable
-* Easily maintainable
-* Easily extendable
-
-### Core technologies
-
-**hydra** is a flexible application configuration framework. It provides a solid backbone including CLI integration,
-basic logging, structured configuration, and plugins for job orchestration.
-
-**uv** is a "blazingly" fast Python package and project manager, facilitating dependency installation, package building,
-and ultimately development.
-
-**mlflow** provides comprehensive support for AI-based workflows and MLOps core functionalities, such experiment
-tracking, model versioning, and monitoring.
-
-**ONNX Standard.** This standard is framework-independent, working well for tensorflow and pytorch. With few adjustments
-to the code this standard should be attainable for every use case.
-
-## Configuration (Hydra)
-
-This projectt uses `hydra` for configuration management. The configuration files are located in the `configs` directory.
-Configs are organized hierachically:
-
-* `config.yaml` is the **main configuration file**, which includes the default values for all parameters and references to other config files.
-* **config groups** (swappable components) are located in subdirectories of `configs` and contain specific configurations for different components of the project (e.g., models, data, transparency methods).
-* **config overrides** can be specified at runtime to modify the behavior of the application without changing the config files.
-
-### Where configs live
-
-* Base config: `src/raitap/configs/config.yaml`
-* Config groups:
-  * `src/raitap/configs/model/` (e.g., `resnet50.yaml`, `vit_b32.yaml`)
-  * `src/raitap/configs/data/` (e.g., `isic2018.yaml`, `malaria.yaml`)
-  * `src/raitap/configs/transparency/` (e.g., `shap.yaml`, `captum.yaml`)
-
-### Running with the default configuration
+### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.zhaw.ch/RAI/Tech-Assessment-Platform.git
+cd Tech-Assessment-Platform
+
+# Install dependencies
+uv sync
+```
+
+### Basic Usage
+
+**As a CLI tool:**
+```bash
+# Run with default settings
 uv run python -m raitap.run
+
+# Assess ResNet50 with SHAP explanations
+uv run python -m raitap.run model=resnet50 transparency=shap
+
+# Try different transparency methods
+uv run python -m raitap.run transparency=captum transparency.algorithm=saliency
 ```
 
-### Running with config overrides
+**As a library (assess your own models):**
+```python
+import hydra
+from raitap.transparency import create_explainer
 
-```bash
-uv run python -m raitap.run model=resnet50 data=isic2018 transparency=shap
+@hydra.main(config_path="configs", config_name="config")
+def assess_my_model(cfg):
+    # Your custom model
+    model = load_my_model()
+    
+    # Use raitap's explainability infrastructure
+    explainer = create_explainer(cfg.transparency.framework, 
+                                  cfg.transparency.algorithm)
+    attributions = explainer.explain(model, my_data)
+    explainer.save(attributions, cfg.transparency.output_dir)
 ```
+
+### Documentation
+
+- **[Configuration Guide](docs/configuration.md)** - Detailed config reference and usage patterns
+- **[Development Guide](Development.md)** - MVP roadmap and technical details
+- **[Contributing](CONTRIBUTING.md)** - How to contribute to the project
+
+## Design Principles
+
+### Easily Executable
+- Simple CLI interface for quick experiments
+- Sensible defaults - run with zero configuration
+- Works as both CLI tool and Python library
+
+### Easily Maintainable
+- **Hydra**: Structured configuration management
+- **uv**: Fast, reliable dependency management
+- **Type-safe schemas**: Catch errors early with Python dataclasses
+- **MLFlow**: Experiment tracking and model versioning (coming soon)
+
+### Easily Extendable
+- **Model-agnostic**: Works with any PyTorch `nn.Module`
+- **Framework plugins**: Add new XAI methods via common interface
+- **ONNX support**: Framework-independent model format (planned)
+- **Modular architecture**: Swap components without breaking core functionality
+
+### Key Technologies
+
+- **[Hydra](https://hydra.cc/)** - Configuration framework with CLI integration
+- **[uv](https://docs.astral.sh/uv/)** - Fast Python package manager
+- **[MLFlow](https://mlflow.org/)** - Experiment tracking and ML lifecycle management
+- **[SHAP](https://shap.readthedocs.io/)** - Model explanations via Shapley values
+- **[Captum](https://captum.ai/)** - PyTorch interpretability library
+
+## Key Features
+
+### Model-Agnostic Platform
+
+RAITAP works with **any PyTorch model**. Whether you're using:
+- Pretrained models (ResNet, ViT, Faster R-CNN)
+- Your own custom architectures
+- Fine-tuned models from production
+
+The platform provides consistent explainability infrastructure for all.
+
+### Flexible Configuration
+
+Uses [Hydra](https://hydra.cc/) for configuration:
+- **CLI Overrides**: Quick experiments without editing files
+- **Config Composition**: Mix and match settings
+- **Type-Safe**: Validated against Python schemas
+- **Reproducible**: Every run logs its configuration
+
+See the **[Configuration Guide](docs/configuration.md)** for details.
+
+### Integrated Transparency Methods
+
+**SHAP (SHapley Additive exPlanations)**
+- GradientExplainer
+- DeepExplainer (coming soon)
+- KernelExplainer (coming soon)
+
+**Captum (PyTorch)**
+- Integrated Gradients
+- Saliency (coming soon)
+- GradCAM (coming soon)
+
+More frameworks coming: OmniXAI, Alibi, custom methods.
