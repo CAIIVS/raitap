@@ -1,1 +1,2 @@
 framework: shap
+algorithm: KernelExplainer
