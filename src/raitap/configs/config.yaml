@@ -1,4 +1,5 @@
 defaults:
   - _self_
+  - model: vit_b32
 
 experiment_name: mvp
