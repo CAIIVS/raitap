@@ -55,6 +55,12 @@ build-backend = "hatchling.build"
 [tool.hatch.version]
 path = "src/raitap/__about__.py"
 
+[tool.uv.scripts]
+lint = "ruff check ."
+"lint:fix" = "ruff check --fix ."
+format = "ruff format ."
+"format:check" = "ruff format --check ."
+
 [tool.ruff]
 line-length = 100
 target-version = "py313"
