@@ -1,0 +1,7 @@
+defaults:
+  - _self_
+  - model: vit_b32
+  - data: isic2018
+  - transparency: captum
+
+experiment_name: mvp
