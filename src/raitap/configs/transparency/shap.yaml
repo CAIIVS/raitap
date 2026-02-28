@@ -1,2 +1,5 @@
 framework: shap
-algorithm: KernelExplainer
+algorithm: GradientExplainer
+visualisers:
+  - beeswarm
+output_dir: outputs/shap

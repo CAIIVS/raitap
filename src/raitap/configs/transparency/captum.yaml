@@ -1,2 +1,5 @@
 framework: captum
-algorithm: integrated_gradients
+algorithm: IntegratedGradients
+visualisers:
+  - image
+output_dir: outputs/captum

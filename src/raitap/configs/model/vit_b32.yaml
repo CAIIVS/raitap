@@ -1,3 +1,4 @@
 # Optional config for loading pretrained ViT-B-32
-# Use this for examples/demos. For custom models, ignore this config.name: vit_b32
+# Use this for examples/demos. For custom models, ignore this config.
+name: vit_b32
 pretrained: true

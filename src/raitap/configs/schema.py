@@ -3,10 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from raitap.transparency.methods_registry import get_framework_names
 
-class TransparencyFramework(StrEnum):
-    captum = "captum"
-    shap = "shap"
+# Dynamically generated from methods_registry - add frameworks there
+TransparencyFramework = StrEnum(
+    "TransparencyFramework",
+    {name: name for name in get_framework_names()},
+)
 
 
 @dataclass
@@ -30,8 +33,14 @@ class DataConfig:
 
 @dataclass
 class TransparencyConfig:
-    framework: TransparencyFramework = TransparencyFramework.captum
-    algorithm: str = "integrated_gradients"
+    # Uses TransparencyFramework enum (dynamically generated from registry)
+    framework: str = "captum"
+    algorithm: str = "IntegratedGradients"
+    # List of visualiser names valid for the chosen framework.
+    # Captum supports: "image", "time_series", "text"
+    # SHAP supports:   "bar", "beeswarm", "waterfall", "force", "image"
+    # SHAP "image" is only compatible with GradientExplainer / DeepExplainer.
+    visualisers: list[str] = field(default_factory=lambda: ["image"])
     output_dir: str = "outputs/transparency"
 
 

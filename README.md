@@ -1,3 +1,4 @@
+<!-- markdownlint-disable-next-line MD033 MD045 MD041 -->
 <img src="assets/images/tech_assessment_platform_logo.png" width="400">
 
 ## Purpose
@@ -31,110 +32,152 @@ Additional references on XAI aspects:
 
 ### Installation
 
-```bash
-# Clone the repository
-git clone https://github.zhaw.ch/RAI/Tech-Assessment-Platform.git
-cd Tech-Assessment-Platform
+1. Clone the repository
 
-# Install dependencies
-uv sync
-```
+    ```bash
+    git clone https://github.zhaw.ch/RAI/Tech-Assessment-Platform.git
+    cd Tech-Assessment-Platform
+    ```
+
+2. Install the dependencies
+
+    ```bash
+    uv sync
+    ```
 
 ### Basic Usage
 
-**As a CLI tool:**
+#### In the CLI
+
 ```bash
 # Run with default settings
-uv run python -m raitap.run
+uv run raitap
 
 # Assess ResNet50 with SHAP explanations
-uv run python -m raitap.run model=resnet50 transparency=shap
+uv run raitap model=resnet50 transparency=shap
 
 # Try different transparency methods
-uv run python -m raitap.run transparency=captum transparency.algorithm=saliency
+uv run raitap transparency=captum transparency.algorithm=IntegratedGradients
 ```
 
-**As a library (assess your own models):**
+#### In your Python code
+
+```python
+import torch
+from raitap.transparency import create_explainer
+from raitap.transparency.methods import Captum, SHAP
+from raitap.transparency.visualisers import ImageHeatmapvisualiser
+
+explainer = create_explainer(Captum.IntegratedGradients, modality="image")
+attributions = explainer.explain(my_model, my_input, target=0)
+
+visualiser = ImageHeatmapvisualiser()
+visualiser.save(attributions, "outputs/attributions.png", inputs=my_input)
+```
+
+See [examples/](examples/) for more.
+
+#### With a [Hydra](https://hydra.cc/) config
+
+For reproducible experiments and CLI workflows, use a [Hydra](https://hydra.cc/) configuration:
+
 ```python
 import hydra
-from raitap.transparency import create_explainer
+from raitap.transparency import create_explainer, method_from_config
+from raitap.transparency.visualisers import ImageHeatmapvisualiser
 
 @hydra.main(config_path="configs", config_name="config")
 def assess_my_model(cfg):
-    # Your custom model
-    model = load_my_model()
     
-    # Use raitap's explainability infrastructure
-    explainer = create_explainer(cfg.transparency.framework, 
-                                  cfg.transparency.algorithm)
-    attributions = explainer.explain(model, my_data)
-    explainer.save(attributions, cfg.transparency.output_dir)
+    # Translate config to registry
+    method = method_from_config(
+        cfg.transparency.framework,
+        cfg.transparency.algorithm
+    )
+    
+    # Create explainer from config
+    explainer = create_explainer(method, modality="image")
+    attributions = explainer.explain(my_model, my_input, target=0)
+    
+    # Visualize and save
+    visualiser = ImageHeatmapvisualiser()
+    visualiser.save(attributions, f"{cfg.transparency.output_dir}/result.png")
 ```
 
-### Documentation
+For more details, see the [configuration guide](docs/consumers/configuration.md).
 
-- **[Configuration Guide](docs/configuration.md)** - Detailed config reference and usage patterns
-- **[Development Guide](Development.md)** - MVP roadmap and technical details
-- **[Contributing](CONTRIBUTING.md)** - How to contribute to the project
+### Next steps
+
+* If you want to contribute: [Contributing](CONTRIBUTING.md)
 
 ## Design Principles
 
 ### Easily Executable
-- Simple CLI interface for quick experiments
-- Sensible defaults - run with zero configuration
-- Works as both CLI tool and Python library
+
+* Simple CLI interface for quick experiments
+* Sensible defaults - run with zero configuration
+* Works as both CLI tool and Python library
 
 ### Easily Maintainable
-- **Hydra**: Structured configuration management
-- **uv**: Fast, reliable dependency management
-- **Type-safe schemas**: Catch errors early with Python dataclasses
-- **MLFlow**: Experiment tracking and model versioning (coming soon)
+
+* **Hydra**: Structured configuration management
+* **uv**: Fast, reliable dependency management
+* **Type-safe schemas**: Catch errors early with Python dataclasses
+* **MLFlow**: Experiment tracking and model versioning (coming soon)
 
 ### Easily Extendable
-- **Model-agnostic**: Works with any PyTorch `nn.Module`
-- **Framework plugins**: Add new XAI methods via common interface
-- **ONNX support**: Framework-independent model format (planned)
-- **Modular architecture**: Swap components without breaking core functionality
+
+* **Model-agnostic**: Works with any PyTorch `nn.Module`
+* **Framework plugins**: Add new XAI methods via common interface
+* **ONNX support**: Framework-independent model format (planned)
+* **Modular architecture**: Swap components without breaking core functionality
 
 ### Key Technologies
 
-- **[Hydra](https://hydra.cc/)** - Configuration framework with CLI integration
-- **[uv](https://docs.astral.sh/uv/)** - Fast Python package manager
-- **[MLFlow](https://mlflow.org/)** - Experiment tracking and ML lifecycle management
-- **[SHAP](https://shap.readthedocs.io/)** - Model explanations via Shapley values
-- **[Captum](https://captum.ai/)** - PyTorch interpretability library
+* **[Hydra](https://hydra.cc/)** - Configuration framework with CLI integration
+* **[uv](https://docs.astral.sh/uv/)** - Fast Python package manager
+* **[MLFlow](https://mlflow.org/)** - Experiment tracking and ML lifecycle management
+* **[SHAP](https://shap.readthedocs.io/)** - Model explanations via Shapley values
+* **[Captum](https://captum.ai/)** - PyTorch interpretability library
 
 ## Key Features
 
 ### Model-Agnostic Platform
 
 RAITAP works with **any PyTorch model**. Whether you're using:
-- Pretrained models (ResNet, ViT, Faster R-CNN)
-- Your own custom architectures
-- Fine-tuned models from production
+
+* Pretrained models (ResNet, ViT, Faster R-CNN)
+* Your own custom architectures
+* Fine-tuned models from production
 
 The platform provides consistent explainability infrastructure for all.
 
 ### Flexible Configuration
 
 Uses [Hydra](https://hydra.cc/) for configuration:
-- **CLI Overrides**: Quick experiments without editing files
-- **Config Composition**: Mix and match settings
-- **Type-Safe**: Validated against Python schemas
-- **Reproducible**: Every run logs its configuration
+
+* **CLI Overrides**: Quick experiments without editing files
+* **Config Composition**: Mix and match settings
+* **Type-Safe**: Validated against Python schemas
+* **Reproducible**: Every run logs its configuration
 
 See the **[Configuration Guide](docs/configuration.md)** for details.
 
 ### Integrated Transparency Methods
 
-**SHAP (SHapley Additive exPlanations)**
-- GradientExplainer
-- DeepExplainer (coming soon)
-- KernelExplainer (coming soon)
+#### SHAP (SHapley Additive exPlanations)
 
-**Captum (PyTorch)**
-- Integrated Gradients
-- Saliency (coming soon)
-- GradCAM (coming soon)
+* GradientExplainer
+* DeepExplainer
+* KernelExplainer
+* TreeExplainer
+
+#### Captum (PyTorch)
+
+* Integrated Gradients
+* Saliency
+* LayerGradCam (GradCAM)
+* DeepLift
+* GuidedBackprop
 
 More frameworks coming: OmniXAI, Alibi, custom methods.

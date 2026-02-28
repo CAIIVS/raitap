@@ -42,6 +42,9 @@ dependencies = [
     "matplotlib>=3.9.0",
 ]
 
+[project.scripts]
+raitap = "raitap.run:main"
+
 [project.urls]
 Documentation = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform#readme"
 Homepage = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform"
@@ -55,6 +58,8 @@ dev = [
     "pre-commit>=4.0.0",
     "commitizen>=3.0.0",
     "pyright>=1.1.390",
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
 ]
 
 [build-system]
@@ -64,11 +69,12 @@ build-backend = "hatchling.build"
 [tool.hatch.version]
 path = "src/raitap/__about__.py"
 
-[tool.uv.scripts]
-lint = "ruff check ."
-"lint:fix" = "ruff check --fix ."
-format = "ruff format ."
-"format:check" = "ruff format --check ."
+[tool.hatch.build.targets.wheel]
+packages = ["src/raitap"]
+include = [
+    "src/raitap/**/*.yaml",
+    "src/raitap/**/*.yml",
+]
 
 [tool.ruff]
 line-length = 100
@@ -121,3 +127,37 @@ reportMissingImports = true
 reportMissingTypeStubs = false
 reportUnusedImport = true
 reportUnusedVariable = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--strict-config",
+    "--tb=short",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
