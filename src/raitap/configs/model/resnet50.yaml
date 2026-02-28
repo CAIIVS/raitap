@@ -1,4 +1,3 @@
-# Optional config for loading pretrained ResNet50
-# Use this for examples/demos. For custom models, ignore this config.
-name: resnet50
-pretrained: true
+# Built-in ResNet50 with default ImageNet weights — for demos/quick testing.
+# For your own model use custom.yaml instead.
+source: resnet50

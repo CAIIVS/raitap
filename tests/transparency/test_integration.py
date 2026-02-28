@@ -118,11 +118,11 @@ class TestExplainFunction:
         """explain() with captum + image visualiser"""
         config = SimpleNamespace(
             experiment_name="test",
+            output_dir=str(tmp_path),
             transparency=SimpleNamespace(
                 framework="captum",
                 algorithm="IntegratedGradients",
                 visualisers=["image"],
-                output_dir=str(tmp_path),
             ),
         )
         result = explain(config, simple_cnn, sample_images, target=0)
@@ -143,11 +143,11 @@ class TestExplainFunction:
 
         config = SimpleNamespace(
             experiment_name="test",
+            output_dir=str(tmp_path),
             transparency=SimpleNamespace(
                 framework="shap",
                 algorithm="KernelExplainer",
                 visualisers=["image"],
-                output_dir=str(tmp_path),
             ),
         )
         with pytest.raises(VisualiserIncompatibilityError):

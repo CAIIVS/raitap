@@ -15,25 +15,23 @@ TransparencyFramework = StrEnum(
 @dataclass
 class ModelConfig:
     """
-    Optional configuration for convenience model loading.
-    For custom models, ignore this config and pass your model directly
-    to the transparency methods.
+    Configuration for model loading.
     """
 
-    name: str | None = None  # e.g., "resnet50", or None for custom models
-    pretrained: bool = True
+    # Path to a local .pth file, or a built-in name (e.g. "resnet50")
+    source: str | None = None
 
 
 @dataclass
 class DataConfig:
     name: str = "isic2018"
     description: str | None = None
-    directory: str | None = None
+    # Path to a local dir, or a named sample set (e.g. "imagenet_samples")
+    source: str | None = None
 
 
 @dataclass
 class TransparencyConfig:
-    # Uses TransparencyFramework enum (dynamically generated from registry)
     framework: str = "captum"
     algorithm: str = "IntegratedGradients"
     # List of visualiser names valid for the chosen framework.
@@ -41,7 +39,13 @@ class TransparencyConfig:
     # SHAP supports:   "bar", "beeswarm", "waterfall", "force", "image"
     # SHAP "image" is only compatible with GradientExplainer / DeepExplainer.
     visualisers: list[str] = field(default_factory=lambda: ["image"])
-    output_dir: str = "outputs/transparency"
+
+    def __post_init__(self) -> None:
+        valid = set(TransparencyFramework)
+        if self.framework not in valid:
+            raise ValueError(
+                f"Unknown framework {self.framework!r}. Valid options: {sorted(valid)}"
+            )
 
 
 @dataclass

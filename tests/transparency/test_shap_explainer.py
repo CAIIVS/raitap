@@ -29,7 +29,6 @@ class TestShapExplainer:
         )
         assert isinstance(attributions, torch.Tensor)
 
-        with pytest.raises(ValueError) as exc_info:
-            explainer.compute_attributions(simple_cnn, sample_images)
-
-        assert "background_data" in str(exc_info.value).lower()
+        # No background_data: warns and falls back to using the input as background
+        attributions_no_bg = explainer.compute_attributions(simple_cnn, sample_images)
+        assert isinstance(attributions_no_bg, torch.Tensor)

@@ -2,4 +2,3 @@ framework: shap
 algorithm: GradientExplainer
 visualisers:
   - beeswarm
-output_dir: outputs/shap

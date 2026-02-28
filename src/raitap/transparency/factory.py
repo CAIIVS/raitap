@@ -16,11 +16,11 @@ method_from_config(config)
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import torch
+from hydra.core.hydra_config import HydraConfig
 
 from .explainers import BaseExplainer, CaptumExplainer, ShapExplainer
 from .methods_registry import (
@@ -104,7 +104,8 @@ def explain(
         - ``framework``   - ``"captum"`` or ``"shap"``
         - ``algorithm``   - algorithm name from the registry
         - ``visualisers`` - list of visualiser names for the chosen framework
-        - ``output_dir``  - root directory for saved outputs
+
+    The output directory is read from ``config.output_dir``.
 
     model:
         PyTorch model to explain.
@@ -120,14 +121,14 @@ def explain(
     dict with keys:
 
     ``"attributions"``
-        Attribution tensor saved to ``<output_dir>/<date>/<time>/attributions.pt``.
+        Attribution tensor saved to Hydra's run directory.
 
     ``"visualisations"``
         Dict mapping each visualiser name to its Matplotlib Figure.
-        Figures are also saved to ``<output_dir>/<date>/<time>/<name>.png``.
+        Figures are also saved to Hydra's run directory.
 
     ``"run_dir"``
-        :class:`~pathlib.Path` of the timestamped run directory.
+        :class:`~pathlib.Path` of the Hydra run directory (``Path.cwd()``).
 
     Raises
     ------
@@ -159,10 +160,11 @@ def explain(
     explainer = create_explainer(method)
     attributions = explainer.compute_attributions(model, inputs, **kwargs)
 
-    # 3. Create timestamped run directory: <output_dir>/<YYYY-MM-DD>/<HH-MM-SS>/
-    now = datetime.now()
-    run_dir = Path(tc.output_dir) / now.strftime("%Y-%m-%d") / now.strftime("%H-%M-%S")
-    run_dir.mkdir(parents=True, exist_ok=True)
+    # 3. Resolve run directory (Hydra when available, else config.output_dir).
+    try:
+        run_dir = Path(HydraConfig.get().runtime.output_dir)
+    except ValueError:
+        run_dir = Path(config.output_dir)
 
     # 4. Persist attributions.
     torch.save(attributions, run_dir / "attributions.pt")
@@ -181,7 +183,6 @@ def explain(
         "framework": framework,
         "algorithm": algorithm,
         "visualisers": list(visualiser_names),
-        "timestamp": now.isoformat(),
     }
     (run_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
 

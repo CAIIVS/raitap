@@ -74,10 +74,11 @@ class ShapExplainer(BaseExplainer):
         # GradientExplainer, DeepExplainer, KernelExplainer REQUIRE background data
         if self.algorithm in ("GradientExplainer", "DeepExplainer", "KernelExplainer"):
             if background_data is None:
-                raise ValueError(
-                    f"{self.algorithm} requires background_data. "
-                    f"Pass background_data to explain() method."
+                print(
+                    f"  [!] {self.algorithm}: no background_data provided — "
+                    "using input batch as background (results may be less accurate)."
                 )
+                background_data = inputs
             explainer = explainer_class(model, background_data, **self.init_kwargs)
         else:
             # TreeExplainer can work without background data

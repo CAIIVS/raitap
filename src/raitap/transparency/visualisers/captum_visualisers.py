@@ -49,51 +49,63 @@ class CaptumImageVisualiser(BaseVisualiser):
         self.sign = sign
         self.show_colorbar = show_colorbar
 
-    def visualise(self, attributions, inputs=None, **kwargs) -> Figure:
+    def visualise(self, attributions, inputs=None, max_samples: int = 8, **kwargs) -> Figure:
         """
         Args:
             attributions: ``(B, C, H, W)`` or ``(B, H, W)`` tensor / array.
-                          The first sample in the batch is visualised.
             inputs:       Original images ``(B, C, H, W)`` for overlay.
+            max_samples:  Maximum number of samples to display (default: 8).
             **kwargs:     Forwarded to ``visualize_image_attr``.
 
         Returns:
-            Matplotlib Figure.
+            Matplotlib Figure with one column per sample.
         """
         try:
             from captum.attr import visualization as viz
         except ImportError as e:
             raise ImportError("Captum not installed.  pip install captum>=0.7.0") from e
 
-        attr = _to_numpy(attributions)
-        # Pick first sample
-        if attr.ndim == 4:
-            attr = attr[0]  # (C, H, W)
-        # → (H, W, C) as expected by Captum
-        if attr.ndim == 3:
-            attr = np.transpose(attr, (1, 2, 0))
+        attrs = _to_numpy(attributions)
+        # Ensure batch dimension
+        if attrs.ndim == 3:
+            attrs = attrs[np.newaxis]  # (1, C, H, W)
+        n = min(attrs.ndim and attrs.shape[0], max_samples)
+        attrs = attrs[:n]
 
-        orig = None
+        origs = None
         if inputs is not None:
-            orig = _to_numpy(inputs)
-            if orig.ndim == 4:
-                orig = orig[0]  # (C, H, W)
-            if orig.ndim == 3:
-                orig = np.transpose(orig, (1, 2, 0))
-            # Normalise to [0, 1]
-            lo, hi = orig.min(), orig.max()
-            if hi > lo:
-                orig = (orig - lo) / (hi - lo)
+            origs = _to_numpy(inputs)
+            if origs.ndim == 3:
+                origs = origs[np.newaxis]
+            origs = origs[:n]
 
-        fig, _ = viz.visualize_image_attr(
-            attr,
-            orig,
-            method=self.method,
-            sign=self.sign,
-            show_colorbar=self.show_colorbar,
-            use_pyplot=False,
-            **kwargs,
-        )
+        fig, axes = plt.subplots(1, n, figsize=(4 * n, 4))
+        axes_list = [axes] if n == 1 else list(axes)
+
+        for i, ax in enumerate(axes_list):
+            # (C, H, W) -> (H, W, C)
+            attr_i = np.transpose(attrs[i], (1, 2, 0)) if attrs[i].ndim == 3 else attrs[i]
+
+            orig_i = None
+            if origs is not None:
+                orig_i = np.transpose(origs[i], (1, 2, 0)) if origs[i].ndim == 3 else origs[i]
+                lo, hi = orig_i.min(), orig_i.max()
+                if hi > lo:
+                    orig_i = (orig_i - lo) / (hi - lo)
+
+            # Let Captum render into our existing axes
+            _, _ = viz.visualize_image_attr(
+                attr_i,
+                orig_i,
+                method=self.method,
+                sign=self.sign,
+                show_colorbar=self.show_colorbar,
+                plt_fig_axis=(fig, ax),
+                use_pyplot=False,
+                **kwargs,
+            )
+
+        fig.tight_layout()
         return fig
 
 

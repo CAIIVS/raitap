@@ -1,10 +1,11 @@
 import hydra
 import torch
+from hydra.core.hydra_config import HydraConfig
 
 from .configs.register import register_configs
 from .configs.schema import AppConfig
-from .models.data_loader import load_images_from_directory
-from .models.loader import load_pretrained_model
+from .data import load_data
+from .models.loader import load_model
 from .transparency import explain
 
 register_configs()
@@ -16,42 +17,44 @@ def main(config: AppConfig):
     print("RAITAP Transparency Assessment")
     print("=" * 60)
     print(f"\nExperiment: {config.experiment_name}")
-    print(f"Model: {config.model.name}")
+    print(f"Model: {config.model.source}")
     print(f"Dataset: {config.data.name}")
     print(f"Method: {config.transparency.framework}.{config.transparency.algorithm}")
     print(f"Visualisers: {config.transparency.visualisers}")
-    print(f"Output: {config.transparency.output_dir}\n")
+    print(f"Output: {HydraConfig.get().runtime.output_dir}\n")
 
     # 1. Load model
     print("Loading model...")
-    if config.model.name:
-        model = load_pretrained_model(config.model.name, pretrained=config.model.pretrained)
-    else:
-        raise ValueError("No model specified. Set model.name in config or use model=resnet50")
-    model.eval()
-    print(f"✓ Loaded {config.model.name}")
+    if not config.model.source:
+        raise ValueError(
+            "No model specified. Set model.source in your config.\n"
+            "  model.source: path/to/your_model.pth   (custom model)\n"
+            "  model.source: resnet50                 (built-in demo model)"
+        )
+    model = load_model(config.model.source)
+    print(f"✓ Loaded model from {config.model.source!r}")
 
     # 2. Load data
     print("\nLoading data...")
-    if not config.data.directory:
+    if not config.data.source:
         raise ValueError(
-            "No data directory specified. Set data.directory in your config.\n"
-            "For a quick test run: uv run raitap data=imagenet_samples"
+            "No data source specified. Set data.source in your config.\n"
+            "Use a local path or a named sample set, e.g.: data=imagenet_samples"
         )
-    images = load_images_from_directory(config.data.directory)
+    data = load_data(config.data.source)
     print(
-        f"✓ Loaded {images.shape[0]} images from {config.data.directory} ({images.shape[2]}x{images.shape[3]})"
+        f"✓ Loaded {data.shape[0]} samples from {config.data.source!r} (shape: {tuple(data.shape[1:])})"
     )
 
     # 3. Predict target classes so attributions reflect actual model decisions.
     with torch.no_grad():
-        logits = model(images)
+        logits = model(data)
         targets = logits.argmax(dim=1)
     print(f"✓ Predicted classes: {targets.tolist()}")
 
     # 4. Run explanation
     print("\nRunning explanation...")
-    result = explain(config, model, images, target=targets)
+    result = explain(config, model, data, target=targets)
 
     attributions = result["attributions"]
     visualisations = result["visualisations"]

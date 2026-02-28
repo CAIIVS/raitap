@@ -2,4 +2,3 @@ framework: captum
 algorithm: IntegratedGradients
 visualisers:
   - image
-output_dir: outputs/captum

@@ -1,4 +1,3 @@
-# Optional config for loading pretrained ViT-B-32
-# Use this for examples/demos. For custom models, ignore this config.
-name: vit_b32
-pretrained: true
+# Built-in ViT-B/32 with default ImageNet weights — for demos/quick testing.
+# For your own model use custom.yaml instead.
+source: vit_b_32

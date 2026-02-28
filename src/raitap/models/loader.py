@@ -7,87 +7,116 @@ These helpers are optional - use them for quick prototyping/examples.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import torch
 import torch.nn as nn
 from torchvision import models
 
+# Built-in torchvision shortcuts for demos/quick testing.
+# weights="DEFAULT" resolves to the best available checkpoint per architecture.
+_MODEL_REGISTRY: dict[str, object] = {
+    "resnet50": models.resnet50,
+    "vit_b_32": models.vit_b_32,
+}
 
-def load_pretrained_model(
-    model_name: str, pretrained: bool = True, num_classes: int = 1000
-) -> nn.Module:
+
+def load_model(source: str | Path) -> nn.Module:
     """
-    Convenience function to load common pretrained models from torchvision.
+    Load a model from *source*, using the same resolution logic as
+    :func:`~raitap.data.loader.resolve_data_source`:
 
-    This is a helper for examples and quick prototyping. The raitap platform
-    works with any PyTorch nn.Module - you can directly use your own models.
+    1. ``Path(source).exists()`` or extension is ``.pth``/``.pt`` ->
+       :func:`load_model_from_path`.
+    2. Known name in the built-in registry -> :func:`load_pretrained_model`.
+    3. Otherwise -> :exc:`ValueError`.
 
     Args:
-        model_name: Name of the model (e.g., 'resnet50', 'vit_b_32')
-        pretrained: Whether to load pretrained weights
-        num_classes: Number of output classes (default 1000 for ImageNet)
+        source: Local ``.pth`` path or a built-in name (e.g. ``"resnet50"``).
 
     Returns:
-        PyTorch model in evaluation mode
+        PyTorch model in evaluation mode.
+    """
+    path = Path(source)
+    if path.exists() or path.suffix.lower() in {".pth", ".pt"}:
+        return load_model_from_path(path)
+
+    name = str(source).lower()
+    if name in _MODEL_REGISTRY:
+        return load_pretrained_model(name)
+
+    known = list(_MODEL_REGISTRY.keys())
+    raise ValueError(
+        f"Model source {source!r} is neither an existing path nor a known built-in name.\n"
+        f"Built-in names: {known}\n"
+        f"To use your own model, set source to a valid .pth file path."
+    )
+
+
+def load_pretrained_model(model_name: str) -> nn.Module:
+    """
+    Load a built-in torchvision model with its default pre-trained weights.
+
+    This is a helper for demos and quick testing. For production use, supply
+    a ``.pth`` path via :func:`load_model` instead.
+
+    Args:
+        model_name: Name of the model (e.g. ``'resnet50'``, ``'vit_b_32'``).
+
+    Returns:
+        PyTorch model in evaluation mode.
 
     Raises:
-        ValueError: If model_name is not supported
-
-    Example:
-        >>> # For examples/tutorials
-        >>> model = load_pretrained_model("resnet50")
-        >>>
-        >>> # For your own models
-        >>> model = MyCustomModel()
-        >>> # Both work the same in transparency methods!
+        ValueError: If *model_name* is not in the built-in registry.
     """
     model_name = model_name.lower()
 
-    # Map model names to torchvision constructors
-    model_registry = {
-        "resnet50": models.resnet50,
-        "vit_b_32": models.vit_b_32,
-    }
-
-    if model_name not in model_registry:
+    if model_name not in _MODEL_REGISTRY:
         raise ValueError(
-            f"Model '{model_name}' not supported. Available models: {list(model_registry.keys())}"
+            f"Model '{model_name}' not in built-in registry: {list(_MODEL_REGISTRY.keys())}"
         )
 
-    # Load model with appropriate weights
-    if pretrained:
-        weights_param = "IMAGENET1K_V1"  # Default pretrained weights
-        model = model_registry[model_name](weights=weights_param)
-    else:
-        model = model_registry[model_name](weights=None)
-
-    # Set to evaluation mode (disable dropout, batch norm updates)
+    model = _MODEL_REGISTRY[model_name](weights="DEFAULT")  # type: ignore[operator]
     model.eval()
-
     return model
 
 
-def get_model_transform(model_name: str):
+def load_model_from_path(path: str | Path) -> nn.Module:
     """
-    Get the preprocessing transform for a specific model.
+    Load a PyTorch model from a ``.pth`` file saved with ``torch.save``.
+
+    Handles two common save formats:
+
+    * **Full model** - ``torch.save(model, path)`` -> loaded and returned as-is.
+    * **State-dict** - ``torch.save(model.state_dict(), path)`` -> raises
+      ``ValueError`` with a helpful message, because the architecture is
+      needed to reconstruct the model.
 
     Args:
-        model_name: Name of the model
+        path: Filesystem path to the ``.pth`` / ``.pt`` file.
 
     Returns:
-        Transform function for preprocessing images
+        PyTorch model in evaluation mode.
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        ValueError: If the file contains a state-dict instead of a full model.
     """
-    from torchvision import transforms
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"Model file not found: {path}")
 
-    # Standard ImageNet normalization
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    obj = torch.load(path, map_location="cpu", weights_only=False)
 
-    # All models expect 224x224 RGB input
-    transform = transforms.Compose(
-        [
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            normalize,
-        ]
-    )
+    if isinstance(obj, dict):
+        raise ValueError(
+            f"{path} appears to contain a state-dict, not a full model.\n"
+            "Save the full model with torch.save(model, path) or load the "
+            "state-dict manually and pass the model directly to the explainer."
+        )
 
-    return transform
+    if not isinstance(obj, nn.Module):
+        raise ValueError(f"Expected an nn.Module in {path}, got {type(obj).__name__}.")
+
+    obj.eval()
+    return obj
