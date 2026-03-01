@@ -67,6 +67,7 @@ class ClassificationMetrics(MetricComputer):
                 raise ValueError("For task='multiclass', you must provide num_classes > 0.")
             tm_task_kwargs["num_classes"] = num_classes
             tm_task_kwargs["ignore_index"] = ignore_index
+
         elif task == "multilabel":
             # TorchMetrics uses num_labels for multilabel
             if num_labels is None:
@@ -81,8 +82,7 @@ class ClassificationMetrics(MetricComputer):
             tm_task_kwargs["num_labels"] = num_labels
             tm_task_kwargs["ignore_index"] = ignore_index
             # If no threshold is provided, use default of 0.5
-            if "threshold" not in kwargs:
-                kwargs["threshold"] = 0.5
+            tm_task_kwargs.setdefault("threshold", 0.5)
         else:
             # Binary task
             tm_task_kwargs["ignore_index"] = ignore_index
