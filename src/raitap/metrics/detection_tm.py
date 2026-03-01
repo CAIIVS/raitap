@@ -2,24 +2,15 @@ from __future__ import annotations
 
 from typing import Any, Literal, Union
 
-import torch
 from torchmetrics.detection import MeanAveragePrecision
 
 from .base import MetricComputer, MetricResult
+from .utils import tensor_to_python
 
 BoxFormat = Literal["xyxy", "xywh"]  # torchvision outputs xyxy
 IoUType = Union[Literal["bbox", "segm"], tuple[Literal["bbox", "segm"], ...]]
 Backend = Literal["pycocotools", "faster_coco_eval"]
 Average = Literal["macro", "micro"]
-
-
-def _tensor_to_python(x: Any) -> Any:
-    if torch.is_tensor(x):
-        x = x.detach().cpu()
-        if x.numel() == 1:
-            return float(x.item())
-        return x.tolist()
-    return x
 
 
 class DetectionMetrics(MetricComputer):
@@ -40,9 +31,9 @@ class DetectionMetrics(MetricComputer):
         *,
         box_format: BoxFormat = "xyxy",
         iou_type: IoUType = "bbox",
-        iou_thresholds: list[float] | None,
-        rec_thresholds: list[float] | None,
-        max_detection_thresholds: list[int] | None,
+        iou_thresholds: list[float] | None = None,
+        rec_thresholds: list[float] | None = None,
+        max_detection_thresholds: list[int] | None = None,
         class_metrics: bool = False,
         extended_summary: bool = False,
         average: Average = "macro",
@@ -66,15 +57,11 @@ class DetectionMetrics(MetricComputer):
         # Sanity checks
         if not isinstance(predictions, list) or not isinstance(targets, list):
             raise TypeError(
-                f"Expected lists of predictions and targets, got {type(predictions)} and {
-                    type(targets)
-                }"
+                f"Expected lists of predictions and targets, got {type(predictions)} and {type(targets)}"
             )
         if len(predictions) != len(targets):
             raise ValueError(
-                f"Predictions and targets must have the same length, got {len(predictions)} and {
-                    len(targets)
-                }"
+                f"Predictions and targets must have the same length, got {len(predictions)} and {len(targets)}"
             )
 
         self.metric.update(predictions, targets)
@@ -88,7 +75,7 @@ class DetectionMetrics(MetricComputer):
         # - scalar tensors -> metrics (floats)
         # - non-scalar tensors -> artifacts (lists)
         for k, v in out.items():
-            py = _tensor_to_python(v)
+            py = tensor_to_python(v)
             if isinstance(py, float):
                 metrics[k] = py
             else:

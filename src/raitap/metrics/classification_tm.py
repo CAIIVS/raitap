@@ -1,36 +1,15 @@
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 import torch
 from torchmetrics.classification import Accuracy, F1Score, Precision, Recall
 
 from .base import MetricComputer, MetricResult
+from .utils import tensor_to_python
 
 Task = Literal["binary", "multiclass", "multilabel"]
 Average = Literal["micro", "macro", "weighted", "none"]
-
-
-def _tensor_to_python(x: Any) -> Any:
-    """
-    Converts a PyTorch tensor to a standard Python data type under specific conditions.
-
-    This function takes an input value and checks if it is a PyTorch tensor. If
-    it is a tensor, it is detached from the computational graph and moved to
-    CPU. Based on the tensor's size, it either converts the tensor's single
-    element to a Python float or the entire tensor to a Python list. If the input
-    is not a tensor, it is returned unchanged.
-
-    :param x: Input value of any type to be converted.
-    :return: A Python-native representation of the input, such as a float, a list,
-        or the input itself if no conversion is required.
-    """
-    if torch.is_tensor(x):
-        x = x.detach().cpu()
-        if x.numel() == 1:
-            return float(x.item())
-        return x.tolist()
-    return x
 
 
 class ClassificationMetrics(MetricComputer):
@@ -42,7 +21,8 @@ class ClassificationMetrics(MetricComputer):
         - Average: micro, macro, weighted, none
 
     Notes:
-        - If average="none", metric outputs are per-class/per-label vectors and are stored in artifacts.
+        - If average="none", metric outputs are per-class/per-label vectors
+            and are stored in artifacts.
         - For multilabel, you may want to pass threshold=0.5 (default) in kwargs.
     """
 
@@ -50,10 +30,10 @@ class ClassificationMetrics(MetricComputer):
         self,
         *,
         task: Task = "multiclass",
-        num_classes: int | None,
-        num_labels: int | None,
+        num_classes: int | None = None,
+        num_labels: int | None = None,
         average: Average = "macro",
-        ignore_index: int | None,
+        ignore_index: int | None = None,
         **kwargs: Any,
     ):
         if task not in ["binary", "multiclass", "multilabel"]:
@@ -117,15 +97,15 @@ class ClassificationMetrics(MetricComputer):
 
         # When average ist "none", store per-class/per-label metrics in artifacts
         if self.average == "none":
-            artifacts["accuracy"] = _tensor_to_python(acc)
-            artifacts["precision"] = _tensor_to_python(prec)
-            artifacts["recall"] = _tensor_to_python(rec)
-            artifacts["f1"] = _tensor_to_python(f1)
+            artifacts["accuracy"] = tensor_to_python(acc)
+            artifacts["precision"] = tensor_to_python(prec)
+            artifacts["recall"] = tensor_to_python(rec)
+            artifacts["f1"] = tensor_to_python(f1)
         else:
-            metrics["accuracy"] = acc
-            metrics["precision"] = prec
-            metrics["recall"] = rec
-            metrics["f1"] = f1
+            metrics["accuracy"] = float(tensor_to_python(acc))
+            metrics["precision"] = float(tensor_to_python(prec))
+            metrics["recall"] = float(tensor_to_python(rec))
+            metrics["f1"] = float(tensor_to_python(f1))
         return MetricResult(metrics=metrics, artifacts=artifacts)
 
     def reset(self) -> None:

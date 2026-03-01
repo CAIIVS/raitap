@@ -3,7 +3,8 @@ from __future__ import annotations
 import pytest
 import torch
 
-from src.raitap.metrics.classification_tm import ClassificationMetrics, _tensor_to_python
+from src.raitap.metrics.classification_tm import ClassificationMetrics
+from src.raitap.metrics.utils import tensor_to_python
 
 
 class TestTensorToPython:
@@ -12,35 +13,35 @@ class TestTensorToPython:
     def test_scalar_tensor_to_float(self):
         """Test converting a scalar tensor to float."""
         tensor = torch.tensor(3.14)
-        result = _tensor_to_python(tensor)
+        result = tensor_to_python(tensor)
         assert isinstance(result, float)
         assert result == pytest.approx(3.14)
 
     def test_1d_tensor_to_list(self):
         """Test converting a 1D tensor to list."""
         tensor = torch.tensor([1.0, 2.0, 3.0])
-        result = _tensor_to_python(tensor)
+        result = tensor_to_python(tensor)
         assert isinstance(result, list)
         assert result == [1.0, 2.0, 3.0]
 
     def test_2d_tensor_to_list(self):
         """Test converting a 2D tensor to nested list."""
         tensor = torch.tensor([[1.0, 2.0], [3.0, 4.0]])
-        result = _tensor_to_python(tensor)
+        result = tensor_to_python(tensor)
         assert isinstance(result, list)
         assert result == [[1.0, 2.0], [3.0, 4.0]]
 
     def test_non_tensor_passthrough(self):
         """Test that non-tensor values are returned unchanged."""
-        assert _tensor_to_python(42) == 42
-        assert _tensor_to_python("string") == "string"
-        assert _tensor_to_python([1, 2, 3]) == [1, 2, 3]
-        assert _tensor_to_python(None) is None
+        assert tensor_to_python(42) == 42
+        assert tensor_to_python("string") == "string"
+        assert tensor_to_python([1, 2, 3]) == [1, 2, 3]
+        assert tensor_to_python(None) is None
 
     def test_tensor_requires_grad(self):
         """Test converting a tensor with gradient tracking."""
         tensor = torch.tensor([1.0, 2.0], requires_grad=True)
-        result = _tensor_to_python(tensor)
+        result = tensor_to_python(tensor)
         assert isinstance(result, list)
         assert result == [1.0, 2.0]
 
