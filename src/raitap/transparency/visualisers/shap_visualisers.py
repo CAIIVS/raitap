@@ -105,10 +105,8 @@ class ShapBeeswarmVisualiser(BaseVisualiser):
 
 class ShapWaterfallVisualiser(BaseVisualiser):
     """
-    Per-sample SHAP waterfall chart (first sample in batch).
+    Per-sample SHAP waterfall chart via ``shap.plots.waterfall``.
 
-    Renders a matplotlib-based waterfall chart showing how each feature
-    contribution moves the output from the base value to the final prediction.
     Compatible with all SHAP explainer algorithms.
     """
 
@@ -117,6 +115,7 @@ class ShapWaterfallVisualiser(BaseVisualiser):
         feature_names: list[str] | None = None,
         expected_value: float = 0.0,
         sample_index: int = 0,
+        max_display: int = 10,
     ):
         """
         Args:
@@ -125,57 +124,48 @@ class ShapWaterfallVisualiser(BaseVisualiser):
                             Most SHAP explainers expose this as
                             ``explainer.expected_value``.
             sample_index:   Which sample from the batch to visualise.
+            max_display:    Maximum number of features to show.
         """
         self.feature_names = feature_names
         self.expected_value = expected_value
         self.sample_index = sample_index
+        self.max_display = max_display
 
     def visualise(self, attributions, inputs=None, **kwargs) -> Figure:
+        try:
+            import shap
+        except ImportError as e:
+            raise ImportError("SHAP not installed.  pip install shap>=0.46.0") from e
+
         values = _to_numpy(attributions)
         sample_vals = values[self.sample_index]
 
-        # Build a simple matplotlib waterfall chart.
-        n_features = len(sample_vals)
-        labels = self.feature_names if self.feature_names else [f"f{i}" for i in range(n_features)]
-        # Sort by magnitude
-        order = np.argsort(np.abs(sample_vals))[::-1]
-        sorted_vals = sample_vals[order]
-        sorted_labels = [labels[i] for i in order]
+        feats = None
+        if inputs is not None:
+            feats = _to_numpy(inputs)[self.sample_index]
 
-        fig, ax = plt.subplots(figsize=(8, max(4, n_features * 0.3)))
-        running = self.expected_value
-        lefts, heights, colors = [], [], []
-        for val in sorted_vals:
-            lefts.append(running)
-            heights.append(val)
-            colors.append("#e74c3c" if val > 0 else "#3498db")
-            running += val
-        y = np.arange(n_features)
-        ax.barh(y, heights, left=lefts, color=colors)
-        ax.set_yticks(y)
-        ax.set_yticklabels(sorted_labels, fontsize=8)
-        ax.axvline(self.expected_value, color="gray", linestyle="--", linewidth=0.8)
-        ax.set_xlabel("Output value")
-        ax.set_title(
-            f"Waterfall (sample {self.sample_index}) "
-            f"- base: {self.expected_value:.4f}, "
-            f"final: {running:.4f}"
+        feature_names = (
+            self.feature_names if self.feature_names else [f"f{i}" for i in range(len(sample_vals))]
         )
-        ax.grid(axis="x", alpha=0.3)
+
+        explanation = shap.Explanation(
+            values=sample_vals,
+            base_values=self.expected_value,
+            data=feats,
+            feature_names=feature_names,
+        )
+
+        shap.plots.waterfall(explanation, max_display=self.max_display, show=False, **kwargs)
+        fig = plt.gcf()
         fig.tight_layout()
-        return fig
+        return _close_and_return(fig)
 
 
 class ShapForceVisualiser(BaseVisualiser):
     """
-    Per-sample SHAP force plot (first sample in batch) via ``shap.force_plot``.
+    Per-sample SHAP force plot via ``shap.plots.force`` (matplotlib backend).
 
     Compatible with all SHAP explainer algorithms.
-
-    .. note::
-       ``shap.force_plot`` renders as an inline HTML object in notebooks.
-       This visualiser converts it to a static Matplotlib figure using
-       ``matplotlib`` text rendering as fallback.
     """
 
     def __init__(
@@ -189,29 +179,34 @@ class ShapForceVisualiser(BaseVisualiser):
         self.sample_index = sample_index
 
     def visualise(self, attributions, inputs=None, **kwargs) -> Figure:
+        try:
+            import shap
+        except ImportError as e:
+            raise ImportError("SHAP not installed.  pip install shap>=0.46.0") from e
+
         values = _to_numpy(attributions)
         sample_vals = values[self.sample_index]
 
-        # shap.force_plot returns an AdditiveForceVisualizer (HTML).
-        # We render the attribution as a bar chart instead so the result
-        # is a standard Matplotlib figure (saves cleanly to PNG/PDF).
-        n_features = len(sample_vals)
-        x = np.arange(n_features)
-        labels = self.feature_names if self.feature_names else [f"f{i}" for i in range(n_features)]
+        feats = None
+        if inputs is not None:
+            feats = _to_numpy(inputs)[self.sample_index]
 
-        fig, ax = plt.subplots(figsize=(max(8, n_features * 0.5), 4))
-        colors = ["#e74c3c" if v > 0 else "#3498db" for v in sample_vals]
-        ax.bar(x, sample_vals, color=colors)
-        ax.axhline(0, color="black", linewidth=0.8)
-        ax.set_xticks(x)
-        ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=8)
-        ax.set_ylabel("SHAP value")
-        ax.set_title(
-            f"Force plot (sample {self.sample_index}) - base value: {self.expected_value:.4f}"
+        feature_names = (
+            self.feature_names if self.feature_names else [f"f{i}" for i in range(len(sample_vals))]
         )
-        ax.grid(axis="y", alpha=0.3)
+
+        shap.plots.force(
+            base_value=self.expected_value,
+            shap_values=sample_vals,
+            features=feats,
+            feature_names=feature_names,
+            matplotlib=True,
+            show=False,
+            **kwargs,
+        )
+        fig = plt.gcf()
         fig.tight_layout()
-        return fig
+        return _close_and_return(fig)
 
 
 # ---------------------------------------------------------------------------
@@ -228,10 +223,12 @@ class ShapImageVisualiser(BaseVisualiser):
        These are the only SHAP explainers that compute pixel-level SHAP
        values suitable for image visualisation.
        Passing attributions from other explainers will produce meaningless
-       plots.  Use the registry to enforce compatibility at config time.
+       plots.
 
     Red pixels increase the prediction; blue pixels decrease it.
     """
+
+    compatible_algorithms: frozenset[str] = frozenset({"GradientExplainer", "DeepExplainer"})
 
     def __init__(self, max_samples: int = 4):
         """

@@ -6,65 +6,65 @@ Provides model explanation / attribution capabilities using SHAP and Captum.
 Public API
 ----------
 explain(config, model, inputs, **kwargs)
-    One-call entry point.  Uses config to select the framework, algorithm,
-    and visualisers; computes attributions; saves outputs; returns a dict
-    with ``attributions`` and ``visualisations`` keys.
+    One-call entry point.  Reads ``_target_`` / ``algorithm`` / ``visualisers``
+    from the config, instantiates the appropriate explainer and visualisers via
+    Hydra's ``instantiate()``, and returns a dict with ``attributions``,
+    ``visualisations``, and ``run_dir``.
 
-Lower-level helpers
--------------------
-create_explainer(), method_from_config()
-Captum, SHAP              – method registries
-All Visualiser classes    – for direct use
+Explainer classes (used as ``_target_`` values)
+-----------------------------------------------
+CaptumExplainer, ShapExplainer
+
+Visualiser classes (used as ``_target_`` values in visualisers list)
+--------------------------------------------------------------------
+CaptumImageVisualiser, CaptumTimeSeriesVisualiser, CaptumTextVisualiser
+ShapBarVisualiser, ShapBeeswarmVisualiser, ShapWaterfallVisualiser,
+ShapForceVisualiser, ShapImageVisualiser
+TabularBarChartVisualiser
 """
 
 from __future__ import annotations
 
-# Direct access for power users
+# Explainer classes — public _target_ surface
 from .explainers import CaptumExplainer, ShapExplainer
 
 # Primary API
-from .factory import create_explainer, explain, method_from_config
-from .methods import SHAP, Captum, IntegratedGradients, KernelShap, Saliency  # Convenience aliases
+from .factory import explain
+
+# Domain error type
+from .methods_registry import VisualiserIncompatibilityError
+
+# Visualiser classes — public _target_ surface
 from .visualisers import (
     CaptumImageVisualiser,
     CaptumTextVisualiser,
     CaptumTimeSeriesVisualiser,
-    ImageHeatmapvisualiser,
     ShapBarVisualiser,
     ShapBeeswarmVisualiser,
     ShapForceVisualiser,
     ShapImageVisualiser,
     ShapWaterfallVisualiser,
-    TabularBarChartvisualiser,
+    TabularBarChartVisualiser,
 )
 
 __all__ = [
-    # Primary API
-    "explain",
-    # Factory helpers
-    "create_explainer",
-    "method_from_config",
-    # Registries
-    "SHAP",
-    "Captum",
     # Explainer adapters
     "CaptumExplainer",
     "ShapExplainer",
     # Captum visualisers
     "CaptumImageVisualiser",
-    "CaptumTimeSeriesVisualiser",
     "CaptumTextVisualiser",
+    "CaptumTimeSeriesVisualiser",
     # SHAP visualisers
     "ShapBarVisualiser",
     "ShapBeeswarmVisualiser",
-    "ShapWaterfallVisualiser",
     "ShapForceVisualiser",
     "ShapImageVisualiser",
-    # Legacy visualisers
-    "ImageHeatmapvisualiser",
-    "TabularBarChartvisualiser",
-    # Aliases
-    "IntegratedGradients",
-    "KernelShap",
-    "Saliency",
+    "ShapWaterfallVisualiser",
+    # Framework-agnostic
+    "TabularBarChartVisualiser",
+    # Domain errors
+    "VisualiserIncompatibilityError",
+    # Primary API
+    "explain",
 ]

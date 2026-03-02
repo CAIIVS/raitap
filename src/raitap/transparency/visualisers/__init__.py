@@ -11,9 +11,6 @@ from .captum_visualisers import (
     CaptumTimeSeriesVisualiser,
 )
 
-# Legacy visualisers (kept for backward compatibility)
-from .image_visualiser import ImageHeatmapvisualiser
-
 # SHAP-native visualisers
 from .shap_visualisers import (
     ShapBarVisualiser,
@@ -22,22 +19,21 @@ from .shap_visualisers import (
     ShapImageVisualiser,
     ShapWaterfallVisualiser,
 )
-from .tabular_visualiser import TabularBarChartvisualiser
+from .tabular_visualiser import TabularBarChartVisualiser
 
 __all__ = [
     # Base
     "BaseVisualiser",
-    # Legacy
-    "ImageHeatmapvisualiser",
-    "TabularBarChartvisualiser",
     # Captum
     "CaptumImageVisualiser",
-    "CaptumTimeSeriesVisualiser",
     "CaptumTextVisualiser",
+    "CaptumTimeSeriesVisualiser",
     # SHAP
     "ShapBarVisualiser",
     "ShapBeeswarmVisualiser",
-    "ShapWaterfallVisualiser",
     "ShapForceVisualiser",
     "ShapImageVisualiser",
+    "ShapWaterfallVisualiser",
+    # Framework-agnostic
+    "TabularBarChartVisualiser",
 ]

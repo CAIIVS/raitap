@@ -1,213 +1,101 @@
 # RAITAP Transparency Module
 
-A flexible, maintainable explainability module for PyTorch models that wraps SHAP and Captum frameworks.
+A flexible explainability module for PyTorch models wrapping SHAP and Captum.
 
-## Features
+## Quick start
 
-- ✅ **Type-safe API** - Registry pattern prevents invalid method combinations
-- ✅ **IDE-friendly** - Full autocomplete and navigation support
-- ✅ **Separation of concerns** - Attribution computation ≠ Visualization
-- ✅ **Config integration** - Seamless Hydra workflow
-- ✅ **Extensible** - Add new methods with one-line changes
-- ✅ **Production-ready** - Proper error handling and edge cases
-
-## Quick Start
-
-### Basic Usage (Registry API)
-
-```python
-from raitap.transparency import create_explainer
-from raitap.transparency.methods import Captum
-from raitap.transparency.visualisers import ImageHeatmapvisualiser
-import torch
-
-# Load model and data
-model = load_my_model()
-images = torch.randn(8, 3, 224, 224)
-
-# Create explainer (type-safe, IDE autocomplete)
-explainer = create_explainer(Captum.IntegratedGradients, modality="image")
-
-# Compute attributions
-attributions = explainer.explain(model, images, target=0)
-
-# Visualize
-visualiser = ImageHeatmapvisualiser()
-visualiser.save(attributions, "outputs/attributions.png", inputs=images)
-```
-
-### Config-Driven Workflow (Hydra Integration)
-
-```yaml
-# configs/transparency/captum.yaml
-framework: captum
-algorithm: IntegratedGradients
-output_dir: outputs/transparency
+```bash
+# Run via CLI (no Python required)
+uv run raitap model=resnet50 transparency=captum
+uv run raitap transparency=shap transparency.algorithm=GradientExplainer
 ```
 
 ```python
-from raitap.transparency import create_explainer, method_from_config
+from raitap.transparency import explain
 
-# Translate config → registry
-method = method_from_config(
-    cfg.transparency.framework,
-    cfg.transparency.algorithm
-)
-
-# Create and use explainer
-explainer = create_explainer(method, modality="image")
-attributions = explainer.explain(model, data, target=0)
+result = explain(config, model, inputs, target=0)
+# result["attributions"]   → torch.Tensor
+# result["visualisations"] → dict[str, matplotlib.figure.Figure]
+# result["run_dir"]        → pathlib.Path
 ```
 
 ## Architecture
 
-### Design Pattern: Separation of Concerns
-
 ```
-┌─────────────────────────────────────────────┐
-│         User-Facing API                     │
-│  create_explainer() factory                 │
-└────────────┬────────────────────────────────┘
-             │
-    ┌────────┴────────┐
-    │                 │
-┌───▼──────┐  ┌──────▼────────┐
-│Explainers│  │ visualisers   │
-│(Framework)  │  (Modality)   │
-└──────────┘  └───────────────┘
+CLI / Config
+  └── explain()              # factory.py — single entry point
+        ├── Hydra instantiate(_target_)
+        │     ├── CaptumExplainer / ShapExplainer
+        │     └── CaptumImageVisualiser / ShapImageVisualiser / …
+        └── outputs/<date>/<time>/
+              ├── attributions.pt
+              ├── <VisualiserName>.png
+              └── metadata.json
 ```
 
-### Components
+## Components
 
-1. **Method Registry** (`methods.py`)
-   - Type-safe, zero-duplication method definitions
-   - IDE autocomplete support
-   - Curated, tested methods only
+### Explainers (`explainers/`)
 
-2. **Explainers** (`explainers/`)
-   - `CaptumExplainer` - Single class for all Captum methods
-   - `ShapExplainer` - Single class for all SHAP explainers
-   - Dynamic method loading (no class explosion)
+- `CaptumExplainer` — wraps any `captum.attr.*` algorithm via `getattr`
+- `ShapExplainer` — wraps any `shap.*Explainer` algorithm
 
-3. **visualisers** (`visualisers/`)
-   - `ImageHeatmapvisualiser` - For image inputs
-   - `TabularBarChartvisualiser` - For tabular data
-   - Modality-specific, framework-agnostic
+Both implement `compute_attributions(model, inputs, **kwargs) → torch.Tensor`.
 
-4. **Factory** (`factory.py`)
-   - `create_explainer()` - Main factory function
-   - `method_from_config()` - Config bridge for Hydra
+### Visualisers (`visualisers/`)
 
-## Supported Methods
+| Class                        | Framework | Output                                                    |
+| ---------------------------- | --------- | --------------------------------------------------------- |
+| `CaptumImageVisualiser`      | Captum    | image heatmap overlay                                     |
+| `CaptumTimeSeriesVisualiser` | Captum    | time-series attribution plot                              |
+| `CaptumTextVisualiser`       | Captum    | text token importance                                     |
+| `ShapImageVisualiser`        | SHAP      | pixel-level SHAP (GradientExplainer / DeepExplainer only) |
+| `ShapBarVisualiser`          | SHAP      | mean absolute bar chart                                   |
+| `ShapBeeswarmVisualiser`     | SHAP      | beeswarm summary                                          |
+| `ShapWaterfallVisualiser`    | SHAP      | per-sample waterfall                                      |
+| `ShapForceVisualiser`        | SHAP      | per-sample force plot                                     |
+| `TabularBarChartVisualiser`  | any       | plain bar chart for tabular data                          |
 
-### Captum
-- `IntegratedGradients`
-- `Saliency`
-- `GradCAM`
-- `DeepLift`
-- `GuidedBackprop`
+Visualiser compatibility with specific algorithms is declared via the `compatible_algorithms` class attribute (`frozenset`). An empty frozenset means compatible with all algorithms.
 
-### SHAP
-- `GradientExplainer`
-- `DeepExplainer`
-- `KernelExplainer`
-- `TreeExplainer`
+### Config (`configs/transparency/`)
 
-## Adding New Methods
+Selection is done by `_target_` key — Hydra instantiates the class directly:
 
-### Step 1: Test Compatibility
-
-```python
-# tests/transparency/test_captum_explainer.py
-def test_new_method_with_visualiser():
-    explainer = CaptumExplainer("NewMethod")
-    attributions = explainer.explain(model, images, target=0)
-    
-    visualiser = ImageHeatmapvisualiser()
-    visualiser.save(attributions, "test_output.png", inputs=images)
-    # Manual inspection: Does it look correct?
+```yaml
+# configs/transparency/captum.yaml
+_target_: CaptumExplainer
+algorithm: IntegratedGradients
+visualisers:
+  - _target_: CaptumImageVisualiser
 ```
 
-### Step 2: Add to Registry (ONE LINE)
+## Supported algorithms
 
-```python
-# transparency/methods.py
-class Captum:
-    __framework__ = "captum"
-    
-    IntegratedGradients = ExplainerMethod()
-    Saliency = ExplainerMethod()
-    NewMethod = ExplainerMethod()  # ← ONE LINE CHANGE
-```
+Any algorithm accessible via `captum.attr.<name>` or `shap.<name>Explainer` works without code changes:
 
-### Step 3: Use Immediately
-
-```python
-from raitap.transparency.methods import Captum
-explainer = create_explainer(Captum.NewMethod, modality="image")
+```bash
+uv run raitap transparency.algorithm=Saliency
+uv run raitap transparency=shap transparency.algorithm=KernelExplainer
 ```
 
 ## Testing
 
-Run the test suite:
-
 ```bash
-pytest tests/transparency/ -v
+uv run pytest tests/transparency/ -v
 ```
 
-Test coverage:
-- ✅ Registry correctness
-- ✅ Explainer implementations
-- ✅ visualisers
-- ✅ Error handling
-- ✅ End-to-end workflows
+Test files:
+
+- `test_captum_explainer.py` — Captum wrapper
+- `test_shap_explainer.py` — SHAP wrapper
+- `test_methods.py` — `compatible_algorithms` contracts
+- `test_visualisers.py` — visualiser implementations
+- `test_integration.py` — end-to-end via `explain()`
 
 ## Dependencies
 
-Required:
 - `torch>=2.0.0`
 - `matplotlib>=3.5.0`
-
-Optional (install as needed):
-- `captum>=0.7.0` - For Captum methods
-- `shap>=0.46.0` - For SHAP explainers
-
-## Examples
-
-See `examples/` directory:
-- `transparency_basic.py` - Basic registry API usage
-- `transparency_config.py` - Config-driven workflow
-
-## Error Handling
-
-### Invalid Method (Caught at Runtime)
-
-```python
-from raitap.transparency.methods import Captum
-
-explainer = create_explainer(Captum.InvalidMethod)
-# AttributeError: 'Captum' has no attribute 'InvalidMethod'
-# ✅ Clear error before execution
-```
-
-### Typo in Config
-
-```python
-method = method_from_config("captum", "IntegratedGradient")  # Missing 's'
-# ValueError: Captum has no method 'IntegratedGradient' in RAITAP registry.
-# Available methods: IntegratedGradients, Saliency, GradCAM, ...
-# ✅ Helpful error with suggestions
-```
-
-## API Reference
-
-See inline docstrings for detailed documentation:
-
-```python
-from raitap.transparency import create_explainer
-help(create_explainer)
-```
-
-## License
-
-Part of the RAITAP project.
+- `captum>=0.7.0` (optional, for Captum explainers/visualisers)
+- `shap>=0.46.0` (optional, for SHAP explainers/visualisers)

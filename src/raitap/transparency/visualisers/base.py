@@ -15,7 +15,15 @@ class BaseVisualiser(ABC):
 
     visualisers ONLY handle visualization - they do NOT compute attributions.
     Attribution computation is handled by separate Explainer classes.
+
+    Class attribute
+    ---------------
+    compatible_algorithms:
+        Frozenset of algorithm names this visualiser supports.
+        An empty frozenset (the default) means *compatible with all algorithms*.
     """
+
+    compatible_algorithms: frozenset[str] = frozenset()
 
     @abstractmethod
     def visualise(self, attributions, inputs=None, **kwargs) -> Figure:

@@ -139,6 +139,16 @@ addopts = [
     "--strict-config",
     "--tb=short",
 ]
+filterwarnings = [
+    # captum raises this when inputs don't already require gradients; expected during tests
+    "ignore:Input Tensor.*required_grads:UserWarning",
+    # captum uses deprecated matplotlib cm.get_cmap; will be fixed upstream
+    "ignore:The get_cmap function was deprecated:matplotlib.MatplotlibDeprecationWarning",
+    # shap uses np.random.seed internally; will be fixed upstream
+    "ignore:The NumPy global RNG was seeded:FutureWarning",
+    # tight_layout incompatibility in ShapImageVisualiser; cosmetic only
+    "ignore:This figure includes Axes that are not compatible with tight_layout:UserWarning",
+]
 
 [tool.coverage.run]
 source = ["src"]

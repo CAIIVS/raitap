@@ -1,15 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import StrEnum
-
-from raitap.transparency.methods_registry import get_framework_names
-
-# Dynamically generated from methods_registry - add frameworks there
-TransparencyFramework = StrEnum(
-    "TransparencyFramework",
-    {name: name for name in get_framework_names()},
-)
+from typing import Any
 
 
 @dataclass
@@ -32,20 +24,13 @@ class DataConfig:
 
 @dataclass
 class TransparencyConfig:
-    framework: str = "captum"
+    # Hydra _target_: points to a BaseExplainer subclass.
+    # Overridden by the transparency config-group YAML (transparency=captum / shap).
+    _target_: str = "CaptumExplainer"
     algorithm: str = "IntegratedGradients"
-    # List of visualiser names valid for the chosen framework.
-    # Captum supports: "image", "time_series", "text"
-    # SHAP supports:   "bar", "beeswarm", "waterfall", "force", "image"
-    # SHAP "image" is only compatible with GradientExplainer / DeepExplainer.
-    visualisers: list[str] = field(default_factory=lambda: ["image"])
-
-    def __post_init__(self) -> None:
-        valid = set(TransparencyFramework)
-        if self.framework not in valid:
-            raise ValueError(
-                f"Unknown framework {self.framework!r}. Valid options: {sorted(valid)}"
-            )
+    # Each item is a dict/DictConfig with a ``_target_`` key pointing to a
+    # BaseVisualiser subclass.  Additional keys are forwarded to the constructor.
+    visualisers: list[Any] = field(default_factory=lambda: [{"_target_": "CaptumImageVisualiser"}])
 
 
 @dataclass
@@ -54,3 +39,5 @@ class AppConfig:
     data: DataConfig = field(default_factory=DataConfig)
     transparency: TransparencyConfig = field(default_factory=TransparencyConfig)
     experiment_name: str = "mvp"
+    # Fallback output directory used when running outside of a Hydra session.
+    fallback_output_dir: str = "."

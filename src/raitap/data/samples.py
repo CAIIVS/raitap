@@ -41,6 +41,64 @@ SAMPLE_SOURCES: dict[str, list[tuple[str, str]]] = {
             "shih_tzu.jpg",
         ),
     ],
+    # ISIC Archive — public CC-0 dermoscopic images (https://api.isic-archive.com)
+    "isic2018": [
+        (
+            "https://isic-archive.s3.amazonaws.com/images/ISIC_0000000.jpg",
+            "ISIC_0000000.jpg",
+        ),
+        (
+            "https://isic-archive.s3.amazonaws.com/images/ISIC_0000001.jpg",
+            "ISIC_0000001.jpg",
+        ),
+        (
+            "https://isic-archive.s3.amazonaws.com/images/ISIC_0000002.jpg",
+            "ISIC_0000002.jpg",
+        ),
+        (
+            "https://isic-archive.s3.amazonaws.com/images/ISIC_0000003.jpg",
+            "ISIC_0000003.jpg",
+        ),
+    ],
+    # NIH malaria cell images — MIT-licensed sample sets (original data: US public domain)
+    # Sources: HarshCasper/Malaria-Detection, prabhat-123/Malaria-Cell-Image-Classification
+    "malaria": [
+        (
+            "https://raw.githubusercontent.com/HarshCasper/Malaria-Detection/master/samples/infected.png",
+            "infected_1.png",
+        ),
+        (
+            "https://raw.githubusercontent.com/HarshCasper/Malaria-Detection/master/samples/uninfected.png",
+            "uninfected_1.png",
+        ),
+        (
+            "https://raw.githubusercontent.com/prabhat-123/Malaria-Cell-Image-Classification/master/test_images/parasitized/0_sCZHuHECn0zkH3fR.png",
+            "infected_2.png",
+        ),
+        (
+            "https://raw.githubusercontent.com/prabhat-123/Malaria-Cell-Image-Classification/master/test_images/parasitized/1_Z6KEa0ZtwHUZjKOpRjlNLw.png",
+            "infected_3.png",
+        ),
+    ],
+    # Udacity CarND dashcam road images — from udacity/CarND-Advanced-Lane-Lines (MIT)
+    "UdacitySelfDriving": [
+        (
+            "https://raw.githubusercontent.com/udacity/CarND-Advanced-Lane-Lines/master/test_images/straight_lines1.jpg",
+            "straight_lines1.jpg",
+        ),
+        (
+            "https://raw.githubusercontent.com/udacity/CarND-Advanced-Lane-Lines/master/test_images/straight_lines2.jpg",
+            "straight_lines2.jpg",
+        ),
+        (
+            "https://raw.githubusercontent.com/udacity/CarND-Advanced-Lane-Lines/master/test_images/test1.jpg",
+            "test1.jpg",
+        ),
+        (
+            "https://raw.githubusercontent.com/udacity/CarND-Advanced-Lane-Lines/master/test_images/test2.jpg",
+            "test2.jpg",
+        ),
+    ],
 }
 
 _CACHE_DIR = Path.home() / ".cache" / "raitap"
@@ -109,7 +167,7 @@ def load_sample(name: str, size: int = _DEMO_SIZE) -> torch.Tensor:
     )
     tensors = []
     for f in files:
-        img = Image.open(f).convert("RGB").resize((size, size), Image.BILINEAR)
+        img = Image.open(f).convert("RGB").resize((size, size), Image.Resampling.BILINEAR)
         arr = np.array(img)
         tensors.append(torch.from_numpy(arr).permute(2, 0, 1).float() / 255.0)
     return torch.stack(tensors)

@@ -64,44 +64,12 @@ uv run raitap transparency=captum transparency.algorithm=IntegratedGradients
 
 ```python
 import torch
-from raitap.transparency import create_explainer
-from raitap.transparency.methods import Captum, SHAP
-from raitap.transparency.visualisers import ImageHeatmapvisualiser
+from raitap.transparency import explain
 
-explainer = create_explainer(Captum.IntegratedGradients, modality="image")
-attributions = explainer.explain(my_model, my_input, target=0)
-
-visualiser = ImageHeatmapvisualiser()
-visualiser.save(attributions, "outputs/attributions.png", inputs=my_input)
-```
-
-See [examples/](examples/) for more.
-
-#### With a [Hydra](https://hydra.cc/) config
-
-For reproducible experiments and CLI workflows, use a [Hydra](https://hydra.cc/) configuration:
-
-```python
-import hydra
-from raitap.transparency import create_explainer, method_from_config
-from raitap.transparency.visualisers import ImageHeatmapvisualiser
-
-@hydra.main(config_path="configs", config_name="config")
-def assess_my_model(cfg):
-    
-    # Translate config to registry
-    method = method_from_config(
-        cfg.transparency.framework,
-        cfg.transparency.algorithm
-    )
-    
-    # Create explainer from config
-    explainer = create_explainer(method, modality="image")
-    attributions = explainer.explain(my_model, my_input, target=0)
-    
-    # Visualize and save
-    visualiser = ImageHeatmapvisualiser()
-    visualiser.save(attributions, f"{cfg.transparency.output_dir}/result.png")
+result = explain(config, my_model, my_input, target=0)
+attributions = result["attributions"]    # torch.Tensor
+figures      = result["visualisations"]  # dict[str, Figure]
+run_dir      = result["run_dir"]         # pathlib.Path
 ```
 
 For more details, see the [configuration guide](docs/consumers/configuration.md).

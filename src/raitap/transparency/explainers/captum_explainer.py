@@ -62,14 +62,10 @@ class CaptumExplainer(BaseExplainer):
         try:
             method_class = getattr(captum.attr, self.algorithm)
         except AttributeError:
-            # Reference curated registry, not captum.attr
-            from ..methods import Captum
-
-            available = [name for name in dir(Captum) if not name.startswith("_")]
             raise ValueError(
-                f"'{self.algorithm}' not in RAITAP's curated Captum methods.\n"
-                f"Supported: {', '.join(available)}\n"
-                f"To add: Test compatibility, then update transparency/methods.py"
+                f"'{self.algorithm}' is not a valid captum.attr method.\n"
+                f"Set algorithm to a class name available in captum.attr, "
+                f"e.g. 'IntegratedGradients', 'Saliency', 'LayerGradCam'."
             ) from None
 
         # Instantiate method with model and constructor args

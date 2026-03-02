@@ -16,11 +16,7 @@ class TestCaptumExplainer:
         explainer = CaptumExplainer("IntegratedGradients")
         assert explainer.algorithm == "IntegratedGradients"
 
-    @pytest.mark.skipif(
-        not pytest.importorskip("captum", reason="Captum not installed"),
-        reason="Captum not available",
-    )
-    def test_integrated_gradients(self, simple_cnn, sample_images):
+    def test_integrated_gradients(self, needs_captum, simple_cnn, sample_images):
         """Test IntegratedGradients computation"""
         explainer = CaptumExplainer("IntegratedGradients")
         attributions = explainer.compute_attributions(simple_cnn, sample_images, target=0)
@@ -28,11 +24,7 @@ class TestCaptumExplainer:
         assert isinstance(attributions, torch.Tensor)
         assert attributions.shape == sample_images.shape
 
-    @pytest.mark.skipif(
-        not pytest.importorskip("captum", reason="Captum not installed"),
-        reason="Captum not available",
-    )
-    def test_saliency(self, simple_cnn, sample_images):
+    def test_saliency(self, needs_captum, simple_cnn, sample_images):
         """Test Saliency method"""
         explainer = CaptumExplainer("Saliency")
         attributions = explainer.compute_attributions(simple_cnn, sample_images, target=0)
@@ -40,11 +32,7 @@ class TestCaptumExplainer:
         assert isinstance(attributions, torch.Tensor)
         assert attributions.shape == sample_images.shape
 
-    @pytest.mark.skipif(
-        not pytest.importorskip("captum", reason="Captum not installed"),
-        reason="Captum not available",
-    )
-    def test_batch_targets(self, simple_cnn, sample_images):
+    def test_batch_targets(self, needs_captum, simple_cnn, sample_images):
         """Test different target formats"""
         explainer = CaptumExplainer("Saliency")
 
@@ -70,4 +58,4 @@ class TestCaptumExplainer:
             explainer.compute_attributions(simple_cnn, sample_images, target=0)
 
         assert "NonExistentMethod" in str(exc_info.value)
-        assert "curated Captum methods" in str(exc_info.value)
+        assert "captum.attr" in str(exc_info.value)

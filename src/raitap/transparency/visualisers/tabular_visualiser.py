@@ -9,9 +9,9 @@ from matplotlib.figure import Figure
 from .base import BaseVisualiser
 
 
-class TabularBarChartvisualiser(BaseVisualiser):
+class TabularBarChartVisualiser(BaseVisualiser):
     """
-    Visualize attributions for tabular data as bar charts.
+    Visualise attributions for tabular data as bar charts.
 
     Works with any attribution method (Captum, SHAP, etc.)
     """

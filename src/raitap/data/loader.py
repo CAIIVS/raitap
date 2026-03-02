@@ -97,7 +97,7 @@ def _load_images(path: Path) -> torch.Tensor:
         raise ValueError(
             f"Images have inconsistent shapes: {sizes}. "
             "Resize them to a common size before loading."
-        )
+        ) from None
 
 
 def _load_tabular(path: Path) -> torch.Tensor:

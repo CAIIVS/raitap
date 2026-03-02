@@ -60,14 +60,10 @@ class ShapExplainer(BaseExplainer):
         try:
             explainer_class = getattr(shap, self.algorithm)
         except AttributeError:
-            # Reference curated registry, not shap module
-            from ..methods import SHAP
-
-            available = [name for name in dir(SHAP) if not name.startswith("_")]
             raise ValueError(
-                f"'{self.algorithm}' not in RAITAP's curated SHAP explainers.\n"
-                f"Supported: {', '.join(available)}\n"
-                f"To add: Test compatibility, then update transparency/methods.py"
+                f"'{self.algorithm}' is not a valid shap explainer.\n"
+                f"Set algorithm to a class name available in the shap package, "
+                f"e.g. 'GradientExplainer', 'DeepExplainer', 'KernelExplainer'."
             ) from None
 
         # Instantiate explainer (some need background data)

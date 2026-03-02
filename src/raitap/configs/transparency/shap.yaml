@@ -1,4 +1,4 @@
-framework: shap
+_target_: ShapExplainer
 algorithm: GradientExplainer
 visualisers:
-  - beeswarm
+  - _target_: ShapImageVisualiser

@@ -1,5 +1,4 @@
 import hydra
-import torch
 from hydra.core.hydra_config import HydraConfig
 
 from .configs.register import register_configs
@@ -19,7 +18,8 @@ def main(config: AppConfig):
     print(f"\nExperiment: {config.experiment_name}")
     print(f"Model: {config.model.source}")
     print(f"Dataset: {config.data.name}")
-    print(f"Method: {config.transparency.framework}.{config.transparency.algorithm}")
+    print(f"Framework: {config.transparency._target_}")
+    print(f"Algorithm: {config.transparency.algorithm}")
     print(f"Visualisers: {config.transparency.visualisers}")
     print(f"Output: {HydraConfig.get().runtime.output_dir}\n")
 
@@ -42,27 +42,12 @@ def main(config: AppConfig):
             "Use a local path or a named sample set, e.g.: data=imagenet_samples"
         )
     data = load_data(config.data.source)
-    print(
-        f"✓ Loaded {data.shape[0]} samples from {config.data.source!r} (shape: {tuple(data.shape[1:])})"
-    )
+    n, *dims = data.shape
+    print(f"✓ Loaded {n} samples from {config.data.source!r} (shape: {tuple(dims)})")
 
-    # 3. Predict target classes so attributions reflect actual model decisions.
-    with torch.no_grad():
-        logits = model(data)
-        targets = logits.argmax(dim=1)
-    print(f"✓ Predicted classes: {targets.tolist()}")
-
-    # 4. Run explanation
+    # 3. Run transparency assessment
     print("\nRunning explanation...")
-    result = explain(config, model, data, target=targets)
-
-    attributions = result["attributions"]
-    visualisations = result["visualisations"]
-    run_dir = result["run_dir"]
-    print(f"✓ Attributions shape: {attributions.shape}")  # type: ignore[union-attr]
-    for name in visualisations:  # type: ignore[union-attr]
-        print(f"✓ Visualisation saved: {run_dir}/{name}.png")
-    print(f"✓ Metadata saved:      {run_dir}/metadata.json")
+    explain(config, model, data)
 
     print("\n" + "=" * 60)
     print("Assessment complete!")
