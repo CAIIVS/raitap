@@ -10,6 +10,7 @@ import urllib.request
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import torch
 from PIL import Image
 
@@ -102,8 +103,6 @@ def _load_images(path: Path) -> torch.Tensor:
 
 def _load_tabular(path: Path) -> torch.Tensor:
     """Load a CSV / TSV / Parquet file as a float tensor of shape (N, F)."""
-    import pandas as pd
-
     suffix = path.suffix.lower()
     if suffix == ".csv":
         df = pd.read_csv(path)

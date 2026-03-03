@@ -35,6 +35,7 @@ dependencies = [
     "torch>=2.10.0",
     "torchvision>=0.20.0",
     "pillow>=10.0.0",
+    "pandas>=2.0.0",
     # Transparency/explainability
     "shap>=0.46.0",
     "captum>=0.7.0",
