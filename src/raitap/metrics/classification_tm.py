@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Literal
 
 import torch
-from torchmetrics.classification import Accuracy, F1Score, Precision, Recall
+from torchmetrics import Accuracy, F1Score, Precision, Recall
 
 from .base import MetricComputer, MetricResult
 from .utils import tensor_to_python

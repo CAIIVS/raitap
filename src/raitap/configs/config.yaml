@@ -3,5 +3,6 @@ defaults:
   - model: vit_b32
   - data: isic2018
   - transparency: captum
+  - metrics: classification
 
 experiment_name: mvp
