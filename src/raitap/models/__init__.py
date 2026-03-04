@@ -13,11 +13,9 @@ import torch
 import torch.nn as nn
 from torchvision import models
 
-from .converters import CONVERTERS, FormatConverter
+from .converters import CONVERTERS
 
 __all__ = [
-    "CONVERTERS",
-    "FormatConverter",
     "load_model",
 ]
 
