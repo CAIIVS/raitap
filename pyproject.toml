@@ -41,6 +41,8 @@ dependencies = [
     "captum>=0.7.0",
     # Visualization
     "matplotlib>=3.9.0",
+    # Performance Metrics
+    "torchmetrics>=1.8.2",
 ]
 
 [project.scripts]
