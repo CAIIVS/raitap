@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 import torch
 
-from raitap.metrics import DetectionMetrics
-from raitap.metrics.utils import tensor_to_python
+from src.raitap.metrics import DetectionMetrics
+from src.raitap.metrics.utils import tensor_to_python
 
 
 class TestTensorToPython:
@@ -29,7 +29,9 @@ class TestTensorToPython:
         tensor = torch.tensor([[0.1, 0.2], [0.3, 0.4]])
         result = tensor_to_python(tensor)
         assert isinstance(result, list)
-        assert result == [[0.1, 0.2], [0.3, 0.4]]
+        assert len(result) == 2
+        assert result[0] == pytest.approx([0.1, 0.2])
+        assert result[1] == pytest.approx([0.3, 0.4])
 
     def test_non_tensor_passthrough(self):
         """Test that non-tensor values are returned unchanged."""
@@ -43,7 +45,7 @@ class TestTensorToPython:
         tensor = torch.tensor([0.5, 0.8], requires_grad=True)
         result = tensor_to_python(tensor)
         assert isinstance(result, list)
-        assert result == [0.5, 0.8]
+        assert result == pytest.approx([0.5, 0.8])
 
 
 class TestDetectionMetricsInitialization:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal, Union
 
-from torchmetrics.detection import MeanAveragePrecision
+from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
 from .base import MetricComputer, MetricResult
 from .utils import tensor_to_python
