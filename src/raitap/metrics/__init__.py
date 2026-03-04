@@ -28,8 +28,9 @@ from __future__ import annotations
 from .base import MetricComputer, MetricResult
 
 # Concrete metric implementations
-from .classification_tm import ClassificationMetrics
-from .detection_tm import DetectionMetrics
+from .classification_metrics import ClassificationMetrics
+from .detection_metrics import DetectionMetrics
+from .factory import evaluate
 
 __all__ = [
     # Base types
@@ -38,4 +39,6 @@ __all__ = [
     # Concrete implementations
     "ClassificationMetrics",
     "DetectionMetrics",
+    # Factory API
+    "evaluate",
 ]

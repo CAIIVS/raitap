@@ -35,14 +35,7 @@ class TransparencyConfig:
 
 @dataclass
 class MetricsConfig:
-    """
-    Configuration for metrics computation.
-
-    Hydra _target_: points to a MetricComputer subclass.
-    Overridden by the metrics config-group YAML (metrics=classification / detection).
-    """
-
-    _target_: str = "raitap.metrics.ClassificationMetrics"
+    _target_: str = "ClassificationMetrics"
     task: str = "multiclass"
     num_classes: int | None = None
 

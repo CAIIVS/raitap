@@ -1,4 +1,4 @@
-_target_: raitap.metrics.detection_tm.DetectionMetrics
+_target_: DetectionMetrics
 box_format: xyxy
 iou_type: bbox
 iou_thresholds: null

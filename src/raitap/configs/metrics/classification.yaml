@@ -1,4 +1,4 @@
-_target_: raitap.metrics.classification_tm.ClassificationMetrics
+_target_: ClassificationMetrics
 task: multiclass
 num_classes: 1000
 num_labels: null
