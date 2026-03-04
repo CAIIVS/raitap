@@ -1,0 +1,6 @@
+_target_: raitap.metrics.classification_tm.ClassificationMetrics
+task: multiclass
+num_classes: 1000
+num_labels: null
+average: macro
+ignore_index: null
