@@ -66,9 +66,9 @@ import torch
 from raitap.transparency import explain
 
 result = explain(config, my_model, my_input, target=0)
-attributions = result["attributions"]    # torch.Tensor
-figures      = result["visualisations"]  # dict[str, Figure]
-run_dir      = result["run_dir"]         # pathlib.Path
+attributions = result["attributions"]  # torch.Tensor
+figures = result["visualisations"]  # dict[str, Figure]
+run_dir = result["run_dir"]  # pathlib.Path
 ```
 
 For more details, see the [configuration guide](docs/consumers/configuration.md).
@@ -168,7 +168,7 @@ Implementations:
 ```python
 import torch
 
-from raitap.metrics.classification_tm import ClassificationMetrics
+from raitap.metrics.classification_metrics import ClassificationMetrics
 
 preds = torch.tensor([0, 2, 1, 2])
 targets = torch.tensor([0, 1, 1, 2])
@@ -185,7 +185,7 @@ metric.reset()
 ```python
 import torch
 
-from raitap.metrics.detection_tm import DetectionMetrics
+from raitap.metrics.detection_metrics import DetectionMetrics
 
 preds = [
     {
