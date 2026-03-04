@@ -1,2 +1,4 @@
-framework: shap
-algorithm: KernelExplainer
+_target_: ShapExplainer
+algorithm: GradientExplainer
+visualisers:
+  - _target_: ShapImageVisualiser

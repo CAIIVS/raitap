@@ -1,0 +1,2 @@
+# Config for using your own custom model saved with torch.save(model, path)
+source: path/to/your_model.pth

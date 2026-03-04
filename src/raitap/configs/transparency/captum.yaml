@@ -1,2 +1,4 @@
-framework: captum
-algorithm: integrated_gradients
+_target_: CaptumExplainer
+algorithm: IntegratedGradients
+visualisers:
+  - _target_: CaptumImageVisualiser
