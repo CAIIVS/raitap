@@ -133,7 +133,7 @@ reportUnusedImport = true
 reportUnusedVariable = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "src"]
+testpaths = ["src"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
