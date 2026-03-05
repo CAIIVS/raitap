@@ -17,56 +17,22 @@ from typing import TYPE_CHECKING
 import torch
 from hydra.core.hydra_config import HydraConfig
 from hydra.utils import instantiate
-from omegaconf import DictConfig, OmegaConf
 
+from ..configs.factory_utils import cfg_to_dict, resolve_target
 from .methods_registry import VisualiserIncompatibilityError
 
 _TRANSPARENCY_PREFIX = "raitap.transparency."
-
-
-def _resolve_target(target: str) -> str:
-    """Expand a bare class name to its fully-qualified ``raitap.transparency`` path.
-
-    If *target* already contains a dot it is treated as already-qualified and
-    returned unchanged, so external targets (e.g. ``torch.nn.Linear``) continue
-    to work without modification.
-    """
-    if "." not in target:
-        return _TRANSPARENCY_PREFIX + target
-    return target
-
 
 if TYPE_CHECKING:
     import torch.nn as nn
     from matplotlib.figure import Figure
 
-    from raitap.configs.schema import AppConfig
+    from ..configs.schema import AppConfig
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-
-def _cfg_to_dict(cfg) -> dict:
-    """
-    Normalise any config representation to a plain :class:`dict`.
-
-    Handles:
-    * ``omegaconf.DictConfig``             (Hydra runtime)
-    * Python ``dataclass``                 (structured config)
-    * ``types.SimpleNamespace`` / objects  (unit tests)
-    * plain ``dict``
-    """
-    if isinstance(cfg, DictConfig):
-        return OmegaConf.to_container(cfg, resolve=True)  # type: ignore[return-value]
-    if hasattr(cfg, "__dataclass_fields__"):
-        import dataclasses
-
-        return dataclasses.asdict(cfg)
-    if hasattr(cfg, "__dict__"):
-        return vars(cfg)
-    return dict(cfg)
 
 
 def _serialisable(v) -> object:
@@ -131,7 +97,7 @@ def explain(
         If a ``_target_`` cannot be resolved or instantiated.
     """
     tc = config.transparency
-    raw_tc = _cfg_to_dict(tc)
+    raw_tc = cfg_to_dict(tc)
 
     target_path: str = raw_tc.get("_target_", "")
     algorithm: str = raw_tc.get("algorithm", "")
@@ -143,7 +109,8 @@ def explain(
     #    in the orchestrator, not by the explainer constructor).
     # ------------------------------------------------------------------
     explainer_cfg = {k: v for k, v in raw_tc.items() if k != "visualisers"}
-    explainer_cfg["_target_"] = _resolve_target(explainer_cfg.get("_target_", ""))
+    target = explainer_cfg.get("_target_", "")
+    explainer_cfg["_target_"] = resolve_target(target, _TRANSPARENCY_PREFIX)
     try:
         explainer = instantiate(explainer_cfg)
     except Exception as e:
@@ -158,7 +125,10 @@ def explain(
     for vis_cfg in vis_cfgs:
         vis_target = vis_cfg.get("_target_", "") if isinstance(vis_cfg, dict) else ""
         if isinstance(vis_cfg, dict) and "_target_" in vis_cfg:
-            vis_cfg = {**vis_cfg, "_target_": _resolve_target(vis_cfg["_target_"])}
+            vis_cfg = {
+                **vis_cfg,
+                "_target_": resolve_target(vis_cfg["_target_"], _TRANSPARENCY_PREFIX),
+            }
         try:
             visualiser = instantiate(vis_cfg)
         except Exception as e:
@@ -195,7 +165,10 @@ def explain(
     visualisations: dict[str, Figure] = {}
     for vis_cfg in vis_cfgs:
         if isinstance(vis_cfg, dict) and "_target_" in vis_cfg:
-            vis_cfg = {**vis_cfg, "_target_": _resolve_target(vis_cfg["_target_"])}
+            vis_cfg = {
+                **vis_cfg,
+                "_target_": resolve_target(vis_cfg["_target_"], _TRANSPARENCY_PREFIX),
+            }
         visualiser = instantiate(vis_cfg)
         name = type(visualiser).__name__
         fig = visualiser.visualise(attributions, inputs=inputs)
@@ -207,9 +180,9 @@ def explain(
     # ------------------------------------------------------------------
     metadata = {
         "experiment_name": config.experiment_name,
-        "target": _resolve_target(target_path),
+        "target": resolve_target(target_path, _TRANSPARENCY_PREFIX),
         "algorithm": algorithm,
-        "visualisers": [_resolve_target(v["_target_"]) for v in vis_cfgs],
+        "visualisers": [resolve_target(v["_target_"], _TRANSPARENCY_PREFIX) for v in vis_cfgs],
         "kwargs": {k: _serialisable(v) for k, v in kwargs.items()},
     }
     (run_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))

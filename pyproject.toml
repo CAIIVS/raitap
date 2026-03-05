@@ -41,6 +41,9 @@ dependencies = [
     "captum>=0.7.0",
     # Visualization
     "matplotlib>=3.9.0",
+    # Performance Metrics
+    "torchmetrics>=1.8.2",
+    "faster-coco-eval>=1.6.3",
 ]
 
 [project.scripts]
@@ -61,6 +64,7 @@ dev = [
     "pyright>=1.1.390",
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
+    "pycocotools>=2.0.10",
 ]
 
 [build-system]
@@ -86,14 +90,14 @@ target-version = "py313"
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "N",   # pep8-naming
-    "UP",  # pyupgrade
-    "B",   # flake8-bugbear
-    "C4",  # flake8-comprehensions
+    "E", # pycodestyle errors
+    "W", # pycodestyle warnings
+    "F", # pyflakes
+    "I", # isort
+    "N", # pep8-naming
+    "UP", # pyupgrade
+    "B", # flake8-bugbear
+    "C4", # flake8-comprehensions
     "SIM", # flake8-simplify
     "RUF", # Ruff-specific rules
 ]
@@ -134,6 +138,7 @@ reportUnusedVariable = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "src"]
+pythonpath = ["src"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
