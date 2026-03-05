@@ -113,7 +113,7 @@ def _download_file(url: str, dest: Path) -> None:
         dest.write_bytes(resp.read())
 
 
-def resolve_sample(name: str) -> Path | None:
+def _resolve_sample(name: str) -> Path | None:
     """
     Return the local cache path for a named demo dataset, downloading files if needed.
 
@@ -123,7 +123,7 @@ def resolve_sample(name: str) -> Path | None:
     Returns:
         Local directory path, or ``None`` if *name* is not a known sample.
     """
-    if name not in SAMPLE_SOURCES:
+    if not isinstance(name, str) or name not in SAMPLE_SOURCES:
         return None
 
     cache_dir = _CACHE_DIR / name
@@ -141,7 +141,7 @@ def resolve_sample(name: str) -> Path | None:
 _DEMO_SIZE = 224
 
 
-def load_sample(name: str, size: int = _DEMO_SIZE) -> torch.Tensor:
+def _load_sample(name: str, size: int = _DEMO_SIZE) -> torch.Tensor:
     """
     Load a named demo dataset as a resized tensor.
 
@@ -156,7 +156,7 @@ def load_sample(name: str, size: int = _DEMO_SIZE) -> torch.Tensor:
     Returns:
         Float32 tensor of shape ``(N, 3, size, size)`` in ``[0, 1]``.
     """
-    directory = resolve_sample(name)
+    directory = _resolve_sample(name)
     if directory is None:
         raise ValueError(f"{name!r} is not a known demo sample.")
 

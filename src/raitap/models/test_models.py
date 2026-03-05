@@ -66,11 +66,11 @@ def saved_state_dict(tmp_path: Path, tiny_model: nn.Module) -> Path:
 
 class TestLoadModelFromPath:
     def test_loads_pth_file(self, saved_pth: Path):
-        model = load_model(saved_pth)
+        model = load_model(str(saved_pth))
         assert isinstance(model, nn.Module)
 
     def test_loads_pt_file(self, saved_pt: Path):
-        model = load_model(saved_pt)
+        model = load_model(str(saved_pt))
         assert isinstance(model, nn.Module)
 
     def test_accepts_string_path(self, saved_pth: Path):
@@ -78,28 +78,28 @@ class TestLoadModelFromPath:
         assert isinstance(model, nn.Module)
 
     def test_returns_eval_mode(self, saved_pth: Path):
-        model = load_model(saved_pth)
+        model = load_model(str(saved_pth))
         assert not model.training
 
     def test_missing_file_raises_file_not_found(self, tmp_path: Path):
         with pytest.raises(FileNotFoundError, match="not found"):
-            load_model(tmp_path / "ghost.pth")
+            load_model(str(tmp_path / "ghost.pth"))
 
     def test_unsupported_extension_raises_value_error(self, tmp_path: Path):
         bad = tmp_path / "model.xyz"
         bad.touch()
         with pytest.raises(ValueError, match="Unsupported model format"):
-            load_model(bad)
+            load_model(str(bad))
 
     def test_state_dict_raises_value_error(self, saved_state_dict: Path):
         with pytest.raises(ValueError, match="state-dict"):
-            load_model(saved_state_dict)
+            load_model(str(saved_state_dict))
 
     def test_non_module_object_raises_value_error(self, tmp_path: Path):
         path = tmp_path / "tensor.pth"
         torch.save(torch.randn(3, 3), path)
         with pytest.raises(ValueError, match=r"Expected an nn\.Module"):
-            load_model(path)
+            load_model(str(path))
 
 
 class TestLoadModelFromName:

@@ -47,7 +47,7 @@ from .visualisers import (
     TabularBarChartVisualiser,
 )
 
-__all__ = [
+__all__ = [  # noqa: RUF022
     # Explainer adapters
     "CaptumExplainer",
     "ShapExplainer",
