@@ -1,0 +1,50 @@
+from __future__ import annotations
+
+import json
+
+import pytest
+import torch
+
+from raitap.configs.schema import AppConfig, MetricsConfig
+from raitap.metrics import evaluate
+
+
+def _config(tmp_path) -> AppConfig:
+    cfg = AppConfig(experiment_name="test", fallback_output_dir=str(tmp_path))
+    cfg.metrics = MetricsConfig(
+        _target_="ClassificationMetrics",
+        task="multiclass",
+        num_classes=3,
+    )
+    return cfg
+
+
+def test_evaluate_writes_outputs(tmp_path):
+    cfg = _config(tmp_path)
+    predictions = torch.tensor([0, 1, 2, 1])
+    targets = torch.tensor([0, 1, 2, 0])
+
+    out = evaluate(cfg, predictions, targets)
+
+    assert "result" in out
+    assert "run_dir" in out
+    run_dir = out["run_dir"]
+    assert run_dir == tmp_path
+
+    assert (run_dir / "metrics.json").exists()
+    assert (run_dir / "artifacts.json").exists()
+    assert (run_dir / "metadata.json").exists()
+
+    metrics = json.loads((run_dir / "metrics.json").read_text(encoding="utf-8"))
+    metadata = json.loads((run_dir / "metadata.json").read_text(encoding="utf-8"))
+
+    assert "accuracy" in metrics
+    assert metadata["target"] == "raitap.metrics.ClassificationMetrics"
+
+
+def test_evaluate_bad_target_raises(tmp_path):
+    cfg = _config(tmp_path)
+    cfg.metrics._target_ = "DoesNotExist"
+
+    with pytest.raises(ValueError, match="Could not instantiate metric"):
+        evaluate(cfg, torch.tensor([0]), torch.tensor([0]))

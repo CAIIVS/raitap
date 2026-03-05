@@ -34,10 +34,18 @@ class TransparencyConfig:
 
 
 @dataclass
+class MetricsConfig:
+    _target_: str = "ClassificationMetrics"
+    task: str = "multiclass"
+    num_classes: int | None = None
+
+
+@dataclass
 class AppConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     data: DataConfig = field(default_factory=DataConfig)
     transparency: TransparencyConfig = field(default_factory=TransparencyConfig)
+    metrics: MetricsConfig = field(default_factory=MetricsConfig)
     experiment_name: str = "mvp"
     # Fallback output directory used when running outside of a Hydra session.
     fallback_output_dir: str = "."

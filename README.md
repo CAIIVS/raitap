@@ -1,4 +1,3 @@
-<!-- markdownlint-disable-next-line MD033 MD045 MD041 -->
 <img src="assets/images/tech_assessment_platform_logo.png" width="400">
 
 ## Purpose
@@ -67,9 +66,9 @@ import torch
 from raitap.transparency import explain
 
 result = explain(config, my_model, my_input, target=0)
-attributions = result["attributions"]    # torch.Tensor
-figures      = result["visualisations"]  # dict[str, Figure]
-run_dir      = result["run_dir"]         # pathlib.Path
+attributions = result["attributions"]  # torch.Tensor
+figures = result["visualisations"]  # dict[str, Figure]
+run_dir = result["run_dir"]  # pathlib.Path
 ```
 
 For more details, see the [configuration guide](docs/consumers/configuration.md).
@@ -149,3 +148,80 @@ See the **[Configuration Guide](docs/configuration.md)** for details.
 * GuidedBackprop
 
 More frameworks coming: OmniXAI, Alibi, custom methods.
+
+## Metrics (TorchMetrics)
+
+The metrics package defines a small interface for performance evaluation:
+
+* `MetricComputer` with `reset()`, `update(predictions, targets)`, and `compute()`
+* `MetricResult` with
+    * `metrics: dict[str, float]` for scalar values
+    * `artifacts: dict[str, Any]` for non-scalar outputs (lists, arrays, etc.)
+
+Implementations:
+
+* `ClassificationMetrics` (accuracy, precision, recall, f1)
+* `DetectionMetrics` (mAP via `torchmetrics.detection.MeanAveragePrecision`)
+
+### Programmatic usage
+
+```python
+import torch
+
+from raitap.metrics.classification_metrics import ClassificationMetrics
+
+preds = torch.tensor([0, 2, 1, 2])
+targets = torch.tensor([0, 1, 1, 2])
+
+metric = ClassificationMetrics(task="multiclass", num_classes=3, average="macro")
+metric.update(preds, targets)
+result = metric.compute()
+print(result.metrics)
+metric.reset()
+```
+
+### Detection usage
+
+```python
+import torch
+
+from raitap.metrics.detection_metrics import DetectionMetrics
+
+preds = [
+    {
+        "boxes": torch.tensor([[0.0, 0.0, 10.0, 10.0]]),
+        "scores": torch.tensor([0.9]),
+        "labels": torch.tensor([1]),
+    }
+]
+targets = [
+    {
+        "boxes": torch.tensor([[0.0, 0.0, 10.0, 10.0]]),
+        "labels": torch.tensor([1]),
+    }
+]
+
+metric = DetectionMetrics()
+metric.update(preds, targets)
+result = metric.compute()
+print(result.metrics)
+```
+
+### Hydra config usage
+
+Metrics configs live in `src/raitap/configs/metrics/`. Example override:
+
+```bash
+uv run python -m raitap.run metrics=classification metrics.num_classes=1000
+```
+
+To instantiate in code:
+
+```python
+from hydra.utils import instantiate
+
+metric = instantiate(cfg.metrics)
+```
+
+Note: `src/raitap/run.py` currently does not instantiate metrics. Add the
+`instantiate(cfg.metrics)` call where you compute metrics in your pipeline.

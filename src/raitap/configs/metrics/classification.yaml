@@ -1,0 +1,6 @@
+_target_: ClassificationMetrics
+task: multiclass
+num_classes: 1000
+num_labels: null
+average: macro
+ignore_index: null
