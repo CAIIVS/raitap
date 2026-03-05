@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import torch
 import torch.nn as nn
 from torchvision import models
 
@@ -78,38 +77,7 @@ def _load_from_path(path: Path) -> nn.Module:
             f"Unsupported model format {path.suffix!r}. Supported formats: {list(CONVERTERS)}"
         )
 
-    pth_path = converter.convert(path)
-    return _load_pth(pth_path)
-
-
-def _load_pth(path: Path) -> nn.Module:
-    """
-    Load a PyTorch model from a ``.pth`` / ``.pt`` file saved with
-    ``torch.save(model, path)``.
-
-    Args:
-        path: Path to the ``.pth`` / ``.pt`` file.
-
-    Returns:
-        PyTorch model in evaluation mode.
-
-    Raises:
-        ValueError: If the file contains a state-dict instead of a full model.
-    """
-    obj = torch.load(path, map_location="cpu", weights_only=False)
-
-    if isinstance(obj, dict):
-        raise ValueError(
-            f"{path} appears to contain a state-dict, not a full model.\n"
-            "Save the full model with torch.save(model, path) or load the "
-            "state-dict manually and pass the model directly to the explainer."
-        )
-
-    if not isinstance(obj, nn.Module):
-        raise ValueError(f"Expected an nn.Module in {path}, got {type(obj).__name__}.")
-
-    obj.eval()
-    return obj
+    return converter.convert(path)
 
 
 def _load_pretrained(model_name: str) -> nn.Module:

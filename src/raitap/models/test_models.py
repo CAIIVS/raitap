@@ -25,10 +25,14 @@ class TestConvertersRegistry:
 
 
 class TestPthConverter:
-    def test_returns_same_path(self, tmp_path: Path):
+    def test_returns_model(self, tmp_path: Path):
+        model = nn.Sequential(nn.Linear(2, 1))
+        model.eval()
         p = tmp_path / "model.pth"
-        p.touch()
-        assert PthConverter().convert(p) == p
+        torch.save(model, p)
+        result = PthConverter().convert(p)
+        assert isinstance(result, nn.Module)
+        assert not result.training
 
 
 # ---------------------------------------------------------------------------
