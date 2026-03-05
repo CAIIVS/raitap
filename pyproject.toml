@@ -78,6 +78,9 @@ include = [
     "src/raitap/**/*.yaml",
     "src/raitap/**/*.yml",
 ]
+exclude = [
+    "src/raitap/**/test_*.py",
+]
 
 [tool.ruff]
 line-length = 100
@@ -130,3 +133,47 @@ reportMissingImports = true
 reportMissingTypeStubs = false
 reportUnusedImport = true
 reportUnusedVariable = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "src"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--strict-config",
+    "--tb=short",
+]
+filterwarnings = [
+    # captum raises this when inputs don't already require gradients; expected during tests
+    "ignore:Input Tensor.*required_grads:UserWarning",
+    # captum uses deprecated matplotlib cm.get_cmap; will be fixed upstream
+    "ignore:The get_cmap function was deprecated:matplotlib.MatplotlibDeprecationWarning",
+    # shap uses np.random.seed internally; will be fixed upstream
+    "ignore:The NumPy global RNG was seeded:FutureWarning",
+    # tight_layout incompatibility in ShapImageVisualiser; cosmetic only
+    "ignore:This figure includes Axes that are not compatible with tight_layout:UserWarning",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
