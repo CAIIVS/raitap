@@ -39,7 +39,7 @@ class DetectionMetrics(MetricComputer):
         class_metrics: bool = False,
         extended_summary: bool = False,
         average: Average = "macro",
-        backend: Backend = "pycocotools",
+        backend: Backend = "faster_coco_eval",
         **kwargs: Any,
     ):
         self.metric = MeanAveragePrecision(

@@ -7,4 +7,4 @@ max_detection_thresholds: null
 class_metrics: false
 extended_summary: false
 average: macro
-backend: pycocotools
+backend: faster_coco_eval
