@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal, Union
+from typing import Any, Literal
 
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
@@ -8,19 +8,21 @@ from .base import MetricComputer, MetricResult
 from .utils import tensor_to_python
 
 BoxFormat = Literal["xyxy", "xywh"]  # torchvision outputs xyxy
-IoUType = Union[Literal["bbox", "segm"], tuple[Literal["bbox", "segm"], ...]]
+IoUType = Literal["bbox", "segm"] | tuple[Literal["bbox", "segm"], ...]
 Backend = Literal["pycocotools", "faster_coco_eval"]
 Average = Literal["macro", "micro"]
 
 
 class DetectionMetrics(MetricComputer):
     """
-    Calculates and manages detection metrics for evaluating the performance of object detection models.
+    Calculates and manages detection metrics for evaluating
+    the performance of object detection models.
 
-    This class is responsible for computing detection metrics, updating them with predictions and
-    targets, and resetting their state. It uses a MeanAveragePrecision calculator internally to handle
-    the computation logic. It supports a variety of configurations, including box formats, IoU types,
-    thresholds, class-specific metrics, and more.
+    This class is responsible for computing detection metrics,
+    updating them with predictions and targets, and resetting their state.
+    It uses a MeanAveragePrecision calculator internally to handle
+    the computation logic. It supports a variety of configurations,
+    including box formats, IoU types, thresholds, class-specific metrics, and more.
 
     :ivar metric: Instance of the MeanAveragePrecision calculator used to compute metrics.
     :type metric: MeanAveragePrecision
@@ -57,11 +59,13 @@ class DetectionMetrics(MetricComputer):
         # Sanity checks
         if not isinstance(predictions, list) or not isinstance(targets, list):
             raise TypeError(
-                f"Expected lists of predictions and targets, got {type(predictions)} and {type(targets)}"
+                f"Expected lists of predictions and targets, "
+                f"got {type(predictions)} and {type(targets)}"
             )
         if len(predictions) != len(targets):
             raise ValueError(
-                f"Predictions and targets must have the same length, got {len(predictions)} and {len(targets)}"
+                f"Predictions and targets must have the same length, "
+                f"got {len(predictions)} and {len(targets)}"
             )
 
         self.metric.update(predictions, targets)

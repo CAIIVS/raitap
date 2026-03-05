@@ -515,7 +515,6 @@ class TestDetectionMetricsReset:
         ]
 
         detection_metrics.update(predictions1, targets1)
-        result1 = detection_metrics.compute()
 
         detection_metrics.reset()
 

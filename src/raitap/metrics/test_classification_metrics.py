@@ -52,8 +52,13 @@ class TestClassificationMetricsInitialization:
     def test_invalid_task_raises_error(self):
         """Test that invalid task raises ValueError."""
         with pytest.raises(ValueError, match="Unknown task"):
+            # noinspection PyTypeChecker
             ClassificationMetrics(
-                task="invalid", num_classes=3, num_labels=None, average="macro", ignore_index=None
+                task="invalid",  # pyright: ignore [reportArgumentType]
+                num_classes=3,
+                num_labels=None,
+                average="macro",
+                ignore_index=None,  # pyright: ignore [reportArgumentType]
             )
 
     def test_multiclass_without_num_classes_raises_error(self):

@@ -32,7 +32,7 @@ from .classification_metrics import ClassificationMetrics
 from .detection_metrics import DetectionMetrics
 from .factory import evaluate
 
-__all__ = [
+__all__ = [  # noqa: RUF022
     # Base types
     "MetricComputer",
     "MetricResult",
