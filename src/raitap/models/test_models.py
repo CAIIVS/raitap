@@ -6,8 +6,8 @@ import pytest
 import torch
 import torch.nn as nn
 
-from raitap.models import CONVERTERS, FormatConverter, load_model
-from raitap.models.converters import PthConverter
+from raitap.models import load_model
+from raitap.models.converters import CONVERTERS, FormatConverter, PthConverter
 
 # ---------------------------------------------------------------------------
 # Converters

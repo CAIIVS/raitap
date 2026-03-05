@@ -13,6 +13,8 @@ import torch
 import torch.nn as nn
 from torchvision import models
 
+from raitap.configs.schema import Source
+
 from .converters import CONVERTERS
 
 __all__ = [
@@ -20,7 +22,7 @@ __all__ = [
 ]
 
 
-def load_model(source: str | Path) -> nn.Module:
+def load_model(source: Source) -> nn.Module:
     """
     Load a model from the source,
     which can be either a local file path or a torchvision model name.

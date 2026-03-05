@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
+
+type Source = Path | str
 
 
 @dataclass
@@ -11,7 +14,7 @@ class ModelConfig:
     """
 
     # Path to a local .pth file, or a built-in name (e.g. "resnet50")
-    source: str | None = None
+    source: Source | None = None
 
 
 @dataclass
@@ -19,7 +22,7 @@ class DataConfig:
     name: str = "isic2018"
     description: str | None = None
     # Path to a local dir, or a named sample set (e.g. "imagenet_samples")
-    source: str | None = None
+    source: Source | None = None
 
 
 @dataclass
