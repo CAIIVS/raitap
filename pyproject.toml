@@ -76,6 +76,9 @@ include = [
     "src/raitap/**/*.yaml",
     "src/raitap/**/*.yml",
 ]
+exclude = [
+    "src/raitap/**/test_*.py",
+]
 
 [tool.ruff]
 line-length = 100
@@ -130,7 +133,7 @@ reportUnusedImport = true
 reportUnusedVariable = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "src"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

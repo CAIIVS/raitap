@@ -4,7 +4,7 @@ from hydra.core.hydra_config import HydraConfig
 from .configs.register import register_configs
 from .configs.schema import AppConfig
 from .data import load_data
-from .models.loader import load_model
+from .models import load_model
 from .transparency import explain
 
 register_configs()

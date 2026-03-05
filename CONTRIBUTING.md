@@ -78,7 +78,7 @@ Before making significant changes, read:
 ## Useful commands
 
 * `uv sync` installs the dependencies defined in `uv.lock`.
-* `uv run pytest tests/` runs the test suite.
+* `uv run pytest` runs the test suite.
 * `uv run ruff check --fix .` lints all Python files and applies auto-fixes where possible. Omit the `--fix` flag to only check for issues without modifying files.
 * `uv run ruff format .` formats all Python files according to the configured style.
 * `uv run pyright` runs type checking on all Python files to catch type errors.
