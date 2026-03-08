@@ -1,0 +1,7 @@
+enabled: true
+experiment_name: raitap-assessment
+tracking_uri: http://localhost:5000
+registry_uri: null
+log_model: false
+registry_enabled: false
+registered_model_name: null
