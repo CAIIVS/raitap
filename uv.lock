@@ -1934,6 +1934,7 @@ dependencies = [
     { name = "faster-coco-eval" },
     { name = "hydra-core" },
     { name = "matplotlib" },
+    { name = "mlflow" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "pillow" },
@@ -1942,11 +1943,6 @@ dependencies = [
     { name = "torch" },
     { name = "torchmetrics" },
     { name = "torchvision" },
-]
-
-[package.optional-dependencies]
-mlflow = [
-    { name = "mlflow" },
 ]
 
 [package.dev-dependencies]
@@ -1966,7 +1962,7 @@ requires-dist = [
     { name = "faster-coco-eval", specifier = ">=1.6.3" },
     { name = "hydra-core", specifier = ">=1.3.2" },
     { name = "matplotlib", specifier = ">=3.9.0" },
-    { name = "mlflow", marker = "extra == 'mlflow'", specifier = ">=3.9.0" },
+    { name = "mlflow", specifier = ">=3.9.0" },
     { name = "numpy", specifier = ">=2.4.2" },
     { name = "pandas", specifier = ">=2.0.0" },
     { name = "pillow", specifier = ">=10.0.0" },
@@ -1975,7 +1971,6 @@ requires-dist = [
     { name = "torchmetrics", specifier = ">=1.8.2" },
     { name = "torchvision", specifier = ">=0.20.0" },
 ]
-provides-extras = ["mlflow"]
 
 [package.metadata.requires-dev]
 dev = [
