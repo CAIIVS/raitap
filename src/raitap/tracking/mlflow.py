@@ -31,6 +31,19 @@ class MLFlowTracker(Tracker):
         self._mlflow: Any | None = None
         self._active_run = False  # Flag if there is an active run initiated in start_assessment
 
+    @staticmethod
+    def _config_params(config_dict: dict[str, Any]) -> dict[str, str]:
+        params = {
+            "assessment.name": str(config_dict.get("experiment_name", "")),
+            "model.source": str(config_dict.get("model", {}).get("source", "")),
+            "data.name": str(config_dict.get("data", {}).get("name", "")),
+            "data.source": str(config_dict.get("data", {}).get("source", "")),
+            "transparency.algorithm": str(
+                config_dict.get("transparency", {}).get("algorithm", "")
+            ),
+        }
+        return {key: value for key, value in params.items() if value}
+
     def _require_mlflow(self) -> Any:
         """
         Lazy import mlflow
@@ -56,6 +69,7 @@ class MLFlowTracker(Tracker):
 
         mlflow.set_experiment(self.experiment_name)
         mlflow.start_run(run_name=context.assessment_name)
+        self._active_run = True
 
         mlflow.set_tags(
             {
@@ -67,8 +81,6 @@ class MLFlowTracker(Tracker):
             }
         )
 
-        self._active_run = True
-
     def finalize(self, status: str = "FINISHED") -> None:
         if not self._active_run:  # No active run, nothing to do
             return
@@ -77,8 +89,12 @@ class MLFlowTracker(Tracker):
 
     def log_config(self, config: Any) -> None:
         mlflow = self._require_mlflow()
-        # TODO: Improve this very basic logging
-        mlflow.log_params(cfg_to_dict(config))
+        config_dict = cfg_to_dict(config)
+        mlflow.log_dict(config_dict, "config/config.json")
+
+        params = self._config_params(config_dict)
+        if params:
+            mlflow.log_params(params)
 
     def log_transparency(self, results: dict[str, Any]) -> None:
         run_dir = results.get("run_dir")
