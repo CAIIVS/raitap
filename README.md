@@ -73,6 +73,40 @@ run_dir = result["run_dir"]  # pathlib.Path
 
 For more details, see the [configuration guide](docs/consumers/configuration.md).
 
+### MLflow Tracking
+
+To run an assessment with MLflow tracking enabled:
+
+1. Start a local MLflow server:
+
+   ```bash
+   .venv/bin/mlflow server \
+     --host 127.0.0.1 \
+     --port 5000 \
+     --backend-store-uri sqlite:///mlflow.db \
+     --default-artifact-root "$(pwd)/mlartifacts"
+   ```
+
+2. In a second terminal, run RAITAP with MLflow tracking enabled:
+
+   ```bash
+   uv run raitap tracking=mlflow
+   ```
+
+   To override the tracking server explicitly:
+
+   ```bash
+   uv run raitap tracking=mlflow tracking.tracking_uri=http://127.0.0.1:5000
+   ```
+
+3. Open the MLflow dashboard:
+
+   ```text
+   http://127.0.0.1:5000
+   ```
+
+The run artifacts and metadata will be visible in the MLflow UI under the configured experiment.
+
 ### Next steps
 
 * If you want to contribute: [Contributing](CONTRIBUTING.md)
@@ -82,7 +116,7 @@ For more details, see the [configuration guide](docs/consumers/configuration.md)
 ### Easily Executable
 
 * Simple CLI interface for quick experiments
-* Sensible defaults - run with zero configuration
+* Hydra-based defaults and overrides for quick experimentation
 * Works as both CLI tool and Python library
 
 ### Easily Maintainable
@@ -90,7 +124,7 @@ For more details, see the [configuration guide](docs/consumers/configuration.md)
 * **Hydra**: Structured configuration management
 * **uv**: Fast, reliable dependency management
 * **Type-safe schemas**: Catch errors early with Python dataclasses
-* **MLFlow**: Experiment tracking and model versioning (coming soon)
+* **MLflow**: Optional local experiment tracking and artifact logging
 
 ### Easily Extendable
 
@@ -103,7 +137,7 @@ For more details, see the [configuration guide](docs/consumers/configuration.md)
 
 * **[Hydra](https://hydra.cc/)** - Configuration framework with CLI integration
 * **[uv](https://docs.astral.sh/uv/)** - Fast Python package manager
-* **[MLFlow](https://mlflow.org/)** - Experiment tracking and ML lifecycle management
+* **[MLflow](https://mlflow.org/)** - Experiment tracking and ML lifecycle management
 * **[SHAP](https://shap.readthedocs.io/)** - Model explanations via Shapley values
 * **[Captum](https://captum.ai/)** - PyTorch interpretability library
 
@@ -128,7 +162,7 @@ Uses [Hydra](https://hydra.cc/) for configuration:
 * **Type-Safe**: Validated against Python schemas
 * **Reproducible**: Every run logs its configuration
 
-See the **[Configuration Guide](docs/configuration.md)** for details.
+See the **[Configuration Guide](docs/consumers/configuration.md)** for details.
 
 ### Integrated Transparency Methods
 
