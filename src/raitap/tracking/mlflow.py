@@ -37,7 +37,7 @@ class MLFlowTracker(Tracker):
         """
         if self._mlflow is None:
             try:
-                importlib.import_module("mlflow")
+                self._mlflow = importlib.import_module("mlflow")
             except ImportError as e:
                 raise ImportError(
                     "MLFlow tracking is enabled but mlflow is not installed. "
