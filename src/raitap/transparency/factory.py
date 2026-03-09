@@ -51,6 +51,7 @@ def explain(
     config: AppConfig,
     model: nn.Module,
     inputs: torch.Tensor,
+    output_dir: Path | None = None,
     **kwargs,
 ) -> dict:
     """
@@ -70,6 +71,9 @@ def explain(
         PyTorch model to explain.
     inputs:
         Input tensor passed to both the explainer and visualisers.
+    output_dir:
+        Explicit artifact directory. If omitted, Hydra's runtime output directory
+        is used, falling back to ``config.fallback_output_dir``.
     **kwargs:
         Framework-specific keyword arguments forwarded to
         ``compute_attributions`` (e.g. ``target``, ``baselines``,
@@ -149,10 +153,14 @@ def explain(
     # ------------------------------------------------------------------
     # 4. Resolve run directory (Hydra first, fallback to config.fallback_output_dir).
     # ------------------------------------------------------------------
-    try:
-        run_dir = Path(HydraConfig.get().runtime.output_dir)
-    except ValueError:
-        run_dir = Path(config.fallback_output_dir)
+    if output_dir is not None:
+        run_dir = Path(output_dir)
+    else:
+        try:
+            run_dir = Path(HydraConfig.get().runtime.output_dir)
+        except ValueError:
+            run_dir = Path(config.fallback_output_dir)
+    run_dir.mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------------
     # 5. Persist attributions.

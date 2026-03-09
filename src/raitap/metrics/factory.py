@@ -33,7 +33,12 @@ def _json_serialisable(value: Any) -> Any:
     return repr(value)
 
 
-def evaluate(config: AppConfig, predictions: Any, targets: Any) -> dict[str, Any]:
+def evaluate(
+    config: AppConfig,
+    predictions: Any,
+    targets: Any,
+    output_dir: Path | None = None,
+) -> dict[str, Any]:
     """
     Compute metrics in one call and persist outputs to the run directory.
 
@@ -46,6 +51,9 @@ def evaluate(config: AppConfig, predictions: Any, targets: Any) -> dict[str, Any
         Model predictions
     targets:
         Ground truth
+    output_dir:
+        Explicit artifact directory. If omitted, Hydra's runtime output directory
+        is used, falling back to ``config.fallback_output_dir``.
     """
     metrics_cfg = cfg_to_dict(config.metrics)
     target_path: str = metrics_cfg.get("_target_", "")
@@ -62,10 +70,13 @@ def evaluate(config: AppConfig, predictions: Any, targets: Any) -> dict[str, Any
     metric.update(predictions, targets)
     result = metric.compute()
 
-    try:
-        run_dir = Path(HydraConfig.get().runtime.output_dir)
-    except ValueError:
-        run_dir = Path(config.fallback_output_dir)
+    if output_dir is not None:
+        run_dir = Path(output_dir)
+    else:
+        try:
+            run_dir = Path(HydraConfig.get().runtime.output_dir)
+        except ValueError:
+            run_dir = Path(config.fallback_output_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
 
     (run_dir / "metrics.json").write_text(

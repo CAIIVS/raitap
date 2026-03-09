@@ -163,15 +163,22 @@ def main() -> int:
             target = predicted_classes.tolist()
 
         metrics_dir = output_dir / "metrics"
-        metrics_dir.mkdir(parents=True, exist_ok=True)
-        config.fallback_output_dir = str(metrics_dir)
-        metrics_result = evaluate_metrics(config, predicted_classes, predicted_classes)
+        metrics_result = evaluate_metrics(
+            config,
+            predicted_classes,
+            predicted_classes,
+            output_dir=metrics_dir,
+        )
         tracker.log_metrics(metrics_result)
 
         transparency_dir = output_dir / "transparency"
-        transparency_dir.mkdir(parents=True, exist_ok=True)
-        config.fallback_output_dir = str(transparency_dir)
-        transparency_result = explain(config, model, data, target=target)
+        transparency_result = explain(
+            config,
+            model,
+            data,
+            output_dir=transparency_dir,
+            target=target,
+        )
         tracker.log_transparency(transparency_result)
 
         status = "FINISHED"

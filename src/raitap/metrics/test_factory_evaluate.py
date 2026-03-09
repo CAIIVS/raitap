@@ -48,3 +48,20 @@ def test_evaluate_bad_target_raises(tmp_path):
 
     with pytest.raises(ValueError, match="Could not instantiate metric"):
         evaluate(cfg, torch.tensor([0]), torch.tensor([0]))
+
+
+def test_evaluate_respects_explicit_output_dir(tmp_path):
+    cfg = _config(tmp_path)
+    output_dir = tmp_path / "metrics"
+
+    out = evaluate(
+        cfg,
+        torch.tensor([0, 1, 2, 1]),
+        torch.tensor([0, 1, 2, 0]),
+        output_dir=output_dir,
+    )
+
+    assert out["run_dir"] == output_dir
+    assert (output_dir / "metrics.json").exists()
+    assert (output_dir / "artifacts.json").exists()
+    assert (output_dir / "metadata.json").exists()
