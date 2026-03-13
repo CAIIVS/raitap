@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydra.core.hydra_config import HydraConfig
 from hydra.utils import instantiate
 
-from ..configs.factory_utils import cfg_to_dict, resolve_target
+from ..configs.factory_utils import cfg_to_dict, resolve_run_dir, resolve_target
 
 if TYPE_CHECKING:
     from ..configs.schema import AppConfig
@@ -38,7 +36,6 @@ def evaluate(
     config: AppConfig,
     predictions: Any,
     targets: Any,
-    output_dir: Path | None = None,
 ) -> dict[str, Any]:
     """
     Compute metrics in one call and persist outputs to the run directory.
@@ -47,14 +44,12 @@ def evaluate(
     ----------
     config:
         App config exposing ``metrics``, ``experiment_name``, and
-        ``fallback_output_dir``.
+        ``fallback_output_dir``. Outputs are written under the ``metrics``
+        subdirectory of the resolved run output directory.
     predictions:
         Model predictions
     targets:
         Ground truth
-    output_dir:
-        Explicit artifact directory. If omitted, Hydra's runtime output directory
-        is used, falling back to ``config.fallback_output_dir``.
     """
     metrics_cfg = cfg_to_dict(config.metrics)
     target_path: str = metrics_cfg.get("_target_", "")
@@ -71,13 +66,7 @@ def evaluate(
     metric.update(predictions, targets)
     result = metric.compute()
 
-    if output_dir is not None:
-        run_dir = Path(output_dir)
-    else:
-        try:
-            run_dir = Path(HydraConfig.get().runtime.output_dir)
-        except ValueError:
-            run_dir = Path(config.fallback_output_dir)
+    run_dir = resolve_run_dir(config, subdir="metrics")
     run_dir.mkdir(parents=True, exist_ok=True)
 
     (run_dir / "metrics.json").write_text(
@@ -112,9 +101,7 @@ def _scalar_metrics(result: Any) -> dict[str, float | int | bool]:
     if not isinstance(metrics, dict):
         return {}
     return {
-        str(key): value
-        for key, value in metrics.items()
-        if isinstance(value, (int, float, bool))
+        str(key): value for key, value in metrics.items() if isinstance(value, (int, float, bool))
     }
 
 
@@ -123,14 +110,12 @@ def evaluate_and_log(
     predictions: Any,
     targets: Any,
     logger: Tracker | None,
-    output_dir: Path | None = None,
     prefix: str = "performance",
 ) -> dict[str, Any]:
     result = evaluate(
         config=config,
         predictions=predictions,
         targets=targets,
-        output_dir=output_dir,
     )
     if logger is not None:
         logger.log_metrics(_scalar_metrics(result["result"]), prefix=prefix)

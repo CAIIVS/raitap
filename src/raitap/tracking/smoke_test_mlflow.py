@@ -155,22 +155,18 @@ def main() -> int:
             predicted_classes = logits.argmax(dim=1)
             target = predicted_classes.tolist()
 
-        metrics_dir = output_dir / "metrics"
         evaluate_metrics(
             config,
             predicted_classes,
             predicted_classes,
             logger=tracker,
-            output_dir=metrics_dir,
         )
 
-        transparency_dir = output_dir / "transparency"
         explain(
             config,
             model,
             data,
             logger=tracker,
-            output_dir=transparency_dir,
             target=target,
         )
 

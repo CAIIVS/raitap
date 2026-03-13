@@ -24,7 +24,6 @@ def test_explain_and_log_logs_transparency_artifacts(monkeypatch, tmp_path):
         model=torch.nn.Identity(),
         inputs=torch.zeros(1),
         logger=logger,
-        output_dir=result["run_dir"],
     )
 
     assert out == result

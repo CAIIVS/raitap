@@ -11,14 +11,12 @@ explain(config, model, inputs, **kwargs)
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import torch
-from hydra.core.hydra_config import HydraConfig
 from hydra.utils import instantiate
 
-from ..configs.factory_utils import cfg_to_dict, resolve_target
+from ..configs.factory_utils import cfg_to_dict, resolve_run_dir, resolve_target
 from .methods_registry import VisualiserIncompatibilityError
 
 _TRANSPARENCY_PREFIX = "raitap.transparency."
@@ -52,7 +50,6 @@ def explain(
     config: AppConfig,
     model: nn.Module,
     inputs: torch.Tensor,
-    output_dir: Path | None = None,
     **kwargs,
 ) -> dict:
     """
@@ -72,9 +69,6 @@ def explain(
         PyTorch model to explain.
     inputs:
         Input tensor passed to both the explainer and visualisers.
-    output_dir:
-        Explicit artifact directory. If omitted, Hydra's runtime output directory
-        is used, falling back to ``config.fallback_output_dir``.
     **kwargs:
         Framework-specific keyword arguments forwarded to
         ``compute_attributions`` (e.g. ``target``, ``baselines``,
@@ -152,15 +146,9 @@ def explain(
     attributions = explainer.compute_attributions(model, inputs, **kwargs)
 
     # ------------------------------------------------------------------
-    # 4. Resolve run directory (Hydra first, fallback to config.fallback_output_dir).
+    # 4. Resolve run directory from Hydra runtime output dir or fallback config.
     # ------------------------------------------------------------------
-    if output_dir is not None:
-        run_dir = Path(output_dir)
-    else:
-        try:
-            run_dir = Path(HydraConfig.get().runtime.output_dir)
-        except ValueError:
-            run_dir = Path(config.fallback_output_dir)
+    run_dir = resolve_run_dir(config, subdir="transparency")
     run_dir.mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------------
@@ -213,7 +201,6 @@ def explain_and_log(
     model: nn.Module,
     inputs: torch.Tensor,
     logger: Tracker | None,
-    output_dir: Path | None = None,
     artifact_path: str = "transparency",
     **kwargs: Any,
 ) -> dict:
@@ -221,7 +208,6 @@ def explain_and_log(
         config=config,
         model=model,
         inputs=inputs,
-        output_dir=output_dir,
         **kwargs,
     )
     if logger is not None:

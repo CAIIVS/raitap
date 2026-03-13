@@ -30,7 +30,7 @@ def test_evaluate_writes_outputs(tmp_path):
     assert "result" in out
     assert "run_dir" in out
     run_dir = out["run_dir"]
-    assert run_dir == tmp_path
+    assert run_dir == tmp_path / "metrics"
 
     assert (run_dir / "metrics.json").exists()
     assert (run_dir / "artifacts.json").exists()
@@ -51,26 +51,18 @@ def test_evaluate_bad_target_raises(tmp_path):
         evaluate(cfg, torch.tensor([0]), torch.tensor([0]))
 
 
-def test_evaluate_respects_explicit_output_dir(tmp_path):
+def test_evaluate_writes_under_metrics_subdirectory(tmp_path):
     cfg = _config(tmp_path)
-    output_dir = tmp_path / "metrics"
+    out = evaluate(cfg, torch.tensor([0, 1, 2, 1]), torch.tensor([0, 1, 2, 0]))
 
-    out = evaluate(
-        cfg,
-        torch.tensor([0, 1, 2, 1]),
-        torch.tensor([0, 1, 2, 0]),
-        output_dir=output_dir,
-    )
-
-    assert out["run_dir"] == output_dir
-    assert (output_dir / "metrics.json").exists()
-    assert (output_dir / "artifacts.json").exists()
-    assert (output_dir / "metadata.json").exists()
+    assert out["run_dir"] == tmp_path / "metrics"
+    assert (tmp_path / "metrics" / "metrics.json").exists()
+    assert (tmp_path / "metrics" / "artifacts.json").exists()
+    assert (tmp_path / "metrics" / "metadata.json").exists()
 
 
 def test_evaluate_and_log_uses_logger_for_metrics_and_artifacts(tmp_path):
     cfg = _config(tmp_path)
-    output_dir = tmp_path / "metrics"
     logger = MagicMock()
 
     out = evaluate_and_log(
@@ -78,9 +70,8 @@ def test_evaluate_and_log_uses_logger_for_metrics_and_artifacts(tmp_path):
         torch.tensor([0, 1, 2, 1]),
         torch.tensor([0, 1, 2, 0]),
         logger=logger,
-        output_dir=output_dir,
     )
 
-    assert out["run_dir"] == output_dir
+    assert out["run_dir"] == tmp_path / "metrics"
     logger.log_metrics.assert_called_once()
-    logger.log_artifacts.assert_called_once_with(output_dir, artifact_path="metrics")
+    logger.log_artifacts.assert_called_once_with(tmp_path / "metrics", artifact_path="metrics")

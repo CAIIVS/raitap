@@ -65,8 +65,7 @@ def main(config: AppConfig):
 
         # 3. Run transparency assessment
         print("\nRunning explanation...")
-        transparency_dir = output_dir / "transparency"
-        explain_and_log(config, model, data, logger=tracker, output_dir=transparency_dir)
+        explain_and_log(config, model, data, logger=tracker)
 
         status = "FINISHED"
 
