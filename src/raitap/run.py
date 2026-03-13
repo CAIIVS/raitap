@@ -19,15 +19,16 @@ def main(config: AppConfig):
     tracker = create_tracker(config.tracking)
     status = "FAILED"
 
-    tracker.start_assessment(
-        AssessmentContext(
-            assessment_name=config.experiment_name,
-            model_source=config.model.source,
-            data_name=config.data.name,
-            data_source=config.data.source,
-            output_dir=output_dir,
+    if tracker is not None:
+        tracker.start_assessment(
+            AssessmentContext(
+                assessment_name=config.experiment_name,
+                model_source=config.model.source,
+                data_name=config.data.name,
+                data_source=config.data.source,
+                output_dir=output_dir,
+            )
         )
-    )
 
     print("=" * 60)
     print("RAITAP Transparency Assessment")
@@ -41,7 +42,8 @@ def main(config: AppConfig):
     print(f"Output: {output_dir}\n")
 
     try:
-        tracker.log_config(config)
+        if tracker is not None:
+            tracker.log_config(config)
 
         # 1. Load model
         print("Loading model...")
@@ -53,7 +55,8 @@ def main(config: AppConfig):
             )
         model = load_model(config.model.source)
         print(f"✓ Loaded model from {config.model.source!r}")
-        tracker.log_model(model)
+        if tracker is not None:
+            tracker.log_model(model)
 
         # 2. Load data
         print("\nLoading data...")
@@ -74,13 +77,14 @@ def main(config: AppConfig):
                 "sample_shape": [int(dim) for dim in dims],
                 "dtype": str(data.dtype),
             }
-        )
+        ) if tracker is not None else None
 
         # 3. Run transparency assessment
         print("\nRunning explanation...")
         transparency_dir = output_dir / "transparency"
-        transparency_result = explain(config, model, data, output_dir=transparency_dir)
-        tracker.log_transparency(transparency_result)
+        explain(config, model, data, output_dir=transparency_dir)
+        if tracker is not None:
+            tracker.log_artifacts(transparency_dir, artifact_path="transparency")
 
         status = "FINISHED"
 
@@ -88,7 +92,8 @@ def main(config: AppConfig):
         print("Assessment complete!")
         print("=" * 60)
     finally:
-        tracker.finalize(status=status)
+        if tracker is not None:
+            tracker.finalize(status=status)
 
 
 if __name__ == "__main__":

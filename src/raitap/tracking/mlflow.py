@@ -94,22 +94,16 @@ class MLFlowTracker(Tracker):
         if params:
             mlflow.log_params(params)
 
-    def log_transparency(self, results: dict[str, Any]) -> None:
-        run_dir = results.get("run_dir")
-
-        if isinstance(run_dir, str):
-            run_dir = Path(run_dir)
-
-        if isinstance(run_dir, Path) and run_dir.exists():
-            mlflow = self._require_mlflow()
-            mlflow.log_artifacts(
-                str(run_dir),
-                artifact_path="transparency",
-            )
-
     def log_dataset(self, dataset_info: dict[str, Any], artifact_path: str = "dataset") -> None:
         mlflow = self._require_mlflow()
         mlflow.log_dict(dataset_info, f"{artifact_path}/dataset.json")
+
+    def log_artifacts(self, local_dir: str | Path, artifact_path: str) -> None:
+        if isinstance(local_dir, str):
+            local_dir = Path(local_dir)
+
+        if isinstance(local_dir, Path) and local_dir.exists():
+            self._require_mlflow().log_artifacts(str(local_dir), artifact_path=artifact_path)
 
     def log_metrics(self, result: dict[str, Any], prefix: str = "performance") -> None:
         """

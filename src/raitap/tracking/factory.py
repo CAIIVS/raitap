@@ -5,14 +5,13 @@ from typing import Any
 from ..configs.factory_utils import cfg_to_dict
 from .base import AssessmentContext, Tracker
 from .mlflow import MLFlowTracker
-from .noop import NoopTracker
 
 
-def create_tracker(config: Any) -> Tracker:
+def create_tracker(config: Any) -> Tracker | None:
     tracking_config = cfg_to_dict(config)
 
     if not tracking_config.get("enabled", False):
-        return NoopTracker()
+        return None
 
     return MLFlowTracker(
         tracking_uri=tracking_config.get("tracking_uri"),
@@ -25,7 +24,6 @@ def create_tracker(config: Any) -> Tracker:
 
 __all__ = [
     "AssessmentContext",
-    "NoopTracker",
     "Tracker",
     "create_tracker",
 ]

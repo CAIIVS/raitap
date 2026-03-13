@@ -122,38 +122,42 @@ def main() -> int:
     tracker = create_tracker(config.tracking)
     status = "FAILED"
 
-    tracker.start_assessment(
-        AssessmentContext(
-            assessment_name=config.experiment_name,
-            model_source=config.model.source,
-            data_name=config.data.name,
-            data_source=config.data.source,
-            output_dir=output_dir,
+    if tracker is not None:
+        tracker.start_assessment(
+            AssessmentContext(
+                assessment_name=config.experiment_name,
+                model_source=config.model.source,
+                data_name=config.data.name,
+                data_source=config.data.source,
+                output_dir=output_dir,
+            )
         )
-    )
 
     try:
-        tracker.log_config(config)
+        if tracker is not None:
+            tracker.log_config(config)
 
         if not config.model.source:
             raise ValueError("No model source specified.")
         model_source: str = config.model.source
         model = load_model(model_source)
-        tracker.log_model(model)
+        if tracker is not None:
+            tracker.log_model(model)
 
         if not config.data.source:
             raise ValueError("No data source specified.")
         data_source: str = config.data.source
         data = load_data(data_source)
-        tracker.log_dataset(
-            {
-                "name": config.data.name,
-                "source": config.data.source,
-                "num_samples": int(data.shape[0]),
-                "shape": [int(dim) for dim in data.shape],
-                "dtype": str(data.dtype),
-            }
-        )
+        if tracker is not None:
+            tracker.log_dataset(
+                {
+                    "name": config.data.name,
+                    "source": config.data.source,
+                    "num_samples": int(data.shape[0]),
+                    "shape": [int(dim) for dim in data.shape],
+                    "dtype": str(data.dtype),
+                }
+            )
 
         with torch.no_grad():
             logits = model(data)
@@ -174,21 +178,24 @@ def main() -> int:
             predicted_classes,
             output_dir=metrics_dir,
         )
-        tracker.log_metrics(metrics_result)
+        if tracker is not None:
+            tracker.log_metrics(metrics_result)
 
         transparency_dir = output_dir / "transparency"
-        transparency_result = explain(
+        explain(
             config,
             model,
             data,
             output_dir=transparency_dir,
             target=target,
         )
-        tracker.log_transparency(transparency_result)
+        if tracker is not None:
+            tracker.log_artifacts(transparency_dir, artifact_path="transparency")
 
         status = "FINISHED"
     finally:
-        tracker.finalize(status=status)
+        if tracker is not None:
+            tracker.finalize(status=status)
 
     print(f"Smoke test finished with status={status}")
     print(f"MLflow tracking URI: {tracking_uri}")
