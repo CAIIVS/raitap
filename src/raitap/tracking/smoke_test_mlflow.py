@@ -22,24 +22,19 @@ from raitap.configs.schema import (  # noqa: E402
     TransparencyConfig,
 )
 from raitap.data import load_data  # noqa: E402
-from raitap.metrics import evaluate as evaluate_metrics  # noqa: E402
+from raitap.metrics import evaluate_and_log as evaluate_metrics  # noqa: E402
 from raitap.models import load_model  # noqa: E402
-from raitap.tracking import AssessmentContext, create_tracker  # noqa: E402
+from raitap.tracking import (  # noqa: E402
+    create_tracker,
+    finalize_tracking,
+    initialize_tracking,
+    log_artifact_directory,
+    log_dataset_info,
+)
+from raitap.tracking.helpers import log_model_artifact  # noqa: E402
 from raitap.transparency import explain  # noqa: E402
 
 DEFAULT_TRACKING_URI = "http://127.0.0.1:5000"
-
-
-def _extract_scalar_metrics(result: dict[str, object]) -> dict[str, float | int | bool]:
-    metric_result = result.get("result")
-    metrics = getattr(metric_result, "metrics", {})
-    if not isinstance(metrics, dict):
-        return {}
-    return {
-        str(key): value
-        for key, value in metrics.items()
-        if isinstance(value, (int, float, bool))
-    }
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -134,42 +129,20 @@ def main() -> int:
     tracker = create_tracker(config.tracking)
     status = "FAILED"
 
-    if tracker is not None:
-        tracker.start_assessment(
-            AssessmentContext(
-                assessment_name=config.experiment_name,
-                model_source=config.model.source,
-                data_name=config.data.name,
-                data_source=config.data.source,
-                output_dir=output_dir,
-            )
-        )
-
     try:
-        if tracker is not None:
-            tracker.log_config(config)
+        initialize_tracking(tracker, config, output_dir)
 
         if not config.model.source:
             raise ValueError("No model source specified.")
         model_source: str = config.model.source
         model = load_model(model_source)
-        if tracker is not None:
-            tracker.log_model(model)
+        log_model_artifact(tracker, model)
 
         if not config.data.source:
             raise ValueError("No data source specified.")
         data_source: str = config.data.source
         data = load_data(data_source)
-        if tracker is not None:
-            tracker.log_dataset(
-                {
-                    "name": config.data.name,
-                    "source": config.data.source,
-                    "num_samples": int(data.shape[0]),
-                    "shape": [int(dim) for dim in data.shape],
-                    "dtype": str(data.dtype),
-                }
-            )
+        log_dataset_info(tracker, config, data)
 
         with torch.no_grad():
             logits = model(data)
@@ -184,15 +157,13 @@ def main() -> int:
             target = predicted_classes.tolist()
 
         metrics_dir = output_dir / "metrics"
-        metrics_result = evaluate_metrics(
+        evaluate_metrics(
             config,
             predicted_classes,
             predicted_classes,
+            logger=tracker,
             output_dir=metrics_dir,
         )
-        if tracker is not None:
-            tracker.log_metrics(_extract_scalar_metrics(metrics_result))
-            tracker.log_artifacts(metrics_dir, artifact_path="metrics")
 
         transparency_dir = output_dir / "transparency"
         explain(
@@ -202,13 +173,11 @@ def main() -> int:
             output_dir=transparency_dir,
             target=target,
         )
-        if tracker is not None:
-            tracker.log_artifacts(transparency_dir, artifact_path="transparency")
+        log_artifact_directory(tracker, transparency_dir, artifact_path="transparency")
 
         status = "FINISHED"
     finally:
-        if tracker is not None:
-            tracker.finalize(status=status)
+        finalize_tracking(tracker, status=status)
 
     print(f"Smoke test finished with status={status}")
     print(f"MLflow tracking URI: {tracking_uri}")

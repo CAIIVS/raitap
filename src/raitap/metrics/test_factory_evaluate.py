@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import MagicMock
 
 import pytest
 import torch
 
 from raitap.configs.schema import AppConfig, MetricsConfig
-from raitap.metrics import evaluate
+from raitap.metrics import evaluate, evaluate_and_log
 
 
 def _config(tmp_path) -> AppConfig:
@@ -65,3 +66,21 @@ def test_evaluate_respects_explicit_output_dir(tmp_path):
     assert (output_dir / "metrics.json").exists()
     assert (output_dir / "artifacts.json").exists()
     assert (output_dir / "metadata.json").exists()
+
+
+def test_evaluate_and_log_uses_logger_for_metrics_and_artifacts(tmp_path):
+    cfg = _config(tmp_path)
+    output_dir = tmp_path / "metrics"
+    logger = MagicMock()
+
+    out = evaluate_and_log(
+        cfg,
+        torch.tensor([0, 1, 2, 1]),
+        torch.tensor([0, 1, 2, 0]),
+        logger=logger,
+        output_dir=output_dir,
+    )
+
+    assert out["run_dir"] == output_dir
+    logger.log_metrics.assert_called_once()
+    logger.log_artifacts.assert_called_once_with(output_dir, artifact_path="metrics")

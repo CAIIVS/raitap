@@ -13,6 +13,7 @@ from ..configs.factory_utils import cfg_to_dict, resolve_target
 
 if TYPE_CHECKING:
     from ..configs.schema import AppConfig
+    from ..tracking.base import Tracker
 
 _METRICS_PREFIX = "raitap.metrics."
 
@@ -104,3 +105,34 @@ def evaluate(
         "result": result,
         "run_dir": run_dir,
     }
+
+
+def _scalar_metrics(result: Any) -> dict[str, float | int | bool]:
+    metrics = getattr(result, "metrics", {})
+    if not isinstance(metrics, dict):
+        return {}
+    return {
+        str(key): value
+        for key, value in metrics.items()
+        if isinstance(value, (int, float, bool))
+    }
+
+
+def evaluate_and_log(
+    config: AppConfig,
+    predictions: Any,
+    targets: Any,
+    logger: Tracker | None,
+    output_dir: Path | None = None,
+    prefix: str = "performance",
+) -> dict[str, Any]:
+    result = evaluate(
+        config=config,
+        predictions=predictions,
+        targets=targets,
+        output_dir=output_dir,
+    )
+    if logger is not None:
+        logger.log_metrics(_scalar_metrics(result["result"]), prefix=prefix)
+        logger.log_artifacts(result["run_dir"], artifact_path="metrics")
+    return result

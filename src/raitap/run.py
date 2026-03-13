@@ -7,7 +7,14 @@ from .configs.register import register_configs
 from .configs.schema import AppConfig
 from .data import load_data
 from .models import load_model
-from .tracking import AssessmentContext, create_tracker
+from .tracking import (
+    create_tracker,
+    finalize_tracking,
+    initialize_tracking,
+    log_artifact_directory,
+    log_dataset_info,
+)
+from .tracking.helpers import log_model_artifact
 from .transparency import explain
 
 register_configs()
@@ -18,17 +25,6 @@ def main(config: AppConfig):
     output_dir = Path(HydraConfig.get().runtime.output_dir)
     tracker = create_tracker(config.tracking)
     status = "FAILED"
-
-    if tracker is not None:
-        tracker.start_assessment(
-            AssessmentContext(
-                assessment_name=config.experiment_name,
-                model_source=config.model.source,
-                data_name=config.data.name,
-                data_source=config.data.source,
-                output_dir=output_dir,
-            )
-        )
 
     print("=" * 60)
     print("RAITAP Transparency Assessment")
@@ -42,8 +38,7 @@ def main(config: AppConfig):
     print(f"Output: {output_dir}\n")
 
     try:
-        if tracker is not None:
-            tracker.log_config(config)
+        initialize_tracking(tracker, config, output_dir)
 
         # 1. Load model
         print("Loading model...")
@@ -55,8 +50,7 @@ def main(config: AppConfig):
             )
         model = load_model(config.model.source)
         print(f"✓ Loaded model from {config.model.source!r}")
-        if tracker is not None:
-            tracker.log_model(model)
+        log_model_artifact(tracker, model)
 
         # 2. Load data
         print("\nLoading data...")
@@ -68,23 +62,13 @@ def main(config: AppConfig):
         data = load_data(config.data.source)
         n, *dims = data.shape
         print(f"✓ Loaded {n} samples from {config.data.source!r} (shape: {tuple(dims)})")
-        tracker.log_dataset(
-            {
-                "name": config.data.name,
-                "source": config.data.source,
-                "num_samples": int(n),
-                "shape": [int(dim) for dim in data.shape],
-                "sample_shape": [int(dim) for dim in dims],
-                "dtype": str(data.dtype),
-            }
-        ) if tracker is not None else None
+        log_dataset_info(tracker, config, data)
 
         # 3. Run transparency assessment
         print("\nRunning explanation...")
         transparency_dir = output_dir / "transparency"
         explain(config, model, data, output_dir=transparency_dir)
-        if tracker is not None:
-            tracker.log_artifacts(transparency_dir, artifact_path="transparency")
+        log_artifact_directory(tracker, transparency_dir, artifact_path="transparency")
 
         status = "FINISHED"
 
@@ -92,8 +76,7 @@ def main(config: AppConfig):
         print("Assessment complete!")
         print("=" * 60)
     finally:
-        if tracker is not None:
-            tracker.finalize(status=status)
+        finalize_tracking(tracker, status=status)
 
 
 if __name__ == "__main__":
