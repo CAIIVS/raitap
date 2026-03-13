@@ -15,6 +15,12 @@ It verifies that RAITAP can:
 - compute classification metrics
 - log config, dataset metadata, metrics, and transparency artifacts to MLflow
 
+The current logging split is:
+
+- `raitap.metrics.evaluate_and_log(...)` owns metric-to-tracker translation
+- `raitap.transparency.explain_and_log(...)` owns transparency-to-tracker translation
+- the tracking backend only handles generic MLflow logging calls
+
 ## What It Uses
 
 By default the script uses:

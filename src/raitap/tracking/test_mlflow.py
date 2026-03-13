@@ -56,3 +56,27 @@ def test_log_metrics_logs_scalar_metrics_with_prefix(monkeypatch):
             "performance.flag": 1.0,
         }
     )
+
+
+def test_finalize_ends_run_with_failed_status(monkeypatch):
+    mlflow_mock = MagicMock()
+    tracker = MLFlowTracker()
+    tracker._active_run = True
+
+    monkeypatch.setattr(tracker, "_require_mlflow", lambda: mlflow_mock)
+
+    tracker.finalize(status="FAILED")
+
+    mlflow_mock.end_run.assert_called_once_with(status="FAILED")
+    assert tracker._active_run is False
+
+
+def test_finalize_without_active_run_is_noop(monkeypatch):
+    mlflow_mock = MagicMock()
+    tracker = MLFlowTracker()
+
+    monkeypatch.setattr(tracker, "_require_mlflow", lambda: mlflow_mock)
+
+    tracker.finalize(status="FAILED")
+
+    mlflow_mock.end_run.assert_not_called()

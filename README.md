@@ -103,6 +103,13 @@ To run an assessment with MLflow tracking enabled:
 
 The run artifacts and metadata will be visible in the MLflow UI under the configured experiment.
 
+Current logging architecture:
+
+- `run.py` keeps orchestration thin and delegates tracking setup to shared helpers.
+- `raitap.metrics.evaluate_and_log(...)` computes metrics and translates metric outputs into tracker calls.
+- `raitap.transparency.explain_and_log(...)` computes transparency outputs and translates them into tracker calls.
+- The tracker backend stays MLflow-oriented: it logs config, model artifacts, dataset metadata, scalar metrics, and artifact directories, but it does not unpack package-specific result objects.
+
 ### Next steps
 
 * If you want to contribute: [Contributing](CONTRIBUTING.md)
