@@ -19,13 +19,13 @@ from raitap.configs.schema import (
 from raitap.data import load_data
 from raitap.metrics import evaluate_and_log as evaluate_metrics
 from raitap.models import load_model
-from raitap.tracking import (
+from raitap.models.tests.tracking import (
     create_tracker,
     finalize_tracking,
     initialize_tracking,
     log_dataset_info,
 )
-from raitap.tracking.helpers import log_model_artifact
+from raitap.models.tests.tracking.helpers import log_model_artifact
 from raitap.transparency import explain_and_log as explain
 
 REPO_ROOT = Path(__file__).resolve().parents[1]

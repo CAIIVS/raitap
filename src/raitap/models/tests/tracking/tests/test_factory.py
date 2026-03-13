@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from raitap.tracking.factory import create_tracker
-from raitap.tracking.mlflow import MLFlowTracker
+from raitap.models.tests.tracking.factory import create_tracker
+from raitap.models.tests.tracking.mlflow import MLFlowTracker
 
 
 def test_create_tracker_returns_none_when_tracking_disabled():

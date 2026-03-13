@@ -12,8 +12,9 @@ from hydra.utils import instantiate
 from ..configs.factory_utils import cfg_to_dict, resolve_target
 
 if TYPE_CHECKING:
+    from raitap.models.tests.tracking.base import Tracker
+
     from ..configs.schema import AppConfig
-    from ..tracking.base import Tracker
 
 _METRICS_PREFIX = "raitap.metrics."
 

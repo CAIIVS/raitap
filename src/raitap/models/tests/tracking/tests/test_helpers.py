@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from raitap.tracking.helpers import (
+from raitap.models.tests.tracking.helpers import (
     finalize_tracking,
     initialize_tracking,
     log_artifact_directory,

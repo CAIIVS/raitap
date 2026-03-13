@@ -6,7 +6,8 @@ import importlib
 from pathlib import Path
 from typing import Any
 
-from ..configs.factory_utils import cfg_to_dict
+from raitap.configs.factory_utils import cfg_to_dict
+
 from .base import AssessmentContext, Tracker
 
 
@@ -36,9 +37,7 @@ class MLFlowTracker(Tracker):
             "model.source": str(config_dict.get("model", {}).get("source", "")),
             "data.name": str(config_dict.get("data", {}).get("name", "")),
             "data.source": str(config_dict.get("data", {}).get("source", "")),
-            "transparency.algorithm": str(
-                config_dict.get("transparency", {}).get("algorithm", "")
-            ),
+            "transparency.algorithm": str(config_dict.get("transparency", {}).get("algorithm", "")),
         }
         return {key: value for key, value in params.items() if value}
 

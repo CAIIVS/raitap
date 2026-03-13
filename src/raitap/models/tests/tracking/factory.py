@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..configs.factory_utils import cfg_to_dict
+from raitap.configs.factory_utils import cfg_to_dict
+
 from .base import AssessmentContext, Tracker
 from .mlflow import MLFlowTracker
 

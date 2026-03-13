@@ -27,8 +27,9 @@ if TYPE_CHECKING:
     import torch.nn as nn
     from matplotlib.figure import Figure
 
+    from raitap.models.tests.tracking.base import Tracker
+
     from ..configs.schema import AppConfig
-    from ..tracking.base import Tracker
 
 
 # ---------------------------------------------------------------------------

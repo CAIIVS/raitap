@@ -3,7 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ..data import describe_data
+from raitap.data import describe_data
+
 from .base import AssessmentContext, Tracker
 
 

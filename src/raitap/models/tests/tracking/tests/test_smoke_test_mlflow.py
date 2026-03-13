@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from raitap.tracking.smoke_test_mlflow import DEFAULT_TRACKING_URI, build_parser
+from raitap.models.tests.tracking.tests.smoke_test_mlflow import DEFAULT_TRACKING_URI, build_parser
 
 
 def test_smoke_test_defaults_to_local_tracking_server():

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from raitap.tracking.base import AssessmentContext
-from raitap.tracking.mlflow import MLFlowTracker
+from raitap.models.tests.tracking.base import AssessmentContext
+from raitap.models.tests.tracking.mlflow import MLFlowTracker
 
 
 def test_start_assessment_uses_main_experiment_name(monkeypatch):
