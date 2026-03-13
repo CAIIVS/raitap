@@ -105,42 +105,18 @@ class MLFlowTracker(Tracker):
         if isinstance(local_dir, Path) and local_dir.exists():
             self._require_mlflow().log_artifacts(str(local_dir), artifact_path=artifact_path)
 
-    def log_metrics(self, result: dict[str, Any], prefix: str = "performance") -> None:
-        """
-        Logs performance metrics and artifacts from a given result dictionary
-        to an MLflow tracking server.
-
-        The method extracts metrics and logs them as scalar values
-        with an optional prefix. It also logs artifacts from
-        a specified directory. This method is designed for logging
-        model performance or evaluation results.
-
-        :param result: A dictionary containing the result data to log. The supported keys are:
-            - "result": An object containing a "metrics" attribute of type dict[str, Any].
-            - "run_dir": A string or Path object representing the directory containing
-                        artifacts for logging.
-        :param prefix: A string prefix to prepend to the metric keys when logged in MLFlow.
-                        Defaults to "performance".
-        :return: This method does not return a value.
-        """
-        mlflow = self._require_mlflow()
-        metric_result = result.get("result")
-        metrics = getattr(metric_result, "metrics", {})
-
-        if isinstance(metrics, dict):
-            scalar_metrics = {}
-            for k, v in metrics.items():
-                if isinstance(v, int | float | bool):
-                    scalar_metrics[f"{prefix}.{k}"] = float(v)
-            if scalar_metrics:
-                mlflow.log_metrics(scalar_metrics)
-
-        run_dir = result.get("run_dir")
-        if isinstance(run_dir, str):
-            run_dir = Path(run_dir)
-
-        if isinstance(run_dir, Path) and run_dir.exists():
-            mlflow.log_artifacts(str(run_dir), artifact_path="metrics")
+    def log_metrics(
+        self,
+        metrics: dict[str, float | int | bool],
+        prefix: str = "performance",
+    ) -> None:
+        scalar_metrics = {
+            f"{prefix}.{key}": float(value)
+            for key, value in metrics.items()
+            if isinstance(value, (int, float, bool))
+        }
+        if scalar_metrics:
+            self._require_mlflow().log_metrics(scalar_metrics)
 
     def log_model(self, model: Any, artifact_path: str = "model") -> None:
         if not self.log_model_enabled:

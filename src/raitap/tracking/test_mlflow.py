@@ -39,3 +39,20 @@ def test_log_artifacts_logs_existing_directory(monkeypatch, tmp_path):
         str(artifact_dir),
         artifact_path="transparency",
     )
+
+
+def test_log_metrics_logs_scalar_metrics_with_prefix(monkeypatch):
+    mlflow_mock = MagicMock()
+    tracker = MLFlowTracker()
+
+    monkeypatch.setattr(tracker, "_require_mlflow", lambda: mlflow_mock)
+
+    tracker.log_metrics({"accuracy": 1.0, "count": 4, "flag": True})
+
+    mlflow_mock.log_metrics.assert_called_once_with(
+        {
+            "performance.accuracy": 1.0,
+            "performance.count": 4.0,
+            "performance.flag": 1.0,
+        }
+    )

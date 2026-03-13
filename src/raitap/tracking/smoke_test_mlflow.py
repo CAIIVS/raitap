@@ -30,6 +30,18 @@ from raitap.transparency import explain  # noqa: E402
 DEFAULT_TRACKING_URI = "http://127.0.0.1:5000"
 
 
+def _extract_scalar_metrics(result: dict[str, object]) -> dict[str, float | int | bool]:
+    metric_result = result.get("result")
+    metrics = getattr(metric_result, "metrics", {})
+    if not isinstance(metrics, dict):
+        return {}
+    return {
+        str(key): value
+        for key, value in metrics.items()
+        if isinstance(value, (int, float, bool))
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
     default_image = Path.home() / ".cache" / "raitap" / "imagenet_samples" / "golden_retriever.jpg"
     parser = argparse.ArgumentParser(
@@ -179,7 +191,8 @@ def main() -> int:
             output_dir=metrics_dir,
         )
         if tracker is not None:
-            tracker.log_metrics(metrics_result)
+            tracker.log_metrics(_extract_scalar_metrics(metrics_result))
+            tracker.log_artifacts(metrics_dir, artifact_path="metrics")
 
         transparency_dir = output_dir / "transparency"
         explain(
