@@ -41,11 +41,22 @@ class MetricsConfig:
 
 
 @dataclass
+class TrackingConfig:
+    enabled: bool = False
+    tracking_uri: str | None = None
+    registry_uri: str | None = None
+    log_model: bool = False
+    registry_enabled: bool = False
+    registered_model_name: str | None = None
+
+
+@dataclass
 class AppConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     data: DataConfig = field(default_factory=DataConfig)
     transparency: TransparencyConfig = field(default_factory=TransparencyConfig)
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
+    tracking: TrackingConfig = field(default_factory=TrackingConfig)
     experiment_name: str = "mvp"
     # Fallback output directory used when running outside of a Hydra session.
     fallback_output_dir: str = "."

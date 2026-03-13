@@ -30,7 +30,7 @@ from .base import MetricComputer, MetricResult
 # Concrete metric implementations
 from .classification_metrics import ClassificationMetrics
 from .detection_metrics import DetectionMetrics
-from .factory import evaluate
+from .factory import evaluate, evaluate_and_log
 
 __all__ = [  # noqa: RUF022
     # Base types
@@ -41,4 +41,5 @@ __all__ = [  # noqa: RUF022
     "DetectionMetrics",
     # Factory API
     "evaluate",
+    "evaluate_and_log",
 ]

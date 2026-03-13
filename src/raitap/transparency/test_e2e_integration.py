@@ -171,6 +171,15 @@ class TestExplainCaptumImage:
         result = explain(config, simple_cnn, sample_images, target=0, baselines=baselines)
         _assert_explain_result(result, "CaptumImageVisualiser")
 
+    def test_explain_writes_to_transparency_subdirectory(
+        self, needs_captum, simple_cnn, sample_images, tmp_path
+    ):
+        config = _make_config(tmp_path, _captum_tc())
+        result = explain(config, simple_cnn, sample_images, target=0)
+
+        assert result["run_dir"] == tmp_path / "transparency"
+        _assert_explain_result(result, "CaptumImageVisualiser")
+
 
 class TestExplainShapImage:
     """explain() with gradient-based SHAP algorithms + ShapImageVisualiser."""

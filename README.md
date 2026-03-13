@@ -73,6 +73,88 @@ run_dir = result["run_dir"]  # pathlib.Path
 
 For more details, see the [configuration guide](docs/consumers/configuration.md).
 
+### Running With And Without MLflow
+
+#### 1. Run without MLflow
+
+Tracking is disabled by default.
+
+```bash
+uv run raitap
+```
+
+This writes local artifacts to the Hydra output directory printed in the console, for example:
+
+```text
+outputs/2026-03-13/13-21-24/
+```
+
+Use this mode when you only want local files and do not need an experiment dashboard.
+
+#### 2. Start the bundled MLflow server, then run with MLflow
+
+Start the local MLflow server in one terminal:
+
+```bash
+uv run raitap-mlflow-server
+```
+
+The launcher reads its defaults from `src/raitap/configs/tracking/mlflow_server.yaml` and starts a server on:
+
+```text
+http://127.0.0.1:5000
+```
+
+Then run RAITAP in a second terminal:
+
+```bash
+uv run raitap tracking=mlflow
+```
+
+Open the MLflow UI in your browser:
+
+```text
+http://127.0.0.1:5000
+```
+
+The local MLflow database and artifact store live under `./mlflow/`.
+
+#### 3. Integrate with an existing MLflow setup
+
+If you already have an MLflow tracking server, point RAITAP at that server explicitly:
+
+```bash
+uv run raitap tracking=mlflow tracking.tracking_uri=http://your-mlflow-host:5000
+```
+
+You can also override other tracking settings from the CLI, for example:
+
+```bash
+uv run raitap \
+  tracking=mlflow \
+  tracking.tracking_uri=http://your-mlflow-host:5000 \
+  tracking.registry_uri=http://your-registry-host:5000 \
+  tracking.log_model=true \
+  experiment_name=my-assessment
+```
+
+Use this mode when MLflow is already managed outside this repository and you want RAITAP to publish runs into that existing environment.
+
+#### What the main `raitap` command logs
+
+When `tracking=mlflow` is enabled, the main CLI run logs:
+
+- config snapshot
+- dataset metadata
+- transparency artifacts
+- optional model artifact when `tracking.log_model=true`
+
+The main `uv run raitap` flow currently does not compute or log evaluation metrics. If you need a complete MLflow smoke test including metrics, use:
+
+```bash
+uv run python -m raitap.tracking.smoke_test_mlflow
+```
+
 ### Next steps
 
 * If you want to contribute: [Contributing](CONTRIBUTING.md)
@@ -82,7 +164,7 @@ For more details, see the [configuration guide](docs/consumers/configuration.md)
 ### Easily Executable
 
 * Simple CLI interface for quick experiments
-* Sensible defaults - run with zero configuration
+* Hydra-based defaults and overrides for quick experimentation
 * Works as both CLI tool and Python library
 
 ### Easily Maintainable
@@ -90,7 +172,7 @@ For more details, see the [configuration guide](docs/consumers/configuration.md)
 * **Hydra**: Structured configuration management
 * **uv**: Fast, reliable dependency management
 * **Type-safe schemas**: Catch errors early with Python dataclasses
-* **MLFlow**: Experiment tracking and model versioning (coming soon)
+* **MLflow**: Optional local experiment tracking and artifact logging
 
 ### Easily Extendable
 
@@ -103,7 +185,7 @@ For more details, see the [configuration guide](docs/consumers/configuration.md)
 
 * **[Hydra](https://hydra.cc/)** - Configuration framework with CLI integration
 * **[uv](https://docs.astral.sh/uv/)** - Fast Python package manager
-* **[MLFlow](https://mlflow.org/)** - Experiment tracking and ML lifecycle management
+* **[MLflow](https://mlflow.org/)** - Experiment tracking and ML lifecycle management
 * **[SHAP](https://shap.readthedocs.io/)** - Model explanations via Shapley values
 * **[Captum](https://captum.ai/)** - PyTorch interpretability library
 
@@ -128,7 +210,7 @@ Uses [Hydra](https://hydra.cc/) for configuration:
 * **Type-Safe**: Validated against Python schemas
 * **Reproducible**: Every run logs its configuration
 
-See the **[Configuration Guide](docs/configuration.md)** for details.
+See the **[Configuration Guide](docs/consumers/configuration.md)** for details.
 
 ### Integrated Transparency Methods
 

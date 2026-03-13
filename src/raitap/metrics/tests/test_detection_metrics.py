@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 import torch
 
-from src.raitap.metrics import DetectionMetrics
-from src.raitap.metrics.utils import tensor_to_python
+from raitap.metrics import DetectionMetrics
+from raitap.metrics.utils import tensor_to_python
 
 
 class TestTensorToPython:

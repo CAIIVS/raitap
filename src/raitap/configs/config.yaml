@@ -4,5 +4,6 @@ defaults:
   - data: isic2018
   - transparency: captum
   - metrics: classification
+  - tracking: none
 
 experiment_name: mvp

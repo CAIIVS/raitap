@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import MagicMock
 
 import pytest
 import torch
 
 from raitap.configs.schema import AppConfig, MetricsConfig
-from raitap.metrics import evaluate
+from raitap.metrics import evaluate, evaluate_and_log
 
 
 def _config(tmp_path) -> AppConfig:
@@ -29,7 +30,7 @@ def test_evaluate_writes_outputs(tmp_path):
     assert "result" in out
     assert "run_dir" in out
     run_dir = out["run_dir"]
-    assert run_dir == tmp_path
+    assert run_dir == tmp_path / "metrics"
 
     assert (run_dir / "metrics.json").exists()
     assert (run_dir / "artifacts.json").exists()
@@ -48,3 +49,29 @@ def test_evaluate_bad_target_raises(tmp_path):
 
     with pytest.raises(ValueError, match="Could not instantiate metric"):
         evaluate(cfg, torch.tensor([0]), torch.tensor([0]))
+
+
+def test_evaluate_writes_under_metrics_subdirectory(tmp_path):
+    cfg = _config(tmp_path)
+    out = evaluate(cfg, torch.tensor([0, 1, 2, 1]), torch.tensor([0, 1, 2, 0]))
+
+    assert out["run_dir"] == tmp_path / "metrics"
+    assert (tmp_path / "metrics" / "metrics.json").exists()
+    assert (tmp_path / "metrics" / "artifacts.json").exists()
+    assert (tmp_path / "metrics" / "metadata.json").exists()
+
+
+def test_evaluate_and_log_uses_logger_for_metrics_and_artifacts(tmp_path):
+    cfg = _config(tmp_path)
+    logger = MagicMock()
+
+    out = evaluate_and_log(
+        cfg,
+        torch.tensor([0, 1, 2, 1]),
+        torch.tensor([0, 1, 2, 0]),
+        logger=logger,
+    )
+
+    assert out["run_dir"] == tmp_path / "metrics"
+    logger.log_metrics.assert_called_once()
+    logger.log_artifacts.assert_called_once_with(tmp_path / "metrics", artifact_path="metrics")

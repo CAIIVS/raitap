@@ -48,6 +48,7 @@ dependencies = [
 
 [project.scripts]
 raitap = "raitap.run:main"
+raitap-mlflow-server = "raitap.tracking.mlflow_server:main"
 
 [project.urls]
 Documentation = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform#readme"

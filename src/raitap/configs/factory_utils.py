@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
 
 
@@ -28,3 +31,14 @@ def resolve_target(target: str, prefix: str) -> str:
     if not target:
         return target
     return target if "." in target else f"{prefix}{target}"
+
+
+def resolve_run_dir(config, subdir: str | None = None) -> Path:
+    """Resolve the current run directory from Hydra, with config fallback outside Hydra."""
+    try:
+        run_dir = Path(HydraConfig.get().runtime.output_dir)
+    except ValueError:
+        run_dir = Path(config.fallback_output_dir)
+    if subdir:
+        return run_dir / subdir
+    return run_dir

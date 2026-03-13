@@ -11,14 +11,12 @@ explain(config, model, inputs, **kwargs)
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import torch
-from hydra.core.hydra_config import HydraConfig
 from hydra.utils import instantiate
 
-from ..configs.factory_utils import cfg_to_dict, resolve_target
+from ..configs.factory_utils import cfg_to_dict, resolve_run_dir, resolve_target
 from .methods_registry import VisualiserIncompatibilityError
 
 _TRANSPARENCY_PREFIX = "raitap.transparency."
@@ -28,6 +26,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     from ..configs.schema import AppConfig
+    from ..tracking.base import Tracker
 
 
 # ---------------------------------------------------------------------------
@@ -147,12 +146,10 @@ def explain(
     attributions = explainer.compute_attributions(model, inputs, **kwargs)
 
     # ------------------------------------------------------------------
-    # 4. Resolve run directory (Hydra first, fallback to config.fallback_output_dir).
+    # 4. Resolve run directory from Hydra runtime output dir or fallback config.
     # ------------------------------------------------------------------
-    try:
-        run_dir = Path(HydraConfig.get().runtime.output_dir)
-    except ValueError:
-        run_dir = Path(config.fallback_output_dir)
+    run_dir = resolve_run_dir(config, subdir="transparency")
+    run_dir.mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------------
     # 5. Persist attributions.
@@ -197,3 +194,22 @@ def explain(
         "visualisations": visualisations,
         "run_dir": run_dir,
     }
+
+
+def explain_and_log(
+    config: AppConfig,
+    model: nn.Module,
+    inputs: torch.Tensor,
+    logger: Tracker | None,
+    artifact_path: str = "transparency",
+    **kwargs: Any,
+) -> dict:
+    result = explain(
+        config=config,
+        model=model,
+        inputs=inputs,
+        **kwargs,
+    )
+    if logger is not None:
+        logger.log_artifacts(result["run_dir"], artifact_path=artifact_path)
+    return result
