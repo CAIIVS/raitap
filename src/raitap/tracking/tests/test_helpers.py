@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -24,17 +23,10 @@ def _config():
 def test_initialize_tracking_starts_run_and_logs_config(tmp_path):
     tracker = MagicMock()
     config = _config()
-    output_dir = tmp_path / "outputs"
 
-    initialize_tracking(tracker, config, output_dir)
+    initialize_tracking(tracker, config)
 
-    tracker.start_assessment.assert_called_once()
-    context = tracker.start_assessment.call_args.args[0]
-    assert context.assessment_name == "audit_2026_q1"
-    assert context.model_source == "resnet50"
-    assert context.data_name == "imagenet_samples"
-    assert context.data_source == "/tmp/imagenet"
-    assert context.output_dir == output_dir
+    tracker.start_assessment.assert_called_once_with("audit_2026_q1")
     tracker.log_config.assert_called_once_with(config)
 
 
@@ -61,8 +53,8 @@ def test_log_dataset_info_builds_dataset_metadata():
 def test_optional_tracking_helpers_noop_on_none(tmp_path):
     data = SimpleNamespace(shape=(2, 8), dtype="float32")
 
-    initialize_tracking(None, _config(), tmp_path)
+    initialize_tracking(None, _config())
     log_model_artifact(None, object())
     log_dataset_info(None, _config(), data)
-    log_artifact_directory(None, Path("artifacts"), artifact_path="metrics")
+    log_artifact_directory(None, "artifacts", artifact_path="metrics")
     finalize_tracking(None, status="FAILED")

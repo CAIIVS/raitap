@@ -129,7 +129,7 @@ def main() -> int:
     status = "FAILED"
 
     try:
-        initialize_tracking(tracker, config, output_dir)
+        initialize_tracking(tracker, config)
 
         if not config.model.source:
             raise ValueError("No model source specified.")

@@ -4,7 +4,7 @@ from typing import Any
 
 from raitap.configs.factory_utils import cfg_to_dict
 
-from .base import AssessmentContext, Tracker
+from .base import Tracker
 from .mlflow import MLFlowTracker
 
 
@@ -24,7 +24,6 @@ def create_tracker(config: Any) -> Tracker | None:
 
 
 __all__ = [
-    "AssessmentContext",
     "Tracker",
     "create_tracker",
 ]

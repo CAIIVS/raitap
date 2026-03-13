@@ -8,7 +8,7 @@ from typing import Any
 
 from raitap.configs.factory_utils import cfg_to_dict
 
-from .base import AssessmentContext, Tracker
+from .base import Tracker
 
 
 class MLFlowTracker(Tracker):
@@ -55,7 +55,7 @@ class MLFlowTracker(Tracker):
                 ) from e
         return self._mlflow
 
-    def start_assessment(self, context: AssessmentContext) -> None:
+    def start_assessment(self, assessment_name: str) -> None:
         mlflow = self._require_mlflow()
 
         if self.tracking_uri:
@@ -64,19 +64,9 @@ class MLFlowTracker(Tracker):
         if self.registry_uri:
             mlflow.set_registry_uri(self.registry_uri)
 
-        mlflow.set_experiment(context.assessment_name)
-        mlflow.start_run(run_name=context.assessment_name)
+        mlflow.set_experiment(assessment_name)
+        mlflow.start_run(run_name=assessment_name)
         self._active_run = True
-
-        mlflow.set_tags(
-            {
-                "assessment.name": context.assessment_name,
-                "model.source": str(context.model_source or ""),
-                "data.name": context.data_name,
-                "data.source": str(context.data_source or ""),
-                "run.output_dir": str(context.output_dir) if context.output_dir else "",
-            }
-        )
 
     def finalize(self, status: str = "FINISHED") -> None:
         if not self._active_run:  # No active run, nothing to do

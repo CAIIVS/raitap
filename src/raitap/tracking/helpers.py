@@ -5,22 +5,14 @@ from typing import Any
 
 from raitap.data import describe_data
 
-from .base import AssessmentContext, Tracker
+from .base import Tracker
 
 
-def initialize_tracking(tracker: Tracker | None, config: Any, output_dir: Path) -> None:
+def initialize_tracking(tracker: Tracker | None, config: Any) -> None:
     if tracker is None:
         return
 
-    tracker.start_assessment(
-        AssessmentContext(
-            assessment_name=str(config.experiment_name),
-            model_source=config.model.source,
-            data_name=str(config.data.name),
-            data_source=config.data.source,
-            output_dir=output_dir,
-        )
-    )
+    tracker.start_assessment(str(config.experiment_name))
     tracker.log_config(config)
 
 

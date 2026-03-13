@@ -37,7 +37,7 @@ def main(config: AppConfig):
     print(f"Output: {output_dir}\n")
 
     try:
-        initialize_tracking(tracker, config, output_dir)
+        initialize_tracking(tracker, config)
 
         # 1. Load model
         print("Loading model...")
