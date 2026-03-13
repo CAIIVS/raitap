@@ -3,18 +3,17 @@ from pathlib import Path
 import hydra
 from hydra.core.hydra_config import HydraConfig
 
-from raitap.models.tests.tracking import (
+from .configs.register import register_configs
+from .configs.schema import AppConfig
+from .data import load_data
+from .models import load_model
+from .tracking import (
     create_tracker,
     finalize_tracking,
     initialize_tracking,
     log_dataset_info,
 )
-from raitap.models.tests.tracking.helpers import log_model_artifact
-
-from .configs.register import register_configs
-from .configs.schema import AppConfig
-from .data import load_data
-from .models import load_model
+from .tracking.helpers import log_model_artifact
 from .transparency import explain_and_log
 
 register_configs()

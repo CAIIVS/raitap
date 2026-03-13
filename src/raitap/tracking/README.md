@@ -78,7 +78,7 @@ The launcher reads its defaults from `src/raitap/configs/tracking/mlflow_server.
 Then in a second terminal:
 
 ```bash
-uv run python -m raitap.tracking.tests.smoke_test_mlflow
+uv run python -m raitap.tracking.smoke_test_mlflow
 ```
 
 You can also use a different image:

@@ -19,16 +19,16 @@ from raitap.configs.schema import (
 from raitap.data import load_data
 from raitap.metrics import evaluate_and_log as evaluate_metrics
 from raitap.models import load_model
-from raitap.models.tests.tracking import (
+from raitap.tracking import (
     create_tracker,
     finalize_tracking,
     initialize_tracking,
     log_dataset_info,
 )
-from raitap.models.tests.tracking.helpers import log_model_artifact
+from raitap.tracking.helpers import log_model_artifact
 from raitap.transparency import explain_and_log as explain
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 SRC_ROOT = REPO_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
