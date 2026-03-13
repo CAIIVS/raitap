@@ -29,8 +29,8 @@ By default the script uses:
 - image: `~/.cache/raitap/imagenet_samples/golden_retriever.jpg`
 - transparency method: `CaptumExplainer` with `IntegratedGradients`
 - tracking backend: local MLflow server at `http://127.0.0.1:5000`
-- backend store: local SQLite database `./mlflow.db`
-- artifact root: `./mlartifacts`
+- backend store: local SQLite database `./mlflow/mlflow.db`
+- artifact root: `./mlflow/artifacts`
 - local artifacts: `./outputs/smoke-manual`
 
 The script predicts the target class automatically from the model output and
@@ -70,13 +70,15 @@ The default sample image must exist locally. If it is missing, either:
 From the repository root:
 
 ```bash
-uv run mlflow server --host 127.0.0.1 --port 5000 --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlartifacts
+uv run raitap-mlflow-server
 ```
+
+The launcher reads its defaults from `src/raitap/configs/tracking/mlflow_server.yaml`.
 
 Then in a second terminal:
 
 ```bash
-uv run python -m raitap.tracking.smoke_test_mlflow
+uv run python -m raitap.tracking.tests.smoke_test_mlflow
 ```
 
 You can also use a different image:
@@ -122,7 +124,7 @@ This is the default and recommended setup.
 Start the server:
 
 ```bash
-uv run mlflow server --host 127.0.0.1 --port 5000 --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlartifacts
+uv run raitap-mlflow-server
 ```
 
 Run the smoke test against the server:
@@ -142,17 +144,17 @@ http://127.0.0.1:5000
 In the run page:
 
 - Params:
-  - assessment and model/data config
+    - assessment and model/data config
 - Metrics:
-  - `performance.accuracy`
-  - `performance.precision`
-  - `performance.recall`
-  - `performance.f1`
+    - `performance.accuracy`
+    - `performance.precision`
+    - `performance.recall`
+    - `performance.f1`
 - Artifacts:
-  - `config/config.json`
-  - `dataset/dataset.json`
-  - `metrics/...`
-  - `transparency/...`
+    - `config/config.json`
+    - `dataset/dataset.json`
+    - `metrics/...`
+    - `transparency/...`
 
 The transparency visualizer image is expected to appear under the `Artifacts`
 tab, not under `Metrics`.
@@ -165,7 +167,7 @@ If the smoke test cannot reach `http://127.0.0.1:5000`, start the local MLflow
 server first:
 
 ```bash
-uv run mlflow server --host 127.0.0.1 --port 5000 --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlartifacts
+uv run raitap-mlflow-server
 ```
 
 ### No metrics visible in MLflow
