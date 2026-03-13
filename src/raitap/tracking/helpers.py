@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from ..data import describe_data
 from .base import AssessmentContext, Tracker
 
 
@@ -47,18 +48,14 @@ def log_dataset_info(
     if tracker is None:
         return
 
-    shape = [int(dim) for dim in data.shape]
-    dataset_info: dict[str, Any] = {
-        "name": config.data.name,
-        "source": config.data.source,
-        "num_samples": shape[0],
-        "shape": shape,
-        "dtype": str(data.dtype),
-    }
-    if len(shape) > 1:
-        dataset_info["sample_shape"] = shape[1:]
-
-    tracker.log_dataset(dataset_info, artifact_path=artifact_path)
+    tracker.log_dataset(
+        describe_data(
+            data,
+            name=config.data.name,
+            source=config.data.source,
+        ),
+        artifact_path=artifact_path,
+    )
 
 
 def log_artifact_directory(

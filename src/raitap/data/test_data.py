@@ -14,6 +14,7 @@ from raitap.data import (
     _load_images,
     _load_tabular,
     _load_tabular_dir,
+    describe_data,
     get_source_path,
     load_data,
 )
@@ -212,6 +213,43 @@ class TestLoadData:
     def test_invalid_source_raises(self) -> None:
         with pytest.raises(ValueError, match="could not be resolved"):
             load_data("/no/such/path/file.csv")
+
+
+class TestDescribeData:
+    def test_describe_data_includes_shape_dtype_and_sample_shape(self) -> None:
+        data = torch.zeros((4, 3, 32, 32), dtype=torch.float32)
+
+        info = describe_data(
+            data,
+            name="imagenet_samples",
+            source="/tmp/imagenet",
+        )
+
+        assert info == {
+            "name": "imagenet_samples",
+            "source": "/tmp/imagenet",
+            "num_samples": 4,
+            "shape": [4, 3, 32, 32],
+            "sample_shape": [3, 32, 32],
+            "dtype": "torch.float32",
+        }
+
+    def test_describe_data_without_sample_shape_for_1d_input(self) -> None:
+        data = torch.zeros((8,), dtype=torch.int64)
+
+        info = describe_data(
+            data,
+            name="vector_data",
+            source=None,
+        )
+
+        assert info == {
+            "name": "vector_data",
+            "source": None,
+            "num_samples": 8,
+            "shape": [8],
+            "dtype": "torch.int64",
+        }
 
 
 # ---------------------------------------------------------------------------

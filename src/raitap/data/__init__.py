@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -19,6 +20,7 @@ from PIL import Image
 from .samples import SAMPLE_SOURCES, _load_sample
 
 __all__ = [
+    "describe_data",
     "load_data",
 ]
 
@@ -126,6 +128,28 @@ def _load_tabular_dir(path: Path) -> torch.Tensor:
             f"Tabular files have inconsistent column counts: {shapes}. "
             "All files must have the same number of columns."
         ) from None
+
+
+def describe_data(
+    data: torch.Tensor,
+    *,
+    name: str,
+    source: str | None,
+) -> dict[str, Any]:
+    """
+    Build standard dataset metadata for tracking and reporting.
+    """
+    shape = [int(dim) for dim in data.shape]
+    dataset_info: dict[str, Any] = {
+        "name": name,
+        "source": source,
+        "num_samples": shape[0],
+        "shape": shape,
+        "dtype": str(data.dtype),
+    }
+    if len(shape) > 1:
+        dataset_info["sample_shape"] = shape[1:]
+    return dataset_info
 
 
 def load_data(source: str) -> torch.Tensor:
