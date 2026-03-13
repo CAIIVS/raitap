@@ -8,12 +8,7 @@ from pathlib import Path
 
 import torch
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-SRC_ROOT = REPO_ROOT / "src"
-if str(SRC_ROOT) not in sys.path:
-    sys.path.insert(0, str(SRC_ROOT))
-
-from raitap.configs.schema import (  # noqa: E402
+from raitap.configs.schema import (
     AppConfig,
     DataConfig,
     MetricsConfig,
@@ -21,17 +16,22 @@ from raitap.configs.schema import (  # noqa: E402
     TrackingConfig,
     TransparencyConfig,
 )
-from raitap.data import load_data  # noqa: E402
-from raitap.metrics import evaluate_and_log as evaluate_metrics  # noqa: E402
-from raitap.models import load_model  # noqa: E402
-from raitap.tracking import (  # noqa: E402
+from raitap.data import load_data
+from raitap.metrics import evaluate_and_log as evaluate_metrics
+from raitap.models import load_model
+from raitap.tracking import (
     create_tracker,
     finalize_tracking,
     initialize_tracking,
     log_dataset_info,
 )
-from raitap.tracking.helpers import log_model_artifact  # noqa: E402
-from raitap.transparency import explain_and_log as explain  # noqa: E402
+from raitap.tracking.helpers import log_model_artifact
+from raitap.transparency import explain_and_log as explain
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = REPO_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
 DEFAULT_TRACKING_URI = "http://127.0.0.1:5000"
 
