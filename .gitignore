@@ -48,6 +48,8 @@ Thumbs.db
 # MLflow (project-specific)
 mlruns/
 mlartifacts/
+mlruns-smoke/
+mlflow.db
 
 # Hydra outputs
 outputs/
@@ -62,3 +64,4 @@ logs/
 # Environment variables
 .env
 .env.local
+
