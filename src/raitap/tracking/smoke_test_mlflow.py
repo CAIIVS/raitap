@@ -136,10 +136,16 @@ def main() -> int:
     try:
         tracker.log_config(config)
 
-        model = load_model(config.model.source)
+        if not config.model.source:
+            raise ValueError("No model source specified.")
+        model_source: str = config.model.source
+        model = load_model(model_source)
         tracker.log_model(model)
 
-        data = load_data(config.data.source)
+        if not config.data.source:
+            raise ValueError("No data source specified.")
+        data_source: str = config.data.source
+        data = load_data(data_source)
         tracker.log_dataset(
             {
                 "name": config.data.name,
