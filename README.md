@@ -73,45 +73,87 @@ run_dir = result["run_dir"]  # pathlib.Path
 
 For more details, see the [configuration guide](docs/consumers/configuration.md).
 
-### MLflow Tracking
+### Running With And Without MLflow
 
-To run an assessment with MLflow tracking enabled:
+#### 1. Run without MLflow
 
-1. Start a local MLflow server:
+Tracking is disabled by default.
 
-   ```bash
-   uv run raitap-mlflow-server
-   ```
+```bash
+uv run raitap
+```
 
-   The launcher reads its defaults from `src/raitap/configs/tracking/mlflow_server.yaml`.
+This writes local artifacts to the Hydra output directory printed in the console, for example:
 
-2. In a second terminal, run RAITAP with MLflow tracking enabled:
+```text
+outputs/2026-03-13/13-21-24/
+```
 
-   ```bash
-   uv run raitap tracking=mlflow
-   ```
+Use this mode when you only want local files and do not need an experiment dashboard.
 
-   To override the tracking server explicitly:
+#### 2. Start the bundled MLflow server, then run with MLflow
 
-   ```bash
-   uv run raitap tracking=mlflow tracking.tracking_uri=http://127.0.0.1:5000
-   ```
+Start the local MLflow server in one terminal:
 
-3. Open the MLflow dashboard:
+```bash
+uv run raitap-mlflow-server
+```
 
-   ```text
-   http://127.0.0.1:5000
-   ```
+The launcher reads its defaults from `src/raitap/configs/tracking/mlflow_server.yaml` and starts a server on:
 
-The run artifacts and metadata will be visible in the MLflow UI under the configured experiment.
+```text
+http://127.0.0.1:5000
+```
+
+Then run RAITAP in a second terminal:
+
+```bash
+uv run raitap tracking=mlflow
+```
+
+Open the MLflow UI in your browser:
+
+```text
+http://127.0.0.1:5000
+```
+
 The local MLflow database and artifact store live under `./mlflow/`.
 
-Current logging architecture:
+#### 3. Integrate with an existing MLflow setup
 
-- `run.py` keeps orchestration thin and delegates tracking setup to shared helpers.
-- `raitap.metrics.evaluate_and_log(...)` computes metrics and translates metric outputs into tracker calls.
-- `raitap.transparency.explain_and_log(...)` computes transparency outputs and translates them into tracker calls.
-- The tracker backend stays MLflow-oriented: it logs config, model artifacts, dataset metadata, scalar metrics, and artifact directories, but it does not unpack package-specific result objects.
+If you already have an MLflow tracking server, point RAITAP at that server explicitly:
+
+```bash
+uv run raitap tracking=mlflow tracking.tracking_uri=http://your-mlflow-host:5000
+```
+
+You can also override other tracking settings from the CLI, for example:
+
+```bash
+uv run raitap \
+  tracking=mlflow \
+  tracking.tracking_uri=http://your-mlflow-host:5000 \
+  tracking.registry_uri=http://your-registry-host:5000 \
+  tracking.log_model=true \
+  experiment_name=my-assessment
+```
+
+Use this mode when MLflow is already managed outside this repository and you want RAITAP to publish runs into that existing environment.
+
+#### What the main `raitap` command logs
+
+When `tracking=mlflow` is enabled, the main CLI run logs:
+
+- config snapshot
+- dataset metadata
+- transparency artifacts
+- optional model artifact when `tracking.log_model=true`
+
+The main `uv run raitap` flow currently does not compute or log evaluation metrics. If you need a complete MLflow smoke test including metrics, use:
+
+```bash
+uv run python -m raitap.tracking.smoke_test_mlflow
+```
 
 ### Next steps
 

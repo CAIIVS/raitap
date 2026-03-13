@@ -1,5 +1,5 @@
 enabled: true
-tracking_uri: http://localhost:5000
+tracking_uri: http://127.0.0.1:5000
 registry_uri: null
 log_model: false
 registry_enabled: false
