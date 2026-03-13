@@ -4,7 +4,7 @@ This directory contains utility scripts for local validation.
 
 ## `smoke_test_mlflow.py`
 
-`scripts/smoke_test_mlflow.py` is a small end-to-end check for the current
+`src/raitap/tracking/smoke_test_mlflow.py` is a small end-to-end check for the current
 MLflow integration.
 
 It verifies that RAITAP can:
@@ -22,7 +22,9 @@ By default the script uses:
 - model: `resnet50`
 - image: `~/.cache/raitap/imagenet_samples/golden_retriever.jpg`
 - transparency method: `CaptumExplainer` with `IntegratedGradients`
-- tracking backend: local file-backed MLflow store in `./mlruns-smoke`
+- tracking backend: local MLflow server at `http://127.0.0.1:5000`
+- backend store: local SQLite database `./mlflow.db`
+- artifact root: `./mlartifacts`
 - local artifacts: `./outputs/smoke-manual`
 
 The script predicts the target class automatically from the model output and
@@ -62,19 +64,25 @@ The default sample image must exist locally. If it is missing, either:
 From the repository root:
 
 ```bash
-.venv/bin/python scripts/smoke_test_mlflow.py
+uv run mlflow server --host 127.0.0.1 --port 5000 --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlartifacts
+```
+
+Then in a second terminal:
+
+```bash
+uv run python -m raitap.tracking.smoke_test_mlflow
 ```
 
 You can also use a different image:
 
 ```bash
-.venv/bin/python scripts/smoke_test_mlflow.py --image /path/to/local/image.jpg
+uv run python -m raitap.tracking.smoke_test_mlflow --image /path/to/local/image.jpg
 ```
 
 If you want to log the PyTorch model artifact too:
 
 ```bash
-.venv/bin/python scripts/smoke_test_mlflow.py --log-model
+uv run python -m raitap.tracking.smoke_test_mlflow --log-model
 ```
 
 ## Inspect The Results
@@ -101,45 +109,20 @@ outputs/smoke-manual/
 
 ## Open The MLflow UI
 
-### Option 1: File-backed smoke test store
+### Local MLflow server with SQLite
 
-The default script writes MLflow data to:
-
-```text
-mlruns-smoke/
-```
-
-To inspect it in the UI:
-
-```bash
-.venv/bin/mlflow ui --backend-store-uri "$(pwd)/mlruns-smoke" --port 5500
-```
-
-Then open:
-
-```text
-http://127.0.0.1:5500
-```
-
-### Option 2: Local MLflow server with SQLite
-
-This is the recommended setup if you want to avoid the MLflow deprecation
-warning for filesystem-backed stores.
+This is the default and recommended setup.
 
 Start the server:
 
 ```bash
-.venv/bin/mlflow server \
-  --host 127.0.0.1 \
-  --port 5000 \
-  --backend-store-uri sqlite:///mlflow.db \
-  --default-artifact-root "$(pwd)/mlartifacts"
+uv run mlflow server --host 127.0.0.1 --port 5000 --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlartifacts
 ```
 
 Run the smoke test against the server:
 
 ```bash
-.venv/bin/python scripts/smoke_test_mlflow.py --tracking-uri http://127.0.0.1:5000
+uv run python -m raitap.tracking.smoke_test_mlflow
 ```
 
 Then open:
@@ -170,16 +153,14 @@ tab, not under `Metrics`.
 
 ## Troubleshooting
 
-### Warning about filesystem tracking backend
+### Cannot connect to tracking server
 
-If you see a warning like:
+If the smoke test cannot reach `http://127.0.0.1:5000`, start the local MLflow
+server first:
 
-```text
-FutureWarning: The filesystem tracking backend ... will be deprecated ...
+```bash
+uv run mlflow server --host 127.0.0.1 --port 5000 --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlartifacts
 ```
-
-that comes from the default `file://.../mlruns-smoke` backend. The smoke test
-still works, but the preferred setup is the SQLite-backed server shown above.
 
 ### No metrics visible in MLflow
 

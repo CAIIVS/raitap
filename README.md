@@ -80,11 +80,7 @@ To run an assessment with MLflow tracking enabled:
 1. Start a local MLflow server:
 
    ```bash
-   .venv/bin/mlflow server \
-     --host 127.0.0.1 \
-     --port 5000 \
-     --backend-store-uri sqlite:///mlflow.db \
-     --default-artifact-root "$(pwd)/mlartifacts"
+   uv run mlflow server --host 127.0.0.1 --port 5000 --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlartifacts
    ```
 
 2. In a second terminal, run RAITAP with MLflow tracking enabled:

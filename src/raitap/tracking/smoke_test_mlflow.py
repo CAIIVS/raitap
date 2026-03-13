@@ -27,6 +27,8 @@ from raitap.models import load_model  # noqa: E402
 from raitap.tracking import AssessmentContext, create_tracker  # noqa: E402
 from raitap.transparency import explain  # noqa: E402
 
+DEFAULT_TRACKING_URI = "http://127.0.0.1:5000"
+
 
 def build_parser() -> argparse.ArgumentParser:
     default_image = Path.home() / ".cache" / "raitap" / "imagenet_samples" / "golden_retriever.jpg"
@@ -51,8 +53,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--tracking-uri",
-        default=None,
-        help="MLflow tracking URI. Defaults to a local file store under ./mlruns-smoke",
+        default=DEFAULT_TRACKING_URI,
+        help=(
+            "MLflow tracking URI. Defaults to a local MLflow server at "
+            f"{DEFAULT_TRACKING_URI}, intended for a SQLite-backed setup."
+        ),
     )
     parser.add_argument(
         "--output-dir",
@@ -80,7 +85,7 @@ def main() -> int:
     mpl_cache.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("MPLCONFIGDIR", str(mpl_cache))
 
-    tracking_uri = args.tracking_uri or f"file://{(REPO_ROOT / 'mlruns-smoke').resolve()}"
+    tracking_uri = args.tracking_uri
 
     if not image_path.exists():
         parser.error(
