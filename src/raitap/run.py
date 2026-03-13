@@ -11,11 +11,10 @@ from .tracking import (
     create_tracker,
     finalize_tracking,
     initialize_tracking,
-    log_artifact_directory,
     log_dataset_info,
 )
 from .tracking.helpers import log_model_artifact
-from .transparency import explain
+from .transparency import explain_and_log
 
 register_configs()
 
@@ -67,8 +66,7 @@ def main(config: AppConfig):
         # 3. Run transparency assessment
         print("\nRunning explanation...")
         transparency_dir = output_dir / "transparency"
-        explain(config, model, data, output_dir=transparency_dir)
-        log_artifact_directory(tracker, transparency_dir, artifact_path="transparency")
+        explain_and_log(config, model, data, logger=tracker, output_dir=transparency_dir)
 
         status = "FINISHED"
 

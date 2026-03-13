@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import torch
 from hydra.core.hydra_config import HydraConfig
@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     from ..configs.schema import AppConfig
+    from ..tracking.base import Tracker
 
 
 # ---------------------------------------------------------------------------
@@ -205,3 +206,24 @@ def explain(
         "visualisations": visualisations,
         "run_dir": run_dir,
     }
+
+
+def explain_and_log(
+    config: AppConfig,
+    model: nn.Module,
+    inputs: torch.Tensor,
+    logger: Tracker | None,
+    output_dir: Path | None = None,
+    artifact_path: str = "transparency",
+    **kwargs: Any,
+) -> dict:
+    result = explain(
+        config=config,
+        model=model,
+        inputs=inputs,
+        output_dir=output_dir,
+        **kwargs,
+    )
+    if logger is not None:
+        logger.log_artifacts(result["run_dir"], artifact_path=artifact_path)
+    return result

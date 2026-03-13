@@ -29,7 +29,7 @@ from __future__ import annotations
 from .explainers import CaptumExplainer, ShapExplainer
 
 # Primary API
-from .factory import explain
+from .factory import explain, explain_and_log
 
 # Domain error type
 from .methods_registry import VisualiserIncompatibilityError
@@ -67,4 +67,5 @@ __all__ = [  # noqa: RUF022
     "VisualiserIncompatibilityError",
     # Primary API
     "explain",
+    "explain_and_log",
 ]

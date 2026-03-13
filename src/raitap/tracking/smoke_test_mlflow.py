@@ -28,11 +28,10 @@ from raitap.tracking import (  # noqa: E402
     create_tracker,
     finalize_tracking,
     initialize_tracking,
-    log_artifact_directory,
     log_dataset_info,
 )
 from raitap.tracking.helpers import log_model_artifact  # noqa: E402
-from raitap.transparency import explain  # noqa: E402
+from raitap.transparency import explain_and_log as explain  # noqa: E402
 
 DEFAULT_TRACKING_URI = "http://127.0.0.1:5000"
 
@@ -170,10 +169,10 @@ def main() -> int:
             config,
             model,
             data,
+            logger=tracker,
             output_dir=transparency_dir,
             target=target,
         )
-        log_artifact_directory(tracker, transparency_dir, artifact_path="transparency")
 
         status = "FINISHED"
     finally:
