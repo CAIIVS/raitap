@@ -16,14 +16,12 @@ class MLFlowTracker(Tracker):
         *,
         tracking_uri: str | None = None,
         registry_uri: str | None = None,
-        experiment_name: str = "raitap-assessment",
         log_model: bool = False,
         registry_enabled: bool = False,
         registered_model_name: str | None = None,
     ):
         self.tracking_uri = tracking_uri
         self.registry_uri = registry_uri
-        self.experiment_name = experiment_name
         self.log_model_enabled = log_model
         self.registry_enabled = registry_enabled
         self.registered_model_name = registered_model_name
@@ -67,7 +65,7 @@ class MLFlowTracker(Tracker):
         if self.registry_uri:
             mlflow.set_registry_uri(self.registry_uri)
 
-        mlflow.set_experiment(self.experiment_name)
+        mlflow.set_experiment(context.assessment_name)
         mlflow.start_run(run_name=context.assessment_name)
         self._active_run = True
 

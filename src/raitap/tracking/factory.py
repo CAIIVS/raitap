@@ -17,7 +17,6 @@ def create_tracker(config: Any) -> Tracker:
     return MLFlowTracker(
         tracking_uri=tracking_config.get("tracking_uri"),
         registry_uri=tracking_config.get("registry_uri"),
-        experiment_name=tracking_config.get("experiment_name", "raitap-assessment"),
         log_model=bool(tracking_config.get("log_model", False)),
         registry_enabled=bool(tracking_config.get("registry_enabled", False)),
         registered_model_name=tracking_config.get("registered_model_name"),

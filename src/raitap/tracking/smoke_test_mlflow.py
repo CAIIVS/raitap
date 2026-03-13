@@ -47,12 +47,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--experiment-name",
         default="smoke-test",
-        help="RAITAP assessment name (default: smoke-test)",
-    )
-    parser.add_argument(
-        "--mlflow-experiment",
-        default="raitap-smoke",
-        help="MLflow experiment name (default: raitap-smoke)",
+        help="RAITAP assessment name and MLflow experiment name (default: smoke-test)",
     )
     parser.add_argument(
         "--tracking-uri",
@@ -113,7 +108,6 @@ def main() -> int:
         ),
         tracking=TrackingConfig(
             enabled=True,
-            experiment_name=args.mlflow_experiment,
             tracking_uri=tracking_uri,
             log_model=args.log_model,
         ),

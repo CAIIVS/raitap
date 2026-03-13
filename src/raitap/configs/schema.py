@@ -43,7 +43,6 @@ class MetricsConfig:
 @dataclass
 class TrackingConfig:
     enabled: bool = False
-    experiment_name: str = "raitap-assessment"
     tracking_uri: str | None = None
     registry_uri: str | None = None
     log_model: bool = False
