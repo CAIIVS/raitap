@@ -47,7 +47,7 @@ jobs:
         run: uv sync --group dev
       
       - name: Run tests with coverage
-        run: uv run pytest tests/ -v --cov=src/raitap --cov-report=term-missing --cov-report=html
+        run: uv run pytest -v --cov=src/raitap --cov-report=term-missing --cov-report=html
       
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
