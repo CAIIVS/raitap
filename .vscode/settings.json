@@ -9,5 +9,8 @@
     "python.testing.pytestEnabled": true,
     "github-actions.workflows.pinned.workflows": [
         ".github/workflows/code-quality.yaml"
-    ]
+    ],
+    "editor.codeActionsOnSave": {
+        "source.fixAll.ruff": "explicit"
+    },
 }
