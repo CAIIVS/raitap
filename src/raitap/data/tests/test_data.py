@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -11,7 +10,11 @@ import pytest
 import torch
 from PIL import Image
 
-from raitap.configs.schema import AppConfig
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from raitap.configs.schema import AppConfig
+
 from raitap.data import (
     _load_images,
     _load_tabular,

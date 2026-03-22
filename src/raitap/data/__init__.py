@@ -10,14 +10,15 @@ from __future__ import annotations
 
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
 import torch
 from PIL import Image
 
-from raitap.configs.schema import AppConfig
+if TYPE_CHECKING:
+    from raitap.configs.schema import AppConfig
 
 from .samples import SAMPLE_SOURCES, _load_sample
 

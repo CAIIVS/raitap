@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.figure import Figure
 
 from .base import BaseVisualiser
+
+if TYPE_CHECKING:
+    import torch
+    from matplotlib.figure import Figure
 
 
 class TabularBarChartVisualiser(BaseVisualiser):
@@ -23,7 +28,9 @@ class TabularBarChartVisualiser(BaseVisualiser):
         """
         self.feature_names = feature_names
 
-    def visualise(self, attributions, inputs=None, **kwargs) -> Figure:
+    def visualise(
+        self, attributions: torch.Tensor, inputs: torch.Tensor | None = None, **kwargs: Any
+    ) -> Figure:
         """
         Create feature importance bar chart.
 
@@ -36,12 +43,14 @@ class TabularBarChartVisualiser(BaseVisualiser):
         """
         # Convert to numpy
         if hasattr(attributions, "detach"):
-            attributions = attributions.detach().cpu().numpy()
+            attrs_np = attributions.detach().cpu().numpy()
         elif hasattr(attributions, "numpy"):
-            attributions = attributions.cpu().numpy()
+            attrs_np = attributions.cpu().numpy()
+        else:
+            attrs_np = np.array(attributions)
 
         # Aggregate across batch (mean absolute attribution)
-        mean_importance = np.abs(attributions).mean(axis=0)
+        mean_importance = np.abs(attrs_np).mean(axis=0)
 
         # Create bar chart
         fig, ax = plt.subplots(figsize=(10, 6))

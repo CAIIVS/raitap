@@ -1,19 +1,23 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import cast
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 import torch
 from omegaconf import OmegaConf
 
-from raitap.configs.schema import AppConfig
 from raitap.transparency.factory import Explanation, create_visualisers
 from raitap.transparency.methods_registry import VisualiserIncompatibilityError
 from raitap.transparency.results import ExplanationResult
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
-def _make_config(tmp_path, transparency_config) -> AppConfig:
+    from raitap.configs.schema import AppConfig
+
+
+def _make_config(tmp_path: Path, transparency_config: Any) -> AppConfig:
     return cast(
         "AppConfig",
         SimpleNamespace(
@@ -24,7 +28,9 @@ def _make_config(tmp_path, transparency_config) -> AppConfig:
     )
 
 
-def test_explanation_returns_explanation_result(needs_captum, simple_cnn, sample_images, tmp_path):
+def test_explanation_returns_explanation_result(
+    simple_cnn: torch.nn.Module, sample_images: torch.Tensor, tmp_path: Path
+) -> None:
     config = _make_config(
         tmp_path,
         OmegaConf.create(
@@ -52,14 +58,16 @@ def test_explanation_returns_explanation_result(needs_captum, simple_cnn, sample
     assert (explanation.run_dir / "CaptumImageVisualiser.png").exists()
 
 
-def test_explanation_validates_visualisers_before_compute(monkeypatch, tmp_path):
+def test_explanation_validates_visualisers_before_compute(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     class DummyExplainer:
         algorithm = "KernelExplainer"
 
         def __init__(self) -> None:
             self.explain_called = False
 
-        def explain(self, *args, **kwargs):
+        def explain(self, *args: Any, **kwargs: Any) -> None:
             self.explain_called = True
             raise AssertionError("explain() should not be called for incompatible visualisers")
 

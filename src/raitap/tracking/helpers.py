@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from raitap.data import describe_data
 
-from .base import Tracker
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from .base import Tracker
 
 
 def initialize_tracking(tracker: Tracker | None, config: Any) -> None:

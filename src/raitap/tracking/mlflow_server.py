@@ -3,10 +3,13 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
-from collections.abc import Sequence
 from dataclasses import dataclass
 from importlib.resources import as_file, files
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 @dataclass(frozen=True)

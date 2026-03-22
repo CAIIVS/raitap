@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from raitap.tracking.mlflow_server import (
     LocalMLflowServerConfig,
@@ -11,7 +15,7 @@ from raitap.tracking.mlflow_server import (
 )
 
 
-def test_local_mlflow_paths_are_under_project_root(tmp_path):
+def test_local_mlflow_paths_are_under_project_root(tmp_path: Path) -> None:
     paths = local_mlflow_paths(tmp_path)
 
     assert paths.root_dir == tmp_path / "mlflow"
@@ -20,7 +24,7 @@ def test_local_mlflow_paths_are_under_project_root(tmp_path):
     assert paths.backend_store_uri == f"sqlite:///{paths.database_path.resolve().as_posix()}"
 
 
-def test_ensure_local_mlflow_dirs_creates_required_directories(tmp_path):
+def test_ensure_local_mlflow_dirs_creates_required_directories(tmp_path: Path) -> None:
     paths = local_mlflow_paths(tmp_path)
 
     ensure_local_mlflow_dirs(paths)
@@ -29,7 +33,7 @@ def test_ensure_local_mlflow_dirs_creates_required_directories(tmp_path):
     assert paths.artifact_dir.is_dir()
 
 
-def test_build_server_command_uses_python_module_and_local_paths(tmp_path):
+def test_build_server_command_uses_python_module_and_local_paths(tmp_path: Path) -> None:
     config = LocalMLflowServerConfig()
     command = build_server_command(config=config, project_root=tmp_path)
     paths = local_mlflow_paths(tmp_path, config)
@@ -42,7 +46,7 @@ def test_build_server_command_uses_python_module_and_local_paths(tmp_path):
     assert str(paths.artifact_dir.resolve()) in command
 
 
-def test_load_local_mlflow_server_config_reads_yaml_defaults():
+def test_load_local_mlflow_server_config_reads_yaml_defaults() -> None:
     config = load_local_mlflow_server_config()
 
     assert config == LocalMLflowServerConfig()

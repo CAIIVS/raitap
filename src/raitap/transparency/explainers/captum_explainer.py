@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-import torch
-import torch.nn as nn
+from typing import TYPE_CHECKING
 
 from .base import BaseExplainer
+
+if TYPE_CHECKING:
+    import torch
+    import torch.nn as nn
 
 
 class CaptumExplainer(BaseExplainer):

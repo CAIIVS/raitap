@@ -9,9 +9,10 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 from hydra.core.hydra_config import HydraConfig
-from matplotlib.figure import Figure
 
 if TYPE_CHECKING:
+    from matplotlib.figure import Figure
+
     from ..tracking.base import Tracker
     from .visualisers import BaseVisualiser
 

@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
 import torch
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 from raitap.configs.schema import AppConfig, MetricsConfig
 from raitap.metrics import evaluate, evaluate_and_log
 
 
-def _config(tmp_path) -> AppConfig:
+def _config(tmp_path: Path) -> AppConfig:
     cfg = AppConfig(experiment_name="test", fallback_output_dir=str(tmp_path))
     cfg.metrics = MetricsConfig(
         _target_="ClassificationMetrics",
@@ -20,7 +24,7 @@ def _config(tmp_path) -> AppConfig:
     return cfg
 
 
-def test_evaluate_writes_outputs(tmp_path):
+def test_evaluate_writes_outputs(tmp_path: Path) -> None:
     cfg = _config(tmp_path)
     predictions = torch.tensor([0, 1, 2, 1])
     targets = torch.tensor([0, 1, 2, 0])
@@ -43,7 +47,7 @@ def test_evaluate_writes_outputs(tmp_path):
     assert metadata["target"] == "raitap.metrics.ClassificationMetrics"
 
 
-def test_evaluate_bad_target_raises(tmp_path):
+def test_evaluate_bad_target_raises(tmp_path: Path) -> None:
     cfg = _config(tmp_path)
     cfg.metrics._target_ = "DoesNotExist"
 
@@ -51,7 +55,7 @@ def test_evaluate_bad_target_raises(tmp_path):
         evaluate(cfg, torch.tensor([0]), torch.tensor([0]))
 
 
-def test_evaluate_writes_under_metrics_subdirectory(tmp_path):
+def test_evaluate_writes_under_metrics_subdirectory(tmp_path: Path) -> None:
     cfg = _config(tmp_path)
     out = evaluate(cfg, torch.tensor([0, 1, 2, 1]), torch.tensor([0, 1, 2, 0]))
 
@@ -61,7 +65,7 @@ def test_evaluate_writes_under_metrics_subdirectory(tmp_path):
     assert (tmp_path / "metrics" / "metadata.json").exists()
 
 
-def test_evaluate_and_log_uses_logger_for_metrics_and_artifacts(tmp_path):
+def test_evaluate_and_log_uses_logger_for_metrics_and_artifacts(tmp_path: Path) -> None:
     cfg = _config(tmp_path)
     logger = MagicMock()
 

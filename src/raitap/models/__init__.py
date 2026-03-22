@@ -8,13 +8,18 @@ Models module, handles:
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import torch.nn as nn
 from torchvision import models
 
-from raitap.configs.schema import AppConfig
+from raitap.tracking.base import Tracker
 
 from .converters import CONVERTERS
+
+if TYPE_CHECKING:
+    import torch.nn as nn
+
+    from raitap.configs.schema import AppConfig
 
 __all__ = [
     "Model",
@@ -51,7 +56,7 @@ class Model:
             f"To use your own model, set source to a valid model file path."
         )
 
-    def log(self, tracker) -> None:
+    def log(self, tracker: Tracker) -> None:
         from raitap.tracking.helpers import log_model_artifact
 
         log_model_artifact(tracker, self.network)

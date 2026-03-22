@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from raitap.tracking.helpers import (
     finalize_tracking,
@@ -12,7 +16,7 @@ from raitap.tracking.helpers import (
 )
 
 
-def _config():
+def _config() -> SimpleNamespace:
     return SimpleNamespace(
         experiment_name="audit_2026_q1",
         model=SimpleNamespace(source="resnet50"),
@@ -20,7 +24,7 @@ def _config():
     )
 
 
-def test_initialize_tracking_starts_run_and_logs_config(tmp_path):
+def test_initialize_tracking_starts_run_and_logs_config(tmp_path: Path) -> None:
     tracker = MagicMock()
     config = _config()
 
@@ -30,7 +34,7 @@ def test_initialize_tracking_starts_run_and_logs_config(tmp_path):
     tracker.log_config.assert_called_once_with(config)
 
 
-def test_log_dataset_info_builds_dataset_metadata():
+def test_log_dataset_info_builds_dataset_metadata() -> None:
     tracker = MagicMock()
     config = _config()
     data = SimpleNamespace(shape=(4, 3, 224, 224), dtype="float32")
@@ -50,7 +54,7 @@ def test_log_dataset_info_builds_dataset_metadata():
     )
 
 
-def test_optional_tracking_helpers_noop_on_none(tmp_path):
+def test_optional_tracking_helpers_noop_on_none(tmp_path: Path) -> None:
     data = SimpleNamespace(shape=(2, 8), dtype="float32")
 
     initialize_tracking(None, _config())

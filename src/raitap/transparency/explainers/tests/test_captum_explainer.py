@@ -11,12 +11,14 @@ from raitap.transparency.explainers import CaptumExplainer
 class TestCaptumExplainer:
     """Test CaptumExplainer wrapper"""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test explainer can be initialized"""
         explainer = CaptumExplainer("IntegratedGradients")
         assert explainer.algorithm == "IntegratedGradients"
 
-    def test_integrated_gradients(self, needs_captum, simple_cnn, sample_images):
+    def test_integrated_gradients(
+        self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor
+    ) -> None:
         """Test IntegratedGradients computation"""
         explainer = CaptumExplainer("IntegratedGradients")
         attributions = explainer.compute_attributions(simple_cnn, sample_images, target=0)
@@ -24,7 +26,7 @@ class TestCaptumExplainer:
         assert isinstance(attributions, torch.Tensor)
         assert attributions.shape == sample_images.shape
 
-    def test_saliency(self, needs_captum, simple_cnn, sample_images):
+    def test_saliency(self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor) -> None:
         """Test Saliency method"""
         explainer = CaptumExplainer("Saliency")
         attributions = explainer.compute_attributions(simple_cnn, sample_images, target=0)
@@ -32,7 +34,7 @@ class TestCaptumExplainer:
         assert isinstance(attributions, torch.Tensor)
         assert attributions.shape == sample_images.shape
 
-    def test_batch_targets(self, needs_captum, simple_cnn, sample_images):
+    def test_batch_targets(self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor) -> None:
         """Test different target formats"""
         explainer = CaptumExplainer("Saliency")
 
@@ -50,7 +52,9 @@ class TestCaptumExplainer:
         )
         assert attr3.shape == sample_images.shape
 
-    def test_invalid_method_error(self, simple_cnn, sample_images):
+    def test_invalid_method_error(
+        self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor
+    ) -> None:
         """Test error message for invalid method"""
         explainer = CaptumExplainer("NonExistentMethod")
 

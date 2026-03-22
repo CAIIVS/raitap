@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
 
-from raitap.configs.schema import AppConfig
+if TYPE_CHECKING:
+    from raitap.configs.schema import AppConfig
 
 
-def cfg_to_dict(cfg) -> dict:
+def cfg_to_dict(cfg: Any) -> dict:
     """
     Normalise any config representation to a plain :class:`dict`.
 

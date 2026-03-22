@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
-import torch
 from torchmetrics import Accuracy, F1Score, Precision, Recall
 
 from .base import MetricComputer, MetricResult
 from .utils import tensor_to_python
+
+if TYPE_CHECKING:
+    import torch
 
 Task = Literal["binary", "multiclass", "multilabel"]
 Average = Literal["micro", "macro", "weighted", "none"]

@@ -4,19 +4,20 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-import torch
 from hydra.utils import instantiate
 
 from ..configs.factory_utils import cfg_to_dict, resolve_run_dir, resolve_target
-from .explainers import BaseExplainer
 from .methods_registry import VisualiserIncompatibilityError
-from .results import ExplanationResult
-from .visualisers import BaseVisualiser
 
 _TRANSPARENCY_PREFIX = "raitap.transparency."
 
 if TYPE_CHECKING:
+    import torch
+
     from ..configs.schema import AppConfig
+    from .explainers import BaseExplainer
+    from .results import ExplanationResult
+    from .visualisers import BaseVisualiser
 
 
 def _raw_transparency_config(explainer_config: Any) -> dict[str, Any]:

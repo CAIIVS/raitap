@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
+
+if TYPE_CHECKING:
+    import torch
+    from matplotlib.figure import Figure
 
 
 class BaseVisualiser(ABC):
@@ -26,7 +30,9 @@ class BaseVisualiser(ABC):
     compatible_algorithms: frozenset[str] = frozenset()
 
     @abstractmethod
-    def visualise(self, attributions, inputs=None, **kwargs) -> Figure:
+    def visualise(
+        self, attributions: torch.Tensor, inputs: torch.Tensor | None = None, **kwargs: Any
+    ) -> Figure:
         """
         Create visualization from attributions.
 
@@ -40,7 +46,13 @@ class BaseVisualiser(ABC):
         """
         pass
 
-    def save(self, attributions, output_path: str | Path, inputs=None, **kwargs):
+    def save(
+        self,
+        attributions: torch.Tensor,
+        output_path: str | Path,
+        inputs: torch.Tensor | None = None,
+        **kwargs: Any,
+    ) -> None:
         """
         Save visualization to file.
 

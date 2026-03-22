@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
-
-import torch
+from typing import TYPE_CHECKING, Any
 
 from ..results import ExplanationResult, resolve_default_run_dir
+
+if TYPE_CHECKING:
+    import torch
 
 
 class BaseExplainer(ABC):
