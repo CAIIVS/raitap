@@ -106,11 +106,13 @@ def main() -> int:
             name=f"{image_path.stem}_smoke",
             source=str(image_path),
         ),
-        transparency=TransparencyConfig(
-            _target_="CaptumExplainer",
-            algorithm="IntegratedGradients",
-            visualisers=[{"_target_": "CaptumImageVisualiser"}],
-        ),
+        explainers={
+            "smoke_captum": TransparencyConfig(
+                _target_="CaptumExplainer",
+                algorithm="IntegratedGradients",
+                visualisers=[{"_target_": "CaptumImageVisualiser"}],
+            )
+        },
         metrics=MetricsConfig(
             _target_="ClassificationMetrics",
             task="multiclass",
@@ -157,14 +159,24 @@ def main() -> int:
             logger=tracker,
         )
 
-        explanation = Explanation(config, model, data, target=target)
-        explanation.log(tracker)
+        explanations = []
+        visualisations_list = []
 
-        visualisations = [
-            explanation.visualise(visualiser) for visualiser in create_visualisers(config)
-        ]
-        for visualisation in visualisations:
-            visualisation.log(tracker)
+        for name, explainer_cfg in config.explainers.items():
+            explanation = Explanation(config, name, model, data, target=target)
+            explanations.append(explanation)
+
+            visualisations = [
+                explanation.visualise(visualiser)
+                for visualiser in create_visualisers(explainer_cfg)
+            ]
+            visualisations_list.extend(visualisations)
+
+        if config.tracking.enabled:
+            for explanation in explanations:
+                explanation.log(tracker)
+            for visualisation in visualisations_list:
+                visualisation.log(tracker)
 
         status = "FINISHED"
     finally:

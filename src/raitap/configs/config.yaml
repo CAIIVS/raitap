@@ -2,8 +2,19 @@ defaults:
   - _self_
   - model: vit_b32
   - data: isic2018
-  - transparency: captum
   - metrics: classification
   - tracking: none
+
+explainers:
+  captum_ig:
+    _target_: CaptumExplainer
+    algorithm: IntegratedGradients
+    visualisers:
+      - _target_: CaptumImageVisualiser
+  shap_grad:
+    _target_: ShapExplainer
+    algorithm: GradientExplainer
+    visualisers:
+      - _target_: ShapImageVisualiser
 
 experiment_name: mvp

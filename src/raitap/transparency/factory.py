@@ -19,22 +19,24 @@ if TYPE_CHECKING:
     from ..configs.schema import AppConfig
 
 
-def _raw_transparency_config(config: AppConfig) -> dict[str, Any]:
-    return cfg_to_dict(config.transparency)
+def _raw_transparency_config(explainer_config: Any) -> dict[str, Any]:
+    return cfg_to_dict(explainer_config)
 
 
 class Explanation:
     def __new__(
         cls,
-        config: AppConfig,
+        app_config: AppConfig,
+        explainer_name: str,
         model: Any,  # Can be Model or nn.Module
         inputs: torch.Tensor,
         **kwargs: Any,
     ) -> ExplanationResult:
-        raw_transparency_config = _raw_transparency_config(config)
+        explainer_config = app_config.explainers[explainer_name]
+        raw_transparency_config = _raw_transparency_config(explainer_config)
         algorithm = str(raw_transparency_config.get("algorithm", ""))
-        explainer, explainer_target = create_explainer(config)
-        visualisers = create_visualisers(config)
+        explainer, explainer_target = create_explainer(explainer_config)
+        visualisers = create_visualisers(explainer_config)
         validate_visualisers(explainer_target, algorithm, visualisers)
 
         # Extract nn.Module if a Model instance is passed
@@ -43,15 +45,15 @@ class Explanation:
         return explainer.explain(
             network,
             inputs,
-            run_dir=resolve_run_dir(config, subdir="transparency"),
-            experiment_name=str(getattr(config, "experiment_name", "")),
+            run_dir=resolve_run_dir(app_config, subdir=f"transparency/{explainer_name}"),
+            experiment_name=str(getattr(app_config, "experiment_name", "")),
             explainer_target=explainer_target,
             **kwargs,
         )
 
 
-def create_explainer(config: AppConfig) -> tuple[BaseExplainer, str]:
-    raw_transparency_config = _raw_transparency_config(config)
+def create_explainer(explainer_config: Any) -> tuple[BaseExplainer, str]:
+    raw_transparency_config = _raw_transparency_config(explainer_config)
     explainer_config = {
         key: value for key, value in raw_transparency_config.items() if key != "visualisers"
     }
@@ -70,8 +72,8 @@ def create_explainer(config: AppConfig) -> tuple[BaseExplainer, str]:
     return explainer, resolved_target
 
 
-def create_visualisers(config: AppConfig) -> list[BaseVisualiser]:
-    raw_transparency_config = _raw_transparency_config(config)
+def create_visualisers(explainer_config: Any) -> list[BaseVisualiser]:
+    raw_transparency_config = _raw_transparency_config(explainer_config)
     visualisers: list[BaseVisualiser] = []
 
     for visualiser_config in raw_transparency_config.get("visualisers", []):

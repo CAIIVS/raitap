@@ -19,7 +19,7 @@ def _make_config(tmp_path, transparency_config) -> AppConfig:
         SimpleNamespace(
             experiment_name="test",
             fallback_output_dir=str(tmp_path),
-            transparency=transparency_config,
+            explainers={"test_explainer": transparency_config},
         ),
     )
 
@@ -36,16 +36,17 @@ def test_explanation_returns_explanation_result(needs_captum, simple_cnn, sample
         ),
     )
 
-    explanation = Explanation(config, simple_cnn, sample_images, target=0)
+    explanation = Explanation(config, "test_explainer", simple_cnn, sample_images, target=0)
 
     assert isinstance(explanation, ExplanationResult)
     assert explanation.attributions.shape == sample_images.shape
-    assert explanation.run_dir == tmp_path / "transparency"
+    assert explanation.run_dir == tmp_path / "transparency" / "test_explainer"
     assert (explanation.run_dir / "attributions.pt").exists()
     assert (explanation.run_dir / "metadata.json").exists()
 
     visualisations = [
-        explanation.visualise(visualiser) for visualiser in create_visualisers(config)
+        explanation.visualise(visualiser)
+        for visualiser in create_visualisers(config.explainers["test_explainer"])
     ]
     assert len(visualisations) == 1
     assert (explanation.run_dir / "CaptumImageVisualiser.png").exists()
@@ -82,6 +83,7 @@ def test_explanation_validates_visualisers_before_compute(monkeypatch, tmp_path)
     with pytest.raises(VisualiserIncompatibilityError):
         Explanation(
             config,
+            "test_explainer",
             model=torch.nn.Identity(),
             inputs=torch.zeros(1, 3, 8, 8),
         )

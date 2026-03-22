@@ -54,7 +54,7 @@ class TrackingConfig:
 class AppConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     data: DataConfig = field(default_factory=DataConfig)
-    transparency: TransparencyConfig = field(default_factory=TransparencyConfig)
+    explainers: dict[str, Any] = field(default_factory=lambda: {"default": TransparencyConfig()})
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
     tracking: TrackingConfig = field(default_factory=TrackingConfig)
     experiment_name: str = "mvp"

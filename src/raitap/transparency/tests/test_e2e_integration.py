@@ -70,13 +70,15 @@ def _captum_config() -> AppConfig:
         SimpleNamespace(
             experiment_name="test",
             fallback_output_dir="unused",
-            transparency=OmegaConf.create(
-                {
-                    "_target_": "raitap.transparency.CaptumExplainer",
-                    "algorithm": "IntegratedGradients",
-                    "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
-                }
-            ),
+            explainers={
+                "test_explainer": OmegaConf.create(
+                    {
+                        "_target_": "raitap.transparency.CaptumExplainer",
+                        "algorithm": "IntegratedGradients",
+                        "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+                    }
+                )
+            },
         ),
     )
 
@@ -143,9 +145,10 @@ def test_config_helpers_support_visualiser_for_loop(
     config = _captum_config()
     config.fallback_output_dir = str(tmp_path)
 
-    explanation = Explanation(config, simple_cnn, sample_images, target=0)
+    explanation = Explanation(config, "test_explainer", simple_cnn, sample_images, target=0)
     visualisations = [
-        explanation.visualise(visualiser) for visualiser in create_visualisers(config)
+        explanation.visualise(visualiser)
+        for visualiser in create_visualisers(config.explainers["test_explainer"])
     ]
 
     assert isinstance(explanation, ExplanationResult)

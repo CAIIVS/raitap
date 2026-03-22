@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 import pytest
 import torch
 import torch.nn as nn
 
+from raitap.configs.schema import AppConfig
 from raitap.models import Model
 from raitap.models.converters import CONVERTERS, FormatConverter, PthConverter
 
@@ -70,58 +72,78 @@ def saved_state_dict(tmp_path: Path, tiny_model: nn.Module) -> Path:
 
 class TestLoadModelFromPath:
     def test_loads_pth_file(self, saved_pth: Path):
-        cfg = type(
-            "AppConfig", (), {"model": type("ModelConfig", (), {"source": str(saved_pth)})}
-        )()
+        cfg = cast(
+            "AppConfig",
+            type("AppConfig", (), {"model": type("ModelConfig", (), {"source": str(saved_pth)})})(),
+        )
         model = Model(cfg).network
         assert isinstance(model, nn.Module)
 
     def test_loads_pt_file(self, saved_pt: Path):
-        cfg = type("AppConfig", (), {"model": type("ModelConfig", (), {"source": str(saved_pt)})})()
+        cfg = cast(
+            "AppConfig",
+            type("AppConfig", (), {"model": type("ModelConfig", (), {"source": str(saved_pt)})})(),
+        )
         model = Model(cfg).network
         assert isinstance(model, nn.Module)
 
     def test_accepts_string_path(self, saved_pth: Path):
-        cfg = type(
-            "AppConfig", (), {"model": type("ModelConfig", (), {"source": str(saved_pth)})}
-        )()
+        cfg = cast(
+            "AppConfig",
+            type("AppConfig", (), {"model": type("ModelConfig", (), {"source": str(saved_pth)})})(),
+        )
         model = Model(cfg).network
         assert isinstance(model, nn.Module)
 
     def test_returns_eval_mode(self, saved_pth: Path):
-        cfg = type(
-            "AppConfig", (), {"model": type("ModelConfig", (), {"source": str(saved_pth)})}
-        )()
+        cfg = cast(
+            "AppConfig",
+            type("AppConfig", (), {"model": type("ModelConfig", (), {"source": str(saved_pth)})})(),
+        )
         model = Model(cfg).network
         assert not model.training
 
     def test_missing_file_raises_file_not_found(self, tmp_path: Path):
-        cfg = type(
+        cfg = cast(
             "AppConfig",
-            (),
-            {"model": type("ModelConfig", (), {"source": str(tmp_path / "ghost.pth")})},
-        )()
+            type(
+                "AppConfig",
+                (),
+                {"model": type("ModelConfig", (), {"source": str(tmp_path / "ghost.pth")})},
+            )(),
+        )
         with pytest.raises(FileNotFoundError, match="not found"):
             Model(cfg)
 
     def test_unsupported_extension_raises_value_error(self, tmp_path: Path):
         bad = tmp_path / "model.xyz"
         bad.touch()
-        cfg = type("AppConfig", (), {"model": type("ModelConfig", (), {"source": str(bad)})})()
+        cfg = cast(
+            "AppConfig",
+            type("AppConfig", (), {"model": type("ModelConfig", (), {"source": str(bad)})})(),
+        )
         with pytest.raises(ValueError, match="Unsupported model format"):
             Model(cfg)
 
     def test_state_dict_raises_value_error(self, saved_state_dict: Path):
-        cfg = type(
-            "AppConfig", (), {"model": type("ModelConfig", (), {"source": str(saved_state_dict)})}
-        )()
+        cfg = cast(
+            "AppConfig",
+            type(
+                "AppConfig",
+                (),
+                {"model": type("ModelConfig", (), {"source": str(saved_state_dict)})},
+            )(),
+        )
         with pytest.raises(ValueError, match="state-dict"):
             Model(cfg)
 
     def test_non_module_object_raises_value_error(self, tmp_path: Path):
         path = tmp_path / "tensor.pth"
         torch.save(torch.randn(3, 3), path)
-        cfg = type("AppConfig", (), {"model": type("ModelConfig", (), {"source": str(path)})})()
+        cfg = cast(
+            "AppConfig",
+            type("AppConfig", (), {"model": type("ModelConfig", (), {"source": str(path)})})(),
+        )
         with pytest.raises(ValueError, match=r"Expected an nn\.Module"):
             Model(cfg)
 
@@ -129,18 +151,29 @@ class TestLoadModelFromPath:
 class TestLoadModelFromName:
     def test_loads_known_model(self):
         # resnet18 is small enough to keep the test fast
-        cfg = type("AppConfig", (), {"model": type("ModelConfig", (), {"source": "resnet18"})})()
+        cfg = cast(
+            "AppConfig",
+            type("AppConfig", (), {"model": type("ModelConfig", (), {"source": "resnet18"})})(),
+        )
         model = Model(cfg).network
         assert isinstance(model, nn.Module)
 
     def test_returns_eval_mode(self):
-        cfg = type("AppConfig", (), {"model": type("ModelConfig", (), {"source": "resnet18"})})()
+        cfg = cast(
+            "AppConfig",
+            type("AppConfig", (), {"model": type("ModelConfig", (), {"source": "resnet18"})})(),
+        )
         model = Model(cfg).network
         assert not model.training
 
     def test_unknown_name_raises_value_error(self):
-        cfg = type(
-            "AppConfig", (), {"model": type("ModelConfig", (), {"source": "not_a_real_model_xyz"})}
-        )()
+        cfg = cast(
+            "AppConfig",
+            type(
+                "AppConfig",
+                (),
+                {"model": type("ModelConfig", (), {"source": "not_a_real_model_xyz"})},
+            )(),
+        )
         with pytest.raises(ValueError, match="neither an existing path nor a known"):
             Model(cfg)
