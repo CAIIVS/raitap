@@ -22,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
@@ -78,6 +79,7 @@ path = "src/raitap/__about__.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/raitap"]
 include = [
+    "src/raitap/py.typed",
     "src/raitap/**/*.yaml",
     "src/raitap/**/*.yml",
 ]
@@ -91,16 +93,23 @@ target-version = "py313"
 
 [tool.ruff.lint]
 select = [
-    "E", # pycodestyle errors
-    "W", # pycodestyle warnings
-    "F", # pyflakes
-    "I", # isort
-    "N", # pep8-naming
-    "UP", # pyupgrade
-    "B", # flake8-bugbear
+    "E", 
+    "W", 
+    "F", 
+    "I", 
+    "N", 
+    "UP", 
+    "B", 
     "C4", # flake8-comprehensions
-    "SIM", # flake8-simplify
-    "RUF", # Ruff-specific rules
+    "SIM", 
+    "RUF",
+    "ANN001", 
+    "ANN201", 
+    "ANN202",
+    "UP",
+    "TCH", # flake8-type-checking
+    "PYI",
+    "PGH003",
 ]
 ignore = []
 

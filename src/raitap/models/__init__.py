@@ -12,46 +12,49 @@ from pathlib import Path
 import torch.nn as nn
 from torchvision import models
 
+from raitap.configs.schema import AppConfig
+
 from .converters import CONVERTERS
 
 __all__ = [
-    "load_model",
+    "Model",
 ]
 
 
-def load_model(source: str) -> nn.Module:
-    """
-    Load a model from the source,
-    which can be either a local file path or a torchvision model name.
+class Model:
+    def __init__(self, cfg: AppConfig) -> None:
+        self.network = self._load_model(cfg)
 
-    Args:
-        source: Local model file path (e.g. ``model.pth``, ``model.onnx``)
-                or a torchvision model name (e.g. ``"resnet50"``).
+    def _load_model(self, cfg: AppConfig) -> nn.Module:
+        source = cfg.model.source
+        if not source:
+            raise ValueError(
+                "No model specified. Set model.source in your config.\n"
+                "  model.source: path/to/your_model.pth   (custom model)\n"
+                "  model.source: resnet50                 (built-in demo model)"
+            )
 
-    Returns:
-        PyTorch model in evaluation mode.
+        path = Path(source)
+        suffix = path.suffix.lower()
 
-    Raises:
-        FileNotFoundError: If *source* is a path that does not exist.
-        ValueError: If *source* is an unsupported file format or an unknown
-                    torchvision model name.
-    """
-    path = Path(source)
-    suffix = path.suffix.lower()
+        if path.exists() or suffix:
+            return _load_from_path(path)
 
-    if path.exists() or suffix:
-        return _load_from_path(path)
+        name = str(source).lower()
+        if hasattr(models, name):
+            return _load_pretrained(name)
 
-    name = str(source).lower()
-    if hasattr(models, name):
-        return _load_pretrained(name)
+        raise ValueError(
+            f"Model source {source!r} is neither an existing path nor a known "
+            f"torchvision model.\n"
+            f"Supported file formats: {list(CONVERTERS)}\n"
+            f"To use your own model, set source to a valid model file path."
+        )
 
-    raise ValueError(
-        f"Model source {source!r} is neither an existing path nor a known "
-        f"torchvision model.\n"
-        f"Supported file formats: {list(CONVERTERS)}\n"
-        f"To use your own model, set source to a valid model file path."
-    )
+    def log(self, tracker) -> None:
+        from raitap.tracking.helpers import log_model_artifact
+
+        log_model_artifact(tracker, self.network)
 
 
 def _load_from_path(path: Path) -> nn.Module:
@@ -85,7 +88,7 @@ def _load_pretrained(model_name: str) -> nn.Module:
     Load a torchvision model with its default pre-trained weights.
 
     This is intended for demos and quick testing.  For production use, supply
-    a model file path via :func:`load_model` instead.
+    a model file path via :class:`Model` instead.
 
     Args:
         model_name: Any ``torchvision.models`` attribute name

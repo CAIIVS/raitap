@@ -17,6 +17,8 @@ import pandas as pd
 import torch
 from PIL import Image
 
+from raitap.configs.schema import AppConfig
+
 from .samples import SAMPLE_SOURCES, _load_sample
 
 __all__ = [
@@ -152,7 +154,7 @@ def describe_data(
     return dataset_info
 
 
-def load_data(source: str) -> torch.Tensor:
+def load_data(config: AppConfig) -> torch.Tensor:
     """
     Load data from a specified source into a raw tensor.
 
@@ -171,6 +173,13 @@ def load_data(source: str) -> torch.Tensor:
     Returns:
         Raw data tensor.
     """
+    if not config.data.source:
+        raise ValueError(
+            "No data source specified. Set data.source in your config.\n"
+            "Use a local path or a named sample set, e.g.: data=imagenet_samples"
+        )
+    source = config.data.source
+
     if source in SAMPLE_SOURCES:
         return _load_sample(source)
 

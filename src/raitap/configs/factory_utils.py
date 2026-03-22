@@ -5,6 +5,8 @@ from pathlib import Path
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
 
+from raitap.configs.schema import AppConfig
+
 
 def cfg_to_dict(cfg) -> dict:
     """
@@ -33,7 +35,7 @@ def resolve_target(target: str, prefix: str) -> str:
     return target if "." in target else f"{prefix}{target}"
 
 
-def resolve_run_dir(config, subdir: str | None = None) -> Path:
+def resolve_run_dir(config: AppConfig, subdir: str | None = None) -> Path:
     """Resolve the current run directory from Hydra, with config fallback outside Hydra."""
     try:
         run_dir = Path(HydraConfig.get().runtime.output_dir)

@@ -1,30 +1,64 @@
-from pathlib import Path
-
 import hydra
-from hydra.core.hydra_config import HydraConfig
+
+from raitap.configs.factory_utils import resolve_run_dir
 
 from .configs.register import register_configs
 from .configs.schema import AppConfig
 from .data import load_data
-from .models import load_model
+from .models import Model
 from .tracking import (
     create_tracker,
     finalize_tracking,
     initialize_tracking,
     log_dataset_info,
 )
-from .tracking.helpers import log_model_artifact
-from .transparency import explain_and_log
+from .transparency.factory import Explanation, create_visualisers
 
 register_configs()
 
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
-def main(config: AppConfig):
-    output_dir = Path(HydraConfig.get().runtime.output_dir)
+def main(config: AppConfig) -> None:
     tracker = create_tracker(config.tracking)
     status = "FAILED"
 
+    print_summary(config)
+
+    try:
+        initialize_tracking(tracker, config)
+
+        print("Loading model...")
+        model = Model(config)
+        print(f"✓ Loaded model from {config.model.source!r}")
+        model.log(tracker)
+
+        print("\nLoading data...")
+        data = load_data(config)
+        n, *dims = data.shape
+        print(f"✓ Loaded {n} samples from {config.data.source!r} (shape: {tuple[int, ...](dims)})")
+        log_dataset_info(tracker, config, data)
+
+        # 3. Run transparency assessment
+        print("\nRunning explanation...")
+        explanation = Explanation(config, model, data)
+        explanation.log(tracker)
+
+        visualisations = [
+            explanation.visualise(visualiser) for visualiser in create_visualisers(config)
+        ]
+        for visualisation in visualisations:
+            visualisation.log(tracker)
+
+        status = "FINISHED"
+
+        print("\n" + "=" * 60)
+        print("Assessment complete!")
+        print("=" * 60)
+    finally:
+        finalize_tracking(tracker, status=status)
+
+
+def print_summary(config: AppConfig) -> None:
     print("=" * 60)
     print("RAITAP Transparency Assessment")
     print("=" * 60)
@@ -34,46 +68,7 @@ def main(config: AppConfig):
     print(f"Framework: {config.transparency._target_}")
     print(f"Algorithm: {config.transparency.algorithm}")
     print(f"Visualisers: {config.transparency.visualisers}")
-    print(f"Output: {output_dir}\n")
-
-    try:
-        initialize_tracking(tracker, config)
-
-        # 1. Load model
-        print("Loading model...")
-        if not config.model.source:
-            raise ValueError(
-                "No model specified. Set model.source in your config.\n"
-                "  model.source: path/to/your_model.pth   (custom model)\n"
-                "  model.source: resnet50                 (built-in demo model)"
-            )
-        model = load_model(config.model.source)
-        print(f"✓ Loaded model from {config.model.source!r}")
-        log_model_artifact(tracker, model)
-
-        # 2. Load data
-        print("\nLoading data...")
-        if not config.data.source:
-            raise ValueError(
-                "No data source specified. Set data.source in your config.\n"
-                "Use a local path or a named sample set, e.g.: data=imagenet_samples"
-            )
-        data = load_data(config.data.source)
-        n, *dims = data.shape
-        print(f"✓ Loaded {n} samples from {config.data.source!r} (shape: {tuple(dims)})")
-        log_dataset_info(tracker, config, data)
-
-        # 3. Run transparency assessment
-        print("\nRunning explanation...")
-        explain_and_log(config, model, data, logger=tracker)
-
-        status = "FINISHED"
-
-        print("\n" + "=" * 60)
-        print("Assessment complete!")
-        print("=" * 60)
-    finally:
-        finalize_tracking(tracker, status=status)
+    print(f"Output: {resolve_run_dir(config)}\n")
 
 
 if __name__ == "__main__":

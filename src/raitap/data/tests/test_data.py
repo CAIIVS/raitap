@@ -173,46 +173,56 @@ class TestLoadData:
     def test_local_image_file(self, tmp_path: Path) -> None:
         p = tmp_path / "img.png"
         _write_image(p)
-        tensor = load_data(str(p))
+        cfg = type("AppConfig", (), {"data": type("DataConfig", (), {"source": str(p)})})()
+        tensor = load_data(cfg)
         assert tensor.shape == (1, 3, 32, 32)
 
     def test_local_image_directory(self, tmp_path: Path) -> None:
         for i in range(2):
             _write_image(tmp_path / f"img{i}.jpg")
-        tensor = load_data(str(tmp_path))
+        cfg = type("AppConfig", (), {"data": type("DataConfig", (), {"source": str(tmp_path)})})()
+        tensor = load_data(cfg)
         assert tensor.shape[0] == 2
 
     def test_local_csv_file(self, tmp_path: Path) -> None:
         p = tmp_path / "data.csv"
         _write_csv(p, rows=6, cols=3)
-        tensor = load_data(str(p))
+        cfg = type("AppConfig", (), {"data": type("DataConfig", (), {"source": str(p)})})()
+        tensor = load_data(cfg)
         assert tensor.shape == (6, 3)
 
     def test_local_tabular_directory(self, tmp_path: Path) -> None:
         _write_csv(tmp_path / "a.csv", rows=2, cols=3)
         _write_csv(tmp_path / "b.csv", rows=4, cols=3)
-        tensor = load_data(str(tmp_path))
+        cfg = type("AppConfig", (), {"data": type("DataConfig", (), {"source": str(tmp_path)})})()
+        tensor = load_data(cfg)
         assert tensor.shape == (6, 3)
 
     def test_mixed_directory_raises(self, tmp_path: Path) -> None:
         _write_image(tmp_path / "img.jpg")
         _write_csv(tmp_path / "data.csv")
+        cfg = type("AppConfig", (), {"data": type("DataConfig", (), {"source": str(tmp_path)})})()
         with pytest.raises(ValueError, match="both image and tabular"):
-            load_data(str(tmp_path))
+            load_data(cfg)
 
     def test_empty_directory_raises(self, tmp_path: Path) -> None:
+        cfg = type("AppConfig", (), {"data": type("DataConfig", (), {"source": str(tmp_path)})})()
         with pytest.raises(FileNotFoundError, match="No supported files"):
-            load_data(str(tmp_path))
+            load_data(cfg)
 
     def test_unknown_extension_raises(self, tmp_path: Path) -> None:
         p = tmp_path / "data.xyz"
         p.write_text("something")
+        cfg = type("AppConfig", (), {"data": type("DataConfig", (), {"source": str(p)})})()
         with pytest.raises(ValueError, match="Cannot infer data type"):
-            load_data(str(p))
+            load_data(cfg)
 
     def test_invalid_source_raises(self) -> None:
+        cfg = type(
+            "AppConfig", (), {"data": type("DataConfig", (), {"source": "/no/such/path/file.csv"})}
+        )()
         with pytest.raises(ValueError, match="could not be resolved"):
-            load_data("/no/such/path/file.csv")
+            load_data(cfg)
 
 
 class TestDescribeData:

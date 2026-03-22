@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any
 
 import torch
+
+from ..results import ExplanationResult, resolve_default_run_dir
 
 
 class BaseExplainer(ABC):
@@ -18,6 +22,31 @@ class BaseExplainer(ABC):
 
     def __init__(self):
         self.attributions: torch.Tensor | None = None
+
+    def explain(
+        self,
+        model: torch.nn.Module,
+        inputs: torch.Tensor,
+        *,
+        run_dir: str | Path | None = None,
+        experiment_name: str | None = None,
+        explainer_target: str | None = None,
+        **kwargs: Any,
+    ) -> ExplanationResult:
+        attributions = self.compute_attributions(model, inputs, **kwargs)
+        self.attributions = attributions
+
+        explanation = ExplanationResult(
+            attributions=attributions,
+            inputs=inputs,
+            run_dir=Path(run_dir) if run_dir is not None else resolve_default_run_dir(),
+            experiment_name=experiment_name,
+            explainer_target=(explainer_target or f"{type(self).__module__}.{type(self).__name__}"),
+            algorithm=getattr(self, "algorithm", ""),
+            kwargs=kwargs,
+        )
+        explanation.write_artifacts()
+        return explanation
 
     @abstractmethod
     def compute_attributions(

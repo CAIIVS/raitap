@@ -5,11 +5,9 @@ Provides model explanation / attribution capabilities using SHAP and Captum.
 
 Public API
 ----------
-explain(config, model, inputs, **kwargs)
-    One-call entry point.  Reads ``_target_`` / ``algorithm`` / ``visualisers``
-    from the config, instantiates the appropriate explainer and visualisers via
-    Hydra's ``instantiate()``, and returns a dict with ``attributions``,
-    ``visualisations``, and ``run_dir``.
+Explainer classes expose `explainer.explain(model, inputs, **kwargs)`, which
+returns an `ExplanationResult`. Each explanation can then render one
+visualisation at a time via `explanation.visualise(visualiser, **kwargs)`.
 
 Explainer classes (used as ``_target_`` values)
 -----------------------------------------------
@@ -28,11 +26,11 @@ from __future__ import annotations
 # Explainer classes — public _target_ surface
 from .explainers import CaptumExplainer, ShapExplainer
 
-# Primary API
-from .factory import explain, explain_and_log
-
 # Domain error type
 from .methods_registry import VisualiserIncompatibilityError
+
+# Result objects
+from .results import ExplanationResult, VisualisationResult
 
 # Visualiser classes — public _target_ surface
 from .visualisers import (
@@ -51,6 +49,9 @@ __all__ = [  # noqa: RUF022
     # Explainer adapters
     "CaptumExplainer",
     "ShapExplainer",
+    # Result objects
+    "ExplanationResult",
+    "VisualisationResult",
     # Captum visualisers
     "CaptumImageVisualiser",
     "CaptumTextVisualiser",
@@ -65,7 +66,4 @@ __all__ = [  # noqa: RUF022
     "TabularBarChartVisualiser",
     # Domain errors
     "VisualiserIncompatibilityError",
-    # Primary API
-    "explain",
-    "explain_and_log",
 ]

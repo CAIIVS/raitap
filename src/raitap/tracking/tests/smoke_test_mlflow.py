@@ -18,15 +18,14 @@ from raitap.configs.schema import (
 )
 from raitap.data import load_data
 from raitap.metrics import evaluate_and_log as evaluate_metrics
-from raitap.models import load_model
+from raitap.models import Model
 from raitap.tracking import (
     create_tracker,
     finalize_tracking,
     initialize_tracking,
     log_dataset_info,
 )
-from raitap.tracking.helpers import log_model_artifact
-from raitap.transparency import explain_and_log as explain
+from raitap.transparency.factory import Explanation, create_visualisers
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SRC_ROOT = REPO_ROOT / "src"
@@ -131,20 +130,16 @@ def main() -> int:
     try:
         initialize_tracking(tracker, config)
 
-        if not config.model.source:
-            raise ValueError("No model source specified.")
-        model_source: str = config.model.source
-        model = load_model(model_source)
-        log_model_artifact(tracker, model)
+        model = Model(config)
+        model.log(tracker)
 
         if not config.data.source:
             raise ValueError("No data source specified.")
-        data_source: str = config.data.source
-        data = load_data(data_source)
+        data = load_data(config)
         log_dataset_info(tracker, config, data)
 
         with torch.no_grad():
-            logits = model(data)
+            logits = model.network(data)
             if logits.ndim < 2:
                 raise ValueError(
                     "Smoke test expects classifier logits of shape (N, C); "
@@ -162,13 +157,14 @@ def main() -> int:
             logger=tracker,
         )
 
-        explain(
-            config,
-            model,
-            data,
-            logger=tracker,
-            target=target,
-        )
+        explanation = Explanation(config, model, data, target=target)
+        explanation.log(tracker)
+
+        visualisations = [
+            explanation.visualise(visualiser) for visualiser in create_visualisers(config)
+        ]
+        for visualisation in visualisations:
+            visualisation.log(tracker)
 
         status = "FINISHED"
     finally:
