@@ -6,10 +6,6 @@ from typing import Any
 
 @dataclass
 class ModelConfig:
-    """
-    Configuration for model loading.
-    """
-
     # Path to a local .pth file, or a built-in name (e.g. "resnet50")
     source: str | None = None
 
@@ -42,17 +38,18 @@ class MetricsConfig:
 
 @dataclass
 class TrackingConfig:
-    registry_uri: str | None = None
+    output_forwarding_url: str | None = None
     log_model: bool = False
     registry_enabled: bool = False
     registered_model_name: str | None = None
+    open_when_done: bool = False
 
 
 @dataclass
 class AppConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     data: DataConfig = field(default_factory=DataConfig)
-    explainers: dict[str, Any] = field(default_factory=lambda: {"default": TransparencyConfig()})
+    transparency: dict[str, Any] = field(default_factory=lambda: {"default": TransparencyConfig()})
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
     tracking: TrackingConfig = field(default_factory=TrackingConfig)
     experiment_name: str = "mvp"

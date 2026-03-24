@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from raitap.transparency.visualisers import (
+    BaseVisualiser,
     CaptumImageVisualiser,
     CaptumTextVisualiser,
     CaptumTimeSeriesVisualiser,
@@ -13,7 +14,6 @@ from raitap.transparency.visualisers import (
     ShapWaterfallVisualiser,
     TabularBarChartVisualiser,
 )
-from raitap.transparency.visualisers.base import BaseVisualiser
 
 
 class TestCompatibleAlgorithmsAttribute:

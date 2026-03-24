@@ -42,7 +42,8 @@ def test_explanation_returns_explanation_result(
         ),
     )
 
-    explanation = Explanation(config, "test_explainer", simple_cnn, sample_images, target=0)
+    model = SimpleNamespace(network=simple_cnn)
+    explanation = Explanation(config, "test_explainer", model, sample_images, target=0)  # type: ignore[arg-type]
 
     assert isinstance(explanation, ExplanationResult)
     assert explanation.attributions.shape == sample_images.shape
@@ -52,7 +53,7 @@ def test_explanation_returns_explanation_result(
 
     visualisations = [
         explanation.visualise(visualiser)
-        for visualiser in create_visualisers(config.explainers["test_explainer"])
+        for visualiser in create_visualisers(config.transparency["test_explainer"])
     ]
     assert len(visualisations) == 1
     assert (explanation.run_dir / "CaptumImageVisualiser.png").exists()
@@ -89,10 +90,11 @@ def test_explanation_validates_visualisers_before_compute(
     )
 
     with pytest.raises(VisualiserIncompatibilityError):
+        model = SimpleNamespace(network=torch.nn.Identity())
         Explanation(
             config,
             "test_explainer",
-            model=torch.nn.Identity(),
+            model=model,  # type: ignore[arg-type]
             inputs=torch.zeros(1, 3, 8, 8),
         )
 

@@ -1,20 +1,9 @@
 defaults:
   - _self_
+  - transparency: demo
   - model: vit_b32
   - data: isic2018
   - metrics: classification
-  - tracking: none
+  - tracking: mlflow
 
-explainers:
-  captum_ig:
-    _target_: CaptumExplainer
-    algorithm: IntegratedGradients
-    visualisers:
-      - _target_: CaptumImageVisualiser
-  captum_saliency:
-    _target_: CaptumExplainer
-    algorithm: Saliency
-    visualisers:
-      - _target_: CaptumImageVisualiser
-
-experiment_name: mvp
+experiment_name: demo

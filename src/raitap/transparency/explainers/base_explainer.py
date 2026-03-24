@@ -32,6 +32,7 @@ class BaseExplainer(ABC):
         run_dir: str | Path | None = None,
         experiment_name: str | None = None,
         explainer_target: str | None = None,
+        explainer_name: str | None = None,
         **kwargs: Any,
     ) -> ExplanationResult:
         attributions = self.compute_attributions(model, inputs, **kwargs)
@@ -44,6 +45,7 @@ class BaseExplainer(ABC):
             experiment_name=experiment_name,
             explainer_target=(explainer_target or f"{type(self).__module__}.{type(self).__name__}"),
             algorithm=getattr(self, "algorithm", ""),
+            explainer_name=explainer_name,
             kwargs=kwargs,
         )
         explanation.write_artifacts()

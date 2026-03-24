@@ -47,6 +47,7 @@ class ExplanationResult:
     experiment_name: str | None
     explainer_target: str
     algorithm: str
+    explainer_name: str | None = None
     kwargs: dict[str, Any] = field(default_factory=dict)
     visualiser_targets: list[str] = field(default_factory=list)
 
@@ -99,19 +100,22 @@ class ExplanationResult:
         if tracker is None:
             return
 
+        explainer_name = self.explainer_name or self.run_dir.name
+        target_path = f"{artifact_path}/{explainer_name}"
+
         if not self.visualiser_targets:
-            tracker.log_artifacts(self.run_dir, target_subdirectory=artifact_path)
+            tracker.log_artifacts(self.run_dir, target_subdirectory=target_path)
             return
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            staging_dir = Path(tmp_dir) / self.run_dir.name
+            staging_dir = Path(tmp_dir) / "explanation"
             staging_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy2(self.run_dir / "attributions.pt", staging_dir / "attributions.pt")
             (staging_dir / "metadata.json").write_text(
                 json.dumps(self._metadata(visualiser_targets=[]), indent=2),
                 encoding="utf-8",
             )
-            tracker.log_artifacts(staging_dir, target_subdirectory=artifact_path)
+            tracker.log_artifacts(staging_dir, target_subdirectory=target_path)
 
 
 @dataclass
@@ -129,7 +133,9 @@ class VisualisationResult:
         if tracker is None:
             return
         with tempfile.TemporaryDirectory() as tmp_dir:
-            staging_dir = Path(tmp_dir) / self.visualiser_name
+            explainer_name = self.explanation.explainer_name or "default"
+            staging_dir = Path(tmp_dir) / explainer_name
             staging_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy2(self.output_path, staging_dir / self.output_path.name)
-            tracker.log_artifacts(staging_dir, target_subdirectory=artifact_path)
+            target_path = f"{artifact_path}/{explainer_name}"
+            tracker.log_artifacts(staging_dir, target_subdirectory=target_path)

@@ -35,7 +35,7 @@ class Explanation:
         inputs: torch.Tensor,
         **kwargs: Any,
     ) -> ExplanationResult:
-        explainer_config = config.explainers[explainer_name]
+        explainer_config = config.transparency[explainer_name]
         raw_transparency_config = _raw_transparency_config(explainer_config)
         algorithm = str(raw_transparency_config.get("algorithm", ""))
         explainer, explainer_target = create_explainer(explainer_config)
@@ -48,6 +48,7 @@ class Explanation:
             run_dir=resolve_run_dir(config, subdir=f"transparency/{explainer_name}"),
             experiment_name=str(getattr(config, "experiment_name", "")),
             explainer_target=explainer_target,
+            explainer_name=explainer_name,
             **kwargs,
         )
 

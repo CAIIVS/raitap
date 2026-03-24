@@ -30,21 +30,21 @@ class RecordingTracker:
     def __init__(self) -> None:
         self.logged_directories: list[LoggedDirectory] = []
 
-    def start_assessment(self, assessment_name: str) -> None:
+    def log_config(self) -> None:
         return None
 
-    def log_config(self, config: Any) -> None:
+    def log_model(self, model: Any) -> None:
         return None
 
-    def log_model(self, model: Any, artifact_path: str = "model") -> None:
+    def log_dataset(self, dataset_info: dict[str, Any]) -> None:
         return None
 
-    def log_dataset(self, dataset_info: dict[str, Any], artifact_path: str = "dataset") -> None:
-        return None
-
-    def log_artifacts(self, local_dir: str | Path, artifact_path: str) -> None:
-        directory = Path(local_dir)
+    def log_artifacts(
+        self, source_directory: str | Path | None, target_subdirectory: str | None = None
+    ) -> None:
+        directory = Path(source_directory) if source_directory else Path()
         files = sorted(path.name for path in directory.iterdir())
+        artifact_path = target_subdirectory or ""
         logged_directory: LoggedDirectory = {
             "artifact_path": artifact_path,
             "files": files,
@@ -63,7 +63,7 @@ class RecordingTracker:
     ) -> None:
         return None
 
-    def finalize(self, status: str = "FINISHED") -> None:
+    def terminate(self, successfully: bool = True) -> None:
         return None
 
 
@@ -154,10 +154,17 @@ def test_config_helpers_support_visualiser_for_loop(
     config = _captum_config()
     config.fallback_output_dir = str(tmp_path)
 
-    explanation = Explanation(config, "test_explainer", simple_cnn, sample_images, target=0)
+    model = SimpleNamespace(network=simple_cnn)
+    explanation: ExplanationResult = Explanation(
+        config,
+        "test_explainer",
+        model,  # type: ignore[arg-type]
+        sample_images,
+        target=0,
+    )
     visualisations = [
         explanation.visualise(visualiser)
-        for visualiser in create_visualisers(config.explainers["test_explainer"])
+        for visualiser in create_visualisers(config.transparency["test_explainer"])
     ]
 
     assert isinstance(explanation, ExplanationResult)
@@ -178,7 +185,7 @@ def test_explanation_log_only_uploads_explanation_artifacts(
     )
     explanation.visualise(CaptumImageVisualiser())
 
-    explanation.log(cast("TrackerProtocol", tracker))
+    explanation.log(tracker)  # type: ignore[arg-type]
 
     assert len(tracker.logged_directories) == 1
     logged_directory = tracker.logged_directories[0]
@@ -200,7 +207,7 @@ def test_visualisation_log_uploads_only_visualisation_artifact(
     )
     visualisation = explanation.visualise(CaptumImageVisualiser())
 
-    visualisation.log(tracker)
+    visualisation.log(tracker)  # type: ignore[arg-type]
 
     assert len(tracker.logged_directories) == 1
     logged_directory = tracker.logged_directories[0]

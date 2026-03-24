@@ -1,0 +1,10 @@
+captum_ig:
+  _target_: CaptumExplainer
+  algorithm: IntegratedGradients
+  visualisers:
+    - _target_: CaptumImageVisualiser
+captum_saliency:
+  _target_: CaptumExplainer
+  algorithm: Saliency
+  visualisers:
+    - _target_: CaptumImageVisualiser

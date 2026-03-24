@@ -16,15 +16,10 @@ from raitap.configs.schema import (
     TrackingConfig,
     TransparencyConfig,
 )
-from raitap.data import load_data
+from raitap.data import Data
 from raitap.metrics import evaluate_and_log as evaluate_metrics
 from raitap.models import Model
-from raitap.tracking import (
-    Tracker,
-    finalize_tracking,
-    initialize_tracking,
-    log_dataset_info,
-)
+from raitap.tracking import BaseTracker
 from raitap.transparency.factory import Explanation, create_visualisers
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -106,7 +101,7 @@ def main() -> int:
             name=f"{image_path.stem}_smoke",
             source=str(image_path),
         ),
-        explainers={
+        transparency={
             "smoke_captum": TransparencyConfig(
                 _target_="CaptumExplainer",
                 algorithm="IntegratedGradients",
@@ -119,29 +114,28 @@ def main() -> int:
             num_classes=1000,
         ),
         tracking=TrackingConfig(
-            enabled=True,
-            tracking_uri=tracking_uri,
+            output_forwarding_url=tracking_uri,
             log_model=args.log_model,
         ),
         fallback_output_dir=str(output_dir),
     )
 
-    tracker = Tracker(config)
+    tracker = BaseTracker.create_tracker(config)
     status = "FAILED"
 
     try:
-        initialize_tracking(tracker, config)
+        tracker.log_config()
 
         model = Model(config)
         model.log(tracker)
 
         if not config.data.source:
             raise ValueError("No data source specified.")
-        data = load_data(config)
-        log_dataset_info(tracker, config, data)
+        data = Data(config)
+        data.log(tracker)
 
         with torch.no_grad():
-            logits = model.network(data)
+            logits = model.network(data.tensor)
             if logits.ndim < 2:
                 raise ValueError(
                     "Smoke test expects classifier logits of shape (N, C); "
@@ -162,8 +156,8 @@ def main() -> int:
         explanations = []
         visualisations_list = []
 
-        for name, explainer_cfg in config.explainers.items():
-            explanation = Explanation(config, name, model, data, target=target)
+        for name, explainer_cfg in config.transparency.items():
+            explanation = Explanation(config, name, model, data.tensor, target=target)
             explanations.append(explanation)
 
             visualisations = [
@@ -172,15 +166,14 @@ def main() -> int:
             ]
             visualisations_list.extend(visualisations)
 
-        if config.tracking.enabled:
-            for explanation in explanations:
-                explanation.log(tracker)
-            for visualisation in visualisations_list:
-                visualisation.log(tracker)
+        for explanation in explanations:
+            explanation.log(tracker)
+        for visualisation in visualisations_list:
+            visualisation.log(tracker)
 
         status = "FINISHED"
     finally:
-        finalize_tracking(tracker, status=status)
+        tracker.terminate(successfully=(status == "FINISHED"))
 
     print(f"Smoke test finished with status={status}")
     print(f"MLflow tracking URI: {tracking_uri}")

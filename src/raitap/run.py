@@ -36,7 +36,15 @@ def main(config: AppConfig) -> None:
     if has_tracker:
         with BaseTracker.create_tracker(config) as tracker:
             tracker.log_config()
-            model.log(tracker)
+            if config.tracking.log_model:
+                model.log(tracker)
+            data.log(tracker)
+            for explanation in explanations:
+                explanation.log(tracker)
+            for visualisation in visualisations_list:
+                visualisation.log(tracker)
+            # for metric in metrics:
+            #     metric.log(tracker)
             data.log(tracker)
             for explanation in explanations:
                 explanation.log(tracker)
@@ -54,7 +62,7 @@ def run_explanations(
     config: AppConfig, model: Model, data: Data, data_tensor: torch.Tensor
 ) -> tuple[list[ExplanationResult], list[VisualisationResult]]:
 
-    explainers = config.explainers.items()
+    explainers = config.transparency.items()
     if not explainers:
         raise ValueError("No explainers configured")
 
@@ -90,7 +98,7 @@ def print_summary(config: AppConfig) -> None:
     print(f"\nExperiment: {config.experiment_name}")
     print(f"Model: {config.model.source}")
     print(f"Dataset: {config.data.name}")
-    print(f"Explainers: {list(config.explainers.keys())}")
+    print(f"Explainers: {list(config.transparency.keys())}")
     print(f"Output: {resolve_run_dir(config)}\n")
 
 

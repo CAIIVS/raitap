@@ -23,10 +23,10 @@ class BaseTracker(ABC):
         tracking_config = cfg_to_dict(config.tracking)
         target_path = str(tracking_config.get("_target_", ""))
         resolved_target = resolve_target(target_path, _TRACKING_PREFIX)
-        tracking_config["_target_"] = resolved_target
 
         try:
-            tracker = instantiate(tracking_config)
+            tracker_class = instantiate({"_target_": resolved_target, "_partial_": True})
+            tracker = tracker_class(config)
         except Exception as error:
             raise ValueError(
                 f"Could not instantiate tracker {target_path!r}.\n"
