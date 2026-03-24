@@ -43,7 +43,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - name: Install dependencies
-        run: uv sync --group dev
+        run: uv sync --all-extras --group dev
 
       - name: Start lint check
         id: lint_check_start
