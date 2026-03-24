@@ -78,4 +78,6 @@ def test_evaluate_and_log_uses_logger_for_metrics_and_artifacts(tmp_path: Path) 
 
     assert out["run_dir"] == tmp_path / "metrics"
     logger.log_metrics.assert_called_once()
-    logger.log_artifacts.assert_called_once_with(tmp_path / "metrics", artifact_path="metrics")
+    logger.log_artifacts.assert_called_once_with(
+        tmp_path / "metrics", target_subdirectory="metrics"
+    )

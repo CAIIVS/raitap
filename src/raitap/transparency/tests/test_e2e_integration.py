@@ -73,7 +73,7 @@ def _captum_config() -> AppConfig:
         SimpleNamespace(
             experiment_name="test",
             fallback_output_dir="unused",
-            explainers={
+            transparency={
                 "test_explainer": OmegaConf.create(
                     {
                         "_target_": "raitap.transparency.CaptumExplainer",
@@ -185,7 +185,7 @@ def test_explanation_log_only_uploads_explanation_artifacts(
     )
     explanation.visualise(CaptumImageVisualiser())
 
-    explanation.log(tracker)  # type: ignore[arg-type]
+    explanation.log(tracker, use_subdirectory=False)  # type: ignore[arg-type]
 
     assert len(tracker.logged_directories) == 1
     logged_directory = tracker.logged_directories[0]
@@ -207,7 +207,7 @@ def test_visualisation_log_uploads_only_visualisation_artifact(
     )
     visualisation = explanation.visualise(CaptumImageVisualiser())
 
-    visualisation.log(tracker)  # type: ignore[arg-type]
+    visualisation.log(tracker, use_subdirectory=False)  # type: ignore[arg-type]
 
     assert len(tracker.logged_directories) == 1
     logged_directory = tracker.logged_directories[0]

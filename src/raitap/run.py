@@ -34,24 +34,16 @@ def main(config: AppConfig) -> None:
     has_tracker = tracking_config and hasattr(tracking_config, "_target_")
 
     if has_tracker:
+        use_subdirs = len(explanations) > 1
         with BaseTracker.create_tracker(config) as tracker:
             tracker.log_config()
             if config.tracking.log_model:
                 model.log(tracker)
             data.log(tracker)
             for explanation in explanations:
-                explanation.log(tracker)
+                explanation.log(tracker, use_subdirectory=use_subdirs)
             for visualisation in visualisations_list:
-                visualisation.log(tracker)
-            # for metric in metrics:
-            #     metric.log(tracker)
-            data.log(tracker)
-            for explanation in explanations:
-                explanation.log(tracker)
-            for visualisation in visualisations_list:
-                visualisation.log(tracker)
-            # for metric in metrics:
-            #     metric.log(tracker)
+                visualisation.log(tracker, use_subdirectory=use_subdirs)
 
     print("\n" + "=" * 60)
     print("Assessment complete!")

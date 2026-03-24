@@ -96,12 +96,17 @@ class ExplanationResult:
             output_path=output_path,
         )
 
-    def log(self, tracker: BaseTracker | None, artifact_path: str = "transparency") -> None:
+    def log(
+        self,
+        tracker: BaseTracker | None,
+        artifact_path: str = "transparency",
+        use_subdirectory: bool = True,
+    ) -> None:
         if tracker is None:
             return
 
         explainer_name = self.explainer_name or self.run_dir.name
-        target_path = f"{artifact_path}/{explainer_name}"
+        target_path = f"{artifact_path}/{explainer_name}" if use_subdirectory else artifact_path
 
         if not self.visualiser_targets:
             tracker.log_artifacts(self.run_dir, target_subdirectory=target_path)
@@ -129,7 +134,12 @@ class VisualisationResult:
     def __post_init__(self) -> None:
         self.output_path = Path(self.output_path)
 
-    def log(self, tracker: BaseTracker | None, artifact_path: str = "transparency") -> None:
+    def log(
+        self,
+        tracker: BaseTracker | None,
+        artifact_path: str = "transparency",
+        use_subdirectory: bool = True,
+    ) -> None:
         if tracker is None:
             return
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -137,5 +147,6 @@ class VisualisationResult:
             staging_dir = Path(tmp_dir) / explainer_name
             staging_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy2(self.output_path, staging_dir / self.output_path.name)
-            target_path = f"{artifact_path}/{explainer_name}"
+
+            target_path = f"{artifact_path}/{explainer_name}" if use_subdirectory else artifact_path
             tracker.log_artifacts(staging_dir, target_subdirectory=target_path)

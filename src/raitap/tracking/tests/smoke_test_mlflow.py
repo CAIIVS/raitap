@@ -166,10 +166,11 @@ def main() -> int:
             ]
             visualisations_list.extend(visualisations)
 
+        use_subdirs = len(explanations) > 1
         for explanation in explanations:
-            explanation.log(tracker)
+            explanation.log(tracker, use_subdirectory=use_subdirs)
         for visualisation in visualisations_list:
-            visualisation.log(tracker)
+            visualisation.log(tracker, use_subdirectory=use_subdirs)
 
         status = "FINISHED"
     finally:

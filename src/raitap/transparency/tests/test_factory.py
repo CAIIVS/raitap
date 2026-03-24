@@ -23,7 +23,7 @@ def _make_config(tmp_path: Path, transparency_config: Any) -> AppConfig:
         SimpleNamespace(
             experiment_name="test",
             fallback_output_dir=str(tmp_path),
-            explainers={"test_explainer": transparency_config},
+            transparency={"test_explainer": transparency_config},
         ),
     )
 
