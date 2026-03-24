@@ -2,30 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from raitap.data import describe_data
-
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from .base import Tracker
-
-
-def initialize_tracking(tracker: Tracker | None, config: Any) -> None:
-    if tracker is None:
-        return
-
-    tracker.start_assessment(str(config.experiment_name))
-    tracker.log_config(config)
-
-
-def finalize_tracking(tracker: Tracker | None, status: str = "FINISHED") -> None:
-    if tracker is None:
-        return
-    tracker.finalize(status=status)
+    from raitap.tracking.base_tracker import BaseTracker
 
 
 def log_model_artifact(
-    tracker: Tracker | None,
+    tracker: BaseTracker | None,
     model: Any,
     artifact_path: str = "model",
 ) -> None:
@@ -35,7 +19,7 @@ def log_model_artifact(
 
 
 def log_dataset_info(
-    tracker: Tracker | None,
+    tracker: TrackerProtocol | None,
     config: Any,
     data: Any,
     artifact_path: str = "dataset",
@@ -54,7 +38,7 @@ def log_dataset_info(
 
 
 def log_artifact_directory(
-    tracker: Tracker | None,
+    tracker: TrackerProtocol | None,
     local_dir: str | Path,
     artifact_path: str,
 ) -> None:

@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     import torch
 
     from raitap.configs.schema import AppConfig
-    from raitap.tracking.base import Tracker
 
 
 class LoggedDirectory(TypedDict):
@@ -179,7 +178,7 @@ def test_explanation_log_only_uploads_explanation_artifacts(
     )
     explanation.visualise(CaptumImageVisualiser())
 
-    explanation.log(cast("Tracker", tracker))
+    explanation.log(cast("TrackerProtocol", tracker))
 
     assert len(tracker.logged_directories) == 1
     logged_directory = tracker.logged_directories[0]

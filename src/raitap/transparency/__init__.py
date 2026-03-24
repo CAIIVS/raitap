@@ -25,6 +25,12 @@ from __future__ import annotations
 
 # Explainer classes — public _target_ surface
 from .explainers import CaptumExplainer, ShapExplainer
+from .factory import (
+    Explanation,
+    check_explainer_visualiser_compat,
+    create_explainer,
+    create_visualisers,
+)
 
 # Domain error type
 from .methods_registry import VisualiserIncompatibilityError
@@ -66,4 +72,9 @@ __all__ = [  # noqa: RUF022
     "TabularBarChartVisualiser",
     # Domain errors
     "VisualiserIncompatibilityError",
+    # Rest
+    "Explanation",
+    "create_explainer",
+    "create_visualisers",
+    "check_explainer_visualiser_compat",
 ]

@@ -5,7 +5,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from .base import BaseExplainer
+from .base_explainer import BaseExplainer
 
 
 class ShapExplainer(BaseExplainer):
@@ -54,7 +54,10 @@ class ShapExplainer(BaseExplainer):
         try:
             import shap
         except ImportError as e:
-            raise ImportError("SHAP not installed. Install with: pip install shap>=0.46.0") from e
+            raise ImportError(
+                "SHAP explainer is enabled but shap is not installed. "
+                "Install it with `uv sync --extra shap`."
+            ) from e
 
         # Dynamically get the explainer class
         try:

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .base import BaseVisualiser
+from .base_visualiser import BaseVisualiser
 
 if TYPE_CHECKING:
     import torch
@@ -61,7 +61,10 @@ class ShapBarVisualiser(BaseVisualiser):
         try:
             import shap
         except ImportError as e:
-            raise ImportError("SHAP not installed.  pip install shap>=0.46.0") from e
+            raise ImportError(
+                "SHAP visualiser is enabled but shap is not installed. "
+                "Install it with `uv sync --extra shap`."
+            ) from e
 
         values = _to_numpy(attributions)
         feats = _to_numpy(inputs) if inputs is not None else None
@@ -97,7 +100,10 @@ class ShapBeeswarmVisualiser(BaseVisualiser):
         try:
             import shap
         except ImportError as e:
-            raise ImportError("SHAP not installed.  pip install shap>=0.46.0") from e
+            raise ImportError(
+                "SHAP visualiser is enabled but shap is not installed. "
+                "Install it with `uv sync --extra shap`."
+            ) from e
 
         values = _to_numpy(attributions)
         feats = _to_numpy(inputs) if inputs is not None else None
@@ -149,7 +155,10 @@ class ShapWaterfallVisualiser(BaseVisualiser):
         try:
             import shap
         except ImportError as e:
-            raise ImportError("SHAP not installed.  pip install shap>=0.46.0") from e
+            raise ImportError(
+                "SHAP visualiser is enabled but shap is not installed. "
+                "Install it with `uv sync --extra shap`."
+            ) from e
 
         values = _to_numpy(attributions)
         sample_vals = values[self.sample_index]
@@ -198,7 +207,10 @@ class ShapForceVisualiser(BaseVisualiser):
         try:
             import shap
         except ImportError as e:
-            raise ImportError("SHAP not installed.  pip install shap>=0.46.0") from e
+            raise ImportError(
+                "SHAP visualiser is enabled but shap is not installed. "
+                "Install it with `uv sync --extra shap`."
+            ) from e
 
         values = _to_numpy(attributions)
         sample_vals = values[self.sample_index]
@@ -268,7 +280,10 @@ class ShapImageVisualiser(BaseVisualiser):
         try:
             import shap
         except ImportError as e:
-            raise ImportError("SHAP not installed.  pip install shap>=0.46.0") from e
+            raise ImportError(
+                "SHAP visualiser is enabled but shap is not installed. "
+                "Install it with `uv sync --extra shap`."
+            ) from e
 
         shap_vals = _to_numpy(attributions)  # (B, C, H, W)
         n = min(shap_vals.shape[0], self.max_samples)

@@ -25,7 +25,7 @@ DetectionMetrics
 from __future__ import annotations
 
 # Base protocol and result type
-from .base import MetricComputer, MetricResult
+from .base_metric import MetricComputer, MetricResult
 
 # Concrete metric implementations
 from .classification_metrics import ClassificationMetrics

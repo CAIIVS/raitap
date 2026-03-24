@@ -1,19 +1,15 @@
 from __future__ import annotations
 
-from .base import Tracker
-from .factory import create_tracker
+from .base_tracker import BaseTracker
 from .helpers import (
-    finalize_tracking,
-    initialize_tracking,
     log_artifact_directory,
     log_dataset_info,
 )
+from .mlflow.mlflow_tracker import MLFlowTracker
 
 __all__ = [
-    "Tracker",
-    "create_tracker",
-    "finalize_tracking",
-    "initialize_tracking",
+    "BaseTracker",
+    "MLFlowTracker",
     "log_artifact_directory",
     "log_dataset_info",
 ]

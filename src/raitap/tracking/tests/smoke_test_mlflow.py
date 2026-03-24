@@ -20,7 +20,7 @@ from raitap.data import load_data
 from raitap.metrics import evaluate_and_log as evaluate_metrics
 from raitap.models import Model
 from raitap.tracking import (
-    create_tracker,
+    Tracker,
     finalize_tracking,
     initialize_tracking,
     log_dataset_info,
@@ -126,7 +126,7 @@ def main() -> int:
         fallback_output_dir=str(output_dir),
     )
 
-    tracker = create_tracker(config.tracking)
+    tracker = Tracker(config)
     status = "FAILED"
 
     try:

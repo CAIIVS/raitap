@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
-from .base import MetricComputer, MetricResult
+from .base_metric import MetricComputer, MetricResult
 from .utils import tensor_to_python
 
 BoxFormat = Literal["xyxy", "xywh"]  # torchvision outputs xyxy

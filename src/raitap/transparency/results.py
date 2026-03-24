@@ -13,7 +13,7 @@ from hydra.core.hydra_config import HydraConfig
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
-    from ..tracking.base import Tracker
+    from ..tracking.base_tracker import BaseTracker
     from .visualisers import BaseVisualiser
 
 
@@ -95,12 +95,12 @@ class ExplanationResult:
             output_path=output_path,
         )
 
-    def log(self, tracker: Tracker | None, artifact_path: str = "transparency") -> None:
+    def log(self, tracker: BaseTracker | None, artifact_path: str = "transparency") -> None:
         if tracker is None:
             return
 
         if not self.visualiser_targets:
-            tracker.log_artifacts(self.run_dir, artifact_path=artifact_path)
+            tracker.log_artifacts(self.run_dir, target_subdirectory=artifact_path)
             return
 
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -111,7 +111,7 @@ class ExplanationResult:
                 json.dumps(self._metadata(visualiser_targets=[]), indent=2),
                 encoding="utf-8",
             )
-            tracker.log_artifacts(staging_dir, artifact_path=artifact_path)
+            tracker.log_artifacts(staging_dir, target_subdirectory=artifact_path)
 
 
 @dataclass
@@ -125,11 +125,11 @@ class VisualisationResult:
     def __post_init__(self) -> None:
         self.output_path = Path(self.output_path)
 
-    def log(self, tracker: Tracker | None, artifact_path: str = "transparency") -> None:
+    def log(self, tracker: BaseTracker | None, artifact_path: str = "transparency") -> None:
         if tracker is None:
             return
         with tempfile.TemporaryDirectory() as tmp_dir:
             staging_dir = Path(tmp_dir) / self.visualiser_name
             staging_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy2(self.output_path, staging_dir / self.output_path.name)
-            tracker.log_artifacts(staging_dir, artifact_path=artifact_path)
+            tracker.log_artifacts(staging_dir, target_subdirectory=artifact_path)

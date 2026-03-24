@@ -9,15 +9,17 @@ from hydra.utils import instantiate
 from ..configs.factory_utils import cfg_to_dict, resolve_run_dir, resolve_target
 from .methods_registry import VisualiserIncompatibilityError
 
-_TRANSPARENCY_PREFIX = "raitap.transparency."
-
 if TYPE_CHECKING:
     import torch
 
+    from raitap.models import Model
+
     from ..configs.schema import AppConfig
-    from .explainers import BaseExplainer
+    from .explainers.base_explainer import BaseExplainer
     from .results import ExplanationResult
     from .visualisers import BaseVisualiser
+
+_TRANSPARENCY_PREFIX = "raitap.transparency."
 
 
 def _raw_transparency_config(explainer_config: Any) -> dict[str, Any]:
@@ -27,27 +29,24 @@ def _raw_transparency_config(explainer_config: Any) -> dict[str, Any]:
 class Explanation:
     def __new__(
         cls,
-        app_config: AppConfig,
+        config: AppConfig,
         explainer_name: str,
-        model: Any,  # Can be Model or nn.Module
+        model: Model,
         inputs: torch.Tensor,
         **kwargs: Any,
     ) -> ExplanationResult:
-        explainer_config = app_config.explainers[explainer_name]
+        explainer_config = config.explainers[explainer_name]
         raw_transparency_config = _raw_transparency_config(explainer_config)
         algorithm = str(raw_transparency_config.get("algorithm", ""))
         explainer, explainer_target = create_explainer(explainer_config)
         visualisers = create_visualisers(explainer_config)
-        validate_visualisers(explainer_target, algorithm, visualisers)
-
-        # Extract nn.Module if a Model instance is passed
-        network = getattr(model, "network", model)
+        check_explainer_visualiser_compat(explainer_target, algorithm, visualisers)
 
         return explainer.explain(
-            network,
+            model.network,
             inputs,
-            run_dir=resolve_run_dir(app_config, subdir=f"transparency/{explainer_name}"),
-            experiment_name=str(getattr(app_config, "experiment_name", "")),
+            run_dir=resolve_run_dir(config, subdir=f"transparency/{explainer_name}"),
+            experiment_name=str(getattr(config, "experiment_name", "")),
             explainer_target=explainer_target,
             **kwargs,
         )
@@ -102,7 +101,7 @@ def create_visualisers(explainer_config: Any) -> list[BaseVisualiser]:
     return visualisers
 
 
-def validate_visualisers(
+def check_explainer_visualiser_compat(
     explainer_target: str,
     algorithm: str,
     visualisers: list[BaseVisualiser],
@@ -115,11 +114,3 @@ def validate_visualisers(
                 algorithm=algorithm,
                 compatible_algorithms=sorted(visualiser.compatible_algorithms),
             )
-
-
-__all__ = [
-    "Explanation",
-    "create_explainer",
-    "create_visualisers",
-    "validate_visualisers",
-]

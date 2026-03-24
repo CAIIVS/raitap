@@ -1,79 +1,86 @@
 import hydra
+import torch
 
 from raitap.configs.factory_utils import resolve_run_dir
 from raitap.configs.register import register_configs
 from raitap.configs.schema import AppConfig
-from raitap.data import load_data
+from raitap.data import Data
 from raitap.models import Model
-from raitap.tracking import (
-    create_tracker,
-    finalize_tracking,
-    initialize_tracking,
-    log_dataset_info,
-)
+from raitap.tracking import BaseTracker
 from raitap.transparency.factory import Explanation, create_visualisers
+from raitap.transparency.results import ExplanationResult, VisualisationResult
 
 register_configs()
 
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(config: AppConfig) -> None:
-    tracker = create_tracker(config.tracking)
-    status = "FAILED"
-
     print_summary(config)
 
-    try:
-        initialize_tracking(tracker, config)
+    print("Loading model...")
+    model = Model(config)
+    print(f"Loaded model from {config.model.source!r}")
 
-        print("Loading model...")
-        model = Model(config)
-        print(f"Loaded model from {config.model.source!r}")
-        model.log(tracker)
+    print("\nLoading data...")
+    data = Data(config)
+    data_tensor = data.tensor
+    n, *dims = data_tensor.shape
+    print(f"Loaded {n} samples from {config.data.source!r} (shape: {tuple[int, ...](dims)})")
 
-        print("\nLoading data...")
-        data = load_data(config)
-        n, *dims = data.shape
-        print(f"Loaded {n} samples from {config.data.source!r} (shape: {tuple[int, ...](dims)})")
-        log_dataset_info(tracker, config, data)
+    [explanations, visualisations_list] = run_explanations(config, model, data, data_tensor)
 
-        # 3. Run transparency assessments
-        print("\nRunning explanations...")
-        explanations = []
-        visualisations_list = []
+    # Only use tracking if a valid tracker is configured (_target_ is present)
+    tracking_config = config.tracking if hasattr(config, "tracking") else None
+    has_tracker = tracking_config and hasattr(tracking_config, "_target_")
 
-        import torch
-
-        with torch.no_grad():
-            logits = model.network(data)
-            predicted_classes = logits.argmax(dim=1)
-            target = predicted_classes.tolist()
-
-        for name, explainer_cfg in config.explainers.items():
-            print(f"  -> Running {name}...")
-            explanation = Explanation(config, name, model, data, target=target)
-            explanations.append(explanation)
-
-            visualisations = [
-                explanation.visualise(visualiser)
-                for visualiser in create_visualisers(explainer_cfg)
-            ]
-            visualisations_list.extend(visualisations)
-
-        if config.tracking.enabled:
-            print("\nLogging artifacts to tracking server...")
+    if has_tracker:
+        with BaseTracker.create_tracker(config) as tracker:
+            tracker.log_config()
+            model.log(tracker)
+            data.log(tracker)
             for explanation in explanations:
                 explanation.log(tracker)
             for visualisation in visualisations_list:
                 visualisation.log(tracker)
+            # for metric in metrics:
+            #     metric.log(tracker)
 
-        status = "FINISHED"
+    print("\n" + "=" * 60)
+    print("Assessment complete!")
+    print("=" * 60)
 
-        print("\n" + "=" * 60)
-        print("Assessment complete!")
-        print("=" * 60)
-    finally:
-        finalize_tracking(tracker, status=status)
+
+def run_explanations(
+    config: AppConfig, model: Model, data: Data, data_tensor: torch.Tensor
+) -> tuple[list[ExplanationResult], list[VisualisationResult]]:
+
+    explainers = config.explainers.items()
+    if not explainers:
+        raise ValueError("No explainers configured")
+
+    print("\nComputing explanations...")
+    explanations = []
+    visualisations_list = []
+
+    import torch
+
+    with torch.no_grad():
+        logits = model.network(data_tensor)
+        predicted_classes = logits.argmax(dim=1)
+        target = predicted_classes.tolist()
+
+    for name, explainer_config in explainers:
+        print(f"  -> Running {name}...")
+        explanation = Explanation(config, name, model, data_tensor, target=target)
+        explanations.append(explanation)
+
+        visualisations = [
+            explanation.visualise(visualiser)
+            for visualiser in create_visualisers(explainer_config)  # TODO explanation.visualise()
+        ]
+        visualisations_list.extend(visualisations)
+
+    return explanations, visualisations_list
 
 
 def print_summary(config: AppConfig) -> None:

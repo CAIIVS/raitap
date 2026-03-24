@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .base import BaseVisualiser
+from .base_visualiser import BaseVisualiser
 
 # Captum-native visualisers
 from .captum_visualisers import (

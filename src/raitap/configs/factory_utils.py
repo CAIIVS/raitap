@@ -28,7 +28,7 @@ def cfg_to_dict(cfg: Any) -> dict:
         return dataclasses.asdict(cfg)
     if hasattr(cfg, "__dict__"):
         return vars(cfg)
-    return dict(cfg)
+    return dict[Any, Any](cfg)
 
 
 def resolve_target(target: str, prefix: str) -> str:

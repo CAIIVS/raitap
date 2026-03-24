@@ -11,10 +11,10 @@ explainers:
     algorithm: IntegratedGradients
     visualisers:
       - _target_: CaptumImageVisualiser
-  shap_grad:
-    _target_: ShapExplainer
-    algorithm: GradientExplainer
+  captum_saliency:
+    _target_: CaptumExplainer
+    algorithm: Saliency
     visualisers:
-      - _target_: ShapImageVisualiser
+      - _target_: CaptumImageVisualiser
 
 experiment_name: mvp

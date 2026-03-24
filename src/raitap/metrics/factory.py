@@ -11,7 +11,7 @@ from ..configs.factory_utils import cfg_to_dict, resolve_run_dir, resolve_target
 
 if TYPE_CHECKING:
     from ..configs.schema import AppConfig
-    from ..tracking.base import Tracker
+    from ..tracking.base_tracker import BaseTracker
 
 _METRICS_PREFIX = "raitap.metrics."
 
@@ -109,7 +109,7 @@ def evaluate_and_log(
     config: AppConfig,
     predictions: Any,
     targets: Any,
-    logger: Tracker | None,
+    logger: BaseTracker | None,
     prefix: str = "performance",
 ) -> dict[str, Any]:
     result = evaluate(
@@ -119,5 +119,5 @@ def evaluate_and_log(
     )
     if logger is not None:
         logger.log_metrics(_scalar_metrics(result["result"]), prefix=prefix)
-        logger.log_artifacts(result["run_dir"], artifact_path="metrics")
+        logger.log_artifacts(result["run_dir"], target_subdirectory="metrics")
     return result

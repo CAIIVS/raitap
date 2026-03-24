@@ -42,8 +42,6 @@ class MetricsConfig:
 
 @dataclass
 class TrackingConfig:
-    enabled: bool = False
-    tracking_uri: str | None = None
     registry_uri: str | None = None
     log_model: bool = False
     registry_enabled: bool = False

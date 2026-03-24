@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .base import BaseVisualiser
+from .base_visualiser import BaseVisualiser
 
 if TYPE_CHECKING:
     import torch
@@ -77,7 +77,10 @@ class CaptumImageVisualiser(BaseVisualiser):
         try:
             from captum.attr import visualization as viz
         except ImportError as e:
-            raise ImportError("Captum not installed.  pip install captum>=0.7.0") from e
+            raise ImportError(
+                "Captum visualiser is enabled but captum is not installed. "
+                "Install it with `uv sync --extra captum`."
+            ) from e
 
         attrs = _to_numpy(attributions)
         # Ensure batch dimension
@@ -163,7 +166,10 @@ class CaptumTimeSeriesVisualiser(BaseVisualiser):
         try:
             from captum.attr import visualization as viz
         except ImportError as e:
-            raise ImportError("Captum not installed.  pip install captum>=0.7.0") from e
+            raise ImportError(
+                "Captum visualiser is enabled but captum is not installed. "
+                "Install it with `uv sync --extra captum`."
+            ) from e
 
         attr = _to_numpy(attributions)
         # If batch dimension present, take first sample

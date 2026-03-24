@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .base import BaseVisualiser
+from .base_visualiser import BaseVisualiser
 
 if TYPE_CHECKING:
     import torch
