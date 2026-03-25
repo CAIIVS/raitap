@@ -63,7 +63,7 @@ class TestGetSourcePath:
         mock_response.__exit__ = MagicMock(return_value=False)
 
         with (
-            patch("raitap.data.data.urllib.request.urlopen", return_value=mock_response),
+            patch("raitap.data.utils.urllib.request.urlopen", return_value=mock_response),
             patch("raitap.data.data._CACHE_DIR", tmp_path),
         ):
             result = get_source_path("https://example.com/file.csv")
@@ -77,7 +77,7 @@ class TestGetSourcePath:
         dest.write_bytes(b"cached")
 
         with (
-            patch("raitap.data.data.urllib.request.urlopen") as mock_open,
+            patch("raitap.data.utils.urllib.request.urlopen") as mock_open,
             patch("raitap.data.data._CACHE_DIR", tmp_path),
         ):
             result = get_source_path("https://example.com/file.csv")
@@ -320,7 +320,7 @@ class TestResolveSample:
 
         with (
             patch("raitap.data.samples._CACHE_DIR", tmp_path),
-            patch("raitap.data.samples.urllib.request.urlopen", return_value=mock_response),
+            patch("raitap.data.utils.urllib.request.urlopen", return_value=mock_response),
         ):
             result = _resolve_sample(name)
 
@@ -336,7 +336,7 @@ class TestResolveSample:
 
         with (
             patch("raitap.data.samples._CACHE_DIR", tmp_path),
-            patch("raitap.data.samples.urllib.request.urlopen") as mock_open,
+            patch("raitap.data.utils.urllib.request.urlopen") as mock_open,
         ):
             _resolve_sample(name)
 
