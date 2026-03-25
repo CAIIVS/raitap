@@ -17,7 +17,7 @@ from raitap.configs.schema import (
     TransparencyConfig,
 )
 from raitap.data import Data
-from raitap.metrics import evaluate_and_log as evaluate_metrics
+from raitap.metrics import Metrics, metrics_run_enabled
 from raitap.models import Model
 from raitap.tracking import BaseTracker
 from raitap.transparency.factory import Explanation, create_visualisers
@@ -146,12 +146,9 @@ def main() -> int:
             predicted_classes = logits.argmax(dim=1)
             target = predicted_classes.tolist()
 
-        evaluate_metrics(
-            config,
-            predicted_classes,
-            predicted_classes,
-            logger=tracker,
-        )
+        if metrics_run_enabled(config):
+            metrics_eval = Metrics(config, predicted_classes, predicted_classes)
+            metrics_eval.log(tracker)
 
         explanations = []
         visualisations_list = []

@@ -59,7 +59,7 @@ class BaseTracker(ABC):
     @abstractmethod
     def log_metrics(
         self,
-        metrics: dict[str, float | int | bool],
+        metrics: dict[str, float],
         prefix: str = "performance",
     ) -> None: ...
 

@@ -32,9 +32,6 @@ from .factory import (
     create_visualisers,
 )
 
-# Domain error type
-from .methods_registry import VisualiserIncompatibilityError
-
 # Result objects
 from .results import ExplanationResult, VisualisationResult
 
@@ -49,6 +46,7 @@ from .visualisers import (
     ShapImageVisualiser,
     ShapWaterfallVisualiser,
     TabularBarChartVisualiser,
+    VisualiserIncompatibilityError,
 )
 
 __all__ = [  # noqa: RUF022

@@ -25,21 +25,31 @@ DetectionMetrics
 from __future__ import annotations
 
 # Base protocol and result type
-from .base_metric import MetricComputer, MetricResult
+from .base_metric import BaseMetricComputer, MetricResult, scalar_metrics_for_tracking
 
 # Concrete metric implementations
 from .classification_metrics import ClassificationMetrics
 from .detection_metrics import DetectionMetrics
-from .factory import evaluate, evaluate_and_log
+from .factory import (
+    Metrics,
+    MetricsEvaluation,
+    create_metric,
+    evaluate,
+    metrics_run_enabled,
+)
 
 __all__ = [  # noqa: RUF022
     # Base types
-    "MetricComputer",
+    "BaseMetricComputer",
     "MetricResult",
+    "scalar_metrics_for_tracking",
     # Concrete implementations
     "ClassificationMetrics",
     "DetectionMetrics",
     # Factory API
+    "Metrics",
+    "MetricsEvaluation",
+    "create_metric",
     "evaluate",
-    "evaluate_and_log",
+    "metrics_run_enabled",
 ]

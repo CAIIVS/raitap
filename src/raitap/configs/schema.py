@@ -38,10 +38,9 @@ class MetricsConfig:
 
 @dataclass
 class TrackingConfig:
+    _target_: str = "MLFlowTracker"
     output_forwarding_url: str | None = None
     log_model: bool = False
-    registry_enabled: bool = False
-    registered_model_name: str | None = None
     open_when_done: bool = False
 
 

@@ -17,8 +17,8 @@ It verifies that RAITAP can:
 
 The current logging split is:
 
-- `raitap.metrics.evaluate_and_log(...)` owns metric-to-tracker translation
-- `raitap.transparency.explain_and_log(...)` owns transparency-to-tracker translation
+- `MetricsEvaluation.log(tracker)` (after `Metrics(...)`) owns metric-to-tracker translation
+- `ExplanationResult.log` / `VisualisationResult.log` own transparency-to-tracker translation
 - the tracking backend only handles generic MLflow logging calls
 
 ## What It Uses

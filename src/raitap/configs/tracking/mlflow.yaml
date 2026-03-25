@@ -1,6 +1,4 @@
 _target_: MLFlowTracker
 output_forwarding_url: http://127.0.0.1:5000
 log_model: false
-registry_enabled: false
-registered_model_name: null
 open_when_done: true

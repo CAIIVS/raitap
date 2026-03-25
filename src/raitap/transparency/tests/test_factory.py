@@ -7,8 +7,8 @@ import pytest
 import torch
 from omegaconf import OmegaConf
 
+from raitap.transparency import VisualiserIncompatibilityError
 from raitap.transparency.factory import Explanation, create_visualisers
-from raitap.transparency.methods_registry import VisualiserIncompatibilityError
 from raitap.transparency.results import ExplanationResult
 
 if TYPE_CHECKING:

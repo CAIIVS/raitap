@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from hydra.utils import instantiate
 
 from ..configs.factory_utils import cfg_to_dict, resolve_run_dir, resolve_target
-from .methods_registry import VisualiserIncompatibilityError
+from .visualisers import VisualiserIncompatibilityError
 
 if TYPE_CHECKING:
     import torch

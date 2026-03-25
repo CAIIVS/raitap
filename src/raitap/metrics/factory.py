@@ -1,8 +1,9 @@
-"""Factory / orchestration layer for RAITAP metrics."""
+"""Config helpers for building metric computers (mirrors transparency factory style)."""
 
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from hydra.utils import instantiate
@@ -10,10 +11,25 @@ from hydra.utils import instantiate
 from ..configs.factory_utils import cfg_to_dict, resolve_run_dir, resolve_target
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from ..configs.schema import AppConfig
     from ..tracking.base_tracker import BaseTracker
 
+from .base_metric import BaseMetricComputer, MetricResult, scalar_metrics_for_tracking
+
 _METRICS_PREFIX = "raitap.metrics."
+
+
+def metrics_run_enabled(config: AppConfig) -> bool:
+    """True when ``metrics`` is present and ``_target_`` is a non-empty string."""
+    metrics_cfg = getattr(config, "metrics", None)
+    if metrics_cfg is None:
+        return False
+    target = getattr(metrics_cfg, "_target_", None)
+    if target is None:
+        return False
+    return bool(str(target).strip())
 
 
 def _json_serialisable(value: Any) -> Any:
@@ -32,28 +48,12 @@ def _json_serialisable(value: Any) -> Any:
     return repr(value)
 
 
-def evaluate(
-    config: AppConfig,
-    predictions: Any,
-    targets: Any,
-) -> dict[str, Any]:
-    """
-    Compute metrics in one call and persist outputs to the run directory.
-
-    Parameters
-    ----------
-    config:
-        App config exposing ``metrics``, ``experiment_name``, and
-        ``fallback_output_dir``. Outputs are written under the ``metrics``
-        subdirectory of the resolved run output directory.
-    predictions:
-        Model predictions
-    targets:
-        Ground truth
-    """
-    metrics_cfg = cfg_to_dict(config.metrics)
+def create_metric(metrics_config: Any) -> tuple[BaseMetricComputer, str]:
+    """Instantiate a metric computer from Hydra-style config (``_target_`` + kwargs)."""
+    metrics_cfg = cfg_to_dict(metrics_config)
     target_path: str = metrics_cfg.get("_target_", "")
-    metrics_cfg["_target_"] = resolve_target(target_path, _METRICS_PREFIX)
+    resolved_target = resolve_target(target_path, _METRICS_PREFIX)
+    metrics_cfg["_target_"] = resolved_target
 
     try:
         metric = instantiate(metrics_cfg)
@@ -63,61 +63,77 @@ def evaluate(
             "Check that _target_ points to a valid MetricComputer implementation."
         ) from e
 
-    metric.update(predictions, targets)
-    result = metric.compute()
-
-    run_dir = resolve_run_dir(config, subdir="metrics")
-    run_dir.mkdir(parents=True, exist_ok=True)
-
-    (run_dir / "metrics.json").write_text(
-        json.dumps(_json_serialisable(result.metrics), indent=2),
-        encoding="utf-8",
-    )
-    (run_dir / "artifacts.json").write_text(
-        json.dumps(_json_serialisable(result.artifacts), indent=2),
-        encoding="utf-8",
-    )
-    metadata = {
-        "experiment_name": config.experiment_name,
-        "target": resolve_target(target_path, _METRICS_PREFIX),
-        "metric_config": {
-            k: _json_serialisable(v) for k, v in metrics_cfg.items() if k != "_target_"
-        },
-    }
-    (run_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
-
-    print(f"✓ Metrics saved:   {run_dir}/metrics.json")
-    print(f"✓ Artifacts saved: {run_dir}/artifacts.json")
-    print(f"✓ Metadata saved:  {run_dir}/metadata.json")
-
-    return {
-        "result": result,
-        "run_dir": run_dir,
-    }
+    return metric, resolved_target
 
 
-def _scalar_metrics(result: Any) -> dict[str, float | int | bool]:
-    metrics = getattr(result, "metrics", {})
-    if not isinstance(metrics, dict):
-        return {}
-    return {
-        str(key): value for key, value in metrics.items() if isinstance(value, (int, float, bool))
-    }
+@dataclass
+class MetricsEvaluation:
+    """Outcome of a metrics run (JSON on disk + optional computer handle)."""
+
+    result: MetricResult
+    run_dir: Path
+    computer: BaseMetricComputer
+    resolved_target: str
+
+    def log(self, tracker: BaseTracker | None, *, prefix: str = "performance") -> None:
+        if tracker is None:
+            return
+        scalars = scalar_metrics_for_tracking(self.result)
+        if scalars:
+            tracker.log_metrics(scalars, prefix=prefix)
+        tracker.log_artifacts(self.run_dir, target_subdirectory="metrics")
 
 
-def evaluate_and_log(
+class Metrics:
+    """Run configured metrics, write JSON under the run ``metrics/`` directory."""
+
+    def __new__(
+        cls,
+        config: AppConfig,
+        predictions: Any,
+        targets: Any,
+    ) -> MetricsEvaluation:
+        metric, resolved_target = create_metric(config.metrics)
+        metric.update(predictions, targets)
+        result = metric.compute()
+
+        run_dir = resolve_run_dir(config, subdir="metrics")
+        run_dir.mkdir(parents=True, exist_ok=True)
+
+        (run_dir / "metrics.json").write_text(
+            json.dumps(_json_serialisable(result.metrics), indent=2),
+            encoding="utf-8",
+        )
+        (run_dir / "artifacts.json").write_text(
+            json.dumps(_json_serialisable(result.artifacts), indent=2),
+            encoding="utf-8",
+        )
+        metrics_cfg = cfg_to_dict(config.metrics)
+        metadata = {
+            "experiment_name": config.experiment_name,
+            "target": resolved_target,
+            "metric_config": {
+                k: _json_serialisable(v) for k, v in metrics_cfg.items() if k != "_target_"
+            },
+        }
+        (run_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+
+        print(f"✓ Metrics saved:   {run_dir}/metrics.json")
+        print(f"✓ Artifacts saved: {run_dir}/artifacts.json")
+        print(f"✓ Metadata saved:  {run_dir}/metadata.json")
+
+        return MetricsEvaluation(
+            result=result,
+            run_dir=run_dir,
+            computer=metric,
+            resolved_target=resolved_target,
+        )
+
+
+def evaluate(
     config: AppConfig,
     predictions: Any,
     targets: Any,
-    logger: BaseTracker | None,
-    prefix: str = "performance",
-) -> dict[str, Any]:
-    result = evaluate(
-        config=config,
-        predictions=predictions,
-        targets=targets,
-    )
-    if logger is not None:
-        logger.log_metrics(_scalar_metrics(result["result"]), prefix=prefix)
-        logger.log_artifacts(result["run_dir"], target_subdirectory="metrics")
-    return result
+) -> MetricsEvaluation:
+    """Compute metrics, persist JSON outputs, and return a :class:`MetricsEvaluation`."""
+    return Metrics(config, predictions, targets)

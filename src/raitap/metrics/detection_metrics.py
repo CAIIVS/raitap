@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
-from .base_metric import MetricComputer, MetricResult
+from .base_metric import BaseMetricComputer, MetricResult
 from .utils import tensor_to_python
-
-if TYPE_CHECKING:
-    from raitap.tracking.base_tracker import BaseTracker
 
 BoxFormat = Literal["xyxy", "xywh"]  # torchvision outputs xyxy
 IoUType = Literal["bbox", "segm"] | tuple[Literal["bbox", "segm"], ...]
@@ -16,7 +13,7 @@ Backend = Literal["pycocotools", "faster_coco_eval"]
 Average = Literal["macro", "micro"]
 
 
-class DetectionMetrics(MetricComputer):
+class DetectionMetrics(BaseMetricComputer):
     """
     Calculates and manages detection metrics for evaluating
     the performance of object detection models.
@@ -92,6 +89,3 @@ class DetectionMetrics(MetricComputer):
 
     def reset(self) -> None:
         self.metric.reset()
-
-    def log(self, tracker: BaseTracker) -> None:
-        tracker.log_metrics(self.compute().metrics, prefix="performance")

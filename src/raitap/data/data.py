@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import urllib.request
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -8,6 +7,8 @@ import numpy as np
 import pandas as pd
 import torch
 from PIL import Image
+
+from raitap.data.utils import download_file
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
@@ -121,15 +122,6 @@ class Data:
         tracker.log_dataset(self.describe())
 
 
-def _download_file(url: str, dest: Path) -> None:
-    req = urllib.request.Request(
-        url,
-        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
-    )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        dest.write_bytes(resp.read())
-
-
 def get_source_path(source: str) -> Path:
     """
     Obtain the local path to the specified source.
@@ -153,7 +145,7 @@ def get_source_path(source: str) -> Path:
         dest.parent.mkdir(parents=True, exist_ok=True)
         if not dest.exists():
             print(f"  Downloading {filename}...")
-            _download_file(source, dest)
+            download_file(source, dest)
         return dest
 
     path = Path(source)

@@ -4,19 +4,17 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from torchmetrics import Accuracy, F1Score, Precision, Recall
 
-from .base_metric import MetricComputer, MetricResult
+from .base_metric import BaseMetricComputer, MetricResult
 from .utils import tensor_to_python
 
 if TYPE_CHECKING:
     import torch
 
-    from raitap.tracking.base_tracker import BaseTracker
-
 Task = Literal["binary", "multiclass", "multilabel"]
 Average = Literal["micro", "macro", "weighted", "none"]
 
 
-class ClassificationMetrics(MetricComputer):
+class ClassificationMetrics(BaseMetricComputer):
     """
     Classification metrics using torchmetrics
 
@@ -117,6 +115,3 @@ class ClassificationMetrics(MetricComputer):
         self.precision.reset()
         self.recall.reset()
         self.f1.reset()
-
-    def log(self, tracker: BaseTracker) -> None:
-        tracker.log_metrics(self.compute().metrics, prefix="performance")
