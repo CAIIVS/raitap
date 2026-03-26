@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from hydra.utils import instantiate
 
-from raitap.configs.factory_utils import cfg_to_dict, resolve_target
+from raitap.configs import cfg_to_dict, resolve_target
 
 _TRACKING_PREFIX = "raitap.tracking."
 

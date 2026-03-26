@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+from hydra.core.config_store import ConfigStore
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
 
-if TYPE_CHECKING:
-    from raitap.configs.schema import AppConfig
+from .schema import AppConfig
 
 
 def cfg_to_dict(cfg: Any) -> dict:
@@ -46,3 +46,8 @@ def resolve_run_dir(config: AppConfig, subdir: str | None = None) -> Path:
     if subdir:
         return run_dir / subdir
     return run_dir
+
+
+def register_configs() -> None:
+    cs = ConfigStore.instance()
+    cs.store(group="schema", name="config", node=AppConfig)

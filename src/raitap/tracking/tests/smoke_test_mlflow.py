@@ -6,8 +6,6 @@ import os
 import sys
 from pathlib import Path
 
-import torch
-
 from raitap.configs.schema import (
     AppConfig,
     DataConfig,
@@ -16,11 +14,7 @@ from raitap.configs.schema import (
     TrackingConfig,
     TransparencyConfig,
 )
-from raitap.data import Data
-from raitap.metrics import Metrics, metrics_run_enabled
-from raitap.models import Model
-from raitap.tracking import BaseTracker
-from raitap.transparency.factory import Explanation
+from raitap.run import run
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SRC_ROOT = REPO_ROOT / "src"
@@ -120,55 +114,12 @@ def main() -> int:
         fallback_output_dir=str(output_dir),
     )
 
-    tracker = BaseTracker.create_tracker(config)
     status = "FAILED"
-
     try:
-        tracker.log_config()
-
-        model = Model(config)
-        model.log(tracker)
-
-        if not config.data.source:
-            raise ValueError("No data source specified.")
-        data = Data(config)
-        data.log(tracker)
-
-        with torch.no_grad():
-            logits = model.network(data.tensor)
-            if logits.ndim < 2:
-                raise ValueError(
-                    "Smoke test expects classifier logits of shape (N, C); "
-                    f"got {tuple(logits.shape)}"
-                )
-            num_classes = int(logits.shape[1])
-            config.metrics.num_classes = num_classes
-            predicted_classes = logits.argmax(dim=1)
-            target = predicted_classes.tolist()
-
-        if metrics_run_enabled(config):
-            metrics_eval = Metrics(config, predicted_classes, predicted_classes)
-            metrics_eval.log(tracker)
-
-        explanations = []
-        visualisations_list = []
-
-        for name, _ in config.transparency.items():
-            explanation = Explanation(config, name, model, data.tensor, target=target)
-            explanations.append(explanation)
-
-            visualisations = explanation.visualise()
-            visualisations_list.extend(visualisations)
-
-        use_subdirs = len(explanations) > 1
-        for explanation in explanations:
-            explanation.log(tracker, use_subdirectory=use_subdirs)
-        for visualisation in visualisations_list:
-            visualisation.log(tracker, use_subdirectory=use_subdirs)
-
+        run(config)
         status = "FINISHED"
     finally:
-        tracker.terminate(successfully=(status == "FINISHED"))
+        pass
 
     print(f"Smoke test finished with status={status}")
     print(f"MLflow tracking URI: {tracking_uri}")

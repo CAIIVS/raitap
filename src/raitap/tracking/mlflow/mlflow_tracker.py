@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from mlflow.entities import RunStatus
 
-from raitap.configs.factory_utils import cfg_to_dict, resolve_run_dir
+from raitap.configs import cfg_to_dict, resolve_run_dir
 
 from ..base_tracker import BaseTracker
 

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import hydra
 import torch
 
-from raitap.configs.factory_utils import resolve_run_dir
-from raitap.configs.register import register_configs
+from raitap.configs import register_configs, resolve_run_dir
 from raitap.data import Data
 from raitap.metrics import Metrics, MetricsEvaluation, metrics_run_enabled
 from raitap.models import Model
@@ -23,54 +23,23 @@ register_configs()
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(config: AppConfig) -> None:
     print_summary(config)
-
-    print("Loading model...")
-    model = Model(config)
-    print(f"Loaded model from {config.model.source!r}")
-
-    print("\nLoading data...")
-    data = Data(config)
-    data_tensor = data.tensor
-    n, *dims = data_tensor.shape
-    print(f"Loaded {n} samples from {config.data.source!r} (shape: {tuple(dims)})")
-
-    explanations, visualisations_list, metrics_eval = run_explanations(
-        config, model, data, data_tensor
-    )
-
-    tracking_config = config.tracking if hasattr(config, "tracking") else None
-    has_tracker = tracking_config and hasattr(tracking_config, "_target_")
-
-    if has_tracker:
-        use_subdirs = len(explanations) > 1
-        with BaseTracker.create_tracker(config) as tracker:
-            tracker.log_config()
-            if config.tracking.log_model:
-                model.log(tracker)
-            data.log(tracker)
-            if metrics_eval is not None:
-                metrics_eval.log(tracker)
-            for explanation in explanations:
-                explanation.log(tracker, use_subdirectory=use_subdirs)
-            for visualisation in visualisations_list:
-                visualisation.log(tracker, use_subdirectory=use_subdirs)
+    run(config)
 
     print("\n" + "=" * 60)
     print("Assessment complete!")
     print("=" * 60)
 
 
-def run_explanations(
-    config: AppConfig, model: Model, data: Data, data_tensor: torch.Tensor
-) -> tuple[list[ExplanationResult], list[VisualisationResult], MetricsEvaluation | None]:
+@dataclass(frozen=True)
+class RunOutputs:
+    explanations: list[ExplanationResult]
+    visualisations: list[VisualisationResult]
+    metrics: MetricsEvaluation | None
+    predicted_classes: torch.Tensor
 
-    explainers = config.transparency.items()
-    if not explainers:
-        raise ValueError("No explainers configured")
 
-    print("\nComputing explanations...")
-    explanations = []
-    visualisations_list = []
+def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOutputs:
+    data_tensor = data.tensor
 
     with torch.no_grad():
         logits = model.network(data_tensor)
@@ -79,22 +48,57 @@ def run_explanations(
 
     metrics_eval: MetricsEvaluation | None = None
     if metrics_run_enabled(config):
-        print("\nComputing metrics...")
         if getattr(config.metrics, "num_classes", None) is None and logits.ndim >= 2:
             config.metrics.num_classes = int(logits.shape[1])
         # No labels in DataConfig yet: predictions vs themselves yields a trivial self-consistency
         # check only; replace with real targets when the pipeline exposes ground truth.
         metrics_eval = Metrics(config, predicted_classes, predicted_classes)
 
-    for name, _ in explainers:
-        print(f"  -> Running {name}...")
+    explanations: list[ExplanationResult] = []
+    visualisations: list[VisualisationResult] = []
+
+    explainers = config.transparency.items()
+    if not explainers:
+        raise ValueError("No explainers configured")
+
+    for name, _explainer_cfg in explainers:
         explanation = Explanation(config, name, model, data_tensor, target=target)
         explanations.append(explanation)
+        visualisations.extend(explanation.visualise())
 
-        visualisations = explanation.visualise()
-        visualisations_list.extend(visualisations)
+    return RunOutputs(
+        explanations=explanations,
+        visualisations=visualisations,
+        metrics=metrics_eval,
+        predicted_classes=predicted_classes,
+    )
 
-    return explanations, visualisations_list, metrics_eval
+
+def run(config: AppConfig) -> RunOutputs:
+    model = Model(config)
+    data = Data(config)
+
+    outputs = _run_without_tracking(config, model, data)
+
+    tracking_config = getattr(config, "tracking", None)
+    has_tracker = bool(tracking_config and getattr(tracking_config, "_target_", None))
+    if not has_tracker:
+        return outputs
+
+    use_subdirs = len(outputs.explanations) > 1
+    with BaseTracker.create_tracker(config) as tracker:
+        tracker.log_config()
+        if getattr(config.tracking, "log_model", False):
+            model.log(tracker)
+        data.log(tracker)
+        if outputs.metrics is not None:
+            outputs.metrics.log(tracker)
+        for explanation in outputs.explanations:
+            explanation.log(tracker, use_subdirectory=use_subdirs)
+        for visualisation in outputs.visualisations:
+            visualisation.log(tracker, use_subdirectory=use_subdirs)
+
+    return outputs
 
 
 def print_summary(config: AppConfig) -> None:

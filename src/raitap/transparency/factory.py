@@ -1,12 +1,11 @@
-"""Config helpers for building transparency objects."""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
 from hydra.utils import instantiate
 
-from ..configs.factory_utils import cfg_to_dict, resolve_run_dir, resolve_target
+from raitap.configs import cfg_to_dict, resolve_run_dir, resolve_target
+
 from .visualisers import VisualiserIncompatibilityError
 
 if TYPE_CHECKING:
