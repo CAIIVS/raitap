@@ -7,6 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, NotRequired, TypedDict, cast
 
+import pytest
 from omegaconf import OmegaConf
 
 from raitap.transparency import ExplanationResult, VisualisationResult
@@ -86,8 +87,11 @@ def _captum_config() -> AppConfig:
     )
 
 
+@pytest.mark.usefixtures("needs_captum")
 def test_end_to_end_captum_object_api(
-    simple_cnn: torch.nn.Module, sample_images: torch.Tensor, tmp_path: Path
+    simple_cnn: torch.nn.Module,
+    sample_images: torch.Tensor,
+    tmp_path: Path,
 ) -> None:
     explainer = CaptumExplainer("IntegratedGradients")
 
@@ -109,8 +113,11 @@ def test_end_to_end_captum_object_api(
     assert visualisation.output_path.exists()
 
 
+@pytest.mark.usefixtures("needs_shap", "needs_captum")
 def test_end_to_end_shap_object_api(
-    simple_cnn: torch.nn.Module, sample_images: torch.Tensor, tmp_path: Path
+    simple_cnn: torch.nn.Module,
+    sample_images: torch.Tensor,
+    tmp_path: Path,
 ) -> None:
     explainer = ShapExplainer("GradientExplainer")
 
@@ -129,8 +136,11 @@ def test_end_to_end_shap_object_api(
     assert visualisation.output_path.exists()
 
 
+@pytest.mark.usefixtures("needs_captum")
 def test_tabular_visualisation_object_api(
-    simple_mlp: torch.nn.Module, sample_tabular: torch.Tensor, tmp_path: Path
+    simple_mlp: torch.nn.Module,
+    sample_tabular: torch.Tensor,
+    tmp_path: Path,
 ) -> None:
     explainer = CaptumExplainer("Saliency")
     explanation = explainer.explain(
@@ -148,8 +158,11 @@ def test_tabular_visualisation_object_api(
     assert visualisation.output_path.exists()
 
 
+@pytest.mark.usefixtures("needs_captum")
 def test_config_helpers_support_visualiser_for_loop(
-    simple_cnn: torch.nn.Module, sample_images: torch.Tensor, tmp_path: Path
+    simple_cnn: torch.nn.Module,
+    sample_images: torch.Tensor,
+    tmp_path: Path,
 ) -> None:
     config = _captum_config()
     config.fallback_output_dir = str(tmp_path)
@@ -173,8 +186,11 @@ def test_config_helpers_support_visualiser_for_loop(
     assert visualisations[0].output_path.exists()
 
 
+@pytest.mark.usefixtures("needs_captum")
 def test_explanation_log_only_uploads_explanation_artifacts(
-    simple_cnn: torch.nn.Module, sample_images: torch.Tensor, tmp_path: Path
+    simple_cnn: torch.nn.Module,
+    sample_images: torch.Tensor,
+    tmp_path: Path,
 ) -> None:
     tracker = RecordingTracker()
     explanation = CaptumExplainer("IntegratedGradients").explain(
@@ -195,8 +211,11 @@ def test_explanation_log_only_uploads_explanation_artifacts(
     assert logged_directory["metadata"]["visualisers"] == []
 
 
+@pytest.mark.usefixtures("needs_captum")
 def test_visualisation_log_uploads_only_visualisation_artifact(
-    simple_cnn: torch.nn.Module, sample_images: torch.Tensor, tmp_path: Path
+    simple_cnn: torch.nn.Module,
+    sample_images: torch.Tensor,
+    tmp_path: Path,
 ) -> None:
     tracker = RecordingTracker()
     explanation = CaptumExplainer("IntegratedGradients").explain(

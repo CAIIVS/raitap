@@ -30,6 +30,7 @@ class TestCaptumImageVisualiser:
         visualiser = CaptumImageVisualiser()
         assert visualiser is not None
 
+    @pytest.mark.usefixtures("needs_captum")
     def test_visualise_tensor(self, sample_images: torch.Tensor) -> None:
         visualiser = CaptumImageVisualiser(method="heat_map")
         attributions = torch.randn_like(sample_images)
@@ -38,6 +39,7 @@ class TestCaptumImageVisualiser:
         assert fig is not None
         assert len(fig.axes) >= 4  # at least one axes per sample
 
+    @pytest.mark.usefixtures("needs_captum")
     def test_max_samples_limit(self) -> None:
         visualiser = CaptumImageVisualiser(method="heat_map")
         large_batch = torch.randn(64, 3, 32, 32)
@@ -45,6 +47,7 @@ class TestCaptumImageVisualiser:
         fig = visualiser.visualise(large_batch, max_samples=4)
         assert len(fig.axes) >= 4
 
+    @pytest.mark.usefixtures("needs_captum")
     def test_overlay_with_inputs(self, sample_images: torch.Tensor) -> None:
         visualiser = CaptumImageVisualiser()
         attributions = torch.randn_like(sample_images)
@@ -52,6 +55,7 @@ class TestCaptumImageVisualiser:
         fig = visualiser.visualise(attributions, inputs=sample_images)
         assert fig is not None
 
+    @pytest.mark.usefixtures("needs_captum")
     def test_save(self, sample_images: torch.Tensor, tmp_path: Path) -> None:
         visualiser = CaptumImageVisualiser(method="heat_map")
         attributions = torch.randn_like(sample_images)
@@ -106,6 +110,7 @@ class TestCaptumTimeSeriesVisualiser:
         visualiser = CaptumTimeSeriesVisualiser()
         assert visualiser is not None
 
+    @pytest.mark.usefixtures("needs_captum")
     def test_visualise_requires_inputs(self, sample_timeseries: torch.Tensor) -> None:
         """visualise() requires inputs alongside attributions."""
         visualiser = CaptumTimeSeriesVisualiser()
@@ -113,6 +118,7 @@ class TestCaptumTimeSeriesVisualiser:
         with pytest.raises(ValueError, match="requires `inputs`"):
             visualiser.visualise(attributions)
 
+    @pytest.mark.usefixtures("needs_captum")
     def test_visualise_with_inputs(self, sample_timeseries: torch.Tensor) -> None:
         """Returns a Figure when inputs are supplied."""
         visualiser = CaptumTimeSeriesVisualiser()
@@ -121,6 +127,7 @@ class TestCaptumTimeSeriesVisualiser:
         fig = visualiser.visualise(attributions, inputs=sample_timeseries)
         assert fig is not None
 
+    @pytest.mark.usefixtures("needs_captum")
     def test_save(self, sample_timeseries: torch.Tensor, tmp_path: Path) -> None:
         visualiser = CaptumTimeSeriesVisualiser()
         attributions = torch.randn_like(sample_timeseries)
@@ -165,18 +172,23 @@ class TestShapBarVisualiser:
         visualiser = ShapBarVisualiser()
         assert visualiser is not None
 
+    @pytest.mark.usefixtures("needs_shap")
     def test_visualise_tensor(self, sample_tabular: torch.Tensor) -> None:
         visualiser = ShapBarVisualiser()
         fig = visualiser.visualise(sample_tabular)
         assert fig is not None
 
+    @pytest.mark.usefixtures("needs_shap")
     def test_visualise_with_feature_names(
-        self, sample_tabular: torch.Tensor, feature_names: list[str]
+        self,
+        sample_tabular: torch.Tensor,
+        feature_names: list[str],
     ) -> None:
         visualiser = ShapBarVisualiser(feature_names=feature_names)
         fig = visualiser.visualise(sample_tabular)
         assert fig is not None
 
+    @pytest.mark.usefixtures("needs_shap")
     def test_save(self, sample_tabular: torch.Tensor, tmp_path: Path) -> None:
         visualiser = ShapBarVisualiser()
         output_path = tmp_path / "shap_bar.png"
@@ -191,11 +203,13 @@ class TestShapBeeswarmVisualiser:
         visualiser = ShapBeeswarmVisualiser()
         assert visualiser is not None
 
+    @pytest.mark.usefixtures("needs_shap")
     def test_visualise_tensor(self, sample_tabular: torch.Tensor) -> None:
         visualiser = ShapBeeswarmVisualiser()
         fig = visualiser.visualise(sample_tabular)
         assert fig is not None
 
+    @pytest.mark.usefixtures("needs_shap")
     def test_save(self, sample_tabular: torch.Tensor, tmp_path: Path) -> None:
         visualiser = ShapBeeswarmVisualiser()
         output_path = tmp_path / "shap_beeswarm.png"
@@ -210,20 +224,25 @@ class TestShapWaterfallVisualiser:
         visualiser = ShapWaterfallVisualiser()
         assert visualiser is not None
 
+    @pytest.mark.usefixtures("needs_shap")
     def test_visualise_single_sample(self, sample_tabular: torch.Tensor) -> None:
         """Waterfall chart for sample_index=0 of the batch."""
         visualiser = ShapWaterfallVisualiser()
         fig = visualiser.visualise(sample_tabular)
         assert fig is not None
 
+    @pytest.mark.usefixtures("needs_shap")
     def test_visualise_with_feature_names(
-        self, sample_tabular: torch.Tensor, feature_names: list[str]
+        self,
+        sample_tabular: torch.Tensor,
+        feature_names: list[str],
     ) -> None:
         """Test visualization with feature names"""
         visualiser = ShapWaterfallVisualiser(feature_names=feature_names)
         fig = visualiser.visualise(sample_tabular)
         assert fig is not None
 
+    @pytest.mark.usefixtures("needs_shap")
     def test_save(self, sample_tabular: torch.Tensor, tmp_path: Path) -> None:
         visualiser = ShapWaterfallVisualiser()
         output_path = tmp_path / "shap_waterfall.png"
@@ -238,12 +257,14 @@ class TestShapForceVisualiser:
         visualiser = ShapForceVisualiser()
         assert visualiser is not None
 
+    @pytest.mark.usefixtures("needs_shap")
     def test_visualise_single_sample(self, sample_tabular: torch.Tensor) -> None:
         """Force plot for sample_index=0 of the batch."""
         visualiser = ShapForceVisualiser()
         fig = visualiser.visualise(sample_tabular)
         assert fig is not None
 
+    @pytest.mark.usefixtures("needs_shap")
     def test_save(self, sample_tabular: torch.Tensor, tmp_path: Path) -> None:
         visualiser = ShapForceVisualiser()
         output_path = tmp_path / "shap_force.png"
@@ -263,6 +284,7 @@ class TestShapImageVisualiser:
             {"GradientExplainer", "DeepExplainer"}
         )
 
+    @pytest.mark.usefixtures("needs_shap")
     def test_visualise_image_batch(self, sample_images: torch.Tensor) -> None:
         """Accepts a (B, C, H, W) attribution tensor."""
         visualiser = ShapImageVisualiser()
@@ -270,6 +292,7 @@ class TestShapImageVisualiser:
         fig = visualiser.visualise(attributions, inputs=sample_images)
         assert fig is not None
 
+    @pytest.mark.usefixtures("needs_shap")
     def test_save(self, sample_images: torch.Tensor, tmp_path: Path) -> None:
         visualiser = ShapImageVisualiser()
         attributions = torch.randn_like(sample_images)

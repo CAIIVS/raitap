@@ -16,6 +16,7 @@ class TestCaptumExplainer:
         explainer = CaptumExplainer("IntegratedGradients")
         assert explainer.algorithm == "IntegratedGradients"
 
+    @pytest.mark.usefixtures("needs_captum")
     def test_integrated_gradients(
         self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor
     ) -> None:
@@ -26,6 +27,7 @@ class TestCaptumExplainer:
         assert isinstance(attributions, torch.Tensor)
         assert attributions.shape == sample_images.shape
 
+    @pytest.mark.usefixtures("needs_captum")
     def test_saliency(self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor) -> None:
         """Test Saliency method"""
         explainer = CaptumExplainer("Saliency")
@@ -34,6 +36,7 @@ class TestCaptumExplainer:
         assert isinstance(attributions, torch.Tensor)
         assert attributions.shape == sample_images.shape
 
+    @pytest.mark.usefixtures("needs_captum")
     def test_batch_targets(self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor) -> None:
         """Test different target formats"""
         explainer = CaptumExplainer("Saliency")
@@ -52,6 +55,7 @@ class TestCaptumExplainer:
         )
         assert attr3.shape == sample_images.shape
 
+    @pytest.mark.usefixtures("needs_captum")
     def test_invalid_method_error(
         self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor
     ) -> None:

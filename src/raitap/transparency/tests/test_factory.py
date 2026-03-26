@@ -28,8 +28,11 @@ def _make_config(tmp_path: Path, transparency_config: Any) -> AppConfig:
     )
 
 
+@pytest.mark.usefixtures("needs_captum")
 def test_explanation_returns_explanation_result(
-    simple_cnn: torch.nn.Module, sample_images: torch.Tensor, tmp_path: Path
+    simple_cnn: torch.nn.Module,
+    sample_images: torch.Tensor,
+    tmp_path: Path,
 ) -> None:
     config = _make_config(
         tmp_path,

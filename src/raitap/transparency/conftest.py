@@ -8,9 +8,9 @@ import torch.nn as nn
 
 # ---------------------------------------------------------------------------
 # Optional-dependency skip fixtures
-# Usage: add `needs_captum` or `needs_shap` as a parameter to any test that
-# requires the respective library.  The test is automatically skipped when the
-# library is not installed instead of raising an ImportError.
+# Usage: reference via ``@pytest.mark.usefixtures("needs_captum")`` (or
+# ``needs_shap``) on tests that run code importing that package. Skips when the
+# extra is not installed (`uv sync --extra captum` / `--extra shap`, or `--extra all`).
 # ---------------------------------------------------------------------------
 
 
