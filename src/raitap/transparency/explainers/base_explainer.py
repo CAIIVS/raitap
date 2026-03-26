@@ -15,10 +15,6 @@ if TYPE_CHECKING:
 class BaseExplainer(ABC):
     """
     Abstract base class for all explainer adapters.
-
-    Subclasses wrap a specific framework (Captum, SHAP, …) and expose a
-    unified ``compute_attributions`` method.  All orchestration (saving,
-    visualisation) is handled by the top-level ``explain()`` function.
     """
 
     def __init__(self):
