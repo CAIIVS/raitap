@@ -166,7 +166,8 @@ class MLFlowTracker(BaseTracker):
                 "Install it with `uv sync --extra mlflow`."
             ) from e
 
-        mlflow.log_metrics(metrics)
+        prefixed_metrics = {f"{prefix}.{key}": value for key, value in metrics.items()}
+        mlflow.log_metrics(prefixed_metrics)
 
     def log_model(self, model: Any, artifact_path: str = "model") -> None:
         try:
