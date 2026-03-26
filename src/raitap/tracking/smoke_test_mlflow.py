@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
-import sys
 from pathlib import Path
 
 from raitap.configs.schema import (
@@ -16,12 +16,8 @@ from raitap.configs.schema import (
 )
 from raitap.run import run
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
-SRC_ROOT = REPO_ROOT / "src"
-if str(SRC_ROOT) not in sys.path:
-    sys.path.insert(0, str(SRC_ROOT))
-
 DEFAULT_TRACKING_URI = "http://127.0.0.1:5000"
+logger = logging.getLogger(__name__)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -56,7 +52,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=REPO_ROOT / "outputs" / "smoke-manual",
+        default=Path.cwd() / "outputs" / "smoke-manual",
         help="Directory for local artifacts when not running via Hydra",
     )
     parser.add_argument(
@@ -68,6 +64,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     parser = build_parser()
     args = parser.parse_args()
 
@@ -75,7 +72,7 @@ def main() -> int:
     output_dir = args.output_dir.expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    mpl_cache = REPO_ROOT / ".cache" / "matplotlib"
+    mpl_cache = output_dir / ".mpl-cache"
     mpl_cache.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("MPLCONFIGDIR", str(mpl_cache))
 
@@ -121,9 +118,9 @@ def main() -> int:
     finally:
         pass
 
-    print(f"Smoke test finished with status={status}")
-    print(f"MLflow tracking URI: {tracking_uri}")
-    print(f"Local artifacts: {output_dir}")
+    logger.info("Smoke test finished with status=%s", status)
+    logger.info("MLflow tracking URI: %s", tracking_uri)
+    logger.info("Local artifacts: %s", output_dir)
     return 0 if status == "FINISHED" else 1
 
 
