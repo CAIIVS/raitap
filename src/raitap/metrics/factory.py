@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from hydra.utils import instantiate
 
 from raitap.configs import cfg_to_dict, resolve_run_dir, resolve_target
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -118,9 +121,9 @@ class Metrics:
         }
         (run_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
-        print(f"✓ Metrics saved:   {run_dir}/metrics.json")
-        print(f"✓ Artifacts saved: {run_dir}/artifacts.json")
-        print(f"✓ Metadata saved:  {run_dir}/metadata.json")
+        logger.info("Metrics saved: %s/metrics.json", run_dir)
+        logger.info("Artifacts saved: %s/artifacts.json", run_dir)
+        logger.info("Metadata saved: %s/metadata.json", run_dir)
 
         return MetricsEvaluation(
             result=result,
