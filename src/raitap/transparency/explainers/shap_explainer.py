@@ -77,7 +77,7 @@ class ShapExplainer(BaseExplainer):
         # GradientExplainer, DeepExplainer, KernelExplainer REQUIRE background data
         if self.algorithm in ("GradientExplainer", "DeepExplainer", "KernelExplainer"):
             if background_data is None:
-                logger.info(
+                logger.warning(
                     "%s: no background_data provided; using input batch as background "
                     "(results may be less accurate).",
                     self.algorithm,
