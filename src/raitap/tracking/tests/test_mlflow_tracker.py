@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
     from raitap.configs.schema import AppConfig
 
-from raitap.tracking.mlflow.mlflow_tracker import MLFlowTracker
+from raitap.tracking.mlflow_tracker import MLFlowTracker
 
 
 def _make_config(
@@ -58,13 +58,13 @@ def mock_subprocess() -> Generator[MagicMock]:
 def tracker(mock_mlflow: MagicMock) -> MLFlowTracker:
     # Avoid server startup by setting tracking_uri to something non-http
     config = _make_config(url="./mlruns")
-    with patch("raitap.tracking.mlflow.mlflow_tracker.MLFlowTracker._ensure_server_running"):
+    with patch("raitap.tracking.mlflow_tracker.MLFlowTracker._ensure_server_running"):
         return MLFlowTracker(config)
 
 
 def test_mlflow_tracker_init_starts_run(mock_mlflow: MagicMock) -> None:
     config = _make_config(url="http://127.0.0.1:5000")
-    with patch("raitap.tracking.mlflow.mlflow_tracker.MLFlowTracker._ensure_server_running"):
+    with patch("raitap.tracking.mlflow_tracker.MLFlowTracker._ensure_server_running"):
         tracker = MLFlowTracker(config)
 
     mock_mlflow.set_tracking_uri.assert_called_once_with("http://127.0.0.1:5000")

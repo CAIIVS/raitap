@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from raitap.configs import cfg_to_dict, resolve_run_dir
 
-from ..base_tracker import BaseTracker
+from .base_tracker import BaseTracker
 
 logger = logging.getLogger(__name__)
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from raitap.tracking.mlflow.mlflow_tracker import _mlflow_summary_params
+from raitap.tracking.mlflow_tracker import _mlflow_summary_params
 
 
 def test_summary_params_includes_explainers_and_per_explainer_fields() -> None:
