@@ -133,13 +133,18 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.commitizen]
-name = "cz_conventional_commits"
+name = "cz_customize"
 version = "0.1.0"
 tag_format = "v$version"
 version_scheme = "semver"
 version_provider = "pep621"
 update_changelog_on_bump = true
 major_version_zero = true
+
+[tool.commitizen.customize]
+schema = "<type>(<scope>): <subject>"
+# If a scope is present, it must be one of the allowed values below.
+schema_pattern = "^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\\((transparency|tracking|metrics|docs|infra|deps|misc|config|model|data)\\))?(!)?:\\s.+$"
 
 [tool.pyright]
 include = ["src"]

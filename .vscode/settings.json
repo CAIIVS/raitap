@@ -2,6 +2,18 @@
     "[python]": {
         "editor.defaultFormatter": "charliermarsh.ruff"
     },
+    "conventionalCommits.scopes": [
+        "transparency",
+        "tracking",
+        "metrics",
+        "docs",
+        "infra",
+        "deps",
+        "misc",
+        "config",
+        "model",
+        "data"
+    ],
     "python.testing.pytestArgs": [
         "src"
     ],
@@ -12,5 +24,5 @@
     ],
     "editor.codeActionsOnSave": {
         "source.fixAll.ruff": "explicit"
-    },
+    }
 }
