@@ -11,6 +11,8 @@ from ..results import ExplanationResult, resolve_default_run_dir
 if TYPE_CHECKING:
     import torch
 
+    from ..visualisers import BaseVisualiser
+
 
 class BaseExplainer(ABC):
     """
@@ -29,8 +31,10 @@ class BaseExplainer(ABC):
         experiment_name: str | None = None,
         explainer_target: str | None = None,
         explainer_name: str | None = None,
+        visualisers: list[BaseVisualiser] | None = None,
         **kwargs: Any,
     ) -> ExplanationResult:
+        visualisers_list: list[BaseVisualiser] = [] if visualisers is None else visualisers
         attributions = self.compute_attributions(model, inputs, **kwargs)
         self.attributions = attributions
 
@@ -43,6 +47,7 @@ class BaseExplainer(ABC):
             algorithm=getattr(self, "algorithm", ""),
             explainer_name=explainer_name,
             kwargs=kwargs,
+            visualisers=visualisers_list,
         )
         explanation.write_artifacts()
         return explanation

@@ -7,7 +7,7 @@ Public API
 ----------
 Explainer classes expose `explainer.explain(model, inputs, **kwargs)`, which
 returns an `ExplanationResult`. Each explanation can then render one
-visualisation at a time via `explanation.visualise(visualiser, **kwargs)`.
+or more visualisations via `explanation.visualise(**kwargs)`.
 
 Explainer classes (used as ``_target_`` values)
 -----------------------------------------------

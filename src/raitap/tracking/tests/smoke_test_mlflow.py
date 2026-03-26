@@ -20,7 +20,7 @@ from raitap.data import Data
 from raitap.metrics import Metrics, metrics_run_enabled
 from raitap.models import Model
 from raitap.tracking import BaseTracker
-from raitap.transparency.factory import Explanation, create_visualisers
+from raitap.transparency.factory import Explanation
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SRC_ROOT = REPO_ROOT / "src"
@@ -153,14 +153,11 @@ def main() -> int:
         explanations = []
         visualisations_list = []
 
-        for name, explainer_cfg in config.transparency.items():
+        for name, _ in config.transparency.items():
             explanation = Explanation(config, name, model, data.tensor, target=target)
             explanations.append(explanation)
 
-            visualisations = [
-                explanation.visualise(visualiser)
-                for visualiser in create_visualisers(explainer_cfg)
-            ]
+            visualisations = explanation.visualise()
             visualisations_list.extend(visualisations)
 
         use_subdirs = len(explanations) > 1

@@ -8,7 +8,7 @@ import torch
 from omegaconf import OmegaConf
 
 from raitap.transparency import VisualiserIncompatibilityError
-from raitap.transparency.factory import Explanation, create_visualisers
+from raitap.transparency.factory import Explanation
 from raitap.transparency.results import ExplanationResult
 
 if TYPE_CHECKING:
@@ -54,10 +54,7 @@ def test_explanation_returns_explanation_result(
     assert (explanation.run_dir / "attributions.pt").exists()
     assert (explanation.run_dir / "metadata.json").exists()
 
-    visualisations = [
-        explanation.visualise(visualiser)
-        for visualiser in create_visualisers(config.transparency["test_explainer"])
-    ]
+    visualisations = explanation.visualise()
     assert len(visualisations) == 1
     assert (explanation.run_dir / "CaptumImageVisualiser.png").exists()
 

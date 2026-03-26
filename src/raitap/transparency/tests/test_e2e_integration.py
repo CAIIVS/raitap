@@ -12,7 +12,7 @@ from omegaconf import OmegaConf
 
 from raitap.transparency import ExplanationResult, VisualisationResult
 from raitap.transparency.explainers import CaptumExplainer, ShapExplainer
-from raitap.transparency.factory import Explanation, create_visualisers
+from raitap.transparency.factory import Explanation
 from raitap.transparency.visualisers import CaptumImageVisualiser, TabularBarChartVisualiser
 
 if TYPE_CHECKING:
@@ -100,17 +100,19 @@ def test_end_to_end_captum_object_api(
         sample_images,
         run_dir=tmp_path / "transparency",
         target=0,
+        visualisers=[CaptumImageVisualiser()],
     )
-    visualisation = explanation.visualise(CaptumImageVisualiser())
+    visualisations = explanation.visualise()
 
     assert isinstance(explanation, ExplanationResult)
-    assert isinstance(visualisation, VisualisationResult)
+    assert len(visualisations) == 1
+    assert isinstance(visualisations[0], VisualisationResult)
     assert explanation.attributions.shape == sample_images.shape
     assert explanation.run_dir == tmp_path / "transparency"
     assert (explanation.run_dir / "attributions.pt").exists()
     assert (explanation.run_dir / "metadata.json").exists()
-    assert visualisation.output_path == explanation.run_dir / "CaptumImageVisualiser.png"
-    assert visualisation.output_path.exists()
+    assert visualisations[0].output_path == explanation.run_dir / "CaptumImageVisualiser.png"
+    assert visualisations[0].output_path.exists()
 
 
 @pytest.mark.usefixtures("needs_shap", "needs_captum")
@@ -127,13 +129,15 @@ def test_end_to_end_shap_object_api(
         run_dir=tmp_path / "transparency",
         background_data=sample_images[:2],
         target=0,
+        visualisers=[CaptumImageVisualiser()],
     )
-    visualisation = explanation.visualise(CaptumImageVisualiser())
+    visualisations = explanation.visualise()
 
     assert isinstance(explanation, ExplanationResult)
-    assert isinstance(visualisation, VisualisationResult)
+    assert len(visualisations) == 1
+    assert isinstance(visualisations[0], VisualisationResult)
     assert explanation.attributions.shape == sample_images.shape
-    assert visualisation.output_path.exists()
+    assert visualisations[0].output_path.exists()
 
 
 @pytest.mark.usefixtures("needs_captum")
@@ -150,12 +154,14 @@ def test_tabular_visualisation_object_api(
         target=0,
     )
 
-    visualisation = explanation.visualise(
+    explanation.visualisers = [
         TabularBarChartVisualiser(feature_names=[f"feature_{i}" for i in range(10)])
-    )
+    ]
+    visualisations = explanation.visualise()
 
-    assert isinstance(visualisation, VisualisationResult)
-    assert visualisation.output_path.exists()
+    assert len(visualisations) == 1
+    assert isinstance(visualisations[0], VisualisationResult)
+    assert visualisations[0].output_path.exists()
 
 
 @pytest.mark.usefixtures("needs_captum")
@@ -175,10 +181,7 @@ def test_config_helpers_support_visualiser_for_loop(
         sample_images,
         target=0,
     )
-    visualisations = [
-        explanation.visualise(visualiser)
-        for visualiser in create_visualisers(config.transparency["test_explainer"])
-    ]
+    visualisations = explanation.visualise()
 
     assert isinstance(explanation, ExplanationResult)
     assert len(visualisations) == 1
@@ -198,8 +201,9 @@ def test_explanation_log_only_uploads_explanation_artifacts(
         sample_images,
         run_dir=tmp_path / "transparency",
         target=0,
+        visualisers=[CaptumImageVisualiser()],
     )
-    explanation.visualise(CaptumImageVisualiser())
+    _ = explanation.visualise()
 
     explanation.log(tracker, use_subdirectory=False)  # type: ignore[arg-type]
 
@@ -223,10 +227,12 @@ def test_visualisation_log_uploads_only_visualisation_artifact(
         sample_images,
         run_dir=tmp_path / "transparency",
         target=0,
+        visualisers=[CaptumImageVisualiser()],
     )
-    visualisation = explanation.visualise(CaptumImageVisualiser())
+    visualisations = explanation.visualise()
 
-    visualisation.log(tracker, use_subdirectory=False)  # type: ignore[arg-type]
+    assert len(visualisations) == 1
+    visualisations[0].log(tracker, use_subdirectory=False)  # type: ignore[arg-type]
 
     assert len(tracker.logged_directories) == 1
     logged_directory = tracker.logged_directories[0]

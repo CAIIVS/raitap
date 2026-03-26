@@ -49,6 +49,7 @@ class Explanation:
             experiment_name=str(getattr(config, "experiment_name", "")),
             explainer_target=explainer_target,
             explainer_name=explainer_name,
+            visualisers=visualisers,
             **kwargs,
         )
 

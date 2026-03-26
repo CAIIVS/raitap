@@ -11,7 +11,7 @@ from raitap.data import Data
 from raitap.metrics import Metrics, MetricsEvaluation, metrics_run_enabled
 from raitap.models import Model
 from raitap.tracking import BaseTracker
-from raitap.transparency.factory import Explanation, create_visualisers
+from raitap.transparency.factory import Explanation
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
@@ -38,7 +38,6 @@ def main(config: AppConfig) -> None:
         config, model, data, data_tensor
     )
 
-    # Only use tracking if a valid tracker is configured (_target_ is present)
     tracking_config = config.tracking if hasattr(config, "tracking") else None
     has_tracker = tracking_config and hasattr(tracking_config, "_target_")
 
@@ -87,15 +86,12 @@ def run_explanations(
         # check only; replace with real targets when the pipeline exposes ground truth.
         metrics_eval = Metrics(config, predicted_classes, predicted_classes)
 
-    for name, explainer_config in explainers:
+    for name, _ in explainers:
         print(f"  -> Running {name}...")
         explanation = Explanation(config, name, model, data_tensor, target=target)
         explanations.append(explanation)
 
-        visualisations = [
-            explanation.visualise(visualiser)
-            for visualiser in create_visualisers(explainer_config)  # TODO explanation.visualise()
-        ]
+        visualisations = explanation.visualise()
         visualisations_list.extend(visualisations)
 
     return explanations, visualisations_list, metrics_eval
