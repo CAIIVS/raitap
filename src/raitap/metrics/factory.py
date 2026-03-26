@@ -46,6 +46,7 @@ def create_metric(metrics_config: Any) -> tuple[BaseMetricComputer, str]:
     try:
         metric = instantiate(metrics_cfg)
     except Exception as e:
+        logger.exception("Metric instantiation failed for target %r", target_path)
         raise ValueError(
             f"Could not instantiate metric {target_path!r}.\n"
             "Check that _target_ points to a valid MetricComputer implementation."
