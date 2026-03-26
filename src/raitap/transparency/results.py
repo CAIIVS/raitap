@@ -137,8 +137,8 @@ class ExplanationResult:
         """
         Name used for the tracker artifact subdirectory.
 
-        Keep fallback logic consistent with `VisualisationResult.log()` to avoid artifacts being split across
-        different subdirectories when `explainer_name` is unset.
+        Keep fallback logic consistent with `VisualisationResult.log()` to avoid artifacts
+        being split across different subdirectories when `explainer_name` is unset.
         """
 
         return self.explainer_name or self.run_dir.name
