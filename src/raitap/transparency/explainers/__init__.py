@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .base import BaseExplainer
+from .base_explainer import BaseExplainer
 from .captum_explainer import CaptumExplainer
 from .shap_explainer import ShapExplainer
 

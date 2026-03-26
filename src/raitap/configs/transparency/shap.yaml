@@ -1,4 +1,0 @@
-_target_: ShapExplainer
-algorithm: GradientExplainer
-visualisers:
-  - _target_: ShapImageVisualiser

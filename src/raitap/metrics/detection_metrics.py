@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
-from .base import MetricComputer, MetricResult
+from .base_metric import BaseMetricComputer, MetricResult
 from .utils import tensor_to_python
 
 BoxFormat = Literal["xyxy", "xywh"]  # torchvision outputs xyxy
@@ -13,7 +13,7 @@ Backend = Literal["pycocotools", "faster_coco_eval"]
 Average = Literal["macro", "micro"]
 
 
-class DetectionMetrics(MetricComputer):
+class DetectionMetrics(BaseMetricComputer):
     """
     Calculates and manages detection metrics for evaluating
     the performance of object detection models.

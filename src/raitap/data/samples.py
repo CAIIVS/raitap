@@ -11,12 +11,13 @@ inconsistent source sizes. This does not affect consumer data, which is loaded r
 
 from __future__ import annotations
 
-import urllib.request
 from pathlib import Path
 
 import numpy as np
 import torch
 from PIL import Image
+
+from raitap.data.utils import download_file
 
 # ---------------------------------------------------------------------------
 # Registry of named demo datasets
@@ -104,15 +105,6 @@ SAMPLE_SOURCES: dict[str, list[tuple[str, str]]] = {
 _CACHE_DIR = Path.home() / ".cache" / "raitap"
 
 
-def _download_file(url: str, dest: Path) -> None:
-    req = urllib.request.Request(
-        url,
-        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
-    )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        dest.write_bytes(resp.read())
-
-
 def _resolve_sample(name: str) -> Path | None:
     """
     Return the local cache path for a named demo dataset, downloading files if needed.
@@ -132,7 +124,7 @@ def _resolve_sample(name: str) -> Path | None:
         dest = cache_dir / filename
         if not dest.exists():
             print(f"  Downloading {filename}...")
-            _download_file(url, dest)
+            download_file(url, dest)
     return cache_dir
 
 

@@ -6,8 +6,6 @@ import os
 import sys
 from pathlib import Path
 
-import torch
-
 from raitap.configs.schema import (
     AppConfig,
     DataConfig,
@@ -16,17 +14,7 @@ from raitap.configs.schema import (
     TrackingConfig,
     TransparencyConfig,
 )
-from raitap.data import load_data
-from raitap.metrics import evaluate_and_log as evaluate_metrics
-from raitap.models import load_model
-from raitap.tracking import (
-    create_tracker,
-    finalize_tracking,
-    initialize_tracking,
-    log_dataset_info,
-)
-from raitap.tracking.helpers import log_model_artifact
-from raitap.transparency import explain_and_log as explain
+from raitap.run import run
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SRC_ROOT = REPO_ROOT / "src"
@@ -107,72 +95,31 @@ def main() -> int:
             name=f"{image_path.stem}_smoke",
             source=str(image_path),
         ),
-        transparency=TransparencyConfig(
-            _target_="CaptumExplainer",
-            algorithm="IntegratedGradients",
-            visualisers=[{"_target_": "CaptumImageVisualiser"}],
-        ),
+        transparency={
+            "smoke_captum": TransparencyConfig(
+                _target_="CaptumExplainer",
+                algorithm="IntegratedGradients",
+                visualisers=[{"_target_": "CaptumImageVisualiser"}],
+            )
+        },
         metrics=MetricsConfig(
             _target_="ClassificationMetrics",
             task="multiclass",
             num_classes=1000,
         ),
         tracking=TrackingConfig(
-            enabled=True,
-            tracking_uri=tracking_uri,
+            output_forwarding_url=tracking_uri,
             log_model=args.log_model,
         ),
         fallback_output_dir=str(output_dir),
     )
 
-    tracker = create_tracker(config.tracking)
     status = "FAILED"
-
     try:
-        initialize_tracking(tracker, config)
-
-        if not config.model.source:
-            raise ValueError("No model source specified.")
-        model_source: str = config.model.source
-        model = load_model(model_source)
-        log_model_artifact(tracker, model)
-
-        if not config.data.source:
-            raise ValueError("No data source specified.")
-        data_source: str = config.data.source
-        data = load_data(data_source)
-        log_dataset_info(tracker, config, data)
-
-        with torch.no_grad():
-            logits = model(data)
-            if logits.ndim < 2:
-                raise ValueError(
-                    "Smoke test expects classifier logits of shape (N, C); "
-                    f"got {tuple(logits.shape)}"
-                )
-            num_classes = int(logits.shape[1])
-            config.metrics.num_classes = num_classes
-            predicted_classes = logits.argmax(dim=1)
-            target = predicted_classes.tolist()
-
-        evaluate_metrics(
-            config,
-            predicted_classes,
-            predicted_classes,
-            logger=tracker,
-        )
-
-        explain(
-            config,
-            model,
-            data,
-            logger=tracker,
-            target=target,
-        )
-
+        run(config)
         status = "FINISHED"
     finally:
-        finalize_tracking(tracker, status=status)
+        pass
 
     print(f"Smoke test finished with status={status}")
     print(f"MLflow tracking URI: {tracking_uri}")

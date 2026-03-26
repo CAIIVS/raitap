@@ -2,20 +2,28 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.figure import Figure
 
-from .base import BaseVisualiser
+from .base_visualiser import BaseVisualiser
+
+if TYPE_CHECKING:
+    import torch
+    from matplotlib.figure import Figure
 
 
-def _to_numpy(x) -> np.ndarray:
+def _to_numpy(x: torch.Tensor | np.ndarray) -> np.ndarray:
     """Convert tensor or array-like to numpy."""
-    if hasattr(x, "detach"):
-        return x.detach().cpu().numpy()
-    if hasattr(x, "numpy"):
-        return x.cpu().numpy()
-    return np.asarray(x)
+    val: Any = x
+    if hasattr(val, "detach"):
+        val = val.detach()
+    if hasattr(val, "cpu"):
+        val = val.cpu()
+    if hasattr(val, "numpy"):
+        val = val.numpy()
+    return np.asarray(val)
 
 
 class CaptumImageVisualiser(BaseVisualiser):
@@ -49,7 +57,13 @@ class CaptumImageVisualiser(BaseVisualiser):
         self.sign = sign
         self.show_colorbar = show_colorbar
 
-    def visualise(self, attributions, inputs=None, max_samples: int = 8, **kwargs) -> Figure:
+    def visualise(
+        self,
+        attributions: torch.Tensor,
+        inputs: torch.Tensor | None = None,
+        max_samples: int = 8,
+        **kwargs: Any,
+    ) -> Figure:
         """
         Args:
             attributions: ``(B, C, H, W)`` or ``(B, H, W)`` tensor / array.
@@ -63,7 +77,10 @@ class CaptumImageVisualiser(BaseVisualiser):
         try:
             from captum.attr import visualization as viz
         except ImportError as e:
-            raise ImportError("Captum not installed.  pip install captum>=0.7.0") from e
+            raise ImportError(
+                "Captum visualiser is enabled but captum is not installed. "
+                "Install it with `uv sync --extra captum`."
+            ) from e
 
         attrs = _to_numpy(attributions)
         # Ensure batch dimension
@@ -132,7 +149,9 @@ class CaptumTimeSeriesVisualiser(BaseVisualiser):
         self.method = method
         self.sign = sign
 
-    def visualise(self, attributions, inputs=None, **kwargs) -> Figure:
+    def visualise(
+        self, attributions: torch.Tensor, inputs: torch.Tensor | None = None, **kwargs: Any
+    ) -> Figure:
         """
         Args:
             attributions: ``(N, C)`` numpy array / tensor  (channels-last).
@@ -147,7 +166,10 @@ class CaptumTimeSeriesVisualiser(BaseVisualiser):
         try:
             from captum.attr import visualization as viz
         except ImportError as e:
-            raise ImportError("Captum not installed.  pip install captum>=0.7.0") from e
+            raise ImportError(
+                "Captum visualiser is enabled but captum is not installed. "
+                "Install it with `uv sync --extra captum`."
+            ) from e
 
         attr = _to_numpy(attributions)
         # If batch dimension present, take first sample
@@ -192,8 +214,8 @@ class CaptumTextVisualiser(BaseVisualiser):
 
     def visualise(
         self,
-        attributions,
-        inputs=None,
+        attributions: torch.Tensor,
+        inputs: torch.Tensor | None = None,
         token_labels: list[str] | None = None,
         **kwargs,
     ) -> Figure:

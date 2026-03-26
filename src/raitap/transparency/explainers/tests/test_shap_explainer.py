@@ -11,12 +11,15 @@ from raitap.transparency.explainers import ShapExplainer
 class TestShapExplainer:
     """Test ShapExplainer wrapper"""
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test explainer can be initialized"""
         explainer = ShapExplainer("GradientExplainer")
         assert explainer.algorithm == "GradientExplainer"
 
-    def test_gradient_explainer_returns_tensor(self, needs_shap, simple_cnn, sample_images):
+    @pytest.mark.usefixtures("needs_shap")
+    def test_gradient_explainer_returns_tensor(
+        self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor
+    ) -> None:
         """Test SHAP GradientExplainer returns a tensor with the expected shape."""
         explainer = ShapExplainer("GradientExplainer")
         background = sample_images[:2]
@@ -36,14 +39,20 @@ class TestShapExplainer:
         assert isinstance(all_class_attrs, torch.Tensor)
         assert all_class_attrs.shape[:-1] == sample_images.shape  # (..., num_classes)
 
-    def test_no_background_falls_back_to_input(self, needs_shap, simple_cnn, sample_images):
+    @pytest.mark.usefixtures("needs_shap")
+    def test_no_background_falls_back_to_input(
+        self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor
+    ) -> None:
         """Without background_data, the explainer warns and uses the input as background."""
         explainer = ShapExplainer("GradientExplainer")
         attributions = explainer.compute_attributions(simple_cnn, sample_images, target=0)
         assert isinstance(attributions, torch.Tensor)
         assert attributions.shape == sample_images.shape
 
-    def test_invalid_algorithm_error(self, simple_cnn, sample_images):
+    @pytest.mark.usefixtures("needs_shap")
+    def test_invalid_algorithm_error(
+        self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor
+    ) -> None:
         """Invalid algorithm name raises ValueError with a helpful message."""
         explainer = ShapExplainer("NonExistentExplainer")
 

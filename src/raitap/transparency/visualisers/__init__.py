@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .base import BaseVisualiser
+from .base_visualiser import BaseVisualiser, VisualiserIncompatibilityError
 
 # Captum-native visualisers
 from .captum_visualisers import (
@@ -21,9 +21,10 @@ from .shap_visualisers import (
 )
 from .tabular_visualiser import TabularBarChartVisualiser
 
-__all__ = [
+__all__ = [  # noqa: RUF022
     # Base
     "BaseVisualiser",
+    "VisualiserIncompatibilityError",
     # Captum
     "CaptumImageVisualiser",
     "CaptumTextVisualiser",

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-import torch
-import torch.nn as nn
+from typing import TYPE_CHECKING
 
-from .base import BaseExplainer
+from .base_explainer import BaseExplainer
+
+if TYPE_CHECKING:
+    import torch
+    import torch.nn as nn
 
 
 class CaptumExplainer(BaseExplainer):
@@ -55,7 +58,8 @@ class CaptumExplainer(BaseExplainer):
             import captum.attr
         except ImportError as e:
             raise ImportError(
-                "Captum not installed. Install with: pip install captum>=0.7.0"
+                "Captum explainer is enabled but captum is not installed. "
+                "Install it with `uv sync --extra captum`."
             ) from e
 
         # Dynamically get the method class

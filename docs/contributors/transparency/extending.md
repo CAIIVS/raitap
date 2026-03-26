@@ -46,7 +46,7 @@ As an example, we integrate OmniXAI.
 
 ```python
 # src/raitap/transparency/explainers/omnixai_explainer.py
-from .base import BaseExplainer
+from .base_explainer import BaseVisplainer
 import torch
 
 class OmniXAIExplainer(BaseExplainer):
@@ -111,7 +111,7 @@ As an example, we add a text-based feature importance visualiser.
 
 ```python
 # src/raitap/transparency/visualisers/text_visualiser.py
-from .base import BaseVisualiser
+from .base_visualiser import BaseVisualiser
 import torch
 import numpy as np
 

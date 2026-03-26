@@ -6,6 +6,7 @@
         "ms-python.vscode-pylance",
         "charliermarsh.ruff",
         // Optional
+        "jannchie.ruff-ignore-explainer",
         "formulahendry.code-runner",
         "usernamehw.errorlens",
         "sleistner.vscode-fileutils",

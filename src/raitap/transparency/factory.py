@@ -1,215 +1,117 @@
-"""
-Factory / orchestration layer for the RAITAP transparency module.
-
-Public surface
---------------
-explain(config, model, inputs, **kwargs)
-    One-call entry point.  Uses Hydra ``instantiate()`` to build the
-    explainer and visualisers from ``_target_`` keys in the config.
-"""
-
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any
 
-import torch
 from hydra.utils import instantiate
 
-from ..configs.factory_utils import cfg_to_dict, resolve_run_dir, resolve_target
-from .methods_registry import VisualiserIncompatibilityError
+from raitap.configs import cfg_to_dict, resolve_run_dir, resolve_target
+
+from .visualisers import VisualiserIncompatibilityError
+
+if TYPE_CHECKING:
+    import torch
+
+    from raitap.models import Model
+
+    from ..configs.schema import AppConfig
+    from .explainers.base_explainer import BaseExplainer
+    from .results import ExplanationResult
+    from .visualisers import BaseVisualiser
 
 _TRANSPARENCY_PREFIX = "raitap.transparency."
 
-if TYPE_CHECKING:
-    import torch.nn as nn
-    from matplotlib.figure import Figure
 
-    from ..configs.schema import AppConfig
-    from ..tracking.base import Tracker
+def _raw_transparency_config(explainer_config: Any) -> dict[str, Any]:
+    return cfg_to_dict(explainer_config)
 
 
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
+class Explanation:
+    def __new__(
+        cls,
+        config: AppConfig,
+        explainer_name: str,
+        model: Model,
+        inputs: torch.Tensor,
+        **kwargs: Any,
+    ) -> ExplanationResult:
+        explainer_config = config.transparency[explainer_name]
+        raw_transparency_config = _raw_transparency_config(explainer_config)
+        algorithm = str(raw_transparency_config.get("algorithm", ""))
+        explainer, explainer_target = create_explainer(explainer_config)
+        visualisers = create_visualisers(explainer_config)
+        check_explainer_visualiser_compat(explainer_target, algorithm, visualisers)
+
+        return explainer.explain(
+            model.network,
+            inputs,
+            run_dir=resolve_run_dir(config, subdir=f"transparency/{explainer_name}"),
+            experiment_name=str(getattr(config, "experiment_name", "")),
+            explainer_target=explainer_target,
+            explainer_name=explainer_name,
+            visualisers=visualisers,
+            **kwargs,
+        )
 
 
-def _serialisable(v) -> object:
-    """Best-effort conversion to a JSON-serialisable scalar."""
-    if isinstance(v, (str, int, float, bool, type(None))):
-        return v
-    return repr(v)
+def create_explainer(explainer_config: Any) -> tuple[BaseExplainer, str]:
+    raw_transparency_config = _raw_transparency_config(explainer_config)
+    explainer_config = {
+        key: value for key, value in raw_transparency_config.items() if key != "visualisers"
+    }
+    target_path = str(explainer_config.get("_target_", ""))
+    resolved_target = resolve_target(target_path, _TRANSPARENCY_PREFIX)
+    explainer_config["_target_"] = resolved_target
 
-
-# ---------------------------------------------------------------------------
-# Primary API
-# ---------------------------------------------------------------------------
-
-
-def explain(
-    config: AppConfig,
-    model: nn.Module,
-    inputs: torch.Tensor,
-    **kwargs,
-) -> dict:
-    """
-    Compute attributions and produce visualisations in one call.
-
-    Parameters
-    ----------
-    config:
-        ``AppConfig`` whose ``transparency`` section drives the run:
-
-        - ``_target_``   - fully-qualified ``BaseExplainer`` subclass
-        - ``algorithm``  - algorithm name forwarded to the explainer
-        - ``visualisers``- list of dicts each carrying a ``_target_`` key
-          pointing to a ``BaseVisualiser`` subclass
-
-    model:
-        PyTorch model to explain.
-    inputs:
-        Input tensor passed to both the explainer and visualisers.
-    **kwargs:
-        Framework-specific keyword arguments forwarded to
-        ``compute_attributions`` (e.g. ``target``, ``baselines``,
-        ``background_data``).
-
-    Returns
-    -------
-    dict with keys:
-
-    ``"attributions"``
-        Attribution tensor saved to the run directory.
-
-    ``"visualisations"``
-        Dict mapping each visualiser class name to its Matplotlib Figure.
-        Figures are also saved to the run directory.
-
-    ``"run_dir"``
-        :class:`~pathlib.Path` of the run directory.
-
-    Raises
-    ------
-    VisualiserIncompatibilityError
-        If any requested visualiser is not compatible with the chosen algorithm.
-    ValueError
-        If a ``_target_`` cannot be resolved or instantiated.
-    """
-    tc = config.transparency
-    raw_tc = cfg_to_dict(tc)
-
-    target_path: str = raw_tc.get("_target_", "")
-    algorithm: str = raw_tc.get("algorithm", "")
-    vis_cfgs: list[dict] = raw_tc.get("visualisers", [])
-
-    # ------------------------------------------------------------------
-    # 1. Instantiate explainer.
-    #    Pass everything EXCEPT ``visualisers`` (which is used only here
-    #    in the orchestrator, not by the explainer constructor).
-    # ------------------------------------------------------------------
-    explainer_cfg = {k: v for k, v in raw_tc.items() if k != "visualisers"}
-    target = explainer_cfg.get("_target_", "")
-    explainer_cfg["_target_"] = resolve_target(target, _TRANSPARENCY_PREFIX)
     try:
-        explainer = instantiate(explainer_cfg)
-    except Exception as e:
+        explainer = instantiate(explainer_config)
+    except Exception as error:
         raise ValueError(
             f"Could not instantiate explainer {target_path!r}.\n"
-            f"Check that _target_ points to a valid BaseExplainer subclass."
-        ) from e
+            "Check that _target_ points to a valid BaseExplainer subclass."
+        ) from error
 
-    # ------------------------------------------------------------------
-    # 2. Validate visualiser compatibility BEFORE any computation.
-    # ------------------------------------------------------------------
-    for vis_cfg in vis_cfgs:
-        vis_target = vis_cfg.get("_target_", "") if isinstance(vis_cfg, dict) else ""
-        if isinstance(vis_cfg, dict) and "_target_" in vis_cfg:
-            vis_cfg = {
-                **vis_cfg,
-                "_target_": resolve_target(vis_cfg["_target_"], _TRANSPARENCY_PREFIX),
+    return explainer, resolved_target
+
+
+def create_visualisers(explainer_config: Any) -> list[BaseVisualiser]:
+    raw_transparency_config = _raw_transparency_config(explainer_config)
+    visualisers: list[BaseVisualiser] = []
+
+    for visualiser_config in raw_transparency_config.get("visualisers", []):
+        visualiser_target = (
+            str(visualiser_config.get("_target_", ""))
+            if isinstance(visualiser_config, dict)
+            else ""
+        )
+        resolved_config = (
+            {
+                **visualiser_config,
+                "_target_": resolve_target(visualiser_target, _TRANSPARENCY_PREFIX),
             }
+            if isinstance(visualiser_config, dict) and "_target_" in visualiser_config
+            else visualiser_config
+        )
+
         try:
-            visualiser = instantiate(vis_cfg)
-        except Exception as e:
-            raise ValueError(f"Could not instantiate visualiser {vis_target!r}.") from e
+            visualiser = instantiate(resolved_config)
+        except Exception as error:
+            raise ValueError(f"Could not instantiate visualiser {visualiser_target!r}.") from error
+
+        visualisers.append(visualiser)
+
+    return visualisers
+
+
+def check_explainer_visualiser_compat(
+    explainer_target: str,
+    algorithm: str,
+    visualisers: list[BaseVisualiser],
+) -> None:
+    for visualiser in visualisers:
         if visualiser.compatible_algorithms and algorithm not in visualiser.compatible_algorithms:
             raise VisualiserIncompatibilityError(
-                framework=target_path,
+                framework=explainer_target,
                 visualiser=type(visualiser).__name__,
                 algorithm=algorithm,
                 compatible_algorithms=sorted(visualiser.compatible_algorithms),
             )
-
-    # ------------------------------------------------------------------
-    # 3. Compute attributions.
-    # ------------------------------------------------------------------
-    attributions = explainer.compute_attributions(model, inputs, **kwargs)
-
-    # ------------------------------------------------------------------
-    # 4. Resolve run directory from Hydra runtime output dir or fallback config.
-    # ------------------------------------------------------------------
-    run_dir = resolve_run_dir(config, subdir="transparency")
-    run_dir.mkdir(parents=True, exist_ok=True)
-
-    # ------------------------------------------------------------------
-    # 5. Persist attributions.
-    # ------------------------------------------------------------------
-    torch.save(attributions, run_dir / "attributions.pt")
-
-    # ------------------------------------------------------------------
-    # 6. Generate and persist each visualisation.
-    # ------------------------------------------------------------------
-    visualisations: dict[str, Figure] = {}
-    for vis_cfg in vis_cfgs:
-        if isinstance(vis_cfg, dict) and "_target_" in vis_cfg:
-            vis_cfg = {
-                **vis_cfg,
-                "_target_": resolve_target(vis_cfg["_target_"], _TRANSPARENCY_PREFIX),
-            }
-        visualiser = instantiate(vis_cfg)
-        name = type(visualiser).__name__
-        fig = visualiser.visualise(attributions, inputs=inputs)
-        visualiser.save(attributions, run_dir / f"{name}.png", inputs=inputs)
-        visualisations[name] = fig
-
-    # ------------------------------------------------------------------
-    # 7. Save metadata snapshot.
-    # ------------------------------------------------------------------
-    metadata = {
-        "experiment_name": config.experiment_name,
-        "target": resolve_target(target_path, _TRANSPARENCY_PREFIX),
-        "algorithm": algorithm,
-        "visualisers": [resolve_target(v["_target_"], _TRANSPARENCY_PREFIX) for v in vis_cfgs],
-        "kwargs": {k: _serialisable(v) for k, v in kwargs.items()},
-    }
-    (run_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
-
-    print(f"✓ Attributions shape: {attributions.shape}")
-    for name in visualisations:
-        print(f"✓ Visualisation saved: {run_dir}/{name}.png")
-    print(f"✓ Metadata saved:      {run_dir}/metadata.json")
-
-    return {
-        "attributions": attributions,
-        "visualisations": visualisations,
-        "run_dir": run_dir,
-    }
-
-
-def explain_and_log(
-    config: AppConfig,
-    model: nn.Module,
-    inputs: torch.Tensor,
-    logger: Tracker | None,
-    artifact_path: str = "transparency",
-    **kwargs: Any,
-) -> dict:
-    result = explain(
-        config=config,
-        model=model,
-        inputs=inputs,
-        **kwargs,
-    )
-    if logger is not None:
-        logger.log_artifacts(result["run_dir"], artifact_path=artifact_path)
-    return result

@@ -10,21 +10,21 @@ from raitap.metrics.utils import tensor_to_python
 class TestTensorToPython:
     """Test the _tensor_to_python helper function."""
 
-    def test_scalar_tensor_to_float(self):
+    def test_scalar_tensor_to_float(self) -> None:
         """Test converting a scalar tensor to float."""
         tensor = torch.tensor(0.75)
         result = tensor_to_python(tensor)
         assert isinstance(result, float)
         assert result == pytest.approx(0.75)
 
-    def test_1d_tensor_to_list(self):
+    def test_1d_tensor_to_list(self) -> None:
         """Test converting a 1D tensor to list."""
         tensor = torch.tensor([1.0, 2.0, 3.0])
         result = tensor_to_python(tensor)
         assert isinstance(result, list)
         assert result == [1.0, 2.0, 3.0]
 
-    def test_2d_tensor_to_list(self):
+    def test_2d_tensor_to_list(self) -> None:
         """Test converting a 2D tensor to nested list."""
         tensor = torch.tensor([[0.1, 0.2], [0.3, 0.4]])
         result = tensor_to_python(tensor)
@@ -33,14 +33,14 @@ class TestTensorToPython:
         assert result[0] == pytest.approx([0.1, 0.2])
         assert result[1] == pytest.approx([0.3, 0.4])
 
-    def test_non_tensor_passthrough(self):
+    def test_non_tensor_passthrough(self) -> None:
         """Test that non-tensor values are returned unchanged."""
         assert tensor_to_python(42) == 42
         assert tensor_to_python("test") == "test"
         assert tensor_to_python([1, 2, 3]) == [1, 2, 3]
         assert tensor_to_python(None) is None
 
-    def test_tensor_with_gradients(self):
+    def test_tensor_with_gradients(self) -> None:
         """Test converting a tensor with gradient tracking."""
         tensor = torch.tensor([0.5, 0.8], requires_grad=True)
         result = tensor_to_python(tensor)
@@ -51,14 +51,14 @@ class TestTensorToPython:
 class TestDetectionMetricsInitialization:
     """Test DetectionMetrics initialization with various configurations."""
 
-    def test_default_initialization(self):
+    def test_default_initialization(self) -> None:
         """Test initialization with default parameters."""
         metrics = DetectionMetrics(
             iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
         )
         assert metrics.metric is not None
 
-    def test_custom_box_format_xyxy(self):
+    def test_custom_box_format_xyxy(self) -> None:
         """Test initialization with xyxy box format."""
         metrics = DetectionMetrics(
             box_format="xyxy",
@@ -68,7 +68,7 @@ class TestDetectionMetricsInitialization:
         )
         assert metrics.metric is not None
 
-    def test_custom_box_format_xywh(self):
+    def test_custom_box_format_xywh(self) -> None:
         """Test initialization with xywh box format."""
         metrics = DetectionMetrics(
             box_format="xywh",
@@ -78,21 +78,21 @@ class TestDetectionMetricsInitialization:
         )
         assert metrics.metric is not None
 
-    def test_iou_type_bbox(self):
+    def test_iou_type_bbox(self) -> None:
         """Test initialization with bbox IoU type."""
         metrics = DetectionMetrics(
             iou_type="bbox", iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
         )
         assert metrics.metric is not None
 
-    def test_iou_type_segm(self):
+    def test_iou_type_segm(self) -> None:
         """Test initialization with segm IoU type."""
         metrics = DetectionMetrics(
             iou_type="segm", iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
         )
         assert metrics.metric is not None
 
-    def test_iou_type_tuple(self):
+    def test_iou_type_tuple(self) -> None:
         """Test initialization with tuple of IoU types."""
         metrics = DetectionMetrics(
             iou_type=("bbox", "segm"),
@@ -102,28 +102,28 @@ class TestDetectionMetricsInitialization:
         )
         assert metrics.metric is not None
 
-    def test_custom_iou_thresholds(self):
+    def test_custom_iou_thresholds(self) -> None:
         """Test initialization with custom IoU thresholds."""
         metrics = DetectionMetrics(
             iou_thresholds=[0.5, 0.75], rec_thresholds=None, max_detection_thresholds=None
         )
         assert metrics.metric is not None
 
-    def test_custom_rec_thresholds(self):
+    def test_custom_rec_thresholds(self) -> None:
         """Test initialization with custom recall thresholds."""
         metrics = DetectionMetrics(
             iou_thresholds=None, rec_thresholds=[0.0, 0.5, 1.0], max_detection_thresholds=None
         )
         assert metrics.metric is not None
 
-    def test_custom_max_detection_thresholds(self):
+    def test_custom_max_detection_thresholds(self) -> None:
         """Test initialization with custom max detection thresholds."""
         metrics = DetectionMetrics(
             iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=[1, 10, 100]
         )
         assert metrics.metric is not None
 
-    def test_class_metrics_enabled(self):
+    def test_class_metrics_enabled(self) -> None:
         """Test initialization with class-specific metrics enabled."""
         metrics = DetectionMetrics(
             class_metrics=True,
@@ -133,7 +133,7 @@ class TestDetectionMetricsInitialization:
         )
         assert metrics.metric is not None
 
-    def test_extended_summary_enabled(self):
+    def test_extended_summary_enabled(self) -> None:
         """Test initialization with extended summary enabled."""
         metrics = DetectionMetrics(
             extended_summary=True,
@@ -143,21 +143,21 @@ class TestDetectionMetricsInitialization:
         )
         assert metrics.metric is not None
 
-    def test_average_macro(self):
+    def test_average_macro(self) -> None:
         """Test initialization with macro averaging."""
         metrics = DetectionMetrics(
             average="macro", iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
         )
         assert metrics.metric is not None
 
-    def test_average_micro(self):
+    def test_average_micro(self) -> None:
         """Test initialization with micro averaging."""
         metrics = DetectionMetrics(
             average="micro", iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
         )
         assert metrics.metric is not None
 
-    def test_backend_pycocotools(self):
+    def test_backend_pycocotools(self) -> None:
         """Test initialization with faster_coco_eval backend."""
         metrics = DetectionMetrics(
             backend="faster_coco_eval",
@@ -167,7 +167,7 @@ class TestDetectionMetricsInitialization:
         )
         assert metrics.metric is not None
 
-    def test_backend_faster_coco_eval(self):
+    def test_backend_faster_coco_eval(self) -> None:
         """Test initialization with faster_coco_eval backend."""
         metrics = DetectionMetrics(
             backend="faster_coco_eval",
@@ -182,13 +182,13 @@ class TestDetectionMetricsUpdate:
     """Test DetectionMetrics update functionality."""
 
     @pytest.fixture
-    def detection_metrics(self):
+    def detection_metrics(self) -> DetectionMetrics:
         """Create a detection metrics instance."""
         return DetectionMetrics(
             iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
         )
 
-    def test_update_with_valid_data(self, detection_metrics):
+    def test_update_with_valid_data(self, detection_metrics: DetectionMetrics) -> None:
         """Test update with valid predictions and targets."""
         predictions = [
             {
@@ -207,7 +207,7 @@ class TestDetectionMetricsUpdate:
         # Should not raise any exception
         detection_metrics.update(predictions, targets)
 
-    def test_update_with_multiple_images(self, detection_metrics):
+    def test_update_with_multiple_images(self, detection_metrics: DetectionMetrics) -> None:
         """Test update with multiple images."""
         predictions = [
             {
@@ -234,7 +234,7 @@ class TestDetectionMetricsUpdate:
 
         detection_metrics.update(predictions, targets)
 
-    def test_update_with_empty_predictions(self, detection_metrics):
+    def test_update_with_empty_predictions(self, detection_metrics: DetectionMetrics) -> None:
         """Test update with empty predictions list."""
         predictions = [
             {
@@ -253,7 +253,7 @@ class TestDetectionMetricsUpdate:
         # Should not raise any exception
         detection_metrics.update(predictions, targets)
 
-    def test_update_with_empty_targets(self, detection_metrics):
+    def test_update_with_empty_targets(self, detection_metrics: DetectionMetrics) -> None:
         """Test update with empty targets list."""
         predictions = [
             {
@@ -272,7 +272,7 @@ class TestDetectionMetricsUpdate:
         # Should not raise any exception
         detection_metrics.update(predictions, targets)
 
-    def test_update_rejects_non_list_predictions(self, detection_metrics):
+    def test_update_rejects_non_list_predictions(self, detection_metrics: DetectionMetrics) -> None:
         """Test that non-list predictions raise TypeError."""
         predictions = {"boxes": torch.tensor([[10.0, 20.0, 30.0, 40.0]])}
         targets = [{"boxes": torch.tensor([[10.0, 20.0, 30.0, 40.0]]), "labels": torch.tensor([0])}]
@@ -280,7 +280,7 @@ class TestDetectionMetricsUpdate:
         with pytest.raises(TypeError, match="Expected lists of predictions and targets"):
             detection_metrics.update(predictions, targets)
 
-    def test_update_rejects_non_list_targets(self, detection_metrics):
+    def test_update_rejects_non_list_targets(self, detection_metrics: DetectionMetrics) -> None:
         """Test that non-list targets raise TypeError."""
         predictions = [
             {
@@ -294,7 +294,7 @@ class TestDetectionMetricsUpdate:
         with pytest.raises(TypeError, match="Expected lists of predictions and targets"):
             detection_metrics.update(predictions, targets)
 
-    def test_update_rejects_mismatched_lengths(self, detection_metrics):
+    def test_update_rejects_mismatched_lengths(self, detection_metrics: DetectionMetrics) -> None:
         """Test that mismatched prediction/target lengths raise ValueError."""
         predictions = [
             {
@@ -317,7 +317,7 @@ class TestDetectionMetricsUpdate:
         with pytest.raises(ValueError, match="must have the same length"):
             detection_metrics.update(predictions, targets)
 
-    def test_multiple_updates(self, detection_metrics):
+    def test_multiple_updates(self, detection_metrics: DetectionMetrics) -> None:
         """Test multiple sequential updates."""
         predictions1 = [
             {
@@ -355,13 +355,13 @@ class TestDetectionMetricsCompute:
     """Test DetectionMetrics compute functionality."""
 
     @pytest.fixture
-    def detection_metrics(self):
+    def detection_metrics(self) -> DetectionMetrics:
         """Create a detection metrics instance."""
         return DetectionMetrics(
             iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
         )
 
-    def test_compute_returns_metric_result(self, detection_metrics):
+    def test_compute_returns_metric_result(self, detection_metrics: DetectionMetrics) -> None:
         """Test that compute returns a MetricResult object."""
         predictions = [
             {
@@ -385,7 +385,9 @@ class TestDetectionMetricsCompute:
         assert isinstance(result.metrics, dict)
         assert isinstance(result.artifacts, dict)
 
-    def test_compute_separates_scalars_and_tensors(self, detection_metrics):
+    def test_compute_separates_scalars_and_tensors(
+        self, detection_metrics: DetectionMetrics
+    ) -> None:
         """Test that scalar values go to metrics and tensors to artifacts."""
         predictions = [
             {
@@ -412,7 +414,7 @@ class TestDetectionMetricsCompute:
         for key, value in result.artifacts.items():
             assert isinstance(value, (list, dict)), f"Artifact '{key}' should be list or dict"
 
-    def test_compute_perfect_predictions(self, detection_metrics):
+    def test_compute_perfect_predictions(self, detection_metrics: DetectionMetrics) -> None:
         """Test compute with perfect predictions."""
         predictions = [
             {
@@ -436,7 +438,7 @@ class TestDetectionMetricsCompute:
         assert result.metrics["map"] >= 0.0
         assert result.metrics["map"] <= 1.0
 
-    def test_compute_with_multiple_classes(self):
+    def test_compute_with_multiple_classes(self) -> None:
         """Test compute with multiple object classes."""
         metrics = DetectionMetrics(
             class_metrics=True,
@@ -464,7 +466,9 @@ class TestDetectionMetricsCompute:
 
         assert "map" in result.metrics
 
-    def test_compute_empty_predictions_and_targets(self, detection_metrics):
+    def test_compute_empty_predictions_and_targets(
+        self, detection_metrics: DetectionMetrics
+    ) -> None:
         """Test compute with completely empty predictions and targets."""
         predictions = [
             {
@@ -492,13 +496,13 @@ class TestDetectionMetricsReset:
     """Test DetectionMetrics reset functionality."""
 
     @pytest.fixture
-    def detection_metrics(self):
+    def detection_metrics(self) -> DetectionMetrics:
         """Create a detection metrics instance."""
         return DetectionMetrics(
             iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
         )
 
-    def test_reset_clears_state(self, detection_metrics):
+    def test_reset_clears_state(self, detection_metrics: DetectionMetrics) -> None:
         """Test that reset clears accumulated state."""
         predictions1 = [
             {
@@ -544,7 +548,7 @@ class TestDetectionMetricsReset:
 class TestDetectionMetricsEdgeCases:
     """Test edge cases and special scenarios."""
 
-    def test_single_detection_single_target(self):
+    def test_single_detection_single_target(self) -> None:
         """Test with a single detection and single target."""
         metrics = DetectionMetrics(
             iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
@@ -570,7 +574,7 @@ class TestDetectionMetricsEdgeCases:
         assert "map" in result.metrics
         assert 0.0 <= result.metrics["map"] <= 1.0
 
-    def test_multiple_detections_per_image(self):
+    def test_multiple_detections_per_image(self) -> None:
         """Test with multiple detections in a single image."""
         metrics = DetectionMetrics(
             iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
@@ -606,7 +610,7 @@ class TestDetectionMetricsEdgeCases:
 
         assert "map" in result.metrics
 
-    def test_xywh_box_format(self):
+    def test_xywh_box_format(self) -> None:
         """Test with xywh box format."""
         metrics = DetectionMetrics(
             box_format="xywh",
@@ -635,7 +639,7 @@ class TestDetectionMetricsEdgeCases:
 
         assert "map" in result.metrics
 
-    def test_large_batch(self):
+    def test_large_batch(self) -> None:
         """Test with a large batch of images."""
         metrics = DetectionMetrics(
             iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None

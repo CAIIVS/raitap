@@ -5,11 +5,9 @@ Provides model explanation / attribution capabilities using SHAP and Captum.
 
 Public API
 ----------
-explain(config, model, inputs, **kwargs)
-    One-call entry point.  Reads ``_target_`` / ``algorithm`` / ``visualisers``
-    from the config, instantiates the appropriate explainer and visualisers via
-    Hydra's ``instantiate()``, and returns a dict with ``attributions``,
-    ``visualisations``, and ``run_dir``.
+Explainer classes expose `explainer.explain(model, inputs, **kwargs)`, which
+returns an `ExplanationResult`. Each explanation can then render one
+or more visualisations via `explanation.visualise(**kwargs)`.
 
 Explainer classes (used as ``_target_`` values)
 -----------------------------------------------
@@ -27,12 +25,15 @@ from __future__ import annotations
 
 # Explainer classes — public _target_ surface
 from .explainers import CaptumExplainer, ShapExplainer
+from .factory import (
+    Explanation,
+    check_explainer_visualiser_compat,
+    create_explainer,
+    create_visualisers,
+)
 
-# Primary API
-from .factory import explain, explain_and_log
-
-# Domain error type
-from .methods_registry import VisualiserIncompatibilityError
+# Result objects
+from .results import ExplanationResult, VisualisationResult
 
 # Visualiser classes — public _target_ surface
 from .visualisers import (
@@ -45,12 +46,16 @@ from .visualisers import (
     ShapImageVisualiser,
     ShapWaterfallVisualiser,
     TabularBarChartVisualiser,
+    VisualiserIncompatibilityError,
 )
 
 __all__ = [  # noqa: RUF022
     # Explainer adapters
     "CaptumExplainer",
     "ShapExplainer",
+    # Result objects
+    "ExplanationResult",
+    "VisualisationResult",
     # Captum visualisers
     "CaptumImageVisualiser",
     "CaptumTextVisualiser",
@@ -65,7 +70,9 @@ __all__ = [  # noqa: RUF022
     "TabularBarChartVisualiser",
     # Domain errors
     "VisualiserIncompatibilityError",
-    # Primary API
-    "explain",
-    "explain_and_log",
+    # Rest
+    "Explanation",
+    "create_explainer",
+    "create_visualisers",
+    "check_explainer_visualiser_compat",
 ]

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -10,14 +10,13 @@ import pytest
 import torch
 from PIL import Image
 
-from raitap.data import (
-    _load_images,
-    _load_tabular,
-    _load_tabular_dir,
-    describe_data,
-    get_source_path,
-    load_data,
-)
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from raitap.configs.schema import AppConfig
+
+from raitap.data import Data, get_source_path
+from raitap.data.data import _load_images, _load_tabular, _load_tabular_dir
 from raitap.data.samples import SAMPLE_SOURCES, _load_sample, _resolve_sample
 
 # ---------------------------------------------------------------------------
@@ -64,8 +63,8 @@ class TestGetSourcePath:
         mock_response.__exit__ = MagicMock(return_value=False)
 
         with (
-            patch("raitap.data.urllib.request.urlopen", return_value=mock_response),
-            patch("raitap.data._CACHE_DIR", tmp_path),
+            patch("raitap.data.utils.urllib.request.urlopen", return_value=mock_response),
+            patch("raitap.data.data._CACHE_DIR", tmp_path),
         ):
             result = get_source_path("https://example.com/file.csv")
 
@@ -78,8 +77,8 @@ class TestGetSourcePath:
         dest.write_bytes(b"cached")
 
         with (
-            patch("raitap.data.urllib.request.urlopen") as mock_open,
-            patch("raitap.data._CACHE_DIR", tmp_path),
+            patch("raitap.data.utils.urllib.request.urlopen") as mock_open,
+            patch("raitap.data.data._CACHE_DIR", tmp_path),
         ):
             result = get_source_path("https://example.com/file.csv")
 
@@ -165,7 +164,7 @@ class TestLoadTabularDir:
 
 
 # ---------------------------------------------------------------------------
-# load_data  (integration-style, local files only)
+# Data class  (integration-style, local files only)
 # ---------------------------------------------------------------------------
 
 
@@ -173,83 +172,163 @@ class TestLoadData:
     def test_local_image_file(self, tmp_path: Path) -> None:
         p = tmp_path / "img.png"
         _write_image(p)
-        tensor = load_data(str(p))
-        assert tensor.shape == (1, 3, 32, 32)
+        cfg = cast(
+            "AppConfig",
+            type(
+                "AppConfig",
+                (),
+                {"data": type("DataConfig", (), {"source": str(p), "name": "isic2018"})},
+            )(),
+        )
+        data = Data(cfg)
+        assert data.tensor.shape == (1, 3, 32, 32)
 
     def test_local_image_directory(self, tmp_path: Path) -> None:
         for i in range(2):
             _write_image(tmp_path / f"img{i}.jpg")
-        tensor = load_data(str(tmp_path))
-        assert tensor.shape[0] == 2
+        cfg = cast(
+            "AppConfig",
+            type(
+                "AppConfig",
+                (),
+                {"data": type("DataConfig", (), {"source": str(tmp_path), "name": "isic2018"})},
+            )(),
+        )
+        data = Data(cfg)
+        assert data.tensor.shape[0] == 2
 
     def test_local_csv_file(self, tmp_path: Path) -> None:
         p = tmp_path / "data.csv"
         _write_csv(p, rows=6, cols=3)
-        tensor = load_data(str(p))
-        assert tensor.shape == (6, 3)
+        cfg = cast(
+            "AppConfig",
+            type(
+                "AppConfig",
+                (),
+                {"data": type("DataConfig", (), {"source": str(p), "name": "isic2018"})},
+            )(),
+        )
+        data = Data(cfg)
+        assert data.tensor.shape == (6, 3)
 
     def test_local_tabular_directory(self, tmp_path: Path) -> None:
         _write_csv(tmp_path / "a.csv", rows=2, cols=3)
         _write_csv(tmp_path / "b.csv", rows=4, cols=3)
-        tensor = load_data(str(tmp_path))
-        assert tensor.shape == (6, 3)
+        cfg = cast(
+            "AppConfig",
+            type(
+                "AppConfig",
+                (),
+                {"data": type("DataConfig", (), {"source": str(tmp_path), "name": "isic2018"})},
+            )(),
+        )
+        data = Data(cfg)
+        assert data.tensor.shape == (6, 3)
 
     def test_mixed_directory_raises(self, tmp_path: Path) -> None:
         _write_image(tmp_path / "img.jpg")
         _write_csv(tmp_path / "data.csv")
+        cfg = cast(
+            "AppConfig",
+            type(
+                "AppConfig",
+                (),
+                {"data": type("DataConfig", (), {"source": str(tmp_path), "name": "isic2018"})},
+            )(),
+        )
         with pytest.raises(ValueError, match="both image and tabular"):
-            load_data(str(tmp_path))
+            Data(cfg)
 
     def test_empty_directory_raises(self, tmp_path: Path) -> None:
+        cfg = cast(
+            "AppConfig",
+            type(
+                "AppConfig",
+                (),
+                {"data": type("DataConfig", (), {"source": str(tmp_path), "name": "isic2018"})},
+            )(),
+        )
         with pytest.raises(FileNotFoundError, match="No supported files"):
-            load_data(str(tmp_path))
+            Data(cfg)
 
     def test_unknown_extension_raises(self, tmp_path: Path) -> None:
         p = tmp_path / "data.xyz"
         p.write_text("something")
+        cfg = cast(
+            "AppConfig",
+            type(
+                "AppConfig",
+                (),
+                {"data": type("DataConfig", (), {"source": str(p), "name": "isic2018"})},
+            )(),
+        )
         with pytest.raises(ValueError, match="Cannot infer data type"):
-            load_data(str(p))
+            Data(cfg)
 
     def test_invalid_source_raises(self) -> None:
-        with pytest.raises(ValueError, match="could not be resolved"):
-            load_data("/no/such/path/file.csv")
+        cfg = cast(
+            "AppConfig",
+            type(
+                "AppConfig",
+                (),
+                {
+                    "data": type(
+                        "DataConfig", (), {"source": "/no/such/path/file.csv", "name": "isic2018"}
+                    )
+                },
+            )(),
+        )
+        with pytest.raises(ValueError, match="does not exist"):
+            Data(cfg)
 
 
 class TestDescribeData:
-    def test_describe_data_includes_shape_dtype_and_sample_shape(self) -> None:
-        data = torch.zeros((4, 3, 32, 32), dtype=torch.float32)
-
-        info = describe_data(
-            data,
-            name="imagenet_samples",
-            source="/tmp/imagenet",
+    def test_describe_data_includes_shape_dtype_and_sample_shape(self, tmp_path: Path) -> None:
+        img_file = tmp_path / "img.jpg"
+        _write_image(img_file, 32, 32)
+        cfg = cast(
+            "AppConfig",
+            type(
+                "AppConfig",
+                (),
+                {
+                    "data": type(
+                        "DataConfig", (), {"source": str(img_file), "name": "imagenet_samples"}
+                    )
+                },
+            )(),
         )
+        data = Data(cfg)
+        data.source = "/tmp/imagenet"
 
-        assert info == {
-            "name": "imagenet_samples",
-            "source": "/tmp/imagenet",
-            "num_samples": 4,
-            "shape": [4, 3, 32, 32],
-            "sample_shape": [3, 32, 32],
-            "dtype": "torch.float32",
-        }
+        info = data.describe()
 
-    def test_describe_data_without_sample_shape_for_1d_input(self) -> None:
-        data = torch.zeros((8,), dtype=torch.int64)
+        assert info["name"] == "imagenet_samples"
+        assert info["source"] == "/tmp/imagenet"
+        assert info["num_samples"] == 1
+        assert info["shape"] == [1, 3, 32, 32]
+        assert info["sample_shape"] == [3, 32, 32]
+        assert info["dtype"] == "torch.float32"
 
-        info = describe_data(
-            data,
-            name="vector_data",
-            source=None,
+    def test_describe_data_without_sample_shape_for_1d_input(self, tmp_path: Path) -> None:
+        csv_file = tmp_path / "data.csv"
+        csv_file.write_text("a\n1\n2\n3\n4\n5\n6\n7\n8")
+        cfg = cast(
+            "AppConfig",
+            type(
+                "AppConfig",
+                (),
+                {"data": type("DataConfig", (), {"source": str(csv_file), "name": "vector_data"})},
+            )(),
         )
+        data = Data(cfg)
 
-        assert info == {
-            "name": "vector_data",
-            "source": None,
-            "num_samples": 8,
-            "shape": [8],
-            "dtype": "torch.int64",
-        }
+        info = data.describe()
+
+        assert info["name"] == "vector_data"
+        assert info["num_samples"] == 8
+        assert info["shape"] == [8, 1]
+        assert info["dtype"] == "torch.float32"
 
 
 # ---------------------------------------------------------------------------
@@ -273,7 +352,7 @@ class TestResolveSample:
 
         with (
             patch("raitap.data.samples._CACHE_DIR", tmp_path),
-            patch("raitap.data.samples.urllib.request.urlopen", return_value=mock_response),
+            patch("raitap.data.utils.urllib.request.urlopen", return_value=mock_response),
         ):
             result = _resolve_sample(name)
 
@@ -289,7 +368,7 @@ class TestResolveSample:
 
         with (
             patch("raitap.data.samples._CACHE_DIR", tmp_path),
-            patch("raitap.data.samples.urllib.request.urlopen") as mock_open,
+            patch("raitap.data.utils.urllib.request.urlopen") as mock_open,
         ):
             _resolve_sample(name)
 

@@ -2,20 +2,28 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.figure import Figure
 
-from .base import BaseVisualiser
+from .base_visualiser import BaseVisualiser
+
+if TYPE_CHECKING:
+    import torch
+    from matplotlib.figure import Figure
 
 
-def _to_numpy(x) -> np.ndarray:
+def _to_numpy(x: torch.Tensor | np.ndarray) -> np.ndarray:
     """Convert tensor or array-like to numpy (float32)."""
-    if hasattr(x, "detach"):
-        x = x.detach().cpu()
-    if hasattr(x, "numpy"):
-        x = x.numpy()
-    return np.asarray(x, dtype=np.float32)
+    val: Any = x
+    if hasattr(val, "detach"):
+        val = val.detach()
+    if hasattr(val, "cpu"):
+        val = val.cpu()
+    if hasattr(val, "numpy"):
+        val = val.numpy()
+    return np.asarray(val, dtype=np.float32)
 
 
 def _close_and_return(fig: Figure) -> Figure:
@@ -41,7 +49,9 @@ class ShapBarVisualiser(BaseVisualiser):
         self.feature_names = feature_names
         self.max_display = max_display
 
-    def visualise(self, attributions, inputs=None, **kwargs) -> Figure:
+    def visualise(
+        self, attributions: torch.Tensor, inputs: torch.Tensor | None = None, **kwargs: Any
+    ) -> Figure:
         """
         Args:
             attributions: ``(B, F)`` SHAP values tensor / array.
@@ -51,7 +61,10 @@ class ShapBarVisualiser(BaseVisualiser):
         try:
             import shap
         except ImportError as e:
-            raise ImportError("SHAP not installed.  pip install shap>=0.46.0") from e
+            raise ImportError(
+                "SHAP visualiser is enabled but shap is not installed. "
+                "Install it with `uv sync --extra shap`."
+            ) from e
 
         values = _to_numpy(attributions)
         feats = _to_numpy(inputs) if inputs is not None else None
@@ -81,11 +94,16 @@ class ShapBeeswarmVisualiser(BaseVisualiser):
         self.feature_names = feature_names
         self.max_display = max_display
 
-    def visualise(self, attributions, inputs=None, **kwargs) -> Figure:
+    def visualise(
+        self, attributions: torch.Tensor, inputs: torch.Tensor | None = None, **kwargs: Any
+    ) -> Figure:
         try:
             import shap
         except ImportError as e:
-            raise ImportError("SHAP not installed.  pip install shap>=0.46.0") from e
+            raise ImportError(
+                "SHAP visualiser is enabled but shap is not installed. "
+                "Install it with `uv sync --extra shap`."
+            ) from e
 
         values = _to_numpy(attributions)
         feats = _to_numpy(inputs) if inputs is not None else None
@@ -131,11 +149,16 @@ class ShapWaterfallVisualiser(BaseVisualiser):
         self.sample_index = sample_index
         self.max_display = max_display
 
-    def visualise(self, attributions, inputs=None, **kwargs) -> Figure:
+    def visualise(
+        self, attributions: torch.Tensor, inputs: torch.Tensor | None = None, **kwargs: Any
+    ) -> Figure:
         try:
             import shap
         except ImportError as e:
-            raise ImportError("SHAP not installed.  pip install shap>=0.46.0") from e
+            raise ImportError(
+                "SHAP visualiser is enabled but shap is not installed. "
+                "Install it with `uv sync --extra shap`."
+            ) from e
 
         values = _to_numpy(attributions)
         sample_vals = values[self.sample_index]
@@ -178,11 +201,16 @@ class ShapForceVisualiser(BaseVisualiser):
         self.expected_value = expected_value
         self.sample_index = sample_index
 
-    def visualise(self, attributions, inputs=None, **kwargs) -> Figure:
+    def visualise(
+        self, attributions: torch.Tensor, inputs: torch.Tensor | None = None, **kwargs: Any
+    ) -> Figure:
         try:
             import shap
         except ImportError as e:
-            raise ImportError("SHAP not installed.  pip install shap>=0.46.0") from e
+            raise ImportError(
+                "SHAP visualiser is enabled but shap is not installed. "
+                "Install it with `uv sync --extra shap`."
+            ) from e
 
         values = _to_numpy(attributions)
         sample_vals = values[self.sample_index]
@@ -237,7 +265,9 @@ class ShapImageVisualiser(BaseVisualiser):
         """
         self.max_samples = max_samples
 
-    def visualise(self, attributions, inputs=None, **kwargs) -> Figure:
+    def visualise(
+        self, attributions: torch.Tensor, inputs: torch.Tensor | None = None, **kwargs: Any
+    ) -> Figure:
         """
         Args:
             attributions: ``(B, C, H, W)`` SHAP values tensor / array.
@@ -250,7 +280,10 @@ class ShapImageVisualiser(BaseVisualiser):
         try:
             import shap
         except ImportError as e:
-            raise ImportError("SHAP not installed.  pip install shap>=0.46.0") from e
+            raise ImportError(
+                "SHAP visualiser is enabled but shap is not installed. "
+                "Install it with `uv sync --extra shap`."
+            ) from e
 
         shap_vals = _to_numpy(attributions)  # (B, C, H, W)
         n = min(shap_vals.shape[0], self.max_samples)

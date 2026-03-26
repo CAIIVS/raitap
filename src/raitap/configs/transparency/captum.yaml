@@ -1,4 +1,0 @@
-_target_: CaptumExplainer
-algorithm: IntegratedGradients
-visualisers:
-  - _target_: CaptumImageVisualiser

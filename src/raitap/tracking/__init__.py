@@ -1,19 +1,12 @@
 from __future__ import annotations
 
-from .base import Tracker
-from .factory import create_tracker
-from .helpers import (
-    finalize_tracking,
-    initialize_tracking,
-    log_artifact_directory,
-    log_dataset_info,
-)
+from .base_tracker import BaseTracker
 
-__all__ = [
-    "Tracker",
-    "create_tracker",
-    "finalize_tracking",
-    "initialize_tracking",
-    "log_artifact_directory",
-    "log_dataset_info",
-]
+__all__ = ["BaseTracker"]
+
+try:
+    from .mlflow.mlflow_tracker import MLFlowTracker
+
+    __all__.append("MLFlowTracker")  # noqa: PYI056
+except ImportError:
+    pass

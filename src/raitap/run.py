@@ -1,79 +1,116 @@
-from pathlib import Path
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import hydra
-from hydra.core.hydra_config import HydraConfig
+import torch
 
-from .configs.register import register_configs
-from .configs.schema import AppConfig
-from .data import load_data
-from .models import load_model
-from .tracking import (
-    create_tracker,
-    finalize_tracking,
-    initialize_tracking,
-    log_dataset_info,
-)
-from .tracking.helpers import log_model_artifact
-from .transparency import explain_and_log
+from raitap.configs import register_configs, resolve_run_dir
+from raitap.data import Data
+from raitap.metrics import Metrics, MetricsEvaluation, metrics_run_enabled
+from raitap.models import Model
+from raitap.tracking import BaseTracker
+from raitap.transparency.factory import Explanation
+
+if TYPE_CHECKING:
+    from raitap.configs.schema import AppConfig
+    from raitap.transparency.results import ExplanationResult, VisualisationResult
 
 register_configs()
 
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
-def main(config: AppConfig):
-    output_dir = Path(HydraConfig.get().runtime.output_dir)
-    tracker = create_tracker(config.tracking)
-    status = "FAILED"
+def main(config: AppConfig) -> None:
+    print_summary(config)
+    run(config)
 
+    print("\n" + "=" * 60)
+    print("Assessment complete!")
+    print("=" * 60)
+
+
+@dataclass(frozen=True)
+class RunOutputs:
+    explanations: list[ExplanationResult]
+    visualisations: list[VisualisationResult]
+    metrics: MetricsEvaluation | None
+    predicted_classes: torch.Tensor
+
+
+def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOutputs:
+    data_tensor = data.tensor
+
+    with torch.no_grad():
+        logits = model.network(data_tensor)
+        predicted_classes = logits.argmax(dim=1)
+        target = predicted_classes.tolist()
+
+    metrics_eval: MetricsEvaluation | None = None
+    if metrics_run_enabled(config):
+        if getattr(config.metrics, "num_classes", None) is None and logits.ndim >= 2:
+            config.metrics.num_classes = int(logits.shape[1])
+        # No labels in DataConfig yet: predictions vs themselves yields a trivial self-consistency
+        # check only; replace with real targets when the pipeline exposes ground truth.
+        metrics_eval = Metrics(config, predicted_classes, predicted_classes)
+
+    explanations: list[ExplanationResult] = []
+    visualisations: list[VisualisationResult] = []
+
+    explainers = config.transparency.items()
+    if not explainers:
+        raise ValueError("No explainers configured")
+
+    for name, _explainer_cfg in explainers:
+        explanation = Explanation(config, name, model, data_tensor, target=target)
+        explanations.append(explanation)
+        visualisations.extend(explanation.visualise())
+
+    return RunOutputs(
+        explanations=explanations,
+        visualisations=visualisations,
+        metrics=metrics_eval,
+        predicted_classes=predicted_classes,
+    )
+
+
+def run(config: AppConfig) -> RunOutputs:
+    model = Model(config)
+    data = Data(config)
+
+    outputs = _run_without_tracking(config, model, data)
+
+    tracking_config = getattr(config, "tracking", None)
+    has_tracker = bool(tracking_config and getattr(tracking_config, "_target_", None))
+    if not has_tracker:
+        return outputs
+
+    use_subdirs = len(outputs.explanations) > 1
+    with BaseTracker.create_tracker(config) as tracker:
+        tracker.log_config()
+        if getattr(config.tracking, "log_model", False):
+            model.log(tracker)
+        data.log(tracker)
+        if outputs.metrics is not None:
+            outputs.metrics.log(tracker)
+        for explanation in outputs.explanations:
+            explanation.log(tracker, use_subdirectory=use_subdirs)
+        for visualisation in outputs.visualisations:
+            visualisation.log(tracker, use_subdirectory=use_subdirs)
+
+    return outputs
+
+
+def print_summary(config: AppConfig) -> None:
     print("=" * 60)
     print("RAITAP Transparency Assessment")
     print("=" * 60)
     print(f"\nExperiment: {config.experiment_name}")
     print(f"Model: {config.model.source}")
     print(f"Dataset: {config.data.name}")
-    print(f"Framework: {config.transparency._target_}")
-    print(f"Algorithm: {config.transparency.algorithm}")
-    print(f"Visualisers: {config.transparency.visualisers}")
-    print(f"Output: {output_dir}\n")
-
-    try:
-        initialize_tracking(tracker, config)
-
-        # 1. Load model
-        print("Loading model...")
-        if not config.model.source:
-            raise ValueError(
-                "No model specified. Set model.source in your config.\n"
-                "  model.source: path/to/your_model.pth   (custom model)\n"
-                "  model.source: resnet50                 (built-in demo model)"
-            )
-        model = load_model(config.model.source)
-        print(f"✓ Loaded model from {config.model.source!r}")
-        log_model_artifact(tracker, model)
-
-        # 2. Load data
-        print("\nLoading data...")
-        if not config.data.source:
-            raise ValueError(
-                "No data source specified. Set data.source in your config.\n"
-                "Use a local path or a named sample set, e.g.: data=imagenet_samples"
-            )
-        data = load_data(config.data.source)
-        n, *dims = data.shape
-        print(f"✓ Loaded {n} samples from {config.data.source!r} (shape: {tuple(dims)})")
-        log_dataset_info(tracker, config, data)
-
-        # 3. Run transparency assessment
-        print("\nRunning explanation...")
-        explain_and_log(config, model, data, logger=tracker)
-
-        status = "FINISHED"
-
-        print("\n" + "=" * 60)
-        print("Assessment complete!")
-        print("=" * 60)
-    finally:
-        finalize_tracking(tracker, status=status)
+    print(f"Explainers: {list(config.transparency.keys())}")
+    print(f"Metrics: {'on' if metrics_run_enabled(config) else 'off'}")
+    print(f"Output: {resolve_run_dir(config)}\n")
 
 
 if __name__ == "__main__":
