@@ -32,7 +32,7 @@ def main(config: AppConfig) -> None:
     data = Data(config)
     data_tensor = data.tensor
     n, *dims = data_tensor.shape
-    print(f"Loaded {n} samples from {config.data.source!r} (shape: {tuple[int, ...](dims)})")
+    print(f"Loaded {n} samples from {config.data.source!r} (shape: {tuple(dims)})")
 
     explanations, visualisations_list, metrics_eval = run_explanations(
         config, model, data, data_tensor
