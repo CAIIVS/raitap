@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -18,16 +19,18 @@ if TYPE_CHECKING:
     from raitap.transparency.results import ExplanationResult, VisualisationResult
 
 register_configs()
+logger = logging.getLogger(__name__)
 
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(config: AppConfig) -> None:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     print_summary(config)
     run(config)
 
-    print("\n" + "=" * 60)
-    print("Assessment complete!")
-    print("=" * 60)
+    logger.info("\n%s", "=" * 60)
+    logger.info("Assessment complete!")
+    logger.info("%s", "=" * 60)
 
 
 @dataclass(frozen=True)
@@ -102,15 +105,15 @@ def run(config: AppConfig) -> RunOutputs:
 
 
 def print_summary(config: AppConfig) -> None:
-    print("=" * 60)
-    print("RAITAP Transparency Assessment")
-    print("=" * 60)
-    print(f"\nExperiment: {config.experiment_name}")
-    print(f"Model: {config.model.source}")
-    print(f"Dataset: {config.data.name}")
-    print(f"Explainers: {list(config.transparency.keys())}")
-    print(f"Metrics: {'on' if metrics_run_enabled(config) else 'off'}")
-    print(f"Output: {resolve_run_dir(config)}\n")
+    logger.info("%s", "=" * 60)
+    logger.info("RAITAP Transparency Assessment")
+    logger.info("%s", "=" * 60)
+    logger.info("\nExperiment: %s", config.experiment_name)
+    logger.info("Model: %s", config.model.source)
+    logger.info("Dataset: %s", config.data.name)
+    logger.info("Explainers: %s", list(config.transparency.keys()))
+    logger.info("Metrics: %s", "on" if metrics_run_enabled(config) else "off")
+    logger.info("Output: %s\n", resolve_run_dir(config))
 
 
 if __name__ == "__main__":

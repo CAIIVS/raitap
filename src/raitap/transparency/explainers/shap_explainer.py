@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import logging
+
 import torch
 import torch.nn as nn
 
 from .base_explainer import BaseExplainer
+
+logger = logging.getLogger(__name__)
 
 
 class ShapExplainer(BaseExplainer):
@@ -73,9 +77,10 @@ class ShapExplainer(BaseExplainer):
         # GradientExplainer, DeepExplainer, KernelExplainer REQUIRE background data
         if self.algorithm in ("GradientExplainer", "DeepExplainer", "KernelExplainer"):
             if background_data is None:
-                print(
-                    f"  [!] {self.algorithm}: no background_data provided — "
-                    "using input batch as background (results may be less accurate)."
+                logger.info(
+                    "%s: no background_data provided; using input batch as background "
+                    "(results may be less accurate).",
+                    self.algorithm,
                 )
                 background_data = inputs
             explainer = explainer_class(model, background_data, **self.init_kwargs)
