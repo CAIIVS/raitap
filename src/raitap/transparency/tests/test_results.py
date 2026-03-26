@@ -6,13 +6,18 @@ from unittest.mock import MagicMock
 
 import torch
 
-from raitap.transparency.results import ExplanationResult, _serialisable, resolve_default_run_dir
+from raitap.transparency.results import (
+    ExplanationResult,
+    VisualisationResult,
+    _serialisable,
+    resolve_default_run_dir,
+)
 
 if TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch
 
 
-def _make_explanation(run_dir: Path) -> ExplanationResult:
+def _make_explanation(run_dir: Path, *, explainer_name: str | None = "exp") -> ExplanationResult:
     return ExplanationResult(
         attributions=torch.randn(1, 3, 4, 4),
         inputs=torch.randn(1, 3, 4, 4),
@@ -20,7 +25,7 @@ def _make_explanation(run_dir: Path) -> ExplanationResult:
         experiment_name="test-exp",
         explainer_target="raitap.transparency.CaptumExplainer",
         algorithm="Saliency",
-        explainer_name="exp",
+        explainer_name=explainer_name,
     )
 
 
@@ -83,3 +88,44 @@ def test_explanation_log_with_visualisers_stages_explanation_only(tmp_path: Path
 
     explanation._metadata.assert_called_once_with(visualiser_targets=[])  # type: ignore[attr-defined]
     tracker.log_artifacts.assert_called_once()
+
+
+def test_explanation_log_uses_run_dir_name_fallback_when_explainer_name_is_unset(
+    tmp_path: Path,
+) -> None:
+    run_dir = tmp_path / "run123"
+    explanation = _make_explanation(run_dir, explainer_name=None)
+    explanation.write_artifacts()
+    tracker = MagicMock()
+
+    explanation.log(tracker, artifact_path="transparency", use_subdirectory=True)
+
+    tracker.log_artifacts.assert_called_once_with(
+        run_dir,
+        target_subdirectory=f"transparency/{run_dir.name}",
+    )
+
+
+def test_visualisation_log_uses_same_fallback_as_explanation(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run123"
+    explanation = _make_explanation(run_dir, explainer_name=None)
+
+    output_path = tmp_path / "vis.png"
+    output_path.write_bytes(b"not-a-real-png-but-a-file")
+
+    visualisation = VisualisationResult(
+        explanation=explanation,
+        figure=MagicMock(),
+        visualiser_name="SomeVisualiser",
+        visualiser_target="some.target",
+        output_path=output_path,
+    )
+
+    tracker = MagicMock()
+    visualisation.log(tracker, artifact_path="transparency", use_subdirectory=True)
+
+    assert tracker.log_artifacts.call_count == 1
+    args, kwargs = tracker.log_artifacts.call_args
+    assert isinstance(args[0], Path)
+    assert args[0].name == run_dir.name
+    assert kwargs["target_subdirectory"] == f"transparency/{run_dir.name}"
