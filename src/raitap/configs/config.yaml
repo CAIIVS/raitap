@@ -4,6 +4,5 @@ defaults:
   - model: vit_b32
   - data: isic2018
   - metrics: classification
-  - tracking: mlflow
 
 experiment_name: demo
