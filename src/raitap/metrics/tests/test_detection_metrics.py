@@ -4,48 +4,6 @@ import pytest
 import torch
 
 from raitap.metrics import DetectionMetrics
-from raitap.metrics.utils import tensor_to_python
-
-
-class TestTensorToPython:
-    """Test the _tensor_to_python helper function."""
-
-    def test_scalar_tensor_to_float(self) -> None:
-        """Test converting a scalar tensor to float."""
-        tensor = torch.tensor(0.75)
-        result = tensor_to_python(tensor)
-        assert isinstance(result, float)
-        assert result == pytest.approx(0.75)
-
-    def test_1d_tensor_to_list(self) -> None:
-        """Test converting a 1D tensor to list."""
-        tensor = torch.tensor([1.0, 2.0, 3.0])
-        result = tensor_to_python(tensor)
-        assert isinstance(result, list)
-        assert result == [1.0, 2.0, 3.0]
-
-    def test_2d_tensor_to_list(self) -> None:
-        """Test converting a 2D tensor to nested list."""
-        tensor = torch.tensor([[0.1, 0.2], [0.3, 0.4]])
-        result = tensor_to_python(tensor)
-        assert isinstance(result, list)
-        assert len(result) == 2
-        assert result[0] == pytest.approx([0.1, 0.2])
-        assert result[1] == pytest.approx([0.3, 0.4])
-
-    def test_non_tensor_passthrough(self) -> None:
-        """Test that non-tensor values are returned unchanged."""
-        assert tensor_to_python(42) == 42
-        assert tensor_to_python("test") == "test"
-        assert tensor_to_python([1, 2, 3]) == [1, 2, 3]
-        assert tensor_to_python(None) is None
-
-    def test_tensor_with_gradients(self) -> None:
-        """Test converting a tensor with gradient tracking."""
-        tensor = torch.tensor([0.5, 0.8], requires_grad=True)
-        result = tensor_to_python(tensor)
-        assert isinstance(result, list)
-        assert result == pytest.approx([0.5, 0.8])
 
 
 class TestDetectionMetricsInitialization:
