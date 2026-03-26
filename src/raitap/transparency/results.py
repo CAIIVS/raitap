@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import matplotlib.pyplot as plt
 import torch
 from hydra.core.hydra_config import HydraConfig
 
@@ -81,7 +82,10 @@ class ExplanationResult:
         visualiser_name = type(visualiser).__name__
         output_path = self.run_dir / f"{visualiser_name}.png"
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        figure.savefig(output_path, bbox_inches="tight", dpi=150)
+        try:
+            figure.savefig(output_path, bbox_inches="tight", dpi=150)
+        finally:
+            plt.close(figure)
 
         visualiser_target = f"{type(visualiser).__module__}.{visualiser_name}"
         if visualiser_target not in self.visualiser_targets:
@@ -125,6 +129,8 @@ class ExplanationResult:
 
 @dataclass
 class VisualisationResult:
+    """PNG is written to ``output_path``; ``figure`` is closed after save to limit memory use."""
+
     explanation: ExplanationResult
     figure: Figure
     visualiser_name: str
