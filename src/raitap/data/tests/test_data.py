@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+import pandas as pd
 import pytest
 import torch
 from PIL import Image
@@ -85,6 +86,14 @@ class TestGetSourcePath:
         mock_open.assert_not_called()
         assert result == dest
 
+    def test_url_download_failure_propagates(self, tmp_path: Path) -> None:
+        with (
+            patch("raitap.data.data._CACHE_DIR", tmp_path),
+            patch("raitap.data.data.download_file", side_effect=OSError("network down")),
+            pytest.raises(OSError, match="network down"),
+        ):
+            get_source_path("https://example.com/file.csv")
+
 
 # ---------------------------------------------------------------------------
 # _load_images
@@ -147,6 +156,15 @@ class TestLoadTabular:
         p.write_text("{}")
         with pytest.raises(ValueError, match="Unsupported tabular format"):
             _load_tabular(p)
+
+    def test_parquet(self, tmp_path: Path) -> None:
+        p = tmp_path / "data.parquet"
+        p.write_bytes(b"parquet-placeholder")
+        parquet_df = pd.DataFrame({"a": [1.0, 2.0], "b": [3.0, 4.0]})
+        with patch("raitap.data.data.pd.read_parquet", return_value=parquet_df):
+            tensor = _load_tabular(p)
+        assert tensor.shape == (2, 2)
+        assert tensor.dtype == torch.float32
 
 
 class TestLoadTabularDir:
@@ -280,6 +298,48 @@ class TestLoadData:
         )
         with pytest.raises(ValueError, match="does not exist"):
             Data(cfg)
+
+    def test_url_source_loads_csv_via_get_source_path(self, tmp_path: Path) -> None:
+        p = tmp_path / "remote.csv"
+        _write_csv(p, rows=2, cols=3)
+        cfg = cast(
+            "AppConfig",
+            type(
+                "AppConfig",
+                (),
+                {
+                    "data": type(
+                        "DataConfig",
+                        (),
+                        {"source": "https://example.com/remote.csv", "name": "isic2018"},
+                    )
+                },
+            )(),
+        )
+        with patch("raitap.data.data.get_source_path", return_value=p):
+            data = Data(cfg)
+        assert data.tensor.shape == (2, 3)
+
+    def test_url_source_loads_image_via_get_source_path(self, tmp_path: Path) -> None:
+        p = tmp_path / "remote.png"
+        _write_image(p)
+        cfg = cast(
+            "AppConfig",
+            type(
+                "AppConfig",
+                (),
+                {
+                    "data": type(
+                        "DataConfig",
+                        (),
+                        {"source": "https://example.com/remote.png", "name": "isic2018"},
+                    )
+                },
+            )(),
+        )
+        with patch("raitap.data.data.get_source_path", return_value=p):
+            data = Data(cfg)
+        assert data.tensor.shape == (1, 3, 32, 32)
 
 
 class TestDescribeData:
