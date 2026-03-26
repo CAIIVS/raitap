@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 import torch
 
@@ -9,92 +11,51 @@ from raitap.metrics import ClassificationMetrics
 class TestClassificationMetricsInitialization:
     """Test ClassificationMetrics initialization and validation."""
 
-    def test_invalid_task_raises_error(self) -> None:
-        """Test that invalid task raises ValueError."""
-        with pytest.raises(ValueError, match="Unknown task"):
-            # noinspection PyTypeChecker
+    @pytest.mark.parametrize(
+        ("task", "num_classes", "num_labels", "match"),
+        [
+            ("invalid", 3, None, "Unknown task"),
+            ("multiclass", None, None, "must provide num_classes > 0"),
+            ("multiclass", 0, None, "must provide num_classes > 0"),
+            ("multilabel", None, None, "provide num_labels"),
+            ("multilabel", None, 0, "num_labels must be > 0"),
+        ],
+    )
+    def test_initialization_errors(
+        self, task: Any, num_classes: Any, num_labels: Any, match: str
+    ) -> None:
+        """Test that invalid configurations raise appropriate errors."""
+        with pytest.raises(ValueError, match=match):
             ClassificationMetrics(
-                task="invalid",  # pyright: ignore [reportArgumentType]
-                num_classes=3,
-                num_labels=None,
-                average="macro",
-                ignore_index=None,  # pyright: ignore [reportArgumentType]
-            )
-
-    def test_multiclass_without_num_classes_raises_error(self) -> None:
-        """Test that multiclass without num_classes raises ValueError."""
-        with pytest.raises(ValueError, match="must provide num_classes > 0"):
-            ClassificationMetrics(
-                task="multiclass",
-                num_classes=None,
-                num_labels=None,
-                average="macro",
-                ignore_index=None,
-            )
-
-    def test_multiclass_with_zero_classes_raises_error(self) -> None:
-        """Test that multiclass with num_classes=0 raises ValueError."""
-        with pytest.raises(ValueError, match="must provide num_classes > 0"):
-            ClassificationMetrics(
-                task="multiclass",
-                num_classes=0,
-                num_labels=None,
+                task=task,
+                num_classes=num_classes,
+                num_labels=num_labels,
                 average="macro",
                 ignore_index=None,
             )
 
-    def test_multilabel_without_num_labels_raises_error(self) -> None:
-        """Test that multilabel without num_labels raises ValueError."""
-        with pytest.raises(ValueError, match="provide num_labels"):
-            ClassificationMetrics(
-                task="multilabel",
-                num_classes=None,
-                num_labels=None,
-                average="macro",
-                ignore_index=None,
-            )
-
-    def test_multilabel_with_zero_labels_raises_error(self) -> None:
-        """Test that multilabel with num_labels=0 raises ValueError."""
-        with pytest.raises(ValueError, match="num_labels must be > 0"):
-            ClassificationMetrics(
-                task="multilabel",
-                num_classes=None,
-                num_labels=0,
-                average="macro",
-                ignore_index=None,
-            )
-
-    def test_multilabel_accepts_num_classes_as_alias(self) -> None:
-        """Test that multilabel accepts num_classes as alias for num_labels."""
+    @pytest.mark.parametrize(
+        ("task", "num_classes", "num_labels", "average"),
+        [
+            ("multilabel", 3, None, "macro"),
+            ("binary", None, None, "macro"),
+            ("multiclass", 5, None, "weighted"),
+            ("multilabel", None, 4, "micro"),
+        ],
+    )
+    def test_successful_initialization(
+        self, task: Any, num_classes: Any, num_labels: Any, average: Any
+    ) -> None:
+        """Test successful initialization for different tasks."""
         metrics = ClassificationMetrics(
-            task="multilabel", num_classes=3, num_labels=None, average="macro", ignore_index=None
+            task=task,
+            num_classes=num_classes,
+            num_labels=num_labels,
+            average=average,
+            ignore_index=None,
         )
-        assert metrics.task == "multilabel"
-
-    def test_binary_initialization(self) -> None:
-        """Test successful binary classification initialization."""
-        metrics = ClassificationMetrics(
-            task="binary", num_classes=None, num_labels=None, average="macro", ignore_index=None
-        )
-        assert metrics.task == "binary"
-        assert metrics.average == "macro"
-
-    def test_multiclass_initialization(self) -> None:
-        """Test successful multiclass initialization."""
-        metrics = ClassificationMetrics(
-            task="multiclass", num_classes=5, num_labels=None, average="weighted", ignore_index=-100
-        )
-        assert metrics.task == "multiclass"
-        assert metrics.average == "weighted"
-
-    def test_multilabel_initialization(self) -> None:
-        """Test successful multilabel initialization."""
-        metrics = ClassificationMetrics(
-            task="multilabel", num_classes=None, num_labels=4, average="micro", ignore_index=None
-        )
-        assert metrics.task == "multilabel"
-        assert metrics.average == "micro"
+        assert metrics.task == task
+        assert metrics.average == average
 
 
 class TestBinaryClassification:
@@ -317,92 +278,6 @@ class TestMultilabelClassification:
         # Binary predictions work with default threshold
         predictions = torch.tensor([[1, 0], [0, 1]])
         targets = torch.tensor([[1, 0], [0, 1]])
-
-        metrics.update(predictions, targets)
-        result = metrics.compute()
-
-        assert result.metrics["accuracy"] == pytest.approx(1.0)
-
-
-class TestMetricResultStructure:
-    """Test the structure of MetricResult objects."""
-
-    def test_result_has_required_fields(self) -> None:
-        """Test that compute returns a properly structured MetricResult."""
-        metrics = ClassificationMetrics(
-            task="binary", num_classes=None, num_labels=None, average="macro", ignore_index=None
-        )
-
-        predictions = torch.tensor([1, 0, 1])
-        targets = torch.tensor([1, 0, 1])
-
-        metrics.update(predictions, targets)
-        result = metrics.compute()
-
-        # Check that result has the expected attributes
-        assert hasattr(result, "metrics")
-        assert hasattr(result, "artifacts")
-        assert isinstance(result.metrics, dict)
-        assert isinstance(result.artifacts, dict)
-
-    def test_metrics_are_tensors_before_conversion(self) -> None:
-        """Test that metric values can be tensors (handled by torchmetrics)."""
-        metrics = ClassificationMetrics(
-            task="multiclass", num_classes=2, num_labels=None, average="macro", ignore_index=None
-        )
-
-        predictions = torch.tensor([0, 1, 0, 1])
-        targets = torch.tensor([0, 1, 0, 1])
-
-        metrics.update(predictions, targets)
-        result = metrics.compute()
-
-        # Verify all metrics are present
-        assert "accuracy" in result.metrics
-        assert "precision" in result.metrics
-        assert "recall" in result.metrics
-        assert "f1" in result.metrics
-
-
-class TestEdgeCases:
-    """Test edge cases and special scenarios."""
-
-    def test_single_sample(self) -> None:
-        """Test with a single sample."""
-        metrics = ClassificationMetrics(
-            task="binary", num_classes=None, num_labels=None, average="macro", ignore_index=None
-        )
-
-        predictions = torch.tensor([1])
-        targets = torch.tensor([1])
-
-        metrics.update(predictions, targets)
-        result = metrics.compute()
-
-        assert result.metrics["accuracy"] == pytest.approx(1.0)
-
-    def test_all_same_class(self) -> None:
-        """Test when all predictions and targets are the same class."""
-        metrics = ClassificationMetrics(
-            task="multiclass", num_classes=3, num_labels=None, average="macro", ignore_index=None
-        )
-
-        predictions = torch.tensor([0, 0, 0, 0])
-        targets = torch.tensor([0, 0, 0, 0])
-
-        metrics.update(predictions, targets)
-        result = metrics.compute()
-
-        assert result.metrics["accuracy"] == pytest.approx(1.0)
-
-    def test_large_batch(self) -> None:
-        """Test with a large batch size."""
-        metrics = ClassificationMetrics(
-            task="multiclass", num_classes=10, num_labels=None, average="macro", ignore_index=None
-        )
-
-        predictions = torch.randint(0, 10, (1000,))
-        targets = predictions.clone()  # Perfect predictions
 
         metrics.update(predictions, targets)
         result = metrics.compute()

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 import torch
 
@@ -9,120 +11,35 @@ from raitap.metrics import DetectionMetrics
 class TestDetectionMetricsInitialization:
     """Test DetectionMetrics initialization with various configurations."""
 
-    def test_default_initialization(self) -> None:
-        """Test initialization with default parameters."""
-        metrics = DetectionMetrics(
-            iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
-        )
-        assert metrics.metric is not None
-
-    def test_custom_box_format_xyxy(self) -> None:
-        """Test initialization with xyxy box format."""
-        metrics = DetectionMetrics(
-            box_format="xyxy",
-            iou_thresholds=None,
-            rec_thresholds=None,
-            max_detection_thresholds=None,
-        )
-        assert metrics.metric is not None
-
-    def test_custom_box_format_xywh(self) -> None:
-        """Test initialization with xywh box format."""
-        metrics = DetectionMetrics(
-            box_format="xywh",
-            iou_thresholds=None,
-            rec_thresholds=None,
-            max_detection_thresholds=None,
-        )
-        assert metrics.metric is not None
-
-    def test_iou_type_bbox(self) -> None:
-        """Test initialization with bbox IoU type."""
-        metrics = DetectionMetrics(
-            iou_type="bbox", iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
-        )
-        assert metrics.metric is not None
-
-    def test_iou_type_segm(self) -> None:
-        """Test initialization with segm IoU type."""
-        metrics = DetectionMetrics(
-            iou_type="segm", iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
-        )
-        assert metrics.metric is not None
-
-    def test_iou_type_tuple(self) -> None:
-        """Test initialization with tuple of IoU types."""
-        metrics = DetectionMetrics(
-            iou_type=("bbox", "segm"),
-            iou_thresholds=None,
-            rec_thresholds=None,
-            max_detection_thresholds=None,
-        )
-        assert metrics.metric is not None
-
-    def test_custom_iou_thresholds(self) -> None:
-        """Test initialization with custom IoU thresholds."""
-        metrics = DetectionMetrics(
-            iou_thresholds=[0.5, 0.75], rec_thresholds=None, max_detection_thresholds=None
-        )
-        assert metrics.metric is not None
-
-    def test_custom_rec_thresholds(self) -> None:
-        """Test initialization with custom recall thresholds."""
-        metrics = DetectionMetrics(
-            iou_thresholds=None, rec_thresholds=[0.0, 0.5, 1.0], max_detection_thresholds=None
-        )
-        assert metrics.metric is not None
-
-    def test_custom_max_detection_thresholds(self) -> None:
-        """Test initialization with custom max detection thresholds."""
-        metrics = DetectionMetrics(
-            iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=[1, 10, 100]
-        )
-        assert metrics.metric is not None
-
-    def test_class_metrics_enabled(self) -> None:
-        """Test initialization with class-specific metrics enabled."""
-        metrics = DetectionMetrics(
-            class_metrics=True,
-            iou_thresholds=None,
-            rec_thresholds=None,
-            max_detection_thresholds=None,
-        )
-        assert metrics.metric is not None
-
-    def test_extended_summary_enabled(self) -> None:
-        """Test initialization with extended summary enabled."""
-        metrics = DetectionMetrics(
-            extended_summary=True,
-            iou_thresholds=None,
-            rec_thresholds=None,
-            max_detection_thresholds=None,
-        )
-        assert metrics.metric is not None
-
-    def test_average_macro(self) -> None:
-        """Test initialization with macro averaging."""
-        metrics = DetectionMetrics(
-            average="macro", iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
-        )
-        assert metrics.metric is not None
-
-    def test_average_micro(self) -> None:
-        """Test initialization with micro averaging."""
-        metrics = DetectionMetrics(
-            average="micro", iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
-        )
-        assert metrics.metric is not None
-
-    def test_backend_faster_coco_eval(self) -> None:
-        """Test initialization with faster_coco_eval backend."""
-        metrics = DetectionMetrics(
-            backend="faster_coco_eval",
-            iou_thresholds=None,
-            rec_thresholds=None,
-            max_detection_thresholds=None,
-        )
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {},
+            {"box_format": "xyxy"},
+            {"box_format": "xywh"},
+            {"iou_type": "bbox"},
+            {"iou_type": "segm"},
+            {"iou_type": ("bbox", "segm")},
+            {"iou_thresholds": [0.5, 0.75]},
+            {"rec_thresholds": [0.0, 0.5, 1.0]},
+            {"max_detection_thresholds": [1, 10, 100]},
+            {"class_metrics": True},
+            {"extended_summary": True},
+            {"average": "macro"},
+            {"average": "micro"},
+            {"backend": "faster_coco_eval"},
+        ],
+    )
+    def test_initialization(self, kwargs: dict[str, Any]) -> None:
+        """Test initialization with various valid parameters."""
+        # Ensure thresholds are always None unless specified to avoid mixing
+        full_kwargs: dict[str, Any] = {
+            "iou_thresholds": None,
+            "rec_thresholds": None,
+            "max_detection_thresholds": None,
+        }
+        full_kwargs.update(kwargs)
+        metrics = DetectionMetrics(**full_kwargs)
         assert metrics.metric is not None
 
 
