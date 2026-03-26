@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
+from unittest.mock import MagicMock
 
 import pytest
 import torch
@@ -90,14 +91,6 @@ class TestLoadModelFromPath:
         model = Model(cfg).network
         assert isinstance(model, nn.Module)
 
-    def test_accepts_string_path(self, saved_pth: Path) -> None:
-        cfg = cast(
-            "AppConfig",
-            type("AppConfig", (), {"model": type("ModelConfig", (), {"source": str(saved_pth)})})(),
-        )
-        model = Model(cfg).network
-        assert isinstance(model, nn.Module)
-
     def test_returns_eval_mode(self, saved_pth: Path) -> None:
         cfg = cast(
             "AppConfig",
@@ -180,3 +173,31 @@ class TestLoadModelFromName:
         )
         with pytest.raises(ValueError, match="neither an existing path nor a known"):
             Model(cfg)
+
+
+class TestModelLog:
+    def test_log_calls_tracker_log_model(self) -> None:
+        cfg = cast(
+            "AppConfig",
+            type("AppConfig", (), {"model": type("ModelConfig", (), {"source": "resnet18"})})(),
+        )
+        model = Model(cfg)
+
+        tracker = MagicMock()
+        model.log(tracker)
+
+        tracker.log_model.assert_called_once_with(model.network)
+
+    def test_log_passes_network_to_tracker(self) -> None:
+        cfg = cast(
+            "AppConfig",
+            type("AppConfig", (), {"model": type("ModelConfig", (), {"source": "resnet18"})})(),
+        )
+        model = Model(cfg)
+
+        tracker = MagicMock()
+        model.log(tracker)
+
+        logged_model = tracker.log_model.call_args[0][0]
+        assert logged_model is model.network
+        assert isinstance(logged_model, torch.nn.Module)

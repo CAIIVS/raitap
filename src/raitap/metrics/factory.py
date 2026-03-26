@@ -46,7 +46,7 @@ def _json_serialisable(value: Any) -> Any:
     if hasattr(value, "item"):
         try:
             return _json_serialisable(value.item())
-        except Exception:
+        except (AttributeError, TypeError, ValueError, RuntimeError):
             pass
     return repr(value)
 

@@ -51,7 +51,7 @@ class Data:
             Raw data tensor.
         """
         source = cfg.data.source
-        if not source:
+        if not source or not source.strip():
             raise ValueError(
                 "No data source specified. Set data.source in your config.\n"
                 "Use a local path or a named sample set, e.g.: data=imagenet_samples"
