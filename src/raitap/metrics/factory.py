@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 from hydra.utils import instantiate
 
 from raitap.configs import cfg_to_dict, resolve_run_dir, resolve_target
+from raitap.serialization import to_json_serialisable
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -33,22 +34,6 @@ def metrics_run_enabled(config: AppConfig) -> bool:
     if target is None:
         return False
     return bool(str(target).strip())
-
-
-def _json_serialisable(value: Any) -> Any:
-    """Best-effort conversion to JSON-serialisable structures."""
-    if isinstance(value, (str, int, float, bool, type(None))):
-        return value
-    if isinstance(value, dict):
-        return {str(k): _json_serialisable(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple, set)):
-        return [_json_serialisable(v) for v in value]
-    if hasattr(value, "item"):
-        try:
-            return _json_serialisable(value.item())
-        except (AttributeError, TypeError, ValueError, RuntimeError):
-            pass
-    return repr(value)
 
 
 def create_metric(metrics_config: Any) -> tuple[BaseMetricComputer, str]:
@@ -104,11 +89,11 @@ class Metrics:
         run_dir.mkdir(parents=True, exist_ok=True)
 
         (run_dir / "metrics.json").write_text(
-            json.dumps(_json_serialisable(result.metrics), indent=2),
+            json.dumps(to_json_serialisable(result.metrics), indent=2),
             encoding="utf-8",
         )
         (run_dir / "artifacts.json").write_text(
-            json.dumps(_json_serialisable(result.artifacts), indent=2),
+            json.dumps(to_json_serialisable(result.artifacts), indent=2),
             encoding="utf-8",
         )
         metrics_cfg = cfg_to_dict(config.metrics)
@@ -116,7 +101,7 @@ class Metrics:
             "experiment_name": config.experiment_name,
             "target": resolved_target,
             "metric_config": {
-                k: _json_serialisable(v) for k, v in metrics_cfg.items() if k != "_target_"
+                k: to_json_serialisable(v) for k, v in metrics_cfg.items() if k != "_target_"
             },
         }
         (run_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")

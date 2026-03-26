@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 import torch
 from hydra.core.hydra_config import HydraConfig
 
+from raitap.serialization import to_json_serialisable
+
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
@@ -19,18 +21,7 @@ if TYPE_CHECKING:
 
 
 def _serialisable(value: Any) -> Any:
-    if isinstance(value, (str, int, float, bool, type(None))):
-        return value
-    if isinstance(value, dict):
-        return {str(key): _serialisable(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple, set)):
-        return [_serialisable(item) for item in value]
-    if hasattr(value, "item"):
-        try:
-            return _serialisable(value.item())
-        except (AttributeError, TypeError, ValueError, RuntimeError):
-            pass
-    return repr(value)
+    return to_json_serialisable(value)
 
 
 def resolve_default_run_dir() -> Path:
