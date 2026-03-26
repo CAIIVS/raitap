@@ -88,6 +88,10 @@ class MLFlowTracker(BaseTracker):
 
         self.tracking_uri: str = config.tracking.output_forwarding_url or "./mlruns"
 
+        # Track spawned subprocesses for cleanup
+        self._server_process: Any = None
+        self._ui_process: Any = None
+
         self._ensure_server_running()
 
         self._mlflow.set_tracking_uri(self.tracking_uri)
@@ -102,6 +106,8 @@ class MLFlowTracker(BaseTracker):
 
         if self.config.tracking.open_when_done:
             self._open_mlflow_ui()
+
+        self._cleanup_subprocesses()
 
     def log_config(self) -> None:
         config_dict = cfg_to_dict(self.config)
@@ -136,7 +142,6 @@ class MLFlowTracker(BaseTracker):
 
     def _ensure_server_running(self) -> None:
         import subprocess
-        import time
         from urllib.parse import urlparse
 
         if not self.tracking_uri.startswith("http"):
@@ -148,18 +153,22 @@ class MLFlowTracker(BaseTracker):
 
         if self._is_localhost(host) and not self._is_port_open(host, port):
             logger.info("MLflow server not running. Starting server at %s...", self.tracking_uri)
-            subprocess.Popen(
+            self._server_process = subprocess.Popen(
                 ["mlflow", "server", "--host", host, "--port", str(port)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
             )
-            logger.info("Waiting for server to start...")
-            time.sleep(3)
+
+            if not self._wait_for_port_ready(host, port, timeout=10):
+                logger.warning(
+                    "MLflow server may not be ready at %s:%d after 10 seconds", host, port
+                )
+            else:
+                logger.info("MLflow server is ready at %s:%d", host, port)
 
     def _open_mlflow_ui(self) -> None:
         import subprocess
-        import time
         import webbrowser
 
         if self.tracking_uri.startswith("http"):
@@ -173,17 +182,67 @@ class MLFlowTracker(BaseTracker):
                 logger.info("Starting MLflow UI at %s", url)
                 logger.info("Backend store: %s", self.tracking_uri)
 
-                subprocess.Popen(
+                self._ui_process = subprocess.Popen(
                     ["mlflow", "ui", "--backend-store-uri", self.tracking_uri, "--port", str(port)],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     start_new_session=True,
                 )
 
-                logger.info("Waiting for UI to start...")
-                time.sleep(3)
+                if not self._wait_for_port_ready("127.0.0.1", port, timeout=10):
+                    logger.warning("MLflow UI may not be ready at %s after 10 seconds", url)
+                else:
+                    logger.info("MLflow UI is ready at %s", url)
 
             webbrowser.open(url)
+
+    def _wait_for_port_ready(self, host: str, port: int, timeout: float = 10) -> bool:
+        """
+        Wait for a port to become ready, with retries.
+
+        Args:
+            host: Hostname to check
+            port: Port number to check
+            timeout: Maximum time to wait in seconds
+
+        Returns:
+            True if port became ready, False if timeout reached
+        """
+        import time
+
+        start_time = time.time()
+        retry_interval = 0.5
+
+        while time.time() - start_time < timeout:
+            if self._is_port_open(host, port):
+                return True
+            time.sleep(retry_interval)
+
+        return False
+
+    def _cleanup_subprocesses(self) -> None:
+        """Clean up any subprocesses spawned by this tracker."""
+        for process_name, process in [
+            ("MLflow server", self._server_process),
+            ("MLflow UI", self._ui_process),
+        ]:
+            if process is not None:
+                try:
+                    # Check if process is still running
+                    if process.poll() is None:
+                        logger.debug("Terminating %s (PID: %d)", process_name, process.pid)
+                        process.terminate()
+
+                        # Give it a moment to terminate gracefully
+                        try:
+                            process.wait(timeout=2)
+                        except Exception:
+                            # Force kill if it doesn't terminate
+                            logger.debug("Force killing %s (PID: %d)", process_name, process.pid)
+                            process.kill()
+                            process.wait()
+                except Exception as e:
+                    logger.debug("Error cleaning up %s: %s", process_name, e)
 
     @staticmethod
     def _is_localhost(host: str) -> bool:
