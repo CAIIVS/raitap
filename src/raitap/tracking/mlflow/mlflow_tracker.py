@@ -7,8 +7,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from mlflow.entities import RunStatus
-
 from raitap.configs import cfg_to_dict, resolve_run_dir
 
 from ..base_tracker import BaseTracker
@@ -80,6 +78,8 @@ class MLFlowTracker(BaseTracker):
 
         try:
             import mlflow
+
+            self._mlflow = mlflow
         except ImportError as e:
             raise ImportError(
                 "MLFlow tracking is enabled but mlflow is not installed. "
@@ -90,9 +90,9 @@ class MLFlowTracker(BaseTracker):
 
         self._ensure_server_running()
 
-        mlflow.set_tracking_uri(self.tracking_uri)
-        mlflow.set_experiment(config.experiment_name)
-        mlflow.start_run(run_name=config.experiment_name)
+        self._mlflow.set_tracking_uri(self.tracking_uri)
+        self._mlflow.set_experiment(config.experiment_name)
+        self._mlflow.start_run(run_name=config.experiment_name)
 
     def __enter__(self):
         return self
@@ -102,86 +102,40 @@ class MLFlowTracker(BaseTracker):
         return False
 
     def terminate(self, successfully: bool = True) -> None:
-        try:
-            import mlflow
-        except ImportError as e:
-            raise ImportError(
-                "MLFlow tracking is enabled but mlflow is not installed. "
-                "Install it with `uv sync --extra mlflow`."
-            ) from e
+        from mlflow.entities import RunStatus
 
         status = RunStatus.FINISHED if successfully else RunStatus.FAILED
-        mlflow.end_run(status=RunStatus.to_string(status))
+        self._mlflow.end_run(status=RunStatus.to_string(status))
 
         if self.config.tracking.open_when_done:
             self._open_mlflow_ui()
 
     def log_config(self) -> None:
-        try:
-            import mlflow
-        except ImportError as e:
-            raise ImportError(
-                "MLFlow tracking is enabled but mlflow is not installed. "
-                "Install it with `uv sync --extra mlflow`."
-            ) from e
-
         config_dict = cfg_to_dict(self.config)
-        mlflow.log_dict(config_dict, "config/config.json")
+        self._mlflow.log_dict(config_dict, "config/config.json")
 
         params = _mlflow_summary_params(config_dict)
         if params:
-            mlflow.log_params(params)
+            self._mlflow.log_params(params)
 
     def log_dataset(self, description: dict[str, Any]) -> None:
-        try:
-            import mlflow
-        except ImportError as e:
-            raise ImportError(
-                "MLFlow tracking is enabled but mlflow is not installed. "
-                "Install it with `uv sync --extra mlflow`."
-            ) from e
-
-        mlflow.log_dict(description, "dataset.json")
+        self._mlflow.log_dict(description, "dataset.json")
 
     def log_artifacts(
         self, source_directory: str | Path | None, target_subdirectory: str | None = None
     ) -> None:
-        try:
-            import mlflow
-        except ImportError as e:
-            raise ImportError(
-                "MLFlow tracking is enabled but mlflow is not installed. "
-                "Install it with `uv sync --extra mlflow`."
-            ) from e
-
-        mlflow.log_artifacts(str(source_directory), artifact_path=target_subdirectory)
+        self._mlflow.log_artifacts(str(source_directory), artifact_path=target_subdirectory)
 
     def log_metrics(
         self,
         metrics: dict[str, float],
         prefix: str = "performance",
     ) -> None:
-        try:
-            import mlflow
-        except ImportError as e:
-            raise ImportError(
-                "MLFlow tracking is enabled but mlflow is not installed. "
-                "Install it with `uv sync --extra mlflow`."
-            ) from e
-
         prefixed_metrics = {f"{prefix}.{key}": value for key, value in metrics.items()}
-        mlflow.log_metrics(prefixed_metrics)
+        self._mlflow.log_metrics(prefixed_metrics)
 
     def log_model(self, model: Any, artifact_path: str = "model") -> None:
-        try:
-            import mlflow.pytorch  # type: ignore[attr-defined]
-        except ImportError as e:
-            raise ImportError(
-                "MLFlow tracking is enabled but mlflow is not installed. "
-                "Install it with `uv sync --extra mlflow`."
-            ) from e
-
-        mlflow.pytorch.log_model(  # type: ignore[attr-defined]
+        self._mlflow.pytorch.log_model(  # type: ignore[attr-defined]
             pytorch_model=model,
             artifact_path=artifact_path,
             # registered_model_name=(self.config.tracking.registered_model_name if self.config.tracking.registry_enabled else None),  # noqa: E501
