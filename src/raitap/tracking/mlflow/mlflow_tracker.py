@@ -4,6 +4,7 @@ MLFlow tracking implementation for RAITAP
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 from mlflow.entities import RunStatus
@@ -11,6 +12,8 @@ from mlflow.entities import RunStatus
 from raitap.configs import cfg_to_dict, resolve_run_dir
 
 from ..base_tracker import BaseTracker
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -197,14 +200,14 @@ class MLFlowTracker(BaseTracker):
         port = parsed.port or 5000
 
         if self._is_localhost(host) and not self._is_port_open(host, port):
-            print(f"MLflow server not running. Starting server at {self.tracking_uri}...")
+            logger.info("MLflow server not running. Starting server at %s...", self.tracking_uri)
             subprocess.Popen(
                 ["mlflow", "server", "--host", host, "--port", str(port)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
             )
-            print("Waiting for server to start...")
+            logger.info("Waiting for server to start...")
             time.sleep(3)
 
     def _open_mlflow_ui(self) -> None:
@@ -213,15 +216,15 @@ class MLFlowTracker(BaseTracker):
         import webbrowser
 
         if self.tracking_uri.startswith("http"):
-            print(f"\nOpening MLflow UI at {self.tracking_uri}")
+            logger.info("Opening MLflow UI at %s", self.tracking_uri)
             webbrowser.open(self.tracking_uri)
         else:
             port = 5000
             url = f"http://127.0.0.1:{port}"
 
             if not self._is_port_open("127.0.0.1", port):
-                print(f"\nStarting MLflow UI at {url}")
-                print(f"Backend store: {self.tracking_uri}")
+                logger.info("Starting MLflow UI at %s", url)
+                logger.info("Backend store: %s", self.tracking_uri)
 
                 subprocess.Popen(
                     ["mlflow", "ui", "--backend-store-uri", self.tracking_uri, "--port", str(port)],
@@ -230,7 +233,7 @@ class MLFlowTracker(BaseTracker):
                     start_new_session=True,
                 )
 
-                print("Waiting for UI to start...")
+                logger.info("Waiting for UI to start...")
                 time.sleep(3)
 
             webbrowser.open(url)

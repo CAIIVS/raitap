@@ -11,8 +11,6 @@ from hydra.utils import instantiate
 
 from raitap.configs import cfg_to_dict, resolve_run_dir, resolve_target
 
-logger = logging.getLogger(__name__)
-
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -20,6 +18,8 @@ if TYPE_CHECKING:
     from ..tracking.base_tracker import BaseTracker
 
 from .base_metric import BaseMetricComputer, MetricResult, scalar_metrics_for_tracking
+
+logger = logging.getLogger(__name__)
 
 _METRICS_PREFIX = "raitap.metrics."
 
