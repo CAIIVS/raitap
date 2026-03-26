@@ -4,5 +4,6 @@ defaults:
   - model: vit_b32
   - data: isic2018
   - metrics: classification
+  - tracking: null
 
 experiment_name: demo

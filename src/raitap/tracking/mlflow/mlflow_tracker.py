@@ -18,6 +18,58 @@ if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
 
 
+def _nested_dict(obj: Any) -> dict[str, Any] | None:
+    return obj if isinstance(obj, dict) else None
+
+
+def _param_str(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _mlflow_summary_params(config_dict: dict[str, Any]) -> dict[str, str]:
+    """
+    Build a flat string map of high-signal run parameters for MLflow search and comparison.
+
+    Walks the normalised config from :func:`~raitap.configs.factory_utils.cfg_to_dict`
+    instead of hard-coding brittle ``.get`` chains. Transparency is a mapping of
+    explainer name → explainer config; each explainer contributes
+    ``transparency.<name>.algorithm`` and ``transparency.<name>._target_``.
+    """
+    out: dict[str, str] = {}
+
+    def put(key: str, value: Any) -> None:
+        s = _param_str(value)
+        if s is not None:
+            out[key] = s
+
+    put("assessment.name", config_dict.get("experiment_name"))
+
+    model = _nested_dict(config_dict.get("model"))
+    if model is not None:
+        put("model.source", model.get("source"))
+
+    data = _nested_dict(config_dict.get("data"))
+    if data is not None:
+        put("data.name", data.get("name"))
+        put("data.source", data.get("source"))
+
+    transparency = _nested_dict(config_dict.get("transparency"))
+    if transparency:
+        put("transparency.explainers", ",".join(sorted(transparency)))
+        for name in sorted(transparency):
+            explainer = _nested_dict(transparency[name])
+            if explainer is None:
+                continue
+            prefix = f"transparency.{name}"
+            put(f"{prefix}.algorithm", explainer.get("algorithm"))
+            put(f"{prefix}._target_", explainer.get("_target_"))
+
+    return out
+
+
 class MLFlowTracker(BaseTracker):
     def __init__(self, config: AppConfig):
         self.output_dir = resolve_run_dir(config)
@@ -46,17 +98,6 @@ class MLFlowTracker(BaseTracker):
         self.terminate(successfully=exc_type is None)
         return False
 
-    @staticmethod
-    def _config_params(config_dict: dict[str, Any]) -> dict[str, str]:
-        params = {
-            "assessment.name": str(config_dict.get("experiment_name", "")),
-            "model.source": str(config_dict.get("model", {}).get("source", "")),
-            "data.name": str(config_dict.get("data", {}).get("name", "")),
-            "data.source": str(config_dict.get("data", {}).get("source", "")),
-            "transparency.algorithm": str(config_dict.get("transparency", {}).get("algorithm", "")),
-        }
-        return {key: value for key, value in params.items() if value}
-
     def terminate(self, successfully: bool = True) -> None:
         try:
             import mlflow
@@ -84,7 +125,7 @@ class MLFlowTracker(BaseTracker):
         config_dict = cfg_to_dict(self.config)
         mlflow.log_dict(config_dict, "config/config.json")
 
-        params = self._config_params(config_dict)
+        params = _mlflow_summary_params(config_dict)
         if params:
             mlflow.log_params(params)
 
