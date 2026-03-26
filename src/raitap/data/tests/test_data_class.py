@@ -72,7 +72,7 @@ class TestDataDescribe:
         data = Data(config)
         info = data.describe()
 
-        assert info["name"] == "dataset"
+        assert info["name"] == "test_dataset"
         assert info["source"] == str(csv_file)
         assert info["num_samples"] == 4
         assert info["shape"] == [4, 3]
@@ -129,7 +129,7 @@ class TestDataLog:
         data.log(tracker)
 
         call_args = tracker.log_dataset.call_args[0][0]
-        assert "name" in call_args
+        assert call_args["name"] == "my_dataset"
         assert "source" in call_args
         assert "num_samples" in call_args
         assert "shape" in call_args

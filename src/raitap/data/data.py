@@ -23,6 +23,7 @@ _TABULAR_EXTENSIONS = {".csv", ".tsv", ".parquet"}
 
 class Data:
     def __init__(self, cfg: AppConfig) -> None:
+        self.name = cfg.data.name
         self.source = cfg.data.source
         self.tensor = self._load_data(cfg)
 
@@ -107,7 +108,7 @@ class Data:
         """
         shape = [int(dim) for dim in self.tensor.shape]
         dataset_info: dict[str, Any] = {
-            "name": getattr(self, "name", "dataset"),
+            "name": self.name,
             "source": self.source,
             "num_samples": shape[0],
             "shape": shape,

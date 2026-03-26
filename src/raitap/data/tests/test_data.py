@@ -174,7 +174,11 @@ class TestLoadData:
         _write_image(p)
         cfg = cast(
             "AppConfig",
-            type("AppConfig", (), {"data": type("DataConfig", (), {"source": str(p)})})(),
+            type(
+                "AppConfig",
+                (),
+                {"data": type("DataConfig", (), {"source": str(p), "name": "isic2018"})},
+            )(),
         )
         data = Data(cfg)
         assert data.tensor.shape == (1, 3, 32, 32)
@@ -184,7 +188,11 @@ class TestLoadData:
             _write_image(tmp_path / f"img{i}.jpg")
         cfg = cast(
             "AppConfig",
-            type("AppConfig", (), {"data": type("DataConfig", (), {"source": str(tmp_path)})})(),
+            type(
+                "AppConfig",
+                (),
+                {"data": type("DataConfig", (), {"source": str(tmp_path), "name": "isic2018"})},
+            )(),
         )
         data = Data(cfg)
         assert data.tensor.shape[0] == 2
@@ -194,7 +202,11 @@ class TestLoadData:
         _write_csv(p, rows=6, cols=3)
         cfg = cast(
             "AppConfig",
-            type("AppConfig", (), {"data": type("DataConfig", (), {"source": str(p)})})(),
+            type(
+                "AppConfig",
+                (),
+                {"data": type("DataConfig", (), {"source": str(p), "name": "isic2018"})},
+            )(),
         )
         data = Data(cfg)
         assert data.tensor.shape == (6, 3)
@@ -204,7 +216,11 @@ class TestLoadData:
         _write_csv(tmp_path / "b.csv", rows=4, cols=3)
         cfg = cast(
             "AppConfig",
-            type("AppConfig", (), {"data": type("DataConfig", (), {"source": str(tmp_path)})})(),
+            type(
+                "AppConfig",
+                (),
+                {"data": type("DataConfig", (), {"source": str(tmp_path), "name": "isic2018"})},
+            )(),
         )
         data = Data(cfg)
         assert data.tensor.shape == (6, 3)
@@ -214,7 +230,11 @@ class TestLoadData:
         _write_csv(tmp_path / "data.csv")
         cfg = cast(
             "AppConfig",
-            type("AppConfig", (), {"data": type("DataConfig", (), {"source": str(tmp_path)})})(),
+            type(
+                "AppConfig",
+                (),
+                {"data": type("DataConfig", (), {"source": str(tmp_path), "name": "isic2018"})},
+            )(),
         )
         with pytest.raises(ValueError, match="both image and tabular"):
             Data(cfg)
@@ -222,7 +242,11 @@ class TestLoadData:
     def test_empty_directory_raises(self, tmp_path: Path) -> None:
         cfg = cast(
             "AppConfig",
-            type("AppConfig", (), {"data": type("DataConfig", (), {"source": str(tmp_path)})})(),
+            type(
+                "AppConfig",
+                (),
+                {"data": type("DataConfig", (), {"source": str(tmp_path), "name": "isic2018"})},
+            )(),
         )
         with pytest.raises(FileNotFoundError, match="No supported files"):
             Data(cfg)
@@ -232,7 +256,11 @@ class TestLoadData:
         p.write_text("something")
         cfg = cast(
             "AppConfig",
-            type("AppConfig", (), {"data": type("DataConfig", (), {"source": str(p)})})(),
+            type(
+                "AppConfig",
+                (),
+                {"data": type("DataConfig", (), {"source": str(p), "name": "isic2018"})},
+            )(),
         )
         with pytest.raises(ValueError, match="Cannot infer data type"):
             Data(cfg)
@@ -243,7 +271,11 @@ class TestLoadData:
             type(
                 "AppConfig",
                 (),
-                {"data": type("DataConfig", (), {"source": "/no/such/path/file.csv"})},
+                {
+                    "data": type(
+                        "DataConfig", (), {"source": "/no/such/path/file.csv", "name": "isic2018"}
+                    )
+                },
             )(),
         )
         with pytest.raises(ValueError, match="does not exist"):
@@ -271,7 +303,7 @@ class TestDescribeData:
 
         info = data.describe()
 
-        assert info["name"] == "dataset"
+        assert info["name"] == "imagenet_samples"
         assert info["source"] == "/tmp/imagenet"
         assert info["num_samples"] == 1
         assert info["shape"] == [1, 3, 32, 32]
@@ -293,7 +325,7 @@ class TestDescribeData:
 
         info = data.describe()
 
-        assert info["name"] == "dataset"
+        assert info["name"] == "vector_data"
         assert info["num_samples"] == 8
         assert info["shape"] == [8, 1]
         assert info["dtype"] == "torch.float32"
