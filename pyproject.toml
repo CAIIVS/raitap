@@ -96,6 +96,7 @@ include = [
 ]
 exclude = [
     "src/raitap/**/test_*.py",
+    "src/raitap/**/conftest.py",
 ]
 
 [tool.ruff]
