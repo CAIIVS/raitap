@@ -115,16 +115,6 @@ class TestDetectionMetricsInitialization:
         )
         assert metrics.metric is not None
 
-    def test_backend_pycocotools(self) -> None:
-        """Test initialization with faster_coco_eval backend."""
-        metrics = DetectionMetrics(
-            backend="faster_coco_eval",
-            iou_thresholds=None,
-            rec_thresholds=None,
-            max_detection_thresholds=None,
-        )
-        assert metrics.metric is not None
-
     def test_backend_faster_coco_eval(self) -> None:
         """Test initialization with faster_coco_eval backend."""
         metrics = DetectionMetrics(

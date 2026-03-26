@@ -37,7 +37,7 @@ class TestModelConstructor:
         assert isinstance(model.network, torch.nn.Module)
         assert model.network.__class__.__name__ == "ResNet"
 
-    def test_model_loads_from_local_pth_file(self, tmp_path: Path) -> None:
+    def test_model_accepts_local_pth_file_path(self, tmp_path: Path) -> None:
         dummy_model = torch.nn.Linear(10, 5)
         model_path = tmp_path / "model.pth"
         torch.save(dummy_model.state_dict(), model_path)
