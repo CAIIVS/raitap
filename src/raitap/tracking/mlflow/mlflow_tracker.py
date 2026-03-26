@@ -137,7 +137,6 @@ class MLFlowTracker(BaseTracker):
         self._mlflow.pytorch.log_model(  # type: ignore[attr-defined]
             pytorch_model=model,
             artifact_path=artifact_path,
-            # registered_model_name=(self.config.tracking.registered_model_name if self.config.tracking.registry_enabled else None),  # noqa: E501
         )
 
     def _ensure_server_running(self) -> None:
