@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 @hydra.main(version_base="1.3", config_path=str(_CONFIG_DIR), config_name="config")
 def main(config: AppConfig) -> None:
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    logging.basicConfig(level=logging.INFO, format="%(message)s", force=True)
     print_summary(config)
     run(config)
 
