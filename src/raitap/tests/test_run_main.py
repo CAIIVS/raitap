@@ -18,6 +18,28 @@ if TYPE_CHECKING:
 from raitap import run as run_module
 
 
+def test_extract_primary_tensor_tensor() -> None:
+    t = torch.randn(2, 3)
+    assert torch.equal(run_module._extract_primary_tensor(t), t)
+
+
+def test_extract_primary_tensor_tuple_and_dict() -> None:
+    t = torch.randn(1, 4)
+    assert torch.equal(run_module._extract_primary_tensor((t, {})), t)
+    assert torch.equal(run_module._extract_primary_tensor({"logits": t, "meta": 1}), t)
+
+
+def test_metrics_prediction_pair_multiclass_and_vector() -> None:
+    logits = torch.tensor([[0.1, 0.9], [0.8, 0.2]])
+    p, q = run_module._metrics_prediction_pair(logits)
+    assert torch.equal(p, torch.tensor([1, 0]))
+    assert torch.equal(p, q)
+    scalar = torch.randn(5)
+    a, b = run_module._metrics_prediction_pair(scalar)
+    assert torch.equal(a, scalar)
+    assert torch.equal(b, scalar)
+
+
 class _FakeExplainerResult:
     def __init__(self, name: str) -> None:
         self.name = name
@@ -76,7 +98,7 @@ def test_run_without_tracking_returns_outputs(monkeypatch: MonkeyPatch) -> None:
         explanations=[],
         visualisations=[],
         metrics=None,
-        predicted_classes=torch.tensor([0, 0]),
+        forward_output=torch.tensor([0, 0]),
     )
     tracker_factory = MagicMock()
 
@@ -102,7 +124,7 @@ def test_run_with_tracking_logs_all_outputs(monkeypatch: MonkeyPatch) -> None:
         explanations=[explanation],  # type: ignore[list-item]
         visualisations=[visualisation],  # type: ignore[list-item]
         metrics=metrics_eval,  # type: ignore[arg-type]
-        predicted_classes=torch.tensor([0, 0]),
+        forward_output=torch.tensor([0, 0]),
     )
     tracker = MagicMock()
 
@@ -139,7 +161,7 @@ def test_run_with_tracking_skips_model_logging_when_disabled(monkeypatch: Monkey
         explanations=[explanation],  # type: ignore[list-item]
         visualisations=[visualisation],  # type: ignore[list-item]
         metrics=None,
-        predicted_classes=torch.tensor([0]),
+        forward_output=torch.tensor([0]),
     )
     tracker = MagicMock()
 
@@ -174,7 +196,7 @@ def test_run_with_multiple_explainers_uses_subdirs(monkeypatch: MonkeyPatch) -> 
         explanations=[exp1, exp2],  # type: ignore[list-item]
         visualisations=[vis1, vis2],  # type: ignore[list-item]
         metrics=None,
-        predicted_classes=torch.tensor([0, 0]),
+        forward_output=torch.tensor([0, 0]),
     )
     tracker = MagicMock()
 
@@ -207,7 +229,7 @@ def test_run_with_tracking_config_but_no_target_skips_tracking(monkeypatch: Monk
         explanations=[],
         visualisations=[],
         metrics=None,
-        predicted_classes=torch.tensor([0, 0]),
+        forward_output=torch.tensor([0, 0]),
     )
     tracker_factory = MagicMock()
 

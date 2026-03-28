@@ -80,6 +80,7 @@ def _captum_config() -> AppConfig:
                     {
                         "_target_": "raitap.transparency.CaptumExplainer",
                         "algorithm": "IntegratedGradients",
+                        "call": {"target": 0},
                         "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
                     }
                 )

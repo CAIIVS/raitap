@@ -96,6 +96,7 @@ def main() -> int:
             "smoke_captum": TransparencyConfig(
                 _target_="CaptumExplainer",
                 algorithm="IntegratedGradients",
+                call={"target": 0},
                 visualisers=[{"_target_": "CaptumImageVisualiser"}],
             )
         },

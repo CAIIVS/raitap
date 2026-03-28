@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import hydra
 import torch
@@ -35,46 +35,12 @@ def main(config: AppConfig) -> None:
 
 @dataclass(frozen=True)
 class RunOutputs:
+    """Assessment outputs; ``forward_output`` is the primary tensor from ``model(data)``."""
+
     explanations: list[ExplanationResult]
     visualisations: list[VisualisationResult]
     metrics: MetricsEvaluation | None
-    predicted_classes: torch.Tensor
-
-
-def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOutputs:
-    data_tensor = data.tensor
-
-    with torch.no_grad():
-        logits = model.network(data_tensor)
-        predicted_classes = logits.argmax(dim=1)
-        target = predicted_classes.tolist()
-
-    metrics_eval: MetricsEvaluation | None = None
-    if metrics_run_enabled(config):
-        if getattr(config.metrics, "num_classes", None) is None and logits.ndim >= 2:
-            config.metrics.num_classes = int(logits.shape[1])
-        # No labels in DataConfig yet: predictions vs themselves yields a trivial self-consistency
-        # check only; replace with real targets when the pipeline exposes ground truth.
-        metrics_eval = Metrics(config, predicted_classes, predicted_classes)
-
-    explanations: list[ExplanationResult] = []
-    visualisations: list[VisualisationResult] = []
-
-    explainers = config.transparency.items()
-    if not explainers:
-        raise ValueError("No explainers configured")
-
-    for name, _explainer_cfg in explainers:
-        explanation = Explanation(config, name, model, data_tensor, target=target)
-        explanations.append(explanation)
-        visualisations.extend(explanation.visualise())
-
-    return RunOutputs(
-        explanations=explanations,
-        visualisations=visualisations,
-        metrics=metrics_eval,
-        predicted_classes=predicted_classes,
-    )
+    forward_output: torch.Tensor
 
 
 def run(config: AppConfig) -> RunOutputs:
@@ -102,6 +68,95 @@ def run(config: AppConfig) -> RunOutputs:
             visualisation.log(tracker, use_subdirectory=use_subdirs)
 
     return outputs
+
+
+def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOutputs:
+    data_tensor = data.tensor
+
+    with torch.no_grad():
+        raw_output: Any = model.network(data_tensor)
+        forward_output = _extract_primary_tensor(raw_output)
+
+    metrics_eval: MetricsEvaluation | None = None
+    if metrics_run_enabled(config):
+        if (
+            getattr(config.metrics, "num_classes", None) is None
+            and forward_output.ndim == 2
+            and forward_output.shape[1] >= 2
+        ):
+            config.metrics.num_classes = int(forward_output.shape[1])
+        preds, targs = _metrics_prediction_pair(forward_output)
+        # No labels in DataConfig yet: placeholder pairing; configure metrics to match your task.
+        metrics_eval = Metrics(config, preds, targs)
+
+    explanations: list[ExplanationResult] = []
+    visualisations: list[VisualisationResult] = []
+
+    explainers = config.transparency.items()
+    if not explainers:
+        raise ValueError("No explainers configured")
+
+    for name, _explainer_cfg in explainers:
+        # Explainer ``call:`` (and optional run kwargs) supply target, baselines, etc.
+        explanation = Explanation(config, name, model, data_tensor)
+        explanations.append(explanation)
+        visualisations.extend(explanation.visualise())
+
+    return RunOutputs(
+        explanations=explanations,
+        visualisations=visualisations,
+        metrics=metrics_eval,
+        forward_output=forward_output,
+    )
+
+
+def _extract_primary_tensor(model_output: object) -> torch.Tensor:
+    """
+    Unwrap a single tensor from common forward return shapes.
+
+    Supports ``Tensor``, the first ``Tensor`` in a ``tuple`` / ``list``, or a ``dict``
+    (keys tried: ``logits``, ``pred``, ``prediction``, ``output``, ``scores``, then any value).
+    """
+    if isinstance(model_output, torch.Tensor):
+        return model_output
+
+    if isinstance(model_output, (tuple, list)):
+        for item in model_output:
+            if isinstance(item, torch.Tensor):
+                return item
+        raise TypeError("Model forward returned a sequence with no torch.Tensor elements.")
+
+    if isinstance(model_output, dict):
+        for key in ("logits", "pred", "prediction", "output", "scores"):
+            value = model_output.get(key)
+            if isinstance(value, torch.Tensor):
+                return value
+        for value in model_output.values():
+            if isinstance(value, torch.Tensor):
+                return value
+        raise TypeError("Model forward returned a dict with no torch.Tensor values.")
+
+    raise TypeError(
+        f"Unsupported model output type {type(model_output).__name__!r}; "
+        "expected Tensor, sequence of Tensors, or dict containing a Tensor."
+    )
+
+
+def _metrics_prediction_pair(output: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Build a placeholder (predictions, targets) pair for metrics when no labels exist.
+
+    For multiclass logits ``(N, C)`` with ``C > 1``, uses ``argmax`` for both (trivial
+    self-consistency). For other shapes, passes ``output`` through unchanged so users
+    can pair metrics configs with regression / detection / etc.
+    """
+    if output.ndim == 2 and output.shape[1] > 1:
+        labels = output.argmax(dim=1)
+        return labels, labels
+    if output.ndim == 2 and output.shape[1] == 1:
+        squeezed = output.squeeze(1)
+        return squeezed, squeezed
+    return output, output
 
 
 def print_summary(config: AppConfig) -> None:

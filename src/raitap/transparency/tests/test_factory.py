@@ -46,13 +46,14 @@ def test_explanation_returns_explanation_result(
             {
                 "_target_": "raitap.transparency.CaptumExplainer",
                 "algorithm": "Saliency",
+                "call": {"target": 0},
                 "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
             }
         ),
     )
 
     model = SimpleNamespace(network=simple_cnn)
-    explanation = Explanation(config, "test_explainer", model, sample_images, target=0)  # type: ignore[arg-type]
+    explanation = Explanation(config, "test_explainer", model, sample_images)  # type: ignore[arg-type]
 
     assert isinstance(explanation, ExplanationResult)
     assert explanation.attributions.shape == sample_images.shape
