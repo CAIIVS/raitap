@@ -23,7 +23,7 @@ class ShapExplainer(BaseExplainer):
         """
         Args:
             algorithm: SHAP explainer name (e.g., "GradientExplainer", "KernelExplainer")
-            **init_kwargs: Constructor arguments for the SHAP explainer (from YAML ``constructor:``).
+            **init_kwargs: Constructor arguments for the SHAP explainer (from YAML ``constructor:``)
                 Per-call options for ``shap_values`` belong under YAML ``call:``.
         """
         super().__init__()

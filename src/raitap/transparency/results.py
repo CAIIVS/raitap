@@ -13,12 +13,11 @@ from hydra.core.hydra_config import HydraConfig
 
 from raitap.serialization import to_json_serialisable
 
-from .visualisers import BaseVisualiser
-
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     from ..tracking.base_tracker import BaseTracker
+    from .visualisers import BaseVisualiser
 
 
 def _serialisable(value: Any) -> Any:
