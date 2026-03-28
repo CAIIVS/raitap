@@ -90,7 +90,7 @@ class TestDataDescribe:
         assert "sample_shape" in info
         assert info["sample_shape"] == [5]
 
-    def test_describe_omits_sample_shape_for_1d_tensors(self, tmp_path: Path) -> None:
+    def test_describe_includes_sample_shape_for_2d_tensors(self, tmp_path: Path) -> None:
         csv_file = tmp_path / "data.csv"
         csv_file.write_text("a\n1\n2\n3\n4\n5")
         config = _make_config(str(csv_file))
@@ -101,6 +101,7 @@ class TestDataDescribe:
         assert info["num_samples"] == 5
         assert info["shape"] == [5, 1]
         assert "sample_shape" in info
+        assert info["sample_shape"] == [1]
 
 
 class TestDataLog:

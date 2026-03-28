@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 import torch
 from hydra.core.hydra_config import HydraConfig
 
+from raitap.serialization import to_json_serialisable
+
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
@@ -19,18 +21,7 @@ if TYPE_CHECKING:
 
 
 def _serialisable(value: Any) -> Any:
-    if isinstance(value, (str, int, float, bool, type(None))):
-        return value
-    if isinstance(value, dict):
-        return {str(key): _serialisable(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple, set)):
-        return [_serialisable(item) for item in value]
-    if hasattr(value, "item"):
-        try:
-            return _serialisable(value.item())
-        except Exception:
-            pass
-    return repr(value)
+    return to_json_serialisable(value)
 
 
 def resolve_default_run_dir() -> Path:
@@ -124,8 +115,9 @@ class ExplanationResult:
         if tracker is None:
             return
 
-        explainer_name = self.explainer_name or self.run_dir.name
-        target_path = f"{artifact_path}/{explainer_name}" if use_subdirectory else artifact_path
+        target_path = self._log_target_path(
+            artifact_path=artifact_path, use_subdirectory=use_subdirectory
+        )
 
         if not self.visualiser_targets:
             tracker.log_artifacts(self.run_dir, target_subdirectory=target_path)
@@ -140,6 +132,20 @@ class ExplanationResult:
                 encoding="utf-8",
             )
             tracker.log_artifacts(staging_dir, target_subdirectory=target_path)
+
+    def _log_explainer_name(self) -> str:
+        """
+        Name used for the tracker artifact subdirectory.
+
+        Keep fallback logic consistent with `VisualisationResult.log()` to avoid artifacts
+        being split across different subdirectories when `explainer_name` is unset.
+        """
+
+        return self.explainer_name or self.run_dir.name
+
+    def _log_target_path(self, *, artifact_path: str, use_subdirectory: bool) -> str:
+        explainer_name = self._log_explainer_name()
+        return f"{artifact_path}/{explainer_name}" if use_subdirectory else artifact_path
 
 
 @dataclass
@@ -164,10 +170,13 @@ class VisualisationResult:
         if tracker is None:
             return
         with tempfile.TemporaryDirectory() as tmp_dir:
-            explainer_name = self.explanation.explainer_name or "default"
+            explainer_name = self.explanation._log_explainer_name()
             staging_dir = Path(tmp_dir) / explainer_name
             staging_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy2(self.output_path, staging_dir / self.output_path.name)
 
-            target_path = f"{artifact_path}/{explainer_name}" if use_subdirectory else artifact_path
+            target_path = self.explanation._log_target_path(
+                artifact_path=artifact_path,
+                use_subdirectory=use_subdirectory,
+            )
             tracker.log_artifacts(staging_dir, target_subdirectory=target_path)

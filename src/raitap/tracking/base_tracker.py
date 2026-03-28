@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
@@ -8,6 +9,7 @@ from hydra.utils import instantiate
 from raitap.configs import cfg_to_dict, resolve_target
 
 _TRACKING_PREFIX = "raitap.tracking."
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -28,6 +30,7 @@ class BaseTracker(ABC):
             tracker_class = instantiate({"_target_": resolved_target, "_partial_": True})
             tracker = tracker_class(config)
         except Exception as error:
+            logger.exception("Tracker instantiation failed for target %r", target_path)
             raise ValueError(
                 f"Could not instantiate tracker {target_path!r}.\n"
                 "Check that _target_ points to a valid TrackerProtocol implementation."

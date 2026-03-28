@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 from hydra.utils import instantiate
@@ -19,6 +20,7 @@ if TYPE_CHECKING:
     from .visualisers import BaseVisualiser
 
 _TRANSPARENCY_PREFIX = "raitap.transparency."
+logger = logging.getLogger(__name__)
 
 
 def _raw_transparency_config(explainer_config: Any) -> dict[str, Any]:
@@ -65,6 +67,7 @@ def create_explainer(explainer_config: Any) -> tuple[BaseExplainer, str]:
     try:
         explainer = instantiate(explainer_config)
     except Exception as error:
+        logger.exception("Explainer instantiation failed for target %r", target_path)
         raise ValueError(
             f"Could not instantiate explainer {target_path!r}.\n"
             "Check that _target_ points to a valid BaseExplainer subclass."
@@ -95,6 +98,7 @@ def create_visualisers(explainer_config: Any) -> list[BaseVisualiser]:
         try:
             visualiser = instantiate(resolved_config)
         except Exception as error:
+            logger.exception("Visualiser instantiation failed for target %r", visualiser_target)
             raise ValueError(f"Could not instantiate visualiser {visualiser_target!r}.") from error
 
         visualisers.append(visualiser)

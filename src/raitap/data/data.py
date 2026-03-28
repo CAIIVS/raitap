@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -10,11 +11,14 @@ from PIL import Image
 
 from raitap.data.utils import download_file
 
+from .samples import SAMPLE_SOURCES, _load_sample
+
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
     from raitap.tracking import BaseTracker
 
-from .samples import SAMPLE_SOURCES, _load_sample
 
 _CACHE_DIR = Path.home() / ".cache" / "raitap"
 _IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
@@ -47,7 +51,7 @@ class Data:
             Raw data tensor.
         """
         source = cfg.data.source
-        if not source:
+        if not source or not source.strip():
             raise ValueError(
                 "No data source specified. Set data.source in your config.\n"
                 "Use a local path or a named sample set, e.g.: data=imagenet_samples"
@@ -145,7 +149,7 @@ def get_source_path(source: str) -> Path:
         dest = _CACHE_DIR / "downloads" / filename
         dest.parent.mkdir(parents=True, exist_ok=True)
         if not dest.exists():
-            print(f"  Downloading {filename}...")
+            logger.info("Downloading %s...", filename)
             download_file(source, dest)
         return dest
 

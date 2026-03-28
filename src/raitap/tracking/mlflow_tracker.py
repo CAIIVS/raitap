@@ -4,13 +4,14 @@ MLFlow tracking implementation for RAITAP
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
-
-from mlflow.entities import RunStatus
 
 from raitap.configs import cfg_to_dict, resolve_run_dir
 
-from ..base_tracker import BaseTracker
+from .base_tracker import BaseTracker
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -77,6 +78,8 @@ class MLFlowTracker(BaseTracker):
 
         try:
             import mlflow
+
+            self._mlflow = mlflow
         except ImportError as e:
             raise ImportError(
                 "MLFlow tracking is enabled but mlflow is not installed. "
@@ -85,107 +88,59 @@ class MLFlowTracker(BaseTracker):
 
         self.tracking_uri: str = config.tracking.output_forwarding_url or "./mlruns"
 
+        # Track spawned subprocesses for cleanup
+        self._server_process: Any = None
+        self._ui_process: Any = None
+
         self._ensure_server_running()
 
-        mlflow.set_tracking_uri(self.tracking_uri)
-        mlflow.set_experiment(config.experiment_name)
-        mlflow.start_run(run_name=config.experiment_name)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):  # noqa: ANN001
-        self.terminate(successfully=exc_type is None)
-        return False
+        self._mlflow.set_tracking_uri(self.tracking_uri)
+        self._mlflow.set_experiment(config.experiment_name)
+        self._mlflow.start_run(run_name=config.experiment_name)
 
     def terminate(self, successfully: bool = True) -> None:
-        try:
-            import mlflow
-        except ImportError as e:
-            raise ImportError(
-                "MLFlow tracking is enabled but mlflow is not installed. "
-                "Install it with `uv sync --extra mlflow`."
-            ) from e
+        from mlflow.entities import RunStatus
 
         status = RunStatus.FINISHED if successfully else RunStatus.FAILED
-        mlflow.end_run(status=RunStatus.to_string(status))
+        self._mlflow.end_run(status=RunStatus.to_string(status))
 
         if self.config.tracking.open_when_done:
             self._open_mlflow_ui()
 
-    def log_config(self) -> None:
-        try:
-            import mlflow
-        except ImportError as e:
-            raise ImportError(
-                "MLFlow tracking is enabled but mlflow is not installed. "
-                "Install it with `uv sync --extra mlflow`."
-            ) from e
+        self._cleanup_subprocesses()
 
+    def log_config(self) -> None:
         config_dict = cfg_to_dict(self.config)
-        mlflow.log_dict(config_dict, "config/config.json")
+        self._mlflow.log_dict(config_dict, "config/config.json")
 
         params = _mlflow_summary_params(config_dict)
         if params:
-            mlflow.log_params(params)
+            self._mlflow.log_params(params)
 
     def log_dataset(self, description: dict[str, Any]) -> None:
-        try:
-            import mlflow
-        except ImportError as e:
-            raise ImportError(
-                "MLFlow tracking is enabled but mlflow is not installed. "
-                "Install it with `uv sync --extra mlflow`."
-            ) from e
-
-        mlflow.log_dict(description, "dataset.json")
+        self._mlflow.log_dict(description, "dataset.json")
 
     def log_artifacts(
         self, source_directory: str | Path | None, target_subdirectory: str | None = None
     ) -> None:
-        try:
-            import mlflow
-        except ImportError as e:
-            raise ImportError(
-                "MLFlow tracking is enabled but mlflow is not installed. "
-                "Install it with `uv sync --extra mlflow`."
-            ) from e
-
-        mlflow.log_artifacts(str(source_directory), artifact_path=target_subdirectory)
+        self._mlflow.log_artifacts(str(source_directory), artifact_path=target_subdirectory)
 
     def log_metrics(
         self,
         metrics: dict[str, float],
         prefix: str = "performance",
     ) -> None:
-        try:
-            import mlflow
-        except ImportError as e:
-            raise ImportError(
-                "MLFlow tracking is enabled but mlflow is not installed. "
-                "Install it with `uv sync --extra mlflow`."
-            ) from e
-
-        mlflow.log_metrics(metrics)
+        prefixed_metrics = {f"{prefix}.{key}": value for key, value in metrics.items()}
+        self._mlflow.log_metrics(prefixed_metrics)
 
     def log_model(self, model: Any, artifact_path: str = "model") -> None:
-        try:
-            import mlflow.pytorch  # type: ignore[attr-defined]
-        except ImportError as e:
-            raise ImportError(
-                "MLFlow tracking is enabled but mlflow is not installed. "
-                "Install it with `uv sync --extra mlflow`."
-            ) from e
-
-        mlflow.pytorch.log_model(  # type: ignore[attr-defined]
+        self._mlflow.pytorch.log_model(  # type: ignore[attr-defined]
             pytorch_model=model,
             artifact_path=artifact_path,
-            # registered_model_name=(self.config.tracking.registered_model_name if self.config.tracking.registry_enabled else None),  # noqa: E501
         )
 
     def _ensure_server_running(self) -> None:
         import subprocess
-        import time
         from urllib.parse import urlparse
 
         if not self.tracking_uri.startswith("http"):
@@ -196,43 +151,97 @@ class MLFlowTracker(BaseTracker):
         port = parsed.port or 5000
 
         if self._is_localhost(host) and not self._is_port_open(host, port):
-            print(f"MLflow server not running. Starting server at {self.tracking_uri}...")
-            subprocess.Popen(
+            logger.info("MLflow server not running. Starting server at %s...", self.tracking_uri)
+            self._server_process = subprocess.Popen(
                 ["mlflow", "server", "--host", host, "--port", str(port)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
             )
-            print("Waiting for server to start...")
-            time.sleep(3)
+
+            if not self._wait_for_port_ready(host, port, timeout=10):
+                logger.warning(
+                    "MLflow server may not be ready at %s:%d after 10 seconds", host, port
+                )
+            else:
+                logger.info("MLflow server is ready at %s:%d", host, port)
 
     def _open_mlflow_ui(self) -> None:
         import subprocess
-        import time
         import webbrowser
 
         if self.tracking_uri.startswith("http"):
-            print(f"\nOpening MLflow UI at {self.tracking_uri}")
+            logger.info("Opening MLflow UI at %s", self.tracking_uri)
             webbrowser.open(self.tracking_uri)
         else:
             port = 5000
             url = f"http://127.0.0.1:{port}"
 
             if not self._is_port_open("127.0.0.1", port):
-                print(f"\nStarting MLflow UI at {url}")
-                print(f"Backend store: {self.tracking_uri}")
+                logger.info("Starting MLflow UI at %s", url)
+                logger.info("Backend store: %s", self.tracking_uri)
 
-                subprocess.Popen(
+                self._ui_process = subprocess.Popen(
                     ["mlflow", "ui", "--backend-store-uri", self.tracking_uri, "--port", str(port)],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     start_new_session=True,
                 )
 
-                print("Waiting for UI to start...")
-                time.sleep(3)
+                if not self._wait_for_port_ready("127.0.0.1", port, timeout=10):
+                    logger.warning("MLflow UI may not be ready at %s after 10 seconds", url)
+                else:
+                    logger.info("MLflow UI is ready at %s", url)
 
             webbrowser.open(url)
+
+    def _wait_for_port_ready(self, host: str, port: int, timeout: float = 10) -> bool:
+        """
+        Wait for a port to become ready, with retries.
+
+        Args:
+            host: Hostname to check
+            port: Port number to check
+            timeout: Maximum time to wait in seconds
+
+        Returns:
+            True if port became ready, False if timeout reached
+        """
+        import time
+
+        start_time = time.time()
+        retry_interval = 0.5
+
+        while time.time() - start_time < timeout:
+            if self._is_port_open(host, port):
+                return True
+            time.sleep(retry_interval)
+
+        return False
+
+    def _cleanup_subprocesses(self) -> None:
+        """Clean up any subprocesses spawned by this tracker."""
+        for process_name, process in [
+            ("MLflow server", self._server_process),
+            ("MLflow UI", self._ui_process),
+        ]:
+            if process is not None:
+                try:
+                    # Check if process is still running
+                    if process.poll() is None:
+                        logger.debug("Terminating %s (PID: %d)", process_name, process.pid)
+                        process.terminate()
+
+                        # Give it a moment to terminate gracefully
+                        try:
+                            process.wait(timeout=2)
+                        except Exception:
+                            # Force kill if it doesn't terminate
+                            logger.debug("Force killing %s (PID: %d)", process_name, process.pid)
+                            process.kill()
+                            process.wait()
+                except Exception as e:
+                    logger.debug("Error cleaning up %s: %s", process_name, e)
 
     @staticmethod
     def _is_localhost(host: str) -> bool:

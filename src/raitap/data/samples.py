@@ -11,6 +11,7 @@ inconsistent source sizes. This does not affect consumer data, which is loaded r
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -18,6 +19,8 @@ import torch
 from PIL import Image
 
 from raitap.data.utils import download_file
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Registry of named demo datasets
@@ -123,7 +126,7 @@ def _resolve_sample(name: str) -> Path | None:
     for url, filename in SAMPLE_SOURCES[name]:
         dest = cache_dir / filename
         if not dest.exists():
-            print(f"  Downloading {filename}...")
+            logger.info("Downloading %s...", filename)
             download_file(url, dest)
     return cache_dir
 

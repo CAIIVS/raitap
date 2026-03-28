@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from hydra.utils import instantiate
 
 from raitap.configs import cfg_to_dict, resolve_run_dir, resolve_target
+from raitap.serialization import to_json_serialisable
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -17,6 +19,8 @@ if TYPE_CHECKING:
     from ..tracking.base_tracker import BaseTracker
 
 from .base_metric import BaseMetricComputer, MetricResult, scalar_metrics_for_tracking
+
+logger = logging.getLogger(__name__)
 
 _METRICS_PREFIX = "raitap.metrics."
 
@@ -32,22 +36,6 @@ def metrics_run_enabled(config: AppConfig) -> bool:
     return bool(str(target).strip())
 
 
-def _json_serialisable(value: Any) -> Any:
-    """Best-effort conversion to JSON-serialisable structures."""
-    if isinstance(value, (str, int, float, bool, type(None))):
-        return value
-    if isinstance(value, dict):
-        return {str(k): _json_serialisable(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple, set)):
-        return [_json_serialisable(v) for v in value]
-    if hasattr(value, "item"):
-        try:
-            return _json_serialisable(value.item())
-        except Exception:
-            pass
-    return repr(value)
-
-
 def create_metric(metrics_config: Any) -> tuple[BaseMetricComputer, str]:
     """Instantiate a metric computer from Hydra-style config (``_target_`` + kwargs)."""
     metrics_cfg = cfg_to_dict(metrics_config)
@@ -58,6 +46,7 @@ def create_metric(metrics_config: Any) -> tuple[BaseMetricComputer, str]:
     try:
         metric = instantiate(metrics_cfg)
     except Exception as e:
+        logger.exception("Metric instantiation failed for target %r", target_path)
         raise ValueError(
             f"Could not instantiate metric {target_path!r}.\n"
             "Check that _target_ points to a valid MetricComputer implementation."
@@ -101,11 +90,11 @@ class Metrics:
         run_dir.mkdir(parents=True, exist_ok=True)
 
         (run_dir / "metrics.json").write_text(
-            json.dumps(_json_serialisable(result.metrics), indent=2),
+            json.dumps(to_json_serialisable(result.metrics), indent=2),
             encoding="utf-8",
         )
         (run_dir / "artifacts.json").write_text(
-            json.dumps(_json_serialisable(result.artifacts), indent=2),
+            json.dumps(to_json_serialisable(result.artifacts), indent=2),
             encoding="utf-8",
         )
         metrics_cfg = cfg_to_dict(config.metrics)
@@ -113,14 +102,14 @@ class Metrics:
             "experiment_name": config.experiment_name,
             "target": resolved_target,
             "metric_config": {
-                k: _json_serialisable(v) for k, v in metrics_cfg.items() if k != "_target_"
+                k: to_json_serialisable(v) for k, v in metrics_cfg.items() if k != "_target_"
             },
         }
         (run_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
-        print(f"✓ Metrics saved:   {run_dir}/metrics.json")
-        print(f"✓ Artifacts saved: {run_dir}/artifacts.json")
-        print(f"✓ Metadata saved:  {run_dir}/metadata.json")
+        logger.info("Metrics saved: %s/metrics.json", run_dir)
+        logger.info("Artifacts saved: %s/artifacts.json", run_dir)
+        logger.info("Metadata saved: %s/metadata.json", run_dir)
 
         return MetricsEvaluation(
             result=result,

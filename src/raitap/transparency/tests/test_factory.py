@@ -2,13 +2,18 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, cast
+from unittest.mock import MagicMock
 
 import pytest
 import torch
 from omegaconf import OmegaConf
 
 from raitap.transparency import VisualiserIncompatibilityError
-from raitap.transparency.factory import Explanation
+from raitap.transparency.factory import (
+    Explanation,
+    check_explainer_visualiser_compat,
+    create_explainer,
+)
 from raitap.transparency.results import ExplanationResult
 
 if TYPE_CHECKING:
@@ -99,3 +104,53 @@ def test_explanation_validates_visualisers_before_compute(
         )
 
     assert dummy_explainer.explain_called is False
+
+
+def test_create_explainer_resolves_short_target_and_strips_visualisers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_cfg: dict[str, Any] = {}
+    explainer = object()
+
+    def _fake_instantiate(cfg: dict[str, Any]) -> object:
+        captured_cfg.update(cfg)
+        return explainer
+
+    config = OmegaConf.create(
+        {
+            "_target_": "CaptumExplainer",
+            "algorithm": "Saliency",
+            "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+        }
+    )
+    monkeypatch.setattr("raitap.transparency.factory.instantiate", _fake_instantiate)
+
+    created, resolved_target = create_explainer(config)
+
+    assert created is explainer
+    assert resolved_target == "raitap.transparency.CaptumExplainer"
+    assert captured_cfg["_target_"] == "raitap.transparency.CaptumExplainer"
+    assert "visualisers" not in captured_cfg
+
+
+def test_create_explainer_wraps_instantiation_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = OmegaConf.create({"_target_": "NoSuchExplainer"})
+
+    def _raise(_: dict[str, Any]) -> None:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("raitap.transparency.factory.instantiate", _raise)
+    with pytest.raises(ValueError, match="Could not instantiate explainer"):
+        create_explainer(config)
+
+
+def test_check_explainer_visualiser_compat_allows_compatible() -> None:
+    visualiser = MagicMock()
+    visualiser.compatible_algorithms = frozenset({"Saliency"})
+    check_explainer_visualiser_compat(
+        "raitap.transparency.CaptumExplainer",
+        "Saliency",
+        [visualiser],
+    )

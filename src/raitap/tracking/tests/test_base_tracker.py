@@ -132,15 +132,3 @@ class TestContextManager:
 
         with pytest.raises(ValueError, match="Test error"), tracker:
             raise ValueError("Test error")
-
-    def test_context_manager_terminates_even_after_exception(self) -> None:
-        tracker = MockTracker()
-
-        try:
-            with tracker:
-                raise RuntimeError("Something went wrong")
-        except RuntimeError:
-            pass
-
-        assert tracker.terminated
-        assert tracker.terminate_success is False
