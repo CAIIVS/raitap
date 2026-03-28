@@ -1,20 +1,24 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
+import matplotlib.pyplot as plt
 import torch
 
 from raitap.transparency.results import (
+    ConfiguredVisualiser,
     ExplanationResult,
     VisualisationResult,
     _serialisable,
     resolve_default_run_dir,
 )
+from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
 
 if TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch
+    from matplotlib.figure import Figure
 
 
 def _make_explanation(run_dir: Path, *, explainer_name: str | None = "exp") -> ExplanationResult:
@@ -129,3 +133,68 @@ def test_visualisation_log_uses_same_fallback_as_explanation(tmp_path: Path) -> 
     assert isinstance(args[0], Path)
     assert args[0].name == run_dir.name
     assert kwargs["target_subdirectory"] == f"transparency/{run_dir.name}"
+
+
+def test_explanation_visualise_merges_inputs_and_attributions_from_kwargs(
+    tmp_path: Path,
+) -> None:
+    """Config/call-site may pass inputs/attributions without duplicating keyword args."""
+
+    default_attr = torch.tensor([1.0])
+    default_inp = torch.tensor([2.0])
+    override_attr = torch.tensor([3.0])
+    override_inp = torch.tensor([4.0])
+
+    class _RecordingVisualiser(BaseVisualiser):
+        def __init__(self) -> None:
+            self.last: tuple[torch.Tensor, torch.Tensor | None, dict[str, Any]] | None = None
+
+        def visualise(
+            self,
+            attributions: torch.Tensor,
+            inputs: torch.Tensor | None = None,
+            **kw: Any,
+        ) -> Figure:
+            self.last = (attributions, inputs, dict(kw))
+            fig, _ax = plt.subplots(figsize=(1, 1))
+            return fig
+
+    run_dir = tmp_path / "exp"
+    explanation = ExplanationResult(
+        attributions=default_attr,
+        inputs=default_inp,
+        run_dir=run_dir,
+        experiment_name="e",
+        explainer_target="t",
+        algorithm="a",
+        visualisers=[
+            ConfiguredVisualiser(
+                visualiser=_RecordingVisualiser(),
+                call_kwargs={
+                    "inputs": override_inp,
+                    "attributions": override_attr,
+                    "title": "x",
+                },
+            )
+        ],
+    )
+    explanation.write_artifacts()
+
+    explanation.visualise()
+
+    vis = explanation.visualisers[0].visualiser
+    assert isinstance(vis, _RecordingVisualiser)
+    assert vis.last is not None
+    attr, inp, extra = vis.last
+    assert torch.equal(attr, override_attr)
+    assert inp is not None and torch.equal(inp, override_inp)
+    assert extra == {"title": "x"}
+
+    explanation2 = _make_explanation(tmp_path / "exp2")
+    explanation2.write_artifacts()
+    rec = _RecordingVisualiser()
+    explanation2.visualisers = [ConfiguredVisualiser(visualiser=rec, call_kwargs={})]
+    explanation2.visualise(inputs=override_inp)
+    assert rec.last is not None
+    _a, inp2, _e = rec.last
+    assert inp2 is not None and torch.equal(inp2, override_inp)
