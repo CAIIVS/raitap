@@ -81,13 +81,14 @@ class ExplanationResult:
         results: list[VisualisationResult] = []
         new_targets: list[str] = []
 
-        for configured in self.visualisers:
+        for index, configured in enumerate(self.visualisers):
             vis = configured.visualiser
             merged_call = {**configured.call_kwargs, **kwargs}
             attributions = merged_call.pop("attributions", self.attributions)
             inputs = merged_call.pop("inputs", self.inputs)
             figure = vis.visualise(attributions, inputs=inputs, **merged_call)
-            visualiser_name = type(vis).__name__
+            cls = type(vis)
+            visualiser_name = f"{cls.__name__}_{index}"
             output_path = self.run_dir / f"{visualiser_name}.png"
             output_path.parent.mkdir(parents=True, exist_ok=True)
             try:
@@ -95,7 +96,7 @@ class ExplanationResult:
             finally:
                 plt.close(figure)
 
-            visualiser_target = f"{type(vis).__module__}.{visualiser_name}"
+            visualiser_target = f"{cls.__module__}.{visualiser_name}"
             if (
                 visualiser_target not in self.visualiser_targets
                 and visualiser_target not in new_targets

@@ -113,7 +113,7 @@ def test_end_to_end_captum_object_api(
     assert explanation.run_dir == tmp_path / "transparency"
     assert (explanation.run_dir / "attributions.pt").exists()
     assert (explanation.run_dir / "metadata.json").exists()
-    assert visualisations[0].output_path == explanation.run_dir / "CaptumImageVisualiser.png"
+    assert visualisations[0].output_path == explanation.run_dir / "CaptumImageVisualiser_0.png"
     assert visualisations[0].output_path.exists()
 
 
@@ -241,5 +241,5 @@ def test_visualisation_log_uploads_only_visualisation_artifact(
     assert len(tracker.logged_directories) == 1
     logged_directory = tracker.logged_directories[0]
     assert logged_directory["artifact_path"] == "transparency"
-    assert logged_directory["files"] == ["CaptumImageVisualiser.png"]
+    assert logged_directory["files"] == ["CaptumImageVisualiser_0.png"]
     assert "metadata" not in logged_directory

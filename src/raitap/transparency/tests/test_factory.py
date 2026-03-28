@@ -63,7 +63,7 @@ def test_explanation_returns_explanation_result(
 
     visualisations = explanation.visualise()
     assert len(visualisations) == 1
-    assert (explanation.run_dir / "CaptumImageVisualiser.png").exists()
+    assert (explanation.run_dir / "CaptumImageVisualiser_0.png").exists()
 
 
 def test_explanation_validates_visualisers_before_compute(
