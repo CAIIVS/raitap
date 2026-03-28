@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 from hydra.utils import instantiate
 
 from raitap.configs import cfg_to_dict, resolve_run_dir, resolve_target
-from raitap.serialization import to_json_serialisable
+from raitap.utils.serialization import to_json_serialisable
 
 if TYPE_CHECKING:
     from pathlib import Path

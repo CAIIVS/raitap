@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import torch
 from hydra.core.hydra_config import HydraConfig
 
-from raitap.serialization import to_json_serialisable
+from raitap.utils.serialization import to_json_serialisable
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure

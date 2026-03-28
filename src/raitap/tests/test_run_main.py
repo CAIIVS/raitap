@@ -16,26 +16,51 @@ if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
 
 from raitap import run as run_module
+from raitap.run import __main__ as run_entry
+from raitap.run import extract_primary_tensor, metrics_prediction_pair
+from raitap.run import pipeline as run_pipeline
+from raitap.tracking import BaseTracker
 
 
 def test_extract_primary_tensor_tensor() -> None:
     t = torch.randn(2, 3)
-    assert torch.equal(run_module._extract_primary_tensor(t), t)
+    assert torch.equal(extract_primary_tensor(t), t)
 
 
 def test_extract_primary_tensor_tuple_and_dict() -> None:
     t = torch.randn(1, 4)
-    assert torch.equal(run_module._extract_primary_tensor((t, {})), t)
-    assert torch.equal(run_module._extract_primary_tensor({"logits": t, "meta": 1}), t)
+    assert torch.equal(extract_primary_tensor((t, {})), t)
+    assert torch.equal(extract_primary_tensor({"logits": t, "meta": 1}), t)
+
+
+def test_extract_primary_tensor_prefers_logits_over_scalar_loss_in_tuple() -> None:
+    loss = torch.tensor(0.42)
+    logits = torch.randn(4, 10)
+    out = extract_primary_tensor((loss, logits))
+    assert torch.equal(out, logits)
+
+
+def test_extract_primary_tensor_prefers_logits_over_scalar_loss_in_dict() -> None:
+    loss = torch.tensor(1.0)
+    logits = torch.randn(2, 5)
+    out = extract_primary_tensor({"loss": loss, "logits": logits})
+    assert torch.equal(out, logits)
+
+
+def test_extract_primary_tensor_falls_back_to_largest_numel_when_no_ndim_ge_2() -> None:
+    small = torch.randn(3)
+    large = torch.randn(20)
+    out = extract_primary_tensor((small, large))
+    assert torch.equal(out, large)
 
 
 def test_metrics_prediction_pair_multiclass_and_vector() -> None:
     logits = torch.tensor([[0.1, 0.9], [0.8, 0.2]])
-    p, q = run_module._metrics_prediction_pair(logits)
+    p, q = metrics_prediction_pair(logits)
     assert torch.equal(p, torch.tensor([1, 0]))
     assert torch.equal(p, q)
     scalar = torch.randn(5)
-    a, b = run_module._metrics_prediction_pair(scalar)
+    a, b = metrics_prediction_pair(scalar)
     assert torch.equal(a, scalar)
     assert torch.equal(b, scalar)
 
@@ -71,8 +96,8 @@ def test_hydra_main_composes_default_config(monkeypatch: MonkeyPatch, tmp_path: 
     def fake_run(config: object) -> None:
         captured["config"] = config
 
-    monkeypatch.setattr(run_module, "run", fake_run)
-    monkeypatch.setattr(run_module, "print_summary", lambda _cfg: None)
+    monkeypatch.setattr(run_entry, "run", fake_run)
+    monkeypatch.setattr(run_entry, "print_summary", lambda _cfg: None)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -102,10 +127,10 @@ def test_run_without_tracking_returns_outputs(monkeypatch: MonkeyPatch) -> None:
     )
     tracker_factory = MagicMock()
 
-    monkeypatch.setattr(run_module, "Model", lambda _cfg: model)
-    monkeypatch.setattr(run_module, "Data", lambda _cfg: data)
-    monkeypatch.setattr(run_module, "_run_without_tracking", lambda _c, _m, _d: fake_output)
-    monkeypatch.setattr(run_module.BaseTracker, "create_tracker", tracker_factory)
+    monkeypatch.setattr(run_pipeline, "Model", lambda _cfg: model)
+    monkeypatch.setattr(run_pipeline, "Data", lambda _cfg: data)
+    monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
+    monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
 
     config = SimpleNamespace(tracking=None)
     result = run_module.run(config)  # type: ignore[arg-type]
@@ -136,10 +161,10 @@ def test_run_with_tracking_logs_all_outputs(monkeypatch: MonkeyPatch) -> None:
             del exc_type, exc, tb
             return False
 
-    monkeypatch.setattr(run_module, "Model", lambda _cfg: model)
-    monkeypatch.setattr(run_module, "Data", lambda _cfg: data)
-    monkeypatch.setattr(run_module, "_run_without_tracking", lambda _c, _m, _d: fake_output)
-    monkeypatch.setattr(run_module.BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
+    monkeypatch.setattr(run_pipeline, "Model", lambda _cfg: model)
+    monkeypatch.setattr(run_pipeline, "Data", lambda _cfg: data)
+    monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
+    monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
     config = SimpleNamespace(tracking=SimpleNamespace(_target_="MLFlowTracker", log_model=True))
     run_module.run(config)  # type: ignore[arg-type]
@@ -173,10 +198,10 @@ def test_run_with_tracking_skips_model_logging_when_disabled(monkeypatch: Monkey
             del exc_type, exc, tb
             return False
 
-    monkeypatch.setattr(run_module, "Model", lambda _cfg: model)
-    monkeypatch.setattr(run_module, "Data", lambda _cfg: data)
-    monkeypatch.setattr(run_module, "_run_without_tracking", lambda _c, _m, _d: fake_output)
-    monkeypatch.setattr(run_module.BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
+    monkeypatch.setattr(run_pipeline, "Model", lambda _cfg: model)
+    monkeypatch.setattr(run_pipeline, "Data", lambda _cfg: data)
+    monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
+    monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
     config = SimpleNamespace(tracking=SimpleNamespace(_target_="MLFlowTracker", log_model=False))
     run_module.run(config)  # type: ignore[arg-type]
@@ -208,10 +233,10 @@ def test_run_with_multiple_explainers_uses_subdirs(monkeypatch: MonkeyPatch) -> 
             del exc_type, exc, tb
             return False
 
-    monkeypatch.setattr(run_module, "Model", lambda _cfg: model)
-    monkeypatch.setattr(run_module, "Data", lambda _cfg: data)
-    monkeypatch.setattr(run_module, "_run_without_tracking", lambda _c, _m, _d: fake_output)
-    monkeypatch.setattr(run_module.BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
+    monkeypatch.setattr(run_pipeline, "Model", lambda _cfg: model)
+    monkeypatch.setattr(run_pipeline, "Data", lambda _cfg: data)
+    monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
+    monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
     config = SimpleNamespace(tracking=SimpleNamespace(_target_="MLFlowTracker", log_model=False))
     run_module.run(config)  # type: ignore[arg-type]
@@ -233,10 +258,10 @@ def test_run_with_tracking_config_but_no_target_skips_tracking(monkeypatch: Monk
     )
     tracker_factory = MagicMock()
 
-    monkeypatch.setattr(run_module, "Model", lambda _cfg: model)
-    monkeypatch.setattr(run_module, "Data", lambda _cfg: data)
-    monkeypatch.setattr(run_module, "_run_without_tracking", lambda _c, _m, _d: fake_output)
-    monkeypatch.setattr(run_module.BaseTracker, "create_tracker", tracker_factory)
+    monkeypatch.setattr(run_pipeline, "Model", lambda _cfg: model)
+    monkeypatch.setattr(run_pipeline, "Data", lambda _cfg: data)
+    monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
+    monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
 
     # tracking config exists but _target_ is None or empty
     config = SimpleNamespace(tracking=SimpleNamespace(_target_=None))
@@ -251,10 +276,10 @@ def test_run_without_tracking_raises_if_no_explainers(monkeypatch: MonkeyPatch) 
     data = SimpleNamespace(tensor=torch.randn(2, 3))
     config = SimpleNamespace(transparency={}, metrics=SimpleNamespace(num_classes=None))
 
-    monkeypatch.setattr(run_module, "metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: False)
 
     with pytest.raises(ValueError, match="No explainers configured"):
-        run_module._run_without_tracking(config, model, data)  # type: ignore[arg-type]
+        run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
 
 def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: MonkeyPatch) -> None:
@@ -279,11 +304,11 @@ def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: M
         transparency={"one": {}},
         metrics=SimpleNamespace(num_classes=None),
     )
-    monkeypatch.setattr(run_module, "metrics_run_enabled", lambda _cfg: True)
-    monkeypatch.setattr(run_module, "Explanation", _fake_explanation)
-    monkeypatch.setattr(run_module, "Metrics", _fake_metrics)
+    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: True)
+    monkeypatch.setattr(run_pipeline, "Explanation", _fake_explanation)
+    monkeypatch.setattr(run_pipeline, "Metrics", _fake_metrics)
 
-    outputs = run_module._run_without_tracking(config, model, data)  # type: ignore[arg-type]
+    outputs = run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
     assert config.metrics.num_classes == 3
     assert outputs.metrics is not None
@@ -310,10 +335,10 @@ def test_run_without_tracking_uses_provided_num_classes(monkeypatch: MonkeyPatch
         transparency={"one": {}},
         metrics=SimpleNamespace(num_classes=10),
     )
-    monkeypatch.setattr(run_module, "metrics_run_enabled", lambda _cfg: True)
-    monkeypatch.setattr(run_module, "Explanation", _fake_explanation)
-    monkeypatch.setattr(run_module, "Metrics", lambda _c, _p, _t: SimpleNamespace())
+    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: True)
+    monkeypatch.setattr(run_pipeline, "Explanation", _fake_explanation)
+    monkeypatch.setattr(run_pipeline, "Metrics", lambda _c, _p, _t: SimpleNamespace())
 
-    run_module._run_without_tracking(config, model, data)  # type: ignore[arg-type]
+    run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
     assert config.metrics.num_classes == 10
