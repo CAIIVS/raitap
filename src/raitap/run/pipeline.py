@@ -31,15 +31,14 @@ def run(config: AppConfig) -> RunOutputs:
 
     outputs = _run_without_tracking(config, model, data)
 
-    tracking_config = getattr(config, "tracking", None)
-    has_tracker = bool(tracking_config and getattr(tracking_config, "_target_", None))
+    has_tracker = bool(str(config.tracking._target_).strip())
     if not has_tracker:
         return outputs
 
     use_subdirs = len(outputs.explanations) > 1
     with BaseTracker.create_tracker(config) as tracker:
         tracker.log_config()
-        if getattr(config.tracking, "log_model", False):
+        if config.tracking.log_model:
             model.log(tracker)
         data.log(tracker)
         if outputs.metrics is not None:
@@ -62,7 +61,7 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
     metrics_eval: MetricsEvaluation | None = None
     if metrics_run_enabled(config):
         if (
-            getattr(config.metrics, "num_classes", None) is None
+            config.metrics.num_classes is None
             and forward_output.ndim == 2
             and forward_output.shape[1] >= 2
         ):

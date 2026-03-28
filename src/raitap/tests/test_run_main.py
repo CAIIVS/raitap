@@ -13,9 +13,8 @@ if TYPE_CHECKING:
 
     from _pytest.monkeypatch import MonkeyPatch
 
-    from raitap.configs.schema import AppConfig
-
 from raitap import run as run_module
+from raitap.configs.schema import AppConfig, TrackingConfig
 from raitap.run import __main__ as run_entry
 from raitap.run import extract_primary_tensor, metrics_prediction_pair
 from raitap.run import pipeline as run_pipeline
@@ -132,8 +131,8 @@ def test_run_without_tracking_returns_outputs(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
     monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
 
-    config = SimpleNamespace(tracking=None)
-    result = run_module.run(config)  # type: ignore[arg-type]
+    config = AppConfig(tracking=TrackingConfig(_target_=""))
+    result = run_module.run(config)
 
     assert result is fake_output
     tracker_factory.assert_not_called()
@@ -166,8 +165,8 @@ def test_run_with_tracking_logs_all_outputs(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
-    config = SimpleNamespace(tracking=SimpleNamespace(_target_="MLFlowTracker", log_model=True))
-    run_module.run(config)  # type: ignore[arg-type]
+    config = AppConfig(tracking=TrackingConfig(_target_="MLFlowTracker", log_model=True))
+    run_module.run(config)
 
     tracker.log_config.assert_called_once()
     model.log.assert_called_once_with(tracker)
@@ -203,8 +202,8 @@ def test_run_with_tracking_skips_model_logging_when_disabled(monkeypatch: Monkey
     monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
-    config = SimpleNamespace(tracking=SimpleNamespace(_target_="MLFlowTracker", log_model=False))
-    run_module.run(config)  # type: ignore[arg-type]
+    config = AppConfig(tracking=TrackingConfig(_target_="MLFlowTracker", log_model=False))
+    run_module.run(config)
 
     model.log.assert_not_called()
     data.log.assert_called_once_with(tracker)
@@ -238,8 +237,8 @@ def test_run_with_multiple_explainers_uses_subdirs(monkeypatch: MonkeyPatch) -> 
     monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
-    config = SimpleNamespace(tracking=SimpleNamespace(_target_="MLFlowTracker", log_model=False))
-    run_module.run(config)  # type: ignore[arg-type]
+    config = AppConfig(tracking=TrackingConfig(_target_="MLFlowTracker", log_model=False))
+    run_module.run(config)
 
     assert exp1.log_calls == [True]
     assert exp2.log_calls == [True]
@@ -263,9 +262,9 @@ def test_run_with_tracking_config_but_no_target_skips_tracking(monkeypatch: Monk
     monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
     monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
 
-    # tracking config exists but _target_ is None or empty
-    config = SimpleNamespace(tracking=SimpleNamespace(_target_=None))
-    result = run_module.run(config)  # type: ignore[arg-type]
+    # tracking present but _target_ empty disables the tracker
+    config = AppConfig(tracking=TrackingConfig(_target_=""))
+    result = run_module.run(config)
 
     assert result is fake_output
     tracker_factory.assert_not_called()
