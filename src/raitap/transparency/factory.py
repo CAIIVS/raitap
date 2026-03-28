@@ -114,7 +114,7 @@ class Explanation:
             model.network,
             inputs,
             run_dir=resolve_run_dir(config, subdir=f"transparency/{explainer_name}"),
-            experiment_name=str(config.experiment_name),
+            experiment_name=str(getattr(config, "experiment_name", "")),
             explainer_target=explainer_target,
             explainer_name=explainer_name,
             visualisers=visualisers,

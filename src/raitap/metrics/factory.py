@@ -26,8 +26,14 @@ _METRICS_PREFIX = "raitap.metrics."
 
 
 def metrics_run_enabled(config: AppConfig) -> bool:
-    """True when ``metrics._target_`` is a non-empty string."""
-    return bool(str(config.metrics._target_).strip())
+    """True when ``metrics`` is present and ``_target_`` is a non-empty string."""
+    metrics_cfg = getattr(config, "metrics", None)
+    if metrics_cfg is None:
+        return False
+    target = getattr(metrics_cfg, "_target_", None)
+    if target is None:
+        return False
+    return bool(str(target).strip())
 
 
 def create_metric(metrics_config: Any) -> tuple[BaseMetricComputer, str]:
