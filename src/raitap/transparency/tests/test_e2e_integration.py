@@ -158,9 +158,7 @@ def test_tabular_visualisation_object_api(
 
     explanation.visualisers = [
         ConfiguredVisualiser(
-            visualiser=TabularBarChartVisualiser(
-                feature_names=[f"feature_{i}" for i in range(10)]
-            )
+            visualiser=TabularBarChartVisualiser(feature_names=[f"feature_{i}" for i in range(10)])
         )
     ]
     visualisations = explanation.visualise()

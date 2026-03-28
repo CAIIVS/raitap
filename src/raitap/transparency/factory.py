@@ -61,8 +61,7 @@ def _visualiser_entry_to_dict(visualiser_config: Any) -> dict[str, Any]:
         container = OmegaConf.to_container(visualiser_config, resolve=True)
         if not isinstance(container, dict):
             raise TypeError(
-                "Each visualisers list entry must be a mapping, "
-                f"got {type(container).__name__}."
+                f"Each visualisers list entry must be a mapping, got {type(container).__name__}."
             )
         return dict(container)
     raise TypeError(
@@ -108,9 +107,7 @@ class Explanation:
         visualisers = create_visualisers(explainer_config)
         check_explainer_visualiser_compat(explainer_target, algorithm, visualisers)
 
-        call_from_config = _transparency_subdict(
-            raw_transparency_config.get("call"), label="call"
-        )
+        call_from_config = _transparency_subdict(raw_transparency_config.get("call"), label="call")
         merged_kwargs = {**call_from_config, **kwargs}
 
         return explainer.explain(

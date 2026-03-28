@@ -32,9 +32,7 @@ class BaseExplainer(ABC):
         visualisers: list[ConfiguredVisualiser] | None = None,
         **kwargs: Any,
     ) -> ExplanationResult:
-        visualisers_list: list[ConfiguredVisualiser] = (
-            [] if visualisers is None else visualisers
-        )
+        visualisers_list: list[ConfiguredVisualiser] = [] if visualisers is None else visualisers
         attributions = self.compute_attributions(model, inputs, **kwargs)
         self.attributions = attributions
 
