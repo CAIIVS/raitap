@@ -33,7 +33,7 @@ from .factory import (
 )
 
 # Result objects
-from .results import ExplanationResult, VisualisationResult
+from .results import ConfiguredVisualiser, ExplanationResult, VisualisationResult
 
 # Visualiser classes — public _target_ surface
 from .visualisers import (
@@ -54,6 +54,7 @@ __all__ = [  # noqa: RUF022
     "CaptumExplainer",
     "ShapExplainer",
     # Result objects
+    "ConfiguredVisualiser",
     "ExplanationResult",
     "VisualisationResult",
     # Captum visualisers

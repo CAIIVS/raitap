@@ -23,8 +23,8 @@ class CaptumExplainer(BaseExplainer):
         Args:
             algorithm: Captum method name (e.g., "IntegratedGradients", "Saliency")
             **init_kwargs: Constructor arguments for the Captum method
-                - For GradCAM: layer=model.layer4
-                - For most others: no args needed
+                (from transparency YAML ``constructor:``), e.g. GradCAM ``layer=...``.
+                Per-call options such as ``target`` belong under YAML ``call:``.
         """
         super().__init__()
         self.algorithm = algorithm

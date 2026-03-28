@@ -13,8 +13,9 @@ from raitap.transparency.factory import (
     Explanation,
     check_explainer_visualiser_compat,
     create_explainer,
+    create_visualisers,
 )
-from raitap.transparency.results import ExplanationResult
+from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -146,11 +147,155 @@ def test_create_explainer_wraps_instantiation_errors(
         create_explainer(config)
 
 
+def test_create_explainer_rejects_unknown_top_level_keys() -> None:
+    config = OmegaConf.create(
+        {
+            "_target_": "CaptumExplainer",
+            "algorithm": "Saliency",
+            "multiply_by_inputs": True,
+            "visualisers": [],
+        }
+    )
+    with pytest.raises(ValueError, match="Unknown transparency explainer config keys"):
+        create_explainer(config)
+
+
+def test_create_explainer_forwards_constructor_to_instantiate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_cfg: dict[str, Any] = {}
+
+    def _fake_instantiate(cfg: dict[str, Any]) -> object:
+        captured_cfg.update(cfg)
+        return object()
+
+    config = OmegaConf.create(
+        {
+            "_target_": "CaptumExplainer",
+            "algorithm": "Saliency",
+            "constructor": {"multiply_by_inputs": True},
+            "call": {"target": 0},
+            "visualisers": [],
+        }
+    )
+    monkeypatch.setattr("raitap.transparency.factory.instantiate", _fake_instantiate)
+
+    create_explainer(config)
+
+    assert captured_cfg["multiply_by_inputs"] is True
+    assert captured_cfg["algorithm"] == "Saliency"
+    assert "call" not in captured_cfg
+    assert "constructor" not in captured_cfg
+    assert "target" not in captured_cfg
+
+
+def test_explanation_merges_call_before_run_kwargs(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sample_images: torch.Tensor,
+) -> None:
+    """YAML ``call`` supplies defaults; call-site kwargs override the same keys."""
+
+    class RecordingExplainer:
+        algorithm = "Saliency"
+
+        def __init__(self) -> None:
+            self.last_explain_kwargs: dict[str, Any] = {}
+
+        def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
+            self.last_explain_kwargs = dict(kwargs)
+            return MagicMock(spec=ExplanationResult)
+
+    explainer = RecordingExplainer()
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "call": {"target": 0, "baselines": "from_yaml"},
+                "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+            }
+        ),
+    )
+
+    vis = MagicMock()
+    vis.compatible_algorithms = frozenset({"Saliency"})
+
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (explainer, "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_visualisers",
+        lambda _cfg: [ConfiguredVisualiser(visualiser=vis, call_kwargs={})],
+    )
+
+    model = SimpleNamespace(network=torch.nn.Identity())
+    Explanation(
+        config,
+        "test_explainer",
+        model=model,  # type: ignore[arg-type]
+        inputs=sample_images,
+        target=7,
+    )
+
+    assert explainer.last_explain_kwargs["target"] == 7
+    assert explainer.last_explain_kwargs["baselines"] == "from_yaml"
+
+
 def test_check_explainer_visualiser_compat_allows_compatible() -> None:
     visualiser = MagicMock()
     visualiser.compatible_algorithms = frozenset({"Saliency"})
     check_explainer_visualiser_compat(
         "raitap.transparency.CaptumExplainer",
         "Saliency",
-        [visualiser],
+        [ConfiguredVisualiser(visualiser=visualiser, call_kwargs={})],
     )
+
+
+def test_create_visualisers_rejects_unknown_keys() -> None:
+    config = OmegaConf.create(
+        {
+            "visualisers": [
+                {
+                    "_target_": "raitap.transparency.CaptumImageVisualiser",
+                    "method": "heat_map",
+                }
+            ],
+        }
+    )
+    with pytest.raises(ValueError, match="Unknown keys in visualiser config"):
+        create_visualisers(config)
+
+
+def test_create_visualisers_splits_constructor_and_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured_vis: dict[str, Any] = {}
+
+    def _fake_instantiate(cfg: dict[str, Any]) -> object:
+        captured_vis.update(cfg)
+        m = MagicMock()
+        m.compatible_algorithms = frozenset()
+        return m
+
+    config = OmegaConf.create(
+        {
+            "visualisers": [
+                {
+                    "_target_": "raitap.transparency.CaptumImageVisualiser",
+                    "constructor": {"method": "heat_map", "sign": "positive"},
+                    "call": {"max_samples": 3},
+                }
+            ],
+        }
+    )
+    monkeypatch.setattr("raitap.transparency.factory.instantiate", _fake_instantiate)
+
+    configured = create_visualisers(config)
+
+    assert len(configured) == 1
+    assert configured[0].call_kwargs == {"max_samples": 3}
+    assert captured_vis["method"] == "heat_map"
+    assert captured_vis["sign"] == "positive"
+    assert "call" not in captured_vis
+    assert "constructor" not in captured_vis

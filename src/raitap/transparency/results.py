@@ -13,11 +13,12 @@ from hydra.core.hydra_config import HydraConfig
 
 from raitap.serialization import to_json_serialisable
 
+from .visualisers import BaseVisualiser
+
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     from ..tracking.base_tracker import BaseTracker
-    from .visualisers import BaseVisualiser
 
 
 def _serialisable(value: Any) -> Any:
@@ -31,6 +32,14 @@ def resolve_default_run_dir() -> Path:
         return Path.cwd() / "transparency"
 
 
+@dataclass(frozen=True)
+class ConfiguredVisualiser:
+    """Visualiser instance plus per-call kwargs for ``BaseVisualiser.visualise``."""
+
+    visualiser: BaseVisualiser
+    call_kwargs: dict[str, Any] = field(default_factory=dict)
+
+
 @dataclass
 class ExplanationResult:
     attributions: torch.Tensor
@@ -42,7 +51,7 @@ class ExplanationResult:
     explainer_name: str | None = None
     kwargs: dict[str, Any] = field(default_factory=dict)
     visualiser_targets: list[str] = field(default_factory=list)
-    visualisers: list[BaseVisualiser] = field(default_factory=list, repr=False)
+    visualisers: list[ConfiguredVisualiser] = field(default_factory=list, repr=False)
 
     def __post_init__(self) -> None:
         self.run_dir = Path(self.run_dir)
@@ -73,9 +82,11 @@ class ExplanationResult:
         results: list[VisualisationResult] = []
         new_targets: list[str] = []
 
-        for visualiser in self.visualisers:
-            figure = visualiser.visualise(self.attributions, inputs=self.inputs, **kwargs)
-            visualiser_name = type(visualiser).__name__
+        for configured in self.visualisers:
+            vis = configured.visualiser
+            merged_call = {**configured.call_kwargs, **kwargs}
+            figure = vis.visualise(self.attributions, inputs=self.inputs, **merged_call)
+            visualiser_name = type(vis).__name__
             output_path = self.run_dir / f"{visualiser_name}.png"
             output_path.parent.mkdir(parents=True, exist_ok=True)
             try:
@@ -83,7 +94,7 @@ class ExplanationResult:
             finally:
                 plt.close(figure)
 
-            visualiser_target = f"{type(visualiser).__module__}.{visualiser_name}"
+            visualiser_target = f"{type(vis).__module__}.{visualiser_name}"
             if (
                 visualiser_target not in self.visualiser_targets
                 and visualiser_target not in new_targets

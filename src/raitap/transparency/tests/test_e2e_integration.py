@@ -13,6 +13,7 @@ from omegaconf import OmegaConf
 from raitap.transparency import ExplanationResult, VisualisationResult
 from raitap.transparency.explainers import CaptumExplainer, ShapExplainer
 from raitap.transparency.factory import Explanation
+from raitap.transparency.results import ConfiguredVisualiser
 from raitap.transparency.visualisers import CaptumImageVisualiser, TabularBarChartVisualiser
 
 if TYPE_CHECKING:
@@ -100,7 +101,7 @@ def test_end_to_end_captum_object_api(
         sample_images,
         run_dir=tmp_path / "transparency",
         target=0,
-        visualisers=[CaptumImageVisualiser()],
+        visualisers=[ConfiguredVisualiser(visualiser=CaptumImageVisualiser())],
     )
     visualisations = explanation.visualise()
 
@@ -129,7 +130,7 @@ def test_end_to_end_shap_object_api(
         run_dir=tmp_path / "transparency",
         background_data=sample_images[:2],
         target=0,
-        visualisers=[CaptumImageVisualiser()],
+        visualisers=[ConfiguredVisualiser(visualiser=CaptumImageVisualiser())],
     )
     visualisations = explanation.visualise()
 
@@ -155,7 +156,11 @@ def test_tabular_visualisation_object_api(
     )
 
     explanation.visualisers = [
-        TabularBarChartVisualiser(feature_names=[f"feature_{i}" for i in range(10)])
+        ConfiguredVisualiser(
+            visualiser=TabularBarChartVisualiser(
+                feature_names=[f"feature_{i}" for i in range(10)]
+            )
+        )
     ]
     visualisations = explanation.visualise()
 
@@ -201,7 +206,7 @@ def test_explanation_log_only_uploads_explanation_artifacts(
         sample_images,
         run_dir=tmp_path / "transparency",
         target=0,
-        visualisers=[CaptumImageVisualiser()],
+        visualisers=[ConfiguredVisualiser(visualiser=CaptumImageVisualiser())],
     )
     _ = explanation.visualise()
 
@@ -227,7 +232,7 @@ def test_visualisation_log_uploads_only_visualisation_artifact(
         sample_images,
         run_dir=tmp_path / "transparency",
         target=0,
-        visualisers=[CaptumImageVisualiser()],
+        visualisers=[ConfiguredVisualiser(visualiser=CaptumImageVisualiser())],
     )
     visualisations = explanation.visualise()
 
