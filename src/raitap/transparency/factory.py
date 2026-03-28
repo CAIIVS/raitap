@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
@@ -48,7 +48,7 @@ def _transparency_subdict(value: Any, *, label: str) -> dict[str, Any]:
             raise TypeError(
                 f"Transparency {label!r} must be a mapping, got {type(container).__name__}."
             )
-        return dict(container)
+        return cast("dict[str, Any]", dict(container))
     raise TypeError(
         f"Transparency {label!r} must be a dict or DictConfig, got {type(value).__name__}."
     )
@@ -63,7 +63,7 @@ def _visualiser_entry_to_dict(visualiser_config: Any) -> dict[str, Any]:
             raise TypeError(
                 f"Each visualisers list entry must be a mapping, got {type(container).__name__}."
             )
-        return dict(container)
+        return cast("dict[str, Any]", dict(container))
     raise TypeError(
         "Each visualisers list entry must be a dict or DictConfig, "
         f"got {type(visualiser_config).__name__}."
