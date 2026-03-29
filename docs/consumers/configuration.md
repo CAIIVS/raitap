@@ -43,6 +43,38 @@ Select built-in presets by name on the CLI.
 | `captum` | `CaptumExplainer` | `IntegratedGradients` | `CaptumImageVisualiser` |
 | `shap`   | `ShapExplainer`   | `GradientExplainer`   | `ShapImageVisualiser`   |
 
+### Optional: sample names in visualisations
+
+You can optionally show sample names in visual outputs via visualiser `call` arguments.
+
+- `show_sample_names` defaults to `false`
+- names come from loaded sample IDs (filename stem, extension removed)
+- if name count and batch size differ, names are trimmed to the plotted batch
+
+Example override on the CLI:
+
+```bash
+uv run raitap transparency=gradcam "transparency.captum_saliency.visualisers=[{_target_: CaptumImageVisualiser, call: {show_sample_names: true}}]"
+```
+
+Equivalent YAML style:
+
+```yaml
+transparency:
+  captum_saliency:
+    _target_: CaptumExplainer
+    algorithm: Saliency
+    visualisers:
+      - _target_: CaptumImageVisualiser
+        call:
+          show_sample_names: true
+```
+
+Notes:
+
+- Visualisers with native support (for example `CaptumImageVisualiser`) render per-sample titles.
+- Other visualisers fall back to a figure title using the first name (format: `first (+N)`).
+
 ## Custom model and data
 
 Override `model.source` and `data.source` directly:
@@ -96,7 +128,6 @@ Fallback behavior (metrics still run, but against predictions):
 - Label count mismatch between loaded samples and labels
 - Empty labels file
 
-## Overriding fields
 
 Any config field can be overridden:
 

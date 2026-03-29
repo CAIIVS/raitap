@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any
 
 from ..results import ConfiguredVisualiser, ExplanationResult, resolve_default_run_dir
 
+_VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
+
 if TYPE_CHECKING:
     import torch
 
@@ -33,7 +35,11 @@ class BaseExplainer(ABC):
         **kwargs: Any,
     ) -> ExplanationResult:
         visualisers_list: list[ConfiguredVisualiser] = [] if visualisers is None else visualisers
-        attributions = self.compute_attributions(model, inputs, **kwargs)
+        metadata_kwargs = dict(kwargs)
+        attribution_kwargs = {
+            key: value for key, value in kwargs.items() if key not in _VISUALISATION_ONLY_KWARGS
+        }
+        attributions = self.compute_attributions(model, inputs, **attribution_kwargs)
         self.attributions = attributions
 
         explanation = ExplanationResult(
@@ -44,7 +50,7 @@ class BaseExplainer(ABC):
             explainer_target=(explainer_target or f"{type(self).__module__}.{type(self).__name__}"),
             algorithm=getattr(self, "algorithm", ""),
             explainer_name=explainer_name,
-            kwargs=kwargs,
+            kwargs=metadata_kwargs,
             visualisers=visualisers_list,
         )
         explanation.write_artifacts()

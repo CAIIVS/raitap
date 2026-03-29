@@ -85,7 +85,13 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
 
     for name, _explainer_cfg in explainers:
         # Explainer ``call:`` (and optional run kwargs) supply target, baselines, etc.
-        explanation = Explanation(config, name, model, data_tensor)
+        explanation = Explanation(
+            config,
+            name,
+            model,
+            data_tensor,
+            sample_names=getattr(data, "sample_ids", None),
+        )
         explanations.append(explanation)
         visualisations.extend(explanation.visualise())
 

@@ -62,6 +62,8 @@ class CaptumImageVisualiser(BaseVisualiser):
         attributions: torch.Tensor,
         inputs: torch.Tensor | None = None,
         max_samples: int = 8,
+        sample_names: list[str] | None = None,
+        show_sample_names: bool = False,
         **kwargs: Any,
     ) -> Figure:
         """
@@ -69,6 +71,8 @@ class CaptumImageVisualiser(BaseVisualiser):
             attributions: ``(B, C, H, W)`` or ``(B, H, W)`` tensor / array.
             inputs:       Original images ``(B, C, H, W)`` for overlay.
             max_samples:  Maximum number of samples to display (default: 8).
+            sample_names: Optional names per sample (already normalised to stem IDs).
+            show_sample_names: Whether to render sample names as subplot titles.
             **kwargs:     Forwarded to ``visualize_image_attr``.
 
         Returns:
@@ -96,6 +100,8 @@ class CaptumImageVisualiser(BaseVisualiser):
                 origs = origs[np.newaxis]
             origs = origs[:n]
 
+        names = [] if sample_names is None else [str(name) for name in sample_names[:n]]
+
         fig, axes = plt.subplots(1, n, figsize=(4 * n, 4))
         axes_list = [axes] if n == 1 else list(axes)
 
@@ -121,6 +127,10 @@ class CaptumImageVisualiser(BaseVisualiser):
                 use_pyplot=False,
                 **kwargs,
             )
+            if show_sample_names and i < len(names):
+                base_title = ax.get_title().strip()
+                label = f"{base_title}: {names[i]}" if base_title else names[i]
+                ax.set_title(label, fontsize=9)
 
         fig.tight_layout()
         return fig

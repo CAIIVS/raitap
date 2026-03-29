@@ -64,6 +64,49 @@ class TestCaptumImageVisualiser:
         visualiser.save(attributions, output_path)
         assert output_path.exists()
 
+    @pytest.mark.usefixtures("needs_captum")
+    def test_show_sample_names_sets_axis_titles(self, sample_images: torch.Tensor) -> None:
+        visualiser = CaptumImageVisualiser(method="heat_map")
+        attributions = torch.randn_like(sample_images)
+
+        fig = visualiser.visualise(
+            attributions,
+            max_samples=2,
+            sample_names=["ISIC_0001", "ISIC_0002", "ISIC_0003"],
+            show_sample_names=True,
+        )
+
+        titles = [ax.get_title() for ax in fig.axes[:2]]
+        assert titles == ["ISIC_0001", "ISIC_0002"]
+
+    @pytest.mark.usefixtures("needs_captum")
+    def test_sample_names_are_hidden_by_default(self, sample_images: torch.Tensor) -> None:
+        visualiser = CaptumImageVisualiser(method="heat_map")
+        attributions = torch.randn_like(sample_images)
+
+        fig = visualiser.visualise(
+            attributions,
+            max_samples=1,
+            sample_names=["ISIC_9999"],
+        )
+
+        assert fig.axes[0].get_title() == ""
+
+    @pytest.mark.usefixtures("needs_captum")
+    def test_show_sample_names_prefixes_existing_title(self, sample_images: torch.Tensor) -> None:
+        visualiser = CaptumImageVisualiser(method="heat_map")
+        attributions = torch.randn_like(sample_images)
+
+        fig = visualiser.visualise(
+            attributions,
+            max_samples=1,
+            sample_names=["ISIC_1234"],
+            show_sample_names=True,
+            title="LayerGradCAM",
+        )
+
+        assert fig.axes[0].get_title() == "LayerGradCAM: ISIC_1234"
+
 
 class TestTabularBarChartVisualiser:
     """Test tabular visualiser"""
