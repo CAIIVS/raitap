@@ -102,4 +102,3 @@ def _resolve_layer(model: nn.Module, layer_path: str) -> nn.Module:
         except AttributeError as error:
             raise ValueError(f"Could not resolve layer_path {layer_path!r} on model.") from error
     return layer
-

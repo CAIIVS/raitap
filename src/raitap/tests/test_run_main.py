@@ -368,5 +368,3 @@ def test_run_without_tracking_passes_sample_names_to_explanation(monkeypatch: Mo
     run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
     assert captured_kwargs["sample_names"] == ["isic_1", "isic_2"]
-
-

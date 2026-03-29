@@ -283,5 +283,3 @@ def test_explanation_visualise_trims_sample_names_for_shorter_batch(tmp_path: Pa
     explanation.visualise()
 
     assert vis.received_names == ["ISIC_1"]
-
-

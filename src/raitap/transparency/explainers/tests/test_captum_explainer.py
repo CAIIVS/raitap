@@ -88,4 +88,3 @@ class TestCaptumExplainer:
 
         with pytest.raises(ValueError, match="Could not resolve layer_path"):
             explainer.compute_attributions(simple_cnn, sample_images, target=0)
-

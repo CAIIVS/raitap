@@ -4,7 +4,7 @@ import logging
 import warnings
 from collections import Counter
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -303,10 +303,12 @@ def _extract_class_labels(
         if labels_column not in df.columns:
             raise ValueError(f"labels_column {labels_column!r} not found in labels file")
         label_series = _column_as_series(df, labels_column)
-        series = cast("pd.Series", pd.to_numeric(label_series, errors="raise"))
+        numeric_values = pd.to_numeric(label_series, errors="raise")
+        if not isinstance(numeric_values, pd.Series):
+            raise ValueError("Expected a pandas Series for label conversion.")
         if encoding == "one_hot":
             raise ValueError("labels_column cannot be combined with labels_encoding='one_hot'")
-        return [int(value) for value in series.to_list()]
+        return [int(value) for value in numeric_values.to_list()]
 
     excluded = {id_column} if id_column else set()
     candidate_columns = [
@@ -329,9 +331,16 @@ def _extract_class_labels(
         )
 
     if matrix.shape[1] == 1:
+        if encoding == "one_hot":
+            raise ValueError(
+                "labels_encoding='one_hot' requires multiple numeric label columns "
+                "to represent one-hot targets."
+            )
         label_series = _column_as_series(df, candidate_columns[0])
-        numeric_series = cast("pd.Series", pd.to_numeric(label_series, errors="raise"))
-        return [int(value) for value in numeric_series.to_list()]
+        numeric_values = pd.to_numeric(label_series, errors="raise")
+        if not isinstance(numeric_values, pd.Series):
+            raise ValueError("Expected a pandas Series for label conversion.")
+        return [int(value) for value in numeric_values.to_list()]
 
     return matrix.argmax(axis=1).astype(int).tolist()
 

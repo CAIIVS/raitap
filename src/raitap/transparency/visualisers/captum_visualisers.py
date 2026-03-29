@@ -29,16 +29,16 @@ def _to_numpy(x: torch.Tensor | np.ndarray) -> np.ndarray:
 def _resize_attr_to_hw(attr: np.ndarray, target_hw: tuple[int, int]) -> np.ndarray:
     """Resize attribution map to target (H, W) while preserving channels-last shape."""
     import torch
-    import torch.nn.functional as F
+    import torch.nn.functional as f
 
     if attr.ndim == 2:
         tensor = torch.from_numpy(attr).unsqueeze(0).unsqueeze(0).float()  # (1,1,H,W)
-        resized = F.interpolate(tensor, size=target_hw, mode="bilinear", align_corners=False)
+        resized = f.interpolate(tensor, size=target_hw, mode="bilinear", align_corners=False)
         return resized.squeeze(0).squeeze(0).cpu().numpy()
 
     if attr.ndim == 3:
         tensor = torch.from_numpy(np.transpose(attr, (2, 0, 1))).unsqueeze(0).float()  # (1,C,H,W)
-        resized = F.interpolate(tensor, size=target_hw, mode="bilinear", align_corners=False)
+        resized = f.interpolate(tensor, size=target_hw, mode="bilinear", align_corners=False)
         return np.transpose(resized.squeeze(0).cpu().numpy(), (1, 2, 0))
 
     return attr
@@ -137,7 +137,8 @@ class CaptumImageVisualiser(BaseVisualiser):
                 if hi > lo:
                     orig_i = (orig_i - lo) / (hi - lo)
 
-                # Layer methods (e.g., LayerGradCam) can yield low-res maps; masked modes need same HxW.
+                # Layer methods (e.g., LayerGradCam) can yield low-res maps;
+                # masked modes need same HxW.
                 if self.method in {"masked_image", "alpha_scaling"}:
                     attr_hw = attr_i.shape[:2]
                     orig_hw = orig_i.shape[:2]
@@ -157,7 +158,7 @@ class CaptumImageVisualiser(BaseVisualiser):
                 show_colorbar=self.show_colorbar,
                 plt_fig_axis=(fig, ax),
                 use_pyplot=False,
-                **kwargs,
+                **viz_kwargs,
             )
             if show_sample_names and i < len(names):
                 base_title = ax.get_title().strip()
