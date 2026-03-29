@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import logging
+import warnings
+from collections import Counter
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import pandas as pd
@@ -29,9 +31,10 @@ class Data:
     def __init__(self, cfg: AppConfig) -> None:
         self.name = cfg.data.name
         self.source = cfg.data.source
-        self.tensor = self._load_data(cfg)
+        self.tensor, self.sample_ids = self._load_data(cfg)
+        self.labels = self._load_labels(cfg)
 
-    def _load_data(self, cfg: AppConfig) -> torch.Tensor:
+    def _load_data(self, cfg: AppConfig) -> tuple[torch.Tensor, list[str] | None]:
         """
         Load data from a specified source into a raw tensor.
 
@@ -58,7 +61,7 @@ class Data:
             )
 
         if source in SAMPLE_SOURCES:
-            return _load_sample(source)
+            return _load_sample(source), None
 
         if source.startswith(("http://", "https://")):
             path = get_source_path(source)
@@ -82,9 +85,10 @@ class Data:
                     "Separate them into different directories."
                 )
             if image_files:
-                return _load_images(path)
+                tensor = _load_images(path)
+                return tensor, _resolve_sample_ids(image_files)
             if tabular_files:
-                return _load_tabular_dir(path)
+                return _load_tabular_dir(path), None
             raise FileNotFoundError(
                 f"No supported files found in {path}.\n"
                 f"Supported image formats: {_IMAGE_EXTENSIONS}\n"
@@ -93,15 +97,72 @@ class Data:
 
         suffix = path.suffix.lower()
         if suffix in _IMAGE_EXTENSIONS:
-            return _load_images(path)
+            return _load_images(path), _resolve_sample_ids([path])
         if suffix in _TABULAR_EXTENSIONS:
-            return _load_tabular(path)
+            return _load_tabular(path), None
 
         raise ValueError(
             f"Cannot infer data type from extension {suffix!r}.\n"
             f"Supported image formats: {_IMAGE_EXTENSIONS}\n"
             f"Supported tabular formats: {_TABULAR_EXTENSIONS}"
         )
+
+    def _load_labels(self, cfg: AppConfig) -> torch.Tensor | None:
+        labels_source = getattr(cfg.data, "labels_source", None)
+        if not labels_source:
+            return None
+
+        labels_path = get_source_path(labels_source)
+        labels_df = _load_tabular_frame(labels_path)
+        if labels_df.empty:
+            warnings.warn(
+                "Labels file is empty; falling back to predictions as targets.", stacklevel=2
+            )
+            return None
+
+        labels_id_column = getattr(cfg.data, "labels_id_column", None)
+        id_column = _resolve_labels_id_column(labels_df, labels_id_column)
+        labels_column = getattr(cfg.data, "labels_column", None)
+        labels_encoding = getattr(cfg.data, "labels_encoding", None)
+        encoded_labels = _extract_class_labels(
+            labels_df,
+            labels_column=labels_column,
+            id_column=id_column,
+            labels_encoding=labels_encoding,
+        )
+
+        expected = int(self.tensor.shape[0])
+        if self.sample_ids and id_column:
+            id_series = _column_as_series(labels_df, id_column)
+            try:
+                aligned_labels = _align_labels_to_samples(
+                    sample_ids=self.sample_ids,
+                    raw_label_ids=id_series,
+                    encoded_labels=encoded_labels,
+                )
+            except ValueError as error:
+                warnings.warn(
+                    f"{error} Falling back to predictions as metric targets.",
+                    stacklevel=2,
+                )
+                return None
+            return torch.tensor(aligned_labels, dtype=torch.long)
+
+        if self.sample_ids and not id_column:
+            warnings.warn(
+                "Could not find a labels id column for filename alignment; using row-order labels.",
+                stacklevel=2,
+            )
+
+        if len(encoded_labels) != expected:
+            warnings.warn(
+                f"Label count ({len(encoded_labels)}) does not match sample count ({expected}); "
+                "falling back to predictions as targets.",
+                stacklevel=2,
+            )
+            return None
+
+        return torch.tensor(encoded_labels, dtype=torch.long)
 
     def describe(self) -> dict[str, Any]:
         """
@@ -117,6 +178,7 @@ class Data:
             "num_samples": shape[0],
             "shape": shape,
             "dtype": str(self.tensor.dtype),
+            "has_labels": self.labels is not None,
         }
         if len(shape) > 1:
             dataset_info["sample_shape"] = shape[1:]
@@ -191,6 +253,12 @@ def _load_images(path: Path) -> torch.Tensor:
 
 def _load_tabular(path: Path) -> torch.Tensor:
     """Load a CSV / TSV / Parquet file as a float tensor of shape (N, F)."""
+    df = _load_tabular_frame(path)
+    return torch.tensor(df.values, dtype=torch.float32)
+
+
+def _load_tabular_frame(path: Path) -> pd.DataFrame:
+    """Load a CSV / TSV / Parquet file as a pandas DataFrame."""
     suffix = path.suffix.lower()
     if suffix == ".csv":
         df = pd.read_csv(path)
@@ -200,8 +268,119 @@ def _load_tabular(path: Path) -> torch.Tensor:
         df = pd.read_parquet(path)
     else:
         raise ValueError(f"Unsupported tabular format: {suffix}")
+    return df
 
-    return torch.tensor(df.values, dtype=torch.float32)
+
+def _resolve_labels_id_column(df: pd.DataFrame, configured_column: str | None) -> str | None:
+    if configured_column:
+        if configured_column not in df.columns:
+            warnings.warn(
+                f"Configured labels_id_column {configured_column!r} not found in labels file.",
+                stacklevel=2,
+            )
+            return None
+        return configured_column
+
+    for candidate in ("image", "filename", "file", "id", "name"):
+        if candidate in df.columns:
+            return candidate
+    return None
+
+
+def _extract_class_labels(
+    df: pd.DataFrame,
+    labels_column: str | None,
+    id_column: str | None,
+    labels_encoding: str | None,
+) -> list[int]:
+    encoding = (labels_encoding or "").strip().lower()
+    if encoding and encoding not in {"index", "one_hot", "argmax"}:
+        raise ValueError(
+            f"Unsupported labels_encoding {labels_encoding!r}. Use 'index', 'one_hot', or 'argmax'."
+        )
+
+    if labels_column:
+        if labels_column not in df.columns:
+            raise ValueError(f"labels_column {labels_column!r} not found in labels file")
+        label_series = _column_as_series(df, labels_column)
+        series = cast("pd.Series", pd.to_numeric(label_series, errors="raise"))
+        if encoding == "one_hot":
+            raise ValueError("labels_column cannot be combined with labels_encoding='one_hot'")
+        return [int(value) for value in series.to_list()]
+
+    excluded = {id_column} if id_column else set()
+    candidate_columns = [
+        col for col in df.columns if col not in excluded and pd.api.types.is_numeric_dtype(df[col])
+    ]
+    if not candidate_columns:
+        raise ValueError(
+            "Could not infer label columns. "
+            "Set data.labels_column or provide numeric one-hot columns."
+        )
+
+    matrix = df[candidate_columns].to_numpy()
+    if matrix.ndim != 2 or matrix.shape[1] == 0:
+        raise ValueError("Labels file does not contain valid label columns")
+
+    if encoding == "index" and matrix.shape[1] != 1:
+        raise ValueError(
+            "labels_encoding='index' requires exactly one numeric label column "
+            "(or set data.labels_column)."
+        )
+
+    if matrix.shape[1] == 1:
+        label_series = _column_as_series(df, candidate_columns[0])
+        numeric_series = cast("pd.Series", pd.to_numeric(label_series, errors="raise"))
+        return [int(value) for value in numeric_series.to_list()]
+
+    return matrix.argmax(axis=1).astype(int).tolist()
+
+
+def _resolve_sample_ids(files: list[Path]) -> list[str]:
+    return sorted(_normalise_sample_id(path.name) for path in files)
+
+
+def _normalise_sample_id(value: object) -> str:
+    text = str(value).strip()
+    return Path(text).stem
+
+
+def _column_as_series(df: pd.DataFrame, column_name: str) -> pd.Series:
+    column_data = df[column_name]
+    if isinstance(column_data, pd.DataFrame):
+        raise ValueError(
+            f"Column name {column_name!r} is duplicated in labels file; names must be unique."
+        )
+    return column_data
+
+
+def _align_labels_to_samples(
+    sample_ids: list[str],
+    raw_label_ids: pd.Series,
+    encoded_labels: list[int],
+) -> list[int]:
+    normalised_label_ids = [_normalise_sample_id(raw_id) for raw_id in raw_label_ids.tolist()]
+    duplicates = sorted(
+        [row_id for row_id, count in Counter(normalised_label_ids).items() if count > 1]
+    )
+    if duplicates:
+        preview = ", ".join(duplicates[:5])
+        raise ValueError(
+            f"Duplicate label IDs detected ({preview}{'...' if len(duplicates) > 5 else ''})."
+        )
+
+    label_by_id = {
+        row_id: int(label)
+        for row_id, label in zip(normalised_label_ids, encoded_labels, strict=False)
+    }
+    missing_ids = [sample_id for sample_id in sample_ids if sample_id not in label_by_id]
+    if missing_ids:
+        preview = ", ".join(missing_ids[:5])
+        raise ValueError(
+            "Missing labels for some sample IDs "
+            f"({preview}{'...' if len(missing_ids) > 5 else ''})."
+        )
+    return [label_by_id[sample_id] for sample_id in sample_ids]
 
 
 def _load_tabular_dir(path: Path) -> torch.Tensor:

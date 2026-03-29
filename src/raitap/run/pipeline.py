@@ -9,10 +9,15 @@ import torch
 
 from raitap.configs import resolve_run_dir
 from raitap.data import Data
-from raitap.metrics import Metrics, MetricsEvaluation, metrics_run_enabled
+from raitap.metrics import (
+    Metrics,
+    MetricsEvaluation,
+    metrics_prediction_pair,
+    metrics_run_enabled,
+    resolve_metric_targets,
+)
 from raitap.models import Model
 from raitap.run.forward_output import extract_primary_tensor
-from raitap.run.metrics_placeholder import metrics_prediction_pair
 from raitap.run.outputs import RunOutputs
 from raitap.tracking import BaseTracker
 from raitap.transparency.factory import Explanation
@@ -67,8 +72,8 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
             and forward_output.shape[1] >= 2
         ):
             config.metrics.num_classes = int(forward_output.shape[1])
-        preds, targs = metrics_prediction_pair(forward_output)
-        # No labels in DataConfig yet: placeholder pairing; configure metrics to match your task.
+        preds, _ = metrics_prediction_pair(forward_output)
+        targs = resolve_metric_targets(preds, getattr(data, "labels", None))
         metrics_eval = Metrics(config, preds, targs)
 
     explanations: list[ExplanationResult] = []

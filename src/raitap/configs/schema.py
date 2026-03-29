@@ -16,6 +16,14 @@ class DataConfig:
     description: str | None = None
     # Path to a local dir, or a named sample set (e.g. "imagenet_samples")
     source: str | None = None
+    # Optional path to a labels file (currently CSV/TSV/Parquet).
+    labels_source: str | None = None
+    # Optional sample-id column for filename alignment (e.g. "image").
+    labels_id_column: str | None = None
+    # Optional class-label column; when omitted, one-hot numeric columns are used via argmax.
+    labels_column: str | None = None
+    # Optional parsing strategy for labels: "index", "one_hot", or "argmax".
+    labels_encoding: str | None = None
 
 
 @dataclass
