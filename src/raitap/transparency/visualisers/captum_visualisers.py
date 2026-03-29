@@ -26,6 +26,24 @@ def _to_numpy(x: torch.Tensor | np.ndarray) -> np.ndarray:
     return np.asarray(val)
 
 
+def _resize_attr_to_hw(attr: np.ndarray, target_hw: tuple[int, int]) -> np.ndarray:
+    """Resize attribution map to target (H, W) while preserving channels-last shape."""
+    import torch
+    import torch.nn.functional as F
+
+    if attr.ndim == 2:
+        tensor = torch.from_numpy(attr).unsqueeze(0).unsqueeze(0).float()  # (1,1,H,W)
+        resized = F.interpolate(tensor, size=target_hw, mode="bilinear", align_corners=False)
+        return resized.squeeze(0).squeeze(0).cpu().numpy()
+
+    if attr.ndim == 3:
+        tensor = torch.from_numpy(np.transpose(attr, (2, 0, 1))).unsqueeze(0).float()  # (1,C,H,W)
+        resized = F.interpolate(tensor, size=target_hw, mode="bilinear", align_corners=False)
+        return np.transpose(resized.squeeze(0).cpu().numpy(), (1, 2, 0))
+
+    return attr
+
+
 class CaptumImageVisualiser(BaseVisualiser):
     """
     Visualise image attributions using ``captum.attr.visualization.visualize_image_attr``.
@@ -41,6 +59,7 @@ class CaptumImageVisualiser(BaseVisualiser):
         method: str = "blended_heat_map",
         sign: str = "all",
         show_colorbar: bool = True,
+        title: str | None = None,
     ):
         """
         Args:
@@ -52,10 +71,12 @@ class CaptumImageVisualiser(BaseVisualiser):
                           ``"all"``, ``"positive"``, ``"negative"``,
                           ``"absolute_value"``.  Default: ``"all"``.
             show_colorbar: Whether to add a colorbar.  Default: ``True``.
+            title:        Optional subplot title forwarded to Captum.
         """
         self.method = method
         self.sign = sign
         self.show_colorbar = show_colorbar
+        self.title = title
 
     def visualise(
         self,
@@ -115,6 +136,17 @@ class CaptumImageVisualiser(BaseVisualiser):
                 lo, hi = orig_i.min(), orig_i.max()
                 if hi > lo:
                     orig_i = (orig_i - lo) / (hi - lo)
+
+                # Layer methods (e.g., LayerGradCam) can yield low-res maps; masked modes need same HxW.
+                if self.method in {"masked_image", "alpha_scaling"}:
+                    attr_hw = attr_i.shape[:2]
+                    orig_hw = orig_i.shape[:2]
+                    if attr_hw != orig_hw:
+                        attr_i = _resize_attr_to_hw(attr_i, orig_hw)
+
+            viz_kwargs = dict(kwargs)
+            if self.title is not None and "title" not in viz_kwargs:
+                viz_kwargs["title"] = self.title
 
             # Let Captum render into our existing axes
             _, _ = viz.visualize_image_attr(

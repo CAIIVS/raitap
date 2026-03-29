@@ -56,6 +56,15 @@ class TestCaptumImageVisualiser:
         assert fig is not None
 
     @pytest.mark.usefixtures("needs_captum")
+    def test_masked_image_resizes_low_res_attributions(self) -> None:
+        visualiser = CaptumImageVisualiser(method="masked_image", sign="absolute_value")
+        attributions = torch.randn(1, 1, 12, 12)
+        inputs = torch.rand(1, 3, 450, 600)
+
+        fig = visualiser.visualise(attributions, inputs=inputs, max_samples=1)
+        assert fig is not None
+
+    @pytest.mark.usefixtures("needs_captum")
     def test_save(self, sample_images: torch.Tensor, tmp_path: Path) -> None:
         visualiser = CaptumImageVisualiser(method="heat_map")
         attributions = torch.randn_like(sample_images)
