@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 import shutil
 import tempfile
@@ -22,6 +23,34 @@ if TYPE_CHECKING:
 
 def _serialisable(value: Any) -> Any:
     return to_json_serialisable(value)
+
+
+def _batch_size(value: Any) -> int | None:
+    shape = getattr(value, "shape", None)
+    if shape is None:
+        return None
+    try:
+        if len(shape) == 0:
+            return None
+        return int(shape[0])
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalise_sample_names(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, (list, tuple)):
+        return [str(item) for item in value]
+    return [str(value)]
+
+
+def _sample_names_title(sample_names: list[str]) -> str:
+    first = sample_names[0]
+    remaining = len(sample_names) - 1
+    return first if remaining <= 0 else f"{first} (+{remaining})"
 
 
 def resolve_default_run_dir() -> Path:
@@ -86,7 +115,27 @@ class ExplanationResult:
             merged_call = {**configured.call_kwargs, **kwargs}
             attributions = merged_call.pop("attributions", self.attributions)
             inputs = merged_call.pop("inputs", self.inputs)
-            figure = vis.visualise(attributions, inputs=inputs, **merged_call)
+            show_sample_names = bool(merged_call.pop("show_sample_names", False))
+            sample_names_value = merged_call.pop("sample_names", self.kwargs.get("sample_names"))
+            sample_names = _normalise_sample_names(sample_names_value)
+
+            limit = _batch_size(attributions) or _batch_size(inputs)
+            if limit is not None:
+                sample_names = sample_names[:limit]
+
+            visualise_kwargs = dict(merged_call)
+            visualise_signature = inspect.signature(vis.visualise)
+            supports_sample_names = "sample_names" in visualise_signature.parameters
+            supports_show_sample_names = "show_sample_names" in visualise_signature.parameters
+            if supports_sample_names:
+                visualise_kwargs["sample_names"] = sample_names
+            if supports_show_sample_names:
+                visualise_kwargs["show_sample_names"] = show_sample_names
+
+            figure = vis.visualise(attributions, inputs=inputs, **visualise_kwargs)
+            if show_sample_names and sample_names and not supports_sample_names:
+                figure.suptitle(_sample_names_title(sample_names), fontsize=10)
+                figure.tight_layout()
             cls = type(vis)
             visualiser_name = f"{cls.__name__}_{index}"
             output_path = self.run_dir / f"{visualiser_name}.png"

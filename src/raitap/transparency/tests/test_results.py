@@ -198,3 +198,88 @@ def test_explanation_visualise_merges_inputs_and_attributions_from_kwargs(
     assert rec.last is not None
     _a, inp2, _e = rec.last
     assert inp2 is not None and torch.equal(inp2, override_inp)
+
+
+def test_explanation_visualise_adds_generic_sample_name_title_when_opted_in(tmp_path: Path) -> None:
+    class _RecordingVisualiser(BaseVisualiser):
+        def __init__(self) -> None:
+            self.last_kwargs: dict[str, Any] = {}
+
+        def visualise(
+            self,
+            attributions: torch.Tensor,
+            inputs: torch.Tensor | None = None,
+            **kw: Any,
+        ) -> Figure:
+            del attributions, inputs
+            self.last_kwargs = dict(kw)
+            fig, _ax = plt.subplots(figsize=(1, 1))
+            return fig
+
+    run_dir = tmp_path / "exp_generic_title"
+    rec = _RecordingVisualiser()
+    explanation = ExplanationResult(
+        attributions=torch.randn(2, 3, 4, 4),
+        inputs=torch.randn(2, 3, 4, 4),
+        run_dir=run_dir,
+        experiment_name="e",
+        explainer_target="t",
+        algorithm="a",
+        visualisers=[
+            ConfiguredVisualiser(
+                visualiser=rec,
+                call_kwargs={"show_sample_names": True},
+            )
+        ],
+        kwargs={"sample_names": ["ISIC_1", "ISIC_2"]},
+    )
+    explanation.write_artifacts()
+
+    [result] = explanation.visualise()
+
+    assert rec.last_kwargs == {}
+    assert result.figure.get_suptitle() == "ISIC_1 (+1)"
+
+
+def test_explanation_visualise_trims_sample_names_for_shorter_batch(tmp_path: Path) -> None:
+    class _SampleNameVisualiser(BaseVisualiser):
+        def __init__(self) -> None:
+            self.received_names: list[str] = []
+
+        def visualise(
+            self,
+            attributions: torch.Tensor,
+            inputs: torch.Tensor | None = None,
+            sample_names: list[str] | None = None,
+            show_sample_names: bool = False,
+            **kw: Any,
+        ) -> Figure:
+            del attributions, inputs, kw
+            self.received_names = [] if sample_names is None else list(sample_names)
+            fig, _ax = plt.subplots(figsize=(1, 1))
+            if show_sample_names and self.received_names:
+                fig.suptitle(self.received_names[0])
+            return fig
+
+    run_dir = tmp_path / "exp_trim_names"
+    vis = _SampleNameVisualiser()
+    explanation = ExplanationResult(
+        attributions=torch.randn(1, 3, 4, 4),
+        inputs=torch.randn(1, 3, 4, 4),
+        run_dir=run_dir,
+        experiment_name="e",
+        explainer_target="t",
+        algorithm="a",
+        visualisers=[
+            ConfiguredVisualiser(
+                visualiser=vis,
+                call_kwargs={"show_sample_names": True},
+            )
+        ],
+        kwargs={"sample_names": ["ISIC_1", "ISIC_2", "ISIC_3"]},
+    )
+    explanation.write_artifacts()
+
+    explanation.visualise()
+
+    assert vis.received_names == ["ISIC_1"]

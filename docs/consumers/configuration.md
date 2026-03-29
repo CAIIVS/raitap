@@ -43,6 +43,38 @@ Select built-in presets by name on the CLI.
 | `captum` | `CaptumExplainer` | `IntegratedGradients` | `CaptumImageVisualiser` |
 | `shap`   | `ShapExplainer`   | `GradientExplainer`   | `ShapImageVisualiser`   |
 
+### Optional: sample names in visualisations
+
+You can optionally show sample names in visual outputs via visualiser `call` arguments.
+
+- `show_sample_names` defaults to `false`
+- names come from loaded sample IDs (filename stem, extension removed)
+- if name count and batch size differ, names are trimmed to the plotted batch
+
+Example override on the CLI:
+
+```bash
+uv run raitap transparency=gradcam "transparency.captum_saliency.visualisers=[{_target_: CaptumImageVisualiser, call: {show_sample_names: true}}]"
+```
+
+Equivalent YAML style:
+
+```yaml
+transparency:
+  captum_saliency:
+    _target_: CaptumExplainer
+    algorithm: Saliency
+    visualisers:
+      - _target_: CaptumImageVisualiser
+        call:
+          show_sample_names: true
+```
+
+Notes:
+
+- Visualisers with native support (for example `CaptumImageVisualiser`) render per-sample titles.
+- Other visualisers fall back to a figure title using the first name (format: `first (+N)`).
+
 ## Custom model and data
 
 Override `model.source` and `data.source` directly:
@@ -54,7 +86,48 @@ uv run raitap model.source=models/resnet.pth data.source=data/my_dataset
 - `model.source` — local `.pth` file path or a built-in name (`resnet50`, `vit_b_32`)
 - `data.source` — local directory path or a named sample set
 
-## Overriding fields
+Optional label fields on `data` enable metric runs against ground truth:
+
+- `data.labels_source` — path/URL to CSV, TSV, or Parquet labels
+- `data.labels_id_column` — sample-id column for filename matching (e.g. `image`)
+- `data.labels_column` — direct class-index column (optional)
+- `data.labels_encoding` — parsing strategy: `index`, `one_hot`, `argmax`
+
+### Supported label data formats
+
+`data.labels_source` currently supports tabular files only:
+
+- `.csv`
+- `.tsv`
+- `.parquet`
+
+RAITAP accepts the following label layouts:
+
+1. Single class-index column
+   - Set `data.labels_column=<column_name>`
+   - Values must be numeric class indices (for example `0, 1, 2, ...`)
+2. One-hot or score matrix across multiple numeric columns
+   - Do not set `data.labels_column`
+   - RAITAP uses `argmax` across numeric label columns
+
+`data.labels_encoding` behavior:
+
+- `index`: expects a single numeric label column (or explicit `labels_column`)
+- `one_hot`: expects multiple numeric columns and resolves labels via `argmax`
+- `argmax`: resolves labels via `argmax` when multiple numeric columns are present
+
+Sample-to-label matching:
+
+- If `data.labels_id_column` is set (or auto-detected as one of `image`, `filename`, `file`, `id`, `name`), labels are matched to sample filenames by stem (extension ignored)
+- If no ID column is available, row-order matching is used and label count must equal sample count
+
+Fallback behavior (metrics still run, but against predictions):
+
+- Missing labels file rows for some samples
+- Duplicate IDs in the labels file
+- Label count mismatch between loaded samples and labels
+- Empty labels file
+
 
 Any config field can be overridden:
 

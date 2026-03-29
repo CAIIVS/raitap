@@ -72,8 +72,14 @@ class CaptumExplainer(BaseExplainer):
                 f"e.g. 'IntegratedGradients', 'Saliency', 'LayerGradCam'."
             ) from None
 
+        init_kwargs = dict(self.init_kwargs)
+        if self.algorithm == "LayerGradCam":
+            layer_path = init_kwargs.pop("layer_path", None)
+            if layer_path is not None and "layer" not in init_kwargs:
+                init_kwargs["layer"] = _resolve_layer(model, str(layer_path))
+
         # Instantiate method with model and constructor args
-        method = method_class(model, **self.init_kwargs)
+        method = method_class(model, **init_kwargs)
 
         # Compute attributions using unified Captum API
         # Only pass baselines if provided (some methods don't support it)
@@ -86,3 +92,13 @@ class CaptumExplainer(BaseExplainer):
 
         # Captum already returns torch.Tensor, so just return
         return attributions
+
+
+def _resolve_layer(model: nn.Module, layer_path: str) -> nn.Module:
+    layer: nn.Module = model
+    for part in layer_path.split("."):
+        try:
+            layer = getattr(layer, part)
+        except AttributeError as error:
+            raise ValueError(f"Could not resolve layer_path {layer_path!r} on model.") from error
+    return layer

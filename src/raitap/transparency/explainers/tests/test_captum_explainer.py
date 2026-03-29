@@ -67,3 +67,24 @@ class TestCaptumExplainer:
 
         assert "NonExistentMethod" in str(exc_info.value)
         assert "captum.attr" in str(exc_info.value)
+
+    @pytest.mark.usefixtures("needs_captum")
+    def test_layer_gradcam_with_layer_path(
+        self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor
+    ) -> None:
+        """LayerGradCam resolves layer_path to a module before Captum init."""
+        explainer = CaptumExplainer("LayerGradCam", layer_path="0")
+        attributions = explainer.compute_attributions(simple_cnn, sample_images, target=0)
+
+        assert isinstance(attributions, torch.Tensor)
+        assert attributions.shape[0] == sample_images.shape[0]
+
+    @pytest.mark.usefixtures("needs_captum")
+    def test_layer_gradcam_with_invalid_layer_path_raises(
+        self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor
+    ) -> None:
+        """Invalid layer_path gives a clear error before Captum init."""
+        explainer = CaptumExplainer("LayerGradCam", layer_path="does.not.exist")
+
+        with pytest.raises(ValueError, match="Could not resolve layer_path"):
+            explainer.compute_attributions(simple_cnn, sample_images, target=0)

@@ -6,8 +6,10 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
 import torch
+from PIL import Image
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -17,13 +19,29 @@ if TYPE_CHECKING:
 from raitap.data import Data
 
 
-def _make_config(source: str, name: str = "test_data") -> AppConfig:
+def _write_image(path: Path) -> None:
+    arr = np.zeros((8, 8, 3), dtype=np.uint8)
+    Image.fromarray(arr, "RGB").save(path)
+
+
+def _make_config(
+    source: str,
+    name: str = "test_data",
+    labels_source: str | None = None,
+    labels_id_column: str | None = None,
+    labels_column: str | None = None,
+    labels_encoding: str | None = None,
+) -> AppConfig:
     return cast(
         "AppConfig",
         SimpleNamespace(
             data=SimpleNamespace(
                 source=source,
                 name=name,
+                labels_source=labels_source,
+                labels_id_column=labels_id_column,
+                labels_column=labels_column,
+                labels_encoding=labels_encoding,
             )
         ),
     )
@@ -60,6 +78,115 @@ class TestDataConstructor:
         config = _make_config("/nonexistent/path/data.csv")
 
         with pytest.raises(ValueError, match="does not exist"):
+            Data(config)
+
+    def test_data_loads_filename_aligned_labels(self, tmp_path: Path) -> None:
+        data_dir = tmp_path / "images"
+        data_dir.mkdir()
+        _write_image(data_dir / "ISIC_0002.jpg")
+        _write_image(data_dir / "ISIC_0001.jpg")
+        labels_file = tmp_path / "labels.csv"
+        labels_file.write_text("image,MEL,NV\nISIC_0002,1,0\nISIC_0001,0,1\n")
+        config = _make_config(
+            str(data_dir),
+            labels_source=str(labels_file),
+            labels_id_column="image",
+        )
+
+        data = Data(config)
+
+        assert data.labels is not None
+        assert data.labels.tolist() == [1, 0]
+
+    def test_data_warns_and_uses_row_order_without_id_column(self, tmp_path: Path) -> None:
+        data_dir = tmp_path / "images"
+        data_dir.mkdir()
+        _write_image(data_dir / "ISIC_0001.jpg")
+        _write_image(data_dir / "ISIC_0002.jpg")
+        labels_file = tmp_path / "labels.csv"
+        labels_file.write_text("label\n1\n0")
+        config = _make_config(
+            str(data_dir),
+            labels_source=str(labels_file),
+            labels_column="label",
+        )
+
+        with pytest.warns(UserWarning, match="labels id column"):
+            data = Data(config)
+
+        assert data.labels is not None
+        assert data.labels.tolist() == [1, 0]
+
+    def test_data_warns_and_drops_labels_if_filenames_missing(self, tmp_path: Path) -> None:
+        data_dir = tmp_path / "images"
+        data_dir.mkdir()
+        _write_image(data_dir / "ISIC_0001.jpg")
+        _write_image(data_dir / "ISIC_0002.jpg")
+        labels_file = tmp_path / "labels.csv"
+        labels_file.write_text("image,label\nISIC_0001,0\n")
+        config = _make_config(
+            str(data_dir),
+            labels_source=str(labels_file),
+            labels_id_column="image",
+            labels_column="label",
+        )
+
+        with pytest.warns(UserWarning, match="Missing labels"):
+            data = Data(config)
+
+        assert data.labels is None
+
+    def test_data_aligns_ids_when_labels_include_extension(self, tmp_path: Path) -> None:
+        data_dir = tmp_path / "images"
+        data_dir.mkdir()
+        _write_image(data_dir / "ISIC_0001.jpg")
+        _write_image(data_dir / "ISIC_0002.jpg")
+        labels_file = tmp_path / "labels.csv"
+        labels_file.write_text("image,label\nISIC_0001.jpg,1\nISIC_0002.jpg,0\n")
+        config = _make_config(
+            str(data_dir),
+            labels_source=str(labels_file),
+            labels_id_column="image",
+            labels_column="label",
+            labels_encoding="index",
+        )
+
+        data = Data(config)
+
+        assert data.labels is not None
+        assert data.labels.tolist() == [1, 0]
+
+    def test_data_warns_and_drops_labels_for_duplicate_label_ids(self, tmp_path: Path) -> None:
+        data_dir = tmp_path / "images"
+        data_dir.mkdir()
+        _write_image(data_dir / "ISIC_0001.jpg")
+        labels_file = tmp_path / "labels.csv"
+        labels_file.write_text("image,label\nISIC_0001,1\nISIC_0001,0\n")
+        config = _make_config(
+            str(data_dir),
+            labels_source=str(labels_file),
+            labels_id_column="image",
+            labels_column="label",
+        )
+
+        with pytest.warns(UserWarning, match="Duplicate label IDs"):
+            data = Data(config)
+
+        assert data.labels is None
+
+    def test_data_raises_for_unsupported_labels_encoding(self, tmp_path: Path) -> None:
+        csv_file = tmp_path / "data.csv"
+        csv_file.write_text("a\n1\n2")
+        labels_file = tmp_path / "labels.csv"
+        labels_file.write_text("label\n0\n1")
+        config = _make_config(
+            str(csv_file),
+            labels_source=str(labels_file),
+            labels_column="label",
+            labels_encoding="ordinal",
+        )
+
+        with pytest.raises(ValueError, match="Unsupported labels_encoding"):
             Data(config)
 
 

@@ -26,6 +26,24 @@ def _to_numpy(x: torch.Tensor | np.ndarray) -> np.ndarray:
     return np.asarray(val)
 
 
+def _resize_attr_to_hw(attr: np.ndarray, target_hw: tuple[int, int]) -> np.ndarray:
+    """Resize attribution map to target (H, W) while preserving channels-last shape."""
+    import torch
+    import torch.nn.functional as f
+
+    if attr.ndim == 2:
+        tensor = torch.from_numpy(attr).unsqueeze(0).unsqueeze(0).float()  # (1,1,H,W)
+        resized = f.interpolate(tensor, size=target_hw, mode="bilinear", align_corners=False)
+        return resized.squeeze(0).squeeze(0).cpu().numpy()
+
+    if attr.ndim == 3:
+        tensor = torch.from_numpy(np.transpose(attr, (2, 0, 1))).unsqueeze(0).float()  # (1,C,H,W)
+        resized = f.interpolate(tensor, size=target_hw, mode="bilinear", align_corners=False)
+        return np.transpose(resized.squeeze(0).cpu().numpy(), (1, 2, 0))
+
+    return attr
+
+
 class CaptumImageVisualiser(BaseVisualiser):
     """
     Visualise image attributions using ``captum.attr.visualization.visualize_image_attr``.
@@ -41,6 +59,7 @@ class CaptumImageVisualiser(BaseVisualiser):
         method: str = "blended_heat_map",
         sign: str = "all",
         show_colorbar: bool = True,
+        title: str | None = None,
     ):
         """
         Args:
@@ -52,16 +71,20 @@ class CaptumImageVisualiser(BaseVisualiser):
                           ``"all"``, ``"positive"``, ``"negative"``,
                           ``"absolute_value"``.  Default: ``"all"``.
             show_colorbar: Whether to add a colorbar.  Default: ``True``.
+            title:        Optional subplot title forwarded to Captum.
         """
         self.method = method
         self.sign = sign
         self.show_colorbar = show_colorbar
+        self.title = title
 
     def visualise(
         self,
         attributions: torch.Tensor,
         inputs: torch.Tensor | None = None,
         max_samples: int = 8,
+        sample_names: list[str] | None = None,
+        show_sample_names: bool = False,
         **kwargs: Any,
     ) -> Figure:
         """
@@ -69,6 +92,8 @@ class CaptumImageVisualiser(BaseVisualiser):
             attributions: ``(B, C, H, W)`` or ``(B, H, W)`` tensor / array.
             inputs:       Original images ``(B, C, H, W)`` for overlay.
             max_samples:  Maximum number of samples to display (default: 8).
+            sample_names: Optional names per sample (already normalised to stem IDs).
+            show_sample_names: Whether to render sample names as subplot titles.
             **kwargs:     Forwarded to ``visualize_image_attr``.
 
         Returns:
@@ -96,6 +121,8 @@ class CaptumImageVisualiser(BaseVisualiser):
                 origs = origs[np.newaxis]
             origs = origs[:n]
 
+        names = [] if sample_names is None else [str(name) for name in sample_names[:n]]
+
         fig, axes = plt.subplots(1, n, figsize=(4 * n, 4))
         axes_list = [axes] if n == 1 else list(axes)
 
@@ -110,6 +137,18 @@ class CaptumImageVisualiser(BaseVisualiser):
                 if hi > lo:
                     orig_i = (orig_i - lo) / (hi - lo)
 
+                # Layer methods (e.g., LayerGradCam) can yield low-res maps;
+                # masked modes need same HxW.
+                if self.method in {"masked_image", "alpha_scaling"}:
+                    attr_hw = attr_i.shape[:2]
+                    orig_hw = orig_i.shape[:2]
+                    if attr_hw != orig_hw:
+                        attr_i = _resize_attr_to_hw(attr_i, orig_hw)
+
+            viz_kwargs = dict(kwargs)
+            if self.title is not None and "title" not in viz_kwargs:
+                viz_kwargs["title"] = self.title
+
             # Let Captum render into our existing axes
             _, _ = viz.visualize_image_attr(
                 attr_i,
@@ -119,8 +158,12 @@ class CaptumImageVisualiser(BaseVisualiser):
                 show_colorbar=self.show_colorbar,
                 plt_fig_axis=(fig, ax),
                 use_pyplot=False,
-                **kwargs,
+                **viz_kwargs,
             )
+            if show_sample_names and i < len(names):
+                base_title = ax.get_title().strip()
+                label = f"{base_title}: {names[i]}" if base_title else names[i]
+                ax.set_title(label, fontsize=9)
 
         fig.tight_layout()
         return fig

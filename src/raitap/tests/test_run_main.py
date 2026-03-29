@@ -16,8 +16,9 @@ if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
 
 from raitap import run as run_module
+from raitap.metrics import metrics_prediction_pair
 from raitap.run import __main__ as run_entry
-from raitap.run import extract_primary_tensor, metrics_prediction_pair
+from raitap.run import extract_primary_tensor
 from raitap.run import pipeline as run_pipeline
 from raitap.tracking import BaseTracker
 
@@ -342,3 +343,28 @@ def test_run_without_tracking_uses_provided_num_classes(monkeypatch: MonkeyPatch
     run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
     assert config.metrics.num_classes == 10
+
+
+def test_run_without_tracking_passes_sample_names_to_explanation(monkeypatch: MonkeyPatch) -> None:
+    model = SimpleNamespace(network=torch.nn.Identity())
+    data = SimpleNamespace(
+        tensor=torch.randn(2, 3),
+        sample_ids=["isic_1", "isic_2"],
+    )
+    explanation = _FakeExplainerResult("exp")
+    captured_kwargs: dict[str, object] = {}
+
+    def _fake_explanation(*_args: object, **kwargs: object) -> _FakeExplainerResult:
+        captured_kwargs.update(kwargs)
+        return explanation
+
+    config = SimpleNamespace(
+        transparency={"one": {}},
+        metrics=SimpleNamespace(num_classes=None),
+    )
+    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr(run_pipeline, "Explanation", _fake_explanation)
+
+    run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
+
+    assert captured_kwargs["sample_names"] == ["isic_1", "isic_2"]
