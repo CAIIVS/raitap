@@ -71,7 +71,7 @@ dev = [
 ]
 
 [project.scripts]
-raitap = "raitap.run:main"
+raitap = "raitap.run.__main__:main"
 
 [project.urls]
 Documentation = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform#readme"

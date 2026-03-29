@@ -13,6 +13,7 @@ from omegaconf import OmegaConf
 from raitap.transparency import ExplanationResult, VisualisationResult
 from raitap.transparency.explainers import CaptumExplainer, ShapExplainer
 from raitap.transparency.factory import Explanation
+from raitap.transparency.results import ConfiguredVisualiser
 from raitap.transparency.visualisers import CaptumImageVisualiser, TabularBarChartVisualiser
 
 if TYPE_CHECKING:
@@ -79,6 +80,7 @@ def _captum_config() -> AppConfig:
                     {
                         "_target_": "raitap.transparency.CaptumExplainer",
                         "algorithm": "IntegratedGradients",
+                        "call": {"target": 0},
                         "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
                     }
                 )
@@ -100,7 +102,7 @@ def test_end_to_end_captum_object_api(
         sample_images,
         run_dir=tmp_path / "transparency",
         target=0,
-        visualisers=[CaptumImageVisualiser()],
+        visualisers=[ConfiguredVisualiser(visualiser=CaptumImageVisualiser())],
     )
     visualisations = explanation.visualise()
 
@@ -111,7 +113,7 @@ def test_end_to_end_captum_object_api(
     assert explanation.run_dir == tmp_path / "transparency"
     assert (explanation.run_dir / "attributions.pt").exists()
     assert (explanation.run_dir / "metadata.json").exists()
-    assert visualisations[0].output_path == explanation.run_dir / "CaptumImageVisualiser.png"
+    assert visualisations[0].output_path == explanation.run_dir / "CaptumImageVisualiser_0.png"
     assert visualisations[0].output_path.exists()
 
 
@@ -129,7 +131,7 @@ def test_end_to_end_shap_object_api(
         run_dir=tmp_path / "transparency",
         background_data=sample_images[:2],
         target=0,
-        visualisers=[CaptumImageVisualiser()],
+        visualisers=[ConfiguredVisualiser(visualiser=CaptumImageVisualiser())],
     )
     visualisations = explanation.visualise()
 
@@ -155,7 +157,9 @@ def test_tabular_visualisation_object_api(
     )
 
     explanation.visualisers = [
-        TabularBarChartVisualiser(feature_names=[f"feature_{i}" for i in range(10)])
+        ConfiguredVisualiser(
+            visualiser=TabularBarChartVisualiser(feature_names=[f"feature_{i}" for i in range(10)])
+        )
     ]
     visualisations = explanation.visualise()
 
@@ -201,7 +205,7 @@ def test_explanation_log_only_uploads_explanation_artifacts(
         sample_images,
         run_dir=tmp_path / "transparency",
         target=0,
-        visualisers=[CaptumImageVisualiser()],
+        visualisers=[ConfiguredVisualiser(visualiser=CaptumImageVisualiser())],
     )
     _ = explanation.visualise()
 
@@ -227,7 +231,7 @@ def test_visualisation_log_uploads_only_visualisation_artifact(
         sample_images,
         run_dir=tmp_path / "transparency",
         target=0,
-        visualisers=[CaptumImageVisualiser()],
+        visualisers=[ConfiguredVisualiser(visualiser=CaptumImageVisualiser())],
     )
     visualisations = explanation.visualise()
 
@@ -237,5 +241,5 @@ def test_visualisation_log_uploads_only_visualisation_artifact(
     assert len(tracker.logged_directories) == 1
     logged_directory = tracker.logged_directories[0]
     assert logged_directory["artifact_path"] == "transparency"
-    assert logged_directory["files"] == ["CaptumImageVisualiser.png"]
+    assert logged_directory["files"] == ["CaptumImageVisualiser_0.png"]
     assert "metadata" not in logged_directory

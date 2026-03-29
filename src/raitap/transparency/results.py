@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import torch
 from hydra.core.hydra_config import HydraConfig
 
-from raitap.serialization import to_json_serialisable
+from raitap.utils.serialization import to_json_serialisable
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -31,6 +31,14 @@ def resolve_default_run_dir() -> Path:
         return Path.cwd() / "transparency"
 
 
+@dataclass(frozen=True)
+class ConfiguredVisualiser:
+    """Visualiser instance plus per-call kwargs for ``BaseVisualiser.visualise``."""
+
+    visualiser: BaseVisualiser
+    call_kwargs: dict[str, Any] = field(default_factory=dict)
+
+
 @dataclass
 class ExplanationResult:
     attributions: torch.Tensor
@@ -42,7 +50,7 @@ class ExplanationResult:
     explainer_name: str | None = None
     kwargs: dict[str, Any] = field(default_factory=dict)
     visualiser_targets: list[str] = field(default_factory=list)
-    visualisers: list[BaseVisualiser] = field(default_factory=list, repr=False)
+    visualisers: list[ConfiguredVisualiser] = field(default_factory=list, repr=False)
 
     def __post_init__(self) -> None:
         self.run_dir = Path(self.run_dir)
@@ -73,9 +81,14 @@ class ExplanationResult:
         results: list[VisualisationResult] = []
         new_targets: list[str] = []
 
-        for visualiser in self.visualisers:
-            figure = visualiser.visualise(self.attributions, inputs=self.inputs, **kwargs)
-            visualiser_name = type(visualiser).__name__
+        for index, configured in enumerate(self.visualisers):
+            vis = configured.visualiser
+            merged_call = {**configured.call_kwargs, **kwargs}
+            attributions = merged_call.pop("attributions", self.attributions)
+            inputs = merged_call.pop("inputs", self.inputs)
+            figure = vis.visualise(attributions, inputs=inputs, **merged_call)
+            cls = type(vis)
+            visualiser_name = f"{cls.__name__}_{index}"
             output_path = self.run_dir / f"{visualiser_name}.png"
             output_path.parent.mkdir(parents=True, exist_ok=True)
             try:
@@ -83,7 +96,7 @@ class ExplanationResult:
             finally:
                 plt.close(figure)
 
-            visualiser_target = f"{type(visualiser).__module__}.{visualiser_name}"
+            visualiser_target = f"{cls.__module__}.{visualiser_name}"
             if (
                 visualiser_target not in self.visualiser_targets
                 and visualiser_target not in new_targets

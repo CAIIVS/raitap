@@ -6,12 +6,10 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ..results import ExplanationResult, resolve_default_run_dir
+from ..results import ConfiguredVisualiser, ExplanationResult, resolve_default_run_dir
 
 if TYPE_CHECKING:
     import torch
-
-    from ..visualisers import BaseVisualiser
 
 
 class BaseExplainer(ABC):
@@ -31,10 +29,10 @@ class BaseExplainer(ABC):
         experiment_name: str | None = None,
         explainer_target: str | None = None,
         explainer_name: str | None = None,
-        visualisers: list[BaseVisualiser] | None = None,
+        visualisers: list[ConfiguredVisualiser] | None = None,
         **kwargs: Any,
     ) -> ExplanationResult:
-        visualisers_list: list[BaseVisualiser] = [] if visualisers is None else visualisers
+        visualisers_list: list[ConfiguredVisualiser] = [] if visualisers is None else visualisers
         attributions = self.compute_attributions(model, inputs, **kwargs)
         self.attributions = attributions
 

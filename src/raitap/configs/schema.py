@@ -24,8 +24,14 @@ class TransparencyConfig:
     # Overridden by the transparency config-group YAML (transparency=captum / shap).
     _target_: str = "CaptumExplainer"
     algorithm: str = "IntegratedGradients"
-    # Each item is a dict/DictConfig with a ``_target_`` key pointing to a
-    # BaseVisualiser subclass.  Additional keys are forwarded to the constructor.
+    # Constructor kwargs for the explainer / underlying library method (e.g. Captum
+    # ``IntegratedGradients(model, **kwargs)``, SHAP ``GradientExplainer(model, data, **kwargs)``).
+    constructor: dict[str, Any] = field(default_factory=dict)
+    # Per-call kwargs for ``compute_attributions`` (Captum ``.attribute()``,
+    # SHAP ``.shap_values()``).
+    call: dict[str, Any] = field(default_factory=dict)
+    # Each entry needs at least ``_target_``; ``constructor`` / ``call`` are optional
+    # (same split as explainer). Default is minimal: Captum explainer + image visualiser.
     visualisers: list[Any] = field(default_factory=lambda: [{"_target_": "CaptumImageVisualiser"}])
 
 
