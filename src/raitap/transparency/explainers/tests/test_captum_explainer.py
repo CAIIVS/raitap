@@ -88,3 +88,21 @@ class TestCaptumExplainer:
 
         with pytest.raises(ValueError, match="Could not resolve layer_path"):
             explainer.compute_attributions(simple_cnn, sample_images, target=0)
+
+    @pytest.mark.usefixtures("needs_captum")
+    def test_saliency_with_base_batching(
+        self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor
+    ) -> None:
+        """Mini-batching via BaseExplainer.explain works for Captum methods."""
+        explainer = CaptumExplainer("Saliency")
+
+        result = explainer.explain(
+            simple_cnn,
+            sample_images,
+            target=[0, 1, 2, 3],
+            batch_size=2,
+        )
+
+        assert isinstance(result.attributions, torch.Tensor)
+        assert result.attributions.shape == sample_images.shape
+
