@@ -115,6 +115,8 @@ transparency:
       show_progress: false
 ```
 
+> Note: `DeepExplainer` can fail on PyTorch models that use `SiLU` activations (for example EfficientNet variants) due to autograd/in-place limitations. In those cases, use `GradientExplainer`.
+
 ### Optional: sample names in visualisations
 
 You can optionally show sample names in visual outputs via visualiser `call` arguments.
