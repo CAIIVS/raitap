@@ -1,20 +1,18 @@
-# End-to-end SHAP test suite — resource-intensive, runs once per PR.
+# End-to-end SHAP test suite — resource-intensive, runs for active non-draft PRs.
 #
 # Trigger strategy
 # ----------------
-# • Automatic: fires once when a PR is opened or re-opened.
-#   Subsequent commits to the same PR do NOT re-trigger this workflow,
-#   which is the "run once per PR" behaviour.
+# • Automatic: fires when a PR is opened, re-opened, marked ready for review,
+#   or receives new commits.
+# • Draft PRs: the workflow may still be triggered by the PR event, but the job
+#   itself is skipped until the PR is no longer a draft.
 # • Manual:    use the "Run workflow" button in the Actions UI (workflow_dispatch)
-#   whenever you need to re-run after new commits.
-#
-# If your team wants to re-run on every PR commit instead, change the
-# pull_request types to:  [opened, synchronize, reopened]
+#   whenever you need to re-run on demand.
 name: E2E Tests (SHAP)
 
 on:
   pull_request:
-    types: [opened, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       reason:
@@ -31,6 +29,7 @@ concurrency:
 jobs:
   shap-e2e:
     name: "SHAP E2E (Python 3.13)"
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 30   # guard against runaway KernelExplainer calls
 
