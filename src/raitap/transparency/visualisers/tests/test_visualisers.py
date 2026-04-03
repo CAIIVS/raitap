@@ -29,6 +29,7 @@ class TestCaptumImageVisualiser:
     def test_initialization(self) -> None:
         visualiser = CaptumImageVisualiser()
         assert visualiser is not None
+        assert visualiser.include_original_image is True
 
     @pytest.mark.usefixtures("needs_captum")
     def test_visualise_tensor(self, sample_images: torch.Tensor) -> None:
@@ -54,6 +55,44 @@ class TestCaptumImageVisualiser:
 
         fig = visualiser.visualise(attributions, inputs=sample_images)
         assert fig is not None
+        titles = [ax.get_title() for ax in fig.axes[:2]]
+        assert titles == ["Original Image", "Blended Heat Map"]
+
+    @pytest.mark.usefixtures("needs_captum")
+    def test_original_and_attribution_panels_have_equal_size(
+        self, sample_images: torch.Tensor
+    ) -> None:
+        visualiser = CaptumImageVisualiser(method="heat_map", show_colorbar=True)
+        attributions = torch.randn_like(sample_images)
+
+        fig = visualiser.visualise(attributions, inputs=sample_images, max_samples=1)
+
+        original_pos = fig.axes[0].get_position()
+        attr_pos = fig.axes[1].get_position()
+        assert original_pos.width == pytest.approx(attr_pos.width, rel=1e-3)
+        assert original_pos.height == pytest.approx(attr_pos.height, rel=1e-3)
+
+    @pytest.mark.usefixtures("needs_captum")
+    def test_can_disable_original_image_panel(self, sample_images: torch.Tensor) -> None:
+        visualiser = CaptumImageVisualiser(method="heat_map", include_original_image=False)
+        attributions = torch.randn_like(sample_images)
+
+        fig = visualiser.visualise(attributions, inputs=sample_images, max_samples=2)
+
+        assert len(fig.axes) >= 2
+        assert fig.axes[0].get_title() == ""
+
+    @pytest.mark.usefixtures("needs_captum")
+    def test_original_image_method_avoids_duplicate_panels(
+        self, sample_images: torch.Tensor
+    ) -> None:
+        visualiser = CaptumImageVisualiser(method="original_image")
+        attributions = torch.randn_like(sample_images)
+
+        fig = visualiser.visualise(attributions, inputs=sample_images, max_samples=1)
+
+        assert len(fig.axes) == 2
+        assert fig.axes[0].get_title() == ""
 
     @pytest.mark.usefixtures("needs_captum")
     def test_masked_image_resizes_low_res_attributions(self) -> None:
@@ -80,13 +119,37 @@ class TestCaptumImageVisualiser:
 
         fig = visualiser.visualise(
             attributions,
-            max_samples=2,
+            inputs=sample_images,
+            max_samples=1,
             sample_names=["ISIC_0001", "ISIC_0002", "ISIC_0003"],
             show_sample_names=True,
         )
 
         titles = [ax.get_title() for ax in fig.axes[:2]]
-        assert titles == ["ISIC_0001", "ISIC_0002"]
+        assert titles == ["Original Image: ISIC_0001", "Heat Map: ISIC_0001"]
+
+    @pytest.mark.usefixtures("needs_captum")
+    def test_show_sample_names_sets_titles_for_each_sample_pair(
+        self, sample_images: torch.Tensor
+    ) -> None:
+        visualiser = CaptumImageVisualiser(method="heat_map")
+        attributions = torch.randn_like(sample_images)
+
+        fig = visualiser.visualise(
+            attributions,
+            inputs=sample_images,
+            max_samples=2,
+            sample_names=["ISIC_0001", "ISIC_0002", "ISIC_0003"],
+            show_sample_names=True,
+        )
+
+        titles = [ax.get_title() for ax in fig.axes if ax.get_title()]
+        assert titles == [
+            "Original Image: ISIC_0001",
+            "Heat Map: ISIC_0001",
+            "Original Image: ISIC_0002",
+            "Heat Map: ISIC_0002",
+        ]
 
     @pytest.mark.usefixtures("needs_captum")
     def test_sample_names_are_hidden_by_default(self, sample_images: torch.Tensor) -> None:
@@ -108,13 +171,15 @@ class TestCaptumImageVisualiser:
 
         fig = visualiser.visualise(
             attributions,
+            inputs=sample_images,
             max_samples=1,
             sample_names=["ISIC_1234"],
             show_sample_names=True,
             title="LayerGradCAM",
         )
 
-        assert fig.axes[0].get_title() == "LayerGradCAM: ISIC_1234"
+        titles = [ax.get_title() for ax in fig.axes[:2]]
+        assert titles == ["Original Image: ISIC_1234", "LayerGradCAM: ISIC_1234"]
 
 
 class TestTabularBarChartVisualiser:

@@ -44,6 +44,35 @@ def _resize_attr_to_hw(attr: np.ndarray, target_hw: tuple[int, int]) -> np.ndarr
     return attr
 
 
+def _normalise_image(image: np.ndarray) -> np.ndarray:
+    """Normalise an image array to the [0, 1] range when possible."""
+    lo, hi = image.min(), image.max()
+    if hi > lo:
+        return (image - lo) / (hi - lo)
+    return image
+
+
+def _method_label(method: str) -> str:
+    """Convert a Captum method key into a human-readable plot title."""
+    return method.replace("_", " ").title()
+
+
+def _compose_title(base_title: str | None, sample_name: str | None = None) -> str | None:
+    """Combine a base title and optional sample name."""
+    if base_title and sample_name:
+        return f"{base_title}: {sample_name}"
+    return base_title or sample_name
+
+
+def _last_mappable(ax: Any) -> Any:
+    """Return the last Matplotlib mappable drawn on an axis, if any."""
+    if getattr(ax, "images", None):
+        return ax.images[-1]
+    if getattr(ax, "collections", None):
+        return ax.collections[-1]
+    return None
+
+
 class CaptumImageVisualiser(BaseVisualiser):
     """
     Visualise image attributions using ``captum.attr.visualization.visualize_image_attr``.
@@ -60,6 +89,7 @@ class CaptumImageVisualiser(BaseVisualiser):
         sign: str = "all",
         show_colorbar: bool = True,
         title: str | None = None,
+        include_original_image: bool = True,
     ):
         """
         Args:
@@ -72,11 +102,15 @@ class CaptumImageVisualiser(BaseVisualiser):
                           ``"absolute_value"``.  Default: ``"all"``.
             show_colorbar: Whether to add a colorbar.  Default: ``True``.
             title:        Optional subplot title forwarded to Captum.
+            include_original_image: Whether to render the original image next to
+                          the attribution plot when ``inputs`` are provided.
+                          Default: ``True``.
         """
         self.method = method
         self.sign = sign
         self.show_colorbar = show_colorbar
         self.title = title
+        self.include_original_image = include_original_image
 
     def visualise(
         self,
@@ -123,19 +157,32 @@ class CaptumImageVisualiser(BaseVisualiser):
 
         names = [] if sample_names is None else [str(name) for name in sample_names[:n]]
 
-        fig, axes = plt.subplots(1, n, figsize=(4 * n, 4))
-        axes_list = [axes] if n == 1 else list(axes)
+        show_original_panel = (
+            self.include_original_image and origs is not None and self.method != "original_image"
+        )
 
-        for i, ax in enumerate(axes_list):
+        if show_original_panel and self.show_colorbar:
+            fig, axes = plt.subplots(
+                n,
+                3,
+                figsize=(8.5, 4 * n),
+                squeeze=False,
+                gridspec_kw={"width_ratios": [1, 1, 0.05]},
+            )
+        elif show_original_panel:
+            fig, axes = plt.subplots(n, 2, figsize=(8, 4 * n), squeeze=False)
+        else:
+            fig, axes = plt.subplots(1, n, figsize=(4 * n, 4))
+            axes = np.atleast_1d(axes)
+
+        for i in range(n):
             # (C, H, W) -> (H, W, C)
             attr_i = np.transpose(attrs[i], (1, 2, 0)) if attrs[i].ndim == 3 else attrs[i]
 
             orig_i = None
             if origs is not None:
                 orig_i = np.transpose(origs[i], (1, 2, 0)) if origs[i].ndim == 3 else origs[i]
-                lo, hi = orig_i.min(), orig_i.max()
-                if hi > lo:
-                    orig_i = (orig_i - lo) / (hi - lo)
+                orig_i = _normalise_image(orig_i)
 
                 # Layer methods (e.g., LayerGradCam) can yield low-res maps;
                 # masked modes need same HxW.
@@ -145,6 +192,52 @@ class CaptumImageVisualiser(BaseVisualiser):
                     if attr_hw != orig_hw:
                         attr_i = _resize_attr_to_hw(attr_i, orig_hw)
 
+            sample_name = names[i] if show_sample_names and i < len(names) else None
+
+            if show_original_panel:
+                colorbar_ax = None
+                if self.show_colorbar:
+                    original_ax, attr_ax, colorbar_ax = axes[i]
+                else:
+                    original_ax, attr_ax = axes[i]
+                original_title = _compose_title("Original Image", sample_name)
+                attr_title = _compose_title(
+                    str(kwargs.get("title") or self.title or _method_label(self.method)),
+                    sample_name,
+                )
+
+                _, _ = viz.visualize_image_attr(
+                    attr_i,
+                    orig_i,
+                    method="original_image",
+                    sign="all",
+                    show_colorbar=False,
+                    plt_fig_axis=(fig, original_ax),
+                    use_pyplot=False,
+                    title=original_title,
+                )
+
+                attr_viz_kwargs = dict(kwargs)
+                attr_viz_kwargs["title"] = attr_title
+                _, _ = viz.visualize_image_attr(
+                    attr_i,
+                    orig_i,
+                    method=self.method,
+                    sign=self.sign,
+                    show_colorbar=False,
+                    plt_fig_axis=(fig, attr_ax),
+                    use_pyplot=False,
+                    **attr_viz_kwargs,
+                )
+                if self.show_colorbar and colorbar_ax is not None:
+                    mappable = _last_mappable(attr_ax)
+                    if mappable is None:
+                        colorbar_ax.set_visible(False)
+                    else:
+                        fig.colorbar(mappable, cax=colorbar_ax)
+                continue
+
+            ax = axes[i]
             viz_kwargs = dict(kwargs)
             if self.title is not None and "title" not in viz_kwargs:
                 viz_kwargs["title"] = self.title
