@@ -117,11 +117,7 @@ def _resolve_call_data_sources(call_kwargs: dict[str, Any]) -> dict[str, Any]:
     """
     resolved: dict[str, Any] = {}
     for key, value in call_kwargs.items():
-        if (
-            isinstance(value, dict)
-            and set(value).issubset(_DATA_SOURCE_KEYS)
-            and "source" in value
-        ):
+        if isinstance(value, dict) and set(value).issubset(_DATA_SOURCE_KEYS) and "source" in value:
             source = value["source"]
             n_samples = value.get("n_samples")
             if n_samples is not None and not isinstance(n_samples, int):

@@ -8,17 +8,20 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, NotRequired, TypedDict, cast
 
 import pytest
+import torch
 from omegaconf import OmegaConf
 
 from raitap.transparency import ExplanationResult, VisualisationResult
 from raitap.transparency.explainers import CaptumExplainer, ShapExplainer
 from raitap.transparency.factory import Explanation
 from raitap.transparency.results import ConfiguredVisualiser
-from raitap.transparency.visualisers import CaptumImageVisualiser, TabularBarChartVisualiser
+from raitap.transparency.visualisers import (
+    CaptumImageVisualiser,
+    ShapImageVisualiser,
+    TabularBarChartVisualiser,
+)
 
 if TYPE_CHECKING:
-    import torch
-
     from raitap.configs.schema import AppConfig
 
 
@@ -72,19 +75,24 @@ class RecordingTracker:
 def _captum_config() -> AppConfig:
     return cast(
         "AppConfig",
-        SimpleNamespace(
-            experiment_name="test",
-            fallback_output_dir="unused",
-            transparency={
-                "test_explainer": OmegaConf.create(
-                    {
-                        "_target_": "raitap.transparency.CaptumExplainer",
-                        "algorithm": "IntegratedGradients",
-                        "call": {"target": 0},
-                        "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
-                    }
-                )
-            },
+        cast(
+            "object",
+            SimpleNamespace(
+                experiment_name="test",
+                fallback_output_dir="unused",
+                transparency={
+                    "test_explainer": OmegaConf.create(
+                        {
+                            "_target_": "raitap.transparency.CaptumExplainer",
+                            "algorithm": "IntegratedGradients",
+                            "call": {"target": 0},
+                            "visualisers": [
+                                {"_target_": "raitap.transparency.CaptumImageVisualiser"}
+                            ],
+                        }
+                    )
+                },
+            ),
         ),
     )
 
@@ -117,7 +125,8 @@ def test_end_to_end_captum_object_api(
     assert visualisations[0].output_path.exists()
 
 
-@pytest.mark.usefixtures("needs_shap", "needs_captum")
+@pytest.mark.e2e
+@pytest.mark.usefixtures("needs_shap")
 def test_end_to_end_shap_object_api(
     simple_cnn: torch.nn.Module,
     sample_images: torch.Tensor,
@@ -131,14 +140,30 @@ def test_end_to_end_shap_object_api(
         run_dir=tmp_path / "transparency",
         background_data=sample_images[:2],
         target=0,
-        visualisers=[ConfiguredVisualiser(visualiser=CaptumImageVisualiser())],
+        visualisers=[ConfiguredVisualiser(visualiser=ShapImageVisualiser())],
     )
     visualisations = explanation.visualise()
+    metadata = cast(
+        "dict[str, Any]",
+        json.loads((explanation.run_dir / "metadata.json").read_text(encoding="utf-8")),
+    )
+    saved_attributions = cast("torch.Tensor", torch.load(explanation.run_dir / "attributions.pt"))
 
     assert isinstance(explanation, ExplanationResult)
     assert len(visualisations) == 1
     assert isinstance(visualisations[0], VisualisationResult)
     assert explanation.attributions.shape == sample_images.shape
+    assert explanation.run_dir == tmp_path / "transparency"
+    assert (explanation.run_dir / "attributions.pt").exists()
+    assert (explanation.run_dir / "metadata.json").exists()
+    assert saved_attributions.shape == sample_images.shape
+    assert metadata["algorithm"] == "GradientExplainer"
+    assert str(metadata["target"]).endswith("ShapExplainer")
+    assert cast("dict[str, Any]", metadata["kwargs"])["target"] == 0
+    assert cast("list[str]", metadata["visualisers"]) == [
+        "raitap.transparency.visualisers.shap_visualisers.ShapImageVisualiser_0"
+    ]
+    assert visualisations[0].output_path == explanation.run_dir / "ShapImageVisualiser_0.png"
     assert visualisations[0].output_path.exists()
 
 
