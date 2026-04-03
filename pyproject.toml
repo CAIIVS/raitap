@@ -182,6 +182,9 @@ pythonpath = ["src"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+markers = [
+    "e2e: end-to-end tests that are resource-intensive; run once per PR, not on every commit",
+]
 addopts = [
     "-v",
     "--strict-markers",

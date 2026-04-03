@@ -1,0 +1,55 @@
+# End-to-end SHAP test suite — resource-intensive, runs once per PR.
+#
+# Trigger strategy
+# ----------------
+# • Automatic: fires once when a PR is opened or re-opened.
+#   Subsequent commits to the same PR do NOT re-trigger this workflow,
+#   which is the "run once per PR" behaviour.
+# • Manual:    use the "Run workflow" button in the Actions UI (workflow_dispatch)
+#   whenever you need to re-run after new commits.
+#
+# If your team wants to re-run on every PR commit instead, change the
+# pull_request types to:  [opened, synchronize, reopened]
+name: E2E Tests (SHAP)
+
+on:
+  pull_request:
+    types: [opened, reopened]
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why are you running the E2E suite manually?"
+        required: false
+        default: "manual re-run after new commits"
+
+concurrency:
+  # One run per PR at a time; do NOT cancel in-progress runs so a partial
+  # result is never silently discarded.
+  group: "e2e-${{ github.head_ref || github.ref_name }}"
+  cancel-in-progress: false
+
+jobs:
+  shap-e2e:
+    name: "SHAP E2E (Python 3.13)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30   # guard against runaway KernelExplainer calls
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python 3.13
+        run: uv python install 3.13
+
+      - name: Install dependencies (all extras)
+        run: uv sync --extra all
+
+      # Run only the e2e-marked tests; -x stops on the first failure so logs
+      # stay readable for slow jobs.
+      - name: Run SHAP E2E tests
+        run: uv run pytest -m e2e -x -v --tb=long
+

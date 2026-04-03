@@ -116,7 +116,7 @@ jobs:
             const response = await github.rest.checks.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              name: "Tests (unit & E2E)",
+              name: "Tests (unit & integration)",
               head_sha: context.sha,
               status: "in_progress",
               output: {
@@ -130,7 +130,7 @@ jobs:
         id: test_run
         if: steps.lint_ruff_check.outcome == 'success' && steps.lint_ruff_format.outcome == 'success' && steps.lint_pyright.outcome == 'success'
         continue-on-error: true
-        run: uv run pytest -v --cov=src/raitap --cov-report=term-missing --cov-report=html
+        run: uv run pytest -m "not e2e" -v --cov=src/raitap --cov-report=term-missing --cov-report=html
 
       - name: Complete test check
         if: always()
