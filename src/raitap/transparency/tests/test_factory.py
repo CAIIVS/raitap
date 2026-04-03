@@ -11,6 +11,7 @@ from omegaconf import OmegaConf
 from raitap.transparency import VisualiserIncompatibilityError
 from raitap.transparency.factory import (
     Explanation,
+    _resolve_call_data_sources,
     check_explainer_visualiser_compat,
     create_explainer,
     create_visualisers,
@@ -300,3 +301,125 @@ def test_create_visualisers_splits_constructor_and_call(monkeypatch: pytest.Monk
     assert captured_vis["sign"] == "positive"
     assert "call" not in captured_vis
     assert "constructor" not in captured_vis
+
+
+# ---------------------------------------------------------------------------
+# _resolve_call_data_sources
+# ---------------------------------------------------------------------------
+
+
+class TestResolveCallDataSources:
+    def test_passthrough_when_no_data_references(self) -> None:
+        kwargs = {"target": 0, "nsamples": 10}
+        assert _resolve_call_data_sources(kwargs) == kwargs
+
+    def test_passthrough_when_value_is_not_a_dict(self) -> None:
+        kwargs = {"background_data": None, "target": 1}
+        assert _resolve_call_data_sources(kwargs) == kwargs
+
+    def test_passthrough_dict_without_source_key(self) -> None:
+        kwargs = {"options": {"n_samples": 5}}
+        assert _resolve_call_data_sources(kwargs) == kwargs
+
+    def test_loads_tensor_from_source(self, tmp_path: Path) -> None:
+        import numpy as np
+        from PIL import Image
+
+        img_dir = tmp_path / "bg"
+        img_dir.mkdir()
+        for i in range(4):
+            arr = np.zeros((8, 8, 3), dtype=np.uint8)
+            Image.fromarray(arr, "RGB").save(img_dir / f"img{i}.png")
+
+        result = _resolve_call_data_sources({"background_data": {"source": str(img_dir)}})
+
+        assert isinstance(result["background_data"], torch.Tensor)
+        assert result["background_data"].shape == (4, 3, 8, 8)
+
+    def test_n_samples_subsamples(self, tmp_path: Path) -> None:
+        import numpy as np
+        from PIL import Image
+
+        img_dir = tmp_path / "bg"
+        img_dir.mkdir()
+        for i in range(10):
+            arr = np.zeros((8, 8, 3), dtype=np.uint8)
+            Image.fromarray(arr, "RGB").save(img_dir / f"img{i}.png")
+
+        result = _resolve_call_data_sources(
+            {"background_data": {"source": str(img_dir), "n_samples": 3}}
+        )
+
+        assert result["background_data"].shape[0] == 3
+
+    def test_invalid_n_samples_type_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(TypeError, match="n_samples must be an int"):
+            _resolve_call_data_sources(
+                {"background_data": {"source": str(tmp_path), "n_samples": "bad"}}
+            )
+
+    def test_non_data_source_dict_with_extra_keys_is_passed_through(self) -> None:
+        """A dict with keys beyond {source, n_samples} is not treated as a data source."""
+        value = {"source": "somewhere", "extra_key": True}
+        result = _resolve_call_data_sources({"some_kwarg": value})
+        assert result["some_kwarg"] is value
+
+    def test_explanation_injects_background_data_from_call(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        sample_images: torch.Tensor,
+    ) -> None:
+        """background_data under call: with source notation is resolved and forwarded."""
+
+        class RecordingExplainer:
+            algorithm = "GradientExplainer"
+
+            def __init__(self) -> None:
+                self.last_explain_kwargs: dict[str, Any] = {}
+
+            def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
+                self.last_explain_kwargs = dict(kwargs)
+                return MagicMock(spec=ExplanationResult)
+
+        import numpy as np
+        from PIL import Image
+
+        bg_dir = tmp_path / "bg"
+        bg_dir.mkdir()
+        for i in range(2):
+            arr = np.zeros((8, 8, 3), dtype=np.uint8)
+            Image.fromarray(arr, "RGB").save(bg_dir / f"bg{i}.png")
+
+        explainer = RecordingExplainer()
+        config = _make_config(
+            tmp_path,
+            OmegaConf.create(
+                {
+                    "_target_": "raitap.transparency.ShapExplainer",
+                    "algorithm": "GradientExplainer",
+                    "call": {
+                        "target": 0,
+                        "background_data": {"source": str(bg_dir)},
+                    },
+                    "visualisers": [],
+                }
+            ),
+        )
+
+        monkeypatch.setattr(
+            "raitap.transparency.factory.create_explainer",
+            lambda _cfg: (explainer, "raitap.transparency.ShapExplainer"),
+        )
+        monkeypatch.setattr(
+            "raitap.transparency.factory.create_visualisers",
+            lambda _cfg: [],
+        )
+
+        model = SimpleNamespace(network=torch.nn.Identity())
+        Explanation(config, "test_explainer", model=model, inputs=sample_images)  # type: ignore[arg-type]
+
+        assert "background_data" in explainer.last_explain_kwargs
+        bg_tensor = explainer.last_explain_kwargs["background_data"]
+        assert isinstance(bg_tensor, torch.Tensor)
+        assert bg_tensor.shape[0] == 2

@@ -189,6 +189,81 @@ class Data:
         tracker.log_dataset(self.describe())
 
 
+def load_tensor_from_source(source: str, n_samples: int | None = None) -> torch.Tensor:
+    """
+    Load a raw tensor from a named demo sample, URL, or local path.
+
+    This is the same loading logic used by :class:`Data`, but without label handling.
+    Useful for loading background data for SHAP explainers.
+
+    Args:
+        source: Named demo sample (e.g. ``"imagenet_samples"``), URL, or local path.
+        n_samples: If set, randomly subsample *n_samples* rows from the loaded tensor.
+            Useful for keeping background datasets small (e.g. for KernelExplainer).
+
+    Returns:
+        Raw tensor of shape ``(N, ...)`` where *N* is the number of samples.
+
+    Raises:
+        ValueError: If *source* cannot be resolved or the file type is not supported.
+        FileNotFoundError: If *source* is a local path that does not exist.
+    """
+    if source in SAMPLE_SOURCES:
+        tensor = _load_sample(source)
+    elif source.startswith(("http://", "https://")):
+        path = get_source_path(source)
+        tensor = _load_tensor_from_path(path)
+    else:
+        path = Path(source)
+        if not path.exists():
+            demo_samples = ", ".join(f'"{s}"' for s in SAMPLE_SOURCES)
+            raise ValueError(
+                f"Background data source {source!r} does not exist.\n"
+                f"Expected a URL, an existing local path, or a named demo sample.\n"
+                f"Known demo samples: {demo_samples}"
+            )
+        tensor = _load_tensor_from_path(path)
+
+    if n_samples is not None and tensor.shape[0] > n_samples:
+        indices = torch.randperm(tensor.shape[0])[:n_samples]
+        tensor = tensor[indices]
+
+    return tensor
+
+
+def _load_tensor_from_path(path: Path) -> torch.Tensor:
+    """Load a tensor from a single file or a directory (no sample IDs returned)."""
+    if path.is_dir():
+        all_files = list(path.iterdir())
+        image_files = [f for f in all_files if f.suffix.lower() in _IMAGE_EXTENSIONS]
+        tabular_files = [f for f in all_files if f.suffix.lower() in _TABULAR_EXTENSIONS]
+        if image_files and tabular_files:
+            raise ValueError(
+                f"Directory {path} contains both image and tabular files. "
+                "Separate them into different directories."
+            )
+        if image_files:
+            return _load_images(path)
+        if tabular_files:
+            return _load_tabular_dir(path)
+        raise FileNotFoundError(
+            f"No supported files found in {path}.\n"
+            f"Supported image formats: {_IMAGE_EXTENSIONS}\n"
+            f"Supported tabular formats: {_TABULAR_EXTENSIONS}"
+        )
+
+    suffix = path.suffix.lower()
+    if suffix in _IMAGE_EXTENSIONS:
+        return _load_images(path)
+    if suffix in _TABULAR_EXTENSIONS:
+        return _load_tabular(path)
+    raise ValueError(
+        f"Cannot infer data type from extension {suffix!r}.\n"
+        f"Supported image formats: {_IMAGE_EXTENSIONS}\n"
+        f"Supported tabular formats: {_TABULAR_EXTENSIONS}"
+    )
+
+
 def get_source_path(source: str) -> Path:
     """
     Obtain the local path to the specified source.

@@ -38,12 +38,51 @@ Select built-in presets by name on the CLI.
 
 ### `transparency`
 
-| Name     | Explainer         | Default algorithm     | Default visualiser      |
-| -------- | ----------------- | --------------------- | ----------------------- |
-| `captum` | `CaptumExplainer` | `IntegratedGradients` | `CaptumImageVisualiser` |
-| `shap`   | `ShapExplainer`   | `GradientExplainer`   | `ShapImageVisualiser`   |
+| Name             | Explainer         | Default algorithm     | Default visualiser      |
+| ---------------- | ----------------- | --------------------- | ----------------------- |
+| `captum`         | `CaptumExplainer` | `IntegratedGradients` | `CaptumImageVisualiser` |
+| `shap`           | `ShapExplainer`   | `GradientExplainer`   | `ShapImageVisualiser`   |
+| `shap_gradient`  | `ShapExplainer`   | `GradientExplainer`   | `ShapImageVisualiser`   |
+| `shap_deep`      | `ShapExplainer`   | `DeepExplainer`       | `ShapImageVisualiser`   |
 
 > Note: `DeepExplainer` can fail on PyTorch models that use `SiLU` activations (for example EfficientNet variants) due to autograd/in-place limitations. In those cases, use `GradientExplainer`.
+
+### SHAP background data
+
+SHAP explainers (`GradientExplainer`, `DeepExplainer`, `KernelExplainer`) require a **background dataset** to compute attributions.  It represents the baseline distribution the model is explained against.
+
+Without a background dataset, RAITAP falls back to using the **input batch itself** as background and logs a warning.  Results are less meaningful the smaller the input batch is.
+
+To provide a dedicated background dataset, set `background_data` inside the explainer's `call:` block to a dict with a `source` key.  The value is loaded as a raw tensor at runtime — the same loading logic used for `data.source`.
+
+```yaml
+transparency:
+  shap_gradient:
+    _target_: ShapExplainer
+    algorithm: GradientExplainer
+    call:
+      target: 0
+      background_data:
+        source: data/background_images   # local path, URL, or named demo sample
+        n_samples: 50                    # optional: randomly subsample N rows
+```
+
+Equivalent CLI override:
+
+```bash
+uv run raitap transparency=shap_gradient \
+  "transparency.shap_gradient.call.background_data={source: data/background_images, n_samples: 50}"
+```
+
+**`source`** (required) accepts the same values as `data.source`:
+
+- a named demo sample (e.g. `imagenet_samples`)
+- a URL to a downloadable file
+- a local file or directory path
+
+**`n_samples`** (optional) randomly subsamples the loaded tensor to at most N rows.  Keeping the background small (50–200 samples) is recommended for `KernelExplainer` and speeds up `GradientExplainer` and `DeepExplainer`.
+
+> Any `call:` parameter whose value is a dict containing only `source` (and optionally `n_samples`) is automatically resolved to a tensor.  This mechanism is not SHAP-specific and can be used for other tensor-typed explainer parameters.
 
 ### Optional: sample names in visualisations
 

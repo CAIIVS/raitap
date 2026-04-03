@@ -37,6 +37,13 @@ class TransparencyConfig:
     constructor: dict[str, Any] = field(default_factory=dict)
     # Per-call kwargs for ``compute_attributions`` (Captum ``.attribute()``,
     # SHAP ``.shap_values()``).
+    # Any value that is a dict with a ``source`` key is treated as a data-source reference
+    # and loaded as a tensor at runtime.  Example for SHAP background data::
+    #
+    #   call:
+    #     background_data:
+    #       source: "imagenet_samples"
+    #       n_samples: 50
     call: dict[str, Any] = field(default_factory=dict)
     # Each entry needs at least ``_target_``; ``constructor`` / ``call`` are optional
     # (same split as explainer). Default is minimal: Captum explainer + image visualiser.

@@ -3,10 +3,12 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, cast
 
+import torch
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 
 from raitap.configs import cfg_to_dict, resolve_run_dir, resolve_target
+from raitap.data import load_tensor_from_source
 
 from .results import ConfiguredVisualiser
 from .visualisers import VisualiserIncompatibilityError
@@ -28,6 +30,10 @@ _EXPLAINER_TOP_LEVEL_KEYS = frozenset(
 )
 
 _VISUALISER_ENTRY_KEYS = frozenset({"_target_", "constructor", "call"})
+
+# Keys that identify a dict value in ``call:`` as a data-source reference.
+# A value matches when it is a plain dict containing at least ``source``.
+_DATA_SOURCE_KEYS = frozenset({"source", "n_samples"})
 
 
 def _raw_transparency_config(explainer_config: Any) -> dict[str, Any]:
@@ -91,6 +97,49 @@ def _validate_visualiser_entry_keys(entry: dict[str, Any], *, target_hint: str) 
         )
 
 
+def _resolve_call_data_sources(call_kwargs: dict[str, Any]) -> dict[str, Any]:
+    """
+    Resolve any data-source references inside ``call:`` kwargs.
+
+    A value is treated as a data-source reference when it is a plain ``dict``
+    whose keys are a subset of ``{"source", "n_samples"}`` and ``"source"`` is
+    present.  Such values are replaced with the loaded tensor so the downstream
+    explainer receives a ``torch.Tensor`` instead of a raw config dict.
+
+    Example YAML under ``call:``::
+
+        background_data:
+          source: "imagenet_samples"   # required: named sample, URL, or local path
+          n_samples: 50                # optional: randomly subsample N rows
+
+    This is a generic mechanism — any ``call:`` parameter whose value matches
+    the pattern above will be resolved, regardless of explainer type.
+    """
+    resolved: dict[str, Any] = {}
+    for key, value in call_kwargs.items():
+        if (
+            isinstance(value, dict)
+            and set(value).issubset(_DATA_SOURCE_KEYS)
+            and "source" in value
+        ):
+            source = value["source"]
+            n_samples = value.get("n_samples")
+            if n_samples is not None and not isinstance(n_samples, int):
+                raise TypeError(
+                    f"call.{key}.n_samples must be an int, got {type(n_samples).__name__}."
+                )
+            logger.info(
+                "Resolving call kwarg %r as data source %r (n_samples=%s)",
+                key,
+                source,
+                n_samples,
+            )
+            resolved[key] = load_tensor_from_source(str(source), n_samples=n_samples)
+        else:
+            resolved[key] = value
+    return resolved
+
+
 class Explanation:
     def __new__(
         cls,
@@ -108,7 +157,7 @@ class Explanation:
         check_explainer_visualiser_compat(explainer_target, algorithm, visualisers)
 
         call_from_config = _transparency_subdict(raw_transparency_config.get("call"), label="call")
-        merged_kwargs = {**call_from_config, **kwargs}
+        merged_kwargs = _resolve_call_data_sources({**call_from_config, **kwargs})
 
         return explainer.explain(
             model.network,

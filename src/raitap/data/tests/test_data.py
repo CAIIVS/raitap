@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
 
 from raitap.data import Data, get_source_path
-from raitap.data.data import _load_images, _load_tabular, _load_tabular_dir
+from raitap.data.data import _load_images, _load_tabular, _load_tabular_dir, load_tensor_from_source
 from raitap.data.samples import SAMPLE_SOURCES, _load_sample, _resolve_sample
 
 # ---------------------------------------------------------------------------
@@ -462,3 +462,71 @@ class TestSampleSources:
     def test_load_sample_unknown_raises(self) -> None:
         with pytest.raises(ValueError, match="not a known demo sample"):
             _load_sample("nonexistent_dataset")
+
+
+# ---------------------------------------------------------------------------
+# load_tensor_from_source
+# ---------------------------------------------------------------------------
+
+
+class TestLoadTensorFromSource:
+    def test_loads_from_local_image_dir(self, tmp_path: Path) -> None:
+        img_dir = tmp_path / "images"
+        img_dir.mkdir()
+        for i in range(3):
+            _write_image(img_dir / f"img{i}.png", width=8, height=8)
+
+        tensor = load_tensor_from_source(str(img_dir))
+
+        assert isinstance(tensor, torch.Tensor)
+        assert tensor.shape == (3, 3, 8, 8)
+        assert tensor.dtype == torch.float32
+
+    def test_loads_from_local_csv_file(self, tmp_path: Path) -> None:
+        csv_file = tmp_path / "data.csv"
+        _write_csv(csv_file, rows=5, cols=4)
+
+        tensor = load_tensor_from_source(str(csv_file))
+
+        assert isinstance(tensor, torch.Tensor)
+        assert tensor.shape == (5, 4)
+
+    def test_n_samples_subsamples_rows(self, tmp_path: Path) -> None:
+        csv_file = tmp_path / "data.csv"
+        _write_csv(csv_file, rows=20, cols=3)
+
+        tensor = load_tensor_from_source(str(csv_file), n_samples=5)
+
+        assert tensor.shape[0] == 5
+
+    def test_n_samples_noop_when_smaller_than_dataset(self, tmp_path: Path) -> None:
+        csv_file = tmp_path / "data.csv"
+        _write_csv(csv_file, rows=4, cols=3)
+
+        tensor = load_tensor_from_source(str(csv_file), n_samples=100)
+
+        assert tensor.shape[0] == 4
+
+    def test_nonexistent_path_raises_value_error(self) -> None:
+        with pytest.raises(ValueError, match="does not exist"):
+            load_tensor_from_source("/nonexistent/path/data.csv")
+
+    def test_unsupported_extension_raises_value_error(self, tmp_path: Path) -> None:
+        f = tmp_path / "data.txt"
+        f.write_text("hello")
+        with pytest.raises(ValueError, match="Cannot infer data type"):
+            load_tensor_from_source(str(f))
+
+    def test_named_demo_sample(self, tmp_path: Path) -> None:
+        name = next(iter(SAMPLE_SOURCES))
+        cache_dir = tmp_path / name
+        cache_dir.mkdir(parents=True)
+        for _, filename in SAMPLE_SOURCES[name]:
+            _write_image(cache_dir / filename, 16, 16)
+
+        with patch("raitap.data.samples._CACHE_DIR", tmp_path):
+            tensor = load_tensor_from_source(name)
+
+        assert isinstance(tensor, torch.Tensor)
+        assert tensor.ndim == 4  # (N, C, H, W)
+
