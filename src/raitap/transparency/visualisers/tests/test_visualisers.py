@@ -181,6 +181,23 @@ class TestCaptumImageVisualiser:
         titles = [ax.get_title() for ax in fig.axes[:2]]
         assert titles == ["Original Image: ISIC_1234", "LayerGradCAM: ISIC_1234"]
 
+    @pytest.mark.usefixtures("needs_captum")
+    def test_explicit_empty_title_is_preserved_in_paired_layout(
+        self, sample_images: torch.Tensor
+    ) -> None:
+        visualiser = CaptumImageVisualiser(method="heat_map")
+        attributions = torch.randn_like(sample_images)
+
+        fig = visualiser.visualise(
+            attributions,
+            inputs=sample_images,
+            max_samples=1,
+            title="",
+        )
+
+        titles = [ax.get_title() for ax in fig.axes[:2]]
+        assert titles == ["Original Image", ""]
+
 
 class TestTabularBarChartVisualiser:
     """Test tabular visualiser"""

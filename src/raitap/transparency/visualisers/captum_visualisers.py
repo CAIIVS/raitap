@@ -64,6 +64,14 @@ def _compose_title(base_title: str | None, sample_name: str | None = None) -> st
     return base_title or sample_name
 
 
+def _resolve_title(
+    *, explicit_title: str | None, fallback_title: str | None, sample_name: str | None = None
+) -> str | None:
+    """Resolve titles while preserving an explicitly provided empty string."""
+    base_title = explicit_title if explicit_title is not None else fallback_title
+    return _compose_title(base_title, sample_name)
+
+
 def _last_mappable(ax: Any) -> Any:
     """Return the last Matplotlib mappable drawn on an axis, if any."""
     if getattr(ax, "images", None):
@@ -201,9 +209,11 @@ class CaptumImageVisualiser(BaseVisualiser):
                 else:
                     original_ax, attr_ax = axes[i]
                 original_title = _compose_title("Original Image", sample_name)
-                attr_title = _compose_title(
-                    str(kwargs.get("title") or self.title or _method_label(self.method)),
-                    sample_name,
+                explicit_title = kwargs.get("title")
+                attr_title = _resolve_title(
+                    explicit_title=explicit_title,
+                    fallback_title=self.title or _method_label(self.method),
+                    sample_name=sample_name,
                 )
 
                 _, _ = viz.visualize_image_attr(
