@@ -205,7 +205,8 @@ def load_tensor_from_source(source: str, n_samples: int | None = None) -> torch.
         Raw tensor of shape ``(N, ...)`` where *N* is the number of samples.
 
     Raises:
-        ValueError: If *source* cannot be resolved, does not exist, or the file type is not supported.
+        ValueError: If *source* cannot be resolved, does not exist,
+            or the file type is not supported.
     """
     if source in SAMPLE_SOURCES:
         tensor = _load_sample(source)

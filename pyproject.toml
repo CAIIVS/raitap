@@ -162,6 +162,10 @@ exclude = [
     "**/node_modules",
     "**/build",
     "**/dist",
+    "assets",
+    "usecases",
+    "outputs",
+    "mlartifacts",
 ]
 pythonVersion = "3.13"
 typeCheckingMode = "standard"
