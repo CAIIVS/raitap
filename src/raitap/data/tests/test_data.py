@@ -529,4 +529,3 @@ class TestLoadTensorFromSource:
 
         assert isinstance(tensor, torch.Tensor)
         assert tensor.ndim == 4  # (N, C, H, W)
-

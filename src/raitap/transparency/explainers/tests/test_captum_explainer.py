@@ -105,4 +105,3 @@ class TestCaptumExplainer:
 
         assert isinstance(result.attributions, torch.Tensor)
         assert result.attributions.shape == sample_images.shape
-
