@@ -55,6 +55,25 @@ def _load_saved_attributions(run_dir: Path) -> torch.Tensor:
     return cast("torch.Tensor", torch.load(run_dir / "attributions.pt"))
 
 
+def _assert_metadata_invariants(
+    metadata: dict[str, object],
+    *,
+    algorithm: str,
+    experiment_name: str | None,
+    has_visualisers: bool,
+) -> None:
+    assert set(metadata) == {"experiment_name", "target", "algorithm", "visualisers", "kwargs"}
+    assert metadata["experiment_name"] == experiment_name
+    assert metadata["algorithm"] == algorithm
+    assert str(metadata["target"]).endswith("ShapExplainer")
+    assert isinstance(metadata["kwargs"], dict)
+    assert isinstance(metadata["visualisers"], list)
+    if has_visualisers:
+        assert len(cast("list[str]", metadata["visualisers"])) >= 1
+    else:
+        assert metadata["visualisers"] == []
+
+
 # ---------------------------------------------------------------------------
 # DeepExplainer — PyTorch-native, moderate cost
 # ---------------------------------------------------------------------------
@@ -81,6 +100,7 @@ def test_deep_explainer_image_pipeline(
         target=0,
         visualisers=[ConfiguredVisualiser(visualiser=ShapImageVisualiser())],
     )
+    metadata_before_visualise = _read_metadata(explanation.run_dir)
     visualisations = explanation.visualise()
     metadata = _read_metadata(explanation.run_dir)
     saved_attributions = _load_saved_attributions(explanation.run_dir)
@@ -91,10 +111,19 @@ def test_deep_explainer_image_pipeline(
     assert (explanation.run_dir / "attributions.pt").exists()
     assert (explanation.run_dir / "metadata.json").exists()
     assert torch.equal(saved_attributions, explanation.attributions)
-    assert metadata["algorithm"] == "DeepExplainer"
-    assert str(metadata["target"]).endswith("ShapExplainer")
+    _assert_metadata_invariants(
+        metadata_before_visualise,
+        algorithm="DeepExplainer",
+        experiment_name=None,
+        has_visualisers=False,
+    )
+    _assert_metadata_invariants(
+        metadata,
+        algorithm="DeepExplainer",
+        experiment_name=None,
+        has_visualisers=True,
+    )
     assert cast("dict[str, object]", metadata["kwargs"])["target"] == 0
-    assert len(cast("list[str]", metadata["visualisers"])) == 1
     assert cast("list[str]", metadata["visualisers"])[0].endswith("ShapImageVisualiser_0")
     assert len(visualisations) == 1
     assert visualisations[0].output_path == explanation.run_dir / "ShapImageVisualiser_0.png"
@@ -159,6 +188,7 @@ def test_gradient_explainer_per_sample_list_targets_beeswarm(
             )
         ],
     )
+    metadata_before_visualise = _read_metadata(explanation.run_dir)
     visualisations = explanation.visualise()
     metadata = _read_metadata(explanation.run_dir)
     saved_attributions = _load_saved_attributions(explanation.run_dir)
@@ -166,7 +196,18 @@ def test_gradient_explainer_per_sample_list_targets_beeswarm(
     assert isinstance(explanation, ExplanationResult)
     assert explanation.attributions.shape == sample_tabular.shape
     assert torch.equal(saved_attributions, explanation.attributions)
-    assert metadata["algorithm"] == "GradientExplainer"
+    _assert_metadata_invariants(
+        metadata_before_visualise,
+        algorithm="GradientExplainer",
+        experiment_name=None,
+        has_visualisers=False,
+    )
+    _assert_metadata_invariants(
+        metadata,
+        algorithm="GradientExplainer",
+        experiment_name=None,
+        has_visualisers=True,
+    )
     assert cast("dict[str, object]", metadata["kwargs"])["target"] == targets
     assert cast("list[str]", metadata["visualisers"])[0].endswith("ShapBeeswarmVisualiser_0")
     assert len(visualisations) == 1
@@ -225,11 +266,23 @@ def test_gradient_explainer_waterfall_visualiser(
             )
         ],
     )
+    metadata_before_visualise = _read_metadata(explanation.run_dir)
     visualisations = explanation.visualise()
     metadata = _read_metadata(explanation.run_dir)
 
     assert len(visualisations) == 1
-    assert metadata["algorithm"] == "GradientExplainer"
+    _assert_metadata_invariants(
+        metadata_before_visualise,
+        algorithm="GradientExplainer",
+        experiment_name=None,
+        has_visualisers=False,
+    )
+    _assert_metadata_invariants(
+        metadata,
+        algorithm="GradientExplainer",
+        experiment_name=None,
+        has_visualisers=True,
+    )
     assert cast("dict[str, object]", metadata["kwargs"])["target"] == 0
     assert cast("list[str]", metadata["visualisers"])[0].endswith("ShapWaterfallVisualiser_0")
     assert visualisations[0].output_path == explanation.run_dir / "ShapWaterfallVisualiser_0.png"
@@ -267,11 +320,23 @@ def test_gradient_explainer_bar_visualiser_with_inputs(
             )
         ],
     )
+    metadata_before_visualise = _read_metadata(explanation.run_dir)
     visualisations = explanation.visualise()
     metadata = _read_metadata(explanation.run_dir)
 
     assert len(visualisations) == 1
-    assert metadata["algorithm"] == "GradientExplainer"
+    _assert_metadata_invariants(
+        metadata_before_visualise,
+        algorithm="GradientExplainer",
+        experiment_name=None,
+        has_visualisers=False,
+    )
+    _assert_metadata_invariants(
+        metadata,
+        algorithm="GradientExplainer",
+        experiment_name=None,
+        has_visualisers=True,
+    )
     assert cast("dict[str, object]", metadata["kwargs"])["target"] == 0
     assert cast("list[str]", metadata["visualisers"])[0].endswith("ShapBarVisualiser_0")
     assert visualisations[0].output_path == explanation.run_dir / "ShapBarVisualiser_0.png"
@@ -328,15 +393,25 @@ def test_explanation_factory_shap_gradient_full_pipeline(
     assert (explanation.run_dir / "attributions.pt").exists()
     assert (explanation.run_dir / "metadata.json").exists()
     saved_attributions = _load_saved_attributions(explanation.run_dir)
-    metadata = _read_metadata(explanation.run_dir)
+    metadata_before_visualise = _read_metadata(explanation.run_dir)
     assert torch.equal(saved_attributions, explanation.attributions)
-    assert metadata["algorithm"] == "GradientExplainer"
-    assert str(metadata["target"]).endswith("ShapExplainer")
-    assert cast("dict[str, object]", metadata["kwargs"])["target"] == 0
+    _assert_metadata_invariants(
+        metadata_before_visualise,
+        algorithm="GradientExplainer",
+        experiment_name="test_shap_e2e",
+        has_visualisers=False,
+    )
+    assert cast("dict[str, object]", metadata_before_visualise["kwargs"])["target"] == 0
 
     visualisations = explanation.visualise()
     assert len(visualisations) == 1
     metadata = _read_metadata(explanation.run_dir)
+    _assert_metadata_invariants(
+        metadata,
+        algorithm="GradientExplainer",
+        experiment_name="test_shap_e2e",
+        has_visualisers=True,
+    )
     assert cast("list[str]", metadata["visualisers"])[0].endswith("ShapImageVisualiser_0")
     assert visualisations[0].output_path == explanation.run_dir / "ShapImageVisualiser_0.png"
     assert visualisations[0].output_path.exists()

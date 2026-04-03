@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import MagicMock
@@ -19,9 +20,16 @@ from raitap.transparency.factory import (
 from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from raitap.configs.schema import AppConfig
+
+
+def _load_transparency_preset(name: str) -> Any:
+    configs_dir = Path(__file__).resolve().parents[2] / "configs" / "transparency"
+    preset = cast(
+        "dict[str, Any]",
+        OmegaConf.to_container(OmegaConf.load(configs_dir / f"{name}.yaml")),
+    )
+    return preset[name]
 
 
 def _make_config(tmp_path: Path, transparency_config: Any) -> AppConfig:
@@ -191,6 +199,23 @@ def test_create_explainer_forwards_constructor_to_instantiate(
     assert "target" not in captured_cfg
 
 
+def test_create_explainer_and_visualisers_from_real_shap_preset() -> None:
+    config = _load_transparency_preset("shap_gradient")
+
+    explainer, resolved_target = create_explainer(config)
+    visualisers = create_visualisers(config)
+
+    assert type(explainer).__name__ == "ShapExplainer"
+    assert cast("Any", explainer).algorithm == "GradientExplainer"
+    assert resolved_target == "raitap.transparency.ShapExplainer"
+    assert len(visualisers) == 1
+    assert type(visualisers[0].visualiser).__name__ == "ShapImageVisualiser"
+    assert visualisers[0].call_kwargs == {}
+    assert visualisers[0].visualiser.compatible_algorithms == frozenset(
+        {"GradientExplainer", "DeepExplainer"}
+    )
+
+
 def test_explanation_merges_call_before_run_kwargs(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -244,6 +269,65 @@ def test_explanation_merges_call_before_run_kwargs(
 
     assert explainer.last_explain_kwargs["target"] == 7
     assert explainer.last_explain_kwargs["baselines"] == "from_yaml"
+
+
+def test_explanation_uses_real_shap_preset_defaults_and_runtime_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sample_images: torch.Tensor,
+) -> None:
+    class RecordingExplainer:
+        algorithm = "GradientExplainer"
+
+        def __init__(self) -> None:
+            self.last_explain_kwargs: dict[str, Any] = {}
+
+        def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
+            self.last_explain_kwargs = dict(kwargs)
+            return MagicMock(spec=ExplanationResult)
+
+    explainer = RecordingExplainer()
+    background_data = sample_images[:2]
+    config = cast(
+        "AppConfig",
+        cast(
+            "object",
+            SimpleNamespace(
+                experiment_name="test",
+                fallback_output_dir=str(tmp_path),
+                transparency={"shap_gradient": _load_transparency_preset("shap_gradient")},
+            ),
+        ),
+    )
+
+    vis = MagicMock()
+    vis.compatible_algorithms = frozenset({"GradientExplainer", "DeepExplainer"})
+
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (explainer, "raitap.transparency.ShapExplainer"),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_visualisers",
+        lambda _cfg: [ConfiguredVisualiser(visualiser=vis, call_kwargs={})],
+    )
+
+    model = SimpleNamespace(network=torch.nn.Identity())
+    Explanation(
+        config,
+        "shap_gradient",
+        model=model,  # type: ignore[arg-type]
+        inputs=sample_images,
+        target=7,
+        background_data=background_data,
+    )
+
+    assert explainer.last_explain_kwargs["target"] == 7
+    assert explainer.last_explain_kwargs["background_data"] is background_data
+    assert explainer.last_explain_kwargs["nsamples"] == 10
+    assert explainer.last_explain_kwargs["batch_size"] == 1
+    assert explainer.last_explain_kwargs["show_progress"] is True
+    assert explainer.last_explain_kwargs["progress_desc"] == "SHAP batches"
 
 
 def test_check_explainer_visualiser_compat_allows_compatible() -> None:
