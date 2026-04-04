@@ -6,10 +6,9 @@ Data module, handles:
 - hosting a list of demo samples
 """
 
-from .data import Data, get_source_path, load_tensor_from_source
+from .data import Data, load_tensor_from_source
 
 __all__ = [
     "Data",
-    "get_source_path",
     "load_tensor_from_source",
 ]

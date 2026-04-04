@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 
     from raitap.configs.schema import AppConfig
 
-from raitap.data import Data, get_source_path
-from raitap.data.data import _load_images, _load_tabular, _load_tabular_dir, load_tensor_from_source
+from raitap.data import Data
+from raitap.data.data import _load_images, _load_tabular, _load_tabular_dir, get_source_path, load_tensor_from_source
 from raitap.data.samples import SAMPLE_SOURCES, _load_sample, _resolve_sample
 
 # ---------------------------------------------------------------------------
