@@ -47,6 +47,8 @@ Select built-in presets by name on the CLI.
 
 You can optionally show sample names in visual outputs via visualiser `call` arguments.
 
+For `CaptumImageVisualiser`, the original image is shown next to the attribution by default when `inputs` are available. You can disable that paired layout via the visualiser `constructor`.
+
 - `show_sample_names` defaults to `false`
 - names come from loaded sample IDs (filename stem, extension removed)
 - if name count and batch size differ, names are trimmed to the plotted batch
@@ -70,8 +72,22 @@ transparency:
           show_sample_names: true
 ```
 
+Disable the original-image side panel explicitly:
+
+```yaml
+transparency:
+  captum_saliency:
+    _target_: CaptumExplainer
+    algorithm: Saliency
+    visualisers:
+      - _target_: CaptumImageVisualiser
+        constructor:
+          include_original_image: false
+```
+
 Notes:
 
+- `CaptumImageVisualiser` renders paired titles when sample names are enabled, for example `Original Image: ISIC_0001` and `Heat Map: ISIC_0001`.
 - Visualisers with native support (for example `CaptumImageVisualiser`) render per-sample titles.
 - Other visualisers fall back to a figure title using the first name (format: `first (+N)`).
 
