@@ -1,0 +1,22 @@
+shap_gradient:
+  _target_: ShapExplainer
+  algorithm: GradientExplainer
+  constructor:
+    local_smoothing: 0.0
+  call:
+    target: 0
+    nsamples: 10
+    batch_size: 1
+    show_progress: true
+    progress_desc: "SHAP batches"
+    # Provide a dedicated background dataset for the SHAP explainer.
+    # Without this, the explainer falls back to using the input batch as background.
+    # Any call: value that is a dict with a "source" key is loaded as a tensor at runtime.
+    # n_samples is optional: randomly subsample N rows (recommended: 50-200).
+    # background_data:
+    #   source: imagenet_samples
+    #   n_samples: 50
+  visualisers:
+    - _target_: ShapImageVisualiser
+      constructor:
+        max_samples: 1

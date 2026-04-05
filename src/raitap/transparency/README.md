@@ -70,6 +70,15 @@ visualisers:
   - _target_: CaptumImageVisualiser
 ```
 
+Explainer `call` options can also control batching behaviour. If you set `batch_size` or `max_batch_size`, progress bars are enabled by default and can be disabled with `show_progress: false`.
+
+```yaml
+call:
+  batch_size: 8
+  show_progress: false
+  progress_desc: My explainer batches
+```
+
 ## Supported algorithms
 
 Any algorithm accessible via `captum.attr.<name>` or `shap.<name>Explainer` works without code changes:

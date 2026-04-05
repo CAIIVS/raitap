@@ -61,3 +61,22 @@ class TestShapExplainer:
 
         assert "NonExistentExplainer" in str(exc_info.value)
         assert "shap" in str(exc_info.value)
+
+    @pytest.mark.usefixtures("needs_shap")
+    def test_gradient_explainer_with_base_batching(
+        self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor
+    ) -> None:
+        """Mini-batching via BaseExplainer.explain works with per-sample targets."""
+        explainer = ShapExplainer("GradientExplainer")
+        background = sample_images[:2]
+
+        result = explainer.explain(
+            simple_cnn,
+            sample_images,
+            background_data=background,
+            target=[0, 1, 2, 3],
+            batch_size=2,
+        )
+
+        assert isinstance(result.attributions, torch.Tensor)
+        assert result.attributions.shape == sample_images.shape
