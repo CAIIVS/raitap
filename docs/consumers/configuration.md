@@ -84,6 +84,32 @@ uv run raitap transparency=shap_gradient \
 
 > Any `call:` parameter whose value is a dict containing only `source` (and optionally `n_samples`) is automatically resolved to a tensor.  This mechanism is not SHAP-specific and can be used for other tensor-typed explainer parameters.
 
+### Optional: progress bars for batched explanations
+
+When an explainer run is split into batches via `call.batch_size` (or `call.max_batch_size`), RAITAP now shows a progress bar by default.
+
+- `show_progress` defaults to `true`
+- `progress_desc` is optional and overrides the progress label
+- no progress bar is shown when batching is not used
+
+Example override on the CLI to disable the bar:
+
+```bash
+uv run raitap transparency=shap_gradient transparency.shap_gradient.call.show_progress=false
+```
+
+Equivalent YAML style:
+
+```yaml
+transparency:
+  shap_gradient:
+    _target_: ShapExplainer
+    algorithm: GradientExplainer
+    call:
+      batch_size: 1
+      show_progress: false
+```
+
 ### Optional: sample names in visualisations
 
 You can optionally show sample names in visual outputs via visualiser `call` arguments.

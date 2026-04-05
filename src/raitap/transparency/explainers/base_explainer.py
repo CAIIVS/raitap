@@ -11,7 +11,7 @@ import torch
 from ..results import ConfiguredVisualiser, ExplanationResult, resolve_default_run_dir
 
 _VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
-_BATCH_SIZE_KWARGS = ("batch_size", "max_batch_size")
+_BATCH_SIZE_KWARGS = frozenset({"batch_size", "max_batch_size"})
 _PROGRESS_TOGGLE_KWARG = "show_progress"
 _PROGRESS_DESC_KWARG = "progress_desc"
 
@@ -99,7 +99,7 @@ class BaseExplainer(ABC):
         return batch_size
 
     def _pop_progress_settings(self, attribution_kwargs: dict[str, Any]) -> tuple[bool, str | None]:
-        show_progress_raw = attribution_kwargs.pop(_PROGRESS_TOGGLE_KWARG, False)
+        show_progress_raw = attribution_kwargs.pop(_PROGRESS_TOGGLE_KWARG, True)
         if not isinstance(show_progress_raw, bool):
             raise TypeError(
                 f"{_PROGRESS_TOGGLE_KWARG} must be a bool, got {type(show_progress_raw).__name__}."
