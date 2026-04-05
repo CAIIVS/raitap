@@ -2,7 +2,7 @@
 Models module, handles:
 
 - loading models (pretrained or custom)
-- converting from various formats to PyTorch nn.Module.
+- selecting a backend for native PyTorch or ONNX execution.
 """
 
 from .model import Model

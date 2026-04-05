@@ -8,6 +8,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from raitap.configs import cfg_to_dict, resolve_run_dir
+from raitap.models.backend import OnnxBackend, TorchBackend
 
 from .base_tracker import BaseTracker
 
@@ -134,8 +135,34 @@ class MLFlowTracker(BaseTracker):
         self._mlflow.log_metrics(prefixed_metrics)
 
     def log_model(self, model: Any, artifact_path: str = "model") -> None:
+        if isinstance(model, OnnxBackend):
+            self._log_onnx_model(model, artifact_path)
+            return
+
+        if isinstance(model, TorchBackend):
+            pytorch_model = model.as_model_for_explanation()
+        else:
+            pytorch_model = model
+
         self._mlflow.pytorch.log_model(  # type: ignore[attr-defined]
-            pytorch_model=model,
+            pytorch_model=pytorch_model,
+            artifact_path=artifact_path,
+        )
+
+    def _log_onnx_model(self, model: OnnxBackend, artifact_path: str) -> None:
+        if model.model_path is None:
+            raise ValueError("OnnxBackend cannot be logged because its source path is unknown.")
+
+        try:
+            import onnx
+        except ImportError as error:
+            raise ImportError(
+                "MLflow ONNX logging requires the `onnx` package. "
+                "Install it with `uv sync --extra onnx`."
+            ) from error
+
+        self._mlflow.onnx.log_model(  # type: ignore[attr-defined]
+            onnx_model=onnx.load(model.model_path),
             artifact_path=artifact_path,
         )
 

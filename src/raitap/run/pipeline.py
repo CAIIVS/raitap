@@ -61,7 +61,7 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
     data_tensor = data.tensor
 
     with torch.no_grad():
-        raw_output: Any = model.network(data_tensor)
+        raw_output: Any = model.backend(data_tensor)
         forward_output = extract_primary_tensor(raw_output)
 
     metrics_eval: MetricsEvaluation | None = None

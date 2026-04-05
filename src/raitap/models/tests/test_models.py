@@ -8,38 +8,12 @@ import torch
 import torch.nn as nn
 
 from raitap.models import Model
-from raitap.models.converters import CONVERTERS, FormatConverter, PthConverter
+from raitap.models.backend import OnnxBackend, TorchBackend
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from raitap.configs.schema import AppConfig
-
-# ---------------------------------------------------------------------------
-# Converters
-# ---------------------------------------------------------------------------
-
-
-class TestConvertersRegistry:
-    def test_pth_and_pt_registered(self) -> None:
-        assert ".pth" in CONVERTERS
-        assert ".pt" in CONVERTERS
-
-    def test_all_converters_satisfy_protocol(self) -> None:
-        for converter in CONVERTERS.values():
-            assert isinstance(converter, FormatConverter)
-
-
-class TestPthConverter:
-    def test_returns_model(self, tmp_path: Path) -> None:
-        model = nn.Sequential(nn.Linear(2, 1))
-        model.eval()
-        p = tmp_path / "model.pth"
-        torch.save(model, p)
-        result = PthConverter().convert(p)
-        assert isinstance(result, nn.Module)
-        assert not result.training
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -74,29 +48,57 @@ def saved_state_dict(tmp_path: Path, tiny_model: nn.Module) -> Path:
     return path
 
 
+@pytest.fixture
+def saved_onnx(tmp_path: Path) -> Path:
+    onnx = pytest.importorskip("onnx")
+    pytest.importorskip("onnxruntime")
+    from onnx import TensorProto, helper, numpy_helper
+
+    path = tmp_path / "linear.onnx"
+    weight = torch.full((4, 2), 0.25, dtype=torch.float32).numpy()
+    bias = torch.tensor([0.1, -0.1], dtype=torch.float32).numpy()
+
+    graph = helper.make_graph(
+        [helper.make_node("Gemm", ["input", "weight", "bias"], ["output"])],
+        "linear_graph",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, ["batch", 4])],
+        [helper.make_tensor_value_info("output", TensorProto.FLOAT, ["batch", 2])],
+        [
+            numpy_helper.from_array(weight, name="weight"),
+            numpy_helper.from_array(bias, name="bias"),
+        ],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    onnx.checker.check_model(model)
+    onnx.save(model, path)
+    return path
+
+
 class TestLoadModelFromPath:
     def test_loads_pth_file(self, saved_pth: Path) -> None:
         cfg = cast(
             "AppConfig",
             type("AppConfig", (), {"model": type("ModelConfig", (), {"source": str(saved_pth)})})(),
         )
-        model = Model(cfg).network
-        assert isinstance(model, nn.Module)
+        model = Model(cfg)
+        assert isinstance(model.backend, TorchBackend)
+        assert isinstance(model.backend.as_model_for_explanation(), nn.Module)
 
     def test_loads_pt_file(self, saved_pt: Path) -> None:
         cfg = cast(
             "AppConfig",
             type("AppConfig", (), {"model": type("ModelConfig", (), {"source": str(saved_pt)})})(),
         )
-        model = Model(cfg).network
-        assert isinstance(model, nn.Module)
+        model = Model(cfg)
+        assert isinstance(model.backend, TorchBackend)
+        assert isinstance(model.backend.as_model_for_explanation(), nn.Module)
 
     def test_returns_eval_mode(self, saved_pth: Path) -> None:
         cfg = cast(
             "AppConfig",
             type("AppConfig", (), {"model": type("ModelConfig", (), {"source": str(saved_pth)})})(),
         )
-        model = Model(cfg).network
+        model = Model(cfg).backend.as_model_for_explanation()
         assert not model.training
 
     def test_missing_file_raises_file_not_found(self, tmp_path: Path) -> None:
@@ -143,6 +145,31 @@ class TestLoadModelFromPath:
         with pytest.raises(ValueError, match=r"Expected an nn\.Module"):
             Model(cfg)
 
+    def test_loads_onnx_file(self, saved_onnx: Path) -> None:
+        cfg = cast(
+            "AppConfig",
+            type(
+                "AppConfig",
+                (),
+                {"model": type("ModelConfig", (), {"source": str(saved_onnx)})},
+            )(),
+        )
+        backend = Model(cfg).backend
+        assert isinstance(backend, OnnxBackend)
+
+    def test_onnx_backend_runs_forward(self, saved_onnx: Path) -> None:
+        cfg = cast(
+            "AppConfig",
+            type(
+                "AppConfig",
+                (),
+                {"model": type("ModelConfig", (), {"source": str(saved_onnx)})},
+            )(),
+        )
+        outputs = Model(cfg).backend(torch.randn(2, 4))
+        assert isinstance(outputs, torch.Tensor)
+        assert outputs.shape == (2, 2)
+
 
 class TestLoadModelFromName:
     def test_loads_known_model(self) -> None:
@@ -151,15 +178,16 @@ class TestLoadModelFromName:
             "AppConfig",
             type("AppConfig", (), {"model": type("ModelConfig", (), {"source": "resnet18"})})(),
         )
-        model = Model(cfg).network
-        assert isinstance(model, nn.Module)
+        model = Model(cfg)
+        assert isinstance(model.backend, TorchBackend)
+        assert isinstance(model.backend.as_model_for_explanation(), nn.Module)
 
     def test_returns_eval_mode(self) -> None:
         cfg = cast(
             "AppConfig",
             type("AppConfig", (), {"model": type("ModelConfig", (), {"source": "resnet18"})})(),
         )
-        model = Model(cfg).network
+        model = Model(cfg).backend.as_model_for_explanation()
         assert not model.training
 
     def test_unknown_name_raises_value_error(self) -> None:
@@ -186,7 +214,7 @@ class TestModelLog:
         tracker = MagicMock()
         model.log(tracker)
 
-        tracker.log_model.assert_called_once_with(model.network)
+        tracker.log_model.assert_called_once_with(model.backend)
 
     def test_log_passes_network_to_tracker(self) -> None:
         cfg = cast(
@@ -199,5 +227,4 @@ class TestModelLog:
         model.log(tracker)
 
         logged_model = tracker.log_model.call_args[0][0]
-        assert logged_model is model.network
-        assert isinstance(logged_model, torch.nn.Module)
+        assert logged_model is model.backend

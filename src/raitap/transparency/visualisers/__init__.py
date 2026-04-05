@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from .base_visualiser import BaseVisualiser, VisualiserIncompatibilityError
+from raitap.transparency.exceptions import VisualiserIncompatibilityError
+
+from .base_visualiser import BaseVisualiser
 
 # Captum-native visualisers
 from .captum_visualisers import (

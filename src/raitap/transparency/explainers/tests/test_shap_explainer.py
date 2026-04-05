@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 import torch
 
 from raitap.transparency.explainers import ShapExplainer
+
+if TYPE_CHECKING:
+    from raitap.models.backend import OnnxBackend
 
 
 class TestShapExplainer:
@@ -80,3 +85,26 @@ class TestShapExplainer:
 
         assert isinstance(result.attributions, torch.Tensor)
         assert result.attributions.shape == sample_images.shape
+
+    @pytest.mark.usefixtures("needs_shap", "needs_onnx")
+    def test_kernel_explainer_runs_with_onnx_backend(
+        self,
+        onnx_linear_backend: OnnxBackend,
+        sample_tabular: torch.Tensor,
+    ) -> None:
+        explainer = ShapExplainer("KernelExplainer")
+        inputs = sample_tabular[:4]
+        background = sample_tabular[:2]
+
+        explainer.check_backend_compat(onnx_linear_backend)
+        result = explainer.explain(
+            onnx_linear_backend.as_model_for_explanation(),
+            inputs,
+            backend=onnx_linear_backend,
+            background_data=background,
+            target=0,
+            nsamples=10,
+        )
+
+        assert isinstance(result.attributions, torch.Tensor)
+        assert result.attributions.shape == inputs.shape

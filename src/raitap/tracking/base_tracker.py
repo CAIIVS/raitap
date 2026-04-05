@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from torch import nn
 
     from raitap.configs.schema import AppConfig
+    from raitap.models.backend import ModelBackend
 
 
 class BaseTracker(ABC):
@@ -49,7 +50,7 @@ class BaseTracker(ABC):
     def log_config(self) -> None: ...
 
     @abstractmethod
-    def log_model(self, model: nn.Module) -> None: ...
+    def log_model(self, model: ModelBackend | nn.Module) -> None: ...
 
     @abstractmethod
     def log_dataset(self, description: dict[str, Any]) -> None: ...

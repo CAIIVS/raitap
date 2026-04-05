@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
+from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
+
 from .base_explainer import BaseExplainer
 
 if TYPE_CHECKING:
@@ -18,6 +21,18 @@ class CaptumExplainer(BaseExplainer):
     Uses dynamic method loading - no need for class-per-method.
     """
 
+    ONNX_COMPATIBLE_ALGORITHMS: frozenset[str] = frozenset(
+        {
+            "FeatureAblation",
+            "FeaturePermutation",
+            "Occlusion",
+            "ShapleyValueSampling",
+            "ShapleyValues",
+            "KernelShap",
+            "Lime",
+        }
+    )
+
     def __init__(self, algorithm: str, **init_kwargs):
         """
         Args:
@@ -30,10 +45,24 @@ class CaptumExplainer(BaseExplainer):
         self.algorithm = algorithm
         self.init_kwargs = init_kwargs
 
+    def check_backend_compat(self, backend: object) -> None:
+        if getattr(backend, "supports_torch_autograd", False):
+            return
+        ensure_algorithm_in_allowlist(
+            self.algorithm,
+            type(self).ONNX_COMPATIBLE_ALGORITHMS,
+            error_cls=ExplainerBackendIncompatibilityError,
+            explainer=type(self).__name__,
+            backend=type(backend).__name__,
+            algorithm=self.algorithm,
+            compatible_algorithms=sorted(type(self).ONNX_COMPATIBLE_ALGORITHMS),
+        )
+
     def compute_attributions(
         self,
         model: nn.Module,
         inputs: torch.Tensor,
+        backend: object | None = None,
         target: int | list[int] | torch.Tensor | None = None,
         baselines: torch.Tensor | None = None,
         **attr_kwargs,
@@ -54,6 +83,7 @@ class CaptumExplainer(BaseExplainer):
         Returns:
             Attribution tensor matching input shape
         """
+        del backend
         try:
             import captum.attr
         except ImportError as e:

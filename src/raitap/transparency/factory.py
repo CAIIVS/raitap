@@ -10,8 +10,9 @@ from omegaconf import DictConfig, OmegaConf
 from raitap.configs import cfg_to_dict, resolve_run_dir, resolve_target
 from raitap.data import load_tensor_from_source
 
+from .algorithm_allowlist import ensure_algorithm_in_allowlist
+from .exceptions import VisualiserIncompatibilityError
 from .results import ConfiguredVisualiser
-from .visualisers import VisualiserIncompatibilityError
 
 if TYPE_CHECKING:
     import torch
@@ -151,13 +152,15 @@ class Explanation:
         explainer, explainer_target = create_explainer(explainer_config)
         visualisers = create_visualisers(explainer_config)
         check_explainer_visualiser_compat(explainer_target, algorithm, visualisers)
+        explainer.check_backend_compat(model.backend)
 
         call_from_config = _transparency_subdict(raw_transparency_config.get("call"), label="call")
         merged_kwargs = _resolve_call_data_sources({**call_from_config, **kwargs})
 
         return explainer.explain(
-            model.network,
+            model.backend.as_model_for_explanation(),
             inputs,
+            backend=model.backend,
             run_dir=resolve_run_dir(config, subdir=f"transparency/{explainer_name}"),
             experiment_name=str(getattr(config, "experiment_name", "")),
             explainer_target=explainer_target,
@@ -235,10 +238,12 @@ def check_explainer_visualiser_compat(
 ) -> None:
     for configured in visualisers:
         visualiser = configured.visualiser
-        if visualiser.compatible_algorithms and algorithm not in visualiser.compatible_algorithms:
-            raise VisualiserIncompatibilityError(
-                framework=explainer_target,
-                visualiser=type(visualiser).__name__,
-                algorithm=algorithm,
-                compatible_algorithms=sorted(visualiser.compatible_algorithms),
-            )
+        ensure_algorithm_in_allowlist(
+            algorithm,
+            visualiser.compatible_algorithms,
+            error_cls=VisualiserIncompatibilityError,
+            framework=explainer_target,
+            visualiser=type(visualiser).__name__,
+            algorithm=algorithm,
+            compatible_algorithms=sorted(visualiser.compatible_algorithms),
+        )

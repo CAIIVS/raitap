@@ -9,7 +9,10 @@ import pytest
 import torch
 from omegaconf import OmegaConf
 
-from raitap.transparency import VisualiserIncompatibilityError
+from raitap.transparency import (
+    ExplainerBackendIncompatibilityError,
+    VisualiserIncompatibilityError,
+)
 from raitap.transparency.factory import (
     Explanation,
     _resolve_call_data_sources,
@@ -21,6 +24,18 @@ from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
+
+
+class _BackendStub:
+    def __init__(self, model: torch.nn.Module, *, supports_torch_autograd: bool = True) -> None:
+        self._model = model
+        self.supports_torch_autograd = supports_torch_autograd
+
+    def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
+        return self._model(inputs)
+
+    def as_model_for_explanation(self) -> torch.nn.Module:
+        return self._model
 
 
 def _load_transparency_preset(name: str) -> Any:
@@ -61,7 +76,7 @@ def test_explanation_returns_explanation_result(
         ),
     )
 
-    model = SimpleNamespace(network=simple_cnn)
+    model = SimpleNamespace(backend=_BackendStub(simple_cnn))
     explanation = Explanation(config, "test_explainer", model, sample_images)  # type: ignore[arg-type]
 
     assert isinstance(explanation, ExplanationResult)
@@ -106,7 +121,7 @@ def test_explanation_validates_visualisers_before_compute(
     )
 
     with pytest.raises(VisualiserIncompatibilityError):
-        model = SimpleNamespace(network=torch.nn.Identity())
+        model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
         Explanation(
             config,
             "test_explainer",
@@ -229,6 +244,10 @@ def test_explanation_merges_call_before_run_kwargs(
         def __init__(self) -> None:
             self.last_explain_kwargs: dict[str, Any] = {}
 
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
+
         def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
             self.last_explain_kwargs = dict(kwargs)
             return MagicMock(spec=ExplanationResult)
@@ -258,7 +277,7 @@ def test_explanation_merges_call_before_run_kwargs(
         lambda _cfg: [ConfiguredVisualiser(visualiser=vis, call_kwargs={})],
     )
 
-    model = SimpleNamespace(network=torch.nn.Identity())
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     Explanation(
         config,
         "test_explainer",
@@ -281,6 +300,10 @@ def test_explanation_uses_real_shap_preset_defaults_and_runtime_overrides(
 
         def __init__(self) -> None:
             self.last_explain_kwargs: dict[str, Any] = {}
+
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
 
         def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
             self.last_explain_kwargs = dict(kwargs)
@@ -312,7 +335,7 @@ def test_explanation_uses_real_shap_preset_defaults_and_runtime_overrides(
         lambda _cfg: [ConfiguredVisualiser(visualiser=vis, call_kwargs={})],
     )
 
-    model = SimpleNamespace(network=torch.nn.Identity())
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     Explanation(
         config,
         "shap_gradient",
@@ -338,6 +361,44 @@ def test_check_explainer_visualiser_compat_allows_compatible() -> None:
         "Saliency",
         [ConfiguredVisualiser(visualiser=visualiser, call_kwargs={})],
     )
+
+
+def test_captum_explainer_blocks_integrated_gradients_on_non_autograd_backend() -> None:
+    from raitap.transparency.explainers.captum_explainer import CaptumExplainer
+
+    explainer = CaptumExplainer("IntegratedGradients")
+
+    with pytest.raises(ExplainerBackendIncompatibilityError):
+        explainer.check_backend_compat(
+            _BackendStub(torch.nn.Identity(), supports_torch_autograd=False)
+        )
+
+
+def test_shap_explainer_blocks_gradient_explainer_on_non_autograd_backend() -> None:
+    from raitap.transparency.explainers.shap_explainer import ShapExplainer
+
+    explainer = ShapExplainer("GradientExplainer")
+
+    with pytest.raises(ExplainerBackendIncompatibilityError):
+        explainer.check_backend_compat(
+            _BackendStub(torch.nn.Identity(), supports_torch_autograd=False)
+        )
+
+
+def test_captum_explainer_allows_feature_ablation_on_non_autograd_backend() -> None:
+    from raitap.transparency.explainers.captum_explainer import CaptumExplainer
+
+    explainer = CaptumExplainer("FeatureAblation")
+
+    explainer.check_backend_compat(_BackendStub(torch.nn.Identity(), supports_torch_autograd=False))
+
+
+def test_shap_explainer_allows_kernel_explainer_on_non_autograd_backend() -> None:
+    from raitap.transparency.explainers.shap_explainer import ShapExplainer
+
+    explainer = ShapExplainer("KernelExplainer")
+
+    explainer.check_backend_compat(_BackendStub(torch.nn.Identity(), supports_torch_autograd=False))
 
 
 def test_create_visualisers_rejects_unknown_keys() -> None:
@@ -462,6 +523,10 @@ class TestResolveCallDataSources:
             def __init__(self) -> None:
                 self.last_explain_kwargs: dict[str, Any] = {}
 
+            def check_backend_compat(self, backend: object) -> None:
+                del backend
+                return None
+
             def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
                 self.last_explain_kwargs = dict(kwargs)
                 return MagicMock(spec=ExplanationResult)
@@ -500,7 +565,7 @@ class TestResolveCallDataSources:
             lambda _cfg: [],
         )
 
-        model = SimpleNamespace(network=torch.nn.Identity())
+        model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
         Explanation(config, "test_explainer", model=model, inputs=sample_images)  # type: ignore[arg-type]
 
         assert "background_data" in explainer.last_explain_kwargs

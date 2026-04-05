@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+import numpy as np
 import pytest
 import torch
 import torch.nn as nn
+
+from raitap.models.backend import OnnxBackend
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Optional-dependency skip fixtures
@@ -24,6 +32,13 @@ def needs_captum() -> None:
 def needs_shap() -> None:
     """Skip the test if shap is not installed."""
     pytest.importorskip("shap")
+
+
+@pytest.fixture
+def needs_onnx() -> None:
+    """Skip the test if ONNX dependencies are not installed."""
+    pytest.importorskip("onnx")
+    pytest.importorskip("onnxruntime")
 
 
 # ---------------------------------------------------------------------------
@@ -90,3 +105,36 @@ def feature_names() -> list[str]:
 def token_labels() -> list[str]:
     """Token labels for text attribution tests."""
     return [f"tok_{i}" for i in range(15)]
+
+
+@pytest.fixture
+def onnx_linear_path(tmp_path: Path, needs_onnx: None) -> Path:
+    import onnx
+    from onnx import TensorProto, helper, numpy_helper
+
+    path = tmp_path / "linear.onnx"
+
+    weight = np.full((10, 2), 0.1, dtype=np.float32)
+    bias = np.array([0.05, -0.05], dtype=np.float32)
+
+    graph = helper.make_graph(
+        [
+            helper.make_node("Gemm", ["input", "weight", "bias"], ["output"]),
+        ],
+        "linear_graph",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, ["batch", 10])],
+        [helper.make_tensor_value_info("output", TensorProto.FLOAT, ["batch", 2])],
+        [
+            numpy_helper.from_array(weight, name="weight"),
+            numpy_helper.from_array(bias, name="bias"),
+        ],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    onnx.checker.check_model(model)
+    onnx.save(model, path)
+    return path
+
+
+@pytest.fixture
+def onnx_linear_backend(onnx_linear_path: Path) -> OnnxBackend:
+    return OnnxBackend.from_path(onnx_linear_path)

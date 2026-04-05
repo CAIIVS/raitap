@@ -273,7 +273,7 @@ def test_run_with_tracking_config_but_no_target_skips_tracking(monkeypatch: Monk
 
 
 def test_run_without_tracking_raises_if_no_explainers(monkeypatch: MonkeyPatch) -> None:
-    model = SimpleNamespace(network=torch.nn.Identity())
+    model = SimpleNamespace(backend=torch.nn.Identity())
     data = SimpleNamespace(tensor=torch.randn(2, 3))
     config = SimpleNamespace(transparency={}, metrics=SimpleNamespace(num_classes=None))
 
@@ -289,7 +289,7 @@ def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: M
             del x
             return torch.tensor([[0.1, 0.9, 0.0], [0.8, 0.1, 0.1]])
 
-    model = SimpleNamespace(network=_Net())
+    model = SimpleNamespace(backend=_Net())
     data = SimpleNamespace(tensor=torch.randn(2, 4))
     explanation = _FakeExplainerResult("exp")
     metrics_calls: list[tuple[object, torch.Tensor, torch.Tensor]] = []
@@ -325,7 +325,7 @@ def test_run_without_tracking_uses_provided_num_classes(monkeypatch: MonkeyPatch
             del x
             return torch.tensor([[0.1, 0.9, 0.0]])
 
-    model = SimpleNamespace(network=_Net())
+    model = SimpleNamespace(backend=_Net())
     data = SimpleNamespace(tensor=torch.randn(1, 4))
     explanation = _FakeExplainerResult("exp")
 
@@ -346,7 +346,7 @@ def test_run_without_tracking_uses_provided_num_classes(monkeypatch: MonkeyPatch
 
 
 def test_run_without_tracking_passes_sample_names_to_explanation(monkeypatch: MonkeyPatch) -> None:
-    model = SimpleNamespace(network=torch.nn.Identity())
+    model = SimpleNamespace(backend=torch.nn.Identity())
     data = SimpleNamespace(
         tensor=torch.randn(2, 3),
         sample_ids=["isic_1", "isic_2"],
