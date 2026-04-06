@@ -261,6 +261,7 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 markers = [
     "e2e: end-to-end tests that are resource-intensive; run once per PR, not on every commit",
+    "runtime: runtime resolution and backend hardware-label tests for platform-specific CI selection",
 ]
 addopts = [
     "-v",

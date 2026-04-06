@@ -185,6 +185,7 @@ class TestLoadModelFromPath:
         assert model.backend.device == torch.device("cpu")
         assert model.backend.hardware_label == "CPU"
 
+    @pytest.mark.runtime
     def test_torch_gpu_falls_back_to_cpu_with_warning(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -200,6 +201,7 @@ class TestLoadModelFromPath:
         assert device == torch.device("cpu")
         assert "neither CUDA, Apple MPS, nor Intel XPU is available" in caplog.text
 
+    @pytest.mark.runtime
     def test_torch_gpu_selects_cuda_when_available(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
         monkeypatch.setattr(runtime, "_torch_mps_is_available", lambda: True)
@@ -209,6 +211,7 @@ class TestLoadModelFromPath:
 
         assert device == torch.device("cuda")
 
+    @pytest.mark.runtime
     def test_torch_gpu_selects_mps_when_cuda_unavailable(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -221,6 +224,7 @@ class TestLoadModelFromPath:
 
         assert device == torch.device("mps")
 
+    @pytest.mark.runtime
     def test_torch_gpu_prefers_cuda_over_mps(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
         monkeypatch.setattr(runtime, "_torch_mps_is_available", lambda: True)
@@ -230,6 +234,7 @@ class TestLoadModelFromPath:
 
         assert device == torch.device("cuda")
 
+    @pytest.mark.runtime
     def test_torch_gpu_prefers_mps_over_xpu_when_cuda_unavailable(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -242,6 +247,7 @@ class TestLoadModelFromPath:
 
         assert device == torch.device("mps")
 
+    @pytest.mark.runtime
     def test_torch_gpu_selects_xpu_when_cuda_unavailable(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -254,6 +260,7 @@ class TestLoadModelFromPath:
 
         assert device == torch.device("xpu")
 
+    @pytest.mark.runtime
     def test_onnx_backend_cpu_mode_exposes_cpu_provider(self, saved_onnx: Path) -> None:
         pytest.importorskip("onnx")
         pytest.importorskip("onnxruntime")
@@ -262,6 +269,7 @@ class TestLoadModelFromPath:
 
         assert backend.providers == ["CPUExecutionProvider"]
 
+    @pytest.mark.runtime
     def test_onnx_provider_resolution_prefers_cuda_when_available(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -279,6 +287,7 @@ class TestLoadModelFromPath:
 
         assert providers == ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
+    @pytest.mark.runtime
     def test_onnx_provider_resolution_selects_coreml_when_cuda_unavailable(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -296,6 +305,7 @@ class TestLoadModelFromPath:
 
         assert providers == ["CoreMLExecutionProvider", "CPUExecutionProvider"]
 
+    @pytest.mark.runtime
     def test_onnx_provider_resolution_prefers_cuda_over_coreml(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -317,6 +327,7 @@ class TestLoadModelFromPath:
 
         assert providers == ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
+    @pytest.mark.runtime
     def test_onnx_provider_resolution_prefers_coreml_over_openvino(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -338,6 +349,7 @@ class TestLoadModelFromPath:
 
         assert providers == ["CoreMLExecutionProvider", "CPUExecutionProvider"]
 
+    @pytest.mark.runtime
     def test_onnx_provider_resolution_falls_back_to_cpu_with_warning(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -357,6 +369,7 @@ class TestLoadModelFromPath:
             "OpenVINOExecutionProvider is available" in caplog.text
         )
 
+    @pytest.mark.runtime
     def test_onnx_provider_resolution_uses_cpu_in_cpu_mode(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -374,6 +387,7 @@ class TestLoadModelFromPath:
 
         assert providers == ["CPUExecutionProvider"]
 
+    @pytest.mark.runtime
     def test_onnx_provider_resolution_selects_openvino_when_cuda_unavailable(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -391,6 +405,7 @@ class TestLoadModelFromPath:
 
         assert providers == ["OpenVINOExecutionProvider", "CPUExecutionProvider"]
 
+    @pytest.mark.runtime
     def test_torch_backend_exposes_intel_xpu_hardware_label(
         self,
     ) -> None:
@@ -398,11 +413,13 @@ class TestLoadModelFromPath:
 
         assert backend.hardware_label == "Intel XPU"
 
+    @pytest.mark.runtime
     def test_torch_backend_exposes_apple_mps_hardware_label(self) -> None:
         backend = TorchBackend(nn.Identity(), device=torch.device("mps"))
 
         assert backend.hardware_label == "Apple MPS"
 
+    @pytest.mark.runtime
     def test_onnx_backend_exposes_openvino_hardware_label(self) -> None:
         backend = OnnxBackend(
             _as_inference_session(_FakeOnnxSession()),
@@ -411,6 +428,7 @@ class TestLoadModelFromPath:
 
         assert backend.hardware_label == "Intel OpenVINO"
 
+    @pytest.mark.runtime
     def test_onnx_backend_exposes_apple_coreml_hardware_label(self) -> None:
         backend = OnnxBackend(
             _as_inference_session(_FakeOnnxSession()),

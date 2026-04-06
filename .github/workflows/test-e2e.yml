@@ -8,7 +8,7 @@
 #   itself is skipped until the PR is no longer a draft.
 # • Manual:    use the "Run workflow" button in the Actions UI (workflow_dispatch)
 #   whenever you need to re-run on demand.
-name: E2E Tests (SHAP)
+name: SHAP E2E
 
 on:
   pull_request:
@@ -27,25 +27,21 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  shap-e2e:
-    name: "SHAP E2E (Python 3.13)"
+  shap-e2e-linux:
+    name: "SHAP E2E (Linux)"
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 30   # guard against runaway KernelExplainer calls
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v6
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+      - name: Set up environment
+        uses: ./.github/actions/setup-raitap-env
         with:
-          enable-cache: true
-
-      - name: Set up Python 3.13
-        run: uv python install 3.13
-
-      - name: Install dependencies
-        run: uv sync --group dev --extra torch-cpu --extra shap
+          python-version: "3.13"
+          sync-command: uv sync --group dev --extra torch-cpu --extra shap
 
       # Run only the e2e-marked tests; -x stops on the first failure so logs
       # stay readable for slow jobs.
