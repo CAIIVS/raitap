@@ -1,0 +1,7 @@
+onnx_feature_ablation:
+  _target_: CaptumExplainer
+  algorithm: FeatureAblation
+  call:
+    target: 0
+  visualisers:
+    - _target_: CaptumImageVisualiser
