@@ -17,6 +17,7 @@ from raitap.metrics import (
     resolve_metric_targets,
 )
 from raitap.models import Model
+from raitap.models.backend import TorchBackend
 from raitap.run.forward_output import extract_primary_tensor
 from raitap.run.outputs import RunOutputs
 from raitap.tracking import BaseTracker
@@ -59,6 +60,8 @@ def run(config: AppConfig) -> RunOutputs:
 
 def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOutputs:
     data_tensor = data.tensor
+    if isinstance(model.backend, TorchBackend):
+        data_tensor = data_tensor.to(model.backend.device)
 
     with torch.no_grad():
         raw_output: Any = model.backend(data_tensor)

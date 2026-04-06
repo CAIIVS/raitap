@@ -52,27 +52,32 @@ metrics = [
     "torchmetrics>=1.8.2",
     "faster-coco-eval>=1.6.3",
 ]
-all = [
-    "mlflow>=3.9.0",
-    "shap>=0.46.0",
-    "captum>=0.7.0",
-    "torchmetrics>=1.8.2",
-    "faster-coco-eval>=1.6.3",
-]
-onnx = [
+onnx-cpu = [
     "onnx>=1.21.0",
     "onnxruntime>=1.24.4",
 ]
+onnx-gpu = [
+    "onnx>=1.21.0",
+    "onnxruntime-gpu>=1.24.4",
+]
 
 [dependency-groups]
-dev = [
+lint = [
     "ruff>=0.8.0",
-    "pre-commit>=4.0.0",
-    "commitizen>=3.0.0",
     "pyright>=1.1.390",
+]
+test = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
-    "pycocotools>=2.0.10",
+]
+tooling = [
+    "pre-commit>=4.0.0",
+    "commitizen>=3.0.0",
+]
+dev = [
+    { include-group = "lint" },
+    { include-group = "test" },
+    { include-group = "tooling" },
 ]
 
 [project.scripts]

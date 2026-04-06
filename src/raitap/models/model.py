@@ -7,7 +7,7 @@ import torch
 from torch import nn
 from torchvision import models
 
-from .backend import ModelBackend, OnnxBackend, TorchBackend
+from .backend import ModelBackend, OnnxBackend, TorchBackend, resolve_torch_device
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
@@ -20,6 +20,7 @@ class Model:
 
     def _load_model(self, config: AppConfig) -> ModelBackend:
         source = config.model.source
+        hardware = getattr(config, "hardware", "gpu")
         if not source:
             raise ValueError(
                 "No model specified. Set model.source in your config.\n"
@@ -31,11 +32,11 @@ class Model:
         suffix = path.suffix.lower()
 
         if path.exists() or suffix:
-            return _load_from_path(path)
+            return _load_from_path(path, hardware=hardware)
 
         name = str(source).lower()
         if hasattr(models, name):
-            return _load_pretrained(name)
+            return _load_pretrained(name, hardware=hardware)
 
         raise ValueError(
             f"Model source {source!r} is neither an existing path nor a known "
@@ -48,7 +49,7 @@ class Model:
         tracker.log_model(self.backend)
 
 
-def _load_from_path(path: Path) -> ModelBackend:
+def _load_from_path(path: Path, *, hardware: str) -> ModelBackend:
     """
     Load a model backend from a file path.
 
@@ -66,17 +67,18 @@ def _load_from_path(path: Path) -> ModelBackend:
         raise FileNotFoundError(f"Model file not found: {path}")
 
     if path.suffix.lower() == ".onnx":
-        return OnnxBackend.from_path(path)
+        return OnnxBackend.from_path(path, hardware=hardware)
 
     if path.suffix.lower() in {".pth", ".pt"}:
-        return TorchBackend(_load_torch_module_from_path(path))
+        device = resolve_torch_device(hardware)
+        return TorchBackend(_load_torch_module_from_path(path, device=device), device=device)
 
     raise ValueError(
         f"Unsupported model format {path.suffix!r}. Supported formats: {_supported_model_formats()}"
     )
 
 
-def _load_torch_module_from_path(path: Path) -> nn.Module:
+def _load_torch_module_from_path(path: Path, *, device: torch.device) -> nn.Module:
     obj = torch.load(path, map_location="cpu", weights_only=False)
 
     if isinstance(obj, dict):
@@ -89,11 +91,12 @@ def _load_torch_module_from_path(path: Path) -> nn.Module:
     if not isinstance(obj, nn.Module):
         raise ValueError(f"Expected an nn.Module in {path}, got {type(obj).__name__}.")
 
+    obj.to(device)
     obj.eval()
     return obj
 
 
-def _load_pretrained(model_name: str) -> ModelBackend:
+def _load_pretrained(model_name: str, *, hardware: str) -> ModelBackend:
     """
     Load a torchvision model with its default pre-trained weights.
 
@@ -114,9 +117,11 @@ def _load_pretrained(model_name: str) -> ModelBackend:
     if factory is None:
         raise ValueError(f"'{model_name}' is not a known torchvision model.")
 
+    device = resolve_torch_device(hardware)
     model = factory(weights="DEFAULT")
+    model.to(device)
     model.eval()
-    return TorchBackend(model)
+    return TorchBackend(model, device=device)
 
 
 def _supported_model_formats() -> list[str]:

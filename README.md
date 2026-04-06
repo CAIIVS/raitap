@@ -44,6 +44,22 @@ Additional references on XAI aspects:
     uv sync
     ```
 
+#### Optional ONNX Runtime installs
+
+* CPU:
+
+    ```bash
+    uv sync --extra onnx-cpu
+    ```
+
+* GPU:
+
+    ```bash
+    uv sync --extra onnx-gpu
+    ```
+
+Install either `onnx` or `onnx-gpu` depending on your target runtime. Do not install both as a standard setup.
+
 ### Basic Usage
 
 #### In the CLI
@@ -52,12 +68,36 @@ Additional references on XAI aspects:
 # Run with default settings
 uv run raitap
 
+# Force CPU execution
+uv run raitap hardware=cpu
+
 # Assess ResNet50 with SHAP explanations
 uv run raitap model=resnet50 transparency=shap
 
 # Try different transparency methods
 uv run raitap transparency=captum transparency.algorithm=IntegratedGradients
 ```
+
+### Runtime selection
+
+RAITAP now uses a root-level `hardware` setting:
+
+* Default: `hardware=gpu`
+* Force CPU: `hardware=cpu`
+
+When `hardware=gpu` is requested but GPU support is unavailable, RAITAP falls back to CPU and logs the downgrade to the console.
+
+You can verify runtime availability with:
+
+```python
+import onnxruntime
+import torch
+
+print(torch.cuda.is_available())
+print(onnxruntime.get_available_providers())
+```
+
+ONNX GPU support accelerates inference and compatible non-autograd explainers. It does not add PyTorch autograd to ONNX models.
 
 #### In your Python code
 

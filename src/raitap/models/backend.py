@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
@@ -8,9 +9,14 @@ import torch
 from torch import nn
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from pathlib import Path
 
     import onnxruntime as ort
+
+logger = logging.getLogger(__name__)
+
+_VALID_HARDWARE = frozenset({"cpu", "gpu"})
 
 
 _NUMPY_DTYPES_BY_ONNX_TYPE: dict[str, np.dtype[Any]] = {
@@ -24,6 +30,55 @@ _NUMPY_DTYPES_BY_ONNX_TYPE: dict[str, np.dtype[Any]] = {
     "tensor(uint8)": np.dtype(np.uint8),
     "tensor(bool)": np.dtype(np.bool_),
 }
+
+
+def _validate_hardware(hardware: str) -> str:
+    if hardware not in _VALID_HARDWARE:
+        valid_values = ", ".join(sorted(_VALID_HARDWARE))
+        raise ValueError(f"Invalid hardware {hardware!r}. Expected one of: {valid_values}.")
+    return hardware
+
+
+def resolve_torch_device(hardware: str) -> torch.device:
+    resolved_hardware = _validate_hardware(hardware)
+    if resolved_hardware == "cpu":
+        return torch.device("cpu")
+
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+
+    logger.warning("GPU was requested for PyTorch, but CUDA is unavailable. Falling back to CPU.")
+    return torch.device("cpu")
+
+
+def resolve_onnx_providers(
+    hardware: str,
+    *,
+    available_providers: Sequence[str] | None = None,
+) -> list[str]:
+    resolved_hardware = _validate_hardware(hardware)
+    if resolved_hardware == "cpu":
+        return ["CPUExecutionProvider"]
+
+    provider_names = available_providers
+    if provider_names is None:
+        try:
+            import onnxruntime as ort
+        except ImportError as error:
+            raise ImportError(
+                "ONNX support is enabled but onnxruntime is not installed. "
+                "Install it with `uv sync --extra onnx` or `uv sync --extra onnx-gpu`."
+            ) from error
+        provider_names = ort.get_available_providers()
+
+    if "CUDAExecutionProvider" in provider_names:
+        return ["CUDAExecutionProvider", "CPUExecutionProvider"]
+
+    logger.warning(
+        "GPU was requested for ONNX Runtime, but CUDAExecutionProvider is unavailable. "
+        "Falling back to CPUExecutionProvider."
+    )
+    return ["CPUExecutionProvider"]
 
 
 class ModelBackend(ABC):
@@ -45,8 +100,9 @@ class TorchBackend(ModelBackend):
 
     supports_torch_autograd = True
 
-    def __init__(self, model: nn.Module) -> None:
+    def __init__(self, model: nn.Module, *, device: torch.device | None = None) -> None:
         self.model = model
+        self.device = torch.device("cpu") if device is None else device
 
     def __call__(self, inputs: torch.Tensor) -> Any:
         return self.model(inputs)
@@ -75,8 +131,15 @@ class OnnxBackend(ModelBackend):
 
     supports_torch_autograd = False
 
-    def __init__(self, session: ort.InferenceSession, *, model_path: Path | None = None) -> None:
+    def __init__(
+        self,
+        session: ort.InferenceSession,
+        *,
+        providers: Sequence[str],
+        model_path: Path | None = None,
+    ) -> None:
         self.session = session
+        self.providers = list(providers)
         self.model_path = model_path
         inputs = session.get_inputs()
         if len(inputs) != 1:
@@ -90,17 +153,22 @@ class OnnxBackend(ModelBackend):
         self._explanation_module = _OnnxExplanationModule(self)
 
     @classmethod
-    def from_path(cls, path: Path) -> OnnxBackend:
+    def from_path(cls, path: Path, *, hardware: str = "gpu") -> OnnxBackend:
         try:
             import onnxruntime as ort
         except ImportError as error:
             raise ImportError(
                 "ONNX support is enabled but onnxruntime is not installed. "
-                "Install it with `uv sync --extra onnx`."
+                "Install it with `uv sync --extra onnx` or `uv sync --extra onnx-gpu`."
             ) from error
 
-        session = ort.InferenceSession(str(path), providers=["CPUExecutionProvider"])
-        return cls(session, model_path=path)
+        providers = resolve_onnx_providers(
+            hardware,
+            available_providers=ort.get_available_providers(),
+        )
+        session = ort.InferenceSession(str(path), providers=providers)
+        logger.info("Created ONNX Runtime session with providers: %s", providers)
+        return cls(session, providers=providers, model_path=path)
 
     def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
         if not isinstance(inputs, torch.Tensor):
