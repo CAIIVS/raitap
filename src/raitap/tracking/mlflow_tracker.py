@@ -158,7 +158,8 @@ class MLFlowTracker(BaseTracker):
         except ImportError as error:
             raise ImportError(
                 "MLflow ONNX logging requires the `onnx` package. "
-                "Install it with `uv sync --extra onnx`."
+                "Install it with `uv sync --extra onnx-cpu`, `uv sync --extra onnx-gpu`, "
+                "or `uv sync --extra onnx-openvino`."
             ) from error
 
         self._mlflow.onnx.log_model(  # type: ignore[attr-defined]

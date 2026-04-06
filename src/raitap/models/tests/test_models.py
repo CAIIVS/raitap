@@ -8,12 +8,8 @@ import torch
 import torch.nn as nn
 
 from raitap.models import Model
-from raitap.models.backend import (
-    OnnxBackend,
-    TorchBackend,
-    resolve_onnx_providers,
-    resolve_torch_device,
-)
+from raitap.models.backend import OnnxBackend, TorchBackend
+from raitap.models.runtime import resolve_onnx_providers, resolve_torch_device
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -23,6 +19,14 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+
+class _FakeXpuModule:
+    def __init__(self, available: bool) -> None:
+        self._available = available
+
+    def is_available(self) -> bool:
+        return self._available
 
 
 def _make_config(source: str, *, hardware: str = "gpu") -> AppConfig:
@@ -159,6 +163,7 @@ class TestLoadModelFromPath:
 
         assert isinstance(model.backend, TorchBackend)
         assert model.backend.device == torch.device("cpu")
+        assert model.backend.hardware_label == "CPU"
 
     def test_torch_gpu_falls_back_to_cpu_with_warning(
         self,
@@ -166,22 +171,32 @@ class TestLoadModelFromPath:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+        monkeypatch.setattr(torch, "xpu", _FakeXpuModule(False), raising=False)
 
         with caplog.at_level("WARNING"):
             device = resolve_torch_device("gpu")
 
         assert device == torch.device("cpu")
-        assert "GPU was requested for PyTorch" in caplog.text
+        assert "neither CUDA nor Intel XPU is available" in caplog.text
 
-    def test_torch_gpu_selects_cuda_when_available(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
+    def test_torch_gpu_selects_cuda_when_available(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+        monkeypatch.setattr(torch, "xpu", _FakeXpuModule(True), raising=False)
 
         device = resolve_torch_device("gpu")
 
         assert device == torch.device("cuda")
+
+    def test_torch_gpu_selects_xpu_when_cuda_unavailable(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+        monkeypatch.setattr(torch, "xpu", _FakeXpuModule(True), raising=False)
+
+        device = resolve_torch_device("gpu")
+
+        assert device == torch.device("xpu")
 
     def test_onnx_backend_cpu_mode_exposes_cpu_provider(self, saved_onnx: Path) -> None:
         pytest.importorskip("onnx")
@@ -222,7 +237,10 @@ class TestLoadModelFromPath:
             providers = resolve_onnx_providers("gpu")
 
         assert providers == ["CPUExecutionProvider"]
-        assert "GPU was requested for ONNX Runtime" in caplog.text
+        assert (
+            "neither CUDAExecutionProvider nor OpenVINOExecutionProvider is available"
+            in caplog.text
+        )
 
     def test_onnx_provider_resolution_uses_cpu_in_cpu_mode(
         self,
@@ -240,6 +258,54 @@ class TestLoadModelFromPath:
         providers = resolve_onnx_providers("cpu")
 
         assert providers == ["CPUExecutionProvider"]
+
+    def test_onnx_provider_resolution_selects_openvino_when_cuda_unavailable(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        pytest.importorskip("onnxruntime")
+        import onnxruntime as ort
+
+        monkeypatch.setattr(
+            ort,
+            "get_available_providers",
+            lambda: ["OpenVINOExecutionProvider", "CPUExecutionProvider"],
+        )
+
+        providers = resolve_onnx_providers("gpu")
+
+        assert providers == ["OpenVINOExecutionProvider", "CPUExecutionProvider"]
+
+    def test_torch_backend_exposes_intel_xpu_hardware_label(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        saved_pth: Path,
+    ) -> None:
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+        monkeypatch.setattr(torch, "xpu", _FakeXpuModule(True), raising=False)
+
+        model = Model(_make_config(str(saved_pth)))
+
+        assert isinstance(model.backend, TorchBackend)
+        assert model.backend.hardware_label == "Intel XPU"
+
+    def test_onnx_backend_exposes_openvino_hardware_label(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        saved_onnx: Path,
+    ) -> None:
+        pytest.importorskip("onnxruntime")
+        import onnxruntime as ort
+
+        monkeypatch.setattr(
+            ort,
+            "get_available_providers",
+            lambda: ["OpenVINOExecutionProvider", "CPUExecutionProvider"],
+        )
+
+        backend = OnnxBackend.from_path(saved_onnx, hardware="gpu")
+
+        assert backend.hardware_label == "Intel OpenVINO"
 
 
 class TestLoadModelFromName:

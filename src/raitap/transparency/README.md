@@ -113,7 +113,7 @@ Test files:
 
 ## Dependencies
 
-- `torch>=2.0.0`
+- a Torch runtime profile such as `uv sync --extra torch-cpu`
 - `matplotlib>=3.5.0`
 - `captum>=0.7.0` (optional, for Captum explainers/visualisers)
 - `shap>=0.46.0` (optional, for SHAP explainers/visualisers)

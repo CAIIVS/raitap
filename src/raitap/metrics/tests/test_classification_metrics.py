@@ -8,6 +8,15 @@ import torch
 from raitap.metrics import ClassificationMetrics
 
 
+class _DeviceAwareMetricSpy:
+    def __init__(self) -> None:
+        self.devices: list[torch.device] = []
+
+    def to(self, device: torch.device) -> _DeviceAwareMetricSpy:
+        self.devices.append(device)
+        return self
+
+
 class TestClassificationMetricsInitialization:
     """Test ClassificationMetrics initialization and validation."""
 
@@ -123,6 +132,32 @@ class TestBinaryClassification:
 
         result = binary_metrics.compute()
         assert result.metrics["accuracy"] == pytest.approx(1.0)
+
+    def test_prepare_inputs_moves_metric_state_and_targets_to_prediction_device(self) -> None:
+        metrics = ClassificationMetrics(
+            task="binary", num_classes=None, num_labels=None, average="macro", ignore_index=None
+        )
+        accuracy = _DeviceAwareMetricSpy()
+        precision = _DeviceAwareMetricSpy()
+        recall = _DeviceAwareMetricSpy()
+        f1 = _DeviceAwareMetricSpy()
+        metrics.accuracy = accuracy  # type: ignore[assignment]
+        metrics.precision = precision  # type: ignore[assignment]
+        metrics.recall = recall  # type: ignore[assignment]
+        metrics.f1 = f1  # type: ignore[assignment]
+
+        predictions = torch.empty((2,), dtype=torch.int64, device="meta")
+        targets = torch.tensor([1, 0], dtype=torch.int64)
+
+        prepared_predictions, prepared_targets = metrics._prepare_inputs(predictions, targets)
+
+        assert prepared_predictions.device.type == "meta"
+        assert prepared_targets.device.type == "meta"
+        expected_device = torch.device("meta")
+        assert accuracy.devices == [expected_device]
+        assert precision.devices == [expected_device]
+        assert recall.devices == [expected_device]
+        assert f1.devices == [expected_device]
 
 
 class TestMulticlassClassification:

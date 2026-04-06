@@ -8,6 +8,8 @@ import numpy as np
 import torch
 from torch import nn
 
+from .runtime import resolve_onnx_providers
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
@@ -15,8 +17,6 @@ if TYPE_CHECKING:
     import onnxruntime as ort
 
 logger = logging.getLogger(__name__)
-
-_VALID_HARDWARE = frozenset({"cpu", "gpu"})
 
 
 _NUMPY_DTYPES_BY_ONNX_TYPE: dict[str, np.dtype[Any]] = {
@@ -32,59 +32,23 @@ _NUMPY_DTYPES_BY_ONNX_TYPE: dict[str, np.dtype[Any]] = {
 }
 
 
-def _validate_hardware(hardware: str) -> str:
-    if hardware not in _VALID_HARDWARE:
-        valid_values = ", ".join(sorted(_VALID_HARDWARE))
-        raise ValueError(f"Invalid hardware {hardware!r}. Expected one of: {valid_values}.")
-    return hardware
-
-
-def resolve_torch_device(hardware: str) -> torch.device:
-    resolved_hardware = _validate_hardware(hardware)
-    if resolved_hardware == "cpu":
-        return torch.device("cpu")
-
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-
-    logger.warning("GPU was requested for PyTorch, but CUDA is unavailable. Falling back to CPU.")
-    return torch.device("cpu")
-
-
-def resolve_onnx_providers(
-    hardware: str,
-    *,
-    available_providers: Sequence[str] | None = None,
-) -> list[str]:
-    resolved_hardware = _validate_hardware(hardware)
-    if resolved_hardware == "cpu":
-        return ["CPUExecutionProvider"]
-
-    provider_names = available_providers
-    if provider_names is None:
-        try:
-            import onnxruntime as ort
-        except ImportError as error:
-            raise ImportError(
-                "ONNX support is enabled but onnxruntime is not installed. "
-                "Install it with `uv sync --extra onnx` or `uv sync --extra onnx-gpu`."
-            ) from error
-        provider_names = ort.get_available_providers()
-
-    if "CUDAExecutionProvider" in provider_names:
-        return ["CUDAExecutionProvider", "CPUExecutionProvider"]
-
-    logger.warning(
-        "GPU was requested for ONNX Runtime, but CUDAExecutionProvider is unavailable. "
-        "Falling back to CPUExecutionProvider."
-    )
-    return ["CPUExecutionProvider"]
-
-
 class ModelBackend(ABC):
     """Backend-agnostic model runtime interface."""
 
     supports_torch_autograd: bool
+
+    @property
+    @abstractmethod
+    def hardware_label(self) -> str:
+        """Human-readable label for the resolved runtime backend."""
+
+    def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
+        """Adapt runtime inputs to this backend's preferred device/layout."""
+        return inputs
+
+    def _prepare_kwargs(self, kwargs: dict[str, Any]) -> dict[str, Any]:
+        """Adapt explainer/runtime kwargs for this backend."""
+        return kwargs
 
     @abstractmethod
     def __call__(self, inputs: torch.Tensor) -> Any:
@@ -103,6 +67,16 @@ class TorchBackend(ModelBackend):
     def __init__(self, model: nn.Module, *, device: torch.device | None = None) -> None:
         self.model = model
         self.device = torch.device("cpu") if device is None else device
+
+    @property
+    def hardware_label(self) -> str:
+        return _torch_hardware_label(self.device)
+
+    def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
+        return inputs.to(self.device)
+
+    def _prepare_kwargs(self, kwargs: dict[str, Any]) -> dict[str, Any]:
+        return _move_tensors_to_device(kwargs, self.device)
 
     def __call__(self, inputs: torch.Tensor) -> Any:
         return self.model(inputs)
@@ -152,6 +126,11 @@ class OnnxBackend(ModelBackend):
         self.output_names = [output.name for output in session.get_outputs()]
         self._explanation_module = _OnnxExplanationModule(self)
 
+    @property
+    def hardware_label(self) -> str:
+        primary_provider = self.providers[0] if self.providers else "CPUExecutionProvider"
+        return _onnx_hardware_label(primary_provider)
+
     @classmethod
     def from_path(cls, path: Path, *, hardware: str = "gpu") -> OnnxBackend:
         try:
@@ -159,7 +138,8 @@ class OnnxBackend(ModelBackend):
         except ImportError as error:
             raise ImportError(
                 "ONNX support is enabled but onnxruntime is not installed. "
-                "Install it with `uv sync --extra onnx` or `uv sync --extra onnx-gpu`."
+                "Install it with `uv sync --extra onnx-cpu`, `uv sync --extra onnx-gpu`, "
+                "or `uv sync --extra onnx-openvino`."
             ) from error
 
         providers = resolve_onnx_providers(
@@ -167,7 +147,6 @@ class OnnxBackend(ModelBackend):
             available_providers=ort.get_available_providers(),
         )
         session = ort.InferenceSession(str(path), providers=providers)
-        logger.info("Created ONNX Runtime session with providers: %s", providers)
         return cls(session, providers=providers, model_path=path)
 
     def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
@@ -204,3 +183,35 @@ class OnnxBackend(ModelBackend):
             if tensor.ndim >= 2:
                 return tensor
         return max(outputs, key=lambda tensor: tensor.numel())
+
+
+def _move_tensors_to_device(value: Any, device: torch.device) -> Any:
+    if isinstance(value, torch.Tensor):
+        return value.to(device)
+    if isinstance(value, list):
+        return [_move_tensors_to_device(item, device) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_move_tensors_to_device(item, device) for item in value)
+    if isinstance(value, dict):
+        return {key: _move_tensors_to_device(item, device) for key, item in value.items()}
+    return value
+
+
+def _torch_hardware_label(device: torch.device) -> str:
+    label_by_type = {
+        "cpu": "CPU",
+        "cuda": "CUDA",
+        "xpu": "Intel XPU",
+        "mps": "Apple MPS",
+    }
+    return label_by_type.get(device.type, device.type.upper())
+
+
+def _onnx_hardware_label(provider: str) -> str:
+    label_by_provider = {
+        "CPUExecutionProvider": "CPU",
+        "CUDAExecutionProvider": "CUDA",
+        "OpenVINOExecutionProvider": "Intel OpenVINO",
+        "CoreMLExecutionProvider": "Apple CoreML",
+    }
+    return label_by_provider.get(provider, provider)

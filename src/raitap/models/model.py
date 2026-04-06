@@ -7,7 +7,8 @@ import torch
 from torch import nn
 from torchvision import models
 
-from .backend import ModelBackend, OnnxBackend, TorchBackend, resolve_torch_device
+from .backend import ModelBackend, OnnxBackend, TorchBackend
+from .runtime import resolve_torch_device
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig

@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 # Optional-dependency skip fixtures
 # Usage: reference via ``@pytest.mark.usefixtures("needs_captum")`` (or
 # ``needs_shap``) on tests that run code importing that package. Skips when the
-# extra is not installed (`uv sync --extra captum` / `--extra shap`, or `--extra all`).
+# extra is not installed (`uv sync --extra captum` / `--extra shap`).
 # ---------------------------------------------------------------------------
 
 

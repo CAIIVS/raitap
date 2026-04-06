@@ -8,6 +8,15 @@ import torch
 from raitap.metrics import DetectionMetrics
 
 
+class _DeviceAwareMapSpy:
+    def __init__(self) -> None:
+        self.devices: list[torch.device] = []
+
+    def to(self, device: torch.device) -> _DeviceAwareMapSpy:
+        self.devices.append(device)
+        return self
+
+
 class TestDetectionMetricsInitialization:
     """Test DetectionMetrics initialization with various configurations."""
 
@@ -71,6 +80,38 @@ class TestDetectionMetricsUpdate:
 
         # Should not raise any exception
         detection_metrics.update(predictions, targets)
+
+    def test_prepare_inputs_moves_metric_state_and_nested_targets_to_prediction_device(
+        self,
+    ) -> None:
+        detection_metrics = DetectionMetrics(
+            iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
+        )
+        metric_spy = _DeviceAwareMapSpy()
+        detection_metrics.metric = metric_spy  # type: ignore[assignment]
+
+        predictions = [
+            {
+                "boxes": torch.empty((0, 4), device="meta"),
+                "scores": torch.empty((0,), device="meta"),
+                "labels": torch.empty((0,), dtype=torch.int64, device="meta"),
+            }
+        ]
+        targets = [
+            {
+                "boxes": torch.tensor([[10.0, 20.0, 30.0, 40.0]]),
+                "labels": torch.tensor([0]),
+            }
+        ]
+
+        prepared_predictions, prepared_targets = detection_metrics._prepare_inputs(
+            predictions, targets
+        )
+
+        assert prepared_predictions[0]["boxes"].device.type == "meta"
+        assert prepared_targets[0]["boxes"].device.type == "meta"
+        expected_device = torch.device("meta")
+        assert metric_spy.devices == [expected_device]
 
     def test_update_with_multiple_images(self, detection_metrics: DetectionMetrics) -> None:
         """Test update with multiple images."""

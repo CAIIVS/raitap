@@ -31,6 +31,12 @@ class _BackendStub:
         self._model = model
         self.supports_torch_autograd = supports_torch_autograd
 
+    def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
+        return inputs
+
+    def _prepare_kwargs(self, kwargs: dict[str, Any]) -> dict[str, Any]:
+        return kwargs
+
     def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
         return self._model(inputs)
 
@@ -351,6 +357,65 @@ def test_explanation_uses_real_shap_preset_defaults_and_runtime_overrides(
     assert explainer.last_explain_kwargs["batch_size"] == 1
     assert explainer.last_explain_kwargs["show_progress"] is True
     assert explainer.last_explain_kwargs["progress_desc"] == "SHAP batches"
+
+
+def test_explanation_prepares_runtime_tensor_kwargs_with_backend(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sample_images: torch.Tensor,
+) -> None:
+    class RecordingExplainer:
+        algorithm = "Saliency"
+
+        def __init__(self) -> None:
+            self.last_explain_kwargs: dict[str, Any] = {}
+
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
+
+        def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
+            self.last_explain_kwargs = dict(kwargs)
+            return MagicMock(spec=ExplanationResult)
+
+    class PreparingBackend(_BackendStub):
+        def _prepare_kwargs(self, kwargs: dict[str, Any]) -> dict[str, Any]:
+            prepared = dict(kwargs)
+            baselines = prepared.get("baselines")
+            if isinstance(baselines, torch.Tensor):
+                prepared["baselines"] = baselines.to(torch.device("meta"))
+            return prepared
+
+    explainer = RecordingExplainer()
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "visualisers": [],
+            }
+        ),
+    )
+
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (explainer, "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
+
+    model = SimpleNamespace(backend=PreparingBackend(torch.nn.Identity()))
+    Explanation(
+        config,
+        "test_explainer",
+        model=model,  # type: ignore[arg-type]
+        inputs=sample_images,
+        baselines=sample_images[:1],
+    )
+
+    baselines = explainer.last_explain_kwargs["baselines"]
+    assert isinstance(baselines, torch.Tensor)
+    assert baselines.device.type == "meta"
 
 
 def test_check_explainer_visualiser_compat_allows_compatible() -> None:

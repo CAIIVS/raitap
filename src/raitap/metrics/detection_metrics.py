@@ -55,6 +55,11 @@ class DetectionMetrics(BaseMetricComputer):
             **kwargs,
         )
 
+    def _move_to_device(self, device: torch.device | None) -> None:
+        if device is None:
+            return
+        self.metric = self.metric.to(device)
+
     def update(self, predictions: Any, targets: Any) -> None:
         # Sanity checks
         if not isinstance(predictions, list) or not isinstance(targets, list):

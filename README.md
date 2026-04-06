@@ -41,24 +41,65 @@ Additional references on XAI aspects:
 2. Install the dependencies
 
     ```bash
-    uv sync
+    uv sync --extra torch-cpu
     ```
 
-#### Optional ONNX Runtime installs
+#### Runtime profiles
+
+Choose exactly one Torch runtime profile:
+
+* CPU Torch:
+
+    ```bash
+    uv sync --extra torch-cpu
+    ```
+
+* CUDA Torch:
+
+    ```bash
+    uv sync --extra torch-cuda
+    ```
+
+* Intel XPU Torch:
+
+    ```bash
+    uv sync --extra torch-xpu
+    ```
+
+    This profile is currently locked for Python 3.13 while the published XPU dependency
+    stack catches up for newer interpreter versions.
+
+For ONNX workflows in the current codebase, also install a Torch runtime profile because ONNX
+inputs and outputs still cross parts of the pipeline as `torch.Tensor`.
+
+Choose at most one ONNX runtime profile:
 
 * CPU:
 
     ```bash
-    uv sync --extra onnx-cpu
+    uv sync --extra torch-cpu --extra onnx-cpu
     ```
 
 * GPU:
 
     ```bash
-    uv sync --extra onnx-gpu
+    uv sync --extra torch-cpu --extra onnx-gpu
     ```
 
-Install either `onnx` or `onnx-gpu` depending on your target runtime. Do not install both as a standard setup.
+* Intel / OpenVINO:
+
+    ```bash
+    uv sync --extra torch-cpu --extra onnx-openvino
+    ```
+
+Add optional feature extras as needed:
+
+```bash
+uv sync --extra torch-cpu --extra captum --extra shap --extra metrics --extra mlflow
+```
+
+On Windows, `onnx-openvino` also installs the `openvino` Python package. On Linux, the
+OpenVINO ONNX Runtime wheel ships with the required OpenVINO libraries.
 
 ### Basic Usage
 
@@ -85,7 +126,16 @@ RAITAP now uses a root-level `hardware` setting:
 * Default: `hardware=gpu`
 * Force CPU: `hardware=cpu`
 
-When `hardware=gpu` is requested but GPU support is unavailable, RAITAP falls back to CPU and logs the downgrade to the console.
+When `hardware=gpu` is requested, RAITAP selects the best available supported accelerator and
+falls back automatically when a higher-priority option is unavailable.
+
+Priority order:
+
+* PyTorch: `cuda` -> `xpu` -> `cpu`
+* ONNX Runtime: `CUDAExecutionProvider` -> `OpenVINOExecutionProvider` -> `CPUExecutionProvider`
+
+The runtime profiles above select the matching PyTorch wheel source for CPU, CUDA, or Intel XPU.
+ONNX profiles remain separate and should not be combined with each other.
 
 You can verify runtime availability with:
 
@@ -94,10 +144,12 @@ import onnxruntime
 import torch
 
 print(torch.cuda.is_available())
+print(hasattr(torch, "xpu") and torch.xpu.is_available())
 print(onnxruntime.get_available_providers())
 ```
 
-ONNX GPU support accelerates inference and compatible non-autograd explainers. It does not add PyTorch autograd to ONNX models.
+Accelerated ONNX execution helps inference and compatible non-autograd explainers. It does not add
+PyTorch autograd to ONNX models.
 
 #### In your Python code
 

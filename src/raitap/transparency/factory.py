@@ -156,6 +156,7 @@ class Explanation:
 
         call_from_config = _transparency_subdict(raw_transparency_config.get("call"), label="call")
         merged_kwargs = _resolve_call_data_sources({**call_from_config, **kwargs})
+        merged_kwargs = model.backend._prepare_kwargs(merged_kwargs)
 
         return explainer.explain(
             model.backend.as_model_for_explanation(),
