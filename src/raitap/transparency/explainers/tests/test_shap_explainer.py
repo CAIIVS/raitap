@@ -10,6 +10,8 @@ import torch
 from raitap.transparency.explainers import ShapExplainer
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from raitap.models.backend import OnnxBackend
 
 
@@ -69,7 +71,7 @@ class TestShapExplainer:
 
     @pytest.mark.usefixtures("needs_shap")
     def test_gradient_explainer_with_base_batching(
-        self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor
+        self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor, tmp_path: Path
     ) -> None:
         """Mini-batching via BaseExplainer.explain works with per-sample targets."""
         explainer = ShapExplainer("GradientExplainer")
@@ -78,6 +80,7 @@ class TestShapExplainer:
         result = explainer.explain(
             simple_cnn,
             sample_images,
+            run_dir=tmp_path / "transparency",
             background_data=background,
             target=[0, 1, 2, 3],
             batch_size=2,
@@ -91,6 +94,7 @@ class TestShapExplainer:
         self,
         onnx_linear_backend: OnnxBackend,
         sample_tabular: torch.Tensor,
+        tmp_path: Path,
     ) -> None:
         explainer = ShapExplainer("KernelExplainer")
         inputs = sample_tabular[:4]
@@ -100,6 +104,7 @@ class TestShapExplainer:
         result = explainer.explain(
             onnx_linear_backend.as_model_for_explanation(),
             inputs,
+            run_dir=tmp_path / "transparency",
             backend=onnx_linear_backend,
             background_data=background,
             target=0,

@@ -23,6 +23,27 @@ from raitap.run import pipeline as run_pipeline
 from raitap.tracking import BaseTracker
 
 
+class _BackendStub:
+    def __init__(self, model: torch.nn.Module) -> None:
+        self._model = model
+
+    @property
+    def hardware_label(self) -> str:
+        return "CPU"
+
+    def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
+        return inputs
+
+    def _prepare_kwargs(self, kwargs: dict[str, object]) -> dict[str, object]:
+        return kwargs
+
+    def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
+        return self._model(inputs)
+
+    def as_model_for_explanation(self) -> torch.nn.Module:
+        return self._model
+
+
 def test_extract_primary_tensor_tensor() -> None:
     t = torch.randn(2, 3)
     assert torch.equal(extract_primary_tensor(t), t)
@@ -98,7 +119,6 @@ def test_hydra_main_composes_default_config(monkeypatch: MonkeyPatch, tmp_path: 
         captured["config"] = config
 
     monkeypatch.setattr(run_entry, "run", fake_run)
-    monkeypatch.setattr(run_entry, "print_summary", lambda _cfg: None)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -118,7 +138,10 @@ def test_hydra_main_composes_default_config(monkeypatch: MonkeyPatch, tmp_path: 
 
 
 def test_run_without_tracking_returns_outputs(monkeypatch: MonkeyPatch) -> None:
-    model = SimpleNamespace(network=torch.nn.Identity())
+    model = SimpleNamespace(
+        backend=_BackendStub(torch.nn.Identity()),
+        log=MagicMock(),
+    )
     data = SimpleNamespace(tensor=torch.randn(2, 3))
     fake_output = run_module.RunOutputs(
         explanations=[],
@@ -131,9 +154,10 @@ def test_run_without_tracking_returns_outputs(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(run_pipeline, "Model", lambda _cfg: model)
     monkeypatch.setattr(run_pipeline, "Data", lambda _cfg: data)
     monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
+    monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
     monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
 
-    config = SimpleNamespace(tracking=None)
+    config = SimpleNamespace(tracking=None, experiment_name="test")
     result = run_module.run(config)  # type: ignore[arg-type]
 
     assert result is fake_output
@@ -141,7 +165,10 @@ def test_run_without_tracking_returns_outputs(monkeypatch: MonkeyPatch) -> None:
 
 
 def test_run_with_tracking_logs_all_outputs(monkeypatch: MonkeyPatch) -> None:
-    model = SimpleNamespace(network=torch.nn.Identity(), log=MagicMock())
+    model = SimpleNamespace(
+        backend=_BackendStub(torch.nn.Identity()),
+        log=MagicMock(),
+    )
     data = SimpleNamespace(tensor=torch.randn(2, 3), log=MagicMock())
     explanation = _FakeExplainerResult("exp1")
     visualisation = explanation.visualise()[0]
@@ -165,9 +192,13 @@ def test_run_with_tracking_logs_all_outputs(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(run_pipeline, "Model", lambda _cfg: model)
     monkeypatch.setattr(run_pipeline, "Data", lambda _cfg: data)
     monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
+    monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
-    config = SimpleNamespace(tracking=SimpleNamespace(_target_="MLFlowTracker", log_model=True))
+    config = SimpleNamespace(
+        tracking=SimpleNamespace(_target_="MLFlowTracker", log_model=True),
+        experiment_name="test",
+    )
     run_module.run(config)  # type: ignore[arg-type]
 
     tracker.log_config.assert_called_once()
@@ -179,7 +210,10 @@ def test_run_with_tracking_logs_all_outputs(monkeypatch: MonkeyPatch) -> None:
 
 
 def test_run_with_tracking_skips_model_logging_when_disabled(monkeypatch: MonkeyPatch) -> None:
-    model = SimpleNamespace(network=torch.nn.Identity(), log=MagicMock())
+    model = SimpleNamespace(
+        backend=_BackendStub(torch.nn.Identity()),
+        log=MagicMock(),
+    )
     data = SimpleNamespace(tensor=torch.randn(1, 3), log=MagicMock())
     explanation = _FakeExplainerResult("exp1")
     visualisation = explanation.visualise()[0]
@@ -202,9 +236,13 @@ def test_run_with_tracking_skips_model_logging_when_disabled(monkeypatch: Monkey
     monkeypatch.setattr(run_pipeline, "Model", lambda _cfg: model)
     monkeypatch.setattr(run_pipeline, "Data", lambda _cfg: data)
     monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
+    monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
-    config = SimpleNamespace(tracking=SimpleNamespace(_target_="MLFlowTracker", log_model=False))
+    config = SimpleNamespace(
+        tracking=SimpleNamespace(_target_="MLFlowTracker", log_model=False),
+        experiment_name="test",
+    )
     run_module.run(config)  # type: ignore[arg-type]
 
     model.log.assert_not_called()
@@ -212,7 +250,10 @@ def test_run_with_tracking_skips_model_logging_when_disabled(monkeypatch: Monkey
 
 
 def test_run_with_multiple_explainers_uses_subdirs(monkeypatch: MonkeyPatch) -> None:
-    model = SimpleNamespace(network=torch.nn.Identity(), log=MagicMock())
+    model = SimpleNamespace(
+        backend=_BackendStub(torch.nn.Identity()),
+        log=MagicMock(),
+    )
     data = SimpleNamespace(tensor=torch.randn(2, 3), log=MagicMock())
     exp1 = _FakeExplainerResult("exp1")
     vis1 = exp1.visualise()[0]
@@ -237,9 +278,13 @@ def test_run_with_multiple_explainers_uses_subdirs(monkeypatch: MonkeyPatch) -> 
     monkeypatch.setattr(run_pipeline, "Model", lambda _cfg: model)
     monkeypatch.setattr(run_pipeline, "Data", lambda _cfg: data)
     monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
+    monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
-    config = SimpleNamespace(tracking=SimpleNamespace(_target_="MLFlowTracker", log_model=False))
+    config = SimpleNamespace(
+        tracking=SimpleNamespace(_target_="MLFlowTracker", log_model=False),
+        experiment_name="test",
+    )
     run_module.run(config)  # type: ignore[arg-type]
 
     assert exp1.log_calls == [True]
@@ -249,7 +294,10 @@ def test_run_with_multiple_explainers_uses_subdirs(monkeypatch: MonkeyPatch) -> 
 
 
 def test_run_with_tracking_config_but_no_target_skips_tracking(monkeypatch: MonkeyPatch) -> None:
-    model = SimpleNamespace(network=torch.nn.Identity())
+    model = SimpleNamespace(
+        backend=_BackendStub(torch.nn.Identity()),
+        log=MagicMock(),
+    )
     data = SimpleNamespace(tensor=torch.randn(2, 3))
     fake_output = run_module.RunOutputs(
         explanations=[],
@@ -262,10 +310,11 @@ def test_run_with_tracking_config_but_no_target_skips_tracking(monkeypatch: Monk
     monkeypatch.setattr(run_pipeline, "Model", lambda _cfg: model)
     monkeypatch.setattr(run_pipeline, "Data", lambda _cfg: data)
     monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
+    monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
     monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
 
     # tracking config exists but _target_ is None or empty
-    config = SimpleNamespace(tracking=SimpleNamespace(_target_=None))
+    config = SimpleNamespace(tracking=SimpleNamespace(_target_=None), experiment_name="test")
     result = run_module.run(config)  # type: ignore[arg-type]
 
     assert result is fake_output
@@ -273,7 +322,7 @@ def test_run_with_tracking_config_but_no_target_skips_tracking(monkeypatch: Monk
 
 
 def test_run_without_tracking_raises_if_no_explainers(monkeypatch: MonkeyPatch) -> None:
-    model = SimpleNamespace(backend=torch.nn.Identity())
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     data = SimpleNamespace(tensor=torch.randn(2, 3))
     config = SimpleNamespace(transparency={}, metrics=SimpleNamespace(num_classes=None))
 
@@ -289,7 +338,7 @@ def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: M
             del x
             return torch.tensor([[0.1, 0.9, 0.0], [0.8, 0.1, 0.1]])
 
-    model = SimpleNamespace(backend=_Net())
+    model = SimpleNamespace(backend=_BackendStub(_Net()))
     data = SimpleNamespace(tensor=torch.randn(2, 4))
     explanation = _FakeExplainerResult("exp")
     metrics_calls: list[tuple[object, torch.Tensor, torch.Tensor]] = []
@@ -325,7 +374,7 @@ def test_run_without_tracking_uses_provided_num_classes(monkeypatch: MonkeyPatch
             del x
             return torch.tensor([[0.1, 0.9, 0.0]])
 
-    model = SimpleNamespace(backend=_Net())
+    model = SimpleNamespace(backend=_BackendStub(_Net()))
     data = SimpleNamespace(tensor=torch.randn(1, 4))
     explanation = _FakeExplainerResult("exp")
 
@@ -346,7 +395,7 @@ def test_run_without_tracking_uses_provided_num_classes(monkeypatch: MonkeyPatch
 
 
 def test_run_without_tracking_passes_sample_names_to_explanation(monkeypatch: MonkeyPatch) -> None:
-    model = SimpleNamespace(backend=torch.nn.Identity())
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     data = SimpleNamespace(
         tensor=torch.randn(2, 3),
         sample_ids=["isic_1", "isic_2"],

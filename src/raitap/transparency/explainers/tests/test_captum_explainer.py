@@ -10,6 +10,8 @@ import torch
 from raitap.transparency.explainers import CaptumExplainer
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from raitap.models.backend import OnnxBackend
 
 
@@ -96,7 +98,7 @@ class TestCaptumExplainer:
 
     @pytest.mark.usefixtures("needs_captum")
     def test_saliency_with_base_batching(
-        self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor
+        self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor, tmp_path: Path
     ) -> None:
         """Mini-batching via BaseExplainer.explain works for Captum methods."""
         explainer = CaptumExplainer("Saliency")
@@ -104,6 +106,7 @@ class TestCaptumExplainer:
         result = explainer.explain(
             simple_cnn,
             sample_images,
+            run_dir=tmp_path / "transparency",
             target=[0, 1, 2, 3],
             batch_size=2,
         )
@@ -116,6 +119,7 @@ class TestCaptumExplainer:
         self,
         onnx_linear_backend: OnnxBackend,
         sample_tabular: torch.Tensor,
+        tmp_path: Path,
     ) -> None:
         explainer = CaptumExplainer("FeatureAblation")
         inputs = sample_tabular[:4]
@@ -124,6 +128,7 @@ class TestCaptumExplainer:
         result = explainer.explain(
             onnx_linear_backend.as_model_for_explanation(),
             inputs,
+            run_dir=tmp_path / "transparency",
             backend=onnx_linear_backend,
             target=0,
         )
@@ -136,6 +141,7 @@ class TestCaptumExplainer:
         self,
         onnx_linear_backend: OnnxBackend,
         sample_tabular: torch.Tensor,
+        tmp_path: Path,
     ) -> None:
         explainer = CaptumExplainer("FeatureAblation")
         inputs = sample_tabular[:4]
@@ -144,6 +150,7 @@ class TestCaptumExplainer:
         result = explainer.explain(
             onnx_linear_backend.as_model_for_explanation(),
             inputs,
+            run_dir=tmp_path / "transparency",
             backend=onnx_linear_backend,
             target=0,
             batch_size=2,

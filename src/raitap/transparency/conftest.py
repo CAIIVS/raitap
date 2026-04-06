@@ -41,6 +41,12 @@ def needs_onnx() -> None:
     pytest.importorskip("onnxruntime")
 
 
+@pytest.fixture(autouse=True)
+def isolate_transparency_test_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep fallback transparency artifacts inside pytest's temporary directory."""
+    monkeypatch.chdir(tmp_path)
+
+
 # ---------------------------------------------------------------------------
 # Model fixtures
 # ---------------------------------------------------------------------------
