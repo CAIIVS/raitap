@@ -11,6 +11,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _VALID_HARDWARE = frozenset({"cpu", "gpu"})
+_ONNX_RUNTIME_INSTALL_HINT = (
+    "ONNX support is enabled but onnxruntime is not installed. "
+    "Install it with `uv sync --extra onnx-cpu`, `uv sync --extra onnx-gpu`, "
+    "or `uv sync --extra onnx-openvino`. On Apple Silicon, the `onnx-cpu` "
+    "profile may still expose `CoreMLExecutionProvider` when the installed "
+    "onnxruntime build supports it."
+)
 
 
 def validate_hardware(hardware: str) -> str:
@@ -28,12 +35,15 @@ def resolve_torch_device(hardware: str) -> torch.device:
     if torch.cuda.is_available():
         return torch.device("cuda")
 
+    if _torch_mps_is_available():
+        return torch.device("mps")
+
     if _torch_xpu_is_available():
         return torch.device("xpu")
 
     logger.warning(
-        "GPU was requested for PyTorch, but neither CUDA nor Intel XPU is available. "
-        "Falling back to CPU."
+        "GPU was requested for PyTorch, but neither CUDA, Apple MPS, nor Intel XPU "
+        "is available. Falling back to CPU."
     )
     return torch.device("cpu")
 
@@ -52,24 +62,34 @@ def resolve_onnx_providers(
         try:
             import onnxruntime as ort
         except ImportError as error:
-            raise ImportError(
-                "ONNX support is enabled but onnxruntime is not installed. "
-                "Install it with `uv sync --extra onnx-cpu`, `uv sync --extra onnx-gpu`, "
-                "or `uv sync --extra onnx-openvino`."
-            ) from error
+            raise ImportError(_ONNX_RUNTIME_INSTALL_HINT) from error
         provider_names = ort.get_available_providers()
 
     if "CUDAExecutionProvider" in provider_names:
         return ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
+    if "CoreMLExecutionProvider" in provider_names:
+        return ["CoreMLExecutionProvider", "CPUExecutionProvider"]
+
     if "OpenVINOExecutionProvider" in provider_names:
         return ["OpenVINOExecutionProvider", "CPUExecutionProvider"]
 
     logger.warning(
-        "GPU was requested for ONNX Runtime, but neither CUDAExecutionProvider nor "
-        "OpenVINOExecutionProvider is available. Falling back to CPUExecutionProvider."
+        "GPU was requested for ONNX Runtime, but neither CUDAExecutionProvider, "
+        "CoreMLExecutionProvider, nor OpenVINOExecutionProvider is available. "
+        "Falling back to CPUExecutionProvider."
     )
     return ["CPUExecutionProvider"]
+
+
+def _torch_mps_is_available() -> bool:
+    backends = getattr(torch, "backends", None)
+    mps_backend = getattr(backends, "mps", None)
+    if mps_backend is None:
+        return False
+
+    is_available = getattr(mps_backend, "is_available", None)
+    return bool(callable(is_available) and is_available())
 
 
 def _torch_xpu_is_available() -> bool:

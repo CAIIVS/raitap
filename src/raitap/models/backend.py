@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from .runtime import resolve_onnx_providers
+from .runtime import _ONNX_RUNTIME_INSTALL_HINT, resolve_onnx_providers
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -136,11 +136,7 @@ class OnnxBackend(ModelBackend):
         try:
             import onnxruntime as ort
         except ImportError as error:
-            raise ImportError(
-                "ONNX support is enabled but onnxruntime is not installed. "
-                "Install it with `uv sync --extra onnx-cpu`, `uv sync --extra onnx-gpu`, "
-                "or `uv sync --extra onnx-openvino`."
-            ) from error
+            raise ImportError(_ONNX_RUNTIME_INSTALL_HINT) from error
 
         providers = resolve_onnx_providers(
             hardware,

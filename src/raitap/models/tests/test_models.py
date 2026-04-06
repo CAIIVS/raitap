@@ -7,7 +7,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from raitap.models import Model
+from raitap.models import Model, runtime
 from raitap.models.backend import OnnxBackend, TorchBackend
 from raitap.models.runtime import resolve_onnx_providers, resolve_torch_device
 
@@ -27,6 +27,20 @@ class _FakeXpuModule:
 
     def is_available(self) -> bool:
         return self._available
+
+
+class _FakeOnnxValueInfo:
+    def __init__(self, name: str, type_name: str = "tensor(float)") -> None:
+        self.name = name
+        self.type = type_name
+
+
+class _FakeOnnxSession:
+    def get_inputs(self) -> list[_FakeOnnxValueInfo]:
+        return [_FakeOnnxValueInfo("input")]
+
+    def get_outputs(self) -> list[_FakeOnnxValueInfo]:
+        return [_FakeOnnxValueInfo("output")]
 
 
 def _make_config(source: str, *, hardware: str = "gpu") -> AppConfig:
@@ -171,28 +185,64 @@ class TestLoadModelFromPath:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
-        monkeypatch.setattr(torch, "xpu", _FakeXpuModule(False), raising=False)
+        monkeypatch.setattr(runtime, "_torch_mps_is_available", lambda: False)
+        monkeypatch.setattr(runtime, "_torch_xpu_is_available", lambda: False)
 
         with caplog.at_level("WARNING"):
             device = resolve_torch_device("gpu")
 
         assert device == torch.device("cpu")
-        assert "neither CUDA nor Intel XPU is available" in caplog.text
+        assert "neither CUDA, Apple MPS, nor Intel XPU is available" in caplog.text
 
     def test_torch_gpu_selects_cuda_when_available(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
-        monkeypatch.setattr(torch, "xpu", _FakeXpuModule(True), raising=False)
+        monkeypatch.setattr(runtime, "_torch_mps_is_available", lambda: True)
+        monkeypatch.setattr(runtime, "_torch_xpu_is_available", lambda: True)
 
         device = resolve_torch_device("gpu")
 
         assert device == torch.device("cuda")
+
+    def test_torch_gpu_selects_mps_when_cuda_unavailable(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+        monkeypatch.setattr(runtime, "_torch_mps_is_available", lambda: True)
+        monkeypatch.setattr(runtime, "_torch_xpu_is_available", lambda: False)
+
+        device = resolve_torch_device("gpu")
+
+        assert device == torch.device("mps")
+
+    def test_torch_gpu_prefers_cuda_over_mps(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+        monkeypatch.setattr(runtime, "_torch_mps_is_available", lambda: True)
+        monkeypatch.setattr(runtime, "_torch_xpu_is_available", lambda: False)
+
+        device = resolve_torch_device("gpu")
+
+        assert device == torch.device("cuda")
+
+    def test_torch_gpu_prefers_mps_over_xpu_when_cuda_unavailable(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+        monkeypatch.setattr(runtime, "_torch_mps_is_available", lambda: True)
+        monkeypatch.setattr(runtime, "_torch_xpu_is_available", lambda: True)
+
+        device = resolve_torch_device("gpu")
+
+        assert device == torch.device("mps")
 
     def test_torch_gpu_selects_xpu_when_cuda_unavailable(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
-        monkeypatch.setattr(torch, "xpu", _FakeXpuModule(True), raising=False)
+        monkeypatch.setattr(runtime, "_torch_mps_is_available", lambda: False)
+        monkeypatch.setattr(runtime, "_torch_xpu_is_available", lambda: True)
 
         device = resolve_torch_device("gpu")
 
@@ -223,6 +273,65 @@ class TestLoadModelFromPath:
 
         assert providers == ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
+    def test_onnx_provider_resolution_selects_coreml_when_cuda_unavailable(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        pytest.importorskip("onnxruntime")
+        import onnxruntime as ort
+
+        monkeypatch.setattr(
+            ort,
+            "get_available_providers",
+            lambda: ["CoreMLExecutionProvider", "CPUExecutionProvider"],
+        )
+
+        providers = resolve_onnx_providers("gpu")
+
+        assert providers == ["CoreMLExecutionProvider", "CPUExecutionProvider"]
+
+    def test_onnx_provider_resolution_prefers_cuda_over_coreml(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        pytest.importorskip("onnxruntime")
+        import onnxruntime as ort
+
+        monkeypatch.setattr(
+            ort,
+            "get_available_providers",
+            lambda: [
+                "CoreMLExecutionProvider",
+                "CUDAExecutionProvider",
+                "CPUExecutionProvider",
+            ],
+        )
+
+        providers = resolve_onnx_providers("gpu")
+
+        assert providers == ["CUDAExecutionProvider", "CPUExecutionProvider"]
+
+    def test_onnx_provider_resolution_prefers_coreml_over_openvino(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        pytest.importorskip("onnxruntime")
+        import onnxruntime as ort
+
+        monkeypatch.setattr(
+            ort,
+            "get_available_providers",
+            lambda: [
+                "OpenVINOExecutionProvider",
+                "CoreMLExecutionProvider",
+                "CPUExecutionProvider",
+            ],
+        )
+
+        providers = resolve_onnx_providers("gpu")
+
+        assert providers == ["CoreMLExecutionProvider", "CPUExecutionProvider"]
+
     def test_onnx_provider_resolution_falls_back_to_cpu_with_warning(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -238,8 +347,8 @@ class TestLoadModelFromPath:
 
         assert providers == ["CPUExecutionProvider"]
         assert (
-            "neither CUDAExecutionProvider nor OpenVINOExecutionProvider is available"
-            in caplog.text
+            "neither CUDAExecutionProvider, CoreMLExecutionProvider, nor "
+            "OpenVINOExecutionProvider is available" in caplog.text
         )
 
     def test_onnx_provider_resolution_uses_cpu_in_cpu_mode(
@@ -278,34 +387,31 @@ class TestLoadModelFromPath:
 
     def test_torch_backend_exposes_intel_xpu_hardware_label(
         self,
-        monkeypatch: pytest.MonkeyPatch,
-        saved_pth: Path,
     ) -> None:
-        monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
-        monkeypatch.setattr(torch, "xpu", _FakeXpuModule(True), raising=False)
+        backend = TorchBackend(nn.Identity(), device=torch.device("xpu"))
 
-        model = Model(_make_config(str(saved_pth)))
+        assert backend.hardware_label == "Intel XPU"
 
-        assert isinstance(model.backend, TorchBackend)
-        assert model.backend.hardware_label == "Intel XPU"
+    def test_torch_backend_exposes_apple_mps_hardware_label(self) -> None:
+        backend = TorchBackend(nn.Identity(), device=torch.device("mps"))
 
-    def test_onnx_backend_exposes_openvino_hardware_label(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-        saved_onnx: Path,
-    ) -> None:
-        pytest.importorskip("onnxruntime")
-        import onnxruntime as ort
+        assert backend.hardware_label == "Apple MPS"
 
-        monkeypatch.setattr(
-            ort,
-            "get_available_providers",
-            lambda: ["OpenVINOExecutionProvider", "CPUExecutionProvider"],
+    def test_onnx_backend_exposes_openvino_hardware_label(self) -> None:
+        backend = OnnxBackend(
+            _FakeOnnxSession(),
+            providers=["OpenVINOExecutionProvider", "CPUExecutionProvider"],
         )
 
-        backend = OnnxBackend.from_path(saved_onnx, hardware="gpu")
-
         assert backend.hardware_label == "Intel OpenVINO"
+
+    def test_onnx_backend_exposes_apple_coreml_hardware_label(self) -> None:
+        backend = OnnxBackend(
+            _FakeOnnxSession(),
+            providers=["CoreMLExecutionProvider", "CPUExecutionProvider"],
+        )
+
+        assert backend.hardware_label == "Apple CoreML"
 
 
 class TestLoadModelFromName:

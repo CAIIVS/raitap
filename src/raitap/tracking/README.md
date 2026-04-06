@@ -60,6 +60,9 @@ Install dependencies first:
 uv sync --group dev --extra torch-cpu --extra captum --extra metrics --extra mlflow
 ```
 
+On Apple Silicon, the same `torch-cpu` profile can still resolve to `Hardware: Apple MPS`
+at runtime because the standard macOS arm64 PyTorch wheel exposes MPS support.
+
 The default sample image must exist locally. If it is missing, either:
 
 - run the app once with `data=imagenet_samples`, or

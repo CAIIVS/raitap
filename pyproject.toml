@@ -37,6 +37,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Standard CPU wheels are also the Apple Silicon Torch profile because the macOS
+# arm64 build exposes MPS support without a separate extra.
 torch-cpu = [
     "torch>=2.10.0",
     "torchvision>=0.20.0",
@@ -63,6 +65,8 @@ metrics = [
     "torchmetrics>=1.8.2",
     "faster-coco-eval>=1.6.3",
 ]
+# Apple Silicon ONNX users keep the same extra; CoreML support depends on the
+# installed onnxruntime build exposing CoreMLExecutionProvider at runtime.
 onnx-cpu = [
     "onnx>=1.21.0",
     "onnxruntime>=1.24.4",
