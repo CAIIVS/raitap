@@ -14,6 +14,8 @@ from raitap.models.runtime import resolve_onnx_providers, resolve_torch_device
 if TYPE_CHECKING:
     from pathlib import Path
 
+    import onnxruntime as ort
+
     from raitap.configs.schema import AppConfig
 
 # ---------------------------------------------------------------------------
@@ -41,6 +43,10 @@ class _FakeOnnxSession:
 
     def get_outputs(self) -> list[_FakeOnnxValueInfo]:
         return [_FakeOnnxValueInfo("output")]
+
+
+def _as_inference_session(session: _FakeOnnxSession) -> ort.InferenceSession:
+    return cast("ort.InferenceSession", session)
 
 
 def _make_config(source: str, *, hardware: str = "gpu") -> AppConfig:
@@ -399,7 +405,7 @@ class TestLoadModelFromPath:
 
     def test_onnx_backend_exposes_openvino_hardware_label(self) -> None:
         backend = OnnxBackend(
-            _FakeOnnxSession(),
+            _as_inference_session(_FakeOnnxSession()),
             providers=["OpenVINOExecutionProvider", "CPUExecutionProvider"],
         )
 
@@ -407,7 +413,7 @@ class TestLoadModelFromPath:
 
     def test_onnx_backend_exposes_apple_coreml_hardware_label(self) -> None:
         backend = OnnxBackend(
-            _FakeOnnxSession(),
+            _as_inference_session(_FakeOnnxSession()),
             providers=["CoreMLExecutionProvider", "CPUExecutionProvider"],
         )
 
