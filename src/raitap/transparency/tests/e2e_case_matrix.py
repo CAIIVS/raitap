@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import torch
 import torch.nn as nn
@@ -34,12 +34,14 @@ if TYPE_CHECKING:
 
     from raitap.configs.schema import AppConfig
     from raitap.models import Model
+    from raitap.models.backend import OnnxBackend
 
 Framework = Literal["captum", "shap"]
 ExecutionMode = Literal["compute", "explain", "factory"]
 ModelFixtureName = Literal["simple_cnn", "simple_mlp", "simple_timeseries_model"]
 InputFixtureName = Literal["sample_images", "sample_tabular", "sample_timeseries"]
-NeedsFixtureName = Literal["needs_captum", "needs_shap"]
+NeedsFixtureName = Literal["needs_captum", "needs_shap", "needs_onnx"]
+BackendFixtureName = Literal["onnx_linear_backend"]
 TargetMode = int | Literal["alternating_binary", "none", "zeros_tensor"]
 ShapeExpectation = Literal["same_as_inputs", "same_as_inputs_minus_last", "same_batch_size"]
 RunDirMode = Literal["factory_subdir", "plain_transparency"]
@@ -58,11 +60,14 @@ class MatrixCase:
     expected_shape: ShapeExpectation
     run_dir_mode: RunDirMode
     explainer_init_kwargs: dict[str, object] = field(default_factory=dict)
+    explain_call_kwargs: dict[str, object] = field(default_factory=dict)
     visualiser_cls: type[BaseVisualiser] | None = None
     visualiser_kwargs: dict[str, object] = field(default_factory=dict)
     background_samples: int | None = None
     experiment_name: str | None = None
     factory_explainer_name: str | None = None
+    backend_fixture: BackendFixtureName | None = None
+    requires_onnx: bool = False
     mpl_baseline_filename: str | None = None
     mpl_use_deterministic_inputs: bool = False
     mpl_target_mode: TargetMode | None = None
@@ -139,7 +144,7 @@ def _build_visualisers(case: MatrixCase) -> list[ConfiguredVisualiser]:
         return []
     return [
         ConfiguredVisualiser(
-            visualiser=case.visualiser_cls(**case.visualiser_kwargs),
+            case.visualiser_cls(**case.visualiser_kwargs),
         )
     ]
 
@@ -200,6 +205,15 @@ def _fetch_inputs(request: pytest.FixtureRequest, case: MatrixCase) -> torch.Ten
     return cast("torch.Tensor", request.getfixturevalue(case.input_fixture))
 
 
+def _fetch_backend(
+    request: pytest.FixtureRequest,
+    case: MatrixCase,
+) -> OnnxBackend | None:
+    if case.backend_fixture is None:
+        return None
+    return cast("OnnxBackend", request.getfixturevalue(case.backend_fixture))
+
+
 def _assert_tensor_shape(
     tensor: torch.Tensor,
     inputs: torch.Tensor,
@@ -224,6 +238,8 @@ def _compute_case_attributions(
     background: torch.Tensor | None,
 ) -> torch.Tensor:
     explainer = _make_explainer(case)
+    if case.explain_call_kwargs:
+        raise ValueError(f"{case.id} defines explain_call_kwargs but runs in compute mode.")
     if case.framework == "captum":
         return explainer.compute_attributions(model, inputs, target=target)
     return explainer.compute_attributions(
@@ -239,6 +255,7 @@ def _run_explain_case(
     *,
     model: nn.Module,
     inputs: torch.Tensor,
+    backend: OnnxBackend | None,
     target: int | list[int] | torch.Tensor | None,
     background: torch.Tensor | None,
     tmp_path: Path,
@@ -246,23 +263,31 @@ def _run_explain_case(
     explainer = _make_explainer(case)
     visualisers = _build_visualisers(case)
     run_dir = expected_run_dir(case, tmp_path)
+    extra_call_kwargs: dict[str, Any] = dict(case.explain_call_kwargs)
+    runtime_model: nn.Module = model if backend is None else backend.as_model_for_explanation()
+
+    if backend is not None:
+        explainer.check_backend_compat(backend)
+        extra_call_kwargs["backend"] = backend
 
     if case.framework == "captum":
         return explainer.explain(
-            model,
+            runtime_model,
             inputs,
             run_dir=run_dir,
             target=target,
             visualisers=visualisers,
+            **extra_call_kwargs,
         )
 
     return explainer.explain(
-        model,
+        runtime_model,
         inputs,
         run_dir=run_dir,
         background_data=background,
         target=target,
         visualisers=visualisers,
+        **extra_call_kwargs,
     )
 
 
@@ -299,12 +324,19 @@ def run_behavior_case(
     tmp_path: Path,
 ) -> BehaviorRunResult:
     request.getfixturevalue(case.needs_fixture)
+    if case.requires_onnx:
+        request.getfixturevalue("needs_onnx")
     model = _fetch_model(request, case)
     inputs = _fetch_inputs(request, case)
+    backend = _fetch_backend(request, case)
     target = _resolve_target(case, inputs)
     background = _select_background(case, inputs)
 
     if case.mode == "compute":
+        if backend is not None:
+            raise ValueError(
+                f"{case.id} uses an ONNX backend but compute mode is not supported here."
+            )
         attributions = _compute_case_attributions(
             case,
             model=model,
@@ -346,6 +378,7 @@ def run_behavior_case(
             case,
             model=model,
             inputs=inputs,
+            backend=backend,
             target=target,
             background=background,
             tmp_path=tmp_path,
@@ -483,6 +516,8 @@ def literal_image_batch() -> torch.Tensor:
 
 def render_mpl_figure(case: MatrixCase, request: pytest.FixtureRequest) -> Figure:
     request.getfixturevalue(case.needs_fixture)
+    if case.requires_onnx:
+        request.getfixturevalue("needs_onnx")
     model = (
         build_deterministic_cnn()
         if case.mpl_use_deterministic_inputs
@@ -536,6 +571,23 @@ MATRIX_CASES: tuple[MatrixCase, ...] = (
         experiment_name="test_captum_e2e",
         factory_explainer_name="captum_smoke",
         mpl_baseline_filename="captum_ig_image_heat_map.png",
+        mpl_use_deterministic_inputs=True,
+        mpl_target_mode=1,
+    ),
+    MatrixCase(
+        id="shap_gradient_image_mpl_baseline",
+        framework="shap",
+        mode="explain",
+        algorithm="GradientExplainer",
+        needs_fixture="needs_shap",
+        model_fixture="simple_cnn",
+        input_fixture="sample_images",
+        target_mode=0,
+        expected_shape="same_as_inputs",
+        run_dir_mode="plain_transparency",
+        visualiser_cls=ShapImageVisualiser,
+        background_samples=2,
+        mpl_baseline_filename="shap_gradient_image_heat_map.png",
         mpl_use_deterministic_inputs=True,
         mpl_target_mode=1,
     ),
@@ -662,6 +714,35 @@ MATRIX_CASES: tuple[MatrixCase, ...] = (
         run_dir_mode="plain_transparency",
         visualiser_cls=CaptumTimeSeriesVisualiser,
         visualiser_kwargs={"method": "overlay_combined", "sign": "absolute_value"},
+    ),
+    MatrixCase(
+        id="captum_feature_ablation_onnx_explain",
+        framework="captum",
+        mode="explain",
+        algorithm="FeatureAblation",
+        needs_fixture="needs_captum",
+        model_fixture="simple_mlp",
+        input_fixture="sample_tabular",
+        target_mode=0,
+        expected_shape="same_as_inputs",
+        run_dir_mode="plain_transparency",
+        backend_fixture="onnx_linear_backend",
+        requires_onnx=True,
+    ),
+    MatrixCase(
+        id="captum_feature_ablation_onnx_batched_explain",
+        framework="captum",
+        mode="explain",
+        algorithm="FeatureAblation",
+        needs_fixture="needs_captum",
+        model_fixture="simple_mlp",
+        input_fixture="sample_tabular",
+        target_mode=0,
+        expected_shape="same_as_inputs",
+        run_dir_mode="plain_transparency",
+        backend_fixture="onnx_linear_backend",
+        requires_onnx=True,
+        explain_call_kwargs={"batch_size": 2},
     ),
     MatrixCase(
         id="shap_deep_image_pipeline",
@@ -828,5 +909,21 @@ MATRIX_CASES: tuple[MatrixCase, ...] = (
         run_dir_mode="plain_transparency",
         visualiser_cls=ShapImageVisualiser,
         background_samples=2,
+    ),
+    MatrixCase(
+        id="shap_kernel_onnx_explain",
+        framework="shap",
+        mode="explain",
+        algorithm="KernelExplainer",
+        needs_fixture="needs_shap",
+        model_fixture="simple_mlp",
+        input_fixture="sample_tabular",
+        target_mode=0,
+        expected_shape="same_as_inputs",
+        run_dir_mode="plain_transparency",
+        backend_fixture="onnx_linear_backend",
+        requires_onnx=True,
+        background_samples=2,
+        explain_call_kwargs={"nsamples": 10},
     ),
 )
