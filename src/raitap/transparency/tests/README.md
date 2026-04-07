@@ -19,7 +19,7 @@ Use two lanes:
 
 Do not auto-create or auto-accept new baselines during normal test runs.
 
-If `src/raitap/transparency/tests/mpl_baseline/captum_ig_image_heat_map.png` is missing, stop and ask the user to generate or provide it. The approved baseline should then be committed into `mpl_baseline/`.
+If `src/raitap/transparency/tests/mpl_baseline/captum_ig_image_heat_map.png` is missing, stop and generate or regenerate a candidate locally using the command below, or ask a maintainer for the approved baseline. The approved baseline should then be committed into `mpl_baseline/`.
 
 Suggested candidate-generation command:
 

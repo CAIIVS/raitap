@@ -99,9 +99,9 @@ def _ensure_baseline_or_generation_mode(request: pytest.FixtureRequest) -> None:
         return
 
     pytest.fail(
-        "The MPL baseline image is missing. Ask the user to generate or provide "
-        f"the baseline PNG at: {_BASELINE_FILE.as_posix()}\n\n"
-        "Suggested command to generate candidate artifacts locally:\n"
+        "The MPL baseline image is missing. Generate or provide the baseline "
+        f"PNG at: {_BASELINE_FILE.as_posix()}\n\n"
+        "Suggested command to regenerate candidate artifacts locally:\n"
         "uv run pytest src/raitap/transparency/tests/test_e2e_mpl_baseline.py "
         "-m e2e --mpl-generate-path=src/raitap/transparency/tests/mpl_baseline_candidate -v"
     )
