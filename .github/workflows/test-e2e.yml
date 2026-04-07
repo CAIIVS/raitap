@@ -46,5 +46,5 @@ jobs:
       # Run only the e2e-marked tests; -x stops on the first failure so logs
       # stay readable for slow jobs.
       - name: Run SHAP E2E tests
-        run: uv run pytest -m e2e -x -v --tb=long
+        run: uv run pytest src/raitap/transparency/tests/test_shap_e2e.py src/raitap/transparency/tests/test_e2e_integration.py -m e2e -x -v --tb=long
 
