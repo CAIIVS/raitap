@@ -54,9 +54,6 @@ Choose exactly one Torch runtime profile:
     uv sync --extra torch-cpu
     ```
 
-    On Apple Silicon, this same profile also enables PyTorch MPS via the standard
-    macOS arm64 wheel.
-
 * CUDA Torch:
 
     ```bash
@@ -82,10 +79,6 @@ Choose at most one ONNX runtime profile:
     ```bash
     uv sync --extra torch-cpu --extra onnx-cpu
     ```
-
-    On Apple Silicon, this is also the recommended ONNX profile. RAITAP will use
-    `CoreMLExecutionProvider` automatically when the installed `onnxruntime` build
-    exposes it.
 
 * GPU:
 
@@ -138,14 +131,16 @@ falls back automatically when a higher-priority option is unavailable.
 
 Priority order:
 
-* PyTorch: `cuda` -> `mps` -> `xpu` -> `cpu`
-* ONNX Runtime: `CUDAExecutionProvider` -> `CoreMLExecutionProvider` -> `OpenVINOExecutionProvider` -> `CPUExecutionProvider`
+* PyTorch: `cuda` -> `xpu` -> `cpu`
+* ONNX Runtime: `CUDAExecutionProvider` -> `OpenVINOExecutionProvider` -> `CPUExecutionProvider`
 
 The runtime profiles above select the matching PyTorch wheel source for CPU, CUDA, or Intel XPU.
 ONNX profiles remain separate and should not be combined with each other.
 
-On Apple Silicon, the resolved hardware summary appears as `Hardware: Apple MPS` for Torch
-or `Hardware: Apple CoreML` for ONNX when those accelerators are selected.
+Apple GPU acceleration is temporarily disabled even when `hardware=gpu` is requested.
+RAITAP currently falls back to CPU on Apple devices because the MPS/CoreML stack remains
+immature for parts of the transparency pipeline, some explainer paths are unsupported,
+and users have reported Apple GPU lockups / sustained 100% utilization after failures.
 
 You can verify runtime availability with:
 
@@ -158,6 +153,9 @@ print(hasattr(torch.backends, "mps") and torch.backends.mps.is_available())
 print(hasattr(torch, "xpu") and torch.xpu.is_available())
 print(onnxruntime.get_available_providers())
 ```
+
+If that snippet shows Apple MPS or `CoreMLExecutionProvider`, RAITAP still warns and
+falls back to CPU today.
 
 Accelerated ONNX execution helps inference and compatible non-autograd explainers. It does not add
 PyTorch autograd to ONNX models.

@@ -199,7 +199,7 @@ class TestLoadModelFromPath:
             device = resolve_torch_device("gpu")
 
         assert device == torch.device("cpu")
-        assert "neither CUDA, Apple MPS, nor Intel XPU is available" in caplog.text
+        assert "neither CUDA nor Intel XPU is available" in caplog.text
 
     @pytest.mark.runtime
     def test_torch_gpu_selects_cuda_when_available(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -212,17 +212,20 @@ class TestLoadModelFromPath:
         assert device == torch.device("cuda")
 
     @pytest.mark.runtime
-    def test_torch_gpu_selects_mps_when_cuda_unavailable(
+    def test_torch_gpu_falls_back_to_cpu_when_mps_is_available(
         self,
         monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
         monkeypatch.setattr(runtime, "_torch_mps_is_available", lambda: True)
         monkeypatch.setattr(runtime, "_torch_xpu_is_available", lambda: False)
 
-        device = resolve_torch_device("gpu")
+        with caplog.at_level("WARNING"):
+            device = resolve_torch_device("gpu")
 
-        assert device == torch.device("mps")
+        assert device == torch.device("cpu")
+        assert "Apple MPS support is temporarily disabled" in caplog.text
 
     @pytest.mark.runtime
     def test_torch_gpu_prefers_cuda_over_mps(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -235,7 +238,7 @@ class TestLoadModelFromPath:
         assert device == torch.device("cuda")
 
     @pytest.mark.runtime
-    def test_torch_gpu_prefers_mps_over_xpu_when_cuda_unavailable(
+    def test_torch_gpu_disables_apple_mps_even_when_it_is_available(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -245,7 +248,7 @@ class TestLoadModelFromPath:
 
         device = resolve_torch_device("gpu")
 
-        assert device == torch.device("mps")
+        assert device == torch.device("cpu")
 
     @pytest.mark.runtime
     def test_torch_gpu_selects_xpu_when_cuda_unavailable(
@@ -288,9 +291,10 @@ class TestLoadModelFromPath:
         assert providers == ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
     @pytest.mark.runtime
-    def test_onnx_provider_resolution_selects_coreml_when_cuda_unavailable(
+    def test_onnx_provider_resolution_falls_back_to_cpu_when_coreml_is_available(
         self,
         monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         pytest.importorskip("onnxruntime")
         import onnxruntime as ort
@@ -301,12 +305,14 @@ class TestLoadModelFromPath:
             lambda: ["CoreMLExecutionProvider", "CPUExecutionProvider"],
         )
 
-        providers = resolve_onnx_providers("gpu")
+        with caplog.at_level("WARNING"):
+            providers = resolve_onnx_providers("gpu")
 
-        assert providers == ["CoreMLExecutionProvider", "CPUExecutionProvider"]
+        assert providers == ["CPUExecutionProvider"]
+        assert "Apple CoreML support is temporarily disabled" in caplog.text
 
     @pytest.mark.runtime
-    def test_onnx_provider_resolution_prefers_cuda_over_coreml(
+    def test_onnx_provider_resolution_prefers_cuda_over_disabled_apple_coreml(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -328,7 +334,7 @@ class TestLoadModelFromPath:
         assert providers == ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
     @pytest.mark.runtime
-    def test_onnx_provider_resolution_prefers_coreml_over_openvino(
+    def test_onnx_provider_resolution_prefers_openvino_over_disabled_apple_coreml(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -347,7 +353,7 @@ class TestLoadModelFromPath:
 
         providers = resolve_onnx_providers("gpu")
 
-        assert providers == ["CoreMLExecutionProvider", "CPUExecutionProvider"]
+        assert providers == ["OpenVINOExecutionProvider", "CPUExecutionProvider"]
 
     @pytest.mark.runtime
     def test_onnx_provider_resolution_falls_back_to_cpu_with_warning(
@@ -365,8 +371,8 @@ class TestLoadModelFromPath:
 
         assert providers == ["CPUExecutionProvider"]
         assert (
-            "neither CUDAExecutionProvider, CoreMLExecutionProvider, nor "
-            "OpenVINOExecutionProvider is available" in caplog.text
+            "neither CUDAExecutionProvider nor OpenVINOExecutionProvider is available"
+            in caplog.text
         )
 
     @pytest.mark.runtime
@@ -414,12 +420,6 @@ class TestLoadModelFromPath:
         assert backend.hardware_label == "Intel XPU"
 
     @pytest.mark.runtime
-    def test_torch_backend_exposes_apple_mps_hardware_label(self) -> None:
-        backend = TorchBackend(nn.Identity(), device=torch.device("mps"))
-
-        assert backend.hardware_label == "Apple MPS"
-
-    @pytest.mark.runtime
     def test_onnx_backend_exposes_openvino_hardware_label(self) -> None:
         backend = OnnxBackend(
             _as_inference_session(_FakeOnnxSession()),
@@ -427,15 +427,6 @@ class TestLoadModelFromPath:
         )
 
         assert backend.hardware_label == "Intel OpenVINO"
-
-    @pytest.mark.runtime
-    def test_onnx_backend_exposes_apple_coreml_hardware_label(self) -> None:
-        backend = OnnxBackend(
-            _as_inference_session(_FakeOnnxSession()),
-            providers=["CoreMLExecutionProvider", "CPUExecutionProvider"],
-        )
-
-        assert backend.hardware_label == "Apple CoreML"
 
 
 class TestLoadModelFromName:

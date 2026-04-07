@@ -16,9 +16,6 @@
     uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cpu
     ```
 
-    On Apple Silicon, this same environment also covers MPS for Torch and
-    CoreML-capable `onnxruntime` builds for ONNX validation.
-
 3. Install the commit message hook
 
     ```bash
@@ -80,7 +77,7 @@ Before making significant changes, read:
 
 ## Useful commands
 
-* `uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cpu` installs the default contributor environment. On Apple Silicon, it is also the standard setup for MPS/CoreML checks.
+* `uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cpu` installs the default contributor environment.
 * `uv run pytest` runs the test suite.
 * `uv run ruff check --fix .` lints all Python files and applies auto-fixes where possible. Omit the `--fix` flag to only check for issues without modifying files.
 * `uv run ruff format .` formats all Python files according to the configured style.

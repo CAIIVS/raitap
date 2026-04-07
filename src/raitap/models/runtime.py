@@ -14,9 +14,7 @@ _VALID_HARDWARE = frozenset({"cpu", "gpu"})
 _ONNX_RUNTIME_INSTALL_HINT = (
     "ONNX support is enabled but onnxruntime is not installed. "
     "Install it with `uv sync --extra onnx-cpu`, `uv sync --extra onnx-gpu`, "
-    "or `uv sync --extra onnx-openvino`. On Apple Silicon, the `onnx-cpu` "
-    "profile may still expose `CoreMLExecutionProvider` when the installed "
-    "onnxruntime build supports it."
+    "or `uv sync --extra onnx-openvino`."
 )
 
 
@@ -36,14 +34,20 @@ def resolve_torch_device(hardware: str) -> torch.device:
         return torch.device("cuda")
 
     if _torch_mps_is_available():
-        return torch.device("mps")
+        logger.warning(
+            "GPU was requested for PyTorch, but Apple MPS support is temporarily disabled. "
+            "Transparency libraries on MPS remain immature, some explainer paths are "
+            "unsupported, and users have reported Apple GPU lockups / sustained 100%% "
+            "utilization after failures. Falling back to CPU on Apple devices."
+        )
+        return torch.device("cpu")
 
     if _torch_xpu_is_available():
         return torch.device("xpu")
 
     logger.warning(
-        "GPU was requested for PyTorch, but neither CUDA, Apple MPS, nor Intel XPU "
-        "is available. Falling back to CPU."
+        "GPU was requested for PyTorch, but neither CUDA nor Intel XPU is available. "
+        "Falling back to CPU."
     )
     return torch.device("cpu")
 
@@ -68,16 +72,22 @@ def resolve_onnx_providers(
     if "CUDAExecutionProvider" in provider_names:
         return ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
-    if "CoreMLExecutionProvider" in provider_names:
-        return ["CoreMLExecutionProvider", "CPUExecutionProvider"]
-
     if "OpenVINOExecutionProvider" in provider_names:
         return ["OpenVINOExecutionProvider", "CPUExecutionProvider"]
 
+    if "CoreMLExecutionProvider" in provider_names:
+        logger.warning(
+            "GPU was requested for ONNX Runtime, but Apple CoreML support is temporarily "
+            "disabled. Transparency libraries on Apple GPU paths remain immature, some "
+            "explainer libraries are unsupported, and users have reported Apple GPU "
+            "lockups / sustained 100%% utilization after failures. Falling back to "
+            "CPUExecutionProvider on Apple devices."
+        )
+        return ["CPUExecutionProvider"]
+
     logger.warning(
-        "GPU was requested for ONNX Runtime, but neither CUDAExecutionProvider, "
-        "CoreMLExecutionProvider, nor OpenVINOExecutionProvider is available. "
-        "Falling back to CPUExecutionProvider."
+        "GPU was requested for ONNX Runtime, but neither CUDAExecutionProvider nor "
+        "OpenVINOExecutionProvider is available. Falling back to CPUExecutionProvider."
     )
     return ["CPUExecutionProvider"]
 

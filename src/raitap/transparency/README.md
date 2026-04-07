@@ -114,7 +114,6 @@ Test files:
 ## Dependencies
 
 - a Torch runtime profile such as `uv sync --extra torch-cpu`
-- on Apple Silicon, the same `torch-cpu` profile also covers PyTorch MPS support
 - `matplotlib>=3.5.0`
 - `captum>=0.7.0` (optional, for Captum explainers/visualisers)
 - `shap>=0.46.0` (optional, for SHAP explainers/visualisers)

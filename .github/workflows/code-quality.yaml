@@ -44,7 +44,7 @@ jobs:
         run: uv run pyright
 
       - name: Pytest
-        run: uv run pytest -m "not e2e and not runtime" -v --cov=src/raitap --cov-report=term-missing --cov-report=html
+        run: uv run pytest -m "not e2e" -v --cov=src/raitap --cov-report=term-missing --cov-report=html
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v7
@@ -53,36 +53,11 @@ jobs:
           path: htmlcov/
           retention-days: 30
 
-  quality-gate-macos-apple-silicon:
-    name: Quality Gate (macOS Apple Silicon)
-    runs-on: macos-26
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      # Real Apple Silicon fast-check suite. SHAP E2E stays separate.
-      # Intel XPU remains mocked-only because no hosted XPU runner is assumed available.
-      - name: Set up environment
-        uses: ./.github/actions/setup-raitap-env
-        with:
-          python-version: "3.13"
-          sync-command: uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cpu
-
-      - name: Ruff
-        run: uv run ruff check .
-
-      - name: Ruff Format
-        run: uv run ruff format --check .
-
-      - name: Pyright
-        run: uv run pyright
-
-      - name: Pytest
-        run: uv run pytest -m "not e2e" -v
-
   quality-gate-linux-cuda:
     name: Quality Gate (Linux CUDA)
+    # Hosted GPU runners are not enabled for every repository by default.
+    # Keep the job defined, but only run it when the repo explicitly opts in.
+    if: ${{ vars.ENABLE_HOSTED_GPU_CI == 'true' }}
     runs-on: ubuntu-latest-gpu
 
     steps:
