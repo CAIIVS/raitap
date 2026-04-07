@@ -13,12 +13,11 @@ from omegaconf import OmegaConf
 
 from raitap.models.backend import TorchBackend
 from raitap.transparency import ExplanationResult, VisualisationResult
-from raitap.transparency.explainers import CaptumExplainer, ShapExplainer
+from raitap.transparency.explainers import CaptumExplainer
 from raitap.transparency.factory import Explanation
 from raitap.transparency.results import ConfiguredVisualiser
 from raitap.transparency.visualisers import (
     CaptumImageVisualiser,
-    ShapImageVisualiser,
     TabularBarChartVisualiser,
 )
 
@@ -123,48 +122,6 @@ def test_end_to_end_captum_object_api(
     assert (explanation.run_dir / "attributions.pt").exists()
     assert (explanation.run_dir / "metadata.json").exists()
     assert visualisations[0].output_path == explanation.run_dir / "CaptumImageVisualiser_0.png"
-    assert visualisations[0].output_path.exists()
-
-
-@pytest.mark.e2e
-@pytest.mark.usefixtures("needs_shap")
-def test_end_to_end_shap_object_api(
-    simple_cnn: torch.nn.Module,
-    sample_images: torch.Tensor,
-    tmp_path: Path,
-) -> None:
-    explainer = ShapExplainer("GradientExplainer")
-
-    explanation = explainer.explain(
-        simple_cnn,
-        sample_images,
-        run_dir=tmp_path / "transparency",
-        background_data=sample_images[:2],
-        target=0,
-        visualisers=[ConfiguredVisualiser(visualiser=ShapImageVisualiser())],
-    )
-    visualisations = explanation.visualise()
-    metadata = cast(
-        "dict[str, Any]",
-        json.loads((explanation.run_dir / "metadata.json").read_text(encoding="utf-8")),
-    )
-    saved_attributions = cast("torch.Tensor", torch.load(explanation.run_dir / "attributions.pt"))
-
-    assert isinstance(explanation, ExplanationResult)
-    assert len(visualisations) == 1
-    assert isinstance(visualisations[0], VisualisationResult)
-    assert explanation.attributions.shape == sample_images.shape
-    assert explanation.run_dir == tmp_path / "transparency"
-    assert (explanation.run_dir / "attributions.pt").exists()
-    assert (explanation.run_dir / "metadata.json").exists()
-    assert saved_attributions.shape == sample_images.shape
-    assert metadata["algorithm"] == "GradientExplainer"
-    assert str(metadata["target"]).endswith("ShapExplainer")
-    assert cast("dict[str, Any]", metadata["kwargs"])["target"] == 0
-    assert cast("list[str]", metadata["visualisers"]) == [
-        "raitap.transparency.visualisers.shap_visualisers.ShapImageVisualiser_0"
-    ]
-    assert visualisations[0].output_path == explanation.run_dir / "ShapImageVisualiser_0.png"
     assert visualisations[0].output_path.exists()
 
 

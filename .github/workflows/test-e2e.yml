@@ -1,4 +1,4 @@
-# End-to-end SHAP test suite — resource-intensive, runs for active non-draft PRs.
+# End-to-end transparency test suite — resource-intensive, runs for active non-draft PRs.
 #
 # Trigger strategy
 # ----------------
@@ -8,7 +8,7 @@
 #   itself is skipped until the PR is no longer a draft.
 # • Manual:    use the "Run workflow" button in the Actions UI (workflow_dispatch)
 #   whenever you need to re-run on demand.
-name: SHAP E2E
+name: Transparency E2E
 
 on:
   pull_request:
@@ -27,11 +27,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  shap-e2e-linux:
-    name: "SHAP E2E (Linux)"
+  transparency-e2e-linux:
+    name: "Transparency E2E (Linux)"
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
-    timeout-minutes: 30   # guard against runaway KernelExplainer calls
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
@@ -41,10 +41,8 @@ jobs:
         uses: ./.github/actions/setup-raitap-env
         with:
           python-version: "3.13"
-          sync-command: uv sync --group dev --extra torch-cpu --extra shap
+          sync-command: uv sync --group dev --extra torch-cpu --extra transparency
 
-      # Run only the e2e-marked tests; -x stops on the first failure so logs
-      # stay readable for slow jobs.
-      - name: Run SHAP E2E tests
-        run: uv run pytest src/raitap/transparency/tests/test_shap_e2e.py src/raitap/transparency/tests/test_e2e_integration.py -m e2e -x -v --tb=long
+      - name: Run transparency E2E tests
+        run: uv run pytest -m e2e -v --tb=long --mpl
 

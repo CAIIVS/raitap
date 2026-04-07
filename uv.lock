@@ -2675,6 +2675,22 @@ wheels = [
 ]
 
 [[package]]
+name = "pytest-mpl"
+version = "0.19.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jinja2" },
+    { name = "matplotlib" },
+    { name = "packaging" },
+    { name = "pillow" },
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e8/c1/d5347e8aff4f6306f33caac80e1527831f733788ca98a6d58cfa0d40999c/pytest_mpl-0.19.0.tar.gz", hash = "sha256:c08e7b51ba4c98eed77ac3f3c6e336ed6163647d9e27ea1d928f79b542178cbe", size = 881884, upload-time = "2026-03-25T10:12:35.992Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a3/f9/60a6c3da23525e600131eae9e17cad738e2e820335ab45e1ea78ec8df4cb/pytest_mpl-0.19.0-py3-none-any.whl", hash = "sha256:ceb6f7201587b07af82ba8892631a29a4716fdc84306db3ec1b4ef3758f0507d", size = 28139, upload-time = "2026-03-25T10:12:34.966Z" },
+]
+
+[[package]]
 name = "python-dateutil"
 version = "2.9.0.post0"
 source = { registry = "https://pypi.org/simple" }
@@ -2833,6 +2849,7 @@ dev = [
     { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "pytest-mpl" },
     { name = "ruff" },
 ]
 lint = [
@@ -2842,6 +2859,7 @@ lint = [
 test = [
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "pytest-mpl" },
 ]
 tooling = [
     { name = "commitizen" },
@@ -2887,6 +2905,7 @@ dev = [
     { name = "pyright", specifier = ">=1.1.390" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-cov", specifier = ">=4.1.0" },
+    { name = "pytest-mpl", specifier = ">=0.19.0" },
     { name = "ruff", specifier = ">=0.8.0" },
 ]
 lint = [
@@ -2896,6 +2915,7 @@ lint = [
 test = [
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-cov", specifier = ">=4.1.0" },
+    { name = "pytest-mpl", specifier = ">=0.19.0" },
 ]
 tooling = [
     { name = "commitizen", specifier = ">=3.0.0" },

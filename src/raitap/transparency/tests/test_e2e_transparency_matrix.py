@@ -1,15 +1,14 @@
 """
-End-to-end SHAP tests.
+Centralised transparency E2E suite.
 
-These tests exercise the full pipeline (explainer → attributions → visualiser → saved artefacts)
-and are intentionally resource-intensive.  They are tagged ``@pytest.mark.e2e`` and should be
-run once per PR rather than on every commit:
+This module is the single home for heavy transparency combinations that run in
+the PR-only E2E lane:
 
-    # fast suite (default CI every commit)
+    # fast suite
     uv run pytest -m "not e2e"
 
-    # E2E suite (once per PR)
-    uv run pytest -m e2e
+    # heavy suite
+    uv run pytest -m e2e -v --tb=long --mpl
 """
 
 from __future__ import annotations
@@ -23,7 +22,7 @@ import torch
 from omegaconf import OmegaConf
 
 from raitap.models.backend import TorchBackend
-from raitap.transparency import ExplanationResult
+from raitap.transparency import ExplanationResult, VisualisationResult
 from raitap.transparency.explainers import ShapExplainer
 from raitap.transparency.factory import Explanation
 from raitap.transparency.results import ConfiguredVisualiser
@@ -40,9 +39,9 @@ if TYPE_CHECKING:
     import torch.nn as nn
 
     from raitap.configs.schema import AppConfig
+    from raitap.models import Model
 
-# Every test in this module requires shap and carries the e2e marker.
-pytestmark = [pytest.mark.e2e, pytest.mark.usefixtures("needs_shap")]
+pytestmark = [pytest.mark.e2e]
 
 
 def _read_metadata(run_dir: Path) -> dict[str, object]:
@@ -56,7 +55,7 @@ def _load_saved_attributions(run_dir: Path) -> torch.Tensor:
     return cast("torch.Tensor", torch.load(run_dir / "attributions.pt"))
 
 
-def _assert_metadata_invariants(
+def _assert_shap_metadata_invariants(
     metadata: dict[str, object],
     *,
     algorithm: str,
@@ -75,21 +74,74 @@ def _assert_metadata_invariants(
         assert metadata["visualisers"] == []
 
 
-# ---------------------------------------------------------------------------
-# DeepExplainer — PyTorch-native, moderate cost
-# ---------------------------------------------------------------------------
+def _captum_smoke_config(tmp_path: Path) -> AppConfig:
+    return cast(
+        "AppConfig",
+        cast(
+            "object",
+            SimpleNamespace(
+                experiment_name="test_captum_e2e",
+                fallback_output_dir=str(tmp_path),
+                transparency={
+                    "captum_smoke": OmegaConf.create(
+                        {
+                            "_target_": "raitap.transparency.CaptumExplainer",
+                            "algorithm": "IntegratedGradients",
+                            "call": {"target": 0},
+                            "visualisers": [
+                                {
+                                    "_target_": "raitap.transparency.CaptumImageVisualiser",
+                                    "constructor": {
+                                        "method": "heat_map",
+                                        "show_colorbar": False,
+                                        "include_original_image": False,
+                                    },
+                                }
+                            ],
+                        }
+                    )
+                },
+            ),
+        ),
+    )
 
 
+@pytest.mark.usefixtures("needs_captum")
+def test_config_driven_captum_smoke_case(
+    simple_cnn: torch.nn.Module,
+    sample_images: torch.Tensor,
+    tmp_path: Path,
+) -> None:
+    config = _captum_smoke_config(tmp_path)
+    model = cast("Model", SimpleNamespace(backend=TorchBackend(simple_cnn)))
+
+    explanation = Explanation(config, "captum_smoke", model, sample_images)
+    visualisations = explanation.visualise()
+    metadata = _read_metadata(explanation.run_dir)
+    saved_attributions = _load_saved_attributions(explanation.run_dir)
+
+    assert isinstance(explanation, ExplanationResult)
+    assert len(visualisations) == 1
+    assert isinstance(visualisations[0], VisualisationResult)
+    assert explanation.attributions.shape == sample_images.shape
+    assert explanation.run_dir == tmp_path / "transparency" / "captum_smoke"
+    assert (explanation.run_dir / "attributions.pt").exists()
+    assert (explanation.run_dir / "metadata.json").exists()
+    assert torch.equal(saved_attributions, explanation.attributions)
+    assert metadata["algorithm"] == "IntegratedGradients"
+    assert str(metadata["target"]).endswith("CaptumExplainer")
+    assert cast("dict[str, object]", metadata["kwargs"])["target"] == 0
+    assert cast("list[str]", metadata["visualisers"])[0].endswith("CaptumImageVisualiser_0")
+    assert visualisations[0].output_path == explanation.run_dir / "CaptumImageVisualiser_0.png"
+    assert visualisations[0].output_path.exists()
+
+
+@pytest.mark.usefixtures("needs_shap")
 def test_deep_explainer_image_pipeline(
     simple_cnn: nn.Module,
     sample_images: torch.Tensor,
     tmp_path: Path,
 ) -> None:
-    """DeepExplainer + ShapImageVisualiser: full artefact pipeline on a CNN.
-
-    Covers the ``GradientExplainer / DeepExplainer`` tensor branch of
-    ``compute_attributions`` and ``ShapImageVisualiser`` end-to-end.
-    """
     explainer = ShapExplainer("DeepExplainer")
     background = sample_images[:2]
 
@@ -112,13 +164,13 @@ def test_deep_explainer_image_pipeline(
     assert (explanation.run_dir / "attributions.pt").exists()
     assert (explanation.run_dir / "metadata.json").exists()
     assert torch.equal(saved_attributions, explanation.attributions)
-    _assert_metadata_invariants(
+    _assert_shap_metadata_invariants(
         metadata_before_visualise,
         algorithm="DeepExplainer",
         experiment_name=None,
         has_visualisers=False,
     )
-    _assert_metadata_invariants(
+    _assert_shap_metadata_invariants(
         metadata,
         algorithm="DeepExplainer",
         experiment_name=None,
@@ -131,49 +183,31 @@ def test_deep_explainer_image_pipeline(
     assert visualisations[0].output_path.exists()
 
 
+@pytest.mark.usefixtures("needs_shap")
 def test_deep_explainer_multiclass_all_targets(
     simple_cnn: nn.Module,
     sample_images: torch.Tensor,
-    tmp_path: Path,
 ) -> None:
-    """DeepExplainer without a target returns one attribution map per output class.
-
-    Covers the ``isinstance(shap_values, list)`` → stack branch in
-    ``compute_attributions`` and the no-target shortcut that keeps the extra
-    class dimension.
-    """
     explainer = ShapExplainer("DeepExplainer")
     background = sample_images[:2]
 
-    # No target → shap_values is a list[array], one per output class
     all_class_attrs = explainer.compute_attributions(
         simple_cnn, sample_images, background_data=background
     )
 
     assert isinstance(all_class_attrs, torch.Tensor)
-    # extra trailing class dimension
     assert all_class_attrs.shape[:-1] == sample_images.shape
 
 
-# ---------------------------------------------------------------------------
-# GradientExplainer — fast gradient-based, tabular data
-# ---------------------------------------------------------------------------
-
-
+@pytest.mark.usefixtures("needs_shap")
 def test_gradient_explainer_per_sample_list_targets_beeswarm(
     simple_mlp: nn.Module,
     sample_tabular: torch.Tensor,
     tmp_path: Path,
 ) -> None:
-    """GradientExplainer with per-sample ``list`` targets + ShapBeeswarmVisualiser.
-
-    Covers the ``shap_values[batch_indices, ..., target]`` advanced-indexing
-    branch and the full pipeline on tabular data.
-    """
     explainer = ShapExplainer("GradientExplainer")
     background = sample_tabular[:4]
-    n = sample_tabular.shape[0]  # 8
-    targets = [i % 2 for i in range(n)]  # alternating 0/1 per sample
+    targets = [index % 2 for index in range(sample_tabular.shape[0])]
 
     explanation = explainer.explain(
         simple_mlp,
@@ -184,7 +218,7 @@ def test_gradient_explainer_per_sample_list_targets_beeswarm(
         visualisers=[
             ConfiguredVisualiser(
                 visualiser=ShapBeeswarmVisualiser(
-                    feature_names=[f"f{i}" for i in range(sample_tabular.shape[1])]
+                    feature_names=[f"f{index}" for index in range(sample_tabular.shape[1])]
                 )
             )
         ],
@@ -197,13 +231,13 @@ def test_gradient_explainer_per_sample_list_targets_beeswarm(
     assert isinstance(explanation, ExplanationResult)
     assert explanation.attributions.shape == sample_tabular.shape
     assert torch.equal(saved_attributions, explanation.attributions)
-    _assert_metadata_invariants(
+    _assert_shap_metadata_invariants(
         metadata_before_visualise,
         algorithm="GradientExplainer",
         experiment_name=None,
         has_visualisers=False,
     )
-    _assert_metadata_invariants(
+    _assert_shap_metadata_invariants(
         metadata,
         algorithm="GradientExplainer",
         experiment_name=None,
@@ -216,19 +250,14 @@ def test_gradient_explainer_per_sample_list_targets_beeswarm(
     assert visualisations[0].output_path.exists()
 
 
+@pytest.mark.usefixtures("needs_shap")
 def test_gradient_explainer_tensor_target_indexing(
     simple_mlp: nn.Module,
     sample_tabular: torch.Tensor,
 ) -> None:
-    """GradientExplainer with a ``torch.Tensor`` per-sample target.
-
-    Covers the ``isinstance(target, list)`` → ``torch.tensor(target)`` branch
-    and the subsequent advanced indexing path.
-    """
     explainer = ShapExplainer("GradientExplainer")
     background = sample_tabular[:4]
-    n = sample_tabular.shape[0]
-    target_tensor = torch.zeros(n, dtype=torch.long)
+    target_tensor = torch.zeros(sample_tabular.shape[0], dtype=torch.long)
 
     attributions = explainer.compute_attributions(
         simple_mlp,
@@ -241,12 +270,12 @@ def test_gradient_explainer_tensor_target_indexing(
     assert attributions.shape == sample_tabular.shape
 
 
+@pytest.mark.usefixtures("needs_shap")
 def test_gradient_explainer_waterfall_visualiser(
     simple_mlp: nn.Module,
     sample_tabular: torch.Tensor,
     tmp_path: Path,
 ) -> None:
-    """GradientExplainer + ShapWaterfallVisualiser with explicit expected_value."""
     explainer = ShapExplainer("GradientExplainer")
     background = sample_tabular[:4]
 
@@ -259,7 +288,7 @@ def test_gradient_explainer_waterfall_visualiser(
         visualisers=[
             ConfiguredVisualiser(
                 visualiser=ShapWaterfallVisualiser(
-                    feature_names=[f"f{i}" for i in range(sample_tabular.shape[1])],
+                    feature_names=[f"f{index}" for index in range(sample_tabular.shape[1])],
                     expected_value=0.5,
                     sample_index=1,
                     max_display=5,
@@ -272,13 +301,13 @@ def test_gradient_explainer_waterfall_visualiser(
     metadata = _read_metadata(explanation.run_dir)
 
     assert len(visualisations) == 1
-    _assert_metadata_invariants(
+    _assert_shap_metadata_invariants(
         metadata_before_visualise,
         algorithm="GradientExplainer",
         experiment_name=None,
         has_visualisers=False,
     )
-    _assert_metadata_invariants(
+    _assert_shap_metadata_invariants(
         metadata,
         algorithm="GradientExplainer",
         experiment_name=None,
@@ -290,20 +319,12 @@ def test_gradient_explainer_waterfall_visualiser(
     assert visualisations[0].output_path.exists()
 
 
-# ---------------------------------------------------------------------------
-# ShapBarVisualiser — end-to-end with GradientExplainer (tabular)
-# ---------------------------------------------------------------------------
-
-
+@pytest.mark.usefixtures("needs_shap")
 def test_gradient_explainer_bar_visualiser_with_inputs(
     simple_mlp: nn.Module,
     sample_tabular: torch.Tensor,
     tmp_path: Path,
 ) -> None:
-    """ShapBarVisualiser receives ``inputs`` for feature-value colouring.
-
-    Exercises the ``feats = _to_numpy(inputs)`` branch inside ``ShapBarVisualiser``.
-    """
     explainer = ShapExplainer("GradientExplainer")
     background = sample_tabular[:4]
 
@@ -316,7 +337,7 @@ def test_gradient_explainer_bar_visualiser_with_inputs(
         visualisers=[
             ConfiguredVisualiser(
                 visualiser=ShapBarVisualiser(
-                    feature_names=[f"f{i}" for i in range(sample_tabular.shape[1])]
+                    feature_names=[f"f{index}" for index in range(sample_tabular.shape[1])]
                 )
             )
         ],
@@ -326,13 +347,13 @@ def test_gradient_explainer_bar_visualiser_with_inputs(
     metadata = _read_metadata(explanation.run_dir)
 
     assert len(visualisations) == 1
-    _assert_metadata_invariants(
+    _assert_shap_metadata_invariants(
         metadata_before_visualise,
         algorithm="GradientExplainer",
         experiment_name=None,
         has_visualisers=False,
     )
-    _assert_metadata_invariants(
+    _assert_shap_metadata_invariants(
         metadata,
         algorithm="GradientExplainer",
         experiment_name=None,
@@ -344,46 +365,40 @@ def test_gradient_explainer_bar_visualiser_with_inputs(
     assert visualisations[0].output_path.exists()
 
 
-# ---------------------------------------------------------------------------
-# Full factory pipeline (Explanation helper, not monkeypatched)
-# ---------------------------------------------------------------------------
-
-
+@pytest.mark.usefixtures("needs_shap")
 def test_explanation_factory_shap_gradient_full_pipeline(
     simple_cnn: nn.Module,
     sample_images: torch.Tensor,
     tmp_path: Path,
 ) -> None:
-    """Full ``Explanation(config, ...)`` pipeline with a real ShapExplainer.
-
-    This is the closest analogue to the Captum factory E2E test in
-    ``test_e2e_integration.py``.  ``background_data`` is injected at
-    call-site because OmegaConf cannot serialise a ``torch.Tensor``.
-    """
     config = cast(
         "AppConfig",
-        SimpleNamespace(
-            experiment_name="test_shap_e2e",
-            fallback_output_dir=str(tmp_path),
-            transparency={
-                "shap_gradient": OmegaConf.create(
-                    {
-                        "_target_": "raitap.transparency.ShapExplainer",
-                        "algorithm": "GradientExplainer",
-                        "call": {"target": 0},
-                        "visualisers": [{"_target_": "raitap.transparency.ShapImageVisualiser"}],
-                    }
-                )
-            },
+        cast(
+            "object",
+            SimpleNamespace(
+                experiment_name="test_shap_e2e",
+                fallback_output_dir=str(tmp_path),
+                transparency={
+                    "shap_gradient": OmegaConf.create(
+                        {
+                            "_target_": "raitap.transparency.ShapExplainer",
+                            "algorithm": "GradientExplainer",
+                            "call": {"target": 0},
+                            "visualisers": [
+                                {"_target_": "raitap.transparency.ShapImageVisualiser"}
+                            ],
+                        }
+                    )
+                },
+            ),
         ),
     )
 
-    model = SimpleNamespace(backend=TorchBackend(simple_cnn))
-    # background_data is passed as a run-time kwarg (merged into call kwargs by the factory)
+    model = cast("Model", SimpleNamespace(backend=TorchBackend(simple_cnn)))
     explanation = Explanation(
         config,
         "shap_gradient",
-        model,  # type: ignore[arg-type]
+        model,
         sample_images,
         background_data=sample_images[:2],
     )
@@ -396,7 +411,7 @@ def test_explanation_factory_shap_gradient_full_pipeline(
     saved_attributions = _load_saved_attributions(explanation.run_dir)
     metadata_before_visualise = _read_metadata(explanation.run_dir)
     assert torch.equal(saved_attributions, explanation.attributions)
-    _assert_metadata_invariants(
+    _assert_shap_metadata_invariants(
         metadata_before_visualise,
         algorithm="GradientExplainer",
         experiment_name="test_shap_e2e",
@@ -407,12 +422,50 @@ def test_explanation_factory_shap_gradient_full_pipeline(
     visualisations = explanation.visualise()
     assert len(visualisations) == 1
     metadata = _read_metadata(explanation.run_dir)
-    _assert_metadata_invariants(
+    _assert_shap_metadata_invariants(
         metadata,
         algorithm="GradientExplainer",
         experiment_name="test_shap_e2e",
         has_visualisers=True,
     )
     assert cast("list[str]", metadata["visualisers"])[0].endswith("ShapImageVisualiser_0")
+    assert visualisations[0].output_path == explanation.run_dir / "ShapImageVisualiser_0.png"
+    assert visualisations[0].output_path.exists()
+
+
+@pytest.mark.usefixtures("needs_shap")
+def test_end_to_end_shap_object_api(
+    simple_cnn: nn.Module,
+    sample_images: torch.Tensor,
+    tmp_path: Path,
+) -> None:
+    explainer = ShapExplainer("GradientExplainer")
+
+    explanation = explainer.explain(
+        simple_cnn,
+        sample_images,
+        run_dir=tmp_path / "transparency",
+        background_data=sample_images[:2],
+        target=0,
+        visualisers=[ConfiguredVisualiser(visualiser=ShapImageVisualiser())],
+    )
+    visualisations = explanation.visualise()
+    metadata = _read_metadata(explanation.run_dir)
+    saved_attributions = _load_saved_attributions(explanation.run_dir)
+
+    assert isinstance(explanation, ExplanationResult)
+    assert len(visualisations) == 1
+    assert isinstance(visualisations[0], VisualisationResult)
+    assert explanation.attributions.shape == sample_images.shape
+    assert explanation.run_dir == tmp_path / "transparency"
+    assert (explanation.run_dir / "attributions.pt").exists()
+    assert (explanation.run_dir / "metadata.json").exists()
+    assert saved_attributions.shape == sample_images.shape
+    assert metadata["algorithm"] == "GradientExplainer"
+    assert str(metadata["target"]).endswith("ShapExplainer")
+    assert cast("dict[str, object]", metadata["kwargs"])["target"] == 0
+    assert cast("list[str]", metadata["visualisers"]) == [
+        "raitap.transparency.visualisers.shap_visualisers.ShapImageVisualiser_0"
+    ]
     assert visualisations[0].output_path == explanation.run_dir / "ShapImageVisualiser_0.png"
     assert visualisations[0].output_path.exists()
