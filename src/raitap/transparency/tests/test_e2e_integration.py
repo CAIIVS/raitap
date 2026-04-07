@@ -11,6 +11,7 @@ import pytest
 import torch
 from omegaconf import OmegaConf
 
+from raitap.models.backend import TorchBackend
 from raitap.transparency import ExplanationResult, VisualisationResult
 from raitap.transparency.explainers import CaptumExplainer, ShapExplainer
 from raitap.transparency.factory import Explanation
@@ -202,7 +203,7 @@ def test_config_helpers_support_visualiser_for_loop(
     config = _captum_config()
     config.fallback_output_dir = str(tmp_path)
 
-    model = SimpleNamespace(network=simple_cnn)
+    model = SimpleNamespace(backend=TorchBackend(simple_cnn))
     explanation: ExplanationResult = Explanation(
         config,
         "test_explainer",

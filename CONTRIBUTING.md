@@ -13,7 +13,7 @@
 2. Install the dependencies by running
 
     ```bash
-    uv sync
+    uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cpu
     ```
 
 3. Install the commit message hook
@@ -77,7 +77,7 @@ Before making significant changes, read:
 
 ## Useful commands
 
-* `uv sync` installs the dependencies defined in `uv.lock`.
+* `uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cpu` installs the default contributor environment.
 * `uv run pytest` runs the test suite.
 * `uv run ruff check --fix .` lints all Python files and applies auto-fixes where possible. Omit the `--fix` flag to only check for issues without modifying files.
 * `uv run ruff format .` formats all Python files according to the configured style.

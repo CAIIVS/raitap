@@ -23,6 +23,8 @@ TabularBarChartVisualiser
 
 from __future__ import annotations
 
+from .exceptions import ExplainerBackendIncompatibilityError, VisualiserIncompatibilityError
+
 # Explainer classes — public _target_ surface
 from .explainers import CaptumExplainer, ShapExplainer
 from .factory import (
@@ -46,7 +48,6 @@ from .visualisers import (
     ShapImageVisualiser,
     ShapWaterfallVisualiser,
     TabularBarChartVisualiser,
-    VisualiserIncompatibilityError,
 )
 
 __all__ = [  # noqa: RUF022
@@ -70,6 +71,7 @@ __all__ = [  # noqa: RUF022
     # Framework-agnostic
     "TabularBarChartVisualiser",
     # Domain errors
+    "ExplainerBackendIncompatibilityError",
     "VisualiserIncompatibilityError",
     # Rest
     "Explanation",

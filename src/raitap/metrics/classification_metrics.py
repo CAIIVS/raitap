@@ -82,6 +82,14 @@ class ClassificationMetrics(BaseMetricComputer):
         self.recall = Recall(**tm_task_kwargs, **avg_kwargs)
         self.f1 = F1Score(**tm_task_kwargs, **avg_kwargs)
 
+    def _move_to_device(self, device: torch.device | None) -> None:
+        if device is None:
+            return
+        self.accuracy = self.accuracy.to(device)
+        self.precision = self.precision.to(device)
+        self.recall = self.recall.to(device)
+        self.f1 = self.f1.to(device)
+
     def update(self, predictions: torch.Tensor, targets: torch.Tensor) -> None:
         self.accuracy.update(predictions, targets)
         self.precision.update(predictions, targets)

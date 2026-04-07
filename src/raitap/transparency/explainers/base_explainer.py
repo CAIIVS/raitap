@@ -24,11 +24,16 @@ class BaseExplainer(ABC):
     def __init__(self):
         self.attributions: torch.Tensor | None = None
 
+    def check_backend_compat(self, backend: object) -> None:
+        del backend
+        return None
+
     def explain(
         self,
         model: torch.nn.Module,
         inputs: torch.Tensor,
         *,
+        backend: object | None = None,
         run_dir: str | Path | None = None,
         experiment_name: str | None = None,
         explainer_target: str | None = None,
@@ -41,7 +46,12 @@ class BaseExplainer(ABC):
         attribution_kwargs = {
             key: value for key, value in kwargs.items() if key not in _VISUALISATION_ONLY_KWARGS
         }
-        attributions = self._compute_with_optional_batches(model, inputs, attribution_kwargs)
+        attributions = self._compute_with_optional_batches(
+            model,
+            inputs,
+            attribution_kwargs,
+            backend,
+        )
         self.attributions = attributions
 
         explanation = ExplanationResult(
@@ -63,11 +73,12 @@ class BaseExplainer(ABC):
         model: torch.nn.Module,
         inputs: torch.Tensor,
         attribution_kwargs: dict[str, Any],
+        backend: object | None,
     ) -> torch.Tensor:
         batch_size = self._pop_batch_size(attribution_kwargs)
         show_progress, progress_desc = self._pop_progress_settings(attribution_kwargs)
         if batch_size is None or inputs.shape[0] <= batch_size:
-            return self.compute_attributions(model, inputs, **attribution_kwargs)
+            return self.compute_attributions(model, inputs, backend=backend, **attribution_kwargs)
 
         chunks: list[torch.Tensor] = []
         total_batch = int(inputs.shape[0])
@@ -83,7 +94,14 @@ class BaseExplainer(ABC):
             end = min(start + batch_size, total_batch)
             batch_inputs = inputs[start:end]
             batch_kwargs = self._slice_kwargs_for_batch(attribution_kwargs, start, end, total_batch)
-            chunks.append(self.compute_attributions(model, batch_inputs, **batch_kwargs))
+            chunks.append(
+                self.compute_attributions(
+                    model,
+                    batch_inputs,
+                    backend=backend,
+                    **batch_kwargs,
+                )
+            )
         return torch.cat(chunks, dim=0)
 
     def _pop_batch_size(self, attribution_kwargs: dict[str, Any]) -> int | None:

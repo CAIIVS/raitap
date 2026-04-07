@@ -83,6 +83,7 @@ class Metrics:
         targets: Any,
     ) -> MetricsEvaluation:
         metric, resolved_target = create_metric(config.metrics)
+        predictions, targets = metric._prepare_inputs(predictions, targets)
         metric.update(predictions, targets)
         result = metric.compute()
 

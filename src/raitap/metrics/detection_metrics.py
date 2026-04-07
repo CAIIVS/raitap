@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
 from .base_metric import BaseMetricComputer, MetricResult
 from .utils import tensor_to_python
+
+if TYPE_CHECKING:
+    import torch
 
 BoxFormat = Literal["xyxy", "xywh"]  # torchvision outputs xyxy
 IoUType = Literal["bbox", "segm"] | tuple[Literal["bbox", "segm"], ...]
@@ -54,6 +57,11 @@ class DetectionMetrics(BaseMetricComputer):
             backend=backend,
             **kwargs,
         )
+
+    def _move_to_device(self, device: torch.device | None) -> None:
+        if device is None:
+            return
+        self.metric = self.metric.to(device)
 
     def update(self, predictions: Any, targets: Any) -> None:
         # Sanity checks

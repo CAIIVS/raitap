@@ -1,6 +1,6 @@
 # RAITAP Transparency Module
 
-A flexible explainability module for PyTorch models wrapping SHAP and Captum.
+A flexible explainability module for native PyTorch and ONNX backends wrapping SHAP and Captum.
 
 ## Quick start
 
@@ -41,6 +41,8 @@ CLI / Config
 - `ShapExplainer` — wraps any `shap.*Explainer` algorithm
 
 Both implement `compute_attributions(model, inputs, **kwargs) → torch.Tensor`.
+The pipeline passes each explainer a backend-specific model object through
+`ModelBackend.as_model_for_explanation()`.
 
 ### Visualisers (`visualisers/`)
 
@@ -81,12 +83,19 @@ call:
 
 ## Supported algorithms
 
-Any algorithm accessible via `captum.attr.<name>` or `shap.<name>Explainer` works without code changes:
+Torch-backed models can use any algorithm accessible via `captum.attr.<name>` or
+`shap.<name>Explainer` without code changes:
 
 ```bash
 uv run raitap transparency.algorithm=Saliency
 uv run raitap transparency=shap transparency.algorithm=KernelExplainer
 ```
+
+ONNX-backed models are intentionally restricted:
+
+- Captum: `FeatureAblation`, `FeaturePermutation`, `Occlusion`, `ShapleyValueSampling`,
+  `ShapleyValues`, `KernelShap`, `Lime`
+- SHAP: `KernelExplainer`
 
 ## Testing
 
@@ -104,7 +113,7 @@ Test files:
 
 ## Dependencies
 
-- `torch>=2.0.0`
+- a Torch runtime profile such as `uv sync --extra torch-cpu`
 - `matplotlib>=3.5.0`
 - `captum>=0.7.0` (optional, for Captum explainers/visualisers)
 - `shap>=0.46.0` (optional, for SHAP explainers/visualisers)

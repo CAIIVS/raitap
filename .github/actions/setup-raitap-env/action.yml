@@ -1,0 +1,28 @@
+name: Setup RAITAP Environment
+description: Set up Python, uv, and sync dependencies.
+
+inputs:
+  python-version:
+    description: Python version to install.
+    required: true
+  sync-command:
+    description: Exact uv sync command to execute.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+
+    - name: Install dependencies
+      shell: bash
+      run: ${{ inputs.sync-command }}

@@ -41,8 +41,65 @@ Additional references on XAI aspects:
 2. Install the dependencies
 
     ```bash
-    uv sync
+    uv sync --extra torch-cpu
     ```
+
+#### Runtime profiles
+
+Choose exactly one Torch runtime profile:
+
+* CPU Torch:
+
+    ```bash
+    uv sync --extra torch-cpu
+    ```
+
+* CUDA Torch:
+
+    ```bash
+    uv sync --extra torch-cuda
+    ```
+
+* Intel XPU Torch:
+
+    ```bash
+    uv sync --extra torch-xpu
+    ```
+
+    This profile is currently locked for Python 3.13 while the published XPU dependency
+    stack catches up for newer interpreter versions.
+
+For ONNX workflows in the current codebase, also install a Torch runtime profile because ONNX
+inputs and outputs still cross parts of the pipeline as `torch.Tensor`.
+
+Choose at most one ONNX runtime profile:
+
+* CPU:
+
+    ```bash
+    uv sync --extra torch-cpu --extra onnx-cpu
+    ```
+
+* GPU:
+
+    ```bash
+    uv sync --extra torch-cpu --extra onnx-gpu
+    ```
+
+* Intel / OpenVINO:
+
+    ```bash
+    uv sync --extra torch-cpu --extra onnx-openvino
+    ```
+
+Add optional feature extras as needed:
+
+```bash
+uv sync --extra torch-cpu --extra captum --extra shap --extra metrics --extra mlflow
+```
+
+On Windows, `onnx-openvino` also installs the `openvino` Python package. On Linux, the
+OpenVINO ONNX Runtime wheel ships with the required OpenVINO libraries.
 
 ### Basic Usage
 
@@ -52,12 +109,56 @@ Additional references on XAI aspects:
 # Run with default settings
 uv run raitap
 
+# Force CPU execution
+uv run raitap hardware=cpu
+
 # Assess ResNet50 with SHAP explanations
 uv run raitap model=resnet50 transparency=shap
 
 # Try different transparency methods
 uv run raitap transparency=captum transparency.algorithm=IntegratedGradients
 ```
+
+### Runtime selection
+
+RAITAP now uses a root-level `hardware` setting:
+
+* Default: `hardware=gpu`
+* Force CPU: `hardware=cpu`
+
+When `hardware=gpu` is requested, RAITAP selects the best available supported accelerator and
+falls back automatically when a higher-priority option is unavailable.
+
+Priority order:
+
+* PyTorch: `cuda` -> `xpu` -> `cpu`
+* ONNX Runtime: `CUDAExecutionProvider` -> `OpenVINOExecutionProvider` -> `CPUExecutionProvider`
+
+The runtime profiles above select the matching PyTorch wheel source for CPU, CUDA, or Intel XPU.
+ONNX profiles remain separate and should not be combined with each other.
+
+Apple GPU acceleration is temporarily disabled even when `hardware=gpu` is requested.
+RAITAP currently falls back to CPU on Apple devices because the MPS/CoreML stack remains
+immature for parts of the transparency pipeline, some explainer paths are unsupported,
+and users have reported Apple GPU lockups / sustained 100% utilization after failures.
+
+You can verify runtime availability with:
+
+```python
+import onnxruntime
+import torch
+
+print(torch.cuda.is_available())
+print(hasattr(torch.backends, "mps") and torch.backends.mps.is_available())
+print(hasattr(torch, "xpu") and torch.xpu.is_available())
+print(onnxruntime.get_available_providers())
+```
+
+If that snippet shows Apple MPS or `CoreMLExecutionProvider`, RAITAP still warns and
+falls back to CPU today.
+
+Accelerated ONNX execution helps inference and compatible non-autograd explainers. It does not add
+PyTorch autograd to ONNX models.
 
 #### In your Python code
 

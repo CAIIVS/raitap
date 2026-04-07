@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 import hydra
 
-from raitap.run.pipeline import print_summary, run
+from raitap.run.pipeline import run
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 @hydra.main(version_base="1.3", config_path=str(_CONFIG_DIR), config_name="config")
 def main(config: AppConfig) -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s", force=True)
-    print_summary(config)
     run(config)
 
     logger.info("\n%s", "=" * 60)

@@ -1,4 +1,4 @@
-name: Code Quality
+name: Quality Gate
 
 on:
   workflow_dispatch:
@@ -7,190 +7,115 @@ on:
       - "**.py"
       - "pyproject.toml"
       - "uv.lock"
-      - ".github/workflows/code-quality.yaml"
-  pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+      - ".github/workflows/**"
+      - ".github/actions/**"
 
 permissions:
   contents: read
-  checks: write
+  pull-requests: read
 
 jobs:
-  checks:
-    name: Full pipeline
+  detect_pr_context:
+    name: Detect PR Context
+    runs-on: ubuntu-latest
+    outputs:
+      has_open_pr: ${{ steps.detect.outputs.has_open_pr }}
+      is_draft_pr: ${{ steps.detect.outputs.is_draft_pr }}
+
+    steps:
+      - name: Detect open PR for branch
+        id: detect
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const branch = context.ref.replace("refs/heads/", "");
+            const { owner, repo } = context.repo;
+            const { data: pulls } = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: "open",
+              head: `${owner}:${branch}`,
+            });
+
+            if (pulls.length === 0) {
+              core.setOutput("has_open_pr", "false");
+              core.setOutput("is_draft_pr", "false");
+              return;
+            }
+
+            core.setOutput("has_open_pr", "true");
+            core.setOutput("is_draft_pr", pulls[0].draft ? "true" : "false");
+
+  quality-gate-linux-cpu:
+    name: Quality Gate (Linux CPU)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Set up environment
+        uses: ./.github/actions/setup-raitap-env
         with:
           python-version: "3.13"
+          sync-command: uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cpu
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-          cache-dependency-glob: "uv.lock"
-
-      - name: Install dependencies
-        run: uv sync --all-extras --group dev
-
-      - name: Start lint check
-        id: lint_check_start
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const response = await github.rest.checks.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              name: "Formatting, linting & type-checking",
-              head_sha: context.sha,
-              status: "in_progress",
-              output: {
-                title: "Lint started",
-                summary: "Running Ruff and Pyright."
-              }
-            });
-            core.setOutput("check_run_id", String(response.data.id));
-
-      - name: Run Ruff linter
-        id: lint_ruff_check
-        continue-on-error: true
+      - name: Ruff
         run: uv run ruff check .
 
-      - name: Run Ruff formatter check
-        id: lint_ruff_format
-        continue-on-error: true
+      - name: Ruff Format
         run: uv run ruff format --check .
 
-      - name: Run Pyright type checker
-        id: lint_pyright
-        continue-on-error: true
+      - name: Pyright
         run: uv run pyright
 
-      - name: Complete lint check
-        if: always()
-        uses: actions/github-script@v8
-        env:
-          CHECK_RUN_ID: ${{ steps.lint_check_start.outputs.check_run_id }}
-          RUFF_CHECK_OUTCOME: ${{ steps.lint_ruff_check.outcome }}
-          RUFF_FORMAT_OUTCOME: ${{ steps.lint_ruff_format.outcome }}
-          PYRIGHT_OUTCOME: ${{ steps.lint_pyright.outcome }}
-        with:
-          script: |
-            const ruffCheck = process.env.RUFF_CHECK_OUTCOME;
-            const ruffFormat = process.env.RUFF_FORMAT_OUTCOME;
-            const pyright = process.env.PYRIGHT_OUTCOME;
-            const isSuccess = ruffCheck === "success" && ruffFormat === "success" && pyright === "success";
-
-            await github.rest.checks.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              check_run_id: Number(process.env.CHECK_RUN_ID),
-              status: "completed",
-              conclusion: isSuccess ? "success" : "failure",
-              output: {
-                title: "Lint completed",
-                summary: isSuccess
-                  ? "Ruff and Pyright checks passed."
-                  : `Ruff check: ${ruffCheck}; Ruff format: ${ruffFormat}; Pyright: ${pyright}.`
-              }
-            });
-
-      - name: Start test check
-        id: test_check_start
-        if: always()
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const response = await github.rest.checks.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              name: "Tests (unit & integration)",
-              head_sha: context.sha,
-              status: "in_progress",
-              output: {
-                title: "Tests started",
-                summary: "Running pytest with coverage."
-              }
-            });
-            core.setOutput("check_run_id", String(response.data.id));
-
-      - name: Run tests
-        id: test_run
-        if: steps.lint_ruff_check.outcome == 'success' && steps.lint_ruff_format.outcome == 'success' && steps.lint_pyright.outcome == 'success'
-        continue-on-error: true
-        run: uv run pytest -m "not e2e" -v --cov=src/raitap --cov-report=term-missing --cov-report=html
-
-      - name: Complete test check
-        if: always()
-        uses: actions/github-script@v8
-        env:
-          CHECK_RUN_ID: ${{ steps.test_check_start.outputs.check_run_id }}
-          RUFF_CHECK_OUTCOME: ${{ steps.lint_ruff_check.outcome }}
-          RUFF_FORMAT_OUTCOME: ${{ steps.lint_ruff_format.outcome }}
-          PYRIGHT_OUTCOME: ${{ steps.lint_pyright.outcome }}
-          TEST_OUTCOME: ${{ steps.test_run.outcome }}
-        with:
-          script: |
-            const lintPassed =
-              process.env.RUFF_CHECK_OUTCOME === "success" &&
-              process.env.RUFF_FORMAT_OUTCOME === "success" &&
-              process.env.PYRIGHT_OUTCOME === "success";
-            const testOutcome = process.env.TEST_OUTCOME;
-
-            let conclusion = "skipped";
-            let summary = "Skipped because lint failed.";
-
-            if (lintPassed) {
-              const testPassed = testOutcome === "success";
-              conclusion = testPassed ? "success" : "failure";
-              summary = testPassed
-                ? "All tests passed."
-                : `Test outcome: ${testOutcome}.`;
-            }
-
-            await github.rest.checks.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              check_run_id: Number(process.env.CHECK_RUN_ID),
-              status: "completed",
-              conclusion,
-              output: {
-                title: "Tests completed",
-                summary
-              }
-            });
+      - name: Pytest
+        run: uv run pytest -m "not e2e and not cuda" -v --cov=src/raitap --cov-report=term-missing --cov-report=html
 
       - name: Upload coverage report
-        if: always() && steps.test_run.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: htmlcov/
           retention-days: 30
 
-      - name: Fail workflow if lint or tests failed
-        if: always()
-        run: |
-          if [[ "${{ steps.lint_ruff_check.outcome }}" != "success" || \
-                "${{ steps.lint_ruff_format.outcome }}" != "success" || \
-                "${{ steps.lint_pyright.outcome }}" != "success" ]]; then
-            echo "Lint failed."
-            exit 1
-          fi
+  quality-gate-linux-cuda:
+    name: Quality Gate (Linux CUDA)
+    # Hosted GPU runners are not enabled for every repository by default.
+    # Keep the job defined, but only run it when the repo explicitly opts in.
+    needs: detect_pr_context
+    if: ${{ vars.ENABLE_HOSTED_GPU_CI == 'true' && needs.detect_pr_context.outputs.has_open_pr == 'true' && needs.detect_pr_context.outputs.is_draft_pr == 'false' }}
+    runs-on: ubuntu-latest-gpu
 
-          if [[ "${{ steps.test_run.outcome }}" != "success" ]]; then
-            echo "Tests failed or were skipped."
-            exit 1
-          fi
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up environment
+        uses: ./.github/actions/setup-raitap-env
+        with:
+          python-version: "3.13"
+          sync-command: uv sync --group dev --extra torch-cuda --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-gpu
+
+      - name: CUDA smoke check
+        run: |
+          uv run python - <<'PY'
+          import onnxruntime as ort
+          import torch
+
+          if not torch.cuda.is_available():
+              raise RuntimeError("CUDA is not available on this runner.")
+
+          tensor = torch.zeros(1, device="cuda")
+          if tensor.device.type != "cuda":
+              raise RuntimeError(f"Expected CUDA tensor, got {tensor.device}.")
+
+          providers = ort.get_available_providers()
+          if "CUDAExecutionProvider" not in providers:
+              raise RuntimeError(
+                  f"CUDAExecutionProvider missing from ONNX Runtime providers: {providers}"
+              )
+          PY
+
+      - name: Pytest
+        run: uv run pytest -m "cuda" -v

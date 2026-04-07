@@ -22,6 +22,7 @@ import pytest
 import torch
 from omegaconf import OmegaConf
 
+from raitap.models.backend import TorchBackend
 from raitap.transparency import ExplanationResult
 from raitap.transparency.explainers import ShapExplainer
 from raitap.transparency.factory import Explanation
@@ -377,7 +378,7 @@ def test_explanation_factory_shap_gradient_full_pipeline(
         ),
     )
 
-    model = SimpleNamespace(network=simple_cnn)
+    model = SimpleNamespace(backend=TorchBackend(simple_cnn))
     # background_data is passed as a run-time kwarg (merged into call kwargs by the factory)
     explanation = Explanation(
         config,

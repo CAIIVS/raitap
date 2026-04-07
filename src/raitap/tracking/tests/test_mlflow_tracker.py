@@ -7,9 +7,13 @@ from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
+import torch
+
+from raitap.models.backend import OnnxBackend, TorchBackend
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+    from pathlib import Path
 
     from raitap.configs.schema import AppConfig
 
@@ -40,6 +44,7 @@ def _make_config(
 def mock_mlflow() -> Generator[MagicMock]:
     mock = MagicMock()
     # Mocking submodules if needed
+    mock.onnx = MagicMock()
     mock.pytorch = MagicMock()
     mock.entities = MagicMock()
     mock.entities.RunStatus = MagicMock()
@@ -60,6 +65,31 @@ def tracker(mock_mlflow: MagicMock) -> MLFlowTracker:
     config = _make_config(url="./mlruns")
     with patch("raitap.tracking.mlflow_tracker.MLFlowTracker._ensure_server_running"):
         return MLFlowTracker(config)
+
+
+@pytest.fixture
+def saved_onnx_model(tmp_path: Path) -> Path:
+    onnx = pytest.importorskip("onnx")
+    pytest.importorskip("onnxruntime")
+    from onnx import TensorProto, helper, numpy_helper
+
+    path = tmp_path / "tracking-model.onnx"
+    weight = torch.full((2, 2), 0.5, dtype=torch.float32).numpy()
+    bias = torch.tensor([0.1, -0.1], dtype=torch.float32).numpy()
+    graph = helper.make_graph(
+        [helper.make_node("Gemm", ["input", "weight", "bias"], ["output"])],
+        "tracking_graph",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, ["batch", 2])],
+        [helper.make_tensor_value_info("output", TensorProto.FLOAT, ["batch", 2])],
+        [
+            numpy_helper.from_array(weight, name="weight"),
+            numpy_helper.from_array(bias, name="bias"),
+        ],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    onnx.checker.check_model(model)
+    onnx.save(model, path)
+    return path
 
 
 def test_mlflow_tracker_init_starts_run(mock_mlflow: MagicMock) -> None:
@@ -107,3 +137,27 @@ def test_mlflow_tracker_log_metrics(tracker: MLFlowTracker, mock_mlflow: MagicMo
     tracker.log_metrics(metrics, prefix="eval")
 
     mock_mlflow.log_metrics.assert_called_once_with({"eval.acc": 0.95, "eval.loss": 0.1})
+
+
+def test_mlflow_tracker_log_model_uses_pytorch_flavor(
+    tracker: MLFlowTracker, mock_mlflow: MagicMock
+) -> None:
+    backend = TorchBackend(torch.nn.Linear(2, 1))
+
+    tracker.log_model(backend)
+
+    mock_mlflow.pytorch.log_model.assert_called_once()
+    assert mock_mlflow.onnx.log_model.call_count == 0
+
+
+def test_mlflow_tracker_log_model_uses_onnx_flavor(
+    tracker: MLFlowTracker,
+    mock_mlflow: MagicMock,
+    saved_onnx_model: Path,
+) -> None:
+    backend = OnnxBackend.from_path(saved_onnx_model)
+
+    tracker.log_model(backend)
+
+    mock_mlflow.onnx.log_model.assert_called_once()
+    assert mock_mlflow.pytorch.log_model.call_count == 0

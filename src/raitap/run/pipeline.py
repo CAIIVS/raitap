@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 def run(config: AppConfig) -> RunOutputs:
     model = Model(config)
     data = Data(config)
+    print_summary(config, model)
 
     outputs = _run_without_tracking(config, model, data)
 
@@ -58,10 +59,10 @@ def run(config: AppConfig) -> RunOutputs:
 
 
 def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOutputs:
-    data_tensor = data.tensor
+    data_tensor = model.backend._prepare_inputs(data.tensor)
 
     with torch.no_grad():
-        raw_output: Any = model.network(data_tensor)
+        raw_output: Any = model.backend(data_tensor)
         forward_output = extract_primary_tensor(raw_output)
 
     metrics_eval: MetricsEvaluation | None = None
@@ -103,13 +104,14 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
     )
 
 
-def print_summary(config: AppConfig) -> None:
+def print_summary(config: AppConfig, model: Model) -> None:
     logger.info("%s", "=" * 60)
     logger.info("RAITAP Transparency Assessment")
     logger.info("%s", "=" * 60)
     logger.info("\nExperiment: %s", config.experiment_name)
     logger.info("Model: %s", config.model.source)
     logger.info("Dataset: %s", config.data.name)
+    logger.info("Hardware: %s", model.backend.hardware_label)
     logger.info("Explainers: %s", list(config.transparency.keys()))
     logger.info("Metrics: %s", "on" if metrics_run_enabled(config) else "off")
     logger.info("Output: %s\n", resolve_run_dir(config))

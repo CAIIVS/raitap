@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, cast
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 import torch
@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
 
 from raitap.models import Model
+from raitap.models.backend import TorchBackend
 
 
 def _make_config(source: str) -> AppConfig:
@@ -34,25 +35,18 @@ class TestModelConstructor:
 
         model = Model(config)
 
-        assert isinstance(model.network, torch.nn.Module)
-        assert model.network.__class__.__name__ == "ResNet"
+        assert isinstance(model.backend, TorchBackend)
+        assert model.backend.as_model_for_explanation().__class__.__name__ == "ResNet"
 
     def test_model_loads_from_local_pth_file(self, tmp_path: Path) -> None:
         dummy_model = torch.nn.Linear(10, 5)
         model_path = tmp_path / "model.pth"
-        torch.save(dummy_model.state_dict(), model_path)
+        torch.save(dummy_model, model_path)
 
         config = _make_config(str(model_path))
+        model = Model(config)
 
-        with patch("raitap.models.model.CONVERTERS") as mock_converters:
-            mock_converter = MagicMock()
-            mock_converter.convert.return_value = dummy_model
-            mock_converters.get.return_value = mock_converter
-
-            model = Model(config)
-
-            mock_converter.convert.assert_called_once()
-            assert isinstance(model.network, torch.nn.Module)
+        assert isinstance(model.backend.as_model_for_explanation(), torch.nn.Module)
 
     def test_model_raises_if_source_is_none(self) -> None:
         config = _make_config("")
@@ -81,9 +75,9 @@ class TestModelLog:
         tracker = MagicMock()
         model.log(tracker)
 
-        tracker.log_model.assert_called_once_with(model.network)
+        tracker.log_model.assert_called_once_with(model.backend)
 
-    def test_log_passes_network_to_tracker(self) -> None:
+    def test_log_passes_backend_to_tracker(self) -> None:
         config = _make_config("resnet18")
         model = Model(config)
 
@@ -91,5 +85,4 @@ class TestModelLog:
         model.log(tracker)
 
         logged_model = tracker.log_model.call_args[0][0]
-        assert logged_model is model.network
-        assert isinstance(logged_model, torch.nn.Module)
+        assert logged_model is model.backend

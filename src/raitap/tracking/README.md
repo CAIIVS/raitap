@@ -57,7 +57,7 @@ MLflow logging work, not to assess model quality.
 Install dependencies first:
 
 ```bash
-uv sync
+uv sync --group dev --extra torch-cpu --extra captum --extra metrics --extra mlflow
 ```
 
 The default sample image must exist locally. If it is missing, either:

@@ -6,4 +6,5 @@ defaults:
   - metrics: classification
   - tracking: null
 
+hardware: gpu
 experiment_name: demo
