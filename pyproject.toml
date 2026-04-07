@@ -1,130 +1,132 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "raitap"
 dynamic = ["version"]
 authors = [
-    { name = "Philipp Denzel", email = "denp@zhaw.ch" },
-    { name = "Oliver Forster", email = "foro@zhaw.ch" },
-    # add your name / email here
+  { name = "Stanislas Laurent", email = "lauresta@students.zhaw.ch" },
+  { name = "Jonas Vonderhagen", email = "vondejon@students.zhaw.ch" },
+  { name = "Philipp Denzel", email = "denp@zhaw.ch" },
+  { name = "Oliver Forster", email = "foro@zhaw.ch" },
 ]
 maintainers = [
-    { name = "Philipp Denzel", email = "denp@zhaw.ch" },
-    { name = "Oliver Forster", email = "foro@zhaw.ch" },
-    { name = "Stanislas Laurent", email = "lauresta@students.zhaw.ch" },
-    { name = "Jonas Vonderhagen", email = "vondejon@students.zhaw.ch"}
+  { name = "Stanislas Laurent", email = "lauresta@students.zhaw.ch" },
+  { name = "Jonas Vonderhagen", email = "vondejon@students.zhaw.ch" },
+  { name = "Philipp Denzel", email = "denp@zhaw.ch" },
+  { name = "Oliver Forster", email = "foro@zhaw.ch" },
 ]
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-keywords = ["artificial intelligence", "deep learning", "neural networks", "technical assessment", "responsible AI"]
+keywords = [
+  "artificial intelligence",
+  "deep learning",
+  "neural networks",
+  "technical assessment",
+  "responsible AI",
+]
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.13",
-    "Typing :: Typed",
-    "Operating System :: OS Independent",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.13",
+  "Typing :: Typed",
+  "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
 dependencies = [
-    # Core framework
-    "hydra-core>=1.3.2",
-    "numpy>=2.4.2",
-    # Image and table handling
-    "pillow>=10.0.0",
-    "pandas>=2.0.0",
-    # Visualization
-    "matplotlib>=3.9.0",
-    "pandas-stubs~=3.0.0",
+  # Core runtime.
+  "hydra-core>=1.3.2",
+  "numpy>=2.4.2",
+
+  # Data and visualisation.
+  "matplotlib>=3.9.0",
+  "pandas>=2.0.0",
+  "pandas-stubs~=3.0.0",
+  "pillow>=10.0.0",
 ]
+
+[project.scripts]
+raitap = "raitap.run.__main__:main"
+
+[project.urls]
+Documentation = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform#readme"
+Homepage = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform"
+Repository = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform.git"
+Issues = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform/issues"
+Source = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform"
+
 
 [project.optional-dependencies]
-torch-cpu = [
-    "torch>=2.10.0",
-    "torchvision>=0.20.0",
-]
-torch-cuda = [
-    "torch>=2.10.0",
-    "torchvision>=0.20.0",
-]
+# Backend module
+torch-cpu = ["torch>=2.10.0", "torchvision>=0.20.0"]
+torch-cuda = ["torch>=2.10.0", "torchvision>=0.20.0"]
 torch-xpu = [
-    "torch>=2.10.0; python_full_version < '3.14'",
-    "torchvision>=0.20.0; python_full_version < '3.14'",
-    "triton-xpu; python_full_version < '3.14'",
+  "torch>=2.10.0; python_full_version < '3.14'",
+  "torchvision>=0.20.0; python_full_version < '3.14'",
+  "triton-xpu; python_full_version < '3.14'",
 ]
-mlflow = [
-    "mlflow>=3.9.0",
-]
-shap = [
-    "shap>=0.46.0",
-]
-captum = [
-    "captum>=0.7.0",
-]
-metrics = [
-    "torchmetrics>=1.8.2",
-    "faster-coco-eval>=1.6.3",
-]
-onnx-cpu = [
-    "onnx>=1.21.0",
-    "onnxruntime>=1.24.4",
-]
-onnx-gpu = [
-    "onnx>=1.21.0",
-    "onnxruntime-gpu>=1.24.4",
-]
+onnx-cpu = ["onnx>=1.21.0", "onnxruntime>=1.24.4"]
+onnx-gpu = ["onnx>=1.21.0", "onnxruntime-gpu>=1.24.4"]
 onnx-openvino = [
-    "onnx>=1.21.0",
-    "onnxruntime-openvino>=1.24.1",
-    "openvino>=2025.1.0; sys_platform == 'win32'",
+  "onnx>=1.21.0",
+  "onnxruntime-openvino>=1.24.1",
+  "openvino>=2025.1.0; sys_platform == 'win32'",
 ]
+
+# Transparency module
+shap = ["shap>=0.46.0"]
+captum = ["captum>=0.7.0"]
+transparency = ["raitap[shap,captum]"]
+
+# Tracking module
+mlflow = ["mlflow>=3.9.0"]
+
+# Metrics module
+metrics = ["torchmetrics>=1.8.2", "faster-coco-eval>=1.6.3"]
 
 [dependency-groups]
-lint = [
-    "ruff>=0.8.0",
-    "pyright>=1.1.390",
-]
-test = [
-    "pytest>=8.0.0",
-    "pytest-cov>=4.1.0",
-]
-tooling = [
-    "pre-commit>=4.0.0",
-    "commitizen>=3.0.0",
-]
+lint = ["ruff>=0.8.0", "pyright>=1.1.390"]
+test = ["pytest>=8.0.0", "pytest-cov>=4.1.0"]
+tooling = ["pre-commit>=4.0.0", "commitizen>=3.0.0"]
 dev = [
-    { include-group = "lint" },
-    { include-group = "test" },
-    { include-group = "tooling" },
+  { include-group = "lint" },
+  { include-group = "test" },
+  { include-group = "tooling" },
 ]
 
+# uv dependency resolution rules.
 [tool.uv]
 conflicts = [
-    [
-        { extra = "torch-cpu" },
-        { extra = "torch-cuda" },
-        { extra = "torch-xpu" },
-    ],
-    [
-        { extra = "onnx-cpu" },
-        { extra = "onnx-gpu" },
-        { extra = "onnx-openvino" },
-    ],
+  [
+    { extra = "torch-cpu" },
+    { extra = "torch-cuda" },
+    { extra = "torch-xpu" },
+  ],
+  [
+    { extra = "onnx-cpu" },
+    { extra = "onnx-gpu" },
+    { extra = "onnx-openvino" },
+  ],
 ]
 
+# Map runtime extras to the correct package indexes.
 [tool.uv.sources]
 torch = [
-    { index = "pytorch-cpu", extra = "torch-cpu" },
-    { index = "pytorch-cuda", extra = "torch-cuda" },
-    { index = "pytorch-xpu", extra = "torch-xpu" },
+  { index = "pytorch-cpu", extra = "torch-cpu" },
+  { index = "pytorch-cuda", extra = "torch-cuda" },
+  { index = "pytorch-xpu", extra = "torch-xpu" },
 ]
 torchvision = [
-    { index = "pytorch-cpu", extra = "torch-cpu" },
-    { index = "pytorch-cuda", extra = "torch-cuda" },
-    { index = "pytorch-xpu", extra = "torch-xpu" },
+  { index = "pytorch-cpu", extra = "torch-cpu" },
+  { index = "pytorch-cuda", extra = "torch-cuda" },
+  { index = "pytorch-xpu", extra = "torch-xpu" },
 ]
-triton-xpu = [
-    { index = "pytorch-xpu", extra = "torch-xpu" },
-]
+triton-xpu = [{ index = "pytorch-xpu", extra = "torch-xpu" }]
 
+
+# Explicit indexes used by runtime extras.
 [[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
@@ -140,69 +142,42 @@ name = "pytorch-xpu"
 url = "https://download.pytorch.org/whl/xpu"
 explicit = true
 
-[project.scripts]
-raitap = "raitap.run.__main__:main"
-
-[project.urls]
-Documentation = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform#readme"
-Homepage = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform"
-Repository = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform.git"
-Issues = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform/issues"
-Source = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform"
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [tool.hatch.version]
 path = "src/raitap/__about__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/raitap"]
-include = [
-    "src/raitap/py.typed",
-    "src/raitap/**/*.yaml",
-    "src/raitap/**/*.yml",
-]
-exclude = [
-    "src/raitap/**/test_*.py",
-    "src/raitap/**/conftest.py",
-]
+include = ["src/raitap/py.typed", "src/raitap/**/*.yaml", "src/raitap/**/*.yml"]
+exclude = ["src/raitap/**/test_*.py", "src/raitap/**/conftest.py"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-extend-exclude = [
-    "assets",
-    "usecases",
-    "outputs",
-    "mlartifacts",
-]
+extend-exclude = ["assets", "usecases", "outputs", "mlartifacts"]
 
 [tool.ruff.lint]
 select = [
-    "E", 
-    "W", 
-    "F", 
-    "I", 
-    "N", 
-    "UP", 
-    "B", 
-    "C4", # flake8-comprehensions
-    "SIM", 
-    "RUF",
-    "ANN001", 
-    "ANN201", 
-    "ANN202",
-    "UP",
-    "TCH", # flake8-type-checking
-    "PYI",
-    "PGH003",
+  "E",
+  "W",
+  "F",
+  "I",
+  "N",
+  "UP",
+  "B",
+  "C4",     # flake8-comprehensions
+  "SIM",
+  "RUF",
+  "ANN001",
+  "ANN201",
+  "ANN202",
+  "TCH",    # flake8-type-checking
+  "PYI",
+  "PGH003",
 ]
 ignore = []
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"]  # Allow unused imports in __init__.py
+"__init__.py" = ["F401"] # Allow unused imports in __init__.py
 
 [tool.ruff.format]
 quote-style = "double"
@@ -225,16 +200,16 @@ schema_pattern = "^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert
 [tool.pyright]
 include = ["src"]
 exclude = [
-    "**/.*",
-    "**/.venv",
-    "**/__pycache__",
-    "**/node_modules",
-    "**/build",
-    "**/dist",
-    "assets",
-    "usecases",
-    "outputs",
-    "mlartifacts",
+  "**/.*",
+  "**/.venv",
+  "**/__pycache__",
+  "**/node_modules",
+  "**/build",
+  "**/dist",
+  "assets",
+  "usecases",
+  "outputs",
+  "mlartifacts",
 ]
 pythonVersion = "3.13"
 typeCheckingMode = "standard"
@@ -244,56 +219,42 @@ reportUnusedImport = true
 reportUnusedVariable = true
 
 [tool.pytest.ini_options]
-norecursedirs = [
-    "assets",
-    "usecases",
-    "outputs",
-    "mlartifacts",
-]
+norecursedirs = ["assets", "usecases", "outputs", "mlartifacts"]
 testpaths = ["src"]
 pythonpath = ["src"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 markers = [
-    "e2e: end-to-end tests that are resource-intensive; run once per PR, not on every commit",
-    "runtime: runtime resolution and backend hardware-label tests for platform-specific CI selection",
+  "e2e: end-to-end tests that are resource-intensive; run once per PR, not on every commit",
+  "runtime: runtime resolution and backend hardware-label tests for platform-specific CI selection",
 ]
-addopts = [
-    "-v",
-    "--strict-markers",
-    "--strict-config",
-    "--tb=short",
-]
+addopts = ["-v", "--strict-markers", "--strict-config", "--tb=short"]
 filterwarnings = [
-    # captum raises this when inputs don't already require gradients; expected during tests
-    "ignore:Input Tensor.*required_grads:UserWarning",
-    # captum uses deprecated matplotlib cm.get_cmap; will be fixed upstream
-    "ignore:The get_cmap function was deprecated:matplotlib.MatplotlibDeprecationWarning",
-    # shap uses np.random.seed internally; will be fixed upstream
-    "ignore:The NumPy global RNG was seeded:FutureWarning",
-    # tight_layout incompatibility in ShapImageVisualiser; cosmetic only
-    "ignore:This figure includes Axes that are not compatible with tight_layout:UserWarning",
+  # captum raises this when inputs don't already require gradients; expected during tests
+  "ignore:Input Tensor.*required_grads:UserWarning",
+  # captum uses deprecated matplotlib cm.get_cmap; will be fixed upstream
+  "ignore:The get_cmap function was deprecated:matplotlib.MatplotlibDeprecationWarning",
+  # shap uses np.random.seed internally; will be fixed upstream
+  "ignore:The NumPy global RNG was seeded:FutureWarning",
+  # tight_layout incompatibility in ShapImageVisualiser; cosmetic only
+  "ignore:This figure includes Axes that are not compatible with tight_layout:UserWarning",
 ]
 
 [tool.coverage.run]
 source = ["src"]
-omit = [
-    "*/tests/*",
-    "*/__pycache__/*",
-    "*/.venv/*",
-]
+omit = ["*/tests/*", "*/__pycache__/*", "*/.venv/*"]
 
 [tool.coverage.report]
 precision = 2
 show_missing = true
 skip_covered = false
 exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "raise AssertionError",
-    "raise NotImplementedError",
-    "if __name__ == .__main__.:",
-    "if TYPE_CHECKING:",
-    "@abstractmethod",
+  "pragma: no cover",
+  "def __repr__",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+  "@abstractmethod",
 ]
