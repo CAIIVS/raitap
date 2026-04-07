@@ -7,19 +7,45 @@ on:
       - "**.py"
       - "pyproject.toml"
       - "uv.lock"
-      - ".github/workflows/code-quality.yaml"
+      - ".github/workflows/**"
       - ".github/actions/**"
-  pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
+  detect_pr_context:
+    name: Detect PR Context
+    runs-on: ubuntu-latest
+    outputs:
+      has_open_pr: ${{ steps.detect.outputs.has_open_pr }}
+      is_draft_pr: ${{ steps.detect.outputs.is_draft_pr }}
+
+    steps:
+      - name: Detect open PR for branch
+        id: detect
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const branch = context.ref.replace("refs/heads/", "");
+            const { owner, repo } = context.repo;
+            const { data: pulls } = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: "open",
+              head: `${owner}:${branch}`,
+            });
+
+            if (pulls.length === 0) {
+              core.setOutput("has_open_pr", "false");
+              core.setOutput("is_draft_pr", "false");
+              return;
+            }
+
+            core.setOutput("has_open_pr", "true");
+            core.setOutput("is_draft_pr", pulls[0].draft ? "true" : "false");
+
   quality-gate-linux-cpu:
     name: Quality Gate (Linux CPU)
     runs-on: ubuntu-latest
@@ -44,7 +70,7 @@ jobs:
         run: uv run pyright
 
       - name: Pytest
-        run: uv run pytest -m "not e2e" -v --cov=src/raitap --cov-report=term-missing --cov-report=html
+        run: uv run pytest -m "not e2e and not cuda" -v --cov=src/raitap --cov-report=term-missing --cov-report=html
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v7
@@ -57,7 +83,8 @@ jobs:
     name: Quality Gate (Linux CUDA)
     # Hosted GPU runners are not enabled for every repository by default.
     # Keep the job defined, but only run it when the repo explicitly opts in.
-    if: ${{ vars.ENABLE_HOSTED_GPU_CI == 'true' }}
+    needs: detect_pr_context
+    if: ${{ vars.ENABLE_HOSTED_GPU_CI == 'true' && needs.detect_pr_context.outputs.has_open_pr == 'true' && needs.detect_pr_context.outputs.is_draft_pr == 'false' }}
     runs-on: ubuntu-latest-gpu
 
     steps:
@@ -70,14 +97,25 @@ jobs:
           python-version: "3.13"
           sync-command: uv sync --group dev --extra torch-cuda --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-gpu
 
-      - name: Ruff
-        run: uv run ruff check .
+      - name: CUDA smoke check
+        run: |
+          uv run python - <<'PY'
+          import onnxruntime as ort
+          import torch
 
-      - name: Ruff Format
-        run: uv run ruff format --check .
+          if not torch.cuda.is_available():
+              raise RuntimeError("CUDA is not available on this runner.")
 
-      - name: Pyright
-        run: uv run pyright
+          tensor = torch.zeros(1, device="cuda")
+          if tensor.device.type != "cuda":
+              raise RuntimeError(f"Expected CUDA tensor, got {tensor.device}.")
+
+          providers = ort.get_available_providers()
+          if "CUDAExecutionProvider" not in providers:
+              raise RuntimeError(
+                  f"CUDAExecutionProvider missing from ONNX Runtime providers: {providers}"
+              )
+          PY
 
       - name: Pytest
-        run: uv run pytest -m "not e2e" -v
+        run: uv run pytest -m "cuda" -v

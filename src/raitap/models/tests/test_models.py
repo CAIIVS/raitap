@@ -63,6 +63,10 @@ def _make_config(source: str, *, hardware: str = "gpu") -> AppConfig:
     )
 
 
+def _cuda_not_available() -> bool:
+    return not torch.cuda.is_available()
+
+
 @pytest.fixture
 def tiny_model() -> nn.Module:
     model = nn.Sequential(nn.Linear(4, 2))
@@ -427,6 +431,43 @@ class TestLoadModelFromPath:
         )
 
         assert backend.hardware_label == "Intel OpenVINO"
+
+    @pytest.mark.cuda
+    @pytest.mark.skipif(_cuda_not_available(), reason="CUDA is not available")
+    def test_torch_gpu_uses_real_cuda_backend(self, saved_pth: Path) -> None:
+        cfg = _make_config(str(saved_pth), hardware="gpu")
+
+        model = Model(cfg)
+
+        assert isinstance(model.backend, TorchBackend)
+        assert model.backend.device.type == "cuda"
+
+        prepared_inputs = model.backend._prepare_inputs(torch.randn(2, 4))
+        assert prepared_inputs.device.type == "cuda"
+
+        outputs = model.backend(prepared_inputs)
+        assert isinstance(outputs, torch.Tensor)
+        assert outputs.device.type == "cuda"
+        assert model.backend.hardware_label == "CUDA"
+
+    @pytest.mark.cuda
+    @pytest.mark.skipif(_cuda_not_available(), reason="CUDA is not available")
+    def test_onnx_gpu_uses_cuda_execution_provider(self, saved_onnx: Path) -> None:
+        pytest.importorskip("onnx")
+        pytest.importorskip("onnxruntime")
+        import onnxruntime as ort
+
+        if "CUDAExecutionProvider" not in ort.get_available_providers():
+            pytest.skip("CUDAExecutionProvider is not available")
+
+        backend = OnnxBackend.from_path(saved_onnx, hardware="gpu")
+        outputs = backend(torch.randn(2, 4))
+
+        assert backend.providers[0] == "CUDAExecutionProvider"
+        assert backend.session.get_providers()[0] == "CUDAExecutionProvider"
+        assert backend.hardware_label == "CUDA"
+        assert isinstance(outputs, torch.Tensor)
+        assert outputs.shape == (2, 2)
 
 
 class TestLoadModelFromName:

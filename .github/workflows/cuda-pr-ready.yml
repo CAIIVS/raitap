@@ -1,0 +1,48 @@
+name: CUDA PR Ready
+
+on:
+  pull_request:
+    types:
+      - ready_for_review
+
+permissions:
+  contents: read
+
+jobs:
+  cuda-pr-ready:
+    name: Quality Gate (Linux CUDA)
+    if: ${{ vars.ENABLE_HOSTED_GPU_CI == 'true' && !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest-gpu
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up environment
+        uses: ./.github/actions/setup-raitap-env
+        with:
+          python-version: "3.13"
+          sync-command: uv sync --group dev --extra torch-cuda --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-gpu
+
+      - name: CUDA smoke check
+        run: |
+          uv run python - <<'PY'
+          import onnxruntime as ort
+          import torch
+
+          if not torch.cuda.is_available():
+              raise RuntimeError("CUDA is not available on this runner.")
+
+          tensor = torch.zeros(1, device="cuda")
+          if tensor.device.type != "cuda":
+              raise RuntimeError(f"Expected CUDA tensor, got {tensor.device}.")
+
+          providers = ort.get_available_providers()
+          if "CUDAExecutionProvider" not in providers:
+              raise RuntimeError(
+                  f"CUDAExecutionProvider missing from ONNX Runtime providers: {providers}"
+              )
+          PY
+
+      - name: Pytest
+        run: uv run pytest -m "cuda" -v
