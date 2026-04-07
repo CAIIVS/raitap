@@ -112,7 +112,7 @@ def test_explanation_rejects_model_without_backend(
         ),
     )
 
-    with pytest.raises(TypeError, match="object without '.backend'"):
+    with pytest.raises(TypeError, match=r"object without '\.backend'"):
         Explanation(
             config,
             "test_explainer",
