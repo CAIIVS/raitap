@@ -26,6 +26,12 @@ _BASELINE_FILE = _BASELINE_DIR / "captum_ig_image_heat_map.png"
 _MPL_TOLERANCE = 10 if sys.platform.startswith("win") else 2
 
 
+def _require_parameter(parameter: torch.Tensor | None, *, name: str) -> torch.Tensor:
+    if parameter is None:
+        raise ValueError(f"{name} must be present for the deterministic MPL baseline model.")
+    return parameter
+
+
 def _build_deterministic_cnn() -> nn.Module:
     model = nn.Sequential(
         nn.Conv2d(3, 2, kernel_size=1, bias=True),
@@ -49,9 +55,11 @@ def _build_deterministic_cnn() -> nn.Module:
                 dtype=torch.float32,
             )
         )
-        conv.bias.copy_(torch.tensor([0.05, -0.10], dtype=torch.float32))
+        conv_bias = _require_parameter(conv.bias, name="conv.bias")
+        linear_bias = _require_parameter(linear.bias, name="linear.bias")
+        conv_bias.copy_(torch.tensor([0.05, -0.10], dtype=torch.float32))
         linear.weight.copy_(torch.tensor([[0.60, -0.45], [-0.30, 0.80]], dtype=torch.float32))
-        linear.bias.copy_(torch.tensor([0.10, -0.05], dtype=torch.float32))
+        linear_bias.copy_(torch.tensor([0.10, -0.05], dtype=torch.float32))
 
     model.eval()
     return model

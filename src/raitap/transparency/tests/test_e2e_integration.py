@@ -8,7 +8,6 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, NotRequired, TypedDict, cast
 
 import pytest
-import torch
 from omegaconf import OmegaConf
 
 from raitap.models.backend import TorchBackend
@@ -22,6 +21,8 @@ from raitap.transparency.visualisers import (
 )
 
 if TYPE_CHECKING:
+    import torch
+
     from raitap.configs.schema import AppConfig
 
 
