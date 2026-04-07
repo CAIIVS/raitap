@@ -7,12 +7,13 @@ Use two lanes:
 
 ## E2E Split
 
-- Smoke/config E2E combinations live in `test_e2e_transparency_matrix.py`
-- MPL regression E2E lives in `test_e2e_mpl_baseline.py`
+- Shared matrix rows live in `e2e_case_matrix.py`
+- Broad automatic behavior coverage lives in `test_e2e_transparency_matrix.py`
+- Smaller automatic visual-regression coverage lives in `test_e2e_mpl_baseline.py`
 
 ## Where To Add Things
 
-- Add new heavy transparency combinations to `test_e2e_transparency_matrix.py`
+- Add new heavy transparency combinations as rows in `e2e_case_matrix.py`
 - Add committed PNG baselines to `mpl_baseline/`
 
 ## Baseline Rule
