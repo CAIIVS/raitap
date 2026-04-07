@@ -72,6 +72,30 @@ def simple_mlp() -> nn.Module:
     return model
 
 
+class SimpleTimeSeriesClassifier(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.conv = nn.Conv1d(3, 8, kernel_size=3, padding=1)
+        self.relu = nn.ReLU()
+        self.pool = nn.AdaptiveAvgPool1d(1)
+        self.head = nn.Linear(8, 2)
+
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        channels_first = inputs.transpose(1, 2)
+        features = self.conv(channels_first)
+        features = self.relu(features)
+        pooled = self.pool(features).squeeze(-1)
+        return self.head(pooled)
+
+
+@pytest.fixture
+def simple_timeseries_model() -> nn.Module:
+    """Simple time-series model that consumes inputs shaped (batch, time, channels)."""
+    model = SimpleTimeSeriesClassifier()
+    model.eval()
+    return model
+
+
 # ---------------------------------------------------------------------------
 # Data fixtures
 # ---------------------------------------------------------------------------

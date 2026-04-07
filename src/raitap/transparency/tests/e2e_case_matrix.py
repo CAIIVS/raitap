@@ -17,10 +17,13 @@ from raitap.transparency.results import ConfiguredVisualiser
 from raitap.transparency.visualisers import (
     BaseVisualiser,
     CaptumImageVisualiser,
+    CaptumTimeSeriesVisualiser,
     ShapBarVisualiser,
     ShapBeeswarmVisualiser,
+    ShapForceVisualiser,
     ShapImageVisualiser,
     ShapWaterfallVisualiser,
+    TabularBarChartVisualiser,
 )
 
 if TYPE_CHECKING:
@@ -34,11 +37,11 @@ if TYPE_CHECKING:
 
 Framework = Literal["captum", "shap"]
 ExecutionMode = Literal["compute", "explain", "factory"]
-ModelFixtureName = Literal["simple_cnn", "simple_mlp"]
-InputFixtureName = Literal["sample_images", "sample_tabular"]
+ModelFixtureName = Literal["simple_cnn", "simple_mlp", "simple_timeseries_model"]
+InputFixtureName = Literal["sample_images", "sample_tabular", "sample_timeseries"]
 NeedsFixtureName = Literal["needs_captum", "needs_shap"]
 TargetMode = int | Literal["alternating_binary", "none", "zeros_tensor"]
-ShapeExpectation = Literal["same_as_inputs", "same_as_inputs_minus_last"]
+ShapeExpectation = Literal["same_as_inputs", "same_as_inputs_minus_last", "same_batch_size"]
 RunDirMode = Literal["factory_subdir", "plain_transparency"]
 
 
@@ -54,6 +57,7 @@ class MatrixCase:
     target_mode: TargetMode
     expected_shape: ShapeExpectation
     run_dir_mode: RunDirMode
+    explainer_init_kwargs: dict[str, object] = field(default_factory=dict)
     visualiser_cls: type[BaseVisualiser] | None = None
     visualiser_kwargs: dict[str, object] = field(default_factory=dict)
     background_samples: int | None = None
@@ -171,6 +175,7 @@ def _build_factory_config(case: MatrixCase, tmp_path: Path) -> AppConfig:
                         {
                             "_target_": _explainer_target(case),
                             "algorithm": case.algorithm,
+                            "constructor": dict(case.explainer_init_kwargs),
                             "call": call_kwargs,
                             "visualisers": visualisers,
                         }
@@ -183,8 +188,8 @@ def _build_factory_config(case: MatrixCase, tmp_path: Path) -> AppConfig:
 
 def _make_explainer(case: MatrixCase) -> CaptumExplainer | ShapExplainer:
     if case.framework == "captum":
-        return CaptumExplainer(case.algorithm)
-    return ShapExplainer(case.algorithm)
+        return CaptumExplainer(case.algorithm, **case.explainer_init_kwargs)
+    return ShapExplainer(case.algorithm, **case.explainer_init_kwargs)
 
 
 def _fetch_model(request: pytest.FixtureRequest, case: MatrixCase) -> nn.Module:
@@ -203,6 +208,9 @@ def _assert_tensor_shape(
 ) -> None:
     if expectation == "same_as_inputs":
         assert tensor.shape == inputs.shape
+        return
+    if expectation == "same_batch_size":
+        assert tensor.shape[0] == inputs.shape[0]
         return
     assert tensor.shape[:-1] == inputs.shape
 
@@ -532,6 +540,130 @@ MATRIX_CASES: tuple[MatrixCase, ...] = (
         mpl_target_mode=1,
     ),
     MatrixCase(
+        id="captum_saliency_image_heat_map",
+        framework="captum",
+        mode="explain",
+        algorithm="Saliency",
+        needs_fixture="needs_captum",
+        model_fixture="simple_cnn",
+        input_fixture="sample_images",
+        target_mode=0,
+        expected_shape="same_as_inputs",
+        run_dir_mode="plain_transparency",
+        visualiser_cls=CaptumImageVisualiser,
+        visualiser_kwargs={
+            "method": "heat_map",
+            "show_colorbar": False,
+            "include_original_image": False,
+        },
+    ),
+    MatrixCase(
+        id="captum_saliency_image_batch_targets",
+        framework="captum",
+        mode="compute",
+        algorithm="Saliency",
+        needs_fixture="needs_captum",
+        model_fixture="simple_cnn",
+        input_fixture="sample_images",
+        target_mode="alternating_binary",
+        expected_shape="same_as_inputs",
+        run_dir_mode="plain_transparency",
+    ),
+    MatrixCase(
+        id="captum_saliency_tabular_bar_chart",
+        framework="captum",
+        mode="explain",
+        algorithm="Saliency",
+        needs_fixture="needs_captum",
+        model_fixture="simple_mlp",
+        input_fixture="sample_tabular",
+        target_mode=0,
+        expected_shape="same_as_inputs",
+        run_dir_mode="plain_transparency",
+        visualiser_cls=TabularBarChartVisualiser,
+        visualiser_kwargs={"feature_names": [f"feature_{index}" for index in range(10)]},
+    ),
+    MatrixCase(
+        id="captum_integrated_gradients_tabular_compute",
+        framework="captum",
+        mode="compute",
+        algorithm="IntegratedGradients",
+        needs_fixture="needs_captum",
+        model_fixture="simple_mlp",
+        input_fixture="sample_tabular",
+        target_mode=0,
+        expected_shape="same_as_inputs",
+        run_dir_mode="plain_transparency",
+    ),
+    MatrixCase(
+        id="captum_factory_saliency_image",
+        framework="captum",
+        mode="factory",
+        algorithm="Saliency",
+        needs_fixture="needs_captum",
+        model_fixture="simple_cnn",
+        input_fixture="sample_images",
+        target_mode=0,
+        expected_shape="same_as_inputs",
+        run_dir_mode="factory_subdir",
+        visualiser_cls=CaptumImageVisualiser,
+        visualiser_kwargs={
+            "method": "blended_heat_map",
+            "show_colorbar": False,
+            "include_original_image": False,
+        },
+        experiment_name="test_captum_factory_e2e",
+        factory_explainer_name="captum_saliency",
+    ),
+    MatrixCase(
+        id="captum_layer_gradcam_masked_image",
+        framework="captum",
+        mode="explain",
+        algorithm="LayerGradCam",
+        needs_fixture="needs_captum",
+        model_fixture="simple_cnn",
+        input_fixture="sample_images",
+        target_mode=0,
+        expected_shape="same_batch_size",
+        run_dir_mode="plain_transparency",
+        explainer_init_kwargs={"layer_path": "0"},
+        visualiser_cls=CaptumImageVisualiser,
+        visualiser_kwargs={
+            "method": "masked_image",
+            "sign": "absolute_value",
+            "show_colorbar": False,
+            "include_original_image": False,
+        },
+    ),
+    MatrixCase(
+        id="captum_saliency_timeseries_overlay",
+        framework="captum",
+        mode="explain",
+        algorithm="Saliency",
+        needs_fixture="needs_captum",
+        model_fixture="simple_timeseries_model",
+        input_fixture="sample_timeseries",
+        target_mode=0,
+        expected_shape="same_as_inputs",
+        run_dir_mode="plain_transparency",
+        visualiser_cls=CaptumTimeSeriesVisualiser,
+        visualiser_kwargs={"method": "overlay_individual", "sign": "absolute_value"},
+    ),
+    MatrixCase(
+        id="captum_integrated_gradients_timeseries_overlay_combined",
+        framework="captum",
+        mode="explain",
+        algorithm="IntegratedGradients",
+        needs_fixture="needs_captum",
+        model_fixture="simple_timeseries_model",
+        input_fixture="sample_timeseries",
+        target_mode=0,
+        expected_shape="same_as_inputs",
+        run_dir_mode="plain_transparency",
+        visualiser_cls=CaptumTimeSeriesVisualiser,
+        visualiser_kwargs={"method": "overlay_combined", "sign": "absolute_value"},
+    ),
+    MatrixCase(
         id="shap_deep_image_pipeline",
         framework="shap",
         mode="explain",
@@ -557,6 +689,18 @@ MATRIX_CASES: tuple[MatrixCase, ...] = (
         expected_shape="same_as_inputs_minus_last",
         run_dir_mode="plain_transparency",
         background_samples=2,
+    ),
+    MatrixCase(
+        id="shap_gradient_no_background_fallback",
+        framework="shap",
+        mode="compute",
+        algorithm="GradientExplainer",
+        needs_fixture="needs_shap",
+        model_fixture="simple_cnn",
+        input_fixture="sample_images",
+        target_mode=0,
+        expected_shape="same_as_inputs",
+        run_dir_mode="plain_transparency",
     ),
     MatrixCase(
         id="shap_gradient_beeswarm_list_targets",
@@ -607,6 +751,25 @@ MATRIX_CASES: tuple[MatrixCase, ...] = (
         background_samples=4,
     ),
     MatrixCase(
+        id="shap_gradient_force_visualiser",
+        framework="shap",
+        mode="explain",
+        algorithm="GradientExplainer",
+        needs_fixture="needs_shap",
+        model_fixture="simple_mlp",
+        input_fixture="sample_tabular",
+        target_mode=0,
+        expected_shape="same_as_inputs",
+        run_dir_mode="plain_transparency",
+        visualiser_cls=ShapForceVisualiser,
+        visualiser_kwargs={
+            "feature_names": [f"f{index}" for index in range(10)],
+            "expected_value": 0.5,
+            "sample_index": 0,
+        },
+        background_samples=4,
+    ),
+    MatrixCase(
         id="shap_gradient_bar_visualiser",
         framework="shap",
         mode="explain",
@@ -620,6 +783,20 @@ MATRIX_CASES: tuple[MatrixCase, ...] = (
         visualiser_cls=ShapBarVisualiser,
         visualiser_kwargs={"feature_names": [f"f{index}" for index in range(10)]},
         background_samples=4,
+    ),
+    MatrixCase(
+        id="shap_gradient_image_alternating_targets",
+        framework="shap",
+        mode="explain",
+        algorithm="GradientExplainer",
+        needs_fixture="needs_shap",
+        model_fixture="simple_cnn",
+        input_fixture="sample_images",
+        target_mode="alternating_binary",
+        expected_shape="same_as_inputs",
+        run_dir_mode="plain_transparency",
+        visualiser_cls=ShapImageVisualiser,
+        background_samples=2,
     ),
     MatrixCase(
         id="shap_factory_gradient_pipeline",
