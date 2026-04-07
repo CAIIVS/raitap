@@ -43,7 +43,7 @@ jobs:
         uses: ./.github/actions/setup-raitap-env
         with:
           python-version: "3.13"
-          sync-command: uv sync --group dev --extra torch-cpu --extra transparency
+          sync-command: uv sync --group dev --extra torch-cpu --extra transparency --extra mlflow --extra metrics --extra onnx-cpu
 
       - name: Run transparency E2E tests
         run: uv run pytest -m e2e -v --tb=long --mpl
