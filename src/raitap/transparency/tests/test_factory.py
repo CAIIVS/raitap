@@ -96,6 +96,31 @@ def test_explanation_returns_explanation_result(
     assert (explanation.run_dir / "CaptumImageVisualiser_0.png").exists()
 
 
+def test_explanation_rejects_model_without_backend(
+    sample_images: torch.Tensor,
+    tmp_path: Path,
+) -> None:
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "call": {"target": 0},
+                "visualisers": [],
+            }
+        ),
+    )
+
+    with pytest.raises(TypeError, match="object without '.backend'"):
+        Explanation(
+            config,
+            "test_explainer",
+            model=torch.nn.Identity(),  # type: ignore[arg-type]
+            inputs=sample_images,
+        )
+
+
 def test_explanation_validates_visualisers_before_compute(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

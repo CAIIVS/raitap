@@ -137,6 +137,29 @@ def _resolve_call_data_sources(call_kwargs: dict[str, Any]) -> dict[str, Any]:
     return resolved
 
 
+def _require_model_backend(model: object) -> Any:
+    backend = getattr(model, "backend", None)
+    if backend is None:
+        raise TypeError(
+            "Explanation expects a raitap.models.Model or another object exposing a "
+            "'.backend' runtime adapter. Received an object without '.backend'."
+        )
+
+    missing_members = [
+        member
+        for member in ("_prepare_kwargs", "as_model_for_explanation")
+        if not callable(getattr(backend, member, None))
+    ]
+    if missing_members:
+        missing = ", ".join(missing_members)
+        raise TypeError(
+            "Explanation expects model.backend to implement the ModelBackend interface. "
+            f"Missing required method(s): {missing}."
+        )
+
+    return backend
+
+
 class Explanation:
     def __new__(
         cls,
@@ -152,16 +175,17 @@ class Explanation:
         explainer, explainer_target = create_explainer(explainer_config)
         visualisers = create_visualisers(explainer_config)
         check_explainer_visualiser_compat(explainer_target, algorithm, visualisers)
-        explainer.check_backend_compat(model.backend)
+        backend = _require_model_backend(model)
+        explainer.check_backend_compat(backend)
 
         call_from_config = _transparency_subdict(raw_transparency_config.get("call"), label="call")
         merged_kwargs = _resolve_call_data_sources({**call_from_config, **kwargs})
-        merged_kwargs = model.backend._prepare_kwargs(merged_kwargs)
+        merged_kwargs = backend._prepare_kwargs(merged_kwargs)
 
         return explainer.explain(
-            model.backend.as_model_for_explanation(),
+            backend.as_model_for_explanation(),
             inputs,
-            backend=model.backend,
+            backend=backend,
             run_dir=resolve_run_dir(config, subdir=f"transparency/{explainer_name}"),
             experiment_name=str(getattr(config, "experiment_name", "")),
             explainer_target=explainer_target,
