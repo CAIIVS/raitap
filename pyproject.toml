@@ -68,14 +68,26 @@ torch-intel = [
   "torchvision>=0.20.0; python_full_version < '3.14'",
   "triton-xpu; python_full_version < '3.14'",
 ]
-# TODO remove raitap[torch-XXX] once we refactored to a truly framework agnostic transparency module and ONNX does not rely on tensors anymore
-onnx-cpu = ["onnx>=1.21.0", "onnxruntime>=1.24.4", "raitap[torch-cpu]"]
-onnx-cuda = ["onnx>=1.21.0", "onnxruntime-gpu>=1.24.4", "raitap[torch-cuda]"]
+# TODO remove bundled torch deps once ONNX no longer relies on torch tensors internally
+onnx-cpu = [
+  "onnx>=1.21.0",
+  "onnxruntime>=1.24.4",
+  "torch>=2.10.0",
+  "torchvision>=0.20.0",
+]
+onnx-cuda = [
+  "onnx>=1.21.0",
+  "onnxruntime-gpu>=1.24.4",
+  "torch>=2.10.0",
+  "torchvision>=0.20.0",
+]
 onnx-intel = [
   "onnx>=1.21.0",
   "onnxruntime-openvino>=1.24.1",
   "openvino>=2025.1.0; sys_platform == 'win32'",
-  "raitap[torch-intel]",
+  "torch>=2.10.0; python_full_version < '3.14'",
+  "torchvision>=0.20.0; python_full_version < '3.14'",
+  "triton-xpu; python_full_version < '3.14'",
 ]
 
 # Transparency module
@@ -121,21 +133,54 @@ conflicts = [
     { extra = "onnx-cuda" },
     { extra = "onnx-intel" },
   ],
+  [
+    { extra = "onnx-cpu" },
+    { extra = "torch-cuda" },
+  ],
+  [
+    { extra = "onnx-cpu" },
+    { extra = "torch-intel" },
+  ],
+  [
+    { extra = "onnx-cuda" },
+    { extra = "torch-cpu" },
+  ],
+  [
+    { extra = "onnx-cuda" },
+    { extra = "torch-intel" },
+  ],
+  [
+    { extra = "onnx-intel" },
+    { extra = "torch-cpu" },
+  ],
+  [
+    { extra = "onnx-intel" },
+    { extra = "torch-cuda" },
+  ],
 ]
 
 # Map runtime extras to the correct package indexes.
 [tool.uv.sources]
 torch = [
   { index = "pytorch-cpu", extra = "torch-cpu" },
+  { index = "pytorch-cpu", extra = "onnx-cpu" },
   { index = "pytorch-cuda", extra = "torch-cuda" },
+  { index = "pytorch-cuda", extra = "onnx-cuda" },
   { index = "pytorch-intel", extra = "torch-intel" },
+  { index = "pytorch-intel", extra = "onnx-intel" },
 ]
 torchvision = [
   { index = "pytorch-cpu", extra = "torch-cpu" },
+  { index = "pytorch-cpu", extra = "onnx-cpu" },
   { index = "pytorch-cuda", extra = "torch-cuda" },
+  { index = "pytorch-cuda", extra = "onnx-cuda" },
   { index = "pytorch-intel", extra = "torch-intel" },
+  { index = "pytorch-intel", extra = "onnx-intel" },
 ]
-triton-xpu = [{ index = "pytorch-intel", extra = "torch-intel" }]
+triton-xpu = [
+  { index = "pytorch-intel", extra = "torch-intel" },
+  { index = "pytorch-intel", extra = "onnx-intel" },
+]
 
 
 # Explicit indexes used by runtime extras.
