@@ -70,7 +70,7 @@ autodoc_default_options = {
 napoleon_google_docstring = True
 napoleon_numpy_docstring = True
 
-myst_heading_anchors = 0
+myst_heading_anchors = 4
 
 nitpick_ignore_regex = [
     (r"py:class", r"Data"),

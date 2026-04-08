@@ -21,7 +21,7 @@ pip install "raitap[captum,torch-cpu]"
 
 :::{note}
 
-The example is light enough to run on a CPU, hence we used `torch-cpu`. Feel free to use another execution profile (e.g. `torch-cuda`). Refer to the [installation](installation.md#execution-dependencies) page for more details).
+The example is light enough to run on a CPU, hence we used `torch-cpu`. Feel free to use another execution profile (e.g. `torch-cuda`). Refer to the [execution dependencies](installation.md#execution-dependencies) section for more details.
 :::
 
 ## 2. Run the example

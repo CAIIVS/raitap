@@ -6,4 +6,6 @@ This page explains how to configure RAITAP for your use case, and includes a kit
 
 RAITAP is built on top of [Hydra](https://hydra.cc/), a powerful configuration framework for Python. It allows to configure all options via YAML files or CLI override flags.
 
+These docs will explain just enough about Hydra to use RAITAP effectively. However, you might want to dive deeper into the [Hydra documentation](https://hydra.cc/docs/intro/).
+
 ## Tracking

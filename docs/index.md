@@ -23,3 +23,10 @@ RAITAP is a wrapper around existing XAI frameworks, which provides a consistent 
 
 using-raitap/index
 ```
+
+```{toctree}
+:maxdepth: 2
+:caption: Reference
+
+reference/index
+```

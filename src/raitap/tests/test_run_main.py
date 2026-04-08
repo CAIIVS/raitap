@@ -138,6 +138,80 @@ def test_hydra_main_composes_default_config(monkeypatch: MonkeyPatch, tmp_path: 
     assert cfg.transparency
 
 
+def test_hydra_main_prefers_packaged_default_over_local_config(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(config: object) -> None:
+        captured["config"] = config
+
+    (tmp_path / "config.yaml").write_text("experiment_name: local-shadow\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(run_entry, "run", fake_run)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "raitap.run",
+            f"hydra.run.dir={tmp_path / 'hydra-run'}",
+            "hydra.output_subdir=null",
+        ],
+    )
+
+    run_module.main()
+
+    cfg = cast("AppConfig", captured["config"])
+    assert cfg.experiment_name == "demo"
+    assert cfg.model.source == "vit_b_32"
+
+
+def test_hydra_main_loads_custom_config_name_from_cwd_and_keeps_packaged_defaults(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(config: object) -> None:
+        captured["config"] = config
+
+    (tmp_path / "my-exp.yaml").write_text(
+        "\n".join(
+            [
+                "defaults:",
+                "  - config",
+                "  - _self_",
+                "",
+                "experiment_name: my-exp",
+                "hardware: cpu",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(run_entry, "run", fake_run)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "raitap.run",
+            "--config-name",
+            "my-exp",
+            f"hydra.run.dir={tmp_path / 'hydra-run'}",
+            "hydra.output_subdir=null",
+        ],
+    )
+
+    run_module.main()
+
+    cfg = cast("AppConfig", captured["config"])
+    assert cfg.experiment_name == "my-exp"
+    assert cfg.hardware == "cpu"
+    assert cfg.model.source == "vit_b_32"
+    assert cfg.metrics._target_ == "ClassificationMetrics"
+    assert cfg.transparency
+
+
 def test_print_summary_logs_hydra_resolved_output_dir(
     monkeypatch: MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
