@@ -63,17 +63,19 @@ Source = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform"
 # Backend module
 torch-cpu = ["torch>=2.10.0", "torchvision>=0.20.0"]
 torch-cuda = ["torch>=2.10.0", "torchvision>=0.20.0"]
-torch-xpu = [
+torch-intel = [
   "torch>=2.10.0; python_full_version < '3.14'",
   "torchvision>=0.20.0; python_full_version < '3.14'",
   "triton-xpu; python_full_version < '3.14'",
 ]
-onnx-cpu = ["onnx>=1.21.0", "onnxruntime>=1.24.4"]
-onnx-gpu = ["onnx>=1.21.0", "onnxruntime-gpu>=1.24.4"]
-onnx-openvino = [
+# TODO remove raitap[torch-XXX] once we refactored to a truly framework agnostic transparency module and ONNX does not rely on tensors anymore
+onnx-cpu = ["onnx>=1.21.0", "onnxruntime>=1.24.4", "raitap[torch-cpu]"]
+onnx-cuda = ["onnx>=1.21.0", "onnxruntime-gpu>=1.24.4", "raitap[torch-cuda]"]
+onnx-intel = [
   "onnx>=1.21.0",
   "onnxruntime-openvino>=1.24.1",
   "openvino>=2025.1.0; sys_platform == 'win32'",
+  "raitap[torch-intel]",
 ]
 
 # Transparency module
@@ -112,12 +114,12 @@ conflicts = [
   [
     { extra = "torch-cpu" },
     { extra = "torch-cuda" },
-    { extra = "torch-xpu" },
+    { extra = "torch-intel" },
   ],
   [
     { extra = "onnx-cpu" },
-    { extra = "onnx-gpu" },
-    { extra = "onnx-openvino" },
+    { extra = "onnx-cuda" },
+    { extra = "onnx-intel" },
   ],
 ]
 
@@ -126,14 +128,14 @@ conflicts = [
 torch = [
   { index = "pytorch-cpu", extra = "torch-cpu" },
   { index = "pytorch-cuda", extra = "torch-cuda" },
-  { index = "pytorch-xpu", extra = "torch-xpu" },
+  { index = "pytorch-intel", extra = "torch-intel" },
 ]
 torchvision = [
   { index = "pytorch-cpu", extra = "torch-cpu" },
   { index = "pytorch-cuda", extra = "torch-cuda" },
-  { index = "pytorch-xpu", extra = "torch-xpu" },
+  { index = "pytorch-intel", extra = "torch-intel" },
 ]
-triton-xpu = [{ index = "pytorch-xpu", extra = "torch-xpu" }]
+triton-xpu = [{ index = "pytorch-intel", extra = "torch-intel" }]
 
 
 # Explicit indexes used by runtime extras.
@@ -148,7 +150,7 @@ url = "https://download.pytorch.org/whl/cu126"
 explicit = true
 
 [[tool.uv.index]]
-name = "pytorch-xpu"
+name = "pytorch-intel"
 url = "https://download.pytorch.org/whl/xpu"
 explicit = true
 

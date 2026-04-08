@@ -39,7 +39,7 @@ Choose exactly one Torch profile:
 - Intel XPU:
 
   ```bash
-  uv sync --extra torch-xpu
+  uv sync --extra torch-intel
   ```
 
 ## ONNX runtime profiles
@@ -56,13 +56,13 @@ profile even for ONNX workflows, so combine one Torch extra with one ONNX extra.
 - GPU:
 
   ```bash
-  uv sync --extra torch-cpu --extra onnx-gpu
+  uv sync --extra torch-cpu --extra onnx-cuda
   ```
 
 - Intel / OpenVINO:
 
   ```bash
-  uv sync --extra torch-cpu --extra onnx-openvino
+  uv sync --extra torch-cpu --extra onnx-intel
   ```
 
 ## Feature extras

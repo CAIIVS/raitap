@@ -84,3 +84,8 @@ html_theme = "furo"
 html_title = "RAITAP Documentation"
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
+
+myst_enable_extensions = ["attrs_block", "colon_fence"]
+
+pygments_style = "friendly"
+pygments_dark_style = "monokai"

@@ -1,40 +1,25 @@
-# RAITAP Documentation
+# RAITAP
 
-RAITAP is a Python library and CLI for running responsible AI assessments with
-Hydra-configured pipelines, explainability tooling, optional metrics, and optional
-MLflow tracking.
+RAITAP is a Python library to assess the responsibility level of AI models. It is designed to be easily integrated into existing MLOps workflows.
 
-This documentation is organised into four parts:
+## What does RAITAP assess?
 
-- tutorials for first-time setup and first successful runs
-- how-to guides for common tasks and operational workflows
-- reference pages for public APIs and Hydra configuration
-- explanation pages for contributors who need to understand the internals
+RAITAP currently assesses the following 2 responsible AI dimensions:
 
-```{toctree}
-:maxdepth: 2
-:caption: Tutorials
+- Transparency
+- Robustness
 
-tutorials/index
-```
+as defined in [Towards the certification of AI-based systems](https://doi.org/10.1109/SDS60720.2024.00020) and [MLOps as enable of trustworthy AI](https://doi.org/10.1109/SDS60720.2024.00013)
 
-```{toctree}
-:maxdepth: 2
-:caption: How-To
+## How is RAITAP structured?
 
-how-to/index
-```
+RAITAP is a wrapper around existing XAI frameworks, which provides a consistent API, allowing you to easily switch your configuration, combine frameworks, and obtain consolidated outputs.
+
+## What do the docs contain?
 
 ```{toctree}
 :maxdepth: 2
-:caption: Reference
+:caption: Using RAITAP
 
-reference/index
-```
-
-```{toctree}
-:maxdepth: 2
-:caption: Explanation
-
-explanation/index
+using-raitap/index
 ```

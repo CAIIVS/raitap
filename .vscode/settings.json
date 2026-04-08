@@ -24,5 +24,12 @@
     ],
     "editor.codeActionsOnSave": {
         "source.fixAll.ruff": "explicit"
-    }
+    },
+    "cSpell.words": [
+        "cuda",
+        "MLOPs",
+        "ONNX",
+        "RAITAP",
+        "toctree"
+    ]
 }

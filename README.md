@@ -83,13 +83,13 @@ Choose at most one ONNX runtime profile:
 * GPU:
 
     ```bash
-    uv sync --extra torch-cpu --extra onnx-gpu
+    uv sync --extra torch-cpu --extra onnx-cuda
     ```
 
 * Intel / OpenVINO:
 
     ```bash
-    uv sync --extra torch-cpu --extra onnx-openvino
+    uv sync --extra torch-cpu --extra onnx-intel
     ```
 
 Add optional feature extras as needed:
@@ -98,7 +98,7 @@ Add optional feature extras as needed:
 uv sync --extra torch-cpu --extra captum --extra shap --extra metrics --extra mlflow
 ```
 
-On Windows, `onnx-openvino` also installs the `openvino` Python package. On Linux, the
+On Windows, `onnx-intel` also installs the `openvino` Python package. On Linux, the
 OpenVINO ONNX Runtime wheel ships with the required OpenVINO libraries.
 
 ### Basic Usage
