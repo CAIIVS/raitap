@@ -1,3 +1,8 @@
+# Archived: Transparency module architecture
+
+This page is preserved from the pre-Sphinx documentation set and is kept as source
+material for a later rewrite.
+
 # Transparency module architecture
 
 This document explains the design of the transparency module and how its components work together.

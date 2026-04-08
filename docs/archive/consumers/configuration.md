@@ -1,3 +1,8 @@
+# Archived: Configuration guide
+
+This page is preserved from the pre-Sphinx documentation set and is kept as source
+material for a later rewrite.
+
 # Configuration guide
 
 RAITAP uses [Hydra](https://hydra.cc/) for configuration management. All settings can be overridden from the CLI — no YAML files required.

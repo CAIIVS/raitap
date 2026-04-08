@@ -4,8 +4,8 @@ RAITAP Metrics Module
 Provides performance metric computation for classification and detection tasks
 using torchmetrics.
 
-Public API
-----------
+Metrics Public Surface
+----------------------
 MetricComputer
     Protocol defining the interface for all metric computers (reset, update, compute).
 

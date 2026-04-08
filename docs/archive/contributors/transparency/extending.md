@@ -1,3 +1,8 @@
+# Archived: Extending RAITAP
+
+This page is preserved from the pre-Sphinx documentation set and is kept as source
+material for a later rewrite.
+
 # Extending RAITAP
 
 This guide shows how to add new explainability methods, frameworks, visualisers, or datasets to RAITAP.

@@ -90,10 +90,18 @@ metrics = ["torchmetrics>=1.8.2", "faster-coco-eval>=1.6.3"]
 lint = ["ruff>=0.8.0", "pyright>=1.1.390"]
 test = ["pytest>=8.0.0", "pytest-cov>=4.1.0", "pytest-mpl>=0.19.0"]
 tooling = ["pre-commit>=4.0.0", "commitizen>=3.0.0"]
+docs = [
+  "sphinx>=8.0.0",
+  "myst-parser>=4.0.0",
+  "furo>=2024.8.6",
+  "sphinx-copybutton>=0.5.2",
+  "sphinx-design>=0.6.1",
+]
 dev = [
   { include-group = "lint" },
   { include-group = "test" },
   { include-group = "tooling" },
+  { include-group = "docs" },
 ]
 
 # uv dependency resolution rules.

@@ -54,6 +54,7 @@ mlflow.db
 
 # Hydra outputs
 outputs/
+docs/_build/
 
 # Logs
 *.log
