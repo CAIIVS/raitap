@@ -27,7 +27,7 @@ def _make_config(tracker_target: str = "MLFlowTracker") -> AppConfig:
                 open_when_done=False,
             ),
             experiment_name="test_experiment",
-            fallback_output_dir=".",
+            _output_root=".",
         ),
     )
 

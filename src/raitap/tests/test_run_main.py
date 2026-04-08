@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sys
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, cast
@@ -135,6 +136,33 @@ def test_hydra_main_composes_default_config(monkeypatch: MonkeyPatch, tmp_path: 
     assert cfg.model.source == "vit_b_32"
     assert cfg.metrics._target_ == "ClassificationMetrics"
     assert cfg.transparency
+
+
+def test_print_summary_logs_hydra_resolved_output_dir(
+    monkeypatch: MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    class _HydraRuntime:
+        output_dir = "hydra-output"
+
+    class _HydraConfig:
+        runtime = _HydraRuntime()
+
+    monkeypatch.setattr("raitap.configs.utils.HydraConfig.get", lambda: _HydraConfig())
+    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: False)
+
+    config = SimpleNamespace(
+        experiment_name="demo",
+        model=SimpleNamespace(source="resnet50"),
+        data=SimpleNamespace(name="imagenet_samples"),
+        transparency={"captum_ig": {}},
+        _output_root="fallback-output",
+    )
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+
+    with caplog.at_level(logging.INFO):
+        run_pipeline.print_summary(config, model)  # type: ignore[arg-type]
+
+    assert any("Output: hydra-output" in message for message in caplog.messages)
 
 
 def test_run_without_tracking_returns_outputs(monkeypatch: MonkeyPatch) -> None:

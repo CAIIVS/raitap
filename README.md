@@ -63,7 +63,7 @@ Choose exactly one Torch runtime profile:
 * Intel XPU Torch:
 
     ```bash
-    uv sync --extra torch-xpu
+    uv sync --extra torch-intel
     ```
 
     This profile is currently locked for Python 3.13 while the published XPU dependency
@@ -192,21 +192,17 @@ outputs/2026-03-13/13-21-24/
 
 Use this mode when you only want local files and do not need an experiment dashboard.
 
-#### 2. Start the bundled MLflow server, then run with MLflow
+#### 2. Run with the local MLflow server
 
-Start the local MLflow server in one terminal:
-
-```bash
-uv run raitap-mlflow-server
-```
-
-The launcher reads its defaults from `src/raitap/configs/tracking/mlflow_server.yaml` and starts a server on:
+The default `tracking=mlflow` configuration points at:
 
 ```text
 http://127.0.0.1:5000
 ```
 
-Then run RAITAP in a second terminal:
+If no server is already running there, `MLFlowTracker` starts a local MLflow server automatically.
+
+Run RAITAP with MLflow enabled:
 
 ```bash
 uv run raitap tracking=mlflow
@@ -225,17 +221,17 @@ The local MLflow database and artifact store live under `./mlflow/`.
 If you already have an MLflow tracking server, point RAITAP at that server explicitly:
 
 ```bash
-uv run raitap tracking=mlflow tracking.tracking_uri=http://your-mlflow-host:5000
+uv run raitap tracking=mlflow tracking.output_forwarding_url=http://your-mlflow-host:5000
 ```
 
-You can also override other tracking settings from the CLI, for example:
+You can also override the other supported tracking settings from the CLI, for example:
 
 ```bash
 uv run raitap \
   tracking=mlflow \
-  tracking.tracking_uri=http://your-mlflow-host:5000 \
-  tracking.registry_uri=http://your-registry-host:5000 \
+  tracking.output_forwarding_url=http://your-mlflow-host:5000 \
   tracking.log_model=true \
+  tracking.open_when_done=false \
   experiment_name=my-assessment
 ```
 
@@ -245,10 +241,10 @@ Use this mode when MLflow is already managed outside this repository and you wan
 
 When `tracking=mlflow` is enabled, the main CLI run logs:
 
-- config snapshot
-- dataset metadata
-- transparency artifacts
-- optional model artifact when `tracking.log_model=true`
+* config snapshot
+* dataset metadata
+* transparency artifacts
+* optional model artifact when `tracking.log_model=true`
 
 The main `uv run raitap` flow currently does not compute or log evaluation metrics. If you need a complete MLflow smoke test including metrics, use:
 
@@ -338,8 +334,8 @@ The metrics package defines a small interface for performance evaluation:
 
 * `MetricComputer` with `reset()`, `update(predictions, targets)`, and `compute()`
 * `MetricResult` with
-    * `metrics: dict[str, float]` for scalar values
-    * `artifacts: dict[str, Any]` for non-scalar outputs (lists, arrays, etc.)
+  * `metrics: dict[str, float]` for scalar values
+  * `artifacts: dict[str, Any]` for non-scalar outputs (lists, arrays, etc.)
 
 Implementations:
 

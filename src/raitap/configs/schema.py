@@ -74,5 +74,3 @@ class AppConfig:
     tracking: TrackingConfig = field(default_factory=TrackingConfig)
     hardware: str = "gpu"
     experiment_name: str = "mvp"
-    # Fallback output directory used when running outside of a Hydra session.
-    fallback_output_dir: str = "."

@@ -58,7 +58,7 @@ def _make_config(tmp_path: Path, transparency_config: Any) -> AppConfig:
         "AppConfig",
         SimpleNamespace(
             experiment_name="test",
-            fallback_output_dir=str(tmp_path),
+            _output_root=str(tmp_path),
             transparency={"test_explainer": transparency_config},
         ),
     )
@@ -348,7 +348,7 @@ def test_explanation_uses_real_shap_preset_defaults_and_runtime_overrides(
             "object",
             SimpleNamespace(
                 experiment_name="test",
-                fallback_output_dir=str(tmp_path),
+                _output_root=str(tmp_path),
                 transparency={"shap_gradient": _load_transparency_preset("shap_gradient")},
             ),
         ),

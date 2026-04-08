@@ -3,21 +3,19 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from docutils import nodes
-from docutils.parsers.rst import directives
-from docutils.statemachine import StringList
-from sphinx.util.docutils import SphinxDirective
-
 DOCS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = DOCS_DIR.parent
 SRC_DIR = REPO_ROOT / "src"
+EXT_DIR = DOCS_DIR / "_ext"
 
 sys.path.insert(0, str(SRC_DIR))
+sys.path.insert(0, str(EXT_DIR))
 
 project = "RAITAP"
 author = "Stanislas Laurent, Jonas Vonderhagen, Philipp Denzel, Oliver Forster"
 
 extensions = [
+    "install_tabs",
     "myst_parser",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
@@ -94,68 +92,3 @@ myst_enable_extensions = ["attrs_block", "colon_fence"]
 
 pygments_style = "friendly"
 pygments_dark_style = "monokai"
-
-
-def _append_code_block(lines: list[str], *, language: str, command: str, fence_width: int) -> None:
-    fence = "`" * fence_width
-    lines.append(f"{fence}{{code-block}} {language}")
-    for command_line in command.splitlines():
-        lines.append(command_line)
-    lines.append(fence)
-
-
-class InstallTabsDirective(SphinxDirective):
-    has_content = False
-    option_spec = {
-        "uv": directives.unchanged_required,
-        "pip": directives.unchanged_required,
-        "language": directives.unchanged,
-        "sync-group": directives.unchanged,
-    }
-
-    def run(self) -> list[nodes.Node]:
-        language = self.options.get("language", "shell")
-        sync_group = self.options.get("sync-group", "install")
-        uv_command = self.options["uv"]
-        pip_command = self.options["pip"]
-
-        myst_lines = [
-            ":::::{tab-set}",
-            f":sync-group: {sync_group}",
-            "",
-            "::::{tab-item} uv",
-            ":sync: uv",
-            "",
-        ]
-        _append_code_block(myst_lines, language=language, command=uv_command, fence_width=5)
-        myst_lines.extend(
-            [
-                "",
-                "::::",
-                "",
-                "::::{tab-item} pip",
-                ":sync: pip",
-                "",
-            ]
-        )
-        _append_code_block(myst_lines, language=language, command=pip_command, fence_width=5)
-        myst_lines.extend(
-            [
-                "",
-                "::::",
-                "",
-                ":::::",
-            ]
-        )
-
-        container = nodes.container()
-        self.state.nested_parse(StringList(myst_lines), self.content_offset, container)
-        return container.children
-
-
-def setup(app: object) -> dict[str, bool]:
-    app.add_directive("install-tabs", InstallTabsDirective)
-    return {
-        "parallel_read_safe": True,
-        "parallel_write_safe": True,
-    }

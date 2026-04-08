@@ -79,7 +79,6 @@ Important top-level fields:
 - `tracking`
 - `hardware`
 - `experiment_name`
-- `fallback_output_dir`
 
 ## Practical override examples
 

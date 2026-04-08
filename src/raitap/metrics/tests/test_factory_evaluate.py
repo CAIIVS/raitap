@@ -10,13 +10,15 @@ import torch
 if TYPE_CHECKING:
     from pathlib import Path
 
+from raitap.configs import set_output_root
 from raitap.configs.schema import AppConfig, MetricsConfig
 from raitap.metrics import MetricsEvaluation, evaluate, metrics_run_enabled
 from raitap.metrics.base_metric import BaseMetricComputer, MetricResult
 
 
 def test_metrics_run_enabled_respects_empty_target(tmp_path: Path) -> None:
-    cfg = AppConfig(experiment_name="t", fallback_output_dir=str(tmp_path))
+    cfg = AppConfig(experiment_name="t")
+    set_output_root(cfg, tmp_path)
     cfg.metrics._target_ = ""
     assert not metrics_run_enabled(cfg)
     cfg.metrics._target_ = "ClassificationMetrics"
@@ -24,7 +26,8 @@ def test_metrics_run_enabled_respects_empty_target(tmp_path: Path) -> None:
 
 
 def _config(tmp_path: Path) -> AppConfig:
-    cfg = AppConfig(experiment_name="test", fallback_output_dir=str(tmp_path))
+    cfg = AppConfig(experiment_name="test")
+    set_output_root(cfg, tmp_path)
     cfg.metrics = MetricsConfig(
         _target_="ClassificationMetrics",
         task="multiclass",

@@ -7,4 +7,6 @@ Those pages explain the steps to setup and run RAITAP, and then understand its o
 
 standalone-integrated
 installation
+get-it-running
+configuration
 ```

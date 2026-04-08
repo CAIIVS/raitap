@@ -43,12 +43,12 @@ Select built-in presets by name on the CLI.
 
 ### `transparency`
 
-| Name             | Explainer         | Default algorithm     | Default visualiser      |
-| ---------------- | ----------------- | --------------------- | ----------------------- |
-| `captum`         | `CaptumExplainer` | `IntegratedGradients` | `CaptumImageVisualiser` |
-| `shap`           | `ShapExplainer`   | `GradientExplainer`   | `ShapImageVisualiser`   |
-| `shap_gradient`  | `ShapExplainer`   | `GradientExplainer`   | `ShapImageVisualiser`   |
-| `shap_deep`      | `ShapExplainer`   | `DeepExplainer`       | `ShapImageVisualiser`   |
+| Name            | Explainer         | Default algorithm     | Default visualiser      |
+| --------------- | ----------------- | --------------------- | ----------------------- |
+| `captum`        | `CaptumExplainer` | `IntegratedGradients` | `CaptumImageVisualiser` |
+| `shap`          | `ShapExplainer`   | `GradientExplainer`   | `ShapImageVisualiser`   |
+| `shap_gradient` | `ShapExplainer`   | `GradientExplainer`   | `ShapImageVisualiser`   |
+| `shap_deep`     | `ShapExplainer`   | `DeepExplainer`       | `ShapImageVisualiser`   |
 
 > Note: `DeepExplainer` can fail on PyTorch models that use `SiLU` activations (for example EfficientNet variants) due to autograd/in-place limitations. In those cases, use `GradientExplainer`.
 
@@ -274,4 +274,4 @@ figures      = result["visualisations"]  # dict[str, matplotlib.figure.Figure]
 run_dir      = result["run_dir"]         # pathlib.Path
 ```
 
-`config` must expose `.transparency`, `.experiment_name`, and `.fallback_output_dir` attributes (i.e. an `AppConfig` instance or a compatible dataclass/namespace).
+`config` must expose `.transparency` and `.experiment_name` attributes (i.e. an `AppConfig` instance or a compatible dataclass/namespace).
