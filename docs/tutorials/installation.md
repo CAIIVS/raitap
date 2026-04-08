@@ -107,6 +107,30 @@ For documentation, tests, linting, and a CPU runtime, use:
 uv sync --group dev --extra torch-cpu --extra transparency --extra metrics --extra mlflow
 ```
 
+## Live docs preview
+
+Install the docs dependencies:
+
+```bash
+uv sync --group docs
+```
+
+Then start the live-reload preview server:
+
+```bash
+uv run docs-preview
+```
+
+Optional flags:
+
+```bash
+uv run docs-preview --open-browser
+uv run docs-preview --host 0.0.0.0 --port 8001
+```
+
+The preview server rebuilds the Sphinx site automatically when files under `docs/`
+change.
+
 ## What these extras control
 
 - `torch-*`: selects the PyTorch runtime source and hardware profile

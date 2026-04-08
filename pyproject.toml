@@ -49,6 +49,7 @@ dependencies = [
 
 [project.scripts]
 raitap = "raitap.run.__main__:main"
+docs-preview = "raitap.docs_preview:main"
 
 [project.urls]
 Documentation = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform#readme"
@@ -96,6 +97,7 @@ docs = [
   "furo>=2024.8.6",
   "sphinx-copybutton>=0.5.2",
   "sphinx-design>=0.6.1",
+  "sphinx-autobuild>=2024.10.3",
 ]
 dev = [
   { include-group = "lint" },
