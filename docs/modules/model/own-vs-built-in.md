@@ -1,4 +1,4 @@
-# Using your own model vs. built-in models
+# Using your own model or built-in models
 
 ## Own model
 

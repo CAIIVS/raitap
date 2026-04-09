@@ -24,7 +24,7 @@ RAITAP is a wrapper around existing XAI frameworks, which provides a consistent 
 using-raitap/standalone-integrated
 using-raitap/installation
 using-raitap/get-it-running
-using-raitap/configuration
+using-raitap/configuration/index
 using-raitap/understanding-outputs
 ```
 

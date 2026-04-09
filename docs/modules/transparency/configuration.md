@@ -28,6 +28,28 @@
 :description: Keyword arguments passed when computing attributions. Any nested
   dict with a `source` key is treated as a runtime data source.
 
+:option: call.batch_size
+:allowed: int
+:default: None
+:description: Batch size for computing attributions. If not specified, the explainer
+  will compute attributions in a single pass.
+
+:option: call.max_batch_size
+:allowed: int
+:default: None
+:description: Maximum batch size for computing attributions. If not specified, the explainer
+  will compute attributions in a single pass.
+
+:option: call.show_progress
+:allowed: bool
+:default: True
+:description: Whether to show a progress bar when computing attributions.
+
+:option: call.progress_desc
+:allowed: str
+:default: "Computing attributions"
+:description: Description of the progress bar.
+
 :option: visualisers
 :allowed: list[dict]
 :default: [{"_target_": "CaptumImageVisualiser"}]

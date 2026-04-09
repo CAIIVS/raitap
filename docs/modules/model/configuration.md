@@ -5,7 +5,7 @@
 :allowed: string, null
 :default: null
 :description: Path to a local model file, or a built-in model name such as
-  `"resnet50"`. Refer to [Using your own model vs. built-in models](own-vs-built-in.md)
+  `"resnet50"`. Refer to [Using your own model or built-in models](own-vs-built-in.md)
   for more details.
 
 :yaml:

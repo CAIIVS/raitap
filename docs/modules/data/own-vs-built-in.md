@@ -1,4 +1,4 @@
-# Using your own data vs. built-in samples
+# Using your own data or built-in samples
 
 ## Your own data
 
