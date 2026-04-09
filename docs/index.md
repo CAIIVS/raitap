@@ -15,18 +15,34 @@ as defined in [Towards the certification of AI-based systems](https://doi.org/10
 
 RAITAP is a wrapper around existing XAI frameworks, which provides a consistent API, allowing you to easily switch your configuration, combine frameworks, and obtain consolidated outputs.
 
-## What do the docs contain?
+## Table of contents
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 1
 :caption: Using RAITAP
 
-using-raitap/index
+using-raitap/standalone-integrated
+using-raitap/installation
+using-raitap/get-it-running
+using-raitap/configuration
+using-raitap/understanding-outputs
 ```
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 1
+:caption: Modules
+
+modules/model/index
+modules/data/index
+modules/transparency/index
+modules/metrics/index
+modules/tracking/index
+```
+
+```{toctree}
+:maxdepth: 1
 :caption: Reference
 
-reference/index
+reference/api/index
+reference/config/index
 ```

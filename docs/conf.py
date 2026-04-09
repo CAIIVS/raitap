@@ -15,6 +15,7 @@ project = "RAITAP"
 author = "Stanislas Laurent, Jonas Vonderhagen, Philipp Denzel, Oliver Forster"
 
 extensions = [
+    "config_options",
     "install_tabs",
     "myst_parser",
     "sphinx.ext.autodoc",
