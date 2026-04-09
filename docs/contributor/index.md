@@ -7,4 +7,5 @@ This section contains documentation meant to help contributors setup the dev env
 :caption: Contributor documentation
 
 setup
+transparency
 ```
