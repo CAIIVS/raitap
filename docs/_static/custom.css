@@ -10,3 +10,8 @@
 .toctree-wrapper .caption {
   font-weight: 700;
 }
+
+table.docutils {
+  margin-left: 0;
+  margin-right: auto;
+}

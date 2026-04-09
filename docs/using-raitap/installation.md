@@ -35,12 +35,10 @@ pip install "raitap[onnx-cpu]" # deps for ONNX on CPU
 
 Here is the full list of dependency groups:
 
-- `torch-cpu`
-- `torch-cuda`
-- `torch-intel`
-- `onnx-cpu`
-- `onnx-cuda`
-- `onnx-intel`
+| Model format | CPU         | CUDA         | Intel         |
+| ------------ | ----------- | ------------ | ------------- |
+| Torch        | `torch-cpu` | `torch-cuda` | `torch-intel` |
+| ONNX         | `onnx-cpu`  | `onnx-cuda`  | `onnx-intel`  |
 
 :::{note}
 
