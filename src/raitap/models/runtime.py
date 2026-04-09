@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 _VALID_HARDWARE = frozenset({"cpu", "gpu"})
 _ONNX_RUNTIME_INSTALL_HINT = (
     "ONNX support is enabled but onnxruntime is not installed. "
-    "Install it with `uv sync --extra onnx-cpu`, `uv sync --extra onnx-gpu`, "
-    "or `uv sync --extra onnx-openvino`."
+    "Install it with `uv sync --extra onnx-cpu`, `uv sync --extra onnx-cuda`, "
+    "or `uv sync --extra onnx-intel`."
 )
 
 

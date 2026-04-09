@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, NotRequired, TypedDict, cast
 import pytest
 from omegaconf import OmegaConf
 
+from raitap.configs import set_output_root
 from raitap.models.backend import TorchBackend
 from raitap.transparency import ExplanationResult, VisualisationResult
 from raitap.transparency.explainers import CaptumExplainer
@@ -80,7 +81,7 @@ def _captum_config() -> AppConfig:
             "object",
             SimpleNamespace(
                 experiment_name="test",
-                fallback_output_dir="unused",
+                _output_root="unused",
                 transparency={
                     "test_explainer": OmegaConf.create(
                         {
@@ -159,7 +160,7 @@ def test_config_helpers_support_visualiser_for_loop(
     tmp_path: Path,
 ) -> None:
     config = _captum_config()
-    config.fallback_output_dir = str(tmp_path)
+    set_output_root(config, tmp_path)
 
     model = SimpleNamespace(backend=TorchBackend(simple_cnn))
     explanation: ExplanationResult = Explanation(

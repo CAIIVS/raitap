@@ -1,3 +1,8 @@
+# Archived: Configuration guide
+
+This page is preserved from the pre-Sphinx documentation set and is kept as source
+material for a later rewrite.
+
 # Configuration guide
 
 RAITAP uses [Hydra](https://hydra.cc/) for configuration management. All settings can be overridden from the CLI — no YAML files required.
@@ -38,12 +43,12 @@ Select built-in presets by name on the CLI.
 
 ### `transparency`
 
-| Name             | Explainer         | Default algorithm     | Default visualiser      |
-| ---------------- | ----------------- | --------------------- | ----------------------- |
-| `captum`         | `CaptumExplainer` | `IntegratedGradients` | `CaptumImageVisualiser` |
-| `shap`           | `ShapExplainer`   | `GradientExplainer`   | `ShapImageVisualiser`   |
-| `shap_gradient`  | `ShapExplainer`   | `GradientExplainer`   | `ShapImageVisualiser`   |
-| `shap_deep`      | `ShapExplainer`   | `DeepExplainer`       | `ShapImageVisualiser`   |
+| Name            | Explainer         | Default algorithm     | Default visualiser      |
+| --------------- | ----------------- | --------------------- | ----------------------- |
+| `captum`        | `CaptumExplainer` | `IntegratedGradients` | `CaptumImageVisualiser` |
+| `shap`          | `ShapExplainer`   | `GradientExplainer`   | `ShapImageVisualiser`   |
+| `shap_gradient` | `ShapExplainer`   | `GradientExplainer`   | `ShapImageVisualiser`   |
+| `shap_deep`     | `ShapExplainer`   | `DeepExplainer`       | `ShapImageVisualiser`   |
 
 > Note: `DeepExplainer` can fail on PyTorch models that use `SiLU` activations (for example EfficientNet variants) due to autograd/in-place limitations. In those cases, use `GradientExplainer`.
 
@@ -169,16 +174,16 @@ uv run raitap model.source=models/resnet.pth data.source=data/my_dataset
 - `model.source` — local `.pth` file path or a built-in name (`resnet50`, `vit_b_32`)
 - `data.source` — local directory path or a named sample set
 
-Optional label fields on `data` enable metric runs against ground truth:
+Optional label fields under `data.labels` enable metric runs against ground truth:
 
-- `data.labels_source` — path/URL to CSV, TSV, or Parquet labels
-- `data.labels_id_column` — sample-id column for filename matching (e.g. `image`)
-- `data.labels_column` — direct class-index column (optional)
-- `data.labels_encoding` — parsing strategy: `index`, `one_hot`, `argmax`
+- `data.labels.source` — path/URL to CSV, TSV, or Parquet labels
+- `data.labels.id_column` — sample-id column for filename matching (e.g. `image`)
+- `data.labels.column` — direct class-index column (optional)
+- `data.labels.encoding` — parsing strategy: `index`, `one_hot`, `argmax`
 
 ### Supported label data formats
 
-`data.labels_source` currently supports tabular files only:
+`data.labels.source` currently supports tabular files only:
 
 - `.csv`
 - `.tsv`
@@ -187,21 +192,21 @@ Optional label fields on `data` enable metric runs against ground truth:
 RAITAP accepts the following label layouts:
 
 1. Single class-index column
-   - Set `data.labels_column=<column_name>`
+   - Set `data.labels.column=<column_name>`
    - Values must be numeric class indices (for example `0, 1, 2, ...`)
 2. One-hot or score matrix across multiple numeric columns
-   - Do not set `data.labels_column`
+   - Do not set `data.labels.column`
    - RAITAP uses `argmax` across numeric label columns
 
-`data.labels_encoding` behavior:
+`data.labels.encoding` behavior:
 
-- `index`: expects a single numeric label column (or explicit `labels_column`)
+- `index`: expects a single numeric label column (or explicit `labels.column`)
 - `one_hot`: expects multiple numeric columns and resolves labels via `argmax`
 - `argmax`: resolves labels via `argmax` when multiple numeric columns are present
 
 Sample-to-label matching:
 
-- If `data.labels_id_column` is set (or auto-detected as one of `image`, `filename`, `file`, `id`, `name`), labels are matched to sample filenames by stem (extension ignored)
+- If `data.labels.id_column` is set (or auto-detected as one of `image`, `filename`, `file`, `id`, `name`), labels are matched to sample filenames by stem (extension ignored)
 - If no ID column is available, row-order matching is used and label count must equal sample count
 
 Fallback behavior (metrics still run, but against predictions):
@@ -269,4 +274,4 @@ figures      = result["visualisations"]  # dict[str, matplotlib.figure.Figure]
 run_dir      = result["run_dir"]         # pathlib.Path
 ```
 
-`config` must expose `.transparency`, `.experiment_name`, and `.fallback_output_dir` attributes (i.e. an `AppConfig` instance or a compatible dataclass/namespace).
+`config` must expose `.transparency` and `.experiment_name` attributes (i.e. an `AppConfig` instance or a compatible dataclass/namespace).

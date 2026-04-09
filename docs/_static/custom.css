@@ -1,0 +1,12 @@
+:root {
+  --content-font-size: 1rem;
+}
+
+.sidebar-brand-text {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.toctree-wrapper .caption {
+  font-weight: 700;
+}

@@ -70,10 +70,10 @@ The default sample image must exist locally. If it is missing, either:
 From the repository root:
 
 ```bash
-uv run raitap-mlflow-server
+uv run raitap tracking=mlflow
 ```
 
-The launcher reads its defaults from `src/raitap/configs/tracking/mlflow_server.yaml`.
+If no server is already running at `http://127.0.0.1:5000`, `MLFlowTracker` starts a local MLflow server automatically.
 
 Then in a second terminal:
 
@@ -121,13 +121,7 @@ outputs/smoke-manual/
 
 This is the default and recommended setup.
 
-Start the server:
-
-```bash
-uv run raitap-mlflow-server
-```
-
-Run the smoke test against the server:
+Run the smoke test against the local server:
 
 ```bash
 uv run python -m raitap.tracking.smoke_test_mlflow
@@ -143,18 +137,9 @@ http://127.0.0.1:5000
 
 In the run page:
 
-- Params:
-    - assessment and model/data config
-- Metrics:
-    - `performance.accuracy`
-    - `performance.precision`
-    - `performance.recall`
-    - `performance.f1`
-- Artifacts:
-    - `config/config.json`
-    - `dataset/dataset.json`
-    - `metrics/...`
-    - `transparency/...`
+- Params: assessment and model/data config
+- Metrics: `performance.accuracy`, `performance.precision`, `performance.recall`, `performance.f1`
+- Artifacts: `config/config.json`, `dataset/dataset.json`, `metrics/...`, `transparency/...`
 
 The transparency visualizer image is expected to appear under the `Artifacts`
 tab, not under `Metrics`.
@@ -163,12 +148,8 @@ tab, not under `Metrics`.
 
 ### Cannot connect to tracking server
 
-If the smoke test cannot reach `http://127.0.0.1:5000`, start the local MLflow
-server first:
-
-```bash
-uv run raitap-mlflow-server
-```
+If the smoke test cannot reach `http://127.0.0.1:5000`, run a normal RAITAP command with
+`tracking=mlflow` once so the local server is started automatically.
 
 ### No metrics visible in MLflow
 

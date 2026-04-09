@@ -8,7 +8,9 @@ from typing import Any
 
 import torch
 
-from ..results import ConfiguredVisualiser, ExplanationResult, resolve_default_run_dir
+from raitap.configs import resolve_run_dir
+
+from ..results import ConfiguredVisualiser, ExplanationResult
 
 _VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
 _BATCH_SIZE_KWARGS = frozenset({"batch_size", "max_batch_size"})
@@ -35,6 +37,7 @@ class BaseExplainer(ABC):
         *,
         backend: object | None = None,
         run_dir: str | Path | None = None,
+        output_root: str | Path = ".",
         experiment_name: str | None = None,
         explainer_target: str | None = None,
         explainer_name: str | None = None,
@@ -57,7 +60,14 @@ class BaseExplainer(ABC):
         explanation = ExplanationResult(
             attributions=attributions,
             inputs=inputs,
-            run_dir=Path(run_dir) if run_dir is not None else resolve_default_run_dir(),
+            run_dir=(
+                Path(run_dir)
+                if run_dir is not None
+                else resolve_run_dir(
+                    output_root=output_root,
+                    subdir="transparency",
+                )
+            ),
             experiment_name=experiment_name,
             explainer_target=(explainer_target or f"{type(self).__module__}.{type(self).__name__}"),
             algorithm=getattr(self, "algorithm", ""),

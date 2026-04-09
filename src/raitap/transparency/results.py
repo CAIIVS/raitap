@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
 import torch
-from hydra.core.hydra_config import HydraConfig
 
 from raitap.utils.serialization import to_json_serialisable
 
@@ -51,13 +50,6 @@ def _sample_names_title(sample_names: list[str]) -> str:
     first = sample_names[0]
     remaining = len(sample_names) - 1
     return first if remaining <= 0 else f"{first} (+{remaining})"
-
-
-def resolve_default_run_dir() -> Path:
-    try:
-        return Path(HydraConfig.get().runtime.output_dir) / "transparency"
-    except ValueError:
-        return Path.cwd() / "transparency"
 
 
 @dataclass(frozen=True)

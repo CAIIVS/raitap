@@ -3,8 +3,8 @@ RAITAP Transparency Module
 
 Provides model explanation / attribution capabilities using SHAP and Captum.
 
-Public API
-----------
+Transparency Public Surface
+---------------------------
 Explainer classes expose `explainer.explain(model, inputs, **kwargs)`, which
 returns an `ExplanationResult`. Each explanation can then render one
 or more visualisations via `explanation.visualise(**kwargs)`.

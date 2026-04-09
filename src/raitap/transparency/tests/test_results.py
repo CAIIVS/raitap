@@ -7,12 +7,14 @@ from unittest.mock import MagicMock
 import matplotlib.pyplot as plt
 import torch
 
+from raitap.configs import resolve_run_dir, set_output_root
+from raitap.configs.schema import AppConfig
+from raitap.transparency.explainers.base_explainer import BaseExplainer
 from raitap.transparency.results import (
     ConfiguredVisualiser,
     ExplanationResult,
     VisualisationResult,
     _serialisable,
-    resolve_default_run_dir,
 )
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
 
@@ -33,23 +35,56 @@ def _make_explanation(run_dir: Path, *, explainer_name: str | None = "exp") -> E
     )
 
 
-def test_resolve_default_run_dir_uses_hydra_runtime(monkeypatch: MonkeyPatch) -> None:
+class _IdentityExplainer(BaseExplainer):
+    def compute_attributions(
+        self,
+        model: torch.nn.Module,
+        inputs: torch.Tensor,
+        **kwargs: Any,
+    ) -> torch.Tensor:
+        del model, kwargs
+        return inputs.clone()
+
+
+def test_resolve_run_dir_uses_hydra_runtime(monkeypatch: MonkeyPatch) -> None:
     class _HydraRuntime:
         output_dir = "hydra-output"
 
     class _HydraConfig:
         runtime = _HydraRuntime()
 
-    monkeypatch.setattr("raitap.transparency.results.HydraConfig.get", lambda: _HydraConfig())
-    assert resolve_default_run_dir() == Path("hydra-output") / "transparency"
+    monkeypatch.setattr("raitap.configs.utils.HydraConfig.get", lambda: _HydraConfig())
+    assert resolve_run_dir(subdir="transparency") == Path("hydra-output") / "transparency"
 
 
-def test_resolve_default_run_dir_falls_back_to_cwd(monkeypatch: MonkeyPatch) -> None:
+def test_resolve_run_dir_falls_back_to_config_output_dir(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.setattr(
-        "raitap.transparency.results.HydraConfig.get",
+        "raitap.configs.utils.HydraConfig.get",
         lambda: (_ for _ in ()).throw(ValueError("not initialised")),
     )
-    assert resolve_default_run_dir() == Path.cwd() / "transparency"
+    config = AppConfig()
+    set_output_root(config, tmp_path)
+    assert resolve_run_dir(config, subdir="transparency") == tmp_path / "transparency"
+
+
+def test_base_explainer_uses_unified_output_root(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(
+        "raitap.configs.utils.HydraConfig.get",
+        lambda: (_ for _ in ()).throw(ValueError("not initialised")),
+    )
+    explainer = _IdentityExplainer()
+    inputs = torch.randn(1, 3, 4, 4)
+
+    result = explainer.explain(
+        torch.nn.Identity(),
+        inputs,
+        output_root=tmp_path,
+    )
+
+    assert result.run_dir == tmp_path / "transparency"
+    assert (tmp_path / "transparency" / "attributions.pt").exists()
 
 
 def test_serialisable_handles_runtimeerror_from_item() -> None:

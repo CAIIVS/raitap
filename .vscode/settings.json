@@ -24,5 +24,15 @@
     ],
     "editor.codeActionsOnSave": {
         "source.fixAll.ruff": "explicit"
-    }
+    },
+    "cSpell.words": [
+        "captum",
+        "cuda",
+        "MLOPs",
+        "ONNX",
+        "pyproject",
+        "RAITAP",
+        "toctree",
+        "torchvision"
+    ]
 }

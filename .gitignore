@@ -36,7 +36,6 @@ htmlcov/
 .ruff_cache/
 
 # IDEs
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -54,6 +53,7 @@ mlflow.db
 
 # Hydra outputs
 outputs/
+docs/_build/
 
 # Logs
 *.log

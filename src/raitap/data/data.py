@@ -108,7 +108,8 @@ class Data:
         )
 
     def _load_labels(self, cfg: AppConfig) -> torch.Tensor | None:
-        labels_source = getattr(cfg.data, "labels_source", None)
+        labels_cfg = _get_optional_config_value(cfg.data, "labels")
+        labels_source = _get_optional_config_value(labels_cfg, "source")
         if not labels_source:
             return None
 
@@ -120,10 +121,10 @@ class Data:
             )
             return None
 
-        labels_id_column = getattr(cfg.data, "labels_id_column", None)
+        labels_id_column = _get_optional_config_value(labels_cfg, "id_column")
         id_column = _resolve_labels_id_column(labels_df, labels_id_column)
-        labels_column = getattr(cfg.data, "labels_column", None)
-        labels_encoding = getattr(cfg.data, "labels_encoding", None)
+        labels_column = _get_optional_config_value(labels_cfg, "column")
+        labels_encoding = _get_optional_config_value(labels_cfg, "encoding")
         encoded_labels = _extract_class_labels(
             labels_df,
             labels_column=labels_column,
@@ -346,11 +347,19 @@ def _load_tabular_frame(path: Path) -> pd.DataFrame:
     return df
 
 
+def _get_optional_config_value(config: Any, key: str) -> Any:
+    if config is None:
+        return None
+    if isinstance(config, dict):
+        return config.get(key)
+    return getattr(config, key, None)
+
+
 def _resolve_labels_id_column(df: pd.DataFrame, configured_column: str | None) -> str | None:
     if configured_column:
         if configured_column not in df.columns:
             warnings.warn(
-                f"Configured labels_id_column {configured_column!r} not found in labels file.",
+                f"Configured data.labels.id_column {configured_column!r} not found in labels file.",
                 stacklevel=2,
             )
             return None
@@ -371,18 +380,21 @@ def _extract_class_labels(
     encoding = (labels_encoding or "").strip().lower()
     if encoding and encoding not in {"index", "one_hot", "argmax"}:
         raise ValueError(
-            f"Unsupported labels_encoding {labels_encoding!r}. Use 'index', 'one_hot', or 'argmax'."
+            "Unsupported data.labels.encoding "
+            f"{labels_encoding!r}. Use 'index', 'one_hot', or 'argmax'."
         )
 
     if labels_column:
         if labels_column not in df.columns:
-            raise ValueError(f"labels_column {labels_column!r} not found in labels file")
+            raise ValueError(f"data.labels.column {labels_column!r} not found in labels file")
         label_series = _column_as_series(df, labels_column)
         numeric_values = pd.to_numeric(label_series, errors="raise")
         if not isinstance(numeric_values, pd.Series):
             raise ValueError("Expected a pandas Series for label conversion.")
         if encoding == "one_hot":
-            raise ValueError("labels_column cannot be combined with labels_encoding='one_hot'")
+            raise ValueError(
+                "data.labels.column cannot be combined with data.labels.encoding='one_hot'"
+            )
         return [int(value) for value in numeric_values.to_list()]
 
     excluded = {id_column} if id_column else set()
@@ -392,7 +404,7 @@ def _extract_class_labels(
     if not candidate_columns:
         raise ValueError(
             "Could not infer label columns. "
-            "Set data.labels_column or provide numeric one-hot columns."
+            "Set data.labels.column or provide numeric one-hot columns."
         )
 
     matrix = df[candidate_columns].to_numpy()
@@ -401,14 +413,14 @@ def _extract_class_labels(
 
     if encoding == "index" and matrix.shape[1] != 1:
         raise ValueError(
-            "labels_encoding='index' requires exactly one numeric label column "
-            "(or set data.labels_column)."
+            "data.labels.encoding='index' requires exactly one numeric label column "
+            "(or set data.labels.column)."
         )
 
     if matrix.shape[1] == 1:
         if encoding == "one_hot":
             raise ValueError(
-                "labels_encoding='one_hot' requires multiple numeric label columns "
+                "data.labels.encoding='one_hot' requires multiple numeric label columns "
                 "to represent one-hot targets."
             )
         label_series = _column_as_series(df, candidate_columns[0])

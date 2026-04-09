@@ -174,7 +174,7 @@ def _build_factory_config(case: MatrixCase, tmp_path: Path) -> AppConfig:
             "object",
             SimpleNamespace(
                 experiment_name=case.experiment_name or "test_e2e",
-                fallback_output_dir=str(tmp_path),
+                _output_root=str(tmp_path),
                 transparency={
                     explainer_name: OmegaConf.create(
                         {

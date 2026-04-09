@@ -35,7 +35,7 @@ def _make_config(
                 open_when_done=open_when_done,
             ),
             experiment_name="test_experiment",
-            fallback_output_dir=".",
+            _output_root=".",
         ),
     )
 

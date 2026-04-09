@@ -6,6 +6,7 @@ import logging
 import os
 from pathlib import Path
 
+from raitap.configs import set_output_root
 from raitap.configs.schema import (
     AppConfig,
     DataConfig,
@@ -109,8 +110,8 @@ def main() -> int:
             output_forwarding_url=tracking_uri,
             log_model=args.log_model,
         ),
-        fallback_output_dir=str(output_dir),
     )
+    set_output_root(config, output_dir)
 
     status = "FAILED"
     try:

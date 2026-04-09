@@ -11,19 +11,24 @@ class ModelConfig:
 
 
 @dataclass
+class LabelsConfig:
+    # Optional path to a labels file (currently CSV/TSV/Parquet).
+    source: str | None = None
+    # Optional sample-id column for filename alignment (e.g. "image").
+    id_column: str | None = None
+    # Optional class-label column; when omitted, one-hot numeric columns are used via argmax.
+    column: str | None = None
+    # Optional parsing strategy for labels: "index", "one_hot", or "argmax".
+    encoding: str | None = None
+
+
+@dataclass
 class DataConfig:
     name: str = "isic2018"
     description: str | None = None
     # Path to a local dir, or a named sample set (e.g. "imagenet_samples")
     source: str | None = None
-    # Optional path to a labels file (currently CSV/TSV/Parquet).
-    labels_source: str | None = None
-    # Optional sample-id column for filename alignment (e.g. "image").
-    labels_id_column: str | None = None
-    # Optional class-label column; when omitted, one-hot numeric columns are used via argmax.
-    labels_column: str | None = None
-    # Optional parsing strategy for labels: "index", "one_hot", or "argmax".
-    labels_encoding: str | None = None
+    labels: LabelsConfig = field(default_factory=LabelsConfig)
 
 
 @dataclass
@@ -73,6 +78,4 @@ class AppConfig:
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
     tracking: TrackingConfig = field(default_factory=TrackingConfig)
     hardware: str = "gpu"
-    experiment_name: str = "mvp"
-    # Fallback output directory used when running outside of a Hydra session.
-    fallback_output_dir: str = "."
+    experiment_name: str = "Experiment"

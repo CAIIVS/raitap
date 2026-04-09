@@ -49,6 +49,7 @@ dependencies = [
 
 [project.scripts]
 raitap = "raitap.run.__main__:main"
+docs-preview = "raitap.docs_preview:main"
 
 [project.urls]
 Documentation = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform#readme"
@@ -62,17 +63,31 @@ Source = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform"
 # Backend module
 torch-cpu = ["torch>=2.10.0", "torchvision>=0.20.0"]
 torch-cuda = ["torch>=2.10.0", "torchvision>=0.20.0"]
-torch-xpu = [
+torch-intel = [
   "torch>=2.10.0; python_full_version < '3.14'",
   "torchvision>=0.20.0; python_full_version < '3.14'",
   "triton-xpu; python_full_version < '3.14'",
 ]
-onnx-cpu = ["onnx>=1.21.0", "onnxruntime>=1.24.4"]
-onnx-gpu = ["onnx>=1.21.0", "onnxruntime-gpu>=1.24.4"]
-onnx-openvino = [
+# TODO remove bundled torch deps once ONNX no longer relies on torch tensors internally
+onnx-cpu = [
+  "onnx>=1.21.0",
+  "onnxruntime>=1.24.4",
+  "torch>=2.10.0",
+  "torchvision>=0.20.0",
+]
+onnx-cuda = [
+  "onnx>=1.21.0",
+  "onnxruntime-gpu>=1.24.4",
+  "torch>=2.10.0",
+  "torchvision>=0.20.0",
+]
+onnx-intel = [
   "onnx>=1.21.0",
   "onnxruntime-openvino>=1.24.1",
   "openvino>=2025.1.0; sys_platform == 'win32'",
+  "torch>=2.10.0; python_full_version < '3.14'",
+  "torchvision>=0.20.0; python_full_version < '3.14'",
+  "triton-xpu; python_full_version < '3.14'",
 ]
 
 # Transparency module
@@ -90,10 +105,19 @@ metrics = ["torchmetrics>=1.8.2", "faster-coco-eval>=1.6.3"]
 lint = ["ruff>=0.8.0", "pyright>=1.1.390"]
 test = ["pytest>=8.0.0", "pytest-cov>=4.1.0", "pytest-mpl>=0.19.0"]
 tooling = ["pre-commit>=4.0.0", "commitizen>=3.0.0"]
+docs = [
+  "sphinx>=8.0.0",
+  "myst-parser>=4.0.0",
+  "furo>=2024.8.6",
+  "sphinx-copybutton>=0.5.2",
+  "sphinx-design>=0.6.1",
+  "sphinx-autobuild>=2024.10.3",
+]
 dev = [
   { include-group = "lint" },
   { include-group = "test" },
   { include-group = "tooling" },
+  { include-group = "docs" },
 ]
 
 # uv dependency resolution rules.
@@ -102,12 +126,36 @@ conflicts = [
   [
     { extra = "torch-cpu" },
     { extra = "torch-cuda" },
-    { extra = "torch-xpu" },
+    { extra = "torch-intel" },
   ],
   [
     { extra = "onnx-cpu" },
-    { extra = "onnx-gpu" },
-    { extra = "onnx-openvino" },
+    { extra = "onnx-cuda" },
+    { extra = "onnx-intel" },
+  ],
+  [
+    { extra = "onnx-cpu" },
+    { extra = "torch-cuda" },
+  ],
+  [
+    { extra = "onnx-cpu" },
+    { extra = "torch-intel" },
+  ],
+  [
+    { extra = "onnx-cuda" },
+    { extra = "torch-cpu" },
+  ],
+  [
+    { extra = "onnx-cuda" },
+    { extra = "torch-intel" },
+  ],
+  [
+    { extra = "onnx-intel" },
+    { extra = "torch-cpu" },
+  ],
+  [
+    { extra = "onnx-intel" },
+    { extra = "torch-cuda" },
   ],
 ]
 
@@ -115,15 +163,24 @@ conflicts = [
 [tool.uv.sources]
 torch = [
   { index = "pytorch-cpu", extra = "torch-cpu" },
+  { index = "pytorch-cpu", extra = "onnx-cpu" },
   { index = "pytorch-cuda", extra = "torch-cuda" },
-  { index = "pytorch-xpu", extra = "torch-xpu" },
+  { index = "pytorch-cuda", extra = "onnx-cuda" },
+  { index = "pytorch-intel", extra = "torch-intel" },
+  { index = "pytorch-intel", extra = "onnx-intel" },
 ]
 torchvision = [
   { index = "pytorch-cpu", extra = "torch-cpu" },
+  { index = "pytorch-cpu", extra = "onnx-cpu" },
   { index = "pytorch-cuda", extra = "torch-cuda" },
-  { index = "pytorch-xpu", extra = "torch-xpu" },
+  { index = "pytorch-cuda", extra = "onnx-cuda" },
+  { index = "pytorch-intel", extra = "torch-intel" },
+  { index = "pytorch-intel", extra = "onnx-intel" },
 ]
-triton-xpu = [{ index = "pytorch-xpu", extra = "torch-xpu" }]
+triton-xpu = [
+  { index = "pytorch-intel", extra = "torch-intel" },
+  { index = "pytorch-intel", extra = "onnx-intel" },
+]
 
 
 # Explicit indexes used by runtime extras.
@@ -138,7 +195,7 @@ url = "https://download.pytorch.org/whl/cu126"
 explicit = true
 
 [[tool.uv.index]]
-name = "pytorch-xpu"
+name = "pytorch-intel"
 url = "https://download.pytorch.org/whl/xpu"
 explicit = true
 

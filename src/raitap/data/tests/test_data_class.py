@@ -38,10 +38,12 @@ def _make_config(
             data=SimpleNamespace(
                 source=source,
                 name=name,
-                labels_source=labels_source,
-                labels_id_column=labels_id_column,
-                labels_column=labels_column,
-                labels_encoding=labels_encoding,
+                labels=SimpleNamespace(
+                    source=labels_source,
+                    id_column=labels_id_column,
+                    column=labels_column,
+                    encoding=labels_encoding,
+                ),
             )
         ),
     )
@@ -186,7 +188,7 @@ class TestDataConstructor:
             labels_encoding="ordinal",
         )
 
-        with pytest.raises(ValueError, match="Unsupported labels_encoding"):
+        with pytest.raises(ValueError, match=r"Unsupported data\.labels\.encoding"):
             Data(config)
 
 
