@@ -88,7 +88,7 @@ metrics = ["torchmetrics>=1.8.2", "faster-coco-eval>=1.6.3"]
 
 [dependency-groups]
 lint = ["ruff>=0.8.0", "pyright>=1.1.390"]
-test = ["pytest>=8.0.0", "pytest-cov>=4.1.0"]
+test = ["pytest>=8.0.0", "pytest-cov>=4.1.0", "pytest-mpl>=0.19.0"]
 tooling = ["pre-commit>=4.0.0", "commitizen>=3.0.0"]
 dev = [
   { include-group = "lint" },
@@ -227,6 +227,7 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 markers = [
   "e2e: end-to-end tests that are resource-intensive; run once per PR, not on every commit",
+  "mpl: matplotlib baseline-regression tests that require committed reference images",
   "runtime: runtime resolution and backend hardware-label tests for platform-specific CI selection",
   "cuda: tests that require real CUDA hardware and run only on the GPU CI lane",
 ]
