@@ -2,8 +2,16 @@
 :intro: This page describes how to configure the transparency module that
   computes and visualises attributions.
 
-  The top-level `transparency` section is a mapping. By default, it contains a
-  single entry named `default`.
+  The top-level `transparency` section is a mapping of named explainers. Each
+  entry has the same shape and is resolved independently by the pipeline.
+
+  The shipped presets usually replace the default `default` entry with names
+  such as `captum_ig` or `captum_saliency`.
+
+  See [Frameworks and libraries](frameworks-and-libraries.md) for the backend
+  behavior behind `_target_`, `algorithm`, and visualiser compatibility. See
+  [Transparency Configuration](../../reference/config/transparency.md) for
+  longer examples.
 
 :option: _target_
 :allowed: string
@@ -14,7 +22,8 @@
 :option: algorithm
 :allowed: string
 :default: "IntegratedGradients"
-:description: Name of the underlying explainability algorithm to use.
+:description: Name of the underlying explainability algorithm to use. The exact
+  class is resolved by the selected explainer backend.
 
 :option: constructor
 :allowed: dict
@@ -54,17 +63,21 @@
 :allowed: list[dict]
 :default: [{"_target_": "CaptumImageVisualiser"}]
 :description: Visualiser definitions. Each entry must include at least
-  `_target_`.
+  `_target_`. Each visualiser can also define its own `constructor` and `call`
+  blocks.
 
 :yaml:
 transparency:
-  default:
+  captum_ig:
     _target_: "CaptumExplainer"
     algorithm: "IntegratedGradients"
     constructor: {}
-    call: {}
+    call:
+      target: 0
     visualisers:
       - _target_: "CaptumImageVisualiser"
+        constructor: {}
+        call: {}
 
-:cli: transparency.default.algorithm=IntegratedGradients
+:cli: transparency.captum_ig.algorithm=GradientShap
 ```

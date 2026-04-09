@@ -12,6 +12,6 @@ You simply need to set the `source` option to the path to your model file (see [
 
 ## Built-in models
 
-Alternatively, you can use any model provided by the `torchvision.models` library. They will be initialised with `weights="DEFAULT"`.
+Alternatively, you can use any model provided by the `torchvision.models` library. They will be initialised with `weights="DEFAULT"`. You can [find the list here](https://docs.pytorch.org/vision/stable/models.html).
 
 You simply need to set the `source` option to the name of the model (see [Configuration](configuration.md)).

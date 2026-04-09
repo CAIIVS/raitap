@@ -6,24 +6,45 @@ timestamped folder under `./outputs` relative to the directory where you launche
 If needed, you can override the output location via
 [global configuration](configuration/global-config-options.md).
 
-## Default layout
-
-The default layout looks like this:
+Here is the output of an illustrative example run:
 
 ```text
-outputs/
-└── 2026-02-28/
-    └── 14-30-45/
-        ├── attributions.pt
-        ├── <VisualiserName>.png
-        └── metadata.json
+outputs/                                      # Hydra's default output directory
+└── 2026-02-28/                               # Run date
+    └── 14-30-45/                             # Run time
+        ├── __main__.log                      # Run log
+        ├── .hydra/                           # Hydra configuration logs
+        │   ├── config.yaml
+        │   ├── hydra.yaml
+        │   └── overrides.yaml
+        ├── metrics/                          # Metric module outputs (see below for details)
+        │   ├── artifacts.json
+        │   ├── metadata.json
+        │   └── metrics.json
+        └── transparency/                     # Transparency module outputs (see below for details)
+            ├── explainerA/                    
+            │   ├── attributions.pt           
+            │   ├── visualisation1.png
+            │   ├── visualisation2.png
+            │   └── metadata.json              
+            └── explainerB/                    
+                ├── attributions.pt           
+                ├── visualisation1.png
+                └── metadata.json              
 ```
 
-## Main files
+You may want to look at each module's output directory for more details:
 
-- `attributions.pt`: the raw attribution tensor produced by the transparency module.
-- `<VisualiserName>.png`: one image file per generated visualisation.
-- `metadata.json`: a snapshot of the resolved run configuration and metadata.
+::::{grid} 1 2 2 3
+:gutter: 2
 
-The exact contents depend on the modules you enabled. For example, runs with tracking or
-metrics may produce additional outputs.
+:::{grid-item-card} Transparency
+:link: ../../modules/transparency/output
+:link-type: doc
+:::
+
+:::{grid-item-card} Metrics
+:link: ../../modules/metrics/output
+:link-type: doc
+
+::::
