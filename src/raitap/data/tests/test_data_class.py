@@ -188,7 +188,7 @@ class TestDataConstructor:
             labels_encoding="ordinal",
         )
 
-        with pytest.raises(ValueError, match="Unsupported data.labels.encoding"):
+        with pytest.raises(ValueError, match=r"Unsupported data\.labels\.encoding"):
             Data(config)
 
 
