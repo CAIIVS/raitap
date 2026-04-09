@@ -9,7 +9,7 @@ This section describes options that impact all modules.
 :allowed: "cpu", "gpu"
 :default: "gpu"
 :description: Forces execution on the specified hardware. If the GPU is unavailable
-  on the machine, RAITAP falls back to CPU and emits a CLI warning.
+  on the machine, RAITAP falls back to CPU and emits a CLI warning. [Ensure you have the right dependencies installed](../installation.md#execution-dependencies).
 
 :option: experiment_name
 :allowed: string
