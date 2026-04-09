@@ -46,3 +46,11 @@ modules/tracking/index
 reference/api/index
 reference/config/index
 ```
+
+```{toctree}
+:maxdepth: 1
+:hidden:
+:caption: Contributor documentation
+
+contributor/index
+```

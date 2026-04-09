@@ -97,6 +97,7 @@ transparency = ["raitap[shap,captum]"]
 
 # Tracking module
 mlflow = ["mlflow>=3.9.0"]
+tracking = ["raitap[mlflow]"]
 
 # Metrics module
 metrics = ["torchmetrics>=1.8.2", "faster-coco-eval>=1.6.3"]
@@ -198,6 +199,11 @@ explicit = true
 name = "pytorch-intel"
 url = "https://download.pytorch.org/whl/xpu"
 explicit = true
+
+[tool.uv.workspace]
+members = [
+    "tmp/uv_add_extras_check",
+]
 
 [tool.hatch.version]
 path = "src/raitap/__about__.py"
