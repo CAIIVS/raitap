@@ -1,6 +1,6 @@
 # Creating & running your own configuration
 
-This section explains high level configuration principles for your use case, and includes a [kitchen-sink example](kitchen-sink.md).
+This section explains high level configuration principles for your use case.
 
 ```{toctree}
 :maxdepth: 1
@@ -11,7 +11,9 @@ kitchen-sink
 global-config-options
 ```
 
-For detailed configuration guides for each module, see:
+## Module-specific configurations
+
+RAITAP's pipeline is composed of modules. Each has their own configuration options. You can view them here:
 
 ```{toctree}
 :maxdepth: 1

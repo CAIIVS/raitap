@@ -45,4 +45,4 @@ uv run raitap hardware=cpu experiment_name="My_Experiment"
 raitap hardware=cpu experiment_name="My_Experiment"
 ```
 
-For module-specific options and examples, refer to the standalone module pages listed above.
+For module-specific options and examples, refer to the [module-specific configuration guides](index.md#module-specific-configurations).

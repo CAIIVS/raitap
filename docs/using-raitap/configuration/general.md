@@ -12,7 +12,7 @@ Hydra parses YAML files to understand which options to apply to the pipeline. Cr
 You may find useful to refer to:
 
 - the [global config options](global-config-options.md)
-- the [module-specific configuration guides](index.md)
+- the [module-specific configuration guides](index.md#module-specific-configurations)
 - the [kitchen-sink example](kitchen-sink.md)
 
 If your workflow does not make it easy to use YAML files, you can rely 100% on a CLI command. See [CLI overriding](general.md#cli-overriding) for more details.
@@ -104,6 +104,22 @@ model:
 ```
 
 In the above example, the final config will use the custom ONNX model, because `_self_` is applied last.
+
+### Batch runs
+
+Hydra can execute multiple runs from a single command using `--multirun`.
+This is useful when you want to compare several presets or override values in one go.
+
+```{install-tabs}
+:uv:
+uv run raitap --multirun transparency=demo,shap_gradient experiment_name=demo,shap
+
+:pip:
+raitap --multirun transparency=demo,shap_gradient experiment_name=demo,shap
+```
+
+Hydra expands the comma-separated values into multiple runs. To inspect where each run
+writes its outputs, see [understanding outputs](../understanding-outputs.md).
 
 ### Slurm integration
 

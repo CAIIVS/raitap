@@ -1,6 +1,6 @@
 # Running a quick example
 
-This page shows how to get RAITAP running quickly, with a **simple pre-defined example**. If you want to see how fully configure your own assessment, skip to the [configuration](configuration.md) page.
+This page shows how to get RAITAP running quickly, with a **simple pre-defined example**. If you want to see how to fully configure your own assessment, skip to the [configuration](configuration/index.md) page.
 
 :::{note}
 
