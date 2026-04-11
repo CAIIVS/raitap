@@ -79,7 +79,6 @@ class ShapBarVisualiser(BaseVisualiser):
             show=False,
             **kwargs,
         )
-        plt.tight_layout()
         return fig
 
 
@@ -117,7 +116,6 @@ class ShapBeeswarmVisualiser(BaseVisualiser):
             show=False,
             **kwargs,
         )
-        plt.tight_layout()
         return fig
 
 
@@ -180,7 +178,6 @@ class ShapWaterfallVisualiser(BaseVisualiser):
 
         shap.plots.waterfall(explanation, max_display=self.max_display, show=False, **kwargs)
         fig = plt.gcf()
-        fig.tight_layout()
         return _close_and_return(fig)
 
 
@@ -233,7 +230,6 @@ class ShapForceVisualiser(BaseVisualiser):
             **kwargs,
         )
         fig = plt.gcf()
-        fig.tight_layout()
         return _close_and_return(fig)
 
 
@@ -308,5 +304,4 @@ class ShapImageVisualiser(BaseVisualiser):
             **kwargs,
         )
         fig = plt.gcf()
-        plt.tight_layout()
         return fig
