@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
@@ -104,14 +105,19 @@ class BaseExplainer(ABC):
             end = min(start + batch_size, total_batch)
             batch_inputs = inputs[start:end]
             batch_kwargs = self._slice_kwargs_for_batch(attribution_kwargs, start, end, total_batch)
-            chunks.append(
-                self.compute_attributions(
-                    model,
-                    batch_inputs,
-                    backend=backend,
-                    **batch_kwargs,
-                )
+            chunk = self.compute_attributions(
+                model,
+                batch_inputs,
+                backend=backend,
+                **batch_kwargs,
             )
+            chunks.append(chunk.detach().cpu())
+            del chunk, batch_inputs, batch_kwargs
+            # Clean up memory after each batch to avoid OOM errors in long runs
+            # (e.g. with SHAP partition explainer).
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         return torch.cat(chunks, dim=0)
 
     def _pop_batch_size(self, attribution_kwargs: dict[str, Any]) -> int | None:
