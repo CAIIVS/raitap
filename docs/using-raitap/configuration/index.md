@@ -11,6 +11,8 @@ kitchen-sink
 global-config-options
 ```
 
+(module-specific-configurations)=
+
 ## Module-specific configurations
 
 RAITAP's pipeline is composed of modules. Each has their own configuration options. You can view them here:

@@ -41,6 +41,8 @@ raitap --config-name assessment # assuming your config is `./assessment.yaml`
 
 ## Some advanced Hydra features
 
+(cli-overriding)=
+
 ### CLI overriding
 
 Hydra does not only read from YAML files. It can also parse CLI option overrides.

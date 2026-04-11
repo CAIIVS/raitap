@@ -16,6 +16,8 @@ pip install raitap
 
 ## 2. Install optional dependencies
 
+(execution-dependencies)=
+
 ### Execution dependencies
 
 RAITAP supports both PyTorch and ONNX models, and both CPU and GPU execution. To avoid conflicts, only install the dependencies that match your setup.
