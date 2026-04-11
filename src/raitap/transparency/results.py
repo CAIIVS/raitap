@@ -123,6 +123,12 @@ class ExplanationResult:
                 visualise_kwargs["sample_names"] = sample_names
             if supports_show_sample_names:
                 visualise_kwargs["show_sample_names"] = show_sample_names
+            if (
+                type(vis).__name__ == "ShapImageVisualiser"
+                and self.algorithm
+                and "title" not in visualise_kwargs
+            ):
+                visualise_kwargs["title"] = f"{self.algorithm} (SHAP)"
 
             figure = vis.visualise(attributions, inputs=inputs, **visualise_kwargs)
             if show_sample_names and sample_names and not supports_sample_names:

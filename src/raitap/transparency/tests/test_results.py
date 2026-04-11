@@ -16,6 +16,7 @@ from raitap.transparency.results import (
     VisualisationResult,
     _serialisable,
 )
+from raitap.transparency.visualisers import ShapImageVisualiser
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
 
 if TYPE_CHECKING:
@@ -318,3 +319,46 @@ def test_explanation_visualise_trims_sample_names_for_shorter_batch(tmp_path: Pa
     explanation.visualise()
 
     assert vis.received_names == ["ISIC_1"]
+
+
+def test_explanation_visualise_sets_shap_image_default_title_from_algorithm(tmp_path: Path) -> None:
+    run_dir = tmp_path / "exp_shap_title"
+    explanation = ExplanationResult(
+        attributions=torch.randn(1, 3, 8, 8),
+        inputs=torch.rand(1, 3, 8, 8),
+        run_dir=run_dir,
+        experiment_name="e",
+        explainer_target="t",
+        algorithm="GradientExplainer",
+        visualisers=[ConfiguredVisualiser(visualiser=ShapImageVisualiser(show_colorbar=False))],
+    )
+    explanation.write_artifacts()
+
+    [result] = explanation.visualise()
+
+    titles = [ax.get_title() for ax in result.figure.axes if ax.get_title()]
+    assert titles == ["Original Image", "GradientExplainer (SHAP)"]
+
+
+def test_explanation_visualise_preserves_explicit_shap_image_title(tmp_path: Path) -> None:
+    run_dir = tmp_path / "exp_shap_explicit_title"
+    explanation = ExplanationResult(
+        attributions=torch.randn(1, 3, 8, 8),
+        inputs=torch.rand(1, 3, 8, 8),
+        run_dir=run_dir,
+        experiment_name="e",
+        explainer_target="t",
+        algorithm="GradientExplainer",
+        visualisers=[
+            ConfiguredVisualiser(
+                visualiser=ShapImageVisualiser(show_colorbar=False),
+                call_kwargs={"title": "Configured SHAP"},
+            )
+        ],
+    )
+    explanation.write_artifacts()
+
+    [result] = explanation.visualise()
+
+    titles = [ax.get_title() for ax in result.figure.axes if ax.get_title()]
+    assert titles == ["Original Image", "Configured SHAP"]
