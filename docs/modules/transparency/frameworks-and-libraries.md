@@ -94,6 +94,8 @@ transparency:
 `GradientExplainer`, `DeepExplainer`, and `KernelExplainer` usually require
 `background_data`. If it is not provided, RAITAP falls back to the input batch.
 
+`DeepExplainer` can fail on PyTorch models that use `SiLU` activations (for example EfficientNet variants) due to autograd/in-place limitations. In those cases, use `GradientExplainer`.
+
 #### ONNX compatibility
 
 Only `KernelExplainer` is compatible.
