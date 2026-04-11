@@ -67,7 +67,7 @@ class TrackingConfig:
     _target_: str = "MLFlowTracker"
     output_forwarding_url: str | None = None
     log_model: bool = False
-    open_when_done: bool = False
+    open_when_done: bool = True
 
 
 @dataclass

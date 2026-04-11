@@ -5,7 +5,7 @@
 :option: _target_
 :allowed: "ClassificationMetrics", "DetectionMetrics"
 :default: "ClassificationMetrics"
-:description: The type of metrics to use. See [Frameworks and libraries](frameworks-and-libraries.md) for more details.
+:description: The type of metrics to use. See {doc}`frameworks-and-libraries` for more details.
 
 :option: task
 :allowed: "binary", "multiclass", "multilabel"
@@ -29,7 +29,7 @@
 :default: "macro"
 :description: Aggregation mode. `ClassificationMetrics` supports
   `"micro"`, `"macro"`, `"weighted"`, and `"none"` for `multiclass` and
-  `multilabel`. `DetectionMetrics` supports `"micro"` and `"macro"`. See [Frameworks and libraries](frameworks-and-libraries.md) for more details.
+  `multilabel`. `DetectionMetrics` supports `"micro"` and `"macro"`. See {doc}`frameworks-and-libraries` for more details.
 
 :option: ignore_index
 :allowed: integer, null

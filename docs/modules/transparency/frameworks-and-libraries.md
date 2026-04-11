@@ -1,30 +1,44 @@
-# Frameworks and libraries
+# Supported libraries
 
-## Core libraries
+## `constructor` and `call` keys
 
-The current transparency module relies on:
+Both explainers and visualisers support the `constructor` and `call` keys. They pass `kwargs` to the constructor and to the runtime method (`explain` or `visualise`).
 
-- [`captum`](https://captum.ai/) for gradient-based and perturbation-based attribution methods
-- [`shap`](https://shap.readthedocs.io/en/latest/) for Shapley-style explainers
-- [`matplotlib`](https://matplotlib.org/) for writing visualisations to PNG artifacts
-
-## Captum explainers
-
-`CaptumExplainer` wraps classes under `captum.attr`, such as
-`IntegratedGradients`, `Saliency`, or `LayerGradCam`.
-
-### Captum configuration model
-
-Captum uses the standard RAITAP transparency config shape:
-
-- `constructor` contains arguments for the Captum method constructor
-- `call` contains arguments passed when computing attributions
-
-Example:
+This allows you to configure the underlying library object. Here an example:
 
 ```yaml
 transparency:
-  captum_ig:
+  my_first_explainer:
+    _target_: "ShapExplainer"
+    algorithm: "GradientExplainer"
+    constructor:
+      local_smoothing: 0.0
+    call:
+      target: 0
+      background_data:
+        source: imagenet_samples
+    visualisers:
+      - _target_: "ShapImageVisualiser"
+        call:
+          max_samples: 1
+```
+
+## Explainer libraries
+
+### Captum
+
+#### Docs
+
+- [Explainers](https://captum.ai/api/)
+- [Visualisers](https://captum.ai/api/utilities.html#visualization)
+
+#### Explainers
+
+`CaptumExplainer` gives access to [all Captum explainers](https://captum.ai/api/).
+
+```yaml
+transparency:
+  my_captum_explainer:
     _target_: CaptumExplainer
     algorithm: IntegratedGradients
     constructor: {}
@@ -32,16 +46,9 @@ transparency:
       target: 0
 ```
 
-### Captum-specific notes
+#### ONNX compatibility
 
-- `target` and `baselines` are typical `call` arguments
-- `LayerGradCam` also accepts `constructor.layer_path`, which RAITAP resolves on
-  the model before instantiating the Captum method
-
-### Captum backend support
-
-For ONNX-backed models, RAITAP restricts Captum to algorithms that do not
-depend on Torch autograd:
+Only algorithms that do not depend on Torch `autograd` are compatible:
 
 - `FeatureAblation`
 - `FeaturePermutation`
@@ -51,23 +58,30 @@ depend on Torch autograd:
 - `KernelShap`
 - `Lime`
 
-## SHAP explainers
+#### Visualiser compatibility
 
-`ShapExplainer` wraps classes available in `shap`, such as
-`GradientExplainer`, `DeepExplainer`, or `KernelExplainer`.
+RAITAP currently supports the following [Captum visualisers](https://captum.ai/api/utilities.html#visualization).
 
-### SHAP configuration model
+- `CaptumImageVisualiser`
+- `CaptumTextVisualiser`
+- `CaptumTimeSeriesVisualiser`
 
-SHAP uses the same RAITAP transparency config shape:
+All three are compatible with all Captum algorithms in RAITAP.
 
-- `constructor` contains arguments for the SHAP explainer constructor
-- `call` contains arguments passed when computing attributions
+### SHAP
 
-Example:
+#### Docs
+
+- [Explainers](https://shap.readthedocs.io/en/latest/api.html#explainers)
+- [Visualisers](https://shap.readthedocs.io/en/latest/api.html#plots)
+
+#### Explainers
+
+`ShapExplainer` gives access to [all SHAP explainers](https://shap.readthedocs.io/en/latest/api.html#explainers).
 
 ```yaml
 transparency:
-  shap_gradient:
+  my_shap_explainer:
     _target_: ShapExplainer
     algorithm: GradientExplainer
     constructor: {}
@@ -77,29 +91,23 @@ transparency:
         source: imagenet_samples
 ```
 
-### SHAP-specific notes
+`GradientExplainer`, `DeepExplainer`, and `KernelExplainer` usually require
+`background_data`. If it is not provided, RAITAP falls back to the input batch.
 
-- `background_data` is usually passed under `call` and can be loaded from a
-  runtime data source
-- execution-time arguments are forwarded to `shap_values(...)`
+#### ONNX compatibility
 
-For `GradientExplainer`, `DeepExplainer`, and `KernelExplainer`, SHAP normally
-expects background data. If none is provided, RAITAP falls back to the input
-batch.
+Only `KernelExplainer` is compatible.
 
-### SHAP backend support
+#### Visualiser compatibility
 
-For ONNX-backed models, RAITAP currently supports only `KernelExplainer`.
+The following SHAP visualisers are compatible with all SHAP algorithms:
 
-## Visualisers
+- `ShapBarVisualiser`
+- `ShapBeeswarmVisualiser`
+- `ShapForceVisualiser`
+- `ShapWaterfallVisualiser`
 
-Visualisers are configured separately from explainers. The current public
-surface includes:
+`ShapImageVisualiser` is only compatible with:
 
-- Captum visualisers: `CaptumImageVisualiser`, `CaptumTextVisualiser`,
-  `CaptumTimeSeriesVisualiser`
-- SHAP visualisers: `ShapBarVisualiser`, `ShapBeeswarmVisualiser`,
-  `ShapForceVisualiser`, `ShapImageVisualiser`, `ShapWaterfallVisualiser`
-- framework-agnostic visualisers: `TabularBarChartVisualiser`
-
-RAITAP will warn you if you attempt to use a visualiser with an incompatible algorithm.
+- `GradientExplainer`
+- `DeepExplainer`

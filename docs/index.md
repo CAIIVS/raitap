@@ -44,7 +44,6 @@ modules/tracking/index
 :caption: Reference
 
 reference/api/index
-reference/config/index
 ```
 
 ```{toctree}

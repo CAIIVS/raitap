@@ -11,11 +11,11 @@ These docs will explain just enough about Hydra to use RAITAP effectively. Howev
 Hydra parses YAML files to understand which options to apply to the pipeline. Create a YAML file with the options you need.
 You may find useful to refer to:
 
-- the [global config options](global-config-options.md)
-- the [module-specific configuration guides](index.md#module-specific-configurations)
-- the [kitchen-sink example](kitchen-sink.md)
+- the {doc}`global-config-options`
+- the {ref}`module-specific-configurations`
+- the {doc}`kitchen-sink`
 
-If your workflow does not make it easy to use YAML files, you can rely 100% on a CLI command. See [CLI overriding](general.md#cli-overriding) for more details.
+If your workflow does not make it easy to use YAML files, you can rely 100% on a CLI command. See {ref}`cli-overriding` for more details.
 
 ### 2. Preview your configuration
 
@@ -45,7 +45,7 @@ raitap --config-name assessment # assuming your config is `./assessment.yaml`
 
 Hydra does not only read from YAML files. It can also parse CLI option overrides.
 In the following, we override some options from the
-[transparency module](../../modules/transparency/configuration.md).
+{doc}`../../modules/transparency/configuration`.
 
 You can either set individual options:
 
@@ -119,7 +119,7 @@ raitap --multirun transparency=demo,shap_gradient experiment_name=demo,shap
 ```
 
 Hydra expands the comma-separated values into multiple runs. To inspect where each run
-writes its outputs, see [understanding outputs](../understanding-outputs.md).
+writes its outputs, see {doc}`../understanding-outputs`.
 
 ### Slurm integration
 

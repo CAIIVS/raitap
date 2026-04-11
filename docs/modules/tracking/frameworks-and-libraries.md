@@ -1,42 +1,39 @@
-# Frameworks and libraries
+# Supported tracking backends
 
-## Core libraries
+The tracking module logs experiment metadata, metrics, and artifacts to external backends.
 
-The current tracking module relies on:
+## Tracking workflow
 
-- [`mlflow`](https://mlflow.org/) for experiment tracking, metric logging, and artifact storage
+RAITAP writes outputs to the local directory first, then forwards them to the tracking backend. The local output directory remains intact regardless of the tracking configuration.
 
-## Tracking backends
+## MLflow
 
-Tracking is configured through the top-level `tracking` section. RAITAP
-currently ships one built-in backend: `MLFlowTracker`, usually selected with
-`tracking=mlflow`.
+### Docs
 
-## MLflow backend
+[MLflow docs](https://mlflow.org/)
 
-`MLFlowTracker` configures MLflow with `output_forwarding_url` as the tracking
-URI. If that option is not set, it falls back to `./mlruns`.
+### Configuration
 
-For a typical run, MLflow receives:
+```yaml
+tracking:
+  _target_: MLFlowTracker
+  output_forwarding_url: http://127.0.0.1:5000
+  log_model: true
+  open_when_done: false
+```
 
-- the resolved config
-- dataset metadata
-- scalar metrics
-- forwarded artifacts from modules such as metrics and transparency
+If `output_forwarding_url` is not set, MLflow stores runs locally in `./mlruns`.
 
-## Model logging
+### Logged artifacts
 
-If `tracking.log_model=true`, RAITAP also logs the assessed model:
+For each run, MLflow receives:
 
-- Torch-backed models are logged through `mlflow.pytorch.log_model(...)`
-- ONNX-backed models are logged through `mlflow.onnx.log_model(...)`
+- Configuration as JSON
+- Dataset metadata
+- Scalar performance metrics
+- Transparency outputs (attributions and visualizations)
+- Model artifacts (when `log_model: true`)
 
-ONNX model logging requires the `onnx` package in addition to `mlflow`.
+### Model logging
 
-## Practical behavior
-
-Tracking does not replace the local output directory. It adds an external
-record of the same run in the selected backend.
-
-For implementation details about the tracker interface, runtime order, and
-backend internals, see the contributor documentation.
+When `log_model: true`, RAITAP logs the assessed model to MLflow. This can take significant time and resources for large models.

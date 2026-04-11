@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -246,6 +247,20 @@ def format_literal(value: str) -> str:
     return f"`{escaped_value}`"
 
 
+def should_render_as_literal(value: str) -> bool:
+    stripped = value.strip()
+    has_myst_role = re.search(r"\{[A-Za-z0-9:_-]+\}`", stripped) is not None
+    has_markdown_link = re.search(r"\[[^\]]+\]\([^)]+\)", stripped) is not None
+    has_inline_code = "`" in stripped
+    return not (has_myst_role or has_markdown_link or has_inline_code)
+
+
+def format_table_value(value: str, *, literal: bool) -> str:
+    if literal and should_render_as_literal(value):
+        return format_literal(value)
+    return value
+
+
 def escape_table_cell(value: str) -> str:
     return value.replace("|", r"\|")
 
@@ -257,10 +272,10 @@ def build_markdown_table_lines(options: list[ConfigOption]) -> list[str]:
         "| "
         + " | ".join(
             [
-                escape_table_cell(format_literal(option.option)),
-                escape_table_cell(format_literal(option.allowed)),
-                escape_table_cell(format_literal(option.default)),
-                escape_table_cell(option.description),
+                escape_table_cell(format_table_value(option.option, literal=True)),
+                escape_table_cell(format_table_value(option.allowed, literal=True)),
+                escape_table_cell(format_table_value(option.default, literal=True)),
+                escape_table_cell(format_table_value(option.description, literal=False)),
             ]
         )
         + " |"
@@ -283,14 +298,27 @@ def build_install_tabs_lines(cli_override: str) -> list[str]:
     ]
 
 
-def build_config_page_lines(page: ConfigPage) -> list[str]:
+def slugify_label_part(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9]+", "-", value).strip("-").lower()
+
+
+def build_section_label(docname: str, section_name: str) -> str:
+    doc_label = slugify_label_part(docname)
+    section_label = slugify_label_part(section_name)
+    return f"{doc_label}-{section_label}"
+
+
+def build_config_page_lines(page: ConfigPage, *, docname: str) -> list[str]:
+    options_label = build_section_label(docname, "options")
+    yaml_label = build_section_label(docname, "yaml-example")
+    cli_label = build_section_label(docname, "cli-override-example")
     lines = ["# Configuration", ""]
     lines.extend(page.intro.splitlines())
-    lines.extend(["", "## Options", ""])
+    lines.extend(["", f"({options_label})=", "## Options", ""])
     lines.extend(build_markdown_table_lines(page.options))
-    lines.extend(["", "## YAML example", "", "```yaml"])
+    lines.extend(["", f"({yaml_label})=", "## YAML example", "", "```yaml"])
     lines.extend(page.yaml.splitlines())
-    lines.extend(["```", "", "## CLI override example", ""])
+    lines.extend(["```", "", f"({cli_label})=", "## CLI override example", ""])
     lines.extend(build_install_tabs_lines(page.cli))
     return lines
 
@@ -334,7 +362,7 @@ class ConfigPageDirective(BaseMarkdownRenderingDirective):
         except ValueError as error:
             raise self.error(str(error)) from error
 
-        return self.parse_markdown_lines(build_config_page_lines(page))
+        return self.parse_markdown_lines(build_config_page_lines(page, docname=self.env.docname))
 
 
 def setup(app: Sphinx) -> dict[str, bool]:

@@ -1,16 +1,8 @@
 ```{config-page}
-:intro: This page describes how RAITAP configures an optional tracking backend.
-
-  Tracking is disabled by default in the main application config. When enabled,
-  the top-level `tracking` section selects the backend implementation and its
-  runtime options.
-
-  See [Frameworks and libraries](frameworks-and-libraries.md) for the current
-  built-in backend. See [Output](output.md) for what RAITAP logs to that
-  backend.
+:intro: This page describes how to configure the tracking module that forwards the pipeline's output to a tracking backend.
 
 :option: _target_
-:allowed: string
+:allowed: "MLFlowTracker"
 :default: "MLFlowTracker"
 :description: Hydra target for the tracking backend implementation.
 
@@ -19,16 +11,16 @@
 :default: null
 :description: Tracking URI used by the backend. For `MLFlowTracker`, this is
   passed to MLflow as the tracking URI. It can point to a local path or an
-  HTTP endpoint.
+  HTTP endpoint. If not set, it falls back to `./mlruns`.
 
 :option: log_model
-:allowed: true, false
+:allowed: boolean
 :default: false
-:description: Whether to log the assessed model to the tracking backend.
+:description: Whether to log the assessed model to the tracking backend. Note that this might take significant time and resources for large models.
 
 :option: open_when_done
-:allowed: true, false
-:default: false
+:allowed: boolean
+:default: true
 :description: Whether to open the tracking UI automatically after the run
   completes.
 
@@ -36,8 +28,7 @@
 tracking:
   _target_: "MLFlowTracker"
   output_forwarding_url: "http://127.0.0.1:5000"
-  log_model: false
-  open_when_done: true
+  log_model: true
 
 :cli: tracking=mlflow tracking.log_model=true
 ```

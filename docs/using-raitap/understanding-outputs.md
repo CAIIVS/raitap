@@ -4,7 +4,7 @@ RAITAP writes its outputs to the Hydra run directory. By default, this is a
 timestamped folder under `./outputs` relative to the directory where you launched RAITAP.
 
 If needed, you can override the output location via
-[global configuration](configuration/global-config-options.md).
+{doc}`configuration/global-config-options`.
 
 Here is the output of an illustrative example run:
 

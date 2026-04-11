@@ -1,12 +1,12 @@
-# Frameworks and libraries
-
-## Core libraries
+# Underlying libraries
 
 The current metrics module relies on:
 
 - `torchmetrics` for classification and detection metric implementations
 - `faster-coco-eval` as the default backend for detection mean average
   precision
+
+To tweak specific options via the RAITAP config, you might need to refer to the underlying library's documentation.
 
 ## Classification metrics
 
