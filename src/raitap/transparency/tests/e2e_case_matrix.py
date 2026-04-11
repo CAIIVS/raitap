@@ -651,13 +651,15 @@ MATRIX_CASES: tuple[MatrixCase, ...] = (
         expected_shape="same_as_inputs",
         run_dir_mode="plain_transparency",
         explain_call_kwargs={
-            "sliding_window_shapes": [3, 4, 4],
-            "strides": [1, 2, 2],
+            # Use a sub-image occlusion window so the deterministic MPL baseline
+            # produces spatial structure instead of a uniform full-frame heat map.
+            "sliding_window_shapes": [3, 2, 2],
+            "strides": [1, 1, 1],
             "perturbations_per_eval": 2,
         },
         expected_metadata_kwargs={
-            "sliding_window_shapes": [3, 4, 4],
-            "strides": [1, 2, 2],
+            "sliding_window_shapes": [3, 2, 2],
+            "strides": [1, 1, 1],
             "perturbations_per_eval": 2,
         },
         visualiser_cls=CaptumImageVisualiser,
