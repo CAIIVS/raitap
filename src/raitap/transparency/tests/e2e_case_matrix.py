@@ -64,6 +64,7 @@ class MatrixCase:
     visualiser_cls: type[BaseVisualiser] | None = None
     visualiser_kwargs: dict[str, object] = field(default_factory=dict)
     background_samples: int | None = None
+    expected_metadata_kwargs: dict[str, object] = field(default_factory=dict)
     experiment_name: str | None = None
     factory_explainer_name: str | None = None
     backend_fixture: BackendFixtureName | None = None
@@ -437,8 +438,12 @@ def assert_behavior_case(
     )
 
     expected_target = _expected_serialised_target(case, result.inputs)
+    metadata_kwargs = cast("dict[str, object]", metadata_after["kwargs"])
     if expected_target is not None:
-        assert cast("dict[str, object]", metadata_after["kwargs"])["target"] == expected_target
+        assert metadata_kwargs["target"] == expected_target
+
+    for key, value in case.expected_metadata_kwargs.items():
+        assert metadata_kwargs[key] == value
 
     if case.visualiser_cls is None:
         assert result.visualisations == []
@@ -514,7 +519,11 @@ def literal_image_batch() -> torch.Tensor:
     )
 
 
-def render_mpl_figure(case: MatrixCase, request: pytest.FixtureRequest) -> Figure:
+def render_mpl_figure(
+    case: MatrixCase,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+) -> Figure:
     request.getfixturevalue(case.needs_fixture)
     if case.requires_onnx:
         request.getfixturevalue("needs_onnx")
@@ -529,13 +538,34 @@ def render_mpl_figure(case: MatrixCase, request: pytest.FixtureRequest) -> Figur
     mpl_target_mode = case.mpl_target_mode if case.mpl_target_mode is not None else case.target_mode
     target = _resolve_target_mode(mpl_target_mode, inputs)
     background = _select_background(case, inputs)
-    attributions = _compute_case_attributions(
-        case,
-        model=model,
-        inputs=inputs,
-        target=target,
-        background=background,
-    )
+
+    if case.mode == "explain" and case.explain_call_kwargs:
+        # Route through _run_explain_case so explain_call_kwargs (e.g. Occlusion's
+        # sliding_window_shapes / strides) are forwarded automatically.  We only read
+        # explanation.attributions and render the figure ourselves; explanation.visualise()
+        # is intentionally NOT called to avoid PNG side-effects.
+        backend = _fetch_backend(request, case)
+        explanation = _run_explain_case(
+            case,
+            model=model,
+            inputs=inputs,
+            backend=backend,
+            target=target,
+            background=background,
+            tmp_path=tmp_path,
+        )
+        attributions = explanation.attributions
+    else:
+        # mode="compute", mode="factory", and mode="explain" without extra call kwargs:
+        # use the direct compute path so existing PNG baselines remain valid and
+        # non-deterministic backends (e.g. SHAP) stay on the same code path.
+        attributions = _compute_case_attributions(
+            case,
+            model=model,
+            inputs=inputs,
+            target=target,
+            background=background,
+        )
 
     if case.visualiser_cls is None:
         raise ValueError(f"{case.id} does not define a visualiser for MPL rendering.")
@@ -608,6 +638,37 @@ MATRIX_CASES: tuple[MatrixCase, ...] = (
             "show_colorbar": False,
             "include_original_image": False,
         },
+    ),
+    MatrixCase(
+        id="captum_occlusion_image_heat_map",
+        framework="captum",
+        mode="explain",
+        algorithm="Occlusion",
+        needs_fixture="needs_captum",
+        model_fixture="simple_cnn",
+        input_fixture="sample_images",
+        target_mode=0,
+        expected_shape="same_as_inputs",
+        run_dir_mode="plain_transparency",
+        explain_call_kwargs={
+            "sliding_window_shapes": [3, 4, 4],
+            "strides": [1, 2, 2],
+            "perturbations_per_eval": 2,
+        },
+        expected_metadata_kwargs={
+            "sliding_window_shapes": [3, 4, 4],
+            "strides": [1, 2, 2],
+            "perturbations_per_eval": 2,
+        },
+        visualiser_cls=CaptumImageVisualiser,
+        visualiser_kwargs={
+            "method": "heat_map",
+            "show_colorbar": False,
+            "include_original_image": False,
+        },
+        mpl_baseline_filename="captum_occlusion_image_heat_map.png",
+        mpl_use_deterministic_inputs=True,
+        mpl_target_mode=1,
     ),
     MatrixCase(
         id="captum_saliency_image_batch_targets",
