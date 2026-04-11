@@ -19,6 +19,51 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _normalise_target_indices(
+    target: list[int] | torch.Tensor,
+    *,
+    device: torch.device,
+    batch_size: int,
+) -> torch.Tensor:
+    if isinstance(target, list):
+        target_tensor = torch.tensor(target, device=device)
+    else:
+        target_tensor = target.to(device=device)
+
+    target_tensor = target_tensor.to(dtype=torch.long).reshape(-1)
+    if target_tensor.shape[0] != batch_size:
+        raise ValueError(
+            "Per-sample target must contain exactly one class index per input sample. "
+            f"Expected {batch_size}, got {target_tensor.shape[0]}."
+        )
+    return target_tensor
+
+
+def _select_target_attributions(
+    shap_values: torch.Tensor,
+    *,
+    inputs_ndim: int,
+    target: int | list[int] | torch.Tensor | None,
+) -> torch.Tensor:
+    if target is None or shap_values.ndim <= inputs_ndim:
+        return shap_values
+
+    if isinstance(target, int):
+        return shap_values[..., target]
+
+    target_tensor = _normalise_target_indices(
+        target,
+        device=shap_values.device,
+        batch_size=shap_values.shape[0],
+    )
+    batch_indices = torch.arange(
+        shap_values.shape[0],
+        device=shap_values.device,
+        dtype=torch.long,
+    )
+    return shap_values[batch_indices, ..., target_tensor]
+
+
 class ShapExplainer(BaseExplainer):
     """
     Single wrapper for ALL SHAP explainer types.
@@ -162,22 +207,11 @@ class ShapExplainer(BaseExplainer):
             # Numpy array
             shap_values = torch.from_numpy(shap_values)
 
-        # If target specified and we have per-class attributions, select target class
-        if target is not None and shap_values.ndim > inputs.ndim:
-            # shap_values has an extra dimension for classes
-            # Select the target class for each sample
-            if isinstance(target, int):
-                # Same target for all samples
-                shap_values = shap_values[..., target]
-            else:
-                # Per-sample targets
-                if isinstance(target, list):
-                    target = torch.tensor(target)
-                # Select using advanced indexing
-                batch_indices = torch.arange(shap_values.shape[0])
-                shap_values = shap_values[batch_indices, ..., target]
-
-        return shap_values
+        return _select_target_attributions(
+            shap_values,
+            inputs_ndim=inputs.ndim,
+            target=target,
+        )
 
 
 def _to_numpy(value: torch.Tensor | Any) -> Any:
