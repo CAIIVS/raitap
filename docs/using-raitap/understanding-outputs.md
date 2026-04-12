@@ -46,5 +46,6 @@ You may want to look at each module's output directory for more details:
 :::{grid-item-card} Metrics
 :link: ../../modules/metrics/output
 :link-type: doc
+:::
 
 ::::
