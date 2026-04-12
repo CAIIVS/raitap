@@ -107,6 +107,9 @@ tracking = ["raitap[mlflow]"]
 # Metrics module
 metrics = ["torchmetrics>=1.8.2", "faster-coco-eval>=1.6.3"]
 
+# Reporting module
+reporting = ["borb==3.0.7"]
+
 [dependency-groups]
 lint = ["ruff>=0.8.0", "pyright>=1.1.390"]
 test = ["pytest>=8.0.0", "pytest-cov>=4.1.0", "pytest-mpl>=0.19.0"]
@@ -128,6 +131,8 @@ dev = [
 
 # uv dependency resolution rules.
 [tool.uv]
+# PyPI wheel for borb 3.0.x is invalid (duplicate ZIP entries); build from sdist instead.
+no-binary-package = ["borb"]
 conflicts = [
   [
     { extra = "torch-cpu" },
@@ -258,7 +263,7 @@ major_version_zero = true
 [tool.commitizen.customize]
 schema = "<type>(<scope>): <subject>"
 # If a scope is present, it must be one of the allowed values below.
-schema_pattern = "^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\\((transparency|tracking|metrics|docs|infra|deps|misc|config|model|data)\\))?(!)?:\\s.+$"
+schema_pattern = "^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\\((transparency|tracking|metrics|docs|infra|deps|misc|config|model|data|reporting)\\))?(!)?:\\s.+$"
 
 [tool.pyright]
 include = ["src"]

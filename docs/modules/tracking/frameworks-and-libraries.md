@@ -31,7 +31,7 @@ For each run, MLflow receives:
 - Configuration as JSON
 - Dataset metadata
 - Scalar performance metrics
-- Transparency outputs (attributions and visualizations)
+- Transparency outputs (attributions and visualisations)
 - Model artifacts (when `log_model: true`)
 
 ### Model logging

@@ -74,4 +74,7 @@ tracking:
   output_forwarding_url: "http://127.0.0.1:5000"
   log_model: false
   open_when_done: true
+
+reporting:
+  _target_: "PDFReporter"
 ```

@@ -31,6 +31,20 @@ def _param_str(value: Any) -> str | None:
     return text or None
 
 
+def _tracking_dict(config: Any) -> dict[str, Any]:
+    """
+    Plain dict for tracking options (Hydra DictConfig, dataclass, or SimpleNamespace in tests).
+    """
+    raw = cfg_to_dict(config).get("tracking")
+    if raw is None:
+        return {}
+    if isinstance(raw, dict):
+        return raw
+    if hasattr(raw, "__dict__"):
+        return dict(vars(raw))
+    return dict(raw)
+
+
 def _mlflow_summary_params(config_dict: dict[str, Any]) -> dict[str, str]:
     """
     Build a flat string map of high-signal run parameters for MLflow search and comparison.
@@ -87,7 +101,8 @@ class MLFlowTracker(BaseTracker):
                 "Install it with `uv sync --extra mlflow`."
             ) from e
 
-        self.tracking_uri: str = config.tracking.output_forwarding_url or "./mlruns"
+        tracking_conf = _tracking_dict(config)
+        self.tracking_uri: str = tracking_conf.get("output_forwarding_url") or "./mlruns"
 
         # Track spawned subprocesses for cleanup
         self._server_process: Any = None
@@ -105,7 +120,7 @@ class MLFlowTracker(BaseTracker):
         status = RunStatus.FINISHED if successfully else RunStatus.FAILED
         self._mlflow.end_run(status=RunStatus.to_string(status))
 
-        if self.config.tracking.open_when_done:
+        if _tracking_dict(self.config).get("open_when_done", True):
             self._open_mlflow_ui()
 
         self._cleanup_subprocesses()

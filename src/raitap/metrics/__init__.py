@@ -38,6 +38,7 @@ from .factory import (
     metrics_run_enabled,
 )
 from .inputs import metrics_prediction_pair, resolve_metric_targets
+from .visualizers import MetricsVisualizer
 
 __all__ = [  # noqa: RUF022
     # Base types
@@ -55,4 +56,6 @@ __all__ = [  # noqa: RUF022
     "metrics_prediction_pair",
     "metrics_run_enabled",
     "resolve_metric_targets",
+    # Visualization
+    "MetricsVisualizer",
 ]
