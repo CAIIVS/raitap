@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,6 +11,9 @@ import pytest
 from raitap.configs import set_output_root
 from raitap.configs.schema import AppConfig, ReportingConfig
 from raitap.reporting.pdf_reporter import PDFReporter, _prepare_raster_for_pdf
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture

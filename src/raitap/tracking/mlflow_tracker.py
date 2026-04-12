@@ -32,7 +32,9 @@ def _param_str(value: Any) -> str | None:
 
 
 def _tracking_dict(config: Any) -> dict[str, Any]:
-    """Plain dict for tracking options (Hydra DictConfig, dataclass, or SimpleNamespace in tests)."""
+    """
+    Plain dict for tracking options (Hydra DictConfig, dataclass, or SimpleNamespace in tests).
+    """
     raw = cfg_to_dict(config).get("tracking")
     if raw is None:
         return {}

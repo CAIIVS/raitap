@@ -44,10 +44,9 @@ def run(config: AppConfig) -> RunOutputs:
         logger.info("Generating report...")
         report_generation = create_report(
             config=config,
-            transparency_outputs={
-                name: result
-                for name, result in zip(config.transparency.keys(), outputs.explanations)
-            },
+            transparency_outputs=dict(
+                zip(config.transparency.keys(), outputs.explanations, strict=False)
+            ),
             metrics_evaluation=outputs.metrics,
         )
 
@@ -69,7 +68,12 @@ def run(config: AppConfig) -> RunOutputs:
         for visualisation in outputs.visualisations:
             visualisation.log(tracker, use_subdirectory=use_subdirs)
         # Log report to tracker
-        if report_generation is not None and config.reporting.forward_to_tracking:
+        reporting_cfg = getattr(config, "reporting", None)
+        if (
+            report_generation is not None
+            and reporting_cfg is not None
+            and getattr(reporting_cfg, "forward_to_tracking", True)
+        ):
             report_generation.log(tracker)
 
     return outputs

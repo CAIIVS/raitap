@@ -4,9 +4,10 @@ import logging
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
 
 if TYPE_CHECKING:
+    from matplotlib.figure import Figure
+
     from .base_metric import MetricResult
 
 logger = logging.getLogger(__name__)

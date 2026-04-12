@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import math
 from datetime import datetime
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
@@ -21,6 +20,8 @@ from borb.pdf import (
 from raitap.configs import resolve_run_dir
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from PIL.Image import Image as PILImageType
 
     from raitap.metrics.factory import MetricsEvaluation

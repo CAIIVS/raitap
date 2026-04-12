@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hydra.utils import instantiate
@@ -10,6 +9,8 @@ from hydra.utils import instantiate
 from raitap.configs import cfg_to_dict, resolve_target
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from raitap.configs.schema import AppConfig
     from raitap.metrics.factory import MetricsEvaluation
     from raitap.tracking.base_tracker import BaseTracker

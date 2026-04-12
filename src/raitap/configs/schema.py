@@ -83,7 +83,8 @@ class ReportingConfig:
     pdf_max_image_width_pt: int | None = None
     pdf_max_image_height_pt: int | None = None
     pdf_transparency_max_pages: int | None = None
-    # Pixels-per-layout-point for embedded figures (borb draws at ``size`` points). None ≈ 3 (~216 DPI).
+    # Pixels-per-layout-point for embedded figures
+    # (borb draws at ``size`` points). None ≈ 3 (~216 DPI).
     pdf_image_raster_multiplier: float | None = None
     pdf_image_raster_max_edge_px: int | None = None
 
