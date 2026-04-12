@@ -33,10 +33,10 @@ Then, adapt the following example command and run it:
 
 ```{install-tabs}
 :uv:
-uv add "raitap[onnx-cpu]"
+uv add "raitap[onnx-cpu]" # replace `onnx-cpu` with your group
 
 :pip:
-pip install "raitap[onnx-cpu]"
+pip install "raitap[onnx-cpu]" # replace `onnx-cpu` with your group
 ```
 
 :::{note}

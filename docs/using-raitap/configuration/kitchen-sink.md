@@ -77,4 +77,7 @@ tracking:
 
 reporting:
   _target_: "PDFReporter"
+  filename: "report.pdf"
+  formatting:
+    figures_max_pages: 12
 ```

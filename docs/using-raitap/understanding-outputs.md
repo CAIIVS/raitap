@@ -48,4 +48,9 @@ You may want to look at each module's output directory for more details:
 :link-type: doc
 :::
 
+:::{grid-item-card} Reporting
+:link: ../../modules/reporting/output
+:link-type: doc
+:::
+
 ::::

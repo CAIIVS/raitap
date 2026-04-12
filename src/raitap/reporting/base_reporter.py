@@ -4,11 +4,13 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from pathlib import Path
 
     from raitap.configs.schema import AppConfig
     from raitap.metrics.factory import MetricsEvaluation
-    from raitap.transparency.results import ExplanationResult
+
+    from .sections import ReportImageSection
 
 
 class BaseReporter(ABC):
@@ -20,14 +22,14 @@ class BaseReporter(ABC):
     @abstractmethod
     def generate(
         self,
-        transparency_outputs: dict[str, ExplanationResult],
+        image_sections: Sequence[ReportImageSection],
         metrics_evaluation: MetricsEvaluation | None,
     ) -> Path:
         """Generate report and return path to output file.
 
         Args:
-            transparency_outputs: Dict mapping explainer names to ExplanationResult
-            metrics_evaluation: Optional metrics evaluation results
+            image_sections: Ordered sections of figure groups (PNG paths under ``run_dir``).
+            metrics_evaluation: Optional metrics evaluation results.
 
         Returns:
             Path to generated report file

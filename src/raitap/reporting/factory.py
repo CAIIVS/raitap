@@ -9,14 +9,15 @@ from hydra.utils import instantiate
 from raitap.configs import cfg_to_dict, resolve_target
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from pathlib import Path
 
     from raitap.configs.schema import AppConfig
     from raitap.metrics.factory import MetricsEvaluation
     from raitap.tracking.base_tracker import BaseTracker
-    from raitap.transparency.results import ExplanationResult
 
     from .base_reporter import BaseReporter
+    from .sections import ReportImageSection
 
 logger = logging.getLogger(__name__)
 _REPORTING_PREFIX = "raitap.reporting."
@@ -54,7 +55,7 @@ class ReportGeneration:
 
 def create_report(
     config: AppConfig,
-    transparency_outputs: dict[str, ExplanationResult],
+    image_sections: Sequence[ReportImageSection],
     metrics_evaluation: MetricsEvaluation | None,
 ) -> ReportGeneration:
     """Factory function to create and generate report."""
@@ -73,7 +74,7 @@ def create_report(
         ) from error
 
     # Generate the report
-    report_path = reporter.generate(transparency_outputs, metrics_evaluation)
+    report_path = reporter.generate(image_sections, metrics_evaluation)
     logger.info("Report generated: %s", report_path)
 
     return ReportGeneration(
