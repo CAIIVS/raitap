@@ -541,9 +541,7 @@ def render_mpl_figure(
 
     if case.mode == "explain" and case.explain_call_kwargs:
         # Route through _run_explain_case so explain_call_kwargs (e.g. Occlusion's
-        # sliding_window_shapes / strides) are forwarded automatically.  We only read
-        # explanation.attributions and render the figure ourselves; explanation.visualise()
-        # is intentionally NOT called to avoid PNG side-effects.
+        # sliding_window_shapes / strides) are forwarded automatically.
         backend = _fetch_backend(request, case)
         explanation = _run_explain_case(
             case,
