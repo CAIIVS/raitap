@@ -113,3 +113,75 @@ The following SHAP visualisers are compatible with all SHAP algorithms:
 
 - `GradientExplainer`
 - `DeepExplainer`
+
+#### ShapImageVisualiser configuration
+
+`ShapImageVisualiser` uses a **custom Matplotlib-based implementation** rather than SHAP's native `image_plot`. This provides:
+
+- Consistent paired image/overlay layout across RAITAP visualisers
+- Sample-aware titles with configurable naming
+- Flexible colorbar and overlay control
+- Original image panels alongside attribution heatmaps
+
+The visualiser renders pixel-level SHAP attributions as heatmaps with positive contributions in warm colours and negative contributions in cool colours.
+
+##### Constructor parameters
+
+Configure these via the `constructor` key when defining the visualiser:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `max_samples` | `int` | `4` | Maximum number of images to display side by side |
+| `title` | `str \| None` | `None` | Optional attribution panel title (falls back to algorithm name) |
+| `include_original_image` | `bool` | `True` | Whether to render original image next to attribution heatmap |
+| `show_colorbar` | `bool` | `True` | Whether to add a SHAP colorbar in the paired layout |
+| `cmap` | `str` | `"coolwarm"` | Matplotlib colormap for the SHAP heatmap overlay |
+| `overlay_alpha` | `float` | `0.65` | Alpha value for the SHAP heatmap overlay |
+
+##### Call parameters
+
+Override these via the `call` key or at runtime:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `max_samples` | `int \| None` | `None` | Runtime override for maximum samples to display |
+| `sample_names` | `list[str] \| None` | `None` | Optional names per sample |
+| `show_sample_names` | `bool` | `False` | Whether to render sample names in subplot titles |
+| `title` | `str \| None` | `None` | Runtime override for attribution title (even empty string preserved) |
+| `algorithm` | `str \| None` | `None` | Explainer algorithm name (used for default title rendering) |
+
+##### Configuration example
+
+```yaml
+transparency:
+  my_shap_explainer:
+    _target_: "ShapExplainer"
+    algorithm: "GradientExplainer"
+    constructor:
+      local_smoothing: 0.0
+    call:
+      target: 0
+      background_data:
+        source: imagenet_samples
+        n_samples: 50
+    visualisers:
+      # Minimal configuration
+      - _target_: "ShapImageVisualiser"
+        constructor:
+          max_samples: 1
+      
+      # Full configuration with all options
+      - _target_: "ShapImageVisualiser"
+        constructor:
+          max_samples: 2
+          title: "Tumour attribution"
+          include_original_image: true
+          show_colorbar: true
+          cmap: "coolwarm"
+          overlay_alpha: 0.65
+        call:
+          show_sample_names: true
+```
+
+**Note:** `ShapImageVisualiser` requires pixel-level SHAP values from `GradientExplainer` or `DeepExplainer`. Using it with other SHAP explainers will produce meaningless plots.
+
