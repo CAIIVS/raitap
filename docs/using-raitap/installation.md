@@ -24,7 +24,7 @@ RAITAP supports both PyTorch and ONNX models, and both CPU and GPU execution. To
 
 First, choose the right group from this table:
 
-|       | CPU         | CUDA         | Intel         |
+|       | CPU         | CUDA         | Intel GPU     |
 | ----- | ----------- | ------------ | ------------- |
 | Torch | `torch-cpu` | `torch-cuda` | `torch-intel` |
 | ONNX  | `onnx-cpu`  | `onnx-cuda`  | `onnx-intel`  |

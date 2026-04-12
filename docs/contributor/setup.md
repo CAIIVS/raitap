@@ -14,7 +14,7 @@ RAITAP supports many machine and model configurations. To avoid conflicts, only 
 
 1. Choose your execution dependency group from the following table:
 
-    |       | CPU         | CUDA         | Intel         |
+    |       | CPU         | CUDA         | Intel GPU     |
     | ----- | ----------- | ------------ | ------------- |
     | Torch | `torch-cpu` | `torch-cuda` | `torch-intel` |
     | ONNX  | `onnx-cpu`  | `onnx-cuda`  | `onnx-intel`  |
