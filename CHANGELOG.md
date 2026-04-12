@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/CAIIVS/raitap/compare/v0.1.0...v0.1.1) (2026-04-12)
+
+
+### Documentation
+
+* fix order ([13e5ae3](https://github.com/CAIIVS/raitap/commit/13e5ae398ee54b8d22c07a25f998415dc6c9cc99))
+
 ## [0.1.0](https://github.com/CAIIVS/raitap/compare/v0.0.1...v0.1.0) (2026-04-12)
 
 
