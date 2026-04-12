@@ -44,6 +44,7 @@ modules/tracking/index
 :caption: Reference
 
 reference/api/index
+license
 ```
 
 ```{toctree}

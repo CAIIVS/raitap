@@ -19,6 +19,7 @@ maintainers = [
 ]
 description = "Add your description here"
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.13"
 keywords = [
   "artificial intelligence",
@@ -33,6 +34,7 @@ classifiers = [
   "Typing :: Typed",
   "Operating System :: OS Independent",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
 ]
 
 dependencies = [
