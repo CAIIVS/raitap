@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "raitap"
-dynamic = ["version"]
+version = "0.1.0"
 authors = [
   { name = "Stanislas Laurent", email = "lauresta@students.zhaw.ch" },
   { name = "Jonas Vonderhagen", email = "vondejon@students.zhaw.ch" },
@@ -17,7 +17,7 @@ maintainers = [
   { name = "Philipp Denzel", email = "denp@zhaw.ch" },
   { name = "Oliver Forster", email = "foro@zhaw.ch" },
 ]
-description = "Add your description here"
+description = "Python library to assess the responsibility level of AI models for integration into MLOps workflows."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.13"
@@ -210,9 +210,6 @@ name = "pytorch-intel"
 url = "https://download.pytorch.org/whl/xpu"
 explicit = true
 
-[tool.hatch.version]
-path = "src/raitap/__about__.py"
-
 [tool.hatch.build.targets.wheel]
 packages = ["src/raitap"]
 include = ["src/raitap/py.typed", "src/raitap/**/*.yaml", "src/raitap/**/*.yml"]
@@ -253,11 +250,10 @@ indent-style = "space"
 
 [tool.commitizen]
 name = "cz_customize"
-version = "0.1.0"
 tag_format = "v$version"
 version_scheme = "semver"
 version_provider = "pep621"
-update_changelog_on_bump = true
+update_changelog_on_bump = false
 major_version_zero = true
 
 [tool.commitizen.customize]

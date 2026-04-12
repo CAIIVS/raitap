@@ -7,6 +7,7 @@ This section contains documentation meant to help contributors setup the dev env
 :caption: Contributor documentation
 
 setup
+Pull requests and messages <pull-requests>
 Data module <data>
 Metrics module <metrics>
 Tracking module <tracking>
