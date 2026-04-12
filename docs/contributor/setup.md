@@ -8,7 +8,7 @@
 - Python 3.13 or higher
 - [uv](https://docs.astral.sh/uv/) package manager
 
-### 1. Installing dependencies
+### 1. Install dependencies
 
 RAITAP supports many machine and model configurations. To avoid conflicts, only install the dependencies that match your setup. Linting and testing of all configurations is done on the CI.
 
@@ -39,7 +39,7 @@ RAITAP supports many machine and model configurations. To avoid conflicts, only 
     Do not run the `sync` commands separately. The latest run will override the previous ones.
     :::
 
-### 2. Installing the commit message hook
+### 2. Install the commit message hook
 
 ```bash
 uv run pre-commit install --hook-type commit-msg
@@ -47,9 +47,11 @@ uv run pre-commit install --hook-type commit-msg
 
 It will ensure your commit messages follow the [conventional commits](https://www.conventionalcommits.org/) format.
 
-### 3. Installing the VSCode extensions
+### 3. Install the VSCode extensions
 
-If you use VSCode, install the recommended extensions. If not, install the equivalents for your IDE, and ensure it uses the Python interpreter from the `.venv` folder.
+If you use VSCode, install the recommended extensions (open command palette > search for "Extensions: Show Recommended Extensions").
+
+If not, install the equivalents for your IDE (see `.vscode/extensions.json`), and ensure it uses the Python interpreter from the `.venv`, NOT your global Python installation.
 
 ## Useful commands
 
