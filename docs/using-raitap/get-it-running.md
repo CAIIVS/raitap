@@ -1,10 +1,10 @@
 # Running a quick example
 
-This page shows how to get RAITAP running quickly, with a **simple pre-defined example**. If you want to see how to fully configure your own assessment, skip to the [configuration](configuration/index.md) page.
+This page shows how to get RAITAP running quickly, with a **simple pre-defined example**. If you want to see how to fully configure your own assessment, skip to the {doc}`configuration/index` page.
 
 :::{note}
 
-This page assumes you have **already installed RAITAP**. If you didn't, see the [installation](installation.md) page.
+This page assumes you have **already installed RAITAP**. If you didn't, see the {doc}`installation` page.
 :::
 
 ## 1. Install dependencies
@@ -21,7 +21,7 @@ pip install "raitap[captum,torch-cpu]"
 
 :::{note}
 
-The example is light enough to run on a CPU, hence we used `torch-cpu`. Feel free to use another execution profile (e.g. `torch-cuda`). Refer to the [execution dependencies](installation.md#execution-dependencies) section for more details.
+The example is light enough to run on a CPU, hence we used `torch-cpu`. Feel free to use another execution profile (e.g. `torch-cuda`). Refer to {ref}`execution-dependencies` for more details.
 :::
 
 ## 2. Run the example
@@ -40,4 +40,4 @@ raitap
 
 After the run is complete, the `outputs` directory can be found in the directory you ran RAITAP from.
 
-It will contain the run's metadata, as well as the transparency assessment (attributions and visualisations). Refer to the [understanding outputs](understanding-outputs.md) page for more details.
+It will contain the run's metadata, as well as the transparency assessment (attributions and visualisations). Refer to the {doc}`understanding-outputs` page for more details.

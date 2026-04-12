@@ -9,7 +9,7 @@ This section describes options that impact all modules.
 :allowed: "cpu", "gpu"
 :default: "gpu"
 :description: Forces execution on the specified hardware. If the GPU is unavailable
-  on the machine, RAITAP falls back to CPU and emits a CLI warning. [Ensure you have the right dependencies installed](../installation.md#execution-dependencies).
+  on the machine, RAITAP falls back to CPU and emits a CLI warning. {ref}`execution-dependencies`.
 
 :option: experiment_name
 :allowed: string
@@ -21,7 +21,7 @@ This section describes options that impact all modules.
 :default: "./outputs/<date>/<time>"
 :description: Directory where Hydra stores the run outputs. If not specified,
   Hydra creates a timestamped directory under `./outputs` relative to the
-  terminal working directory where RAITAP was launched. If you want to forward outputs to your tracking software, see [Tracking](../../modules/tracking/configuration.md).
+  terminal working directory where RAITAP was launched. If you want to forward outputs to your tracking software, see {doc}`../../modules/tracking/configuration`.
 ```
 
 ## YAML example
@@ -45,4 +45,4 @@ uv run raitap hardware=cpu experiment_name="My_Experiment"
 raitap hardware=cpu experiment_name="My_Experiment"
 ```
 
-For module-specific options and examples, refer to the [module-specific configuration guides](index.md#module-specific-configurations).
+For module-specific options and examples, refer to {ref}`module-specific-configurations`.

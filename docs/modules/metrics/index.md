@@ -8,4 +8,6 @@ produces aggregated evaluation results.
 :caption: Metrics module documentation
 
 configuration
+frameworks-and-libraries
+output
 ```

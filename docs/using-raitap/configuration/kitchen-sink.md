@@ -2,7 +2,7 @@
 
 The example below shows a complete configuration with all top-level modules populated.
 
-If you want to learn how to write such a config, see the [general configuration guide](general.md).
+If you want to learn how to write such a config, see the {doc}`general` guide.
 
 ```yaml
 hardware: "gpu"

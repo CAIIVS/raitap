@@ -4,7 +4,7 @@ RAITAP is configured via YAML [Hydra](https://hydra.cc/) configs or CLI flags, a
 
 This means it can be used either as:
 
-- a standalone Python package, which stores the assessment outputs in the directory you specify. See [understanding outputs](understanding-outputs.md) for more details.
-- a step in a larger MLOps pipeline, which forwards the assessment outputs to your tracking software (e.g. MLflow). See [tracking](../modules/tracking/configuration.md) for more details.
+- a standalone Python package, which stores the assessment outputs in the directory you specify. See {doc}`understanding-outputs` for more details.
+- a step in a larger MLOps pipeline, which forwards the assessment outputs to your tracking software (e.g. MLflow). See {doc}`../modules/tracking/configuration` for more details.
 
 This gives you full flexibility to choose how you want to use RAITAP in your workflow.

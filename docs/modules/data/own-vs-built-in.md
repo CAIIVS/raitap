@@ -24,7 +24,7 @@ data:
 ```
 
 If you want to evaluate metrics against ground-truth labels, configure the
-optional `data.labels` block as described in [Configuration](configuration.md).
+optional `data.labels` block as described in {doc}`configuration`.
 
 ## Built-in samples
 

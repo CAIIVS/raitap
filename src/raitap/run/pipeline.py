@@ -114,7 +114,7 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
 
 def print_summary(config: AppConfig, model: Model) -> None:
     logger.info("%s", "=" * 60)
-    logger.info("RAITAP Transparency Assessment")
+    logger.info("RAITAP Assessment")
     logger.info("%s", "=" * 60)
     logger.info("\nExperiment: %s", config.experiment_name)
     logger.info("Model: %s", config.model.source)

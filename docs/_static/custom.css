@@ -10,3 +10,21 @@
 .toctree-wrapper .caption {
   font-weight: 700;
 }
+
+table.docutils {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+@media (min-width: 67em) {
+  div.content {
+    width: 80em;
+    max-width: 60vw;
+  }
+}
+
+.article-container,
+#furo-main-content {
+  width: 100%;
+  max-width: none;
+}
