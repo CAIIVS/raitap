@@ -1,4 +1,4 @@
-<img src="assets/images/tech_assessment_platform_logo.png" width="400">
+<img src="https://raw.githubusercontent.com/CAIIVS/raitap/main/assets/images/tech_assessment_platform_logo.png" width="400">
 
 RAITAP is a Python library to assess the responsibility level of AI models. It is designed to be easily integrated into existing MLOps workflows.
 

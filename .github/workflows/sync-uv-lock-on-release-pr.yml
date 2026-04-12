@@ -1,0 +1,40 @@
+name: Sync uv.lock on Release Please PRs
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: sync-lock-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync-lock:
+    if: startsWith(github.head_ref, 'release-please--')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Regenerate uv.lock
+        run: uv lock
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add uv.lock
+          if git diff --staged --quiet; then
+            echo "No uv.lock changes."
+          else
+            git commit -m "chore: sync uv.lock"
+            git push
+          fi

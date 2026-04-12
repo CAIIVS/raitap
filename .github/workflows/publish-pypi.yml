@@ -1,0 +1,29 @@
+# Trusted Publishing (PyPI): register workflow "publish-pypi.yml", repo CAIIVS/raitap, environment name "pypi".
+# Create a GitHub Environment named "pypi" (Settings → Environments) if it does not exist.
+name: Publish PyPI
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Build sdist and wheel
+        run: uv build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
