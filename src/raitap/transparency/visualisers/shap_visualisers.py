@@ -314,7 +314,6 @@ class ShapImageVisualiser(BaseVisualiser):
     contributions in cool colours, using the configured Matplotlib colormap.
     """
 
-
     compatible_algorithms: frozenset[str] = frozenset({"GradientExplainer", "DeepExplainer"})
 
     def __init__(
