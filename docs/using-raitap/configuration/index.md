@@ -66,4 +66,12 @@ Configure evaluation metrics.
 
 Configure logging and experiment tracking.
 :::
+
+:::{grid-item-card} Reporting
+:link: ../../modules/reporting/configuration
+:link-type: doc
+
+Configure report generation.
+:::
+
 ::::
