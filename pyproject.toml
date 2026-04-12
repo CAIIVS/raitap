@@ -97,6 +97,7 @@ transparency = ["raitap[shap,captum]"]
 
 # Tracking module
 mlflow = ["mlflow>=3.9.0"]
+tracking = ["raitap[mlflow]"]
 
 # Metrics module
 metrics = ["torchmetrics>=1.8.2", "faster-coco-eval>=1.6.3"]

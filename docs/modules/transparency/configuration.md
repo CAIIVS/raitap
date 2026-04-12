@@ -2,29 +2,30 @@
 :intro: This page describes how to configure the transparency module that
   computes and visualises attributions.
 
-  The top-level `transparency` section is a mapping. By default, it contains a
-  single entry named `default`.
+  Inside the `transparency` key, you can configure one or more explainers. See {ref}`modules-transparency-configuration-yaml-example` for the config shape.
+
+  See {doc}`frameworks-and-libraries` for the backend behaviour behind
+  `_target_`, `algorithm`, and visualiser compatibility.
 
 :option: _target_
-:allowed: string
-:default: "CaptumExplainer"
-:description: Hydra target for the explainer class. This is commonly overridden
-  by the selected transparency config group.
+:allowed: "CaptumExplainer", "ShapExplainer"
+:default: null
+:description: Hydra target for the explainer class.
 
 :option: algorithm
-:allowed: string
-:default: "IntegratedGradients"
-:description: Name of the underlying explainability algorithm to use.
+:allowed: See {doc}`frameworks-and-libraries`
+:default: null
+:description: Name of the underlying explainability algorithm to use. The exact class is resolved by the selected explainer backend.
 
 :option: constructor
 :allowed: dict
-:default: {}
+:default: null
 :description: Keyword arguments passed when constructing the explainer or
   underlying library object.
 
 :option: call
 :allowed: dict
-:default: {}
+:default: null
 :description: Keyword arguments passed when computing attributions. Any nested
   dict with a `source` key is treated as a runtime data source.
 
@@ -47,24 +48,38 @@
 
 :option: call.progress_desc
 :allowed: str
-:default: "Computing attributions"
+:default: null
 :description: Description of the progress bar.
 
 :option: visualisers
 :allowed: list[dict]
-:default: [{"_target_": "CaptumImageVisualiser"}]
+:default: []
 :description: Visualiser definitions. Each entry must include at least
-  `_target_`.
+  `_target_`. Each visualiser can also define its own `constructor` and `call`
+  blocks.
 
 :yaml:
 transparency:
-  default:
+  my_first_explainer:
     _target_: "CaptumExplainer"
     algorithm: "IntegratedGradients"
-    constructor: {}
-    call: {}
+    call:
+      target: 0
     visualisers:
       - _target_: "CaptumImageVisualiser"
+        call:
+          max_samples: 1
+  my_second_explainer:
+    _target_: "ShapExplainer"
+    algorithm: "GradientExplainer"
+    constructor:
+      local_smoothing: 0.0
+    call:
+      background_data:
+        source: "./data/background"
+        n_samples: 32
+    visualisers:
+      - _target_: "ShapImageVisualiser"
 
-:cli: transparency.default.algorithm=IntegratedGradients
+:cli: transparency.captum_ig.algorithm=GradientShap
 ```

@@ -1,46 +1,43 @@
 # Installation
 
-This page explains how to install RAITAP and its dependencies.
+This page explains how to install RAITAP from PyPI and how to select the optional dependency groups you need.
 
-<!-- :::{note}
-
-If you are running RAITAP outside a Python project (no `pyproject.toml` in the directory), replace `uv sync` with `uv pip install` in the following.
-::: -->
+Use `uv add` if you are working inside a managed Python project (`pyproject.toml` exists). Use `uv pip install` or `pip install` otherwise.
 
 ## 1. Install RAITAP
 
 ```{install-tabs}
 :uv:
-uv pip install raitap
+uv add raitap
 
 :pip:
 pip install raitap
 ```
 
-## 2. Install dependencies
+## 2. Install optional dependencies
+
+(execution-dependencies)=
 
 ### Execution dependencies
 
-RAITAP supports both PyTorch and ONNX models, and both CPU and GPU execution. Hence, you need to install the dependencies for your specific setup.
+RAITAP supports both PyTorch and ONNX models, and both CPU and GPU execution. To avoid conflicts, only install the dependencies that match your setup.
 
-Here is an example command for PyTorch on CPU with ONNX support:
+First, choose the right group from this table:
+
+|       | CPU         | CUDA         | Intel         |
+| ----- | ----------- | ------------ | ------------- |
+| Torch | `torch-cpu` | `torch-cuda` | `torch-intel` |
+| ONNX  | `onnx-cpu`  | `onnx-cuda`  | `onnx-intel`  |
+
+Then, adapt the following example command and run it:
 
 ```{install-tabs}
 :uv:
-uv sync --extra onnx-cpu # deps for ONNX on CPU
+uv add "raitap[onnx-cpu]"
 
 :pip:
-pip install "raitap[onnx-cpu]" # deps for ONNX on CPU
+pip install "raitap[onnx-cpu]"
 ```
-
-Here is the full list of dependency groups:
-
-- `torch-cpu`
-- `torch-cuda`
-- `torch-intel`
-- `onnx-cpu`
-- `onnx-cuda`
-- `onnx-intel`
 
 :::{note}
 
@@ -54,11 +51,11 @@ Here is the full list of dependency groups:
 
 You can then install the dependencies for the assessment modules you want to use.
 
-For instance, if you want to assess the transparency, run:
+For instance, if you want to assess the model's transparency, run:
 
 ```{install-tabs}
 :uv:
-uv sync --extra transparency
+uv add "raitap[transparency]"
 
 :pip:
 pip install "raitap[transparency]"
@@ -68,19 +65,19 @@ If you plan to use a single underlying framework (here Captum), you can run the 
 
 ```{install-tabs}
 :uv:
-uv sync --extra captum
+uv add "raitap[captum]"
 
 :pip:
 pip install "raitap[captum]"
 ```
 
-### Single one-shot command
+### Combine multiple extras
 
-Of course, optional groups can be combined. For instance:
+Of course, such optional dependency groups can be combined. For instance:
 
 ```{install-tabs}
 :uv:
-uv sync --extra onnx-cpu --extra transparency
+uv add "raitap[onnx-cpu,transparency]"
 
 :pip:
 pip install "raitap[onnx-cpu,transparency]"
