@@ -31,6 +31,7 @@ jobs:
             ci
             chore
             revert
+            deps
           scopes: |
             transparency
             tracking
@@ -43,6 +44,7 @@ jobs:
             model
             data
             reporting
+            dev
           requireScope: false
           validateSingleCommitMatchesPrTitle: true
           subjectPattern: ^.+$
