@@ -47,6 +47,7 @@ modules/data/index
 modules/transparency/index
 modules/metrics/index
 modules/tracking/index
+modules/reporting/index
 ```
 
 ```{toctree}

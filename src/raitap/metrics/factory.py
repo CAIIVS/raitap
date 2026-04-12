@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from ..tracking.base_tracker import BaseTracker
 
 from .base_metric import BaseMetricComputer, MetricResult, scalar_metrics_for_tracking
+from .visualizers import MetricsVisualizer
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,11 @@ class MetricsEvaluation:
         if scalars:
             tracker.log_metrics(scalars, prefix=prefix)
         tracker.log_artifacts(self.run_dir, target_subdirectory="metrics")
+
+    def create_visualizations(self) -> dict[str, Any]:
+        """Generate matplotlib figures for metrics."""
+
+        return MetricsVisualizer.create_figures(self.result)
 
 
 class Metrics:

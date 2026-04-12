@@ -17,6 +17,7 @@ from raitap.metrics import (
     resolve_metric_targets,
 )
 from raitap.models import Model
+from raitap.reporting import create_report, reporting_enabled
 from raitap.run.forward_output import extract_primary_tensor
 from raitap.run.outputs import RunOutputs
 from raitap.tracking import BaseTracker
@@ -37,6 +38,18 @@ def run(config: AppConfig) -> RunOutputs:
 
     outputs = _run_without_tracking(config, model, data)
 
+    # Generate report if configured
+    report_generation = None
+    if reporting_enabled(config):
+        logger.info("Generating report...")
+        report_generation = create_report(
+            config=config,
+            transparency_outputs=dict(
+                zip(config.transparency.keys(), outputs.explanations, strict=False)
+            ),
+            metrics_evaluation=outputs.metrics,
+        )
+
     tracking_config = getattr(config, "tracking", None)
     has_tracker = bool(tracking_config and getattr(tracking_config, "_target_", None))
     if not has_tracker:
@@ -54,6 +67,14 @@ def run(config: AppConfig) -> RunOutputs:
             explanation.log(tracker, use_subdirectory=use_subdirs)
         for visualisation in outputs.visualisations:
             visualisation.log(tracker, use_subdirectory=use_subdirs)
+        # Log report to tracker
+        reporting_cfg = getattr(config, "reporting", None)
+        if (
+            report_generation is not None
+            and reporting_cfg is not None
+            and getattr(reporting_cfg, "forward_to_tracking", True)
+        ):
+            report_generation.log(tracker)
 
     return outputs
 

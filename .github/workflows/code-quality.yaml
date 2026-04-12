@@ -58,7 +58,7 @@ jobs:
         uses: ./.github/actions/setup-raitap-env
         with:
           python-version: "3.13"
-          sync-command: uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cpu
+          sync-command: uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cpu --extra reporting
 
       - name: Ruff
         run: uv run ruff check .
@@ -95,7 +95,7 @@ jobs:
         uses: ./.github/actions/setup-raitap-env
         with:
           python-version: "3.13"
-          sync-command: uv sync --group dev --extra torch-cuda --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cuda
+          sync-command: uv sync --group dev --extra torch-cuda --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cuda --extra reporting
 
       - name: CUDA smoke check
         run: |
