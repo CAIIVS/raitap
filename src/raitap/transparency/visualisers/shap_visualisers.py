@@ -47,10 +47,16 @@ def _normalise_image(image: np.ndarray) -> np.ndarray:
 
 
 def _compose_title(base_title: str | None, sample_name: str | None = None) -> str | None:
-    """Combine a base title and optional sample name."""
+    """Combine a base title and optional sample name.
+
+    ``None`` means no base title is set and allows falling back to the sample
+    name. An explicitly provided empty string is preserved as-is.
+    """
+    if base_title is None:
+        return sample_name
     if base_title and sample_name:
         return f"{base_title}: {sample_name}"
-    return base_title or sample_name
+    return base_title
 
 
 def _resolve_title(

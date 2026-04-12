@@ -515,6 +515,27 @@ class TestShapImageVisualiser:
         plt.close(fig)
 
     @pytest.mark.usefixtures("needs_shap")
+    def test_explicit_empty_title_is_preserved_when_showing_sample_names(
+        self, sample_images: torch.Tensor
+    ) -> None:
+        visualiser = ShapImageVisualiser()
+        attributions = torch.randn_like(sample_images)
+
+        fig = visualiser.visualise(
+            attributions,
+            inputs=sample_images,
+            max_samples=1,
+            sample_names=["ISIC_0001"],
+            show_sample_names=True,
+            title="",
+            algorithm="GradientExplainer",
+        )
+
+        titles = [ax.get_title() for ax in fig.axes[:2]]
+        assert titles == ["Original Image: ISIC_0001", ""]
+        plt.close(fig)
+
+    @pytest.mark.usefixtures("needs_shap")
     def test_save(self, sample_images: torch.Tensor, tmp_path: Path) -> None:
         visualiser = ShapImageVisualiser()
         attributions = torch.randn_like(sample_images)
