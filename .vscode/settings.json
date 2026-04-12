@@ -20,7 +20,9 @@
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
     "github-actions.workflows.pinned.workflows": [
-        ".github/workflows/code-quality.yaml"
+        ".github/workflows/code-quality.yaml",
+        ".github/workflows/docs.yml",
+        ".github/workflows/test-e2e.yml"
     ],
     "editor.codeActionsOnSave": {
         "source.fixAll.ruff": "explicit"
