@@ -7,6 +7,8 @@ This section contains documentation meant to help contributors setup the dev env
 :caption: Contributor documentation
 
 setup
-tracking
-transparency
+Data module <data>
+Metrics module <metrics>
+Tracking module <tracking>
+Transparency module <transparency>
 ```

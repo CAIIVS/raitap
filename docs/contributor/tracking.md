@@ -37,24 +37,6 @@ This split keeps metrics and transparency responsible for their own
 tracker-facing translations, while the tracker backend only handles generic
 logging calls.
 
-## MLflow backend
-
-`MLFlowTracker` lives in `src/raitap/tracking/mlflow_tracker.py`.
-
-It currently:
-
-- sets the MLflow tracking URI from `tracking.output_forwarding_url`, with
-  `./mlruns` as the fallback
-- starts an MLflow run named after `experiment_name`
-- logs the full resolved config to `config/config.json`
-- logs a flattened set of summary parameters for search and comparison
-- logs dataset metadata, scalar metrics, and forwarded artifacts
-
-If the tracking URI points to a localhost HTTP endpoint and nothing is listening
-on that port yet, `MLFlowTracker` can start `mlflow server` automatically. If
-`tracking.open_when_done=true`, it can also open the MLflow UI when the run
-finishes.
-
 ## Model logging
 
 Model logging is optional and is enabled with `tracking.log_model=true`.
@@ -63,6 +45,10 @@ Model logging is optional and is enabled with `tracking.log_model=true`.
 - ONNX-backed models are logged through `mlflow.onnx.log_model(...)`
 
 ONNX logging requires the `onnx` package in addition to `mlflow`.
+
+## Auto-opening
+
+If `tracking.open_when_done=true`, the tracking UI must be opened automatically when `terminate()` is called. See how `MLFlowTracker` does this in `src/raitap/tracking/mlflow_tracker.py`.
 
 ## Extension points
 
