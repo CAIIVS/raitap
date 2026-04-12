@@ -82,3 +82,7 @@ h3 {
   margin-top: 8px;
   gap: 1rem;
 }
+
+.sidebar-drawer {
+  width: auto;
+}
