@@ -200,11 +200,6 @@ name = "pytorch-intel"
 url = "https://download.pytorch.org/whl/xpu"
 explicit = true
 
-[tool.uv.workspace]
-members = [
-    "tmp/uv_add_extras_check",
-]
-
 [tool.hatch.version]
 path = "src/raitap/__about__.py"
 
