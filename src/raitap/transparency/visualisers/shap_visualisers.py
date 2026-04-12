@@ -1,4 +1,10 @@
-"""SHAP-native visualisers (wrapping shap.plots.* and shap.summary_plot)"""
+"""SHAP visualisers for RAITAP.
+
+Most visualisers wrap SHAP's plotting APIs (``shap.plots.*`` /
+``shap.summary_plot``). ``ShapImageVisualiser`` is rendered manually with
+Matplotlib so RAITAP can provide a consistent paired image/overlay layout,
+titles, sample names, and colorbar handling.
+"""
 
 from __future__ import annotations
 
@@ -285,7 +291,11 @@ class ShapForceVisualiser(BaseVisualiser):
 
 class ShapImageVisualiser(BaseVisualiser):
     """
-    Image-level SHAP attribution plot via ``shap.image_plot``.
+    Render image-level SHAP attributions with Matplotlib.
+
+    This visualiser does not call ``shap.image_plot`` directly. Instead, it
+    renders a RAITAP-managed figure that can optionally show the original
+    image, a SHAP heatmap overlay, sample-aware titles, and a colorbar.
 
     .. warning::
        **Only compatible with ``GradientExplainer`` and ``DeepExplainer``.**
@@ -294,8 +304,10 @@ class ShapImageVisualiser(BaseVisualiser):
        Passing attributions from other explainers will produce meaningless
        plots.
 
-    Red pixels increase the prediction; blue pixels decrease it.
+    Positive contributions are shown in warm colours and negative
+    contributions in cool colours, using the configured Matplotlib colormap.
     """
+
 
     compatible_algorithms: frozenset[str] = frozenset({"GradientExplainer", "DeepExplainer"})
 

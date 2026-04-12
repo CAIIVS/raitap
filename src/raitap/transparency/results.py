@@ -119,16 +119,13 @@ class ExplanationResult:
             visualise_signature = inspect.signature(vis.visualise)
             supports_sample_names = "sample_names" in visualise_signature.parameters
             supports_show_sample_names = "show_sample_names" in visualise_signature.parameters
+            supports_algorithm = "algorithm" in visualise_signature.parameters
             if supports_sample_names:
                 visualise_kwargs["sample_names"] = sample_names
             if supports_show_sample_names:
                 visualise_kwargs["show_sample_names"] = show_sample_names
-            if (
-                type(vis).__name__ == "ShapImageVisualiser"
-                and self.algorithm
-                and "title" not in visualise_kwargs
-            ):
-                visualise_kwargs["title"] = f"{self.algorithm} (SHAP)"
+            if supports_algorithm:
+                visualise_kwargs["algorithm"] = self.algorithm
 
             figure = vis.visualise(attributions, inputs=inputs, **visualise_kwargs)
             if show_sample_names and sample_names and not supports_sample_names:
