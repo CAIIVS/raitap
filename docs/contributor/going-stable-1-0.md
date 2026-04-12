@@ -14,7 +14,11 @@ In **`pyproject.toml`**, under **`[tool.commitizen]`**, set **`major_version_zer
 
 Otherwise **`cz bump`** can keep treating breaking changes on **0.x** as minor bumps while Release Please does not, which is confusing.
 
-## 3. Cutting 1.0.0
+## 3. Update the contributor guide
+
+Delete this file and update {doc}`./index` to remove the `going-stable-1-0`toctree entry.
+
+## 4. Cutting 1.0.0
 
 Pick one approach:
 
@@ -22,7 +26,3 @@ Pick one approach:
 - **Explicit version:** Put **`Release-As: 1.0.0`** in the **body** of the commit you merge to **`main`** (see [Release Please](https://github.com/googleapis/release-please) docs). That forces the next release version without relying on a breaking commit alone.
 
 Review **changelog**, **docs**, and **PyPI** metadata before merging the **1.0.0** release PR.
-
-## 4. Update the contributor guide
-
-Delete this file and update {doc}`./index` to remove the `going-stable-1-0`toctree entry.
