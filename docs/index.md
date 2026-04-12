@@ -9,7 +9,7 @@ RAITAP currently assesses the following 2 responsible AI dimensions:
 - Transparency
 - Robustness
 
-as defined in [Towards the certification of AI-based systems](https://doi.org/10.1109/SDS60720.2024.00020) and [MLOps as enable of trustworthy AI](https://doi.org/10.1109/SDS60720.2024.00013)
+as defined in [Towards the certification of AI-based systems](https://doi.org/10.1109/SDS60720.2024.00020) and [MLOps as enabler of trustworthy AI](https://doi.org/10.1109/SDS60720.2024.00013)
 
 ## How is RAITAP structured?
 
