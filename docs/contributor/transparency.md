@@ -66,11 +66,11 @@ transparency/
 
 ## Adding a new algorithm
 
-Captum and SHAP wrappers dispatch to algorithms dynamically via `getattr`, so most new methods require no code changes. Use the algorithm name directly in your config:
+Captum and SHAP wrappers dispatch to algorithms dynamically via `getattr`, so most new methods require no code changes. Override the algorithm on a specific explainer entry in your transparency config:
 
 ```bash
-uv run raitap transparency.algorithm=Saliency
-uv run raitap transparency.algorithm=GradientShap
+uv run raitap transparency=demo transparency.captum_ig.algorithm=Saliency
+uv run raitap transparency=demo transparency.shap_gradient.algorithm=GradientShap
 ```
 
 Add an integration test to confirm the method works end-to-end. Reference `src/raitap/transparency/explainers/tests/test_captum_explainer.py` for examples.
@@ -142,17 +142,18 @@ To integrate a new explainability framework:
 
     ```yaml
     # src/raitap/configs/transparency/new_framework.yaml
-    _target_: NewFrameworkExplainer
-    algorithm: SomeAlgorithm
-    visualisers:
-      - _target_: CaptumImageVisualiser
+    my_explainer:
+      _target_: NewFrameworkExplainer
+      algorithm: SomeAlgorithm
+      visualisers:
+        - _target_: CaptumImageVisualiser
     ```
 
 4. **Use it**
 
     ```bash
     uv run raitap transparency=new_framework
-    uv run raitap transparency=new_framework transparency.algorithm=AnotherAlgorithm
+    uv run raitap transparency=new_framework transparency.my_explainer.algorithm=AnotherAlgorithm
     ```
 
 5. **Update documentation**
@@ -228,7 +229,7 @@ To add a new visualiser:
     Override the visualisers list on the CLI:
 
     ```bash
-    uv run raitap "transparency.visualisers=[{_target_: NewVisualiser}]"
+    uv run raitap "transparency.my_explainer.visualisers=[{_target_: NewVisualiser}]"
     ```
 
     Or embed it in a custom transparency config:
