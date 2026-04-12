@@ -181,6 +181,15 @@ wheels = [
 ]
 
 [[package]]
+name = "borb"
+version = "3.0.7"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b9/a3/8eefc1bdf1bde7f56b7c02bfbef069c659392a64ac8bf3d98cfdd63c25a0/borb-3.0.7.tar.gz", hash = "sha256:772ebd942ffae6f805fc267efd61f061029d73f51fc5bb82a76ca697bbd074a8", size = 2682703, upload-time = "2026-03-16T22:13:41.286Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0f/17/673bcfc739b738f8cfcd4aebc2c229f51268c39d9d652e26b9eaee1c1ba9/borb-3.0.7-py3-none-any.whl", hash = "sha256:c8ce536d8fd1436c7a3b718d451e248b640c44630b0c010dcdc917ec16e0b26a", size = 3094618, upload-time = "2026-03-16T22:13:23.553Z" },
+]
+
+[[package]]
 name = "cachetools"
 version = "6.2.6"
 source = { registry = "https://pypi.org/simple" }
@@ -2909,6 +2918,9 @@ onnx-intel = [
     { name = "torchvision", version = "0.26.0+xpu", source = { registry = "https://download.pytorch.org/whl/xpu" }, marker = "python_full_version < '3.14'" },
     { name = "triton-xpu", marker = "python_full_version < '3.14'" },
 ]
+reporting = [
+    { name = "borb" },
+]
 shap = [
     { name = "shap", version = "0.49.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.14' or (extra == 'extra-6-raitap-onnx-cpu' and extra == 'extra-6-raitap-onnx-cuda') or (extra == 'extra-6-raitap-onnx-cpu' and extra == 'extra-6-raitap-onnx-intel') or (extra == 'extra-6-raitap-onnx-cpu' and extra == 'extra-6-raitap-torch-cuda') or (extra == 'extra-6-raitap-onnx-cpu' and extra == 'extra-6-raitap-torch-intel') or (extra == 'extra-6-raitap-onnx-cuda' and extra == 'extra-6-raitap-onnx-intel') or (extra == 'extra-6-raitap-onnx-cuda' and extra == 'extra-6-raitap-torch-cpu') or (extra == 'extra-6-raitap-onnx-cuda' and extra == 'extra-6-raitap-torch-intel') or (extra == 'extra-6-raitap-onnx-intel' and extra == 'extra-6-raitap-torch-cpu') or (extra == 'extra-6-raitap-onnx-intel' and extra == 'extra-6-raitap-torch-cuda') or (extra == 'extra-6-raitap-torch-cpu' and extra == 'extra-6-raitap-torch-cuda') or (extra == 'extra-6-raitap-torch-cpu' and extra == 'extra-6-raitap-torch-intel') or (extra == 'extra-6-raitap-torch-cuda' and extra == 'extra-6-raitap-torch-intel')" },
     { name = "shap", version = "0.50.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14' or (extra == 'extra-6-raitap-onnx-cpu' and extra == 'extra-6-raitap-onnx-cuda') or (extra == 'extra-6-raitap-onnx-cpu' and extra == 'extra-6-raitap-onnx-intel') or (extra == 'extra-6-raitap-onnx-cpu' and extra == 'extra-6-raitap-torch-cuda') or (extra == 'extra-6-raitap-onnx-cpu' and extra == 'extra-6-raitap-torch-intel') or (extra == 'extra-6-raitap-onnx-cuda' and extra == 'extra-6-raitap-onnx-intel') or (extra == 'extra-6-raitap-onnx-cuda' and extra == 'extra-6-raitap-torch-cpu') or (extra == 'extra-6-raitap-onnx-cuda' and extra == 'extra-6-raitap-torch-intel') or (extra == 'extra-6-raitap-onnx-intel' and extra == 'extra-6-raitap-torch-cpu') or (extra == 'extra-6-raitap-onnx-intel' and extra == 'extra-6-raitap-torch-cuda') or (extra == 'extra-6-raitap-torch-cpu' and extra == 'extra-6-raitap-torch-cuda') or (extra == 'extra-6-raitap-torch-cpu' and extra == 'extra-6-raitap-torch-intel') or (extra == 'extra-6-raitap-torch-cuda' and extra == 'extra-6-raitap-torch-intel')" },
@@ -2977,6 +2989,7 @@ tooling = [
 
 [package.metadata]
 requires-dist = [
+    { name = "borb", marker = "extra == 'reporting'", specifier = "==3.0.7" },
     { name = "captum", marker = "extra == 'captum'", specifier = ">=0.7.0" },
     { name = "captum", marker = "extra == 'transparency'", specifier = ">=0.7.0" },
     { name = "faster-coco-eval", marker = "extra == 'metrics'", specifier = ">=1.6.3" },
@@ -3013,7 +3026,7 @@ requires-dist = [
     { name = "triton-xpu", marker = "python_full_version < '3.14' and extra == 'onnx-intel'", index = "https://download.pytorch.org/whl/xpu", conflict = { package = "raitap", extra = "onnx-intel" } },
     { name = "triton-xpu", marker = "python_full_version < '3.14' and extra == 'torch-intel'", index = "https://download.pytorch.org/whl/xpu", conflict = { package = "raitap", extra = "torch-intel" } },
 ]
-provides-extras = ["captum", "metrics", "mlflow", "onnx-cpu", "onnx-cuda", "onnx-intel", "shap", "torch-cpu", "torch-cuda", "torch-intel", "tracking", "transparency"]
+provides-extras = ["captum", "metrics", "mlflow", "onnx-cpu", "onnx-cuda", "onnx-intel", "reporting", "shap", "torch-cpu", "torch-cuda", "torch-intel", "tracking", "transparency"]
 
 [package.metadata.requires-dev]
 dev = [
