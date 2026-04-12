@@ -54,11 +54,11 @@ raitap = "raitap.run.__main__:main"
 docs-preview = "raitap.docs_preview:main"
 
 [project.urls]
-Documentation = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform#readme"
-Homepage = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform"
-Repository = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform.git"
-Issues = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform/issues"
-Source = "https://github.zhaw.ch/RAI/Tech-Assessment-Platform"
+Documentation = "https://caiivs.github.io/raitap/"
+Homepage = "https://caiivs.github.io/raitap/"
+Repository = "https://github.com/CAIIVS/raitap/"
+Issues = "https://github.com/CAIIVS/raitap/issues"
+Source = "https://github.com/CAIIVS/raitap/"
 
 
 [project.optional-dependencies]

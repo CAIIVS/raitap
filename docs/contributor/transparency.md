@@ -18,27 +18,7 @@ All visualisers implement `BaseVisualiser`, which defines:
 - `save(attributions, output_path, inputs, **kwargs) -> None` (optional, has default implementation)
 - `compatible_algorithms: frozenset[str]` (class attribute for validation)
 
-## File structure
-
-```text
-src/raitap/transparency/
-├── __init__.py
-├── factory.py
-├── results.py
-├── exceptions.py
-├── algorithm_allowlist.py
-├── explainers/
-│   ├── __init__.py
-│   ├── base_explainer.py
-│   ├── captum_explainer.py
-│   └── shap_explainer.py
-└── visualisers/
-    ├── __init__.py
-    ├── base_visualiser.py
-    ├── captum_visualisers.py
-    ├── shap_visualisers.py
-    └── tabular_visualiser.py
-```
+## Important files
 
 The `factory.py` module provides the `Explanation` class and helper functions, which use Hydra's `instantiate()` to build explainers and visualisers from `_target_` keys. Bare class names are automatically resolved to `raitap.transparency.*` paths.
 
@@ -51,18 +31,7 @@ Transparency runs after the forward pass in `src/raitap/run/pipeline.py`. For ea
 3. `ExplanationResult.write_artifacts()` saves attributions and metadata to disk
 4. `ExplanationResult.visualise()` iterates through configured visualisers, calling each one's `visualise()` method and saving the figures
 
-Each explainer writes to its own subdirectory under the Hydra run folder. The structure is:
-
-```text
-transparency/
-├── explainer1/
-│   ├── attributions.pt
-│   ├── visualisation1.png
-│   └── metadata.json
-└── explainer2/
-    ├── attributions.pt
-    └── metadata.json
-```
+Each explainer writes to its own subdirectory under the Hydra run folder. See {doc}`../using-raitap/understanding-outputs` for more details.
 
 ## Adding a new algorithm
 

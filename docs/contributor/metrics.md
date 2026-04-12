@@ -17,18 +17,7 @@ The `MetricResult` dataclass contains:
 - `metrics: dict[str, float]` — scalar metrics written to `metrics.json`
 - `artifacts: dict[str, Any]` — structured outputs written to `artifacts.json`
 
-## File structure
-
-```text
-src/raitap/metrics/
-├── __init__.py
-├── base_metric.py
-├── factory.py
-├── classification_metrics.py
-├── detection_metrics.py
-├── inputs.py
-└── utils.py
-```
+## Important files
 
 The `factory.py` module provides the `evaluate()` entry point, which uses Hydra's `instantiate()` to build metric computers from `_target_` keys. Bare class names are automatically resolved to `raitap.metrics.*` paths.
 
