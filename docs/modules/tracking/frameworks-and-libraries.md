@@ -10,7 +10,7 @@ RAITAP writes outputs to the local directory first, then forwards them to the tr
 
 ### Docs
 
-[MLflow docs](https://mlflow.org/)
+[MLflow docs](https://mlflow.org/docs/latest/ml/)
 
 ### Configuration
 
