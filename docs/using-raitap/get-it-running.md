@@ -13,7 +13,7 @@ Our pre-defined examples uses a PyTorch model and runs a transparency assessment
 
 ```{install-tabs}
 :uv:
-uv sync --extra captum --extra torch-cpu
+uv add "raitap[captum,torch-cpu]"
 
 :pip:
 pip install "raitap[captum,torch-cpu]"
