@@ -2,7 +2,6 @@
 defaults:
   - submitit_slurm
 
-# ZHAW V100 nodes expose 8 GPUs and ~500 GB host RAM.
 # These defaults target single-GPU jobs and allow up to 8 concurrent Hydra tasks
 # without oversubscribing the node memory budget.
 submitit_folder: ${hydra.sweep.dir}/.submitit/%j
