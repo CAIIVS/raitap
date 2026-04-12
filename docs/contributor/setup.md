@@ -1,12 +1,14 @@
 # Development environment setup
 
-## Prerequisites
+## Setup steps
+
+### 0. Prerequisites
 
 - The repository cloned.
 - Python 3.13 or higher
 - [uv](https://docs.astral.sh/uv/) package manager
 
-## Installing dependencies
+### 1. Installing dependencies
 
 RAITAP supports many machine and model configurations. To avoid conflicts, only install the dependencies that match your setup. Linting and testing of all configurations is done on the CI.
 
@@ -36,3 +38,24 @@ RAITAP supports many machine and model configurations. To avoid conflicts, only 
     :::{warning}
     Do not run the `sync` commands separately. The latest run will override the previous ones.
     :::
+
+### 2. Installing the commit message hook
+
+```bash
+uv run pre-commit install --hook-type commit-msg
+```
+
+It will ensure your commit messages follow the [conventional commits](https://www.conventionalcommits.org/) format.
+
+### 3. Installing the VSCode extensions
+
+If you use VSCode, install the recommended extensions. If not, install the equivalents for your IDE, and ensure it uses the Python interpreter from the `.venv` folder.
+
+## Useful commands
+
+- `uv run pytest` runs the test suite. Depending on the dependencies installed, some tests might fail, which is fine. The CI is the real source of truth.
+- `uv run ruff check --fix .` lints all Python files and applies auto-fixes where possible. Omit the `--fix` flag to only check for issues without modifying files.
+- `uv run ruff format .` formats all Python files according to the configured style.
+- `uv run pyright` runs type checking on all Python files to catch type errors.
+- `uv run cz commit` opens an interactive prompt to create a commit message following the conventional commits format. You can also use the VSCode extension instead.
+- `uv run docs-preview` starts a local server to preview the documentation, which supports hot-reloading.

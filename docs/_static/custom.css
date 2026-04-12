@@ -28,3 +28,12 @@ table.docutils {
   width: 100%;
   max-width: none;
 }
+
+h2 {
+  font-size: 1.75rem;
+}
+
+h3 {
+  font-size: 1.25rem;
+  margin-top: 1.2rem;
+}
