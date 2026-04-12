@@ -71,6 +71,19 @@ class TrackingConfig:
 
 
 @dataclass
+class ReportingFormattingConfig:
+    """PDF layout and rasterisation tuning for embedded figures."""
+
+    # None = derive from A4 column size / heuristic page budget.
+    max_image_width_pt: int | None = None
+    max_image_height_pt: int | None = None
+    figures_max_pages: int | None = None
+    # Pixels-per-layout-point (borb draws at ``size`` points). None ≈ 3 (~216 DPI).
+    image_raster_multiplier: float | None = None
+    image_raster_max_edge_px: int | None = None
+
+
+@dataclass
 class ReportingConfig:
     """Configuration for report generation."""
 
@@ -78,15 +91,7 @@ class ReportingConfig:
     filename: str = "report.pdf"
     include_config: bool = True
     include_metadata: bool = True
-    forward_to_tracking: bool = True
-    # PDF layout (optional). None = derive from A4 column size / heuristic page budget.
-    pdf_max_image_width_pt: int | None = None
-    pdf_max_image_height_pt: int | None = None
-    pdf_transparency_max_pages: int | None = None
-    # Pixels-per-layout-point for embedded figures
-    # (borb draws at ``size`` points). None ≈ 3 (~216 DPI).
-    pdf_image_raster_multiplier: float | None = None
-    pdf_image_raster_max_edge_px: int | None = None
+    formatting: ReportingFormattingConfig = field(default_factory=ReportingFormattingConfig)
 
 
 @dataclass

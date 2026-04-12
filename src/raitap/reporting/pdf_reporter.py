@@ -12,10 +12,13 @@ import matplotlib.pyplot as plt
 from raitap.configs import resolve_run_dir
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from PIL.Image import Image as PILImageType
 
     from raitap.metrics.factory import MetricsEvaluation
-    from raitap.transparency.results import ExplanationResult
+
+    from .sections import ReportImageSection
 
 from .base_reporter import BaseReporter
 
@@ -66,15 +69,23 @@ _DEFAULT_RASTER_MULT = 3.0
 _DEFAULT_RASTER_MAX_EDGE_PX = 2400
 
 
-def _raster_multiplier(reporting: Any) -> float:
-    raw = getattr(reporting, "pdf_image_raster_multiplier", None)
+def _reporting_formatting(reporting: Any) -> Any:
+    """Nested ``formatting`` block, or an empty namespace if absent."""
+    fmt = getattr(reporting, "formatting", None)
+    if fmt is None:
+        return SimpleNamespace()
+    return fmt
+
+
+def _raster_multiplier(formatting: Any) -> float:
+    raw = getattr(formatting, "image_raster_multiplier", None)
     if raw is None:
         return _DEFAULT_RASTER_MULT
     return max(1.0, float(raw))
 
 
-def _raster_max_edge_px(reporting: Any) -> int:
-    raw = getattr(reporting, "pdf_image_raster_max_edge_px", None)
+def _raster_max_edge_px(formatting: Any) -> int:
+    raw = getattr(formatting, "image_raster_max_edge_px", None)
     if raw is None:
         return _DEFAULT_RASTER_MAX_EDGE_PX
     return max(400, int(raw))
@@ -96,8 +107,9 @@ def _prepare_raster_for_pdf(
     from PIL import Image as PILImage
 
     path = Path(path)
-    mult = _raster_multiplier(reporting)
-    max_edge = _raster_max_edge_px(reporting)
+    fmt = _reporting_formatting(reporting)
+    mult = _raster_multiplier(fmt)
+    max_edge = _raster_max_edge_px(fmt)
 
     with PILImage.open(path) as opened:
         im = opened.convert("RGBA")
@@ -123,22 +135,37 @@ def _prepare_raster_for_pdf(
         return rgb, (disp_w, disp_h)
 
 
-def _image_limits_for_transparency(
-    reporting: Any, *, num_explainers: int, num_pngs: int
+def _figure_layout_counts(image_sections: Sequence[ReportImageSection]) -> tuple[int, int]:
+    """Count groups that have at least one raster file, and total files (for layout heuristics)."""
+    n_groups = 0
+    n_files = 0
+    for section in image_sections:
+        for group in section.groups:
+            n_here = len(list(group.run_dir.glob(group.glob_pattern)))
+            if n_here == 0:
+                continue
+            n_groups += 1
+            n_files += n_here
+    return n_groups, n_files
+
+
+def _image_limits_for_figures(
+    reporting: Any, *, num_groups: int, num_image_files: int
 ) -> tuple[int, int]:
     """Derive max image width/height from reporting config and optional page budget."""
     base_w, h_inner = _column_content_bounds_pt()
     # Heading + margins: leave ~18% of column height for titles / spacing.
     base_h = int(h_inner * 0.82)
 
-    w_lim = getattr(reporting, "pdf_max_image_width_pt", None)
-    h_lim = getattr(reporting, "pdf_max_image_height_pt", None)
+    fmt = _reporting_formatting(reporting)
+    w_lim = getattr(fmt, "max_image_width_pt", None)
+    h_lim = getattr(fmt, "max_image_height_pt", None)
     max_w = int(w_lim) if w_lim is not None else base_w
     max_h = int(h_lim) if h_lim is not None else base_h
 
-    max_pages = getattr(reporting, "pdf_transparency_max_pages", None)
+    max_pages = getattr(fmt, "figures_max_pages", None)
     if max_pages is not None and max_pages > 0:
-        blocks = num_explainers + max(num_pngs, 1)
+        blocks = num_groups + max(num_image_files, 1)
         est_pages = max(1, math.ceil(blocks / 2.5))
         if est_pages > max_pages:
             factor = max_pages / est_pages
@@ -153,7 +180,7 @@ class PDFReporter(BaseReporter):
 
     def generate(
         self,
-        transparency_outputs: dict[str, ExplanationResult],
+        image_sections: Sequence[ReportImageSection],
         metrics_evaluation: MetricsEvaluation | None,
     ) -> Path:
         """Generate PDF report."""
@@ -172,8 +199,8 @@ class PDFReporter(BaseReporter):
         if metrics_evaluation is not None:
             self._add_metrics_section(doc, metrics_evaluation, b)
 
-        if transparency_outputs:
-            self._add_transparency_section(doc, transparency_outputs, b)
+        if image_sections:
+            self._add_figure_sections(doc, image_sections, b)
 
         b.PDF.write(what=doc, where_to=output_path)
 
@@ -188,7 +215,7 @@ class PDFReporter(BaseReporter):
 
         layout.append_layout_element(
             b.Paragraph(
-                "RAITAP Transparency Report",
+                "RAITAP Assessment Report",
                 font_size=24,
                 font="Helvetica-Bold",
             )
@@ -241,52 +268,56 @@ class PDFReporter(BaseReporter):
             logger.warning("Failed to generate metrics charts: %s", e)
             layout.append_layout_element(b.Paragraph(f"(Chart generation failed: {e})"))
 
-    def _add_transparency_section(
+    def _add_figure_sections(
         self,
         doc: Any,
-        transparency_outputs: dict[str, ExplanationResult],
+        image_sections: Sequence[ReportImageSection],
         b: SimpleNamespace,
     ) -> None:
-        """Add transparency visualisations in one flowing layout (multi-page as needed)."""
+        """
+        Add figure sections (raster files per group) in one flowing layout (multi-page as needed).
+        """
         reporting = self.config.reporting
-        num_explainers = len(transparency_outputs)
-        num_pngs = sum(
-            len(list(result.run_dir.glob("*.png"))) for result in transparency_outputs.values()
-        )
-        max_w, max_h = _image_limits_for_transparency(
+        num_groups, num_files = _figure_layout_counts(image_sections)
+        max_w, max_h = _image_limits_for_figures(
             reporting,
-            num_explainers=num_explainers,
-            num_pngs=num_pngs,
+            num_groups=num_groups,
+            num_image_files=num_files,
         )
 
-        page = b.Page()
-        doc.append_page(page)
-        layout = b.SingleColumnLayout(page)
-
-        layout.append_layout_element(
-            b.Paragraph("Transparency", font_size=20, font="Helvetica-Bold")
-        )
-
-        for explainer_name, result in transparency_outputs.items():
-            layout.append_layout_element(
-                b.Paragraph(
-                    f"Explainer: {explainer_name}",
-                    font_size=16,
-                    font="Helvetica-Bold",
-                )
-            )
-
-            viz_files = sorted(result.run_dir.glob("*.png"))
-            if not viz_files:
-                layout.append_layout_element(b.Paragraph("(No visualizations found)"))
+        for section in image_sections:
+            if not section.groups:
                 continue
 
-            for png_file in viz_files:
-                try:
-                    pil_image, display_pt = _prepare_raster_for_pdf(
-                        png_file, max_w, max_h, reporting=reporting
+            section_open = False
+            layout: Any = None
+
+            for group in section.groups:
+                viz_files = sorted(group.run_dir.glob(group.glob_pattern))
+                if not viz_files:
+                    continue
+
+                if not section_open:
+                    page = b.Page()
+                    doc.append_page(page)
+                    layout = b.SingleColumnLayout(page)
+                    layout.append_layout_element(
+                        b.Paragraph(section.title, font_size=20, font="Helvetica-Bold")
                     )
-                    layout.append_layout_element(b.Image(pil_image, size=display_pt))
-                except Exception as e:
-                    logger.warning("Failed to add image %s: %s", png_file, e)
-                    layout.append_layout_element(b.Paragraph(f"(Failed to load: {png_file.name})"))
+                    section_open = True
+
+                layout.append_layout_element(
+                    b.Paragraph(group.heading, font_size=16, font="Helvetica-Bold")
+                )
+
+                for image_path in viz_files:
+                    try:
+                        pil_image, display_pt = _prepare_raster_for_pdf(
+                            image_path, max_w, max_h, reporting=reporting
+                        )
+                        layout.append_layout_element(b.Image(pil_image, size=display_pt))
+                    except Exception as e:
+                        logger.warning("Failed to add image %s: %s", image_path, e)
+                        layout.append_layout_element(
+                            b.Paragraph(f"(Failed to load: {image_path.name})")
+                        )

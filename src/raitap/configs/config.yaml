@@ -5,7 +5,7 @@ defaults:
   - data: isic2018
   - metrics: classification
   - tracking: null
-  - reporting: null
+  - reporting: pdf
 
 hardware: gpu
 experiment_name: demo

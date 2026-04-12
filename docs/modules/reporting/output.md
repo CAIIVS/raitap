@@ -21,9 +21,10 @@ If metrics are enabled in the pipeline, this section includes:
 - **Metrics Overview Chart** - Bar chart visualisation of metric values
 - **Confusion Matrix** - If available in metric artifacts
 
-### 3. Transparency Section
+### 3. Figure sections
 
-For each configured explainer:
+The pipeline passes one or more **sections**; each has a title and ordered **groups**. Each group has a heading and raster figures matched under its output directory (by default `*.png`).
 
-- Explainer name and metadata
-- All generated visualisations (PNG images)
+The default assessment run includes a **Transparency** section: for each configured explainer, a group lists the PNGs written to that explainer’s run directory. Additional modules (for example robustness) can supply further sections the same way.
+
+Groups with no matching files are skipped (no placeholder text). If every group in a section is empty, the section title is not emitted either.

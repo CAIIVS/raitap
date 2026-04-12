@@ -1,6 +1,6 @@
 # Reporting
 
-The reporting module generates PDF reports that aggregate transparency visualisations and metrics into a single document.
+The reporting module generates PDF reports that aggregate metrics, module figure outputs (typically PNGs on disk), and other sections into a single document.
 
 ```{toctree}
 :maxdepth: 1
