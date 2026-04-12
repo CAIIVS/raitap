@@ -13,5 +13,5 @@ as defined in [Towards the certification of AI-based systems](https://doi.org/10
 
 For more information
 
-- as a consumer/user: [consumer documentation](https://raitap.readthedocs.io/en/latest/)
+- as a consumer/user: [consumer documentation](https://caiivs.github.io/raitap/)
 - as a contributor: [contributor documentation](https://caiivs.github.io/raitap/contributor/index.html)
