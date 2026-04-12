@@ -46,7 +46,7 @@ dependencies = [
   "matplotlib>=3.9.0",
   "pandas>=2.0.0",
   "pandas-stubs~=3.0.0",
-  "pillow>=10.0.0",
+  "pillow>=12.1.1",
 ]
 
 [project.scripts]
