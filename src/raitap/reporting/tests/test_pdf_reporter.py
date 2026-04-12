@@ -35,8 +35,8 @@ def test_pdf_reporter_instantiation(mock_config: AppConfig) -> None:
     assert reporter.config == mock_config
 
 
-@patch("raitap.reporting.pdf_reporter.Document")
-@patch("raitap.reporting.pdf_reporter.PDF")
+@patch("borb.pdf.Document")
+@patch("borb.pdf.PDF")
 def test_pdf_reporter_generates_file(
     mock_pdf: MagicMock, mock_doc: MagicMock, mock_config: AppConfig, tmp_path: Path
 ) -> None:
@@ -58,8 +58,8 @@ def test_pdf_reporter_generates_file(
 def test_pdf_reporter_creates_report_directory(mock_config: AppConfig, tmp_path: Path) -> None:
     """Test that report directory is created."""
     with (
-        patch("raitap.reporting.pdf_reporter.Document"),
-        patch("raitap.reporting.pdf_reporter.PDF"),
+        patch("borb.pdf.Document"),
+        patch("borb.pdf.PDF"),
     ):
         reporter = PDFReporter(mock_config)
         output_path = reporter.generate({}, None)

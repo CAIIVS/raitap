@@ -3,25 +3,15 @@ from __future__ import annotations
 import logging
 import math
 from datetime import datetime
+from pathlib import Path
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
-from borb.pdf import (
-    PDF,
-    Chart,
-    Document,
-    FixedColumnWidthTable,
-    Image,
-    Page,
-    Paragraph,
-    SingleColumnLayout,
-)
 
 from raitap.configs import resolve_run_dir
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from PIL.Image import Image as PILImageType
 
     from raitap.metrics.factory import MetricsEvaluation
@@ -35,6 +25,31 @@ logger = logging.getLogger(__name__)
 _A4_WIDTH_PT = 595
 _A4_HEIGHT_PT = 842
 _MARGIN_FRAC = 0.1
+
+
+def _borb_pdf_ns() -> SimpleNamespace:
+    """Load borb only when generating a PDF (optional ``reporting`` extra)."""
+    from borb.pdf import (
+        PDF,
+        Chart,
+        Document,
+        FixedColumnWidthTable,
+        Image,
+        Page,
+        Paragraph,
+        SingleColumnLayout,
+    )
+
+    return SimpleNamespace(
+        Chart=Chart,
+        Document=Document,
+        FixedColumnWidthTable=FixedColumnWidthTable,
+        Image=Image,
+        PDF=PDF,
+        Page=Page,
+        Paragraph=Paragraph,
+        SingleColumnLayout=SingleColumnLayout,
+    )
 
 
 def _column_content_bounds_pt() -> tuple[int, int]:
@@ -80,6 +95,7 @@ def _prepare_raster_for_pdf(
     """
     from PIL import Image as PILImage
 
+    path = Path(path)
     mult = _raster_multiplier(reporting)
     max_edge = _raster_max_edge_px(reporting)
 
@@ -141,69 +157,73 @@ class PDFReporter(BaseReporter):
         metrics_evaluation: MetricsEvaluation | None,
     ) -> Path:
         """Generate PDF report."""
+        b = _borb_pdf_ns()
+
         run_dir = resolve_run_dir(self.config, subdir="reports")
         run_dir.mkdir(parents=True, exist_ok=True)
 
         filename = getattr(self.config.reporting, "filename", "report.pdf")
         output_path = run_dir / filename
 
-        doc = Document()
+        doc = b.Document()
 
-        self._add_cover_page(doc)
+        self._add_cover_page(doc, b)
 
         if metrics_evaluation is not None:
-            self._add_metrics_section(doc, metrics_evaluation)
+            self._add_metrics_section(doc, metrics_evaluation, b)
 
         if transparency_outputs:
-            self._add_transparency_section(doc, transparency_outputs)
+            self._add_transparency_section(doc, transparency_outputs, b)
 
-        PDF.write(what=doc, where_to=output_path)
+        b.PDF.write(what=doc, where_to=output_path)
 
         logger.info("PDF report written to: %s", output_path)
         return output_path
 
-    def _add_cover_page(self, doc: Document) -> None:
+    def _add_cover_page(self, doc: Any, b: SimpleNamespace) -> None:
         """Add cover page with experiment info."""
-        page = Page()
+        page = b.Page()
         doc.append_page(page)
-        layout = SingleColumnLayout(page)
+        layout = b.SingleColumnLayout(page)
 
         layout.append_layout_element(
-            Paragraph(
+            b.Paragraph(
                 "RAITAP Transparency Report",
                 font_size=24,
                 font="Helvetica-Bold",
             )
         )
 
-        layout.append_layout_element(Paragraph(f"Experiment: {self.config.experiment_name}"))
+        layout.append_layout_element(b.Paragraph(f"Experiment: {self.config.experiment_name}"))
         layout.append_layout_element(
-            Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            b.Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         )
         layout.append_layout_element(
-            Paragraph(f"Model: {getattr(self.config.model, 'source', 'N/A')}")
+            b.Paragraph(f"Model: {getattr(self.config.model, 'source', 'N/A')}")
         )
-        layout.append_layout_element(Paragraph(f"Dataset: {self.config.data.name}"))
+        layout.append_layout_element(b.Paragraph(f"Dataset: {self.config.data.name}"))
 
-    def _add_metrics_section(self, doc: Document, metrics_eval: MetricsEvaluation) -> None:
+    def _add_metrics_section(
+        self, doc: Any, metrics_eval: MetricsEvaluation, b: SimpleNamespace
+    ) -> None:
         """Add metrics section with charts."""
-        page = Page()
+        page = b.Page()
         doc.append_page(page)
-        layout = SingleColumnLayout(page)
+        layout = b.SingleColumnLayout(page)
 
-        layout.append_layout_element(Paragraph("Metrics", font_size=20, font="Helvetica-Bold"))
+        layout.append_layout_element(b.Paragraph("Metrics", font_size=20, font="Helvetica-Bold"))
 
         table_data = [["Metric", "Value"]]
         for name, value in metrics_eval.result.metrics.items():
             table_data.append([str(name), f"{float(value):.4f}"])
 
-        table = FixedColumnWidthTable(
+        table = b.FixedColumnWidthTable(
             number_of_rows=len(table_data),
             number_of_columns=2,
         )
         for row in table_data:
             for cell in row:
-                table.append_layout_element(Paragraph(str(cell)))
+                table.append_layout_element(b.Paragraph(str(cell)))
 
         layout.append_layout_element(table)
 
@@ -213,18 +233,19 @@ class PDFReporter(BaseReporter):
             chart_h = min(300, int(max_h * 0.55))
             chart_w = min(450, max_w)
             for chart_name, fig in figures.items():
-                layout.append_layout_element(Paragraph(chart_name.replace("_", " ").title()))
+                layout.append_layout_element(b.Paragraph(chart_name.replace("_", " ").title()))
                 plt.figure(fig.number)
-                layout.append_layout_element(Chart(plt, size=(chart_w, chart_h)))
+                layout.append_layout_element(b.Chart(plt, size=(chart_w, chart_h)))
                 plt.close(fig)
         except Exception as e:
             logger.warning("Failed to generate metrics charts: %s", e)
-            layout.append_layout_element(Paragraph(f"(Chart generation failed: {e})"))
+            layout.append_layout_element(b.Paragraph(f"(Chart generation failed: {e})"))
 
     def _add_transparency_section(
         self,
-        doc: Document,
+        doc: Any,
         transparency_outputs: dict[str, ExplanationResult],
+        b: SimpleNamespace,
     ) -> None:
         """Add transparency visualisations in one flowing layout (multi-page as needed)."""
         reporting = self.config.reporting
@@ -238,15 +259,17 @@ class PDFReporter(BaseReporter):
             num_pngs=num_pngs,
         )
 
-        page = Page()
+        page = b.Page()
         doc.append_page(page)
-        layout = SingleColumnLayout(page)
+        layout = b.SingleColumnLayout(page)
 
-        layout.append_layout_element(Paragraph("Transparency", font_size=20, font="Helvetica-Bold"))
+        layout.append_layout_element(
+            b.Paragraph("Transparency", font_size=20, font="Helvetica-Bold")
+        )
 
         for explainer_name, result in transparency_outputs.items():
             layout.append_layout_element(
-                Paragraph(
+                b.Paragraph(
                     f"Explainer: {explainer_name}",
                     font_size=16,
                     font="Helvetica-Bold",
@@ -255,7 +278,7 @@ class PDFReporter(BaseReporter):
 
             viz_files = sorted(result.run_dir.glob("*.png"))
             if not viz_files:
-                layout.append_layout_element(Paragraph("(No visualizations found)"))
+                layout.append_layout_element(b.Paragraph("(No visualizations found)"))
                 continue
 
             for png_file in viz_files:
@@ -263,7 +286,7 @@ class PDFReporter(BaseReporter):
                     pil_image, display_pt = _prepare_raster_for_pdf(
                         png_file, max_w, max_h, reporting=reporting
                     )
-                    layout.append_layout_element(Image(pil_image, size=display_pt))
+                    layout.append_layout_element(b.Image(pil_image, size=display_pt))
                 except Exception as e:
                     logger.warning("Failed to add image %s: %s", png_file, e)
-                    layout.append_layout_element(Paragraph(f"(Failed to load: {png_file.name})"))
+                    layout.append_layout_element(b.Paragraph(f"(Failed to load: {png_file.name})"))
