@@ -89,7 +89,13 @@ class BaseExplainer(ABC):
         batch_size = self._pop_batch_size(attribution_kwargs)
         show_progress, progress_desc = self._pop_progress_settings(attribution_kwargs)
         if batch_size is None or inputs.shape[0] <= batch_size:
-            return self.compute_attributions(model, inputs, backend=backend, **attribution_kwargs)
+            attributions = self.compute_attributions(
+                model,
+                inputs,
+                backend=backend,
+                **attribution_kwargs,
+            )
+            return self._normalise_attributions(attributions)
 
         chunks: list[torch.Tensor] = []
         total_batch = int(inputs.shape[0])
@@ -111,7 +117,9 @@ class BaseExplainer(ABC):
                 backend=backend,
                 **batch_kwargs,
             )
-            chunks.append(chunk.detach().cpu())
+            # Normalise all attribution outputs to detached CPU tensors so batched and
+            # unbatched runs return the same device semantics and persist consistently.
+            chunks.append(self._normalise_attributions(chunk))
             del chunk, batch_inputs, batch_kwargs
             # Clean up memory after each batch to avoid OOM errors in long runs
             # (e.g. with SHAP partition explainer).
@@ -119,6 +127,11 @@ class BaseExplainer(ABC):
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
         return torch.cat(chunks, dim=0)
+
+    
+    @staticmethod
+    def _normalise_attributions(attributions: torch.Tensor) -> torch.Tensor:
+        return attributions.detach().cpu()
 
     def _pop_batch_size(self, attribution_kwargs: dict[str, Any]) -> int | None:
         batch_size: int | None = None
