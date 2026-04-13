@@ -36,6 +36,7 @@
         "ONNX",
         "pyproject",
         "RAITAP",
+        "Slurm",
         "toctree",
         "torchvision"
     ]

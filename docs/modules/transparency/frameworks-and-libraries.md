@@ -114,7 +114,7 @@ The following SHAP visualisers are compatible with all SHAP algorithms:
 - `GradientExplainer`
 - `DeepExplainer`
 
-#### ShapImageVisualiser configuration
+#### `ShapImageVisualiser` configuration
 
 `ShapImageVisualiser` uses a **custom Matplotlib-based implementation** rather than SHAP's native `image_plot`. This provides:
 
@@ -129,26 +129,26 @@ The visualiser renders pixel-level SHAP attributions as heatmaps with positive c
 
 Configure these via the `constructor` key when defining the visualiser:
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `max_samples` | `int` | `4` | Maximum number of images to display side by side |
-| `title` | `str \| None` | `None` | Optional attribution panel title (falls back to algorithm name) |
-| `include_original_image` | `bool` | `True` | Whether to render original image next to attribution heatmap |
-| `show_colorbar` | `bool` | `True` | Whether to add a SHAP colorbar in the paired layout |
-| `cmap` | `str` | `"coolwarm"` | Matplotlib colormap for the SHAP heatmap overlay |
-| `overlay_alpha` | `float` | `0.65` | Alpha value for the SHAP heatmap overlay |
+| Parameter                | Type          | Default      | Description                                                     |
+| ------------------------ | ------------- | ------------ | --------------------------------------------------------------- |
+| `max_samples`            | `int`         | `4`          | Maximum number of images to display side by side                |
+| `title`                  | `str \| None` | `None`       | Optional attribution panel title (falls back to algorithm name) |
+| `include_original_image` | `bool`        | `True`       | Whether to render original image next to attribution heatmap    |
+| `show_colorbar`          | `bool`        | `True`       | Whether to add a SHAP colorbar in the paired layout             |
+| `cmap`                   | `str`         | `"coolwarm"` | Matplotlib colormap for the SHAP heatmap overlay                |
+| `overlay_alpha`          | `float`       | `0.65`       | Alpha value for the SHAP heatmap overlay                        |
 
 ##### Call parameters
 
 Override these via the `call` key or at runtime:
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `max_samples` | `int \| None` | `None` | Runtime override for maximum samples to display |
-| `sample_names` | `list[str] \| None` | `None` | Optional names per sample |
-| `show_sample_names` | `bool` | `False` | Whether to render sample names in subplot titles |
-| `title` | `str \| None` | `None` | Runtime override for attribution title (even empty string preserved) |
-| `algorithm` | `str \| None` | `None` | Explainer algorithm name (used for default title rendering) |
+| Parameter           | Type                | Default | Description                                                          |
+| ------------------- | ------------------- | ------- | -------------------------------------------------------------------- |
+| `max_samples`       | `int \| None`       | `None`  | Runtime override for maximum samples to display                      |
+| `sample_names`      | `list[str] \| None` | `None`  | Optional names per sample                                            |
+| `show_sample_names` | `bool`              | `False` | Whether to render sample names in subplot titles                     |
+| `title`             | `str \| None`       | `None`  | Runtime override for attribution title (even empty string preserved) |
+| `algorithm`         | `str \| None`       | `None`  | Explainer algorithm name (used for default title rendering)          |
 
 ##### Configuration example
 
