@@ -37,6 +37,7 @@
         "pyproject",
         "RAITAP",
         "Slurm",
+        "Submitit",
         "toctree",
         "torchvision"
     ]

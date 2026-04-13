@@ -69,6 +69,8 @@ uv run raitap --config-name assessment "transparency.captum_saliency.visualisers
 raitap --config-name assessment "transparency.captum_saliency.visualisers=[{_target_: CaptumImageVisualiser, call: {show_sample_names: true}}]"
 ```
 
+(composing-yaml-files)=
+
 ### Composing YAML files
 
 Hydra allows you to compose multiple YAML files into a single configuration.

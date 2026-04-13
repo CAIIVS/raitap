@@ -2903,7 +2903,7 @@ dependencies = [
 captum = [
     { name = "captum" },
 ]
-cluster = [
+launcher = [
     { name = "hydra-submitit-launcher" },
 ]
 metrics = [
@@ -3010,7 +3010,7 @@ requires-dist = [
     { name = "captum", marker = "extra == 'captum'", specifier = ">=0.7.0" },
     { name = "faster-coco-eval", marker = "extra == 'metrics'", specifier = ">=1.6.3" },
     { name = "hydra-core", specifier = ">=1.3.2" },
-    { name = "hydra-submitit-launcher", marker = "extra == 'cluster'", specifier = ">=1.2.0" },
+    { name = "hydra-submitit-launcher", marker = "extra == 'launcher'", specifier = ">=1.2.0" },
     { name = "matplotlib", specifier = ">=3.9.0" },
     { name = "mlflow", marker = "extra == 'mlflow'", specifier = ">=3.9.0" },
     { name = "numpy", specifier = ">=2.4.2" },
@@ -3043,7 +3043,7 @@ requires-dist = [
     { name = "triton-xpu", marker = "python_full_version < '3.14' and extra == 'onnx-intel'", index = "https://download.pytorch.org/whl/xpu", conflict = { package = "raitap", extra = "onnx-intel" } },
     { name = "triton-xpu", marker = "python_full_version < '3.14' and extra == 'torch-intel'", index = "https://download.pytorch.org/whl/xpu", conflict = { package = "raitap", extra = "torch-intel" } },
 ]
-provides-extras = ["captum", "cluster", "metrics", "mlflow", "onnx-cpu", "onnx-cuda", "onnx-intel", "reporting", "shap", "torch-cpu", "torch-cuda", "torch-intel", "tracking", "transparency"]
+provides-extras = ["torch-cpu", "torch-cuda", "torch-intel", "onnx-cpu", "onnx-cuda", "onnx-intel", "shap", "captum", "transparency", "launcher", "mlflow", "tracking", "metrics", "reporting"]
 
 [package.metadata.requires-dev]
 dev = [

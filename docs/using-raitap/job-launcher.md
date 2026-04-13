@@ -1,9 +1,10 @@
-# Using job launcher (Slurm...)
+# Using job launchers (Slurm...)
 
 RAITAP supports launcher-based remote execution via [Hydra's Submitit plugin](https://hydra.cc/docs/plugins/submitit_launcher/).
+
 This is useful for Slurm-managed HPC clusters, shared GPU servers, and other environments where you want Hydra to submit or fan out jobs for you.
 
-## 0. Prerequisites
+## Prerequisites
 
 1. Install the `launcher` extra when setting up RAITAP:
 
@@ -19,14 +20,56 @@ This is useful for Slurm-managed HPC clusters, shared GPU servers, and other env
    - **Partition name** (e.g., `gpu`, `compute`)
    - **Account name** (required by most clusters for job accounting)
 
-## Quick usage: Running sweeps with CLI overrides
+(job-launcher-slurm-sweeps)=
 
-The simplest approach is to use Hydra's built-in `submitit_slurm` launcher and override parameters directly from the CLI:
+## Slurm sweeps
+
+Use Hydra's `submitit_slurm` launcher for multi-runs: each combination of config choices becomes a Slurm array task.
+
+### YAML example
+
+Compose the sweep, launcher selection, and Slurm resources in one experiment YAML. Use Hydra's `defaults` list to choose the dataset, transparency presets, and the `submitit_slurm` launcher; see {ref}`composing-yaml-files`. Submitit's Slurm resource fields live under `hydra.launcher`.
+
+```yaml
+# assessment.yaml
+defaults:
+  - _self_
+  - hydra/launcher: submitit_slurm # this is a preset from the plugin
+  - data: my_dataset
+  - transparency:
+      - captum_ig
+      - shap_gradient
+  # model, metrics, tracking, ... — see the configuration guides.
+
+hydra:
+    launcher:
+        partition: gpu
+        account: myproject
+        timeout_min: 240
+        cpus_per_task: 8
+        gpus_per_node: 1
+        mem_gb: 48
+        array_parallelism: 8
+    sweep:
+        dir: outputs/my_experiment/${now:%Y-%m-%d}/${now:%H-%M-%S} # see the output section lower on this page
+        subdir: ${hydra.job.num}
+```
 
 ```{install-tabs}
 :uv:
-uv run --extra launcher --extra torch-cuda --extra captum --extra shap python \
-  path/to/your_entrypoint.py \
+uv run raitap --multirun --config-name assessment
+
+:pip:
+raitap --multirun --config-name assessment
+```
+
+### CLI override example
+
+The same sweep and resource knobs expressed as overrides:
+
+```{install-tabs}
+:uv:
+uv run raitap \
   --multirun \
   hydra/launcher=submitit_slurm \
   transparency=captum_ig,shap_gradient \
@@ -40,7 +83,7 @@ uv run --extra launcher --extra torch-cuda --extra captum --extra shap python \
   hydra.launcher.array_parallelism=8
 
 :pip:
-python path/to/your_entrypoint.py \
+raitap \
   --multirun \
   hydra/launcher=submitit_slurm \
   transparency=captum_ig,shap_gradient \
@@ -54,29 +97,20 @@ python path/to/your_entrypoint.py \
   hydra.launcher.array_parallelism=8
 ```
 
-This approach works well when:
+YAML keeps Slurm settings next to the rest of the experiment under version control. CLI overrides are handy for one-off runs or quick resource adjustments.
 
-- You don't need to repeat the same launcher settings across multiple runs
-- You want to quickly test different resource configurations
-- Your remote execution setup changes between experiments
+(job-launcher-launcher-preset)=
 
-Hydra will:
+### Reusing the same launcher preset
 
-1. Create a Slurm job array with one job per configuration combination
-2. Submit up to `array_parallelism` jobs concurrently
-3. Store logs in `${hydra.sweep.dir}/.submitit/<job_id>/`
-
-## Advanced usage: Creating a reusable launcher configuration
-
-If you run sweeps frequently with the same resource settings, create a Hydra launcher preset.
-For example, create `configs/hydra/launcher/my_launcher.yaml`:
+If you run sweeps across several experiments on the same cluster, extract the `hydra.launcher.*` settings into a shared preset under `configs/hydra/launcher/` instead of repeating them in every experiment YAML.
 
 ```yaml
+# configs/hydra/launcher/my_launcher.yaml
 # @package hydra.launcher
 defaults:
   - submitit_slurm
 
-# Job resource defaults
 submitit_folder: ${hydra.sweep.dir}/.submitit/%j
 timeout_min: 240
 cpus_per_task: 8
@@ -85,35 +119,36 @@ tasks_per_node: 1
 mem_gb: 48
 nodes: 1
 name: ${hydra.job.name}
-
-# Scheduler-specific defaults (still override at runtime if needed)
 partition: gpu
 account: myproject
-
-# Optional parameters
 qos: null
 constraint: null
 gres: null
-
-# Array job parallelism
 array_parallelism: 8
 signal_delay_s: 120
 ```
 
-Then use it with shorter commands:
+Reference it in your experiment YAML in place of `submitit_slurm` and the inline `hydra.launcher.*` block:
+
+```yaml
+# assessment.yaml
+defaults:
+  - _self_
+  - hydra/launcher: my_launcher  # replaces submitit_slurm + inline hydra.launcher.*
+  - data: my_dataset
+  - transparency:
+      - captum_ig
+      - shap_gradient
+```
+
+The run command is unchanged:
 
 ```{install-tabs}
 :uv:
-uv run raitap --multirun \
-  hydra/launcher=my_launcher \
-  transparency=captum_ig,shap_gradient \
-  data=my_dataset
+uv run raitap --multirun --config-name assessment
 
 :pip:
-raitap --multirun \
-  hydra/launcher=my_launcher \
-  transparency=captum_ig,shap_gradient \
-  data=my_dataset
+raitap --multirun --config-name assessment
 ```
 
 ## Remote environment setup
@@ -138,51 +173,37 @@ module load python/3.13.2
 VENV=raitap-env module load uv/0.6.12
 ```
 
-**3. Sync dependencies:**
+**3. Add dependencies:**
+
+See {ref}`execution-dependencies` for the dependencies you need to add. Below is an example:
 
 ```bash
-uv sync --extra launcher --extra torch-cuda --extra captum --extra shap --extra metrics
+uv add "raitap[launcher,torch-cuda,captum,shap,metrics]"
 ```
 
 **4. Submit your multirun:**
 
-Use the command from the "Quick start" section above.
+```{install-tabs}
+:uv:
+uv run raitap --multirun --config-name assessment
 
-## Best practices for launcher-based execution
+:pip:
+raitap --multirun --config-name assessment
+```
+
+## Best practices
 
 **Resource management:**
+
 - Set `timeout_min` generously; some explainability methods (especially SHAP) can take quite a while
 - Adjust `mem_gb` based on your model size and batch configuration
 - Use `cpus_per_task` to match the number of dataloader workers
 - For single-GPU jobs, set `gpus_per_node=1`, `tasks_per_node=1`, `nodes=1`
 - Use `array_parallelism` to limit concurrent jobs (e.g., 8 for an 8-GPU node)
 
-**Data staging:**
-- For large datasets, consider copying data to fast local storage before processing
-- Many clusters provide job-local scratch space (e.g., `/scratch`, `/tmp`)
-- Use a custom entry point script to handle staging logic (see "Advanced" section)
-- Clean up temporary files after job completion
+## Output
 
-**Monitoring jobs:**
-```bash
-# Check job status
-squeue -u $USER
-
-# Check detailed job info
-scontrol show job <job-id>
-
-# Cancel a job
-scancel <job-id>
-
-# Cancel all your jobs
-scancel -u $USER
-
-# View job logs
-tail -f outputs/multirun/.../submitit/<job-id>/<job-id>_0_log.out
-```
-
-**Output organization:**
-Configure `hydra.sweep.dir` to organize outputs by experiment:
+Each job in the array writes its results under `hydra.sweep.dir`. Configure it in your experiment YAML to organize outputs by experiment:
 
 ```yaml
 hydra:
@@ -204,6 +225,34 @@ outputs/my_experiment/2026-04-13/14-30-00/
     ├── 12345_0_log.out
     ├── 12345_0_log.err
     └── 12345_submission.sh
+```
+
+## Useful Slurm advice
+
+The following tips apply to Slurm generally and are not specific to RAITAP.
+
+**Data staging:**
+
+- For large datasets, consider copying data to fast local storage before processing
+- Many clusters provide job-local scratch space (e.g., `/scratch`, `/tmp`)
+- Use a setup script in your Slurm job to handle staging logic
+- Clean up temporary files after job completion
+
+**Monitoring jobs:**
+
+```bash
+# Check job status
+squeue -u $USER
+
+# Check detailed job info
+scontrol show job <job-id>
+
+# Cancel a job / all your jobs
+scancel <job-id>
+scancel -u $USER
+
+# View job logs (Hydra writes these under the sweep dir)
+tail -f outputs/multirun/.../submitit/<job-id>/<job-id>_0_log.out
 ```
 
 For more details on Submitit configuration, see the [Hydra Submitit documentation](https://hydra.cc/docs/plugins/submitit_launcher/).
