@@ -128,7 +128,6 @@ class BaseExplainer(ABC):
                 torch.cuda.empty_cache()
         return torch.cat(chunks, dim=0)
 
-    
     @staticmethod
     def _normalise_attributions(attributions: torch.Tensor) -> torch.Tensor:
         return attributions.detach().cpu()
