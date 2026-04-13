@@ -97,8 +97,8 @@ shap = ["shap>=0.46.0"]
 captum = ["captum>=0.7.0"]
 transparency = ["raitap[shap,captum]"]
 
-# Cluster / launcher support
-cluster = ["hydra-submitit-launcher>=1.2.0"]
+# Job launcher / batch scheduler support
+launcher = ["hydra-submitit-launcher>=1.2.0"]
 
 # Tracking module
 mlflow = ["mlflow>=3.9.0"]

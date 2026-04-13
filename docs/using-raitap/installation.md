@@ -77,8 +77,8 @@ Of course, such optional dependency groups can be combined. For instance:
 
 ```{install-tabs}
 :uv:
-uv add "raitap[onnx-cpu,transparency]"
+uv add "raitap[onnx-cpu,transparency,launcher]"
 
 :pip:
-pip install "raitap[onnx-cpu,transparency]"
+pip install "raitap[onnx-cpu,transparency,launcher]"
 ```
