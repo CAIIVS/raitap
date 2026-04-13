@@ -1,6 +1,6 @@
 > [!WARNING]
 >
-> The title must follow the Conventional Commits standard and **mark breaking changes**. Our release process depends on it.
+> The title must follow the [Conventional Commits standard](https://caiivs.github.io/raitap/contributor/pull-requests.html) and **mark breaking changes**. Our release process depends on it.
 > Delete this callout once the title complies.
 
 ## Summary
