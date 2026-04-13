@@ -47,6 +47,10 @@ class BaseExplainer(ABC):
         visualisers: list[ConfiguredVisualiser] | None = None,
         **kwargs: Any,
     ) -> ExplanationResult:
+        """
+        Compute attributions (via :meth:`compute_attributions`), build an
+        ``ExplanationResult``, write artifacts, and return it.
+        """
         visualisers_list: list[ConfiguredVisualiser] = [] if visualisers is None else visualisers
         metadata_kwargs = dict(kwargs)
         attribution_kwargs = {
@@ -213,10 +217,10 @@ class BaseExplainer(ABC):
         Compute attributions for the given inputs.
 
         Args:
-            model:   PyTorch model to explain.
-            inputs:  Input tensor (shape depends on modality).
-            **kwargs: Framework-specific keyword arguments
-                      (e.g. ``target``, ``baselines``, ``background_data``).
+            model: PyTorch model to explain.
+            inputs: Input tensor (shape depends on modality).
+            **kwargs: Framework-specific keyword arguments (e.g. ``target``,
+                ``baselines``, ``background_data``).
 
         Returns:
             Attribution tensor matching the input shape.

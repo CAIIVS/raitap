@@ -37,7 +37,8 @@ class ExplainerAdapter(Protocol):
     """
     Hydra explainer: ``explain`` matches ``BaseExplainer``.
 
-    Read ``output_payload_kind`` via :func:`explainer_output_kind` (not via Protocol fields).
+    Read ``output_payload_kind`` via :func:`raitap.transparency.contracts.explainer_output_kind`
+    (not via Protocol fields).
     """
 
     output_payload_kind: ClassVar[ExplanationPayloadKind]

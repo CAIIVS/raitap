@@ -237,8 +237,8 @@ def load_numpy_from_source(source: str, n_samples: int | None = None) -> np.ndar
     Load data as a NumPy array using the same resolution rules as :func:`load_tensor_from_source`.
 
     For file-based sources (local paths and URLs), no intermediate torch tensor is allocated.
-    Demo sample sources (``SAMPLE_SOURCES``) fall back to :func:`_load_sample` which uses torch
-    internally; all other paths are torch-free.
+    Demo sample sources (``SAMPLE_SOURCES``) use ``raitap.data.samples._load_sample`` (torch-based);
+    all other paths are torch-free.
     """
     if source in SAMPLE_SOURCES:
         arr: np.ndarray[Any, Any] = _load_sample(source).numpy()
