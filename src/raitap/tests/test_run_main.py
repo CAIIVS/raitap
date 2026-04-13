@@ -519,3 +519,32 @@ def test_run_without_tracking_passes_sample_names_to_explanation(monkeypatch: Mo
     run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
     assert captured_kwargs["sample_names"] == ["isic_1", "isic_2"]
+
+
+def test_run_without_tracking_resolves_auto_pred_target(monkeypatch: MonkeyPatch) -> None:
+    class _Net(torch.nn.Module):
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            del x
+            return torch.tensor([[0.1, 0.9, 0.0], [0.8, 0.1, 0.1]])
+
+    model = SimpleNamespace(backend=_BackendStub(_Net()))
+    data = SimpleNamespace(tensor=torch.randn(2, 4), sample_ids=None)
+    explanation = _FakeExplainerResult("exp")
+    captured_kwargs: dict[str, object] = {}
+
+    def _fake_explanation(*_args: object, **kwargs: object) -> _FakeExplainerResult:
+        captured_kwargs.update(kwargs)
+        return explanation
+
+    config = SimpleNamespace(
+        transparency={"one": {"call": {"target": "auto_pred"}}},
+        metrics=SimpleNamespace(num_classes=None),
+    )
+    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr(run_pipeline, "Explanation", _fake_explanation)
+
+    run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
+
+    target = captured_kwargs["target"]
+    assert isinstance(target, torch.Tensor)
+    assert torch.equal(target, torch.tensor([1, 0]))
