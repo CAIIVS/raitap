@@ -184,4 +184,3 @@ transparency:
 ```
 
 **Note:** `ShapImageVisualiser` requires pixel-level SHAP values from `GradientExplainer` or `DeepExplainer`. Using it with other SHAP explainers will produce meaningless plots.
-
