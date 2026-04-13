@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -256,7 +256,9 @@ class ShapImageVisualiser(BaseVisualiser):
     Red pixels increase the prediction; blue pixels decrease it.
     """
 
-    compatible_algorithms: frozenset[str] = frozenset({"GradientExplainer", "DeepExplainer"})
+    compatible_algorithms: ClassVar[frozenset[str]] = frozenset(
+        {"GradientExplainer", "DeepExplainer"}
+    )
 
     def __init__(self, max_samples: int = 4):
         """

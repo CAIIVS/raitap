@@ -34,7 +34,7 @@ class BaseVisualiser(ABC):
         included.
     """
 
-    compatible_algorithms: frozenset[str] = frozenset()
+    compatible_algorithms: ClassVar[frozenset[str]] = frozenset()
     supported_payload_kinds: ClassVar[frozenset[ExplanationPayloadKind]] = frozenset(
         {ExplanationPayloadKind.ATTRIBUTIONS}
     )
