@@ -145,6 +145,21 @@ class OnnxBackend(ModelBackend):
         session = ort.InferenceSession(str(path), providers=providers)
         return cls(session, providers=providers, model_path=path)
 
+    def forward_numpy(self, batch: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Run inference on a NumPy batch (no Torch required on the hot path)."""
+        expected_dtype = _NUMPY_DTYPES_BY_ONNX_TYPE.get(self.input_type)
+        input_array = batch
+        if expected_dtype is not None and input_array.dtype != expected_dtype:
+            input_array = input_array.astype(expected_dtype, copy=False)
+        output_names: list[str] | None = self.output_names or None
+        outputs = self.session.run(output_names, {self.input_name: input_array})
+        np_outputs = [np.asarray(output) for output in outputs]
+        if not np_outputs:
+            raise ValueError("ONNX Runtime returned no outputs.")
+        if len(np_outputs) == 1:
+            return np_outputs[0]
+        return self._select_primary_numpy_output(np_outputs)
+
     def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
         if not isinstance(inputs, torch.Tensor):
             raise TypeError(
@@ -152,14 +167,8 @@ class OnnxBackend(ModelBackend):
             )
 
         input_array = self._tensor_to_numpy(inputs)
-        output_names: list[str] | None = self.output_names or None
-        outputs = self.session.run(output_names, {self.input_name: input_array})
-        tensor_outputs = [torch.from_numpy(np.asarray(output)) for output in outputs]
-        if not tensor_outputs:
-            raise ValueError("ONNX Runtime returned no outputs.")
-        if len(tensor_outputs) == 1:
-            return tensor_outputs[0]
-        return self._select_primary_output(tensor_outputs)
+        primary = self.forward_numpy(input_array)
+        return torch.from_numpy(np.asarray(primary))
 
     def as_model_for_explanation(self) -> nn.Module:
         return self._explanation_module
@@ -179,6 +188,13 @@ class OnnxBackend(ModelBackend):
             if tensor.ndim >= 2:
                 return tensor
         return max(outputs, key=lambda tensor: tensor.numel())
+
+    @staticmethod
+    def _select_primary_numpy_output(outputs: list[np.ndarray[Any, Any]]) -> np.ndarray[Any, Any]:
+        for arr in outputs:
+            if arr.ndim >= 2:
+                return arr
+        return max(outputs, key=lambda arr: arr.size)
 
 
 def _move_tensors_to_device(value: Any, device: torch.device) -> Any:

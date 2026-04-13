@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
 import torch
 import torch.nn as nn
@@ -173,6 +174,17 @@ class TestLoadModelFromPath:
         outputs = Model(cfg).backend(torch.randn(2, 4))
         assert isinstance(outputs, torch.Tensor)
         assert outputs.shape == (2, 2)
+
+    def test_onnx_forward_numpy_matches_call(self, saved_onnx: Path) -> None:
+        pytest.importorskip("onnx")
+        pytest.importorskip("onnxruntime")
+        backend = OnnxBackend.from_path(saved_onnx, hardware="cpu")
+        x_np = np.random.randn(3, 4).astype(np.float32)
+        tensor_out = backend(torch.from_numpy(x_np))
+        numpy_out = backend.forward_numpy(x_np)
+        np.testing.assert_allclose(
+            tensor_out.detach().cpu().numpy(), numpy_out, rtol=1e-5, atol=1e-6
+        )
 
     def test_invalid_hardware_raises_value_error(self, saved_pth: Path) -> None:
         cfg = _make_config(str(saved_pth), hardware="tpu")

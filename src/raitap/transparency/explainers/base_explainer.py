@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
 
 from raitap.configs import resolve_run_dir
 
+from ..contracts import ExplanationPayloadKind
 from ..results import ConfiguredVisualiser, ExplanationResult
 
 _VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
@@ -22,6 +23,8 @@ class BaseExplainer(ABC):
     """
     Abstract base class for all explainer adapters.
     """
+
+    output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
 
     def __init__(self):
         self.attributions: torch.Tensor | None = None
@@ -74,6 +77,7 @@ class BaseExplainer(ABC):
             explainer_name=explainer_name,
             kwargs=metadata_kwargs,
             visualisers=visualisers_list,
+            payload_kind=self.output_payload_kind,
         )
         explanation.write_artifacts()
         return explanation

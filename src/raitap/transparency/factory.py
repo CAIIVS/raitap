@@ -11,7 +11,8 @@ from raitap.configs import cfg_to_dict, resolve_run_dir, resolve_target
 from raitap.data import load_tensor_from_source
 
 from .algorithm_allowlist import ensure_algorithm_in_allowlist
-from .exceptions import VisualiserIncompatibilityError
+from .contracts import ExplainerAdapter, explainer_output_kind
+from .exceptions import PayloadVisualiserIncompatibilityError, VisualiserIncompatibilityError
 from .results import ConfiguredVisualiser
 
 if TYPE_CHECKING:
@@ -20,11 +21,12 @@ if TYPE_CHECKING:
     from raitap.models import Model
 
     from ..configs.schema import AppConfig
-    from .explainers.base_explainer import BaseExplainer
     from .results import ExplanationResult
 
 _TRANSPARENCY_PREFIX = "raitap.transparency."
 logger = logging.getLogger(__name__)
+
+_ALIBI_BSL_WARNING_EMITTED = False
 
 _EXPLAINER_TOP_LEVEL_KEYS = frozenset(
     {"_target_", "algorithm", "visualisers", "constructor", "call"},
@@ -160,6 +162,45 @@ def _require_model_backend(model: object) -> Any:
     return backend
 
 
+def _maybe_emit_third_party_license_warnings(explainer: object) -> None:
+    """
+    Emit one-time warnings for explainers that bundle non-GPL third-party license terms.
+    """
+    global _ALIBI_BSL_WARNING_EMITTED
+    if not getattr(type(explainer), "ALIBI_BSL_LICENSE_WARNING", False):
+        return
+    if _ALIBI_BSL_WARNING_EMITTED:
+        return
+    _ALIBI_BSL_WARNING_EMITTED = True
+    logger.warning(
+        "This run uses Alibi Explain, which is licensed under Seldon's Business Source "
+        "License 1.1 (BSL 1.1), not GPLv3. Non-production use is allowed on Seldon's terms; "
+        "production or commercial use may require a separate license from Seldon. "
+        "See https://github.com/SeldonIO/alibi/blob/master/LICENSE and Seldon's licensing FAQ. "
+        "RAITAP (GPLv3) does not relicense Alibi."
+    )
+
+
+def check_explainer_visualiser_payload_compat(
+    explainer: object,
+    explainer_target: str,
+    visualisers: list[ConfiguredVisualiser],
+) -> None:
+    kind = explainer_output_kind(explainer)
+    for configured in visualisers:
+        visualiser = configured.visualiser
+        supported = getattr(type(visualiser), "supported_payload_kinds", frozenset())
+        if len(supported) == 0:
+            continue
+        if kind not in supported:
+            raise PayloadVisualiserIncompatibilityError(
+                explainer_target=explainer_target,
+                visualiser=type(visualiser).__name__,
+                output_payload_kind=kind.value,
+                supported_payload_kinds=[k.value for k in sorted(supported, key=lambda x: x.value)],
+            )
+
+
 class Explanation:
     def __new__(
         cls,
@@ -173,8 +214,10 @@ class Explanation:
         raw_transparency_config = _raw_transparency_config(explainer_config)
         algorithm = str(raw_transparency_config.get("algorithm", ""))
         explainer, explainer_target = create_explainer(explainer_config)
+        _maybe_emit_third_party_license_warnings(explainer)
         visualisers = create_visualisers(explainer_config)
         check_explainer_visualiser_compat(explainer_target, algorithm, visualisers)
+        check_explainer_visualiser_payload_compat(explainer, explainer_target, visualisers)
         backend = _require_model_backend(model)
         explainer.check_backend_compat(backend)
 
@@ -195,7 +238,7 @@ class Explanation:
         )
 
 
-def create_explainer(explainer_config: Any) -> tuple[BaseExplainer, str]:
+def create_explainer(explainer_config: Any) -> tuple[ExplainerAdapter, str]:
     raw_transparency_config = _raw_transparency_config(explainer_config)
     _validate_explainer_top_level_keys(raw_transparency_config)
 
@@ -217,8 +260,14 @@ def create_explainer(explainer_config: Any) -> tuple[BaseExplainer, str]:
         logger.exception("Explainer instantiation failed for target %r", target_path)
         raise ValueError(
             f"Could not instantiate explainer {target_path!r}.\n"
-            "Check that _target_ points to a valid BaseExplainer subclass."
+            "Check that _target_ points to a valid ExplainerAdapter implementation "
+            "(e.g. BaseExplainer or CustomExplainer subclass)."
         ) from error
+
+    if not callable(getattr(explainer, "explain", None)):
+        raise ValueError(
+            f"Instantiated explainer {target_path!r} has no callable explain() method."
+        )
 
     return explainer, resolved_target
 

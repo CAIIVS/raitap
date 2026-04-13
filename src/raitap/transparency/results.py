@@ -13,6 +13,8 @@ import torch
 
 from raitap.utils.serialization import to_json_serialisable
 
+from .contracts import ExplanationPayloadKind
+
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
@@ -72,13 +74,23 @@ class ExplanationResult:
     kwargs: dict[str, Any] = field(default_factory=dict)
     visualiser_targets: list[str] = field(default_factory=list)
     visualisers: list[ConfiguredVisualiser] = field(default_factory=list, repr=False)
+    payload_kind: ExplanationPayloadKind = ExplanationPayloadKind.ATTRIBUTIONS
 
     def __post_init__(self) -> None:
         self.run_dir = Path(self.run_dir)
 
     def write_artifacts(self) -> None:
         self.run_dir.mkdir(parents=True, exist_ok=True)
-        torch.save(self.attributions, self.run_dir / "attributions.pt")
+        if self.payload_kind == ExplanationPayloadKind.ATTRIBUTIONS:
+            torch.save(self.attributions, self.run_dir / "attributions.pt")
+        elif self.payload_kind == ExplanationPayloadKind.STRUCTURED:
+            raise NotImplementedError(
+                "Persistence for ExplanationPayloadKind.STRUCTURED is not implemented yet."
+            )
+        else:
+            raise NotImplementedError(
+                f"Persistence for payload kind {self.payload_kind!r} is not implemented yet."
+            )
         self._write_metadata()
 
     def _metadata(self, *, visualiser_targets: list[str] | None = None) -> dict[str, Any]:
@@ -88,6 +100,7 @@ class ExplanationResult:
             "target": self.explainer_target,
             "algorithm": self.algorithm,
             "visualisers": targets,
+            "payload_kind": self.payload_kind.value,
             "kwargs": {key: _serialisable(value) for key, value in self.kwargs.items()},
         }
 

@@ -22,6 +22,29 @@ class VisualiserIncompatibilityError(Exception):
         )
 
 
+class PayloadVisualiserIncompatibilityError(Exception):
+    """Raised when a visualiser does not accept the explainer's output payload kind."""
+
+    def __init__(
+        self,
+        *,
+        explainer_target: str,
+        visualiser: str,
+        output_payload_kind: str,
+        supported_payload_kinds: list[str],
+    ) -> None:
+        self.explainer_target = explainer_target
+        self.visualiser = visualiser
+        self.output_payload_kind = output_payload_kind
+        self.supported_payload_kinds = supported_payload_kinds
+        supported = ", ".join(supported_payload_kinds) if supported_payload_kinds else "none"
+        super().__init__(
+            f"Visualiser {visualiser!r} does not support explainer payload kind "
+            f"{output_payload_kind!r} (from {explainer_target}). "
+            f"That visualiser's supported_payload_kinds are: {supported}."
+        )
+
+
 class ExplainerBackendIncompatibilityError(Exception):
     """Raised when an explainer algorithm is not supported by the selected backend."""
 

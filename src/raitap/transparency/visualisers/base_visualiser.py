@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import matplotlib.pyplot as plt
+
+from raitap.transparency.contracts import ExplanationPayloadKind
 
 if TYPE_CHECKING:
     import torch
@@ -20,14 +22,22 @@ class BaseVisualiser(ABC):
     visualisers ONLY handle visualization - they do NOT compute attributions.
     Attribution computation is handled by separate Explainer classes.
 
-    Class attribute
-    ---------------
+    Class attributes
+    ----------------
     compatible_algorithms:
         Frozenset of algorithm names this visualiser supports.
         An empty frozenset (the default) means *compatible with all algorithms*.
+    supported_payload_kinds:
+        Frozenset of :class:`~raitap.transparency.contracts.ExplanationPayloadKind` values this
+        visualiser can render. An **empty** frozenset means *compatible with all payload kinds*
+        (wildcard). A non-empty frozenset requires the explainer's ``output_payload_kind`` to be
+        included.
     """
 
     compatible_algorithms: frozenset[str] = frozenset()
+    supported_payload_kinds: ClassVar[frozenset[ExplanationPayloadKind]] = frozenset(
+        {ExplanationPayloadKind.ATTRIBUTIONS}
+    )
 
     @abstractmethod
     def visualise(

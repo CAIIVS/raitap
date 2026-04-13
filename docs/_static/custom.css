@@ -53,8 +53,47 @@ h3 {
   margin-top: 1.2rem;
 }
 
+h4 {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+/* Furo puts the whole nav in .sidebar-scroll with overflow:auto. Absolute bottom:0 inside that
+   box is tied to the full scroll height, so the bar can land in the middle of the viewport while
+   scrolling. Only the TOC scrolls here; the repo row stays a normal flex item at the bottom. */
 .sidebar-scroll {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  flex-shrink: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.raitap-sidebar-toc-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  scroll-behavior: smooth;
   scrollbar-gutter: stable;
+  scrollbar-color: var(--color-foreground-border) transparent;
+  scrollbar-width: thin;
+}
+
+.sidebar-tree.raitap-sidebar-repo {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding: 1rem var(--sidebar-item-spacing-horizontal) var(--sidebar-item-spacing-vertical);
+  border-top: 1px solid var(--color-sidebar-item-background--hover);
+  background-color: var(--color-sidebar-background);
+}
+
+.raitap-sidebar-repo .reference.external {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .sd-container-fluid {

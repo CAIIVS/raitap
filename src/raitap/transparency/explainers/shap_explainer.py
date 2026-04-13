@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import torch
 import torch.nn as nn
 
 from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
+from raitap.transparency.contracts import ExplanationPayloadKind
 from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
 
 from .base_explainer import BaseExplainer
@@ -25,6 +26,8 @@ class ShapExplainer(BaseExplainer):
 
     Uses dynamic explainer loading - no need for class-per-explainer.
     """
+
+    output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
 
     ONNX_COMPATIBLE_ALGORITHMS: frozenset[str] = frozenset({"KernelExplainer"})
 

@@ -297,7 +297,15 @@ def _assert_metadata_invariants(
     case: MatrixCase,
     has_visualisers: bool,
 ) -> None:
-    assert set(metadata) == {"experiment_name", "target", "algorithm", "visualisers", "kwargs"}
+    assert set(metadata) == {
+        "experiment_name",
+        "target",
+        "algorithm",
+        "visualisers",
+        "kwargs",
+        "payload_kind",
+    }
+    assert metadata["payload_kind"] == "attributions"
     assert metadata["experiment_name"] == case.experiment_name
     assert metadata["algorithm"] == case.algorithm
     assert str(metadata["target"]).endswith(_framework_target_suffix(case))

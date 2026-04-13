@@ -35,6 +35,12 @@ def needs_shap() -> None:
 
 
 @pytest.fixture
+def needs_alibi() -> None:
+    """Skip the test if alibi is not installed."""
+    pytest.importorskip("alibi")
+
+
+@pytest.fixture
 def needs_onnx() -> None:
     """Skip the test if ONNX dependencies are not installed."""
     pytest.importorskip("onnx")
@@ -45,6 +51,14 @@ def needs_onnx() -> None:
 def isolate_transparency_test_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep fallback transparency artifacts inside pytest's temporary directory."""
     monkeypatch.chdir(tmp_path)
+
+
+@pytest.fixture(autouse=True)
+def reset_alibi_bsl_warning_flag() -> None:
+    """So license warning tests see a fresh one-time flag each test."""
+    from raitap.transparency import factory as transparency_factory
+
+    transparency_factory._ALIBI_BSL_WARNING_EMITTED = False
 
 
 # ---------------------------------------------------------------------------

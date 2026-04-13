@@ -71,6 +71,10 @@ uv add "raitap[captum]"
 pip install "raitap[captum]"
 ```
 
+:::{note}
+**Alibi** requires dependency overrides before it can be installed. See {ref}`Alibi (transparency) <alibi-frameworks>` for the exact steps.
+:::
+
 ### Combine multiple extras
 
 Of course, such optional dependency groups can be combined. For instance:

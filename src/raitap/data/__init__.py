@@ -6,9 +6,10 @@ Data module, handles:
 - hosting a list of demo samples
 """
 
-from .data import Data, load_tensor_from_source
+from .data import Data, load_numpy_from_source, load_tensor_from_source
 
 __all__ = [
     "Data",
+    "load_numpy_from_source",
     "load_tensor_from_source",
 ]
