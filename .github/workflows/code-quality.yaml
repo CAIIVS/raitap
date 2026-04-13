@@ -24,7 +24,7 @@ jobs:
 
       - name: Paths filter
         id: filter
-        if: github.event_name != "workflow_dispatch"
+        if: github.event_name != 'workflow_dispatch'
         uses: dorny/paths-filter@v3
         with:
           filters: |
@@ -49,7 +49,7 @@ jobs:
   detect_pr_context:
     name: Detect PR Context
     needs: changes
-    if: needs.changes.outputs.python == "true"
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     outputs:
       has_open_pr: ${{ steps.detect.outputs.has_open_pr }}
@@ -82,7 +82,7 @@ jobs:
   quality-gate-linux-cpu:
     name: Quality Gate (Linux CPU)
     needs: changes
-    if: needs.changes.outputs.python == "true"
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
 
     steps:
