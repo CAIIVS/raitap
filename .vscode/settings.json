@@ -12,7 +12,8 @@
         "misc",
         "config",
         "model",
-        "data"
+        "data",
+        "reporting",
     ],
     "python.testing.pytestArgs": [
         "src"
