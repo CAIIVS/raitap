@@ -18,7 +18,7 @@ from raitap.configs import resolve_run_dir
 
 from ..contracts import ExplanationPayloadKind
 from ..results import ConfiguredVisualiser, ExplanationResult
-from .custom_explainer import CustomExplainer
+from .full_explainer import FullExplainer
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -62,7 +62,7 @@ def _alibi_kernel_shap_shap050_multiclass_patch() -> Iterator[None]:
         kernel_cls._build_explanation = original_build  # type: ignore[method-assign]
 
 
-class AlibiExplainer(CustomExplainer):
+class AlibiExplainer(FullExplainer):
     """
     Wraps selected Alibi Explain algorithms.
 

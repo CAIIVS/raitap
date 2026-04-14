@@ -33,7 +33,8 @@ class DataConfig:
 
 @dataclass
 class TransparencyConfig:
-    # Hydra _target_: points to an ExplainerAdapter (e.g. BaseExplainer or CustomExplainer subclass)
+    # Hydra _target_: points to an ExplainerAdapter
+    # (e.g. AttributionOnlyExplainer or FullExplainer subclass)
     # Overridden by the transparency config-group YAML (transparency=captum / shap).
     _target_: str = "CaptumExplainer"
     algorithm: str = "IntegratedGradients"

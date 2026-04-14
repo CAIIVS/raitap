@@ -31,7 +31,14 @@ from .exceptions import (
 )
 
 # Explainer classes — public _target_ surface
-from .explainers import AlibiExplainer, CaptumExplainer, CustomExplainer, ShapExplainer
+from .explainers import (
+    AbstractExplainer,
+    AlibiExplainer,
+    AttributionOnlyExplainer,
+    CaptumExplainer,
+    FullExplainer,
+    ShapExplainer,
+)
 from .factory import (
     Explanation,
     check_explainer_visualiser_compat,
@@ -59,7 +66,9 @@ __all__ = [  # noqa: RUF022
     # Explainer adapters
     "AlibiExplainer",
     "CaptumExplainer",
-    "CustomExplainer",
+    "AbstractExplainer",
+    "AttributionOnlyExplainer",
+    "FullExplainer",
     "ShapExplainer",
     # Result objects
     "ConfiguredVisualiser",

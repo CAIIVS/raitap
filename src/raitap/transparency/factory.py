@@ -260,7 +260,7 @@ def create_explainer(explainer_config: Any) -> tuple[ExplainerAdapter, str]:
         raise ValueError(
             f"Could not instantiate explainer {target_path!r}.\n"
             "Check that _target_ points to a valid ExplainerAdapter implementation "
-            "(e.g. BaseExplainer or CustomExplainer subclass)."
+            "(e.g. AttributionOnlyExplainer or FullExplainer subclass)."
         ) from error
 
     if not callable(getattr(explainer, "explain", None)):

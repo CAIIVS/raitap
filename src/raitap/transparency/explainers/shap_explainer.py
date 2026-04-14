@@ -12,7 +12,7 @@ from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlis
 from raitap.transparency.contracts import ExplanationPayloadKind
 from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
 
-from .base_explainer import BaseExplainer
+from .base_explainer import AttributionOnlyExplainer
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -65,7 +65,7 @@ def _select_target_attributions(
     return shap_values[batch_indices, ..., target_tensor]
 
 
-class ShapExplainer(BaseExplainer):
+class ShapExplainer(AttributionOnlyExplainer):
     """
     Single wrapper for ALL SHAP explainer types.
 

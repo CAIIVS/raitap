@@ -9,7 +9,7 @@ import torch
 
 from raitap.configs import resolve_run_dir, set_output_root
 from raitap.configs.schema import AppConfig
-from raitap.transparency.explainers.base_explainer import BaseExplainer
+from raitap.transparency.explainers.base_explainer import AttributionOnlyExplainer
 from raitap.transparency.results import (
     ConfiguredVisualiser,
     ExplanationResult,
@@ -36,7 +36,7 @@ def _make_explanation(run_dir: Path, *, explainer_name: str | None = "exp") -> E
     )
 
 
-class _IdentityExplainer(BaseExplainer):
+class _IdentityExplainer(AttributionOnlyExplainer):
     def compute_attributions(
         self,
         model: torch.nn.Module,

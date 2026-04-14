@@ -1,4 +1,4 @@
-"""Base class for attribution computation (framework-agnostic interface)"""
+"""Explainer base classes for the RAITAP transparency module."""
 
 from __future__ import annotations
 
@@ -20,19 +20,37 @@ _PROGRESS_TOGGLE_KWARG = "show_progress"
 _PROGRESS_DESC_KWARG = "progress_desc"
 
 
-class BaseExplainer(ABC):
+class AbstractExplainer:
     """
-    Abstract base class for all explainer adapters.
+    Root base class for all explainer adapters.
+
+    Owns the shared interface: ``output_payload_kind`` class variable (default
+    :attr:`~raitap.transparency.contracts.ExplanationPayloadKind.ATTRIBUTIONS`) and
+    the ``check_backend_compat`` no-op default.
+
+    Extend via :class:`AttributionOnlyExplainer` when the framework should manage the
+    full ``explain`` pipeline and you only need to implement ``compute_attributions``,
+    or via :class:`FullExplainer` when you own the entire ``explain`` pipeline yourself.
     """
 
     output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
 
-    def __init__(self):
-        self.attributions: torch.Tensor | None = None
-
     def check_backend_compat(self, backend: object) -> None:
         del backend
         return None
+
+
+class AttributionOnlyExplainer(AbstractExplainer, ABC):
+    """
+    Explainer where you implement one step and the framework handles the rest.
+
+    Subclasses implement :meth:`compute_attributions` only; batching, normalisation,
+    result construction, and artifact persistence are provided by this class via
+    :meth:`explain`.
+    """
+
+    def __init__(self) -> None:
+        self.attributions: torch.Tensor | None = None
 
     def explain(
         self,
