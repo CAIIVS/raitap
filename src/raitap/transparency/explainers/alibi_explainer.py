@@ -7,6 +7,8 @@ Alibi Explain is licensed under Seldon's BSL 1.1 (not GPLv3). See installation a
 from __future__ import annotations
 
 import importlib.util
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -20,6 +22,42 @@ from ..results import ConfiguredVisualiser, ExplanationResult
 from .custom_explainer import CustomExplainer
 
 _VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
+
+
+@contextmanager
+def _alibi_kernel_shap_shap050_multiclass_patch() -> Iterator[None]:
+    """
+    SHAP 0.5x may return one array of shape (N, F, C) for multi-class Kernel SHAP.
+    Alibi 0.9.x expects a list of (N, F) arrays and otherwise crashes in rank_by_importance.
+    """
+    from alibi.explainers import shap_wrappers as shap_wrappers_module
+
+    kernel_cls = shap_wrappers_module.KernelShap
+    original_build = kernel_cls._build_explanation
+
+    def patched_build(
+        self: Any,
+        X: Any,
+        shap_values: list[np.ndarray],
+        expected_value: Any,
+        **kwargs: Any,
+    ) -> Any:
+        if (
+            len(shap_values) == 1
+            and isinstance(shap_values[0], np.ndarray)
+            and shap_values[0].ndim == 3
+        ):
+            stacked = shap_values[0]
+            shap_values = [
+                np.ascontiguousarray(stacked[..., idx]) for idx in range(int(stacked.shape[-1]))
+            ]
+        return original_build(self, X, shap_values, expected_value, **kwargs)
+
+    kernel_cls._build_explanation = patched_build  # type: ignore[method-assign]
+    try:
+        yield
+    finally:
+        kernel_cls._build_explanation = original_build  # type: ignore[method-assign]
 
 
 class AlibiExplainer(CustomExplainer):
@@ -132,7 +170,8 @@ class AlibiExplainer(CustomExplainer):
         explain_extra: dict[str, Any] = {}
         if "target" in kwargs:
             explain_extra["target"] = kwargs["target"]
-        explanation = ks.explain(x, nsamples=nsamples, **explain_extra)
+        with _alibi_kernel_shap_shap050_multiclass_patch():
+            explanation = ks.explain(x, nsamples=nsamples, **explain_extra)
         raw = explanation.shap_values
         return torch.as_tensor(
             self._normalise_shap_array(raw, inputs.shape, kwargs.get("target")),

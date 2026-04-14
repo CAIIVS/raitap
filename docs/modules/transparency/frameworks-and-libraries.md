@@ -193,6 +193,8 @@ transparency:
 
 - [Alibi Explain](https://docs.seldon.io/projects/alibi/en/stable/overview/high_level.html)
 
+(alibi-install-overrides)=
+
 #### Installation and license
 
 :::{warning}
@@ -207,23 +209,32 @@ transparency:
 | `Pillow<11.0`       | `pillow>=10.0.0` (currently 12.x) |
 | `scikit-image<0.23` | (currently 0.26)                  |
 
-The `alibi` extra is provided, but you must add the following **overrides to your own `pyproject.toml`** so uv ignores alibi’s upper bounds:
+Independently, Alibi’s **spaCy** dependency can resolve to **thinc** / **blis** versions that lack **Python 3.13** wheels and fall back to **sdist** builds (often failing). The `alibi` extra is supported, but you must add **`[tool.uv]` overrides** in your own **`pyproject.toml`** — use the same entries as RAITAP’s `pyproject.toml`:
 
 ```toml
-[tool.uv.override-dependencies]
-numpy = ["numpy>=2.4"]
-Pillow = ["Pillow>=12.0"]
-scikit-image = ["scikit-image>=0.26"]
+[tool.uv]
+override-dependencies = [
+  "numpy>=2.4",
+  "Pillow>=12.0",
+  "scikit-image>=0.26",
+  "blis>=1.0.2",
+  "thinc>=8.3.6,<9",
+  "spacy>=3.8.0",
+]
 ```
 
-Then install normally:
+Then install with **uv** (recommended):
 
 ```sh
 uv add "raitap[alibi]"
 ```
 
 :::{note}
-These overrides bypass version constraints declared by alibi but do not guarantee alibi works correctly with those newer versions — Seldon has not tested or supported this combination. RAITAP’s `KernelShap` path has been validated; other algorithms may behave differently. The `alibi` extra will be cleaned up once Seldon ships a NumPy 2-compatible release.
+**pip** (and other installers that are not **uv**) do **not** read `override-dependencies`. Prefer **uv** for `raitap[alibi]`; if you use **pip**, you must satisfy compatible versions of the packages above yourself — RAITAP does not document a supported **pip-only** recipe.
+:::
+
+:::{note}
+These overrides bypass version constraints declared by Alibi and its transitive dependencies but do not guarantee every Alibi algorithm works with those newer versions — Seldon has not tested or supported this combination. RAITAP’s **`KernelShap`** path is exercised in tests (including under **SHAP 0.5x**, where RAITAP adapts stacked multi-class outputs before Alibi builds explanation metadata); other algorithms may behave differently. The `alibi` extra will be cleaned up once upstream metadata and wheels align with RAITAP’s baseline.
 :::
 
 #### Explainers

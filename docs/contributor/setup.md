@@ -29,10 +29,6 @@ RAITAP supports many machine and model configurations. To avoid conflicts, only 
 
 2. Decide which optional dependencies you need. It can either be a whole module (e.g. `transparency`, `metrics`, `tracking`) or a specific framework/integration (e.g. `shap`, `captum`, `mlflow`).
 
-    :::{note}
-    **Alibi** requires dependency overrides before it can be installed. See {ref}`Alibi (transparency) <alibi-frameworks>` for the exact steps.
-    :::
-
 3. Consolidate all the dependency groups into a single command and run it. Notice the `--group dev`   flag to install the contributor environment. Here an example:
 
     ```shell

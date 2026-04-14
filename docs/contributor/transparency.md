@@ -53,8 +53,8 @@ Some SHAP methods require special init logic. Check `src/raitap/transparency/exp
 ## Alibi Explain
 
 - **Class:** `AlibiExplainer` (`CustomExplainer`). **Algorithms:** `KernelShap` (PyTorch `nn.Module` black-box, default in `alibi_kernel.yaml`) and `IntegratedGradients` (TensorFlow/Keras only — pass `keras_model` in Hydra `constructor`).
-- **Licensing:** Alibi is **BSL 1.1**, not GPLv3. See {doc}`../using-raitap/installation` and the one-time `logging.warning` from `factory._maybe_emit_third_party_license_warnings` when `ALIBI_BSL_LICENSE_WARNING` is true on the explainer class.
-- **Installation:** There is **no** `alibi` optional extra in `pyproject.toml` yet because PyPI `alibi` still declares `numpy<2` while RAITAP requires NumPy 2.4+. Install `alibi` manually if you accept the metadata conflict and legal terms.
+- **Licensing:** Alibi is **BSL 1.1**, not GPLv3. See {ref}`Alibi (transparency) <alibi-frameworks>` and the one-time `logging.warning` from `factory._maybe_emit_third_party_license_warnings` when `ALIBI_BSL_LICENSE_WARNING` is true on the explainer class.
+- **Installation (this repo):** `uv sync` with `--extra alibi`; the root **`pyproject.toml`** already supplies **`[tool.uv]` overrides**, so you do not add them manually. **Downstream** projects that depend on `raitap[alibi]` must mirror those overrides — see {ref}`Alibi (transparency) <alibi-install-overrides>`.
 - **Tests:** `src/raitap/transparency/explainers/tests/test_alibi_explainer.py` uses `needs_alibi` and skips when `alibi` is not installed.
 
 ## Adding a new framework
