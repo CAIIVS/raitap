@@ -45,7 +45,7 @@ class ExplainerAdapter(Protocol):
     Read ``output_payload_kind`` via :func:`raitap.transparency.contracts.explainer_output_kind`
     (not via direct attribute access — the attribute is optional and defaults to
     ``ATTRIBUTIONS`` when absent).
-    """
+    """  # noqa: E501
 
     def check_backend_compat(self, backend: object) -> None:
         pass

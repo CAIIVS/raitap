@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
-
-import torch
 
 from .base_explainer import AbstractExplainer
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
+    import torch
+
     from ..results import ConfiguredVisualiser, ExplanationResult
 
 

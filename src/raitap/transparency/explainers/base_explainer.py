@@ -25,8 +25,7 @@ class AbstractExplainer:
     Root base class for all explainer adapters.
 
     Owns the shared interface: ``output_payload_kind`` class variable (default
-    :attr:`~raitap.transparency.contracts.ExplanationPayloadKind.ATTRIBUTIONS`) and
-    the ``check_backend_compat`` no-op default.
+    ``ATTRIBUTIONS``) and the ``check_backend_compat`` no-op default.
 
     Extend via :class:`AttributionOnlyExplainer` when the framework should manage the
     full ``explain`` pipeline and you only need to implement ``compute_attributions``,
