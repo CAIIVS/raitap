@@ -72,6 +72,7 @@ MPL_CASES = tuple(case for case in MATRIX_CASES if case.mpl_baseline_filename is
 def test_transparency_visual_regression_matrix_case(
     case: MatrixCase,
     request: pytest.FixtureRequest,
+    tmp_path: Path,
 ) -> Figure:
     _ensure_baseline_or_generation_mode(request, case)
-    return render_mpl_figure(case, request)
+    return render_mpl_figure(case, request, tmp_path)

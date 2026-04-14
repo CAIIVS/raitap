@@ -69,6 +69,8 @@ uv run raitap --config-name assessment "transparency.captum_saliency.visualisers
 raitap --config-name assessment "transparency.captum_saliency.visualisers=[{_target_: CaptumImageVisualiser, call: {show_sample_names: true}}]"
 ```
 
+(composing-yaml-files)=
+
 ### Composing YAML files
 
 Hydra allows you to compose multiple YAML files into a single configuration.
@@ -123,6 +125,6 @@ raitap --multirun transparency=demo,shap_gradient experiment_name=demo,shap
 Hydra expands the comma-separated values into multiple runs. To inspect where each run
 writes its outputs, see {doc}`../understanding-outputs`.
 
-### Slurm integration
+### Job launcher integration (Slurm example)
 
-//TODO Jonas
+See {doc}`../job-launcher` for more details.
