@@ -4,19 +4,33 @@ This page describes the internal transparency architecture and how to extend it 
 
 ## Overview
 
-The transparency module wraps multiple XAI frameworks (Captum, SHAP) behind a unified interface driven by Hydra `_target_` instantiation. Explainers compute attributions using a specific framework and algorithm. Visualisers render those attributions to disk.
+The transparency module wraps XAI frameworks (Captum, SHAP, optional Alibi) behind a unified interface driven by Hydra `_target_` instantiation. Explainers produce an `ExplanationResult`; visualisers render attribution tensors to PNG on disk.
 
-All explainers implement `BaseExplainer`, which defines:
+Explainers form a three-level hierarchy (see `src/raitap/transparency/explainers/base_explainer.py` and `full_explainer.py`):
 
-- `compute_attributions(model, inputs, **kwargs) -> torch.Tensor` (abstract, required)
-- `check_backend_compat(backend) -> None` (optional, for ONNX validation)
-- `explain(...)` (implemented in base class, handles batching and orchestration)
+```text
+AbstractExplainer                       # root — owns output_payload_kind + check_backend_compat no-op
+├── AttributionOnlyExplainer            # you implement compute_attributions(); framework owns explain()
+│   ├── CaptumExplainer
+│   └── ShapExplainer
+└── FullExplainer                       # you implement the full explain() pipeline end-to-end
+    └── AlibiExplainer
+```
+
+- **`AbstractExplainer`** — root base class. Owns the shared contract: `output_payload_kind` class variable (default `ATTRIBUTIONS`) and the `check_backend_compat` no-op. Never subclass directly.
+- **`AttributionOnlyExplainer`** — extend this when the framework should manage the full `explain` pipeline. Subclasses implement only `compute_attributions(model, inputs, **kwargs) → Tensor`; batching, normalisation, result wrapping, and `write_artifacts` are handled by this class.
+- **`FullExplainer`** — extend this when you own the entire `explain` pipeline yourself (data conversion, model invocation, result construction, persistence). Used for Alibi, whose API does not map to a simple tensor-in/tensor-out attribution step.
+
+Each explainer class sets **`output_payload_kind: ClassVar[ExplanationPayloadKind]`** (default `ATTRIBUTIONS`). `ExplanationResult` stores `payload_kind` and includes it in `metadata.json`.
 
 All visualisers implement `BaseVisualiser`, which defines:
 
 - `visualise(attributions, inputs, **kwargs) -> Figure` (abstract, required)
 - `save(attributions, output_path, inputs, **kwargs) -> None` (optional, has default implementation)
-- `compatible_algorithms: frozenset[str]` (class attribute for validation)
+- `compatible_algorithms: frozenset[str]` (empty = all algorithms)
+- `supported_payload_kinds: ClassVar[frozenset[ExplanationPayloadKind]]` — default `{ATTRIBUTIONS}`. An **empty** `frozenset()` means the visualiser accepts **all** payload kinds (wildcard). The factory raises `PayloadVisualiserIncompatibilityError` if the explainer’s `output_payload_kind` is not listed when the set is non-empty.
+
+After `create_explainer`, `factory.Explanation` may emit **third-party license warnings** (e.g. Alibi BSL) at most once per process via `logging.warning`.
 
 ## Important files
 
@@ -27,8 +41,8 @@ The `factory.py` module provides the `Explanation` class and helper functions, w
 Transparency runs after the forward pass in `src/raitap/run/pipeline.py`. For each configured explainer:
 
 1. `Explanation(config, name, model, data)` creates the explainer and visualisers using the factory functions
-2. The explainer's `explain()` method calls `compute_attributions()` internally and returns an `ExplanationResult`
-3. `ExplanationResult.write_artifacts()` saves attributions and metadata to disk
+2. The explainer's `explain()` method returns an `ExplanationResult` (for `AttributionOnlyExplainer`, after calling `compute_attributions()`)
+3. `ExplanationResult.write_artifacts()` saves attributions and metadata to disk (`payload_kind` is recorded in metadata)
 4. `ExplanationResult.visualise()` iterates through configured visualisers, calling each one's `visualise()` method and saving the figures
 
 Each explainer writes to its own subdirectory under the Hydra run folder. See {doc}`../using-raitap/understanding-outputs` for more details.
@@ -46,20 +60,45 @@ Add an integration test to confirm the method works end-to-end. Reference `src/r
 
 Some SHAP methods require special init logic. Check `src/raitap/transparency/explainers/shap_explainer.py` for conditionals and add a branch if needed.
 
+## Alibi Explain
+
+- **Class:** `AlibiExplainer` (`FullExplainer`). **Algorithms:** `KernelShap` (PyTorch `nn.Module` black-box, default in `alibi_kernel.yaml`), `TreeShap` (fitted tree-based model — sklearn/XGBoost/LightGBM/CatBoost, pass via `constructor: {tree_model: ...}`), and `IntegratedGradients` (TensorFlow/Keras only — pass `keras_model` in Hydra `constructor`).
+- **Licensing:** Alibi is **BSL 1.1**, not GPLv3. See {ref}`Alibi (transparency) <alibi-frameworks>` and the one-time `logging.warning` from `factory._maybe_emit_third_party_license_warnings` when `ALIBI_BSL_LICENSE_WARNING` is true on the explainer class.
+- **Installation (this repo):** `uv sync` with `--extra alibi`; the root **`pyproject.toml`** already supplies **`[tool.uv]` overrides**, so you do not add them manually. **Downstream** projects that depend on `raitap[alibi]` must mirror those overrides — see {ref}`Alibi (transparency) <alibi-install-overrides>`.
+- **Tests:** `src/raitap/transparency/explainers/tests/test_alibi_explainer.py` uses `needs_alibi` and skips when `alibi` is not installed.
+
+### Alibi algorithms not currently supported
+
+The following Alibi explainers are intentionally absent. This section documents the blockers so future contributors know what needs to change before they can be added.
+
+**`AnchorTabular`, `AnchorImage`, `AnchorText`, `DistributedAnchorTabular`**
+
+These produce *structured* explanations (anchor feature conditions, precision, coverage) rather than attribution tensors. `ExplanationResult` currently requires an `attributions: torch.Tensor` and `write_artifacts()` raises `NotImplementedError` for `ExplanationPayloadKind.STRUCTURED`. Before adding any Anchor method: (1) make `attributions` optional on `ExplanationResult`, (2) implement STRUCTURED persistence (a JSON dump of the anchor result), and (3) fix the hardcoded `attributions.pt` copy in `ExplanationResult.log()`. `AnchorImage` and `AnchorText` also pull in extra-heavy dependencies (image segmentation / spaCy) that do not belong in the `[alibi]` optional extra without deliberate scoping.
+
+**`ALE` (Accumulated Local Effects)**
+
+ALE is a *global*, population-level explanation method. Its output is one effect curve per feature across the dataset — not a tensor shaped like the inputs. It does not fit the per-sample attribution model that `ExplanationResult` expects. Supporting it properly would require a different result type (or a well-defined mapping from global ALE curves to per-sample estimates, which is non-standard).
+
+**`CEM`, `CounterFactual`, `CounterFactualProto`**
+
+All three are TensorFlow/Keras-only and produce counterfactual instances (STRUCTURED output), not attribution tensors. Adding them would require (1) TensorFlow as a hard dependency inside `[alibi]` — a significant architectural choice — and (2) STRUCTURED persistence (same blocker as Anchor methods).
+
 ## Adding a new framework
 
 To integrate a new explainability framework:
 
 1. **Implement the wrapper**
 
-    Create a new explainer class that extends `BaseExplainer` in `src/raitap/transparency/explainers/`:
+    Prefer `AttributionOnlyExplainer` when the library maps to `compute_attributions(model, inputs, ...) -> torch.Tensor`. Otherwise subclass `FullExplainer` and implement `explain(...)` end-to-end (see `alibi_explainer.py`).
+
+    Create a new explainer class under `src/raitap/transparency/explainers/`:
 
     ```python
     # src/raitap/transparency/explainers/new_framework_explainer.py
-    from .base_explainer import BaseExplainer
+    from .base_explainer import AttributionOnlyExplainer
     import torch
 
-    class NewFrameworkExplainer(BaseExplainer):
+    class NewFrameworkExplainer(AttributionOnlyExplainer):
         # Optional: Define ONNX-compatible algorithms
         ONNX_COMPATIBLE_ALGORITHMS: frozenset[str] = frozenset({...})
 
@@ -146,6 +185,8 @@ To add a new visualiser:
     class NewVisualiser(BaseVisualiser):
         # Optional: Restrict to specific algorithms (empty = compatible with all)
         compatible_algorithms: frozenset[str] = frozenset()
+        # Optional: restrict payload kinds (empty frozenset = all kinds)
+        # supported_payload_kinds: ClassVar[frozenset[ExplanationPayloadKind]] = frozenset({ExplanationPayloadKind.ATTRIBUTIONS})
         
         def __init__(self, **config_kwargs):
             super().__init__()

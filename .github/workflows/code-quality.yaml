@@ -93,7 +93,7 @@ jobs:
         uses: ./.github/actions/setup-raitap-env
         with:
           python-version: "3.13"
-          sync-command: uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cpu --extra reporting
+          sync-command: uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra alibi --extra metrics --extra onnx-cpu --extra reporting
 
       - name: Ruff
         run: uv run ruff check .

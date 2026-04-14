@@ -76,7 +76,9 @@ myst_heading_anchors = 4
 nitpick_ignore_regex = [
     (r"py:class", r"Data"),
     (r"py:class", r"'dict\[str.*"),
-    (r"py:class", r"raitap\.transparency\.explainers\.base_explainer\.BaseExplainer"),
+    (r"py:class", r"raitap\.transparency\.explainers\.base_explainer\.AbstractExplainer"),
+    (r"py:class", r"raitap\.transparency\.explainers\.base_explainer\.AttributionOnlyExplainer"),
+    (r"py:class", r"raitap\.transparency\.explainers\.full_explainer\.FullExplainer"),
     (r"py:class", r"raitap\.transparency\.visualisers\.base_visualiser\.BaseVisualiser"),
 ]
 

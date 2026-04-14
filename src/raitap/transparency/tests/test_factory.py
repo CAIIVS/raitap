@@ -2,17 +2,20 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 from unittest.mock import MagicMock
 
+import matplotlib.pyplot as plt
 import pytest
 import torch
 from omegaconf import OmegaConf
 
 from raitap.transparency import (
     ExplainerBackendIncompatibilityError,
+    PayloadVisualiserIncompatibilityError,
     VisualiserIncompatibilityError,
 )
+from raitap.transparency.contracts import ExplanationPayloadKind
 from raitap.transparency.factory import (
     Explanation,
     _resolve_call_data_sources,
@@ -21,8 +24,11 @@ from raitap.transparency.factory import (
     create_visualisers,
 )
 from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult
+from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
 
 if TYPE_CHECKING:
+    from matplotlib.figure import Figure
+
     from raitap.configs.schema import AppConfig
 
 
@@ -130,6 +136,10 @@ def test_explanation_validates_visualisers_before_compute(
         def __init__(self) -> None:
             self.explain_called = False
 
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
+
         def explain(self, *args: Any, **kwargs: Any) -> None:
             self.explain_called = True
             raise AssertionError("explain() should not be called for incompatible visualisers")
@@ -163,11 +173,107 @@ def test_explanation_validates_visualisers_before_compute(
     assert dummy_explainer.explain_called is False
 
 
+@pytest.mark.usefixtures("needs_captum")
+def test_payload_kind_wildcard_visualiser_passes(
+    monkeypatch: pytest.MonkeyPatch,
+    simple_cnn: torch.nn.Module,
+    sample_images: torch.Tensor,
+    tmp_path: Path,
+) -> None:
+    class _WildcardPayloadVisualiser(BaseVisualiser):
+        compatible_algorithms: ClassVar[frozenset[str]] = frozenset()
+        supported_payload_kinds: ClassVar[frozenset[ExplanationPayloadKind]] = frozenset()
+
+        def visualise(
+            self,
+            attributions: torch.Tensor,
+            inputs: torch.Tensor | None = None,
+            **kwargs: Any,
+        ) -> Figure:
+            del attributions, inputs, kwargs
+            fig, _ax = plt.subplots(figsize=(1, 1))
+            return fig
+
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "call": {"target": 0},
+                "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_visualisers",
+        lambda _cfg: [
+            ConfiguredVisualiser(visualiser=_WildcardPayloadVisualiser(), call_kwargs={})
+        ],
+    )
+    model = SimpleNamespace(backend=_BackendStub(simple_cnn))
+    explanation = Explanation(config, "test_explainer", model, sample_images)  # type: ignore[arg-type]
+
+    assert isinstance(explanation, ExplanationResult)
+
+
+@pytest.mark.usefixtures("needs_captum")
+def test_payload_kind_mismatch_raises(
+    monkeypatch: pytest.MonkeyPatch,
+    simple_cnn: torch.nn.Module,
+    sample_images: torch.Tensor,
+    tmp_path: Path,
+) -> None:
+    class _StructuredOnlyVisualiser(BaseVisualiser):
+        compatible_algorithms: ClassVar[frozenset[str]] = frozenset()
+        supported_payload_kinds: ClassVar[frozenset[ExplanationPayloadKind]] = frozenset(
+            {ExplanationPayloadKind.STRUCTURED}
+        )
+
+        def visualise(
+            self,
+            attributions: torch.Tensor,
+            inputs: torch.Tensor | None = None,
+            **kwargs: Any,
+        ) -> Figure:
+            del attributions, inputs, kwargs
+            fig, _ax = plt.subplots(figsize=(1, 1))
+            return fig
+
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "call": {"target": 0},
+                "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_visualisers",
+        lambda _cfg: [ConfiguredVisualiser(visualiser=_StructuredOnlyVisualiser(), call_kwargs={})],
+    )
+    model = SimpleNamespace(backend=_BackendStub(simple_cnn))
+    with pytest.raises(PayloadVisualiserIncompatibilityError):
+        Explanation(config, "test_explainer", model, sample_images)  # type: ignore[arg-type]
+
+
 def test_create_explainer_resolves_short_target_and_strips_visualisers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured_cfg: dict[str, Any] = {}
-    explainer = object()
+
+    class _StubExplainer:
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
+
+        def explain(self, *_args: Any, **_kwargs: Any) -> None:
+            return None
+
+    explainer = _StubExplainer()
 
     def _fake_instantiate(cfg: dict[str, Any]) -> object:
         captured_cfg.update(cfg)
@@ -203,6 +309,22 @@ def test_create_explainer_wraps_instantiation_errors(
         create_explainer(config)
 
 
+def test_create_explainer_rejects_missing_check_backend_compat(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _ExplainerWithoutBackendCheck:
+        def explain(self, *_args: Any, **_kwargs: Any) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "raitap.transparency.factory.instantiate",
+        lambda _cfg: _ExplainerWithoutBackendCheck(),
+    )
+    config = OmegaConf.create({"_target_": "CaptumExplainer", "algorithm": "Saliency"})
+    with pytest.raises(ValueError, match="check_backend_compat"):
+        create_explainer(config)
+
+
 def test_create_explainer_rejects_unknown_top_level_keys() -> None:
     config = OmegaConf.create(
         {
@@ -221,9 +343,17 @@ def test_create_explainer_forwards_constructor_to_instantiate(
 ) -> None:
     captured_cfg: dict[str, Any] = {}
 
+    class _StubExplainer2:
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
+
+        def explain(self, *_args: Any, **_kwargs: Any) -> None:
+            return None
+
     def _fake_instantiate(cfg: dict[str, Any]) -> object:
         captured_cfg.update(cfg)
-        return object()
+        return _StubExplainer2()
 
     config = OmegaConf.create(
         {

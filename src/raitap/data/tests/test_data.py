@@ -20,6 +20,7 @@ from raitap.data.data import (
     _load_tabular,
     _load_tabular_dir,
     get_source_path,
+    load_numpy_from_source,
     load_tensor_from_source,
 )
 from raitap.data.samples import SAMPLE_SOURCES, _load_sample, _resolve_sample
@@ -533,3 +534,30 @@ class TestLoadTensorFromSource:
 
         assert isinstance(tensor, torch.Tensor)
         assert tensor.ndim == 4  # (N, C, H, W)
+
+
+# ---------------------------------------------------------------------------
+# load_numpy_from_source
+# ---------------------------------------------------------------------------
+
+
+class TestLoadNumpyFromSource:
+    def test_matches_tensor_loader_for_csv(self, tmp_path: Path) -> None:
+        csv_file = tmp_path / "data.csv"
+        _write_csv(csv_file, rows=6, cols=3)
+
+        tensor = load_tensor_from_source(str(csv_file))
+        arr = load_numpy_from_source(str(csv_file))
+
+        np.testing.assert_array_equal(arr, tensor.detach().cpu().numpy())
+
+    def test_matches_tensor_loader_for_image_dir(self, tmp_path: Path) -> None:
+        img_dir = tmp_path / "images"
+        img_dir.mkdir()
+        for i in range(2):
+            _write_image(img_dir / f"img{i}.png", width=8, height=8)
+
+        tensor = load_tensor_from_source(str(img_dir))
+        arr = load_numpy_from_source(str(img_dir))
+
+        np.testing.assert_array_equal(arr, tensor.detach().cpu().numpy())

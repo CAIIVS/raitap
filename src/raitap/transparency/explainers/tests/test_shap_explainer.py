@@ -76,7 +76,7 @@ class TestShapExplainer:
     def test_gradient_explainer_with_base_batching(
         self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor, tmp_path: Path
     ) -> None:
-        """Mini-batching via BaseExplainer.explain works with per-sample targets."""
+        """Mini-batching via AttributionOnlyExplainer.explain works with per-sample targets."""
         explainer = ShapExplainer("GradientExplainer")
         background = sample_images[:2]
 

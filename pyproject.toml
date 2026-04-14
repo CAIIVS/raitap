@@ -95,6 +95,10 @@ onnx-intel = [
 # Transparency module
 shap = ["shap>=0.46.0"]
 captum = ["captum>=0.7.0"]
+# alibi 0.9.x hard-pins numpy<2, Pillow<11, and scikit-image<0.23, all of which conflict with
+# raitap's requirements. The extra is provided for convenience; consumers must mirror the
+# ``override-dependencies`` entries under ``[tool.uv]`` (see Alibi under docs/modules/transparency/frameworks-and-libraries.md).
+alibi = ["alibi>=0.9,<0.10"]
 transparency = ["raitap[shap,captum]"]
 
 # Job launcher / batch scheduler support
@@ -133,6 +137,19 @@ dev = [
 [tool.uv]
 # PyPI wheel for borb 3.0.x is invalid (duplicate ZIP entries); build from sdist instead.
 no-binary-package = ["borb"]
+# Override alibi's hard upper bounds so the alibi extra resolves in raitap's own lockfile.
+# Consumers must add the same overrides to their own pyproject.toml (see installation docs).
+# Alibi pulls spaCy/thinc/blis. On Python 3.13, blis 0.7.x and thinc 8.2.x lack usable wheels and
+# their sdists rebuild blis 0.7.x in isolation (fails on 3.13). Overrides pick versions with cp313
+# wheels; spaCy 3.8+ publishes wheels so the package does not need to be built from source.
+override-dependencies = [
+  "numpy>=2.4",
+  "Pillow>=12.0",
+  "scikit-image>=0.26",
+  "blis>=1.0.2",
+  "thinc>=8.3.6,<9",
+  "spacy>=3.8.0",
+]
 conflicts = [
   [
     { extra = "torch-cpu" },

@@ -1,16 +1,17 @@
-"""Base class for attribution computation (framework-agnostic interface)"""
+"""Explainer base classes for the RAITAP transparency module."""
 
 from __future__ import annotations
 
 import gc
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
 
 from raitap.configs import resolve_run_dir
 
+from ..contracts import ExplanationPayloadKind
 from ..results import ConfiguredVisualiser, ExplanationResult
 
 _VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
@@ -19,17 +20,36 @@ _PROGRESS_TOGGLE_KWARG = "show_progress"
 _PROGRESS_DESC_KWARG = "progress_desc"
 
 
-class BaseExplainer(ABC):
+class AbstractExplainer:
     """
-    Abstract base class for all explainer adapters.
+    Root base class for all explainer adapters.
+
+    Owns the shared interface: ``output_payload_kind`` class variable (default
+    ``ATTRIBUTIONS``) and the ``check_backend_compat`` no-op default.
+
+    Extend via ``AttributionOnlyExplainer`` when the framework should manage the
+    full ``explain`` pipeline and you only need to implement ``compute_attributions``,
+    or via ``FullExplainer`` when you own the entire ``explain`` pipeline yourself.
     """
 
-    def __init__(self):
-        self.attributions: torch.Tensor | None = None
+    output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
 
     def check_backend_compat(self, backend: object) -> None:
         del backend
         return None
+
+
+class AttributionOnlyExplainer(AbstractExplainer, ABC):
+    """
+    Explainer where you implement one step and the framework handles the rest.
+
+    Subclasses implement :meth:`compute_attributions` only; batching, normalisation,
+    result construction, and artifact persistence are provided by this class via
+    :meth:`explain`.
+    """
+
+    def __init__(self) -> None:
+        self.attributions: torch.Tensor | None = None
 
     def explain(
         self,
@@ -45,6 +65,10 @@ class BaseExplainer(ABC):
         visualisers: list[ConfiguredVisualiser] | None = None,
         **kwargs: Any,
     ) -> ExplanationResult:
+        """
+        Compute attributions (via :meth:`compute_attributions`), build an
+        ``ExplanationResult``, write artifacts, and return it.
+        """
         visualisers_list: list[ConfiguredVisualiser] = [] if visualisers is None else visualisers
         metadata_kwargs = dict(kwargs)
         attribution_kwargs = {
@@ -75,6 +99,7 @@ class BaseExplainer(ABC):
             explainer_name=explainer_name,
             kwargs=metadata_kwargs,
             visualisers=visualisers_list,
+            payload_kind=self.output_payload_kind,
         )
         explanation.write_artifacts()
         return explanation
@@ -227,10 +252,10 @@ class BaseExplainer(ABC):
         Compute attributions for the given inputs.
 
         Args:
-            model:   PyTorch model to explain.
-            inputs:  Input tensor (shape depends on modality).
-            **kwargs: Framework-specific keyword arguments
-                      (e.g. ``target``, ``baselines``, ``background_data``).
+            model: PyTorch model to explain.
+            inputs: Input tensor (shape depends on modality).
+            **kwargs: Framework-specific keyword arguments (e.g. ``target``,
+                ``baselines``, ``background_data``).
 
         Returns:
             Attribution tensor matching the input shape.

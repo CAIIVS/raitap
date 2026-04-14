@@ -132,7 +132,7 @@ class TestCaptumExplainer:
     def test_saliency_with_base_batching(
         self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor, tmp_path: Path
     ) -> None:
-        """Mini-batching via BaseExplainer.explain works for Captum methods."""
+        """Mini-batching via AttributionOnlyExplainer.explain works for Captum methods."""
         explainer = CaptumExplainer("Saliency")
 
         result = explainer.explain(

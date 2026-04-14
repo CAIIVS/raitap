@@ -11,7 +11,7 @@ or more visualisations via `explanation.visualise(**kwargs)`.
 
 Explainer classes (used as ``_target_`` values)
 -----------------------------------------------
-CaptumExplainer, ShapExplainer
+CaptumExplainer, ShapExplainer, AlibiExplainer (optional extra ``alibi``)
 
 Visualiser classes (used as ``_target_`` values in visualisers list)
 --------------------------------------------------------------------
@@ -23,10 +23,22 @@ TabularBarChartVisualiser
 
 from __future__ import annotations
 
-from .exceptions import ExplainerBackendIncompatibilityError, VisualiserIncompatibilityError
+from .contracts import ExplainerAdapter, ExplanationPayloadKind
+from .exceptions import (
+    ExplainerBackendIncompatibilityError,
+    PayloadVisualiserIncompatibilityError,
+    VisualiserIncompatibilityError,
+)
 
 # Explainer classes — public _target_ surface
-from .explainers import CaptumExplainer, ShapExplainer
+from .explainers import (
+    AbstractExplainer,
+    AlibiExplainer,
+    AttributionOnlyExplainer,
+    CaptumExplainer,
+    FullExplainer,
+    ShapExplainer,
+)
 from .factory import (
     Explanation,
     check_explainer_visualiser_compat,
@@ -52,7 +64,11 @@ from .visualisers import (
 
 __all__ = [  # noqa: RUF022
     # Explainer adapters
+    "AlibiExplainer",
     "CaptumExplainer",
+    "AbstractExplainer",
+    "AttributionOnlyExplainer",
+    "FullExplainer",
     "ShapExplainer",
     # Result objects
     "ConfiguredVisualiser",
@@ -70,8 +86,12 @@ __all__ = [  # noqa: RUF022
     "ShapWaterfallVisualiser",
     # Framework-agnostic
     "TabularBarChartVisualiser",
+    # Contracts
+    "ExplainerAdapter",
+    "ExplanationPayloadKind",
     # Domain errors
     "ExplainerBackendIncompatibilityError",
+    "PayloadVisualiserIncompatibilityError",
     "VisualiserIncompatibilityError",
     # Rest
     "Explanation",

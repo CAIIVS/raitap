@@ -11,7 +11,7 @@ from omegaconf import OmegaConf
 
 from raitap.models.backend import TorchBackend
 from raitap.transparency import ExplanationResult, VisualisationResult
-from raitap.transparency.explainers import CaptumExplainer, ShapExplainer
+from raitap.transparency.explainers import AlibiExplainer, CaptumExplainer, ShapExplainer
 from raitap.transparency.factory import Explanation
 from raitap.transparency.results import ConfiguredVisualiser
 from raitap.transparency.visualisers import (
@@ -36,11 +36,11 @@ if TYPE_CHECKING:
     from raitap.models import Model
     from raitap.models.backend import OnnxBackend
 
-Framework = Literal["captum", "shap"]
+Framework = Literal["alibi", "captum", "shap"]
 ExecutionMode = Literal["compute", "explain", "factory"]
 ModelFixtureName = Literal["simple_cnn", "simple_mlp", "simple_timeseries_model"]
 InputFixtureName = Literal["sample_images", "sample_tabular", "sample_timeseries"]
-NeedsFixtureName = Literal["needs_captum", "needs_shap", "needs_onnx"]
+NeedsFixtureName = Literal["needs_alibi", "needs_captum", "needs_shap", "needs_onnx"]
 BackendFixtureName = Literal["onnx_linear_backend"]
 TargetMode = int | Literal["alternating_binary", "none", "zeros_tensor"]
 ShapeExpectation = Literal["same_as_inputs", "same_as_inputs_minus_last", "same_batch_size"]
@@ -98,7 +98,11 @@ def load_saved_attributions(run_dir: Path) -> torch.Tensor:
 
 
 def _framework_target_suffix(case: MatrixCase) -> str:
-    return "CaptumExplainer" if case.framework == "captum" else "ShapExplainer"
+    if case.framework == "captum":
+        return "CaptumExplainer"
+    if case.framework == "shap":
+        return "ShapExplainer"
+    return "AlibiExplainer"
 
 
 def _explainer_target(case: MatrixCase) -> str:
@@ -164,7 +168,7 @@ def _build_factory_config(case: MatrixCase, tmp_path: Path) -> AppConfig:
             visualiser_entry["constructor"] = dict(case.visualiser_kwargs)
         visualisers.append(visualiser_entry)
 
-    call_kwargs: dict[str, object] = {}
+    call_kwargs: dict[str, object] = dict(case.explain_call_kwargs)
     target = case.target_mode
     if isinstance(target, int):
         call_kwargs["target"] = target
@@ -192,10 +196,12 @@ def _build_factory_config(case: MatrixCase, tmp_path: Path) -> AppConfig:
     )
 
 
-def _make_explainer(case: MatrixCase) -> CaptumExplainer | ShapExplainer:
+def _make_explainer(case: MatrixCase) -> AlibiExplainer | CaptumExplainer | ShapExplainer:
     if case.framework == "captum":
         return CaptumExplainer(case.algorithm, **case.explainer_init_kwargs)
-    return ShapExplainer(case.algorithm, **case.explainer_init_kwargs)
+    if case.framework == "shap":
+        return ShapExplainer(case.algorithm, **case.explainer_init_kwargs)
+    return AlibiExplainer(case.algorithm, **case.explainer_init_kwargs)
 
 
 def _fetch_model(request: pytest.FixtureRequest, case: MatrixCase) -> nn.Module:
@@ -239,10 +245,16 @@ def _compute_case_attributions(
     background: torch.Tensor | None,
 ) -> torch.Tensor:
     explainer = _make_explainer(case)
+    if case.framework == "alibi":
+        raise ValueError(
+            f"{case.id}: AlibiExplainer has no compute_attributions(); use mode explain or factory."
+        )
     if case.explain_call_kwargs:
         raise ValueError(f"{case.id} defines explain_call_kwargs but runs in compute mode.")
     if case.framework == "captum":
+        assert isinstance(explainer, CaptumExplainer)
         return explainer.compute_attributions(model, inputs, target=target)
+    assert isinstance(explainer, ShapExplainer)
     return explainer.compute_attributions(
         model,
         inputs,
@@ -268,6 +280,10 @@ def _run_explain_case(
     runtime_model: nn.Module = model if backend is None else backend.as_model_for_explanation()
 
     if backend is not None:
+        if case.framework == "alibi":
+            raise ValueError(
+                f"{case.id}: Alibi matrix cases do not support an ONNX/backend fixture."
+            )
         explainer.check_backend_compat(backend)
         extra_call_kwargs["backend"] = backend
 
@@ -281,14 +297,28 @@ def _run_explain_case(
             **extra_call_kwargs,
         )
 
+    if case.framework == "shap":
+        return explainer.explain(
+            runtime_model,
+            inputs,
+            run_dir=run_dir,
+            background_data=background,
+            target=target,
+            visualisers=visualisers,
+            **extra_call_kwargs,
+        )
+
+    alibi_call_kw: dict[str, Any] = dict(extra_call_kwargs)
+    if target is not None:
+        alibi_call_kw["target"] = target
+    if background is not None:
+        alibi_call_kw["background_data"] = background
     return explainer.explain(
         runtime_model,
         inputs,
         run_dir=run_dir,
-        background_data=background,
-        target=target,
         visualisers=visualisers,
-        **extra_call_kwargs,
+        **alibi_call_kw,
     )
 
 
@@ -298,7 +328,15 @@ def _assert_metadata_invariants(
     case: MatrixCase,
     has_visualisers: bool,
 ) -> None:
-    assert set(metadata) == {"experiment_name", "target", "algorithm", "visualisers", "kwargs"}
+    assert set(metadata) == {
+        "experiment_name",
+        "target",
+        "algorithm",
+        "visualisers",
+        "kwargs",
+        "payload_kind",
+    }
+    assert metadata["payload_kind"] == "attributions"
     assert metadata["experiment_name"] == case.experiment_name
     assert metadata["algorithm"] == case.algorithm
     assert str(metadata["target"]).endswith(_framework_target_suffix(case))
@@ -986,5 +1024,41 @@ MATRIX_CASES: tuple[MatrixCase, ...] = (
         requires_onnx=True,
         background_samples=2,
         explain_call_kwargs={"nsamples": 10},
+    ),
+    MatrixCase(
+        id="alibi_kernel_shap_tabular_explain",
+        framework="alibi",
+        mode="explain",
+        algorithm="KernelShap",
+        needs_fixture="needs_alibi",
+        model_fixture="simple_mlp",
+        input_fixture="sample_tabular",
+        target_mode=0,
+        expected_shape="same_as_inputs",
+        run_dir_mode="plain_transparency",
+        background_samples=4,
+        explain_call_kwargs={"nsamples": 15},
+        expected_metadata_kwargs={"nsamples": 15},
+        visualiser_cls=TabularBarChartVisualiser,
+        visualiser_kwargs={"feature_names": [f"f{index}" for index in range(10)]},
+    ),
+    MatrixCase(
+        id="alibi_kernel_shap_tabular_factory",
+        framework="alibi",
+        mode="factory",
+        algorithm="KernelShap",
+        needs_fixture="needs_alibi",
+        model_fixture="simple_mlp",
+        input_fixture="sample_tabular",
+        target_mode=0,
+        expected_shape="same_as_inputs",
+        run_dir_mode="factory_subdir",
+        background_samples=4,
+        explain_call_kwargs={"nsamples": 12},
+        expected_metadata_kwargs={"nsamples": 12},
+        visualiser_cls=TabularBarChartVisualiser,
+        visualiser_kwargs={"feature_names": [f"f{index}" for index in range(10)]},
+        experiment_name="test_alibi_e2e",
+        factory_explainer_name="alibi_kernel_shap",
     ),
 )

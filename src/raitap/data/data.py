@@ -219,7 +219,7 @@ def load_tensor_from_source(source: str, n_samples: int | None = None) -> torch.
         if not path.exists():
             demo_samples = ", ".join(f'"{s}"' for s in SAMPLE_SOURCES)
             raise ValueError(
-                f"Background data source {source!r} does not exist.\n"
+                f"Data source {source!r} does not exist.\n"
                 f"Expected a URL, an existing local path, or a named demo sample.\n"
                 f"Known demo samples: {demo_samples}"
             )
@@ -232,8 +232,40 @@ def load_tensor_from_source(source: str, n_samples: int | None = None) -> torch.
     return tensor
 
 
-def _load_tensor_from_path(path: Path) -> torch.Tensor:
-    """Load a tensor from a single file or a directory (no sample IDs returned)."""
+def load_numpy_from_source(source: str, n_samples: int | None = None) -> np.ndarray[Any, Any]:
+    """
+    Load data as a NumPy array using the same resolution rules as :func:`load_tensor_from_source`.
+
+    For file-based sources (local paths and URLs), no intermediate torch tensor is allocated.
+    Demo sample sources (``SAMPLE_SOURCES``) use ``raitap.data.samples._load_sample`` (torch-based);
+    all other paths are torch-free.
+    """
+    if source in SAMPLE_SOURCES:
+        arr: np.ndarray[Any, Any] = _load_sample(source).numpy()
+    elif source.startswith(("http://", "https://")):
+        path = get_source_path(source)
+        arr = _load_numpy_from_path(path)
+    else:
+        path = Path(source)
+        if not path.exists():
+            demo_samples = ", ".join(f'"{s}"' for s in SAMPLE_SOURCES)
+            raise ValueError(
+                f"Data source {source!r} does not exist.\n"
+                f"Expected a URL, an existing local path, or a named demo sample.\n"
+                f"Known demo samples: {demo_samples}"
+            )
+        arr = _load_numpy_from_path(path)
+
+    if n_samples is not None and arr.shape[0] > n_samples:
+        rng = np.random.default_rng()
+        indices = rng.choice(arr.shape[0], size=n_samples, replace=False)
+        arr = arr[indices]
+
+    return arr
+
+
+def _load_numpy_from_path(path: Path) -> np.ndarray[Any, Any]:
+    """Load a numpy array from a single file or directory (no sample IDs returned)."""
     if path.is_dir():
         all_files = list(path.iterdir())
         image_files = [f for f in all_files if f.suffix.lower() in _IMAGE_EXTENSIONS]
@@ -244,9 +276,9 @@ def _load_tensor_from_path(path: Path) -> torch.Tensor:
                 "Separate them into different directories."
             )
         if image_files:
-            return _load_images(path)
+            return _load_images_numpy(path)
         if tabular_files:
-            return _load_tabular_dir(path)
+            return _load_tabular_dir_numpy(path)
         raise FileNotFoundError(
             f"No supported files found in {path}.\n"
             f"Supported image formats: {_IMAGE_EXTENSIONS}\n"
@@ -255,14 +287,19 @@ def _load_tensor_from_path(path: Path) -> torch.Tensor:
 
     suffix = path.suffix.lower()
     if suffix in _IMAGE_EXTENSIONS:
-        return _load_images(path)
+        return _load_images_numpy(path)
     if suffix in _TABULAR_EXTENSIONS:
-        return _load_tabular(path)
+        return _load_tabular_numpy(path)
     raise ValueError(
         f"Cannot infer data type from extension {suffix!r}.\n"
         f"Supported image formats: {_IMAGE_EXTENSIONS}\n"
         f"Supported tabular formats: {_TABULAR_EXTENSIONS}"
     )
+
+
+def _load_tensor_from_path(path: Path) -> torch.Tensor:
+    """Load a tensor from a single file or a directory (no sample IDs returned)."""
+    return torch.from_numpy(_load_numpy_from_path(path))
 
 
 def get_source_path(source: str) -> Path:
@@ -303,8 +340,8 @@ def get_source_path(source: str) -> Path:
     )
 
 
-def _load_images(path: Path) -> torch.Tensor:
-    """Load image files from a directory (or a single file) as raw (C, H, W) tensors."""
+def _load_images_numpy(path: Path) -> np.ndarray[Any, Any]:
+    """Load image files from a directory (or a single file) as NCHW float32 arrays in [0, 1]."""
     if path.is_dir():
         files = sorted(f for f in path.iterdir() if f.suffix.lower() in _IMAGE_EXTENSIONS)
         if not files:
@@ -312,25 +349,35 @@ def _load_images(path: Path) -> torch.Tensor:
     else:
         files = [path]
 
-    tensors = []
+    arrays = []
     for f in files:
-        arr = np.array(Image.open(f).convert("RGB"))
-        tensors.append(torch.from_numpy(arr).permute(2, 0, 1).float() / 255.0)
+        arr = np.array(Image.open(f).convert("RGB"))  # HWC uint8
+        arrays.append(arr.transpose(2, 0, 1).astype(np.float32) / 255.0)  # CHW float32
 
     try:
-        return torch.stack(tensors)
-    except RuntimeError:
-        sizes = {tuple(t.shape) for t in tensors}
+        return np.stack(arrays)  # NCHW float32
+    except ValueError:
+        sizes = {arr.shape for arr in arrays}
         raise ValueError(
             f"Images have inconsistent shapes: {sizes}. "
             "Resize them to a common size before loading."
         ) from None
 
 
+def _load_images(path: Path) -> torch.Tensor:
+    """Load image files from a directory (or a single file) as raw (C, H, W) tensors."""
+    return torch.from_numpy(_load_images_numpy(path))
+
+
+def _load_tabular_numpy(path: Path) -> np.ndarray[Any, Any]:
+    """Load a CSV / TSV / Parquet file as a float32 numpy array of shape (N, F)."""
+    df = _load_tabular_frame(path)
+    return np.array(df.values, dtype=np.float32)
+
+
 def _load_tabular(path: Path) -> torch.Tensor:
     """Load a CSV / TSV / Parquet file as a float tensor of shape (N, F)."""
-    df = _load_tabular_frame(path)
-    return torch.tensor(df.values, dtype=torch.float32)
+    return torch.from_numpy(_load_tabular_numpy(path))
 
 
 def _load_tabular_frame(path: Path) -> pd.DataFrame:
@@ -479,15 +526,20 @@ def _align_labels_to_samples(
     return [label_by_id[sample_id] for sample_id in sample_ids]
 
 
-def _load_tabular_dir(path: Path) -> torch.Tensor:
-    """Load all tabular files from a directory as a single float tensor, concatenating rows."""
+def _load_tabular_dir_numpy(path: Path) -> np.ndarray[Any, Any]:
+    """Load all tabular files from a directory as a single float32 array, concatenating rows."""
     files = sorted(f for f in path.iterdir() if f.suffix.lower() in _TABULAR_EXTENSIONS)
-    tensors = [_load_tabular(f) for f in files]
+    arrays = [_load_tabular_numpy(f) for f in files]
     try:
-        return torch.cat(tensors)
-    except RuntimeError:
-        shapes = {tuple(t.shape) for t in tensors}
+        return np.concatenate(arrays)
+    except ValueError:
+        shapes = {arr.shape for arr in arrays}
         raise ValueError(
             f"Tabular files have inconsistent column counts: {shapes}. "
             "All files must have the same number of columns."
         ) from None
+
+
+def _load_tabular_dir(path: Path) -> torch.Tensor:
+    """Load all tabular files from a directory as a single float tensor, concatenating rows."""
+    return torch.from_numpy(_load_tabular_dir_numpy(path))

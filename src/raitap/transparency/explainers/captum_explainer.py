@@ -2,24 +2,27 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
+from raitap.transparency.contracts import ExplanationPayloadKind
 from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
 
-from .base_explainer import BaseExplainer
+from .base_explainer import AttributionOnlyExplainer
 
 if TYPE_CHECKING:
     import torch
     import torch.nn as nn
 
 
-class CaptumExplainer(BaseExplainer):
+class CaptumExplainer(AttributionOnlyExplainer):
     """
     Single wrapper for ALL Captum attribution methods.
 
     Uses dynamic method loading - no need for class-per-method.
     """
+
+    output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
 
     ONNX_COMPATIBLE_ALGORITHMS: frozenset[str] = frozenset(
         {

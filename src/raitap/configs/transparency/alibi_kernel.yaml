@@ -1,0 +1,7 @@
+alibi_kernel:
+  _target_: AlibiExplainer
+  algorithm: KernelShap
+  call:
+    nsamples: 32
+  visualisers:
+    - _target_: TabularBarChartVisualiser

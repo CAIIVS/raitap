@@ -8,7 +8,7 @@ titles, sample names, and colorbar handling.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -314,7 +314,9 @@ class ShapImageVisualiser(BaseVisualiser):
     contributions in cool colours, using the configured Matplotlib colormap.
     """
 
-    compatible_algorithms: frozenset[str] = frozenset({"GradientExplainer", "DeepExplainer"})
+    compatible_algorithms: ClassVar[frozenset[str]] = frozenset(
+        {"GradientExplainer", "DeepExplainer"}
+    )
 
     def __init__(
         self,
