@@ -111,6 +111,9 @@ class CaptumExplainer(BaseExplainer):
             if layer_path is not None and "layer" not in init_kwargs:
                 init_kwargs["layer"] = _resolve_layer(model, str(layer_path))
 
+        if self.algorithm == "Occlusion":
+            attr_kwargs = _normalise_occlusion_kwargs(attr_kwargs)
+
         # Instantiate method with model and constructor args
         method = method_class(model, **init_kwargs)
 
@@ -135,3 +138,17 @@ def _resolve_layer(model: nn.Module, layer_path: str) -> nn.Module:
         except AttributeError as error:
             raise ValueError(f"Could not resolve layer_path {layer_path!r} on model.") from error
     return layer
+
+
+def _normalise_occlusion_kwargs(attr_kwargs: dict[str, object]) -> dict[str, object]:
+    normalised = dict(attr_kwargs)
+
+    sliding_window_shapes = normalised.get("sliding_window_shapes")
+    if isinstance(sliding_window_shapes, list):
+        normalised["sliding_window_shapes"] = tuple(sliding_window_shapes)
+
+    strides = normalised.get("strides")
+    if isinstance(strides, list):
+        normalised["strides"] = tuple(strides)
+
+    return normalised
