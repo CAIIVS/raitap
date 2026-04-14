@@ -36,6 +36,7 @@ using-raitap/installation
 using-raitap/get-it-running
 using-raitap/configuration/index
 using-raitap/understanding-outputs
+using-raitap/job-launcher
 ```
 
 ```{toctree}

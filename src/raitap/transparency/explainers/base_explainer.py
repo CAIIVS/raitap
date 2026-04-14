@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
@@ -88,7 +89,13 @@ class BaseExplainer(ABC):
         batch_size = self._pop_batch_size(attribution_kwargs)
         show_progress, progress_desc = self._pop_progress_settings(attribution_kwargs)
         if batch_size is None or inputs.shape[0] <= batch_size:
-            return self.compute_attributions(model, inputs, backend=backend, **attribution_kwargs)
+            attributions = self.compute_attributions(
+                model,
+                inputs,
+                backend=backend,
+                **attribution_kwargs,
+            )
+            return self._normalise_attributions(attributions)
 
         chunks: list[torch.Tensor] = []
         total_batch = int(inputs.shape[0])
@@ -104,15 +111,26 @@ class BaseExplainer(ABC):
             end = min(start + batch_size, total_batch)
             batch_inputs = inputs[start:end]
             batch_kwargs = self._slice_kwargs_for_batch(attribution_kwargs, start, end, total_batch)
-            chunks.append(
-                self.compute_attributions(
-                    model,
-                    batch_inputs,
-                    backend=backend,
-                    **batch_kwargs,
-                )
+            chunk = self.compute_attributions(
+                model,
+                batch_inputs,
+                backend=backend,
+                **batch_kwargs,
             )
+            # Normalise all attribution outputs to detached CPU tensors so batched and
+            # unbatched runs return the same device semantics and persist consistently.
+            chunks.append(self._normalise_attributions(chunk))
+            del chunk, batch_inputs, batch_kwargs
+            # Clean up memory after each batch to avoid OOM errors in long runs
+            # (e.g. with SHAP partition explainer).
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         return torch.cat(chunks, dim=0)
+
+    @staticmethod
+    def _normalise_attributions(attributions: torch.Tensor) -> torch.Tensor:
+        return attributions.detach().cpu()
 
     def _pop_batch_size(self, attribution_kwargs: dict[str, Any]) -> int | None:
         batch_size: int | None = None

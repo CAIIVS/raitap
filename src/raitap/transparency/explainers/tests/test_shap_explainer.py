@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import sys
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
 import torch
 
 from raitap.transparency.explainers import ShapExplainer
+from raitap.transparency.explainers.shap_explainer import _select_target_attributions
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -88,6 +91,90 @@ class TestShapExplainer:
 
         assert isinstance(result.attributions, torch.Tensor)
         assert result.attributions.shape == sample_images.shape
+
+    def test_select_target_attributions_normalises_tensor_targets(self) -> None:
+        shap_values = torch.tensor(
+            [
+                [[[[10.0, 11.0, 12.0]]]],
+                [[[[20.0, 21.0, 22.0]]]],
+            ]
+        )
+
+        selected = _select_target_attributions(
+            shap_values,
+            inputs_ndim=4,
+            target=torch.tensor([2.0, 1.0]),
+        )
+
+        assert torch.equal(selected, torch.tensor([[[[12.0]]], [[[21.0]]]]))
+
+    def test_compute_attributions_selects_per_sample_targets_with_cpu_shap_values(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        sample_images: torch.Tensor,
+    ) -> None:
+        class FakeGradientExplainer:
+            def __init__(
+                self,
+                model: torch.nn.Module,
+                background_data: torch.Tensor,
+                **_kwargs,
+            ) -> None:
+                self.model = model
+                self.background_data = background_data
+
+            def shap_values(self, inputs: torch.Tensor, **_kwargs) -> torch.Tensor:
+                del _kwargs
+                zeros = torch.zeros_like(inputs)
+                class_maps = [zeros + class_index for class_index in range(3)]
+                return torch.stack(class_maps, dim=-1)
+
+        monkeypatch.setitem(
+            sys.modules,
+            "shap",
+            SimpleNamespace(GradientExplainer=FakeGradientExplainer),
+        )
+
+        explainer = ShapExplainer("GradientExplainer")
+        targets = torch.tensor([0.0, 1.0, 2.0, 1.0])
+
+        attributions = explainer.compute_attributions(
+            torch.nn.Identity(),
+            sample_images,
+            background_data=sample_images[:2],
+            target=targets,
+        )
+
+        expected = torch.stack(
+            [
+                torch.zeros_like(sample_images[0]),
+                torch.ones_like(sample_images[1]),
+                torch.full_like(sample_images[2], 2.0),
+                torch.ones_like(sample_images[3]),
+            ]
+        )
+        assert torch.equal(attributions, expected)
+
+    @pytest.mark.skipif(
+        not torch.cuda.is_available(),
+        reason="CUDA required for device-mismatch regression",
+    )
+    def test_select_target_attributions_accepts_cuda_targets_for_cpu_shap_values(self) -> None:
+        shap_values = torch.tensor(
+            [
+                [[[[1.0, 2.0]]]],
+                [[[[3.0, 4.0]]]],
+            ]
+        )
+        target = torch.tensor([1, 0], device=torch.device("cuda"))
+
+        selected = _select_target_attributions(
+            shap_values,
+            inputs_ndim=4,
+            target=target,
+        )
+
+        assert torch.equal(selected, torch.tensor([[[[2.0]]], [[[3.0]]]]))
 
     @pytest.mark.usefixtures("needs_shap", "needs_onnx")
     def test_kernel_explainer_runs_with_onnx_backend(

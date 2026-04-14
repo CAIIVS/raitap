@@ -3,20 +3,53 @@ name: Quality Gate
 on:
   workflow_dispatch:
   push:
-    paths:
-      - "**.py"
-      - "pyproject.toml"
-      - "uv.lock"
-      - ".github/workflows/**"
-      - ".github/actions/**"
+    # No path filter here: branch rulesets expect a status for every push. Doc-only
+    # changes skip heavy jobs via job-level conditions (skipped still satisfies required checks).
 
 permissions:
   contents: read
   pull-requests: read
 
 jobs:
+  changes:
+    name: Detect relevant changes
+    runs-on: ubuntu-latest
+    outputs:
+      python: ${{ steps.result.outputs.python }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Paths filter
+        id: filter
+        if: github.event_name != 'workflow_dispatch'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            python:
+              - "**.py"
+              - "pyproject.toml"
+              - "uv.lock"
+              - ".github/workflows/**"
+              - ".github/actions/**"
+
+      - name: Decide whether Python CI should run
+        id: result
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "python=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ steps.filter.outputs.python }}" = "true" ]; then
+            echo "python=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "python=false" >> "$GITHUB_OUTPUT"
+          fi
+
   detect_pr_context:
     name: Detect PR Context
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     outputs:
       has_open_pr: ${{ steps.detect.outputs.has_open_pr }}
@@ -25,7 +58,7 @@ jobs:
     steps:
       - name: Detect open PR for branch
         id: detect
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const branch = context.ref.replace("refs/heads/", "");
@@ -48,6 +81,8 @@ jobs:
 
   quality-gate-linux-cpu:
     name: Quality Gate (Linux CPU)
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -83,8 +118,8 @@ jobs:
     name: Quality Gate (Linux CUDA)
     # Hosted GPU runners are not enabled for every repository by default.
     # Keep the job defined, but only run it when the repo explicitly opts in.
-    needs: detect_pr_context
-    if: ${{ vars.ENABLE_HOSTED_GPU_CI == 'true' && needs.detect_pr_context.outputs.has_open_pr == 'true' && needs.detect_pr_context.outputs.is_draft_pr == 'false' }}
+    needs: [changes, detect_pr_context]
+    if: ${{ needs.changes.outputs.python == 'true' && vars.ENABLE_HOSTED_GPU_CI == 'true' && needs.detect_pr_context.outputs.has_open_pr == 'true' && needs.detect_pr_context.outputs.is_draft_pr == 'false' }}
     runs-on: ubuntu-latest-gpu
 
     steps:
