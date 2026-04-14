@@ -8,7 +8,6 @@ This section contains documentation meant to help contributors setup the dev env
 
 setup
 pull-requests
-going-stable-1-0
 releases
 Data module <data>
 Metrics module <metrics>
