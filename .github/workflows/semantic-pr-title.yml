@@ -32,6 +32,7 @@ jobs:
             chore
             revert
             deps
+            deps-dev
           scopes: |
             transparency
             tracking
