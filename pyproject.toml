@@ -117,7 +117,7 @@ reporting = ["borb==3.0.7"]
 [dependency-groups]
 lint = ["ruff>=0.8.0", "pyright>=1.1.390"]
 test = ["pytest>=8.0.0", "pytest-cov>=4.1.0", "pytest-mpl>=0.19.0"]
-tooling = ["pre-commit>=4.0.0", "commitizen>=3.0.0"]
+tooling = ["pre-commit>=4.0.0", "commitizen>=4.13.10"]
 docs = [
   "sphinx>=8.0.0",
   "myst-parser>=4.0.0",
@@ -269,7 +269,7 @@ indent-style = "space"
 name = "cz_customize"
 tag_format = "v$version"
 version_scheme = "semver"
-version_provider = "pep621"
+version_provider = "uv"
 update_changelog_on_bump = false
 major_version_zero = true
 
