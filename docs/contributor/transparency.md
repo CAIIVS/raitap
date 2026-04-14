@@ -52,10 +52,26 @@ Some SHAP methods require special init logic. Check `src/raitap/transparency/exp
 
 ## Alibi Explain
 
-- **Class:** `AlibiExplainer` (`CustomExplainer`). **Algorithms:** `KernelShap` (PyTorch `nn.Module` black-box, default in `alibi_kernel.yaml`) and `IntegratedGradients` (TensorFlow/Keras only — pass `keras_model` in Hydra `constructor`).
+- **Class:** `AlibiExplainer` (`CustomExplainer`). **Algorithms:** `KernelShap` (PyTorch `nn.Module` black-box, default in `alibi_kernel.yaml`), `TreeShap` (fitted tree-based model — sklearn/XGBoost/LightGBM/CatBoost, pass via `constructor: {tree_model: ...}`), and `IntegratedGradients` (TensorFlow/Keras only — pass `keras_model` in Hydra `constructor`).
 - **Licensing:** Alibi is **BSL 1.1**, not GPLv3. See {ref}`Alibi (transparency) <alibi-frameworks>` and the one-time `logging.warning` from `factory._maybe_emit_third_party_license_warnings` when `ALIBI_BSL_LICENSE_WARNING` is true on the explainer class.
 - **Installation (this repo):** `uv sync` with `--extra alibi`; the root **`pyproject.toml`** already supplies **`[tool.uv]` overrides**, so you do not add them manually. **Downstream** projects that depend on `raitap[alibi]` must mirror those overrides — see {ref}`Alibi (transparency) <alibi-install-overrides>`.
 - **Tests:** `src/raitap/transparency/explainers/tests/test_alibi_explainer.py` uses `needs_alibi` and skips when `alibi` is not installed.
+
+### Alibi algorithms not currently supported
+
+The following Alibi explainers are intentionally absent. This section documents the blockers so future contributors know what needs to change before they can be added.
+
+**`AnchorTabular`, `AnchorImage`, `AnchorText`, `DistributedAnchorTabular`**
+
+These produce *structured* explanations (anchor feature conditions, precision, coverage) rather than attribution tensors. `ExplanationResult` currently requires an `attributions: torch.Tensor` and `write_artifacts()` raises `NotImplementedError` for `ExplanationPayloadKind.STRUCTURED`. Before adding any Anchor method: (1) make `attributions` optional on `ExplanationResult`, (2) implement STRUCTURED persistence (a JSON dump of the anchor result), and (3) fix the hardcoded `attributions.pt` copy in `ExplanationResult.log()`. `AnchorImage` and `AnchorText` also pull in extra-heavy dependencies (image segmentation / spaCy) that do not belong in the `[alibi]` optional extra without deliberate scoping.
+
+**`ALE` (Accumulated Local Effects)**
+
+ALE is a *global*, population-level explanation method. Its output is one effect curve per feature across the dataset — not a tensor shaped like the inputs. It does not fit the per-sample attribution model that `ExplanationResult` expects. Supporting it properly would require a different result type (or a well-defined mapping from global ALE curves to per-sample estimates, which is non-standard).
+
+**`CEM`, `CounterFactual`, `CounterFactualProto`**
+
+All three are TensorFlow/Keras-only and produce counterfactual instances (STRUCTURED output), not attribution tensors. Adding them would require (1) TensorFlow as a hard dependency inside `[alibi]` — a significant architectural choice — and (2) STRUCTURED persistence (same blocker as Anchor methods).
 
 ## Adding a new framework
 

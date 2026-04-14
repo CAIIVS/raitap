@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, cast
 
+import numpy as np
 import pytest
 
 from raitap.transparency.explainers.alibi_explainer import AlibiExplainer
@@ -30,6 +31,44 @@ def test_alibi_kernel_shap_runs_with_torch_model(
     )
     assert result.attributions.shape == inputs.shape
     assert (tmp_path / "transparency" / "attributions.pt").exists()
+
+
+@pytest.mark.usefixtures("needs_alibi")
+def test_alibi_tree_shap_runs_with_sklearn_model(
+    simple_mlp: torch.nn.Module,
+    sample_tabular: torch.Tensor,
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip("sklearn")
+    from sklearn.ensemble import RandomForestClassifier
+
+    x = sample_tabular.numpy()
+    y = np.zeros(len(x), dtype=int)
+    y[len(x) // 2 :] = 1
+    tree = RandomForestClassifier(n_estimators=3, random_state=42)
+    tree.fit(x, y)
+
+    explainer = AlibiExplainer("TreeShap", tree_model=tree)
+    inputs = sample_tabular[:4]
+    result = explainer.explain(
+        simple_mlp,  # not used by TreeShap; tree_model comes from init_kwargs
+        inputs,
+        run_dir=tmp_path / "transparency",
+    )
+    assert result.attributions.shape == inputs.shape
+    assert (tmp_path / "transparency" / "attributions.pt").exists()
+
+
+@pytest.mark.usefixtures("needs_alibi")
+def test_alibi_tree_shap_raises_without_tree_model(
+    simple_mlp: torch.nn.Module,
+    sample_tabular: torch.Tensor,
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip("sklearn")
+    explainer = AlibiExplainer("TreeShap")
+    with pytest.raises(ValueError, match="tree_model"):
+        explainer.explain(simple_mlp, sample_tabular[:2], run_dir=tmp_path / "transparency")
 
 
 @pytest.mark.usefixtures("needs_alibi")

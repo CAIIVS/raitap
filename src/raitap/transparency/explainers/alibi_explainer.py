@@ -66,8 +66,15 @@ class AlibiExplainer(CustomExplainer):
     """
     Wraps selected Alibi Explain algorithms.
 
-    ``KernelShap`` works with PyTorch ``nn.Module`` predictions (black-box). ``IntegratedGradients``
-    follows Alibi's TensorFlow/Keras API: pass ``keras_model`` in the Hydra ``constructor`` block.
+    ``KernelShap`` works with PyTorch ``nn.Module`` predictions (black-box).
+
+    ``TreeShap`` works with fitted tree-based models (sklearn, XGBoost, LightGBM, CatBoost).
+    Pass the fitted tree model via the ``constructor`` block (``tree_model: ...``) or directly:
+    ``AlibiExplainer("TreeShap", tree_model=my_forest)``.  The ``model`` argument to
+    :meth:`explain` is ignored for TreeShap.
+
+    ``IntegratedGradients`` follows Alibi's TensorFlow/Keras API: pass ``keras_model`` in the
+    Hydra ``constructor`` block.  The ``model`` argument to :meth:`explain` is ignored.
     """
 
     ALIBI_BSL_LICENSE_WARNING: ClassVar[bool] = True
@@ -110,12 +117,14 @@ class AlibiExplainer(CustomExplainer):
 
         if self.algorithm == "KernelShap":
             attributions = self._kernel_shap_attributions(model, inputs, **call_kwargs)
+        elif self.algorithm == "TreeShap":
+            attributions = self._tree_shap_attributions(inputs, **call_kwargs)
         elif self.algorithm == "IntegratedGradients":
             attributions = self._integrated_gradients_attributions(inputs, **call_kwargs)
         else:
             raise ValueError(
                 f"Unsupported Alibi algorithm {self.algorithm!r}. "
-                "Supported: 'KernelShap', 'IntegratedGradients'."
+                "Supported: 'KernelShap', 'TreeShap', 'IntegratedGradients'."
             )
 
         explanation = ExplanationResult(
@@ -175,6 +184,46 @@ class AlibiExplainer(CustomExplainer):
             explain_extra["target"] = kwargs["target"]
         with _alibi_kernel_shap_shap050_multiclass_patch():
             explanation = ks.explain(x, nsamples=nsamples, **explain_extra)
+        raw = explanation.shap_values
+        return torch.as_tensor(
+            self._normalise_shap_array(raw, inputs.shape, kwargs.get("target")),
+            dtype=inputs.dtype,
+            device=inputs.device,
+        )
+
+    def _tree_shap_attributions(
+        self,
+        inputs: torch.Tensor,
+        **kwargs: Any,
+    ) -> torch.Tensor:
+        from alibi.explainers import TreeShap
+
+        tree_model = self.init_kwargs.get("tree_model")
+        if tree_model is None:
+            raise ValueError(
+                "Alibi TreeShap requires `tree_model` in the explainer `constructor` "
+                "(a fitted sklearn/XGBoost/LightGBM/CatBoost model). "
+                "Pass it via the Hydra `constructor` block or directly as "
+                "`AlibiExplainer('TreeShap', tree_model=my_model)`."
+            )
+
+        x = inputs.detach().cpu().numpy().astype(np.float32, copy=False)
+        task = str(kwargs.get("task", "classification"))
+        ts = TreeShap(tree_model, task=task)
+
+        background = kwargs.get("background_data")
+        if background is not None:
+            if isinstance(background, torch.Tensor):
+                background_np = background.detach().cpu().numpy().astype(np.float32, copy=False)
+            else:
+                background_np = np.asarray(background, dtype=np.float32)
+            ts.fit(background_np)
+
+        explain_extra: dict[str, Any] = {}
+        if "target" in kwargs:
+            explain_extra["target"] = kwargs["target"]
+
+        explanation = ts.explain(x, **explain_extra)
         raw = explanation.shap_values
         return torch.as_tensor(
             self._normalise_shap_array(raw, inputs.shape, kwargs.get("target")),
