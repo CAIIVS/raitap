@@ -7,10 +7,9 @@ Alibi Explain is licensed under Seldon's BSL 1.1 (not GPLv3). See installation a
 from __future__ import annotations
 
 import importlib.util
-from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 import torch
@@ -20,6 +19,9 @@ from raitap.configs import resolve_run_dir
 from ..contracts import ExplanationPayloadKind
 from ..results import ConfiguredVisualiser, ExplanationResult
 from .custom_explainer import CustomExplainer
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 _VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
 
@@ -37,7 +39,7 @@ def _alibi_kernel_shap_shap050_multiclass_patch() -> Iterator[None]:
 
     def patched_build(
         self: Any,
-        X: Any,
+        x: Any,
         shap_values: list[np.ndarray],
         expected_value: Any,
         **kwargs: Any,
@@ -51,7 +53,7 @@ def _alibi_kernel_shap_shap050_multiclass_patch() -> Iterator[None]:
             shap_values = [
                 np.ascontiguousarray(stacked[..., idx]) for idx in range(int(stacked.shape[-1]))
             ]
-        return original_build(self, X, shap_values, expected_value, **kwargs)
+        return original_build(self, x, shap_values, expected_value, **kwargs)
 
     kernel_cls._build_explanation = patched_build  # type: ignore[method-assign]
     try:
@@ -92,10 +94,11 @@ class AlibiExplainer(CustomExplainer):
     ) -> ExplanationResult:
         if importlib.util.find_spec("alibi") is None:
             raise ImportError(
-                "Alibi explainer requires the `alibi` package. Install it with pip/uv into your "
-                "Install it via `uv add raitap[alibi]` after adding the required dependency "
-                "overrides to your pyproject.toml. "
-                "See docs/using-raitap/installation.md for the exact steps."
+                "Alibi explainer requires the `alibi` package. When developing RAITAP, "
+                "run `uv sync` with `--extra alibi`. In other projects, use "
+                "`uv add raitap[alibi]` and mirror RAITAP's `[tool.uv] override-dependencies` "
+                "in pyproject.toml (pip does not apply them). See "
+                "https://caiivs.github.io/raitap/modules/transparency/frameworks-and-libraries.html#alibi"
             )
 
         del backend

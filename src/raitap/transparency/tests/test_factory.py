@@ -309,6 +309,22 @@ def test_create_explainer_wraps_instantiation_errors(
         create_explainer(config)
 
 
+def test_create_explainer_rejects_missing_check_backend_compat(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _ExplainerWithoutBackendCheck:
+        def explain(self, *_args: Any, **_kwargs: Any) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "raitap.transparency.factory.instantiate",
+        lambda _cfg: _ExplainerWithoutBackendCheck(),
+    )
+    config = OmegaConf.create({"_target_": "CaptumExplainer", "algorithm": "Saliency"})
+    with pytest.raises(ValueError, match="check_backend_compat"):
+        create_explainer(config)
+
+
 def test_create_explainer_rejects_unknown_top_level_keys() -> None:
     config = OmegaConf.create(
         {

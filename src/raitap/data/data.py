@@ -219,7 +219,7 @@ def load_tensor_from_source(source: str, n_samples: int | None = None) -> torch.
         if not path.exists():
             demo_samples = ", ".join(f'"{s}"' for s in SAMPLE_SOURCES)
             raise ValueError(
-                f"Background data source {source!r} does not exist.\n"
+                f"Data source {source!r} does not exist.\n"
                 f"Expected a URL, an existing local path, or a named demo sample.\n"
                 f"Known demo samples: {demo_samples}"
             )
@@ -250,7 +250,7 @@ def load_numpy_from_source(source: str, n_samples: int | None = None) -> np.ndar
         if not path.exists():
             demo_samples = ", ".join(f'"{s}"' for s in SAMPLE_SOURCES)
             raise ValueError(
-                f"Background data source {source!r} does not exist.\n"
+                f"Data source {source!r} does not exist.\n"
                 f"Expected a URL, an existing local path, or a named demo sample.\n"
                 f"Known demo samples: {demo_samples}"
             )

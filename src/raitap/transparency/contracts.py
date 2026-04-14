@@ -1,8 +1,13 @@
 """
 Shared transparency contracts: payload kinds and explainer adapter typing.
 
-New :class:`ExplanationPayloadKind` values are added only when a feature implements
-persistence, visualisation, and factory checks for that kind end-to-end.
+:class:`ExplanationPayloadKind` labels the primary payload on
+:class:`~raitap.transparency.results.ExplanationResult`.
+:attr:`~ExplanationPayloadKind.ATTRIBUTIONS` is supported end-to-end (persistence,
+visualisation, factory wiring). Other enum members may exist for forward-compatible
+APIs before every code path is complete — for example
+:attr:`~ExplanationPayloadKind.STRUCTURED` is not yet handled in
+:meth:`~raitap.transparency.results.ExplanationResult.write_artifacts`.
 """
 
 from __future__ import annotations

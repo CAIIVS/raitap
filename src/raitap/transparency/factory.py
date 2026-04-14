@@ -268,6 +268,13 @@ def create_explainer(explainer_config: Any) -> tuple[ExplainerAdapter, str]:
             f"Instantiated explainer {target_path!r} has no callable explain() method."
         )
 
+    if not callable(getattr(explainer, "check_backend_compat", None)):
+        raise ValueError(
+            f"Instantiated explainer {target_path!r} has no callable "
+            "check_backend_compat() method. Configured explainers must implement "
+            "check_backend_compat(backend)."
+        )
+
     return explainer, resolved_target
 
 
