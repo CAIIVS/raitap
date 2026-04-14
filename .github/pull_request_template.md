@@ -1,3 +1,8 @@
+> [!WARNING]
+>
+> The title must follow the [Conventional Commits standard](https://caiivs.github.io/raitap/contributor/pull-requests.html) and **mark breaking changes**. Our release process depends on it.
+> Delete this callout once the title complies.
+
 ## Summary
 
 <!-- Short description of what this PR does. The PR title must follow Conventional Commits (see checklist and link below). -->
