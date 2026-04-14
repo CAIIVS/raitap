@@ -212,12 +212,13 @@ class AlibiExplainer(CustomExplainer):
         ts = TreeShap(tree_model, task=task)
 
         background = kwargs.get("background_data")
-        if background is not None:
-            if isinstance(background, torch.Tensor):
-                background_np = background.detach().cpu().numpy().astype(np.float32, copy=False)
-            else:
-                background_np = np.asarray(background, dtype=np.float32)
-            ts.fit(background_np)
+        if background is None:
+            background_np = x
+        elif isinstance(background, torch.Tensor):
+            background_np = background.detach().cpu().numpy().astype(np.float32, copy=False)
+        else:
+            background_np = np.asarray(background, dtype=np.float32)
+        ts.fit(background_np)
 
         explain_extra: dict[str, Any] = {}
         if "target" in kwargs:
