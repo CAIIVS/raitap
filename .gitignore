@@ -69,3 +69,6 @@ logs/
 # MLflow artifacts (tracking data, not source code)
 mlruns/
 /mlflow/
+
+# LLM
+.claude/
