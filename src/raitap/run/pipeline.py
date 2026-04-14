@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import torch
 
-from raitap.configs import resolve_run_dir
+from raitap.configs import cfg_to_dict, resolve_run_dir
 from raitap.data import Data
 from raitap.metrics import (
     Metrics,
@@ -89,10 +89,13 @@ def run(config: AppConfig) -> RunOutputs:
 
 
 def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOutputs:
-    data_tensor = model.backend._prepare_inputs(data.tensor)
+    backend = getattr(model, "backend", None)
+    prepare_inputs = getattr(backend, "_prepare_inputs", lambda value: value)
+    predictor = backend if backend is not None else cast("Any", model).network
+    data_tensor = prepare_inputs(data.tensor)
 
     with torch.no_grad():
-        raw_output: Any = model.backend(data_tensor)
+        raw_output: Any = predictor(data_tensor)
         forward_output = extract_primary_tensor(raw_output)
 
     metrics_eval: MetricsEvaluation | None = None
@@ -115,6 +118,10 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
         raise ValueError("No explainers configured")
 
     for name, _explainer_cfg in explainers:
+        runtime_kwargs = _resolve_explainer_runtime_kwargs(
+            config.transparency[name],
+            forward_output=forward_output,
+        )
         # Explainer ``call:`` (and optional run kwargs) supply target, baselines, etc.
         explanation = Explanation(
             config,
@@ -122,6 +129,7 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
             model,
             data_tensor,
             sample_names=getattr(data, "sample_ids", None),
+            **runtime_kwargs,
         )
         explanations.append(explanation)
         visualisations.extend(explanation.visualise())
@@ -145,3 +153,20 @@ def print_summary(config: AppConfig, model: Model) -> None:
     logger.info("Explainers: %s", list(config.transparency.keys()))
     logger.info("Metrics: %s", "on" if metrics_run_enabled(config) else "off")
     logger.info("Output: %s\n", resolve_run_dir(config))
+
+
+def _resolve_explainer_runtime_kwargs(
+    explainer_config: Any,
+    *,
+    forward_output: torch.Tensor,
+) -> dict[str, Any]:
+    raw_config = cfg_to_dict(explainer_config)
+    call_config = raw_config.get("call")
+    if not isinstance(call_config, dict):
+        return {}
+
+    if call_config.get("target") != "auto_pred":
+        return {}
+
+    predictions, _ = metrics_prediction_pair(forward_output)
+    return {"target": predictions}

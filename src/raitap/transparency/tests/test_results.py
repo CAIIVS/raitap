@@ -16,6 +16,7 @@ from raitap.transparency.results import (
     VisualisationResult,
     _serialisable,
 )
+from raitap.transparency.visualisers import ShapImageVisualiser
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
 
 if TYPE_CHECKING:
@@ -318,3 +319,130 @@ def test_explanation_visualise_trims_sample_names_for_shorter_batch(tmp_path: Pa
     explanation.visualise()
 
     assert vis.received_names == ["ISIC_1"]
+
+
+def test_explanation_visualise_forwards_algorithm_when_supported(tmp_path: Path) -> None:
+    class _AlgorithmVisualiser(BaseVisualiser):
+        def __init__(self) -> None:
+            self.last_algorithm: str | None = None
+            self.last_kwargs: dict[str, Any] = {}
+
+        def visualise(
+            self,
+            attributions: torch.Tensor,
+            inputs: torch.Tensor | None = None,
+            algorithm: str | None = None,
+            **kw: Any,
+        ) -> Figure:
+            del attributions, inputs
+            self.last_algorithm = algorithm
+            self.last_kwargs = dict(kw)
+            fig, _ax = plt.subplots(figsize=(1, 1))
+            return fig
+
+    run_dir = tmp_path / "exp_algorithm_forward"
+    vis = _AlgorithmVisualiser()
+    explanation = ExplanationResult(
+        attributions=torch.randn(1, 3, 4, 4),
+        inputs=torch.randn(1, 3, 4, 4),
+        run_dir=run_dir,
+        experiment_name="e",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        visualisers=[ConfiguredVisualiser(visualiser=vis)],
+    )
+    explanation.write_artifacts()
+
+    explanation.visualise()
+
+    assert vis.last_algorithm == "IntegratedGradients"
+    assert vis.last_kwargs == {}
+
+
+def test_explanation_visualise_sets_shap_image_default_title_from_algorithm(tmp_path: Path) -> None:
+    run_dir = tmp_path / "exp_shap_title"
+    explanation = ExplanationResult(
+        attributions=torch.randn(1, 3, 8, 8),
+        inputs=torch.rand(1, 3, 8, 8),
+        run_dir=run_dir,
+        experiment_name="e",
+        explainer_target="t",
+        algorithm="GradientExplainer",
+        visualisers=[ConfiguredVisualiser(visualiser=ShapImageVisualiser(show_colorbar=False))],
+    )
+    explanation.write_artifacts()
+
+    [result] = explanation.visualise()
+
+    titles = [ax.get_title() for ax in result.figure.axes if ax.get_title()]
+    assert titles == ["Original Image", "GradientExplainer (SHAP)"]
+
+
+def test_explanation_visualise_preserves_shap_constructor_title(tmp_path: Path) -> None:
+    run_dir = tmp_path / "exp_shap_constructor_title"
+    explanation = ExplanationResult(
+        attributions=torch.randn(1, 3, 8, 8),
+        inputs=torch.rand(1, 3, 8, 8),
+        run_dir=run_dir,
+        experiment_name="e",
+        explainer_target="t",
+        algorithm="GradientExplainer",
+        visualisers=[
+            ConfiguredVisualiser(
+                visualiser=ShapImageVisualiser(title="Configured SHAP", show_colorbar=False)
+            )
+        ],
+    )
+    explanation.write_artifacts()
+
+    [result] = explanation.visualise()
+
+    titles = [ax.get_title() for ax in result.figure.axes if ax.get_title()]
+    assert titles == ["Original Image", "Configured SHAP"]
+
+
+def test_explanation_visualise_preserves_explicit_shap_image_title(tmp_path: Path) -> None:
+    run_dir = tmp_path / "exp_shap_explicit_title"
+    explanation = ExplanationResult(
+        attributions=torch.randn(1, 3, 8, 8),
+        inputs=torch.rand(1, 3, 8, 8),
+        run_dir=run_dir,
+        experiment_name="e",
+        explainer_target="t",
+        algorithm="GradientExplainer",
+        visualisers=[
+            ConfiguredVisualiser(
+                visualiser=ShapImageVisualiser(title="Configured SHAP", show_colorbar=False),
+            )
+        ],
+    )
+    explanation.write_artifacts()
+
+    [result] = explanation.visualise(title="Runtime SHAP")
+
+    titles = [ax.get_title() for ax in result.figure.axes if ax.get_title()]
+    assert titles == ["Original Image", "Runtime SHAP"]
+
+
+def test_explanation_visualise_forwards_algorithm_to_shap_subclasses(tmp_path: Path) -> None:
+    class _SubclassedShapImageVisualiser(ShapImageVisualiser):
+        pass
+
+    run_dir = tmp_path / "exp_shap_subclass_title"
+    explanation = ExplanationResult(
+        attributions=torch.randn(1, 3, 8, 8),
+        inputs=torch.rand(1, 3, 8, 8),
+        run_dir=run_dir,
+        experiment_name="e",
+        explainer_target="t",
+        algorithm="DeepExplainer",
+        visualisers=[
+            ConfiguredVisualiser(visualiser=_SubclassedShapImageVisualiser(show_colorbar=False))
+        ],
+    )
+    explanation.write_artifacts()
+
+    [result] = explanation.visualise()
+
+    titles = [ax.get_title() for ax in result.figure.axes if ax.get_title()]
+    assert titles == ["Original Image", "DeepExplainer (SHAP)"]

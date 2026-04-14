@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import matplotlib.pyplot as plt
 import pytest
 import torch
 
@@ -425,6 +426,114 @@ class TestShapImageVisualiser:
         attributions = torch.randn_like(sample_images)
         fig = visualiser.visualise(attributions, inputs=sample_images)
         assert fig is not None
+        titles = [ax.get_title() for ax in fig.axes[:2]]
+        assert titles == ["Original Image", "SHAP Image"]
+        plt.close(fig)
+
+    @pytest.mark.usefixtures("needs_shap")
+    def test_show_sample_names_sets_axis_titles(self, sample_images: torch.Tensor) -> None:
+        visualiser = ShapImageVisualiser()
+        attributions = torch.randn_like(sample_images)
+
+        fig = visualiser.visualise(
+            attributions,
+            inputs=sample_images,
+            max_samples=1,
+            sample_names=["ISIC_0001", "ISIC_0002"],
+            show_sample_names=True,
+            algorithm="GradientExplainer",
+        )
+
+        titles = [ax.get_title() for ax in fig.axes[:2]]
+        assert titles == [
+            "Original Image: ISIC_0001",
+            "GradientExplainer (SHAP): ISIC_0001",
+        ]
+        plt.close(fig)
+
+    @pytest.mark.usefixtures("needs_shap")
+    def test_show_sample_names_sets_titles_for_each_sample_pair(
+        self, sample_images: torch.Tensor
+    ) -> None:
+        visualiser = ShapImageVisualiser(show_colorbar=False)
+        attributions = torch.randn_like(sample_images)
+
+        fig = visualiser.visualise(
+            attributions,
+            inputs=sample_images,
+            max_samples=2,
+            sample_names=["ISIC_0001", "ISIC_0002", "ISIC_0003"],
+            show_sample_names=True,
+            algorithm="DeepExplainer",
+        )
+
+        titles = [ax.get_title() for ax in fig.axes if ax.get_title()]
+        assert titles == [
+            "Original Image: ISIC_0001",
+            "DeepExplainer (SHAP): ISIC_0001",
+            "Original Image: ISIC_0002",
+            "DeepExplainer (SHAP): ISIC_0002",
+        ]
+        plt.close(fig)
+
+    @pytest.mark.usefixtures("needs_shap")
+    def test_show_sample_names_prefixes_existing_title(self, sample_images: torch.Tensor) -> None:
+        visualiser = ShapImageVisualiser()
+        attributions = torch.randn_like(sample_images)
+
+        fig = visualiser.visualise(
+            attributions,
+            inputs=sample_images,
+            max_samples=1,
+            sample_names=["ISIC_1234"],
+            show_sample_names=True,
+            title="Custom SHAP",
+            algorithm="GradientExplainer",
+        )
+
+        titles = [ax.get_title() for ax in fig.axes[:2]]
+        assert titles == ["Original Image: ISIC_1234", "Custom SHAP: ISIC_1234"]
+        plt.close(fig)
+
+    @pytest.mark.usefixtures("needs_shap")
+    def test_explicit_empty_title_is_preserved_in_paired_layout(
+        self, sample_images: torch.Tensor
+    ) -> None:
+        visualiser = ShapImageVisualiser()
+        attributions = torch.randn_like(sample_images)
+
+        fig = visualiser.visualise(
+            attributions,
+            inputs=sample_images,
+            max_samples=1,
+            title="",
+            algorithm="GradientExplainer",
+        )
+
+        titles = [ax.get_title() for ax in fig.axes[:2]]
+        assert titles == ["Original Image", ""]
+        plt.close(fig)
+
+    @pytest.mark.usefixtures("needs_shap")
+    def test_explicit_empty_title_is_preserved_when_showing_sample_names(
+        self, sample_images: torch.Tensor
+    ) -> None:
+        visualiser = ShapImageVisualiser()
+        attributions = torch.randn_like(sample_images)
+
+        fig = visualiser.visualise(
+            attributions,
+            inputs=sample_images,
+            max_samples=1,
+            sample_names=["ISIC_0001"],
+            show_sample_names=True,
+            title="",
+            algorithm="GradientExplainer",
+        )
+
+        titles = [ax.get_title() for ax in fig.axes[:2]]
+        assert titles == ["Original Image: ISIC_0001", ""]
+        plt.close(fig)
 
     @pytest.mark.usefixtures("needs_shap")
     def test_save(self, sample_images: torch.Tensor, tmp_path: Path) -> None:
