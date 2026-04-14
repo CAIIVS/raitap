@@ -41,7 +41,7 @@ The `factory.py` module provides the `Explanation` class and helper functions, w
 Transparency runs after the forward pass in `src/raitap/run/pipeline.py`. For each configured explainer:
 
 1. `Explanation(config, name, model, data)` creates the explainer and visualisers using the factory functions
-2. The explainer's `explain()` method returns an `ExplanationResult` (for `BaseExplainer`, after calling `compute_attributions()`)
+2. The explainer's `explain()` method returns an `ExplanationResult` (for `AttributionOnlyExplainer`, after calling `compute_attributions()`)
 3. `ExplanationResult.write_artifacts()` saves attributions and metadata to disk (`payload_kind` is recorded in metadata)
 4. `ExplanationResult.visualise()` iterates through configured visualisers, calling each one's `visualise()` method and saving the figures
 
