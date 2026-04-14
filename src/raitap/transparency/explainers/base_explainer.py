@@ -27,9 +27,9 @@ class AbstractExplainer:
     Owns the shared interface: ``output_payload_kind`` class variable (default
     ``ATTRIBUTIONS``) and the ``check_backend_compat`` no-op default.
 
-    Extend via :class:`AttributionOnlyExplainer` when the framework should manage the
+    Extend via ``AttributionOnlyExplainer`` when the framework should manage the
     full ``explain`` pipeline and you only need to implement ``compute_attributions``,
-    or via :class:`FullExplainer` when you own the entire ``explain`` pipeline yourself.
+    or via ``FullExplainer`` when you own the entire ``explain`` pipeline yourself.
     """
 
     output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
