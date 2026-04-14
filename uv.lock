@@ -3532,7 +3532,7 @@ requires-dist = [
     { name = "openvino", marker = "sys_platform == 'win32' and extra == 'onnx-intel'", specifier = ">=2025.1.0" },
     { name = "pandas", specifier = ">=2.0.0" },
     { name = "pandas-stubs", specifier = "~=3.0.0" },
-    { name = "pillow", specifier = ">=10.0.0" },
+    { name = "pillow", specifier = ">=12.2.0" },
     { name = "raitap", extras = ["mlflow"], marker = "extra == 'tracking'" },
     { name = "raitap", extras = ["shap", "captum"], marker = "extra == 'transparency'" },
     { name = "shap", marker = "extra == 'shap'", specifier = ">=0.46.0" },
@@ -3557,24 +3557,24 @@ provides-extras = ["torch-cpu", "torch-cuda", "torch-intel", "onnx-cpu", "onnx-c
 [package.metadata.requires-dev]
 dev = [
     { name = "commitizen", specifier = ">=4.13.10" },
-    { name = "furo", specifier = ">=2024.8.6" },
-    { name = "myst-parser", specifier = ">=4.0.0" },
+    { name = "furo", specifier = ">=2025.12.19" },
+    { name = "myst-parser", specifier = ">=5.0.0" },
     { name = "pre-commit", specifier = ">=4.0.0" },
     { name = "pyright", specifier = ">=1.1.390" },
-    { name = "pytest", specifier = ">=8.0.0" },
-    { name = "pytest-cov", specifier = ">=4.1.0" },
+    { name = "pytest", specifier = ">=9.0.3" },
+    { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "pytest-mpl", specifier = ">=0.19.0" },
     { name = "ruff", specifier = ">=0.8.0" },
-    { name = "sphinx", specifier = ">=8.0.0" },
-    { name = "sphinx-autobuild", specifier = ">=2024.10.3" },
+    { name = "sphinx", specifier = ">=9.1.0" },
+    { name = "sphinx-autobuild", specifier = ">=2025.8.25" },
     { name = "sphinx-copybutton", specifier = ">=0.5.2" },
     { name = "sphinx-design", specifier = ">=0.6.1" },
 ]
 docs = [
-    { name = "furo", specifier = ">=2024.8.6" },
-    { name = "myst-parser", specifier = ">=4.0.0" },
-    { name = "sphinx", specifier = ">=8.0.0" },
-    { name = "sphinx-autobuild", specifier = ">=2024.10.3" },
+    { name = "furo", specifier = ">=2025.12.19" },
+    { name = "myst-parser", specifier = ">=5.0.0" },
+    { name = "sphinx", specifier = ">=9.1.0" },
+    { name = "sphinx-autobuild", specifier = ">=2025.8.25" },
     { name = "sphinx-copybutton", specifier = ">=0.5.2" },
     { name = "sphinx-design", specifier = ">=0.6.1" },
 ]
@@ -3583,8 +3583,8 @@ lint = [
     { name = "ruff", specifier = ">=0.8.0" },
 ]
 test = [
-    { name = "pytest", specifier = ">=8.0.0" },
-    { name = "pytest-cov", specifier = ">=4.1.0" },
+    { name = "pytest", specifier = ">=9.0.3" },
+    { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "pytest-mpl", specifier = ">=0.19.0" },
 ]
 tooling = [
@@ -3690,7 +3690,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c0/8f/0722ca900cc807c13a6a0c696dacf35430f72e0ec571c4275d2371fca3e9/rich-15.0.0.tar.gz", hash = "sha256:edd07a4824c6b40189fb7ac9bc4c52536e9780fbbfbddf6f1e2502c31b068c36", size = 230680, upload-time = "2026-04-12T08:24:00.75Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl", hash = "sha256:33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb", size = 310654, upload-time = "2026-04-12T08:24:02.83Z" },
-]
 
 [[package]]
 name = "roman-numerals"
