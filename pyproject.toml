@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "raitap"
-version = "0.1.0"
+version = "0.2.0"
 authors = [
   { name = "Stanislas Laurent", email = "lauresta@students.zhaw.ch" },
   { name = "Jonas Vonderhagen", email = "vondejon@students.zhaw.ch" },
@@ -96,6 +96,9 @@ onnx-intel = [
 shap = ["shap>=0.46.0"]
 captum = ["captum>=0.7.0"]
 transparency = ["raitap[shap,captum]"]
+
+# Job launcher / batch scheduler support
+launcher = ["hydra-submitit-launcher>=1.2.0"]
 
 # Tracking module
 mlflow = ["mlflow>=3.9.0"]

@@ -97,6 +97,38 @@ class TestCaptumExplainer:
             explainer.compute_attributions(simple_cnn, sample_images, target=0)
 
     @pytest.mark.usefixtures("needs_captum")
+    def test_occlusion_normalises_yaml_lists_to_tuples(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        simple_cnn: torch.nn.Module,
+        sample_images: torch.Tensor,
+    ) -> None:
+        captured_kwargs: dict[str, object] = {}
+
+        class _OcclusionStub:
+            def __init__(self, model: torch.nn.Module, **kwargs: object) -> None:
+                del model, kwargs
+
+            def attribute(self, inputs: torch.Tensor, **kwargs: object) -> torch.Tensor:
+                captured_kwargs.update(kwargs)
+                return torch.zeros_like(inputs)
+
+        monkeypatch.setattr("captum.attr.Occlusion", _OcclusionStub)
+
+        explainer = CaptumExplainer("Occlusion")
+        attributions = explainer.compute_attributions(
+            simple_cnn,
+            sample_images,
+            target=0,
+            sliding_window_shapes=[3, 4, 4],
+            strides=[1, 2, 2],
+        )
+
+        assert isinstance(attributions, torch.Tensor)
+        assert captured_kwargs["sliding_window_shapes"] == (3, 4, 4)
+        assert captured_kwargs["strides"] == (1, 2, 2)
+
+    @pytest.mark.usefixtures("needs_captum")
     def test_saliency_with_base_batching(
         self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor, tmp_path: Path
     ) -> None:

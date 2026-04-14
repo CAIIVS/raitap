@@ -7,8 +7,9 @@ This section contains documentation meant to help contributors setup the dev env
 :caption: Contributor documentation
 
 setup
-Pull requests and messages <pull-requests>
-Releases <releases>
+pull-requests
+going-stable-1-0
+releases
 Data module <data>
 Metrics module <metrics>
 Tracking module <tracking>
