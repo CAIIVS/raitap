@@ -13,7 +13,7 @@ APIs before every code path is complete — for example
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -43,10 +43,9 @@ class ExplainerAdapter(Protocol):
     Hydra explainer: ``explain`` matches ``BaseExplainer``.
 
     Read ``output_payload_kind`` via :func:`raitap.transparency.contracts.explainer_output_kind`
-    (not via Protocol fields).
+    (not via direct attribute access — the attribute is optional and defaults to
+    :attr:`~ExplanationPayloadKind.ATTRIBUTIONS` when absent).
     """
-
-    output_payload_kind: ClassVar[ExplanationPayloadKind]
 
     def check_backend_compat(self, backend: object) -> None:
         pass

@@ -53,12 +53,13 @@ def isolate_transparency_test_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     monkeypatch.chdir(tmp_path)
 
 
-@pytest.fixture(autouse=True)
-def reset_alibi_bsl_warning_flag() -> None:
-    """So license warning tests see a fresh one-time flag each test."""
+@pytest.fixture
+def reset_alibi_bsl_warning_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reset the one-time Alibi license warning flag for tests that need it."""
     from raitap.transparency import factory as transparency_factory
 
-    transparency_factory._ALIBI_BSL_WARNING_EMITTED = False
+    if hasattr(transparency_factory, "_ALIBI_BSL_WARNING_EMITTED"):
+        monkeypatch.setattr(transparency_factory, "_ALIBI_BSL_WARNING_EMITTED", False)
 
 
 # ---------------------------------------------------------------------------

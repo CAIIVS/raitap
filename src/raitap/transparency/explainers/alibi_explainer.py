@@ -163,7 +163,12 @@ class AlibiExplainer(CustomExplainer):
         else:
             background_np = np.asarray(background, dtype=np.float32)
 
-        device = next(model.parameters()).device
+        first_param = next(model.parameters(), None)
+        if first_param is not None:
+            device = first_param.device
+        else:
+            first_buf = next(model.buffers(), None)
+            device = first_buf.device if first_buf is not None else inputs.device
 
         def predict_fn(arr: np.ndarray) -> np.ndarray:
             tensor = torch.as_tensor(arr, dtype=torch.float32, device=device)

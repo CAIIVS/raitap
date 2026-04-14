@@ -71,7 +71,7 @@ def test_alibi_tree_shap_raises_without_tree_model(
         explainer.explain(simple_mlp, sample_tabular[:2], run_dir=tmp_path / "transparency")
 
 
-@pytest.mark.usefixtures("needs_alibi")
+@pytest.mark.usefixtures("needs_alibi", "reset_alibi_bsl_warning_flag")
 def test_explanation_factory_alibi_emits_warning_once(
     simple_mlp: torch.nn.Module,
     sample_tabular: torch.Tensor,
