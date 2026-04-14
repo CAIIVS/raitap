@@ -43,7 +43,8 @@ class ExplainerAdapter(Protocol):
 
     output_payload_kind: ClassVar[ExplanationPayloadKind]
 
-    def check_backend_compat(self, backend: object) -> None: ...
+    def check_backend_compat(self, backend: object) -> None:
+        pass
 
     def explain(
         self,
@@ -58,4 +59,5 @@ class ExplainerAdapter(Protocol):
         explainer_name: str | None = None,
         visualisers: list[ConfiguredVisualiser] | None = None,
         **kwargs: Any,
-    ) -> ExplanationResult: ...
+    ) -> ExplanationResult:
+        raise NotImplementedError

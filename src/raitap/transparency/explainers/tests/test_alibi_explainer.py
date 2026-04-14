@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 
@@ -12,8 +12,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     import torch
-
-    from raitap.configs.schema import AppConfig
 
 
 @pytest.mark.usefixtures("needs_alibi")
@@ -44,7 +42,7 @@ def test_explanation_factory_alibi_emits_warning_once(
     from omegaconf import OmegaConf
 
     config = cast(
-        "AppConfig",
+        "Any",
         SimpleNamespace(
             experiment_name="test",
             _output_root=str(tmp_path),
