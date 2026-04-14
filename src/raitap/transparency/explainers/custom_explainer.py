@@ -44,4 +44,4 @@ class CustomExplainer(ABC):
         **kwargs: Any,
     ) -> ExplanationResult:
         """Match :meth:`~raitap.transparency.explainers.base_explainer.BaseExplainer.explain`."""
-        ...
+        pass

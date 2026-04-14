@@ -25,7 +25,6 @@ if TYPE_CHECKING:
 
 _TRANSPARENCY_PREFIX = "raitap.transparency."
 logger = logging.getLogger(__name__)
-
 _ALIBI_BSL_WARNING_EMITTED = False
 
 _EXPLAINER_TOP_LEVEL_KEYS = frozenset(
