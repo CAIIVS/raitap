@@ -72,3 +72,4 @@ mlruns/
 
 # LLM
 .claude/
+conductor/
