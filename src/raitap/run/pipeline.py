@@ -134,7 +134,7 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
         explanations=explanations,
         visualisations=visualisations,
         metrics=metrics_eval,
-        forward_output=forward_output,
+        forward_output=forward_output.detach().cpu(),
     )
 
 
@@ -165,4 +165,4 @@ def _resolve_explainer_runtime_kwargs(
         return {}
 
     predictions, _ = metrics_prediction_pair(forward_output)
-    return {"target": predictions}
+    return {"target": predictions.detach()}

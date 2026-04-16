@@ -78,6 +78,9 @@ class ExplanationResult(Trackable, Reportable):
 
     def __post_init__(self) -> None:
         self.run_dir = Path(self.run_dir)
+        # Ensure tensors are detached and on CPU to avoid GPU memory retention
+        self.attributions = self.attributions.detach().cpu()
+        self.inputs = self.inputs.detach().cpu()
 
     def to_report_group(self) -> ReportGroup:
         return ReportGroup(
