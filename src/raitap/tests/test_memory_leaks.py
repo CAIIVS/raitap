@@ -149,11 +149,12 @@ def test_mlflow_tracker_terminate_cleans_up_subprocesses() -> None:
     config = MagicMock()
     config.experiment_name = "test"
 
+    mlflow_mock = MagicMock()
+    mlflow_mock.entities = MagicMock()
+    mlflow_mock.entities.RunStatus = MagicMock()
+    mlflow_mock.entities.RunStatus.to_string = lambda x: x
     with (
-        patch("mlflow.set_tracking_uri"),
-        patch("mlflow.set_experiment"),
-        patch("mlflow.start_run"),
-        patch("mlflow.end_run"),
+        patch.dict("sys.modules", {"mlflow": mlflow_mock, "mlflow.entities": mlflow_mock.entities}),
         patch("raitap.tracking.mlflow_tracker.MLFlowTracker._is_port_open", return_value=False),
         patch(
             "raitap.tracking.mlflow_tracker.MLFlowTracker._wait_for_port_ready",
