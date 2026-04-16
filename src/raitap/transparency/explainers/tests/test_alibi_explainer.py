@@ -6,13 +6,14 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 import pytest
 
+import torch
+
+from raitap.models.backend import ModelBackend
 from raitap.transparency.explainers.alibi_explainer import AlibiExplainer
 from raitap.transparency.factory import Explanation
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    import torch
 
 
 @pytest.mark.usefixtures("needs_alibi")
@@ -107,13 +108,20 @@ def test_explanation_factory_alibi_emits_warning_once(
             },
         ),
     )
-    model = SimpleNamespace(
-        backend=SimpleNamespace(
-            supports_torch_autograd=True,
-            _prepare_kwargs=lambda k: k,
-            as_model_for_explanation=lambda: simple_mlp,
-        )
-    )
+    class _BackendStub(ModelBackend):
+        supports_torch_autograd = True
+
+        @property
+        def hardware_label(self) -> str:
+            return "CPU"
+
+        def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
+            return simple_mlp(inputs)
+
+        def as_model_for_explanation(self) -> torch.nn.Module:
+            return simple_mlp
+
+    model = SimpleNamespace(backend=_BackendStub())
     inputs = sample_tabular[:3]
     with caplog.at_level("WARNING"):
         Explanation(config, "a1", model, inputs)  # type: ignore[arg-type]
