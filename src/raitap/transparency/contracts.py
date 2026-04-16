@@ -12,6 +12,7 @@ APIs before every code path is complete — for example
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
@@ -35,6 +36,20 @@ def explainer_output_kind(explainer: object) -> ExplanationPayloadKind:
     if isinstance(raw, ExplanationPayloadKind):
         return raw
     return ExplanationPayloadKind.ATTRIBUTIONS
+
+
+@dataclass(frozen=True)
+class VisualisationContext:
+    """
+    Standard RAITAP metadata provided to visualisers during the assessment pipeline.
+
+    Encapsulates standard pipeline-controlled variables to avoid reflective
+    signature inspection in the core logic.
+    """
+
+    algorithm: str
+    sample_names: list[str] | None
+    show_sample_names: bool
 
 
 @runtime_checkable

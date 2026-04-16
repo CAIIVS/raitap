@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import matplotlib.pyplot as plt
 
-from raitap.transparency.contracts import ExplanationPayloadKind
+from raitap.transparency.contracts import ExplanationPayloadKind, VisualisationContext
 
 if TYPE_CHECKING:
     import torch
@@ -41,7 +41,12 @@ class BaseVisualiser(ABC):
 
     @abstractmethod
     def visualise(
-        self, attributions: torch.Tensor, inputs: torch.Tensor | None = None, **kwargs: Any
+        self,
+        attributions: torch.Tensor,
+        inputs: torch.Tensor | None = None,
+        *,
+        context: VisualisationContext | None = None,
+        **kwargs: Any,
     ) -> Figure:
         """
         Create visualization from attributions.
@@ -49,6 +54,7 @@ class BaseVisualiser(ABC):
         Args:
             attributions: Attribution values (numpy array or tensor)
             inputs: Original inputs for overlay (optional)
+            context: Standard RAITAP pipeline metadata (optional)
             **kwargs: visualiser-specific arguments
 
         Returns:
@@ -61,6 +67,8 @@ class BaseVisualiser(ABC):
         attributions: torch.Tensor,
         output_path: str | Path,
         inputs: torch.Tensor | None = None,
+        *,
+        context: VisualisationContext | None = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -72,9 +80,10 @@ class BaseVisualiser(ABC):
             attributions: Attribution values
             output_path: Path to save image
             inputs: Original inputs for overlay (optional)
+            context: Standard RAITAP pipeline metadata (optional)
             **kwargs: visualiser-specific arguments
         """
-        fig = self.visualise(attributions, inputs, **kwargs)
+        fig = self.visualise(attributions, inputs, context=context, **kwargs)
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(output_path, bbox_inches="tight", dpi=150)
         plt.close(fig)

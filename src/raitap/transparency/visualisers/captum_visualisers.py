@@ -13,6 +13,8 @@ if TYPE_CHECKING:
     import torch
     from matplotlib.figure import Figure
 
+    from raitap.transparency.contracts import VisualisationContext
+
 
 def _to_numpy(x: torch.Tensor | np.ndarray) -> np.ndarray:
     """Convert tensor or array-like to numpy."""
@@ -124,18 +126,17 @@ class CaptumImageVisualiser(BaseVisualiser):
         self,
         attributions: torch.Tensor,
         inputs: torch.Tensor | None = None,
+        *,
+        context: VisualisationContext | None = None,
         max_samples: int = 8,
-        sample_names: list[str] | None = None,
-        show_sample_names: bool = False,
         **kwargs: Any,
     ) -> Figure:
         """
         Args:
             attributions: ``(B, C, H, W)`` or ``(B, H, W)`` tensor / array.
             inputs:       Original images ``(B, C, H, W)`` for overlay.
+            context:      Standard RAITAP metadata (optional).
             max_samples:  Maximum number of samples to display (default: 8).
-            sample_names: Optional names per sample (already normalised to stem IDs).
-            show_sample_names: Whether to render sample names as subplot titles.
             **kwargs:     Forwarded to ``visualize_image_attr``.
 
         Returns:
@@ -163,6 +164,8 @@ class CaptumImageVisualiser(BaseVisualiser):
                 origs = origs[np.newaxis]
             origs = origs[:n]
 
+        sample_names = context.sample_names if context is not None else None
+        show_sample_names = context.show_sample_names if context is not None else False
         names = [] if sample_names is None else [str(name) for name in sample_names[:n]]
 
         show_original_panel = (
@@ -296,7 +299,12 @@ class CaptumTimeSeriesVisualiser(BaseVisualiser):
         self.sign = sign
 
     def visualise(
-        self, attributions: torch.Tensor, inputs: torch.Tensor | None = None, **kwargs: Any
+        self,
+        attributions: torch.Tensor,
+        inputs: torch.Tensor | None = None,
+        *,
+        context: VisualisationContext | None = None,
+        **kwargs: Any,
     ) -> Figure:
         """
         Args:
@@ -304,6 +312,7 @@ class CaptumTimeSeriesVisualiser(BaseVisualiser):
                           If a batch of shape ``(B, N, C)`` is given, the first
                           sample is used.
             inputs:       Matching ``(N, C)`` time-series data (optional).
+            context:      Standard RAITAP metadata (not used by this visualiser).
             **kwargs:     Forwarded to ``visualize_timeseries_attr``.
 
         Returns:
