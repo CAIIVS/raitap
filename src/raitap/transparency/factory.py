@@ -9,6 +9,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from raitap.configs import cfg_to_dict, resolve_run_dir, resolve_target
 from raitap.data import load_tensor_from_source
+from raitap.models.backend import ModelBackend
 
 from .algorithm_allowlist import ensure_algorithm_in_allowlist
 from .contracts import ExplainerAdapter, explainer_output_kind
@@ -138,26 +139,14 @@ def _resolve_call_data_sources(call_kwargs: dict[str, Any]) -> dict[str, Any]:
     return resolved
 
 
-def _require_model_backend(model: object) -> Any:
+def _require_model_backend(model: object) -> ModelBackend:
     backend = getattr(model, "backend", None)
-    if backend is None:
+    if not isinstance(backend, ModelBackend):
         raise TypeError(
             "Explanation expects a raitap.models.Model or another object exposing a "
-            "'.backend' runtime adapter. Received an object without '.backend'."
+            "'.backend' that is a ModelBackend instance. "
+            f"Got {type(backend).__name__!r} instead."
         )
-
-    missing_members = [
-        member
-        for member in ("_prepare_kwargs", "as_model_for_explanation")
-        if not callable(getattr(backend, member, None))
-    ]
-    if missing_members:
-        missing = ", ".join(missing_members)
-        raise TypeError(
-            "Explanation expects model.backend to implement the ModelBackend interface. "
-            f"Missing required method(s): {missing}."
-        )
-
     return backend
 
 
@@ -263,19 +252,13 @@ def create_explainer(explainer_config: Any) -> tuple[ExplainerAdapter, str]:
             "(e.g. AttributionOnlyExplainer or FullExplainer subclass)."
         ) from error
 
-    if not callable(getattr(explainer, "explain", None)):
+    if not isinstance(explainer, ExplainerAdapter):
         raise ValueError(
-            f"Instantiated explainer {target_path!r} has no callable explain() method."
+            f"Instantiated explainer {target_path!r} does not implement ExplainerAdapter. "
+            "Configured explainers must have callable explain() and check_backend_compat() methods."
         )
 
-    if not callable(getattr(explainer, "check_backend_compat", None)):
-        raise ValueError(
-            f"Instantiated explainer {target_path!r} has no callable "
-            "check_backend_compat() method. Configured explainers must implement "
-            "check_backend_compat(backend)."
-        )
-
-    return explainer, resolved_target
+    return cast("ExplainerAdapter", explainer), resolved_target
 
 
 def create_visualisers(explainer_config: Any) -> list[ConfiguredVisualiser]:

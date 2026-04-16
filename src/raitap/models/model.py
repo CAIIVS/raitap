@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import torch
 from torch import nn
 from torchvision import models
+
+from raitap.tracking.base_tracker import BaseTracker, Trackable
 
 from .backend import ModelBackend, OnnxBackend, TorchBackend
 from .runtime import resolve_torch_device
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
-    from raitap.tracking import BaseTracker
 
 
-class Model:
+class Model(Trackable):
     def __init__(self, config: AppConfig) -> None:
         self.backend = self._load_model(config)
 
@@ -46,7 +47,7 @@ class Model:
             f"To use your own model, set source to a valid model file path."
         )
 
-    def log(self, tracker: BaseTracker) -> None:
+    def log(self, tracker: BaseTracker, **kwargs: Any) -> None:
         tracker.log_model(self.backend)
 
 

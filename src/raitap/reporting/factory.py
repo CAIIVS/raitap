@@ -2,22 +2,22 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from hydra.utils import instantiate
 
 from raitap.configs import cfg_to_dict, resolve_target
+from raitap.tracking.base_tracker import BaseTracker, Trackable
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
 
     from raitap.configs.schema import AppConfig
-    from raitap.metrics.factory import MetricsEvaluation
-    from raitap.tracking.base_tracker import BaseTracker
 
     from .base_reporter import BaseReporter
-    from .sections import ReportImageSection
+    from .sections import ReportSection
+
 
 logger = logging.getLogger(__name__)
 _REPORTING_PREFIX = "raitap.reporting."
@@ -35,13 +35,13 @@ def reporting_enabled(config: AppConfig) -> bool:
 
 
 @dataclass
-class ReportGeneration:
+class ReportGeneration(Trackable):
     """Outcome of report generation."""
 
     report_path: Path
     reporter: BaseReporter
 
-    def log(self, tracker: BaseTracker | None) -> None:
+    def log(self, tracker: BaseTracker | None, **kwargs: Any) -> None:
         """Upload report to tracking system if configured."""
         if tracker is None:
             return
@@ -55,8 +55,7 @@ class ReportGeneration:
 
 def create_report(
     config: AppConfig,
-    image_sections: Sequence[ReportImageSection],
-    metrics_evaluation: MetricsEvaluation | None,
+    sections: Sequence[ReportSection],
 ) -> ReportGeneration:
     """Factory function to create and generate report."""
     reporting_config = cfg_to_dict(config.reporting)
@@ -73,8 +72,7 @@ def create_report(
             "Check that _target_ points to a valid BaseReporter implementation."
         ) from error
 
-    # Generate the report
-    report_path = reporter.generate(image_sections, metrics_evaluation)
+    report_path = reporter.generate(sections)
     logger.info("Report generated: %s", report_path)
 
     return ReportGeneration(

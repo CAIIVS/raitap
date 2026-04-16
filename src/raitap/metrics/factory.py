@@ -7,16 +7,19 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+import matplotlib.pyplot as plt
 from hydra.utils import instantiate
 
 from raitap.configs import cfg_to_dict, resolve_run_dir, resolve_target
+from raitap.reporting.sections import Reportable, ReportGroup
+from raitap.tracking.base_tracker import BaseTracker, Trackable
 from raitap.utils.serialization import to_json_serialisable
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from ..configs.schema import AppConfig
-    from ..tracking.base_tracker import BaseTracker
+    from raitap.configs.schema import AppConfig
+
 
 from .base_metric import BaseMetricComputer, MetricResult, scalar_metrics_for_tracking
 from .visualizers import MetricsVisualizer
@@ -57,7 +60,7 @@ def create_metric(metrics_config: Any) -> tuple[BaseMetricComputer, str]:
 
 
 @dataclass
-class MetricsEvaluation:
+class MetricsEvaluation(Trackable, Reportable):
     """Outcome of a metrics run (JSON on disk + optional computer handle)."""
 
     result: MetricResult
@@ -65,7 +68,13 @@ class MetricsEvaluation:
     computer: BaseMetricComputer
     resolved_target: str
 
-    def log(self, tracker: BaseTracker | None, *, prefix: str = "performance") -> None:
+    def log(
+        self,
+        tracker: BaseTracker | None,
+        *,
+        prefix: str = "performance",
+        **kwargs: Any,
+    ) -> None:
         if tracker is None:
             return
         scalars = scalar_metrics_for_tracking(self.result)
@@ -73,10 +82,16 @@ class MetricsEvaluation:
             tracker.log_metrics(scalars, prefix=prefix)
         tracker.log_artifacts(self.run_dir, target_subdirectory="metrics")
 
-    def create_visualizations(self) -> dict[str, Any]:
-        """Generate matplotlib figures for metrics."""
-
-        return MetricsVisualizer.create_figures(self.result)
+    def to_report_group(self) -> ReportGroup:
+        table_rows = tuple(
+            (str(name), f"{float(value):.4f}") for name, value in self.result.metrics.items()
+        )
+        images = tuple(sorted(self.run_dir.glob("*.png")))
+        return ReportGroup(
+            heading="Performance Metrics",
+            images=images,
+            table_rows=table_rows,
+        )
 
 
 class Metrics:
@@ -117,6 +132,14 @@ class Metrics:
         logger.info("Metrics saved: %s/metrics.json", run_dir)
         logger.info("Artifacts saved: %s/artifacts.json", run_dir)
         logger.info("Metadata saved: %s/metadata.json", run_dir)
+
+        try:
+            figures = MetricsVisualizer.create_figures(result)
+            for name, fig in figures.items():
+                fig.savefig(run_dir / f"{name}.png", bbox_inches="tight", dpi=150)
+                plt.close(fig)
+        except Exception:
+            logger.warning("Failed to save metric charts", exc_info=True)
 
         return MetricsEvaluation(
             result=result,

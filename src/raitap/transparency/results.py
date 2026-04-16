@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 import json
 import shutil
 import tempfile
@@ -11,14 +10,15 @@ from typing import TYPE_CHECKING, Any
 import matplotlib.pyplot as plt
 import torch
 
+from raitap.reporting.sections import Reportable, ReportGroup
+from raitap.tracking.base_tracker import BaseTracker, Trackable
 from raitap.utils.serialization import to_json_serialisable
 
-from .contracts import ExplanationPayloadKind
+from .contracts import ExplanationPayloadKind, VisualisationContext
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
-    from ..tracking.base_tracker import BaseTracker
     from .visualisers import BaseVisualiser
 
 
@@ -63,7 +63,7 @@ class ConfiguredVisualiser:
 
 
 @dataclass
-class ExplanationResult:
+class ExplanationResult(Trackable, Reportable):
     attributions: torch.Tensor
     inputs: torch.Tensor
     run_dir: Path
@@ -78,6 +78,15 @@ class ExplanationResult:
 
     def __post_init__(self) -> None:
         self.run_dir = Path(self.run_dir)
+        # Ensure tensors are detached and on CPU to avoid GPU memory retention
+        self.attributions = self.attributions.detach().cpu()
+        self.inputs = self.inputs.detach().cpu()
+
+    def to_report_group(self) -> ReportGroup:
+        return ReportGroup(
+            heading=f"Explainer: {self.explainer_name or self.algorithm}",
+            images=tuple(sorted(self.run_dir.glob("*.png"))),
+        )
 
     def write_artifacts(self) -> None:
         self.run_dir.mkdir(parents=True, exist_ok=True)
@@ -128,22 +137,26 @@ class ExplanationResult:
             if limit is not None:
                 sample_names = sample_names[:limit]
 
-            visualise_kwargs = dict(merged_call)
-            visualise_signature = inspect.signature(vis.visualise)
-            supports_sample_names = "sample_names" in visualise_signature.parameters
-            supports_show_sample_names = "show_sample_names" in visualise_signature.parameters
-            supports_algorithm = "algorithm" in visualise_signature.parameters
-            if supports_sample_names:
-                visualise_kwargs["sample_names"] = sample_names
-            if supports_show_sample_names:
-                visualise_kwargs["show_sample_names"] = show_sample_names
-            if supports_algorithm:
-                visualise_kwargs["algorithm"] = self.algorithm
+            # Standard RAITAP pipeline metadata
+            context = VisualisationContext(
+                algorithm=self.algorithm,
+                sample_names=sample_names,
+                show_sample_names=show_sample_names,
+            )
 
-            figure = vis.visualise(attributions, inputs=inputs, **visualise_kwargs)
-            if show_sample_names and sample_names and not supports_sample_names:
+            # Standard visualise() call with context and library-specific kwargs
+            figure = vis.visualise(attributions, inputs=inputs, context=context, **merged_call)
+
+            # Legacy fallback for visualisers that don't handle titles themselves via context
+            if (
+                show_sample_names
+                and sample_names
+                and not figure.texts
+                and not any(ax.get_title() for ax in figure.axes)
+            ):
                 figure.suptitle(_sample_names_title(sample_names), fontsize=10)
                 figure.tight_layout()
+
             cls = type(vis)
             visualiser_name = f"{cls.__name__}_{index}"
             output_path = self.run_dir / f"{visualiser_name}.png"
@@ -181,6 +194,7 @@ class ExplanationResult:
         tracker: BaseTracker | None,
         artifact_path: str = "transparency",
         use_subdirectory: bool = True,
+        **kwargs: Any,
     ) -> None:
         if tracker is None:
             return
@@ -219,7 +233,7 @@ class ExplanationResult:
 
 
 @dataclass
-class VisualisationResult:
+class VisualisationResult(Trackable):
     """PNG is written to ``output_path``; ``figure`` is closed after save to limit memory use."""
 
     explanation: ExplanationResult
@@ -236,6 +250,7 @@ class VisualisationResult:
         tracker: BaseTracker | None,
         artifact_path: str = "transparency",
         use_subdirectory: bool = True,
+        **kwargs: Any,
     ) -> None:
         if tracker is None:
             return

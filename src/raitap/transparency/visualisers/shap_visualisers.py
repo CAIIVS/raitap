@@ -19,6 +19,8 @@ if TYPE_CHECKING:
     import torch
     from matplotlib.figure import Figure
 
+    from raitap.transparency.contracts import VisualisationContext
+
 
 def _to_numpy(x: torch.Tensor | np.ndarray) -> np.ndarray:
     """Convert tensor or array-like to numpy (float32)."""
@@ -107,12 +109,18 @@ class ShapBarVisualiser(BaseVisualiser):
         self.max_display = max_display
 
     def visualise(
-        self, attributions: torch.Tensor, inputs: torch.Tensor | None = None, **kwargs: Any
+        self,
+        attributions: torch.Tensor,
+        inputs: torch.Tensor | None = None,
+        *,
+        context: VisualisationContext | None = None,
+        **kwargs: Any,
     ) -> Figure:
         """
         Args:
             attributions: ``(B, F)`` SHAP values tensor / array.
             inputs:       Original feature values ``(B, F)`` (used for colouring).
+            context:      Standard RAITAP metadata (not used by this visualiser).
             **kwargs:     Forwarded to ``shap.summary_plot``.
         """
         try:
@@ -151,7 +159,12 @@ class ShapBeeswarmVisualiser(BaseVisualiser):
         self.max_display = max_display
 
     def visualise(
-        self, attributions: torch.Tensor, inputs: torch.Tensor | None = None, **kwargs: Any
+        self,
+        attributions: torch.Tensor,
+        inputs: torch.Tensor | None = None,
+        *,
+        context: VisualisationContext | None = None,
+        **kwargs: Any,
     ) -> Figure:
         try:
             import shap
@@ -205,7 +218,12 @@ class ShapWaterfallVisualiser(BaseVisualiser):
         self.max_display = max_display
 
     def visualise(
-        self, attributions: torch.Tensor, inputs: torch.Tensor | None = None, **kwargs: Any
+        self,
+        attributions: torch.Tensor,
+        inputs: torch.Tensor | None = None,
+        *,
+        context: VisualisationContext | None = None,
+        **kwargs: Any,
     ) -> Figure:
         try:
             import shap
@@ -256,7 +274,12 @@ class ShapForceVisualiser(BaseVisualiser):
         self.sample_index = sample_index
 
     def visualise(
-        self, attributions: torch.Tensor, inputs: torch.Tensor | None = None, **kwargs: Any
+        self,
+        attributions: torch.Tensor,
+        inputs: torch.Tensor | None = None,
+        *,
+        context: VisualisationContext | None = None,
+        **kwargs: Any,
     ) -> Figure:
         try:
             import shap
@@ -348,24 +371,20 @@ class ShapImageVisualiser(BaseVisualiser):
         self,
         attributions: torch.Tensor,
         inputs: torch.Tensor | None = None,
+        *,
+        context: VisualisationContext | None = None,
         max_samples: int | None = None,
-        sample_names: list[str] | None = None,
-        show_sample_names: bool = False,
         title: str | None = None,
-        algorithm: str | None = None,
         **kwargs: Any,
     ) -> Figure:
         """
         Args:
             attributions: ``(B, C, H, W)`` SHAP values tensor / array.
             inputs:        Original images ``(B, C, H, W)`` for background.
+            context:       Standard RAITAP metadata (optional).
             max_samples:   Maximum number of images to display.
-            sample_names:  Optional names per sample.
-            show_sample_names: Whether to render sample names in subplot titles.
             title:         Optional attribution panel title. Overrides the algorithm-based
                            default title, even when set to an empty string.
-            algorithm:     Optional explainer algorithm name used for the default
-                           attribution title (rendered as ``"<Algorithm> (SHAP)"``).
             **kwargs:      Optional visual styling overrides.
 
         Returns:
@@ -392,6 +411,10 @@ class ShapImageVisualiser(BaseVisualiser):
             pv = _to_numpy(inputs)[:n]  # (B, C, H, W)
             pixel_values = np.transpose(pv, (0, 2, 3, 1))  # (B, H, W, C)
             pixel_values = np.stack([_normalise_image(image) for image in pixel_values], axis=0)
+
+        sample_names = context.sample_names if context is not None else None
+        show_sample_names = context.show_sample_names if context is not None else False
+        algorithm = context.algorithm if context is not None else None
 
         names = [] if sample_names is None else [str(name) for name in sample_names[:n]]
         cmap = kwargs.pop("cmap", self.cmap)

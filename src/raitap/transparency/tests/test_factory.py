@@ -10,6 +10,7 @@ import pytest
 import torch
 from omegaconf import OmegaConf
 
+from raitap.models.backend import ModelBackend
 from raitap.transparency import (
     ExplainerBackendIncompatibilityError,
     PayloadVisualiserIncompatibilityError,
@@ -32,10 +33,14 @@ if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
 
 
-class _BackendStub:
+class _BackendStub(ModelBackend):
     def __init__(self, model: torch.nn.Module, *, supports_torch_autograd: bool = True) -> None:
         self._model = model
         self.supports_torch_autograd = supports_torch_autograd
+
+    @property
+    def hardware_label(self) -> str:
+        return "stub"
 
     def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
         return inputs
@@ -118,7 +123,7 @@ def test_explanation_rejects_model_without_backend(
         ),
     )
 
-    with pytest.raises(TypeError, match=r"object without '\.backend'"):
+    with pytest.raises(TypeError, match=r"ModelBackend instance"):
         Explanation(
             config,
             "test_explainer",

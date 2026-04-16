@@ -23,8 +23,6 @@ from .full_explainer import FullExplainer
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-_VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
-
 
 @contextmanager
 def _alibi_kernel_shap_shap050_multiclass_patch() -> Iterator[None]:
@@ -111,9 +109,7 @@ class AlibiExplainer(FullExplainer):
         del backend
         visualisers_list: list[ConfiguredVisualiser] = [] if visualisers is None else visualisers
         metadata_kwargs = dict(kwargs)
-        call_kwargs = {
-            key: value for key, value in kwargs.items() if key not in _VISUALISATION_ONLY_KWARGS
-        }
+        call_kwargs = self._attribution_kwargs(kwargs)
 
         if self.algorithm == "KernelShap":
             attributions = self._kernel_shap_attributions(model, inputs, **call_kwargs)

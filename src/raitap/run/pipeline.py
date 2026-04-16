@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import torch
 
@@ -18,8 +18,7 @@ from raitap.metrics import (
 )
 from raitap.models import Model
 from raitap.reporting import (
-    ReportImageGroup,
-    ReportImageSection,
+    ReportSection,
     create_report,
     reporting_enabled,
 )
@@ -47,21 +46,18 @@ def run(config: AppConfig) -> RunOutputs:
     report_generation = None
     if reporting_enabled(config):
         logger.info("Generating report...")
-        transparency_section = ReportImageSection.from_groups(
+        sections = []
+        if outputs.metrics is not None:
+            sections.append(
+                ReportSection.from_groups("Metrics", [outputs.metrics.to_report_group()])
+            )
+        transparency_section = ReportSection.from_groups(
             title="Transparency",
-            groups=[
-                ReportImageGroup(heading=f"Explainer: {name}", run_dir=result.run_dir)
-                for name, result in zip(
-                    config.transparency.keys(), outputs.explanations, strict=False
-                )
-            ],
+            groups=[explanation.to_report_group() for explanation in outputs.explanations],
         )
-        image_sections = (transparency_section,) if transparency_section.groups else ()
-        report_generation = create_report(
-            config=config,
-            image_sections=image_sections,
-            metrics_evaluation=outputs.metrics,
-        )
+        if transparency_section.groups:
+            sections.append(transparency_section)
+        report_generation = create_report(config=config, sections=sections)
 
     tracking_config = getattr(config, "tracking", None)
     has_tracker = bool(tracking_config and getattr(tracking_config, "_target_", None))
@@ -89,13 +85,11 @@ def run(config: AppConfig) -> RunOutputs:
 
 
 def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOutputs:
-    backend = getattr(model, "backend", None)
-    prepare_inputs = getattr(backend, "_prepare_inputs", lambda value: value)
-    predictor = backend if backend is not None else cast("Any", model).network
-    data_tensor = prepare_inputs(data.tensor)
+    backend = model.backend
+    data_tensor = backend._prepare_inputs(data.tensor)
 
     with torch.no_grad():
-        raw_output: Any = predictor(data_tensor)
+        raw_output: Any = backend(data_tensor)
         forward_output = extract_primary_tensor(raw_output)
 
     metrics_eval: MetricsEvaluation | None = None
@@ -138,7 +132,7 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
         explanations=explanations,
         visualisations=visualisations,
         metrics=metrics_eval,
-        forward_output=forward_output,
+        forward_output=forward_output.detach().cpu(),
     )
 
 
@@ -169,4 +163,4 @@ def _resolve_explainer_runtime_kwargs(
         return {}
 
     predictions, _ = metrics_prediction_pair(forward_output)
-    return {"target": predictions}
+    return {"target": predictions.detach()}

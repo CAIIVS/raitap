@@ -42,9 +42,7 @@ def test_pdf_reporter_generates_file(
     """Test basic PDF generation."""
     reporter = PDFReporter(mock_config)
 
-    metrics_eval = None
-
-    output_path = reporter.generate((), metrics_eval)
+    output_path = reporter.generate(())
 
     # Verify output path
     assert output_path.exists() is False or output_path.parent.exists()
@@ -59,7 +57,7 @@ def test_pdf_reporter_creates_report_directory(mock_config: AppConfig, tmp_path:
         patch("borb.pdf.PDF"),
     ):
         reporter = PDFReporter(mock_config)
-        output_path = reporter.generate((), None)
+        output_path = reporter.generate(())
 
         assert output_path.parent.name == "reports"
 

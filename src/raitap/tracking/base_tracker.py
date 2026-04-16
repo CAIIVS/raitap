@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from hydra.utils import instantiate
 
@@ -69,3 +69,17 @@ class BaseTracker(ABC):
 
     @abstractmethod
     def terminate(self, successfully: bool = True) -> None: ...
+
+
+@runtime_checkable
+class Trackable(Protocol):
+    """
+    Interface for objects that can be logged to a tracker.
+
+    Mandates a ``log`` method that accepts a tracker and optional keyword arguments.
+    """
+
+    @abstractmethod
+    def log(self, tracker: BaseTracker, **kwargs: Any) -> None:
+        """Log the object's artifacts or metadata to the provided tracker."""
+        pass
