@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import torch
 
@@ -85,13 +85,11 @@ def run(config: AppConfig) -> RunOutputs:
 
 
 def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOutputs:
-    backend = getattr(model, "backend", None)
-    prepare_inputs = getattr(backend, "_prepare_inputs", lambda value: value)
-    predictor = backend if backend is not None else cast("Any", model).network
-    data_tensor = prepare_inputs(data.tensor)
+    backend = model.backend
+    data_tensor = backend._prepare_inputs(data.tensor)
 
     with torch.no_grad():
-        raw_output: Any = predictor(data_tensor)
+        raw_output: Any = backend(data_tensor)
         forward_output = extract_primary_tensor(raw_output)
 
     metrics_eval: MetricsEvaluation | None = None

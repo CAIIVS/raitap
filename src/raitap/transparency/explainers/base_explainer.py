@@ -39,6 +39,16 @@ class AbstractExplainer:
         del backend
         return None
 
+    @staticmethod
+    def _attribution_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+        """Return ``kwargs`` with visualisation-only keys removed.
+
+        Visualisation keys (``sample_names``, ``show_sample_names``) are pipeline
+        metadata — they must be stored in :attr:`~ExplanationResult.kwargs` for later
+        use by visualisers, but must not be forwarded to attribution algorithms.
+        """
+        return {k: v for k, v in kwargs.items() if k not in _VISUALISATION_ONLY_KWARGS}
+
 
 class AttributionOnlyExplainer(AbstractExplainer, ABC):
     """
@@ -72,9 +82,7 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
         """
         visualisers_list: list[ConfiguredVisualiser] = [] if visualisers is None else visualisers
         metadata_kwargs = dict(kwargs)
-        attribution_kwargs = {
-            key: value for key, value in kwargs.items() if key not in _VISUALISATION_ONLY_KWARGS
-        }
+        attribution_kwargs = self._attribution_kwargs(kwargs)
         attributions = self._compute_with_optional_batches(
             model,
             inputs,
