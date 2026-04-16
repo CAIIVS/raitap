@@ -23,6 +23,8 @@ if TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch
     from matplotlib.figure import Figure
 
+    from raitap.transparency.contracts import VisualisationContext
+
 
 def _make_explanation(run_dir: Path, *, explainer_name: str | None = "exp") -> ExplanationResult:
     return ExplanationResult(
@@ -189,8 +191,11 @@ def test_explanation_visualise_merges_inputs_and_attributions_from_kwargs(
             self,
             attributions: torch.Tensor,
             inputs: torch.Tensor | None = None,
+            *,
+            context: VisualisationContext | None = None,
             **kw: Any,
         ) -> Figure:
+            del context
             self.last = (attributions, inputs, dict(kw))
             fig, _ax = plt.subplots(figsize=(1, 1))
             return fig
@@ -245,9 +250,11 @@ def test_explanation_visualise_adds_generic_sample_name_title_when_opted_in(tmp_
             self,
             attributions: torch.Tensor,
             inputs: torch.Tensor | None = None,
+            *,
+            context: VisualisationContext | None = None,
             **kw: Any,
         ) -> Figure:
-            del attributions, inputs
+            del attributions, inputs, context
             self.last_kwargs = dict(kw)
             fig, _ax = plt.subplots(figsize=(1, 1))
             return fig
@@ -286,11 +293,13 @@ def test_explanation_visualise_trims_sample_names_for_shorter_batch(tmp_path: Pa
             self,
             attributions: torch.Tensor,
             inputs: torch.Tensor | None = None,
-            sample_names: list[str] | None = None,
-            show_sample_names: bool = False,
+            *,
+            context: VisualisationContext | None = None,
             **kw: Any,
         ) -> Figure:
             del attributions, inputs, kw
+            sample_names = context.sample_names if context is not None else None
+            show_sample_names = context.show_sample_names if context is not None else False
             self.received_names = [] if sample_names is None else list(sample_names)
             fig, _ax = plt.subplots(figsize=(1, 1))
             if show_sample_names and self.received_names:
@@ -331,11 +340,12 @@ def test_explanation_visualise_forwards_algorithm_when_supported(tmp_path: Path)
             self,
             attributions: torch.Tensor,
             inputs: torch.Tensor | None = None,
-            algorithm: str | None = None,
+            *,
+            context: VisualisationContext | None = None,
             **kw: Any,
         ) -> Figure:
             del attributions, inputs
-            self.last_algorithm = algorithm
+            self.last_algorithm = context.algorithm if context is not None else None
             self.last_kwargs = dict(kw)
             fig, _ax = plt.subplots(figsize=(1, 1))
             return fig

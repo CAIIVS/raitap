@@ -16,6 +16,7 @@ from ..results import ConfiguredVisualiser, ExplanationResult
 
 _VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
 _BATCH_SIZE_KWARGS = frozenset({"batch_size", "max_batch_size"})
+_NON_BATCHABLE_KWARGS = frozenset({"background_data"})
 _PROGRESS_TOGGLE_KWARG = "show_progress"
 _PROGRESS_DESC_KWARG = "progress_desc"
 
@@ -218,7 +219,7 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
         end: int,
         total_batch: int,
     ) -> Any:
-        if key == "background_data":
+        if key in _NON_BATCHABLE_KWARGS:
             return value
 
         if isinstance(value, torch.Tensor) and value.ndim > 0 and value.shape[0] == total_batch:
