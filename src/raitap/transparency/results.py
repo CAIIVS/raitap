@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, Any
 import matplotlib.pyplot as plt
 import torch
 
+from raitap.reporting.sections import Reportable, ReportImageGroup
+from raitap.tracking.base_tracker import BaseTracker, Trackable
 from raitap.utils.serialization import to_json_serialisable
 
 from .contracts import ExplanationPayloadKind
@@ -18,7 +20,6 @@ from .contracts import ExplanationPayloadKind
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
-    from ..tracking.base_tracker import BaseTracker
     from .visualisers import BaseVisualiser
 
 
@@ -63,7 +64,7 @@ class ConfiguredVisualiser:
 
 
 @dataclass
-class ExplanationResult:
+class ExplanationResult(Trackable, Reportable):
     attributions: torch.Tensor
     inputs: torch.Tensor
     run_dir: Path
@@ -78,6 +79,14 @@ class ExplanationResult:
 
     def __post_init__(self) -> None:
         self.run_dir = Path(self.run_dir)
+
+    def to_report_group(self) -> ReportImageGroup:
+        from raitap.reporting.sections import ReportImageGroup
+
+        return ReportImageGroup(
+            heading=f"Explainer: {self.explainer_name or self.algorithm}",
+            run_dir=self.run_dir,
+        )
 
     def write_artifacts(self) -> None:
         self.run_dir.mkdir(parents=True, exist_ok=True)
@@ -181,6 +190,7 @@ class ExplanationResult:
         tracker: BaseTracker | None,
         artifact_path: str = "transparency",
         use_subdirectory: bool = True,
+        **kwargs: Any,
     ) -> None:
         if tracker is None:
             return
@@ -219,7 +229,7 @@ class ExplanationResult:
 
 
 @dataclass
-class VisualisationResult:
+class VisualisationResult(Trackable):
     """PNG is written to ``output_path``; ``figure`` is closed after save to limit memory use."""
 
     explanation: ExplanationResult
@@ -236,6 +246,7 @@ class VisualisationResult:
         tracker: BaseTracker | None,
         artifact_path: str = "transparency",
         use_subdirectory: bool = True,
+        **kwargs: Any,
     ) -> None:
         if tracker is None:
             return

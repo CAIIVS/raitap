@@ -12,6 +12,7 @@ import torch
 from PIL import Image
 
 from raitap.data.utils import download_file
+from raitap.tracking.base_tracker import BaseTracker, Trackable
 
 from .samples import SAMPLE_SOURCES, _load_sample
 
@@ -19,7 +20,6 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
-    from raitap.tracking import BaseTracker
 
 
 _CACHE_DIR = Path.home() / ".cache" / "raitap"
@@ -27,7 +27,7 @@ _IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 _TABULAR_EXTENSIONS = {".csv", ".tsv", ".parquet"}
 
 
-class Data:
+class Data(Trackable):
     def __init__(self, cfg: AppConfig) -> None:
         self.name = cfg.data.name
         self.source = cfg.data.source
@@ -185,7 +185,7 @@ class Data:
             dataset_info["sample_shape"] = shape[1:]
         return dataset_info
 
-    def log(self, tracker: BaseTracker) -> None:
+    def log(self, tracker: BaseTracker, **kwargs: Any) -> None:
         """Log dataset metadata to the tracker."""
         tracker.log_dataset(self.describe())
 

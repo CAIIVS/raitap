@@ -10,13 +10,15 @@ from typing import TYPE_CHECKING, Any
 from hydra.utils import instantiate
 
 from raitap.configs import cfg_to_dict, resolve_run_dir, resolve_target
+from raitap.reporting.sections import Reportable, ReportImageGroup
+from raitap.tracking.base_tracker import BaseTracker, Trackable
 from raitap.utils.serialization import to_json_serialisable
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from ..configs.schema import AppConfig
-    from ..tracking.base_tracker import BaseTracker
+    from raitap.configs.schema import AppConfig
+
 
 from .base_metric import BaseMetricComputer, MetricResult, scalar_metrics_for_tracking
 from .visualizers import MetricsVisualizer
@@ -57,7 +59,7 @@ def create_metric(metrics_config: Any) -> tuple[BaseMetricComputer, str]:
 
 
 @dataclass
-class MetricsEvaluation:
+class MetricsEvaluation(Trackable, Reportable):
     """Outcome of a metrics run (JSON on disk + optional computer handle)."""
 
     result: MetricResult
@@ -65,7 +67,13 @@ class MetricsEvaluation:
     computer: BaseMetricComputer
     resolved_target: str
 
-    def log(self, tracker: BaseTracker | None, *, prefix: str = "performance") -> None:
+    def log(
+        self,
+        tracker: BaseTracker | None,
+        *,
+        prefix: str = "performance",
+        **kwargs: Any,
+    ) -> None:
         if tracker is None:
             return
         scalars = scalar_metrics_for_tracking(self.result)
@@ -77,6 +85,14 @@ class MetricsEvaluation:
         """Generate matplotlib figures for metrics."""
 
         return MetricsVisualizer.create_figures(self.result)
+
+    def to_report_group(self) -> ReportImageGroup:
+        from raitap.reporting.sections import ReportImageGroup
+
+        return ReportImageGroup(
+            heading="Performance Metrics",
+            run_dir=self.run_dir,
+        )
 
 
 class Metrics:

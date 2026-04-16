@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from abc import abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -17,6 +18,18 @@ class ReportImageGroup:
     heading: str
     run_dir: Path
     glob_pattern: str = "*.png"
+
+
+@runtime_checkable
+class Reportable(Protocol):
+    """
+    Interface for objects that can contribute content to a report.
+    """
+
+    @abstractmethod
+    def to_report_group(self) -> ReportImageGroup:
+        """Return a ReportImageGroup representing this object's visual outputs."""
+        ...
 
 
 @dataclass(frozen=True, slots=True)

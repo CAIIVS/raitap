@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from hydra.utils import instantiate
 
 from raitap.configs import cfg_to_dict, resolve_target
+from raitap.tracking.base_tracker import BaseTracker, Trackable
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -14,10 +15,10 @@ if TYPE_CHECKING:
 
     from raitap.configs.schema import AppConfig
     from raitap.metrics.factory import MetricsEvaluation
-    from raitap.tracking.base_tracker import BaseTracker
 
     from .base_reporter import BaseReporter
     from .sections import ReportImageSection
+
 
 logger = logging.getLogger(__name__)
 _REPORTING_PREFIX = "raitap.reporting."
@@ -35,13 +36,13 @@ def reporting_enabled(config: AppConfig) -> bool:
 
 
 @dataclass
-class ReportGeneration:
+class ReportGeneration(Trackable):
     """Outcome of report generation."""
 
     report_path: Path
     reporter: BaseReporter
 
-    def log(self, tracker: BaseTracker | None) -> None:
+    def log(self, tracker: BaseTracker | None, **kwargs: Any) -> None:
         """Upload report to tracking system if configured."""
         if tracker is None:
             return

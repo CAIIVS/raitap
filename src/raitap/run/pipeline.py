@@ -18,7 +18,6 @@ from raitap.metrics import (
 )
 from raitap.models import Model
 from raitap.reporting import (
-    ReportImageGroup,
     ReportImageSection,
     create_report,
     reporting_enabled,
@@ -49,12 +48,7 @@ def run(config: AppConfig) -> RunOutputs:
         logger.info("Generating report...")
         transparency_section = ReportImageSection.from_groups(
             title="Transparency",
-            groups=[
-                ReportImageGroup(heading=f"Explainer: {name}", run_dir=result.run_dir)
-                for name, result in zip(
-                    config.transparency.keys(), outputs.explanations, strict=False
-                )
-            ],
+            groups=[explanation.to_report_group() for explanation in outputs.explanations],
         )
         image_sections = (transparency_section,) if transparency_section.groups else ()
         report_generation = create_report(
