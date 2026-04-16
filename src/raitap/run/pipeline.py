@@ -18,7 +18,7 @@ from raitap.metrics import (
 )
 from raitap.models import Model
 from raitap.reporting import (
-    ReportImageSection,
+    ReportSection,
     create_report,
     reporting_enabled,
 )
@@ -46,16 +46,18 @@ def run(config: AppConfig) -> RunOutputs:
     report_generation = None
     if reporting_enabled(config):
         logger.info("Generating report...")
-        transparency_section = ReportImageSection.from_groups(
+        sections = []
+        if outputs.metrics is not None:
+            sections.append(
+                ReportSection.from_groups("Metrics", [outputs.metrics.to_report_group()])
+            )
+        transparency_section = ReportSection.from_groups(
             title="Transparency",
             groups=[explanation.to_report_group() for explanation in outputs.explanations],
         )
-        image_sections = (transparency_section,) if transparency_section.groups else ()
-        report_generation = create_report(
-            config=config,
-            image_sections=image_sections,
-            metrics_evaluation=outputs.metrics,
-        )
+        if transparency_section.groups:
+            sections.append(transparency_section)
+        report_generation = create_report(config=config, sections=sections)
 
     tracking_config = getattr(config, "tracking", None)
     has_tracker = bool(tracking_config and getattr(tracking_config, "_target_", None))

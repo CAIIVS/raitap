@@ -8,9 +8,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from raitap.configs.schema import AppConfig
-    from raitap.metrics.factory import MetricsEvaluation
 
-    from .sections import ReportImageSection
+    from .sections import ReportSection
 
 
 class BaseReporter(ABC):
@@ -20,18 +19,13 @@ class BaseReporter(ABC):
         self.config = config
 
     @abstractmethod
-    def generate(
-        self,
-        image_sections: Sequence[ReportImageSection],
-        metrics_evaluation: MetricsEvaluation | None,
-    ) -> Path:
+    def generate(self, sections: Sequence[ReportSection]) -> Path:
         """Generate report and return path to output file.
 
         Args:
-            image_sections: Ordered sections of figure groups (PNG paths under ``run_dir``).
-            metrics_evaluation: Optional metrics evaluation results.
+            sections: Ordered report sections (metrics, transparency, etc.).
 
         Returns:
-            Path to generated report file
+            Path to generated report file.
         """
         ...

@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 import matplotlib.pyplot as plt
 import torch
 
-from raitap.reporting.sections import Reportable, ReportImageGroup
+from raitap.reporting.sections import Reportable, ReportGroup
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 from raitap.utils.serialization import to_json_serialisable
 
@@ -79,12 +79,10 @@ class ExplanationResult(Trackable, Reportable):
     def __post_init__(self) -> None:
         self.run_dir = Path(self.run_dir)
 
-    def to_report_group(self) -> ReportImageGroup:
-        from raitap.reporting.sections import ReportImageGroup
-
-        return ReportImageGroup(
+    def to_report_group(self) -> ReportGroup:
+        return ReportGroup(
             heading=f"Explainer: {self.explainer_name or self.algorithm}",
-            run_dir=self.run_dir,
+            images=tuple(sorted(self.run_dir.glob("*.png"))),
         )
 
     def write_artifacts(self) -> None:

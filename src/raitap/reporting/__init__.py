@@ -2,13 +2,13 @@
 
 from .factory import ReportGeneration, create_report, reporting_enabled
 from .pdf_reporter import PDFReporter
-from .sections import ReportImageGroup, ReportImageSection
+from .sections import ReportGroup, ReportSection
 
 __all__ = [
     "PDFReporter",
     "ReportGeneration",
-    "ReportImageGroup",
-    "ReportImageSection",
+    "ReportGroup",
+    "ReportSection",
     "create_report",
     "reporting_enabled",
 ]

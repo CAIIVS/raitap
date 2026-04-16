@@ -14,10 +14,9 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from raitap.configs.schema import AppConfig
-    from raitap.metrics.factory import MetricsEvaluation
 
     from .base_reporter import BaseReporter
-    from .sections import ReportImageSection
+    from .sections import ReportSection
 
 
 logger = logging.getLogger(__name__)
@@ -56,8 +55,7 @@ class ReportGeneration(Trackable):
 
 def create_report(
     config: AppConfig,
-    image_sections: Sequence[ReportImageSection],
-    metrics_evaluation: MetricsEvaluation | None,
+    sections: Sequence[ReportSection],
 ) -> ReportGeneration:
     """Factory function to create and generate report."""
     reporting_config = cfg_to_dict(config.reporting)
@@ -74,8 +72,7 @@ def create_report(
             "Check that _target_ points to a valid BaseReporter implementation."
         ) from error
 
-    # Generate the report
-    report_path = reporter.generate(image_sections, metrics_evaluation)
+    report_path = reporter.generate(sections)
     logger.info("Report generated: %s", report_path)
 
     return ReportGeneration(

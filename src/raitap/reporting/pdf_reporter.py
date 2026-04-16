@@ -7,18 +7,14 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
-import matplotlib.pyplot as plt
-
-from raitap.configs import resolve_run_dir
-
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from PIL.Image import Image as PILImageType
 
-    from raitap.metrics.factory import MetricsEvaluation
+    from .sections import ReportGroup, ReportSection
 
-    from .sections import ReportImageSection
+from raitap.configs import resolve_run_dir
 
 from .base_reporter import BaseReporter
 
@@ -135,17 +131,16 @@ def _prepare_raster_for_pdf(
         return rgb, (disp_w, disp_h)
 
 
-def _figure_layout_counts(image_sections: Sequence[ReportImageSection]) -> tuple[int, int]:
-    """Count groups that have at least one raster file, and total files (for layout heuristics)."""
+def _figure_layout_counts(sections: Sequence[ReportSection]) -> tuple[int, int]:
+    """Count groups that have renderable content, and total image files (for layout heuristics)."""
     n_groups = 0
     n_files = 0
-    for section in image_sections:
+    for section in sections:
         for group in section.groups:
-            n_here = len(list(group.run_dir.glob(group.glob_pattern)))
-            if n_here == 0:
+            if not group.images and not group.table_rows:
                 continue
             n_groups += 1
-            n_files += n_here
+            n_files += len(group.images)
     return n_groups, n_files
 
 
@@ -178,11 +173,7 @@ def _image_limits_for_figures(
 class PDFReporter(BaseReporter):
     """PDF report generator using borb library."""
 
-    def generate(
-        self,
-        image_sections: Sequence[ReportImageSection],
-        metrics_evaluation: MetricsEvaluation | None,
-    ) -> Path:
+    def generate(self, sections: Sequence[ReportSection]) -> Path:
         """Generate PDF report."""
         b = _borb_pdf_ns()
 
@@ -196,11 +187,8 @@ class PDFReporter(BaseReporter):
 
         self._add_cover_page(doc, b)
 
-        if metrics_evaluation is not None:
-            self._add_metrics_section(doc, metrics_evaluation, b)
-
-        if image_sections:
-            self._add_figure_sections(doc, image_sections, b)
+        if sections:
+            self._add_sections(doc, sections, b)
 
         b.PDF.write(what=doc, where_to=output_path)
 
@@ -230,71 +218,32 @@ class PDFReporter(BaseReporter):
         )
         layout.append_layout_element(b.Paragraph(f"Dataset: {self.config.data.name}"))
 
-    def _add_metrics_section(
-        self, doc: Any, metrics_eval: MetricsEvaluation, b: SimpleNamespace
-    ) -> None:
-        """Add metrics section with charts."""
-        page = b.Page()
-        doc.append_page(page)
-        layout = b.SingleColumnLayout(page)
-
-        layout.append_layout_element(b.Paragraph("Metrics", font_size=20, font="Helvetica-Bold"))
-
-        table_data = [["Metric", "Value"]]
-        for name, value in metrics_eval.result.metrics.items():
-            table_data.append([str(name), f"{float(value):.4f}"])
-
-        table = b.FixedColumnWidthTable(
-            number_of_rows=len(table_data),
-            number_of_columns=2,
-        )
-        for row in table_data:
-            for cell in row:
-                table.append_layout_element(b.Paragraph(str(cell)))
-
-        layout.append_layout_element(table)
-
-        try:
-            figures = metrics_eval.create_visualizations()
-            max_w, max_h = _column_content_bounds_pt()
-            chart_h = min(300, int(max_h * 0.55))
-            chart_w = min(450, max_w)
-            for chart_name, fig in figures.items():
-                layout.append_layout_element(b.Paragraph(chart_name.replace("_", " ").title()))
-                plt.figure(fig.number)
-                layout.append_layout_element(b.Chart(plt, size=(chart_w, chart_h)))
-                plt.close(fig)
-        except Exception as e:
-            logger.warning("Failed to generate metrics charts: %s", e)
-            layout.append_layout_element(b.Paragraph(f"(Chart generation failed: {e})"))
-
-    def _add_figure_sections(
+    def _add_sections(
         self,
         doc: Any,
-        image_sections: Sequence[ReportImageSection],
+        sections: Sequence[ReportSection],
         b: SimpleNamespace,
     ) -> None:
         """
-        Add figure sections (raster files per group) in one flowing layout (multi-page as needed).
+        Render all sections in one flowing layout (multi-page as needed).
+
+        For each group: a table is rendered when ``table_rows`` is non-empty,
+        followed by image figures when ``images`` is non-empty.
         """
         reporting = self.config.reporting
-        num_groups, num_files = _figure_layout_counts(image_sections)
+        num_groups, num_files = _figure_layout_counts(sections)
         max_w, max_h = _image_limits_for_figures(
             reporting,
             num_groups=num_groups,
             num_image_files=num_files,
         )
 
-        for section in image_sections:
-            if not section.groups:
-                continue
-
+        for section in sections:
             section_open = False
             layout: Any = None
 
             for group in section.groups:
-                viz_files = sorted(group.run_dir.glob(group.glob_pattern))
-                if not viz_files:
+                if not group.images and not group.table_rows:
                     continue
 
                 if not section_open:
@@ -310,7 +259,10 @@ class PDFReporter(BaseReporter):
                     b.Paragraph(group.heading, font_size=16, font="Helvetica-Bold")
                 )
 
-                for image_path in viz_files:
+                if group.table_rows:
+                    self._add_table(layout, group, b)
+
+                for image_path in group.images:
                     try:
                         pil_image, display_pt = _prepare_raster_for_pdf(
                             image_path, max_w, max_h, reporting=reporting
@@ -321,3 +273,15 @@ class PDFReporter(BaseReporter):
                         layout.append_layout_element(
                             b.Paragraph(f"(Failed to load: {image_path.name})")
                         )
+
+    def _add_table(self, layout: Any, group: ReportGroup, b: SimpleNamespace) -> None:
+        """Render ``group.table_rows`` as a two-column borb table."""
+        table_data = [("Metric", "Value"), *group.table_rows]
+        table = b.FixedColumnWidthTable(
+            number_of_rows=len(table_data),
+            number_of_columns=2,
+        )
+        for row in table_data:
+            for cell in row:
+                table.append_layout_element(b.Paragraph(str(cell)))
+        layout.append_layout_element(table)
