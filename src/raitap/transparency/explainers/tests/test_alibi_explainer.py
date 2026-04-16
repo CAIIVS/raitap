@@ -6,14 +6,14 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 import pytest
 
-import torch
-
 from raitap.models.backend import ModelBackend
 from raitap.transparency.explainers.alibi_explainer import AlibiExplainer
 from raitap.transparency.factory import Explanation
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    import torch
 
 
 @pytest.mark.usefixtures("needs_alibi")
@@ -108,6 +108,7 @@ def test_explanation_factory_alibi_emits_warning_once(
             },
         ),
     )
+
     class _BackendStub(ModelBackend):
         supports_torch_autograd = True
 
