@@ -82,4 +82,4 @@ class Trackable(Protocol):
     @abstractmethod
     def log(self, tracker: BaseTracker, **kwargs: Any) -> None:
         """Log the object's artifacts or metadata to the provided tracker."""
-        ...
+        pass

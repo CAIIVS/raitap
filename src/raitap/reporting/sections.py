@@ -35,7 +35,7 @@ class Reportable(Protocol):
     @abstractmethod
     def to_report_group(self) -> ReportGroup:
         """Return a ReportGroup representing this object's report content."""
-        ...
+        pass
 
 
 @dataclass(frozen=True, slots=True)
