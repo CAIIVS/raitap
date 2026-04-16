@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import pytest
 import torch
 
+from raitap.transparency.contracts import VisualisationContext
 from raitap.transparency.visualisers import (
     CaptumImageVisualiser,
     CaptumTextVisualiser,
@@ -122,8 +123,11 @@ class TestCaptumImageVisualiser:
             attributions,
             inputs=sample_images,
             max_samples=1,
-            sample_names=["ISIC_0001", "ISIC_0002", "ISIC_0003"],
-            show_sample_names=True,
+            context=VisualisationContext(
+                algorithm="",
+                sample_names=["ISIC_0001", "ISIC_0002", "ISIC_0003"],
+                show_sample_names=True,
+            ),
         )
 
         titles = [ax.get_title() for ax in fig.axes[:2]]
@@ -140,8 +144,11 @@ class TestCaptumImageVisualiser:
             attributions,
             inputs=sample_images,
             max_samples=2,
-            sample_names=["ISIC_0001", "ISIC_0002", "ISIC_0003"],
-            show_sample_names=True,
+            context=VisualisationContext(
+                algorithm="",
+                sample_names=["ISIC_0001", "ISIC_0002", "ISIC_0003"],
+                show_sample_names=True,
+            ),
         )
 
         titles = [ax.get_title() for ax in fig.axes if ax.get_title()]
@@ -160,7 +167,11 @@ class TestCaptumImageVisualiser:
         fig = visualiser.visualise(
             attributions,
             max_samples=1,
-            sample_names=["ISIC_9999"],
+            context=VisualisationContext(
+                algorithm="",
+                sample_names=["ISIC_9999"],
+                show_sample_names=False,
+            ),
         )
 
         assert fig.axes[0].get_title() == ""
@@ -174,8 +185,11 @@ class TestCaptumImageVisualiser:
             attributions,
             inputs=sample_images,
             max_samples=1,
-            sample_names=["ISIC_1234"],
-            show_sample_names=True,
+            context=VisualisationContext(
+                algorithm="",
+                sample_names=["ISIC_1234"],
+                show_sample_names=True,
+            ),
             title="LayerGradCAM",
         )
 
@@ -439,9 +453,11 @@ class TestShapImageVisualiser:
             attributions,
             inputs=sample_images,
             max_samples=1,
-            sample_names=["ISIC_0001", "ISIC_0002"],
-            show_sample_names=True,
-            algorithm="GradientExplainer",
+            context=VisualisationContext(
+                algorithm="GradientExplainer",
+                sample_names=["ISIC_0001", "ISIC_0002"],
+                show_sample_names=True,
+            ),
         )
 
         titles = [ax.get_title() for ax in fig.axes[:2]]
@@ -462,9 +478,11 @@ class TestShapImageVisualiser:
             attributions,
             inputs=sample_images,
             max_samples=2,
-            sample_names=["ISIC_0001", "ISIC_0002", "ISIC_0003"],
-            show_sample_names=True,
-            algorithm="DeepExplainer",
+            context=VisualisationContext(
+                algorithm="DeepExplainer",
+                sample_names=["ISIC_0001", "ISIC_0002", "ISIC_0003"],
+                show_sample_names=True,
+            ),
         )
 
         titles = [ax.get_title() for ax in fig.axes if ax.get_title()]
@@ -485,10 +503,12 @@ class TestShapImageVisualiser:
             attributions,
             inputs=sample_images,
             max_samples=1,
-            sample_names=["ISIC_1234"],
-            show_sample_names=True,
+            context=VisualisationContext(
+                algorithm="GradientExplainer",
+                sample_names=["ISIC_1234"],
+                show_sample_names=True,
+            ),
             title="Custom SHAP",
-            algorithm="GradientExplainer",
         )
 
         titles = [ax.get_title() for ax in fig.axes[:2]]
@@ -506,8 +526,12 @@ class TestShapImageVisualiser:
             attributions,
             inputs=sample_images,
             max_samples=1,
+            context=VisualisationContext(
+                algorithm="GradientExplainer",
+                sample_names=None,
+                show_sample_names=False,
+            ),
             title="",
-            algorithm="GradientExplainer",
         )
 
         titles = [ax.get_title() for ax in fig.axes[:2]]
@@ -525,10 +549,12 @@ class TestShapImageVisualiser:
             attributions,
             inputs=sample_images,
             max_samples=1,
-            sample_names=["ISIC_0001"],
-            show_sample_names=True,
+            context=VisualisationContext(
+                algorithm="GradientExplainer",
+                sample_names=["ISIC_0001"],
+                show_sample_names=True,
+            ),
             title="",
-            algorithm="GradientExplainer",
         )
 
         titles = [ax.get_title() for ax in fig.axes[:2]]
