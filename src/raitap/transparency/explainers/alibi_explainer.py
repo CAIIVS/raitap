@@ -95,6 +95,7 @@ class AlibiExplainer(FullExplainer):
         explainer_target: str | None = None,
         explainer_name: str | None = None,
         visualisers: list[ConfiguredVisualiser] | None = None,
+        raitap_kwargs: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> ExplanationResult:
         if importlib.util.find_spec("alibi") is None:
@@ -108,8 +109,13 @@ class AlibiExplainer(FullExplainer):
 
         del backend
         visualisers_list: list[ConfiguredVisualiser] = [] if visualisers is None else visualisers
-        metadata_kwargs = dict(kwargs)
-        call_kwargs = self._attribution_kwargs(kwargs)
+        rk = {} if raitap_kwargs is None else dict(raitap_kwargs)
+        metadata_kwargs = {
+            **kwargs,
+            "sample_names": rk.get("sample_names"),
+            "show_sample_names": bool(rk.get("show_sample_names", False)),
+        }
+        call_kwargs = dict(kwargs)
 
         if self.algorithm == "KernelShap":
             attributions = self._kernel_shap_attributions(model, inputs, **call_kwargs)

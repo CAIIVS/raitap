@@ -72,10 +72,20 @@ visualisers:
   - _target_: CaptumImageVisualiser
 ```
 
-Explainer `call` options can also control batching behaviour. If you set `batch_size` or `max_batch_size`, progress bars are enabled by default and can be disabled with `show_progress: false`.
+Explainer config is split into three buckets:
+
+- `constructor` for explainer `__init__` kwargs
+- `call` for verbatim library kwargs such as `target`, `baselines`, or `background_data`
+- `raitap` for RAITAP-owned runtime options such as batching, progress bars, and sample-name metadata
+
+If you set `raitap.batch_size` or `raitap.max_batch_size`, progress bars are enabled by default and can be disabled with `raitap.show_progress: false`.
 
 ```yaml
 call:
+  target: 0
+  background_data:
+    source: imagenet_samples
+raitap:
   batch_size: 8
   show_progress: false
   progress_desc: My explainer batches

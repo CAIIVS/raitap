@@ -3,14 +3,15 @@ shap_deep:
   algorithm: DeepExplainer
   call:
     target: 0
-    batch_size: 1
-    show_progress: true
-    progress_desc: "SHAP batches"
     # Provide a dedicated background dataset for the SHAP explainer.
     # Without this, the explainer falls back to using the input batch as background.
     # background_data:
     #   source: imagenet_samples
     #   n_samples: 50
+  raitap:
+    batch_size: 1
+    show_progress: true
+    progress_desc: "SHAP batches"
   visualisers:
     - _target_: ShapImageVisualiser
       constructor:

@@ -29,10 +29,20 @@ logger = logging.getLogger(__name__)
 _ALIBI_BSL_WARNING_EMITTED = False
 
 _EXPLAINER_TOP_LEVEL_KEYS = frozenset(
-    {"_target_", "algorithm", "visualisers", "constructor", "call"},
+    {"_target_", "algorithm", "visualisers", "constructor", "call", "raitap"},
 )
 
 _VISUALISER_ENTRY_KEYS = frozenset({"_target_", "constructor", "call"})
+_RAITAP_KEYS = frozenset(
+    {
+        "batch_size",
+        "max_batch_size",
+        "show_progress",
+        "progress_desc",
+        "sample_names",
+        "show_sample_names",
+    }
+)
 
 # Keys that identify a dict value in ``call:`` as a data-source reference.
 # A value matches when it is a plain dict containing at least ``source``.
@@ -85,8 +95,9 @@ def _validate_explainer_top_level_keys(raw: dict[str, Any]) -> None:
         sorted_unknown = ", ".join(sorted(unknown))
         raise ValueError(
             f"Unknown transparency explainer config keys: {sorted_unknown}. "
-            "Put constructor args under 'constructor' and per-call args "
-            "(e.g. target, baselines) under 'call'."
+            "Put constructor args under 'constructor', library kwargs "
+            "(e.g. target, baselines) under 'call', and RAITAP-owned options "
+            "under 'raitap'."
         )
 
 
@@ -98,6 +109,21 @@ def _validate_visualiser_entry_keys(entry: dict[str, Any], *, target_hint: str) 
             f"Unknown keys in visualiser config {target_hint!r}: {sorted_unknown}. "
             "Use 'constructor' for __init__ kwargs and 'call' for visualise() kwargs."
         )
+
+
+def _validate_raitap_keys(raitap_cfg: dict[str, Any], *, explainer_name: str) -> None:
+    unknown = set(raitap_cfg) - _RAITAP_KEYS
+    if not unknown:
+        return
+
+    sorted_unknown = ", ".join(sorted(unknown))
+    sorted_valid = ", ".join(sorted(_RAITAP_KEYS))
+    logger.warning(
+        "Unknown transparency.raitap keys for explainer %r: %s. Supported RAITAP keys: %s.",
+        explainer_name,
+        sorted_unknown,
+        sorted_valid,
+    )
 
 
 def _resolve_call_data_sources(call_kwargs: dict[str, Any]) -> dict[str, Any]:
@@ -196,6 +222,7 @@ class Explanation:
         explainer_name: str,
         model: Model,
         inputs: torch.Tensor,
+        sample_names: list[str] | None = None,
         **kwargs: Any,
     ) -> ExplanationResult:
         explainer_config = config.transparency[explainer_name]
@@ -210,6 +237,11 @@ class Explanation:
         explainer.check_backend_compat(backend)
 
         call_from_config = _transparency_subdict(raw_transparency_config.get("call"), label="call")
+        raitap_cfg = _transparency_subdict(raw_transparency_config.get("raitap"), label="raitap")
+        if sample_names is not None:
+            raitap_cfg.setdefault("sample_names", sample_names)
+        _validate_raitap_keys(raitap_cfg, explainer_name=explainer_name)
+
         merged_kwargs = _resolve_call_data_sources({**call_from_config, **kwargs})
         merged_kwargs = backend._prepare_kwargs(merged_kwargs)
 
@@ -222,6 +254,7 @@ class Explanation:
             explainer_target=explainer_target,
             explainer_name=explainer_name,
             visualisers=visualisers,
+            raitap_kwargs=raitap_cfg,
             **merged_kwargs,
         )
 

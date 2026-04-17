@@ -14,11 +14,7 @@ from raitap.configs import resolve_run_dir
 from ..contracts import ExplanationPayloadKind
 from ..results import ConfiguredVisualiser, ExplanationResult
 
-_VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
-_BATCH_SIZE_KWARGS = frozenset({"batch_size", "max_batch_size"})
 _NON_BATCHABLE_KWARGS = frozenset({"background_data"})
-_PROGRESS_TOGGLE_KWARG = "show_progress"
-_PROGRESS_DESC_KWARG = "progress_desc"
 
 
 class AbstractExplainer:
@@ -38,16 +34,6 @@ class AbstractExplainer:
     def check_backend_compat(self, backend: object) -> None:
         del backend
         return None
-
-    @staticmethod
-    def _attribution_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
-        """Return ``kwargs`` with visualisation-only keys removed.
-
-        Visualisation keys (``sample_names``, ``show_sample_names``) are pipeline
-        metadata — they must be stored in :attr:`~ExplanationResult.kwargs` for later
-        use by visualisers, but must not be forwarded to attribution algorithms.
-        """
-        return {k: v for k, v in kwargs.items() if k not in _VISUALISATION_ONLY_KWARGS}
 
 
 class AttributionOnlyExplainer(AbstractExplainer, ABC):
@@ -74,6 +60,7 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
         explainer_target: str | None = None,
         explainer_name: str | None = None,
         visualisers: list[ConfiguredVisualiser] | None = None,
+        raitap_kwargs: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> ExplanationResult:
         """
@@ -81,13 +68,22 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
         ``ExplanationResult``, write artifacts, and return it.
         """
         visualisers_list: list[ConfiguredVisualiser] = [] if visualisers is None else visualisers
-        metadata_kwargs = dict(kwargs)
-        attribution_kwargs = self._attribution_kwargs(kwargs)
+        rk = {} if raitap_kwargs is None else dict(raitap_kwargs)
+        batch_size = self._batch_size_from_raitap_kwargs(rk)
+        show_progress, progress_desc = self._progress_settings_from_raitap_kwargs(rk)
+        metadata_kwargs = {
+            **kwargs,
+            "sample_names": rk.get("sample_names"),
+            "show_sample_names": bool(rk.get("show_sample_names", False)),
+        }
         attributions = self._compute_with_optional_batches(
             model,
             inputs,
-            attribution_kwargs,
+            dict(kwargs),
             backend,
+            batch_size=batch_size,
+            show_progress=show_progress,
+            progress_desc=progress_desc,
         )
         self.attributions = attributions
 
@@ -119,9 +115,11 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
         inputs: torch.Tensor,
         attribution_kwargs: dict[str, Any],
         backend: object | None,
+        *,
+        batch_size: int | None = None,
+        show_progress: bool = True,
+        progress_desc: str | None = None,
     ) -> torch.Tensor:
-        batch_size = self._pop_batch_size(attribution_kwargs)
-        show_progress, progress_desc = self._pop_progress_settings(attribution_kwargs)
         if batch_size is None or inputs.shape[0] <= batch_size:
             attributions = self.compute_attributions(
                 model,
@@ -166,30 +164,32 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
     def _normalise_attributions(attributions: torch.Tensor) -> torch.Tensor:
         return attributions.detach().cpu()
 
-    def _pop_batch_size(self, attribution_kwargs: dict[str, Any]) -> int | None:
-        batch_size: int | None = None
-        for key in _BATCH_SIZE_KWARGS:
-            if key in attribution_kwargs and attribution_kwargs[key] is not None:
-                candidate = attribution_kwargs.pop(key)
-                if not isinstance(candidate, int):
-                    raise TypeError(f"{key} must be an int, got {type(candidate).__name__}.")
-                if candidate <= 0:
-                    raise ValueError(f"{key} must be > 0, got {candidate}.")
-                batch_size = candidate
-        return batch_size
+    @staticmethod
+    def _batch_size_from_raitap_kwargs(raitap_kwargs: dict[str, Any]) -> int | None:
+        for key in ("batch_size", "max_batch_size"):
+            candidate = raitap_kwargs.get(key)
+            if candidate is None:
+                continue
+            if not isinstance(candidate, int):
+                raise TypeError(f"{key} must be an int, got {type(candidate).__name__}.")
+            if candidate <= 0:
+                raise ValueError(f"{key} must be > 0, got {candidate}.")
+            return candidate
+        return None
 
-    def _pop_progress_settings(self, attribution_kwargs: dict[str, Any]) -> tuple[bool, str | None]:
-        show_progress_raw = attribution_kwargs.pop(_PROGRESS_TOGGLE_KWARG, True)
+    @staticmethod
+    def _progress_settings_from_raitap_kwargs(
+        raitap_kwargs: dict[str, Any],
+    ) -> tuple[bool, str | None]:
+        show_progress_raw = raitap_kwargs.get("show_progress", True)
         if not isinstance(show_progress_raw, bool):
             raise TypeError(
-                f"{_PROGRESS_TOGGLE_KWARG} must be a bool, got {type(show_progress_raw).__name__}."
+                f"show_progress must be a bool, got {type(show_progress_raw).__name__}."
             )
 
-        progress_desc = attribution_kwargs.pop(_PROGRESS_DESC_KWARG, None)
+        progress_desc = raitap_kwargs.get("progress_desc")
         if progress_desc is not None and not isinstance(progress_desc, str):
-            raise TypeError(
-                f"{_PROGRESS_DESC_KWARG} must be a str, got {type(progress_desc).__name__}."
-            )
+            raise TypeError(f"progress_desc must be a str, got {type(progress_desc).__name__}.")
         return show_progress_raw, progress_desc
 
     def _wrap_with_progress(

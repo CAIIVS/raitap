@@ -1,10 +1,16 @@
 # Supported libraries
 
-## `constructor` and `call` keys
+## `constructor`, `call`, and `raitap` keys
 
-Both explainers and visualisers support the `constructor` and `call` keys. They pass `kwargs` to the constructor and to the runtime method (`explain` or `visualise`).
+Explainers support three config buckets:
 
-This allows you to configure the underlying library object. Here an example:
+- `constructor`: kwargs for the explainer constructor or underlying library object
+- `call`: verbatim library kwargs for the underlying attribution call
+- `raitap`: RAITAP-owned runtime options such as batching, progress bars, and sample-name metadata
+
+Visualisers continue to support `constructor` and `call` only.
+
+This keeps the boundary clear for users: `call` is what Captum, SHAP, or Alibi sees, while `raitap` is what RAITAP itself consumes. Example:
 
 ```yaml
 transparency:
@@ -17,6 +23,9 @@ transparency:
       target: 0
       background_data:
         source: imagenet_samples
+    raitap:
+      batch_size: 1
+      show_progress: true
     visualisers:
       - _target_: "ShapImageVisualiser"
         call:
@@ -89,6 +98,9 @@ transparency:
       target: 0
       background_data:
         source: imagenet_samples
+    raitap:
+      batch_size: 1
+      show_progress: true
 ```
 
 `GradientExplainer`, `DeepExplainer`, and `KernelExplainer` usually require
@@ -140,7 +152,10 @@ Configure these via the `constructor` key when defining the visualiser:
 
 ##### Call parameters
 
-Override these via the `call` key or at runtime:
+Override these via the visualiser `call` key or at runtime:
+
+`sample_names` usually comes from the explainer's `raitap.sample_names` metadata, but
+you can still override it directly on the visualiser call when needed.
 
 | Parameter           | Type                | Default | Description                                                          |
 | ------------------- | ------------------- | ------- | -------------------------------------------------------------------- |
@@ -164,6 +179,9 @@ transparency:
       background_data:
         source: imagenet_samples
         n_samples: 50
+    raitap:
+      batch_size: 1
+      show_progress: true
     visualisers:
       # Minimal configuration
       - _target_: "ShapImageVisualiser"
@@ -254,6 +272,8 @@ transparency:
     call:
       nsamples: 32
       task: classification
+    raitap:
+      show_sample_names: false
     visualisers:
       - _target_: TabularBarChartVisualiser
 ```

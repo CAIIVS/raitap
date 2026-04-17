@@ -514,9 +514,110 @@ def test_explanation_uses_real_shap_preset_defaults_and_runtime_overrides(
     assert explainer.last_explain_kwargs["target"] == 7
     assert explainer.last_explain_kwargs["background_data"] is background_data
     assert explainer.last_explain_kwargs["nsamples"] == 10
-    assert explainer.last_explain_kwargs["batch_size"] == 1
-    assert explainer.last_explain_kwargs["show_progress"] is True
-    assert explainer.last_explain_kwargs["progress_desc"] == "SHAP batches"
+    assert explainer.last_explain_kwargs["raitap_kwargs"] == {
+        "batch_size": 1,
+        "show_progress": True,
+        "progress_desc": "SHAP batches",
+    }
+
+
+def test_explanation_injects_runtime_sample_names_into_raitap_kwargs(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sample_images: torch.Tensor,
+) -> None:
+    class RecordingExplainer:
+        algorithm = "Saliency"
+
+        def __init__(self) -> None:
+            self.last_explain_kwargs: dict[str, Any] = {}
+
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
+
+        def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
+            self.last_explain_kwargs = dict(kwargs)
+            return MagicMock(spec=ExplanationResult)
+
+    explainer = RecordingExplainer()
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "raitap": {"show_sample_names": True},
+                "visualisers": [],
+            }
+        ),
+    )
+
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (explainer, "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
+
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    Explanation(
+        config,
+        "test_explainer",
+        model=model,  # type: ignore[arg-type]
+        inputs=sample_images,
+        sample_names=["isic_1", "isic_2", "isic_3", "isic_4"],
+    )
+
+    assert explainer.last_explain_kwargs["raitap_kwargs"] == {
+        "show_sample_names": True,
+        "sample_names": ["isic_1", "isic_2", "isic_3", "isic_4"],
+    }
+
+
+def test_explanation_warns_on_unknown_raitap_keys(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sample_images: torch.Tensor,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class RecordingExplainer:
+        algorithm = "Saliency"
+
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
+
+        def explain(self, *_args: Any, **_kwargs: Any) -> ExplanationResult:
+            return MagicMock(spec=ExplanationResult)
+
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "raitap": {"bacth_size": 2},
+                "visualisers": [],
+            }
+        ),
+    )
+
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (RecordingExplainer(), "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
+
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    with caplog.at_level("WARNING"):
+        Explanation(
+            config,
+            "test_explainer",
+            model=model,  # type: ignore[arg-type]
+            inputs=sample_images,
+        )
+
+    assert "bacth_size" in caplog.text
 
 
 def test_explanation_prepares_runtime_tensor_kwargs_with_backend(

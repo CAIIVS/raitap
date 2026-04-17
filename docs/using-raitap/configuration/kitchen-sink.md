@@ -50,12 +50,13 @@ transparency:
     call:
       target: 0
       nsamples: 10
-      batch_size: 1
-      show_progress: true
-      progress_desc: "SHAP batches"
       background_data:
         source: "./data/background"
         n_samples: 32
+    raitap:
+      batch_size: 1
+      show_progress: true
+      progress_desc: "SHAP batches"
     visualisers:
       - _target_: "ShapImageVisualiser"
         constructor:
