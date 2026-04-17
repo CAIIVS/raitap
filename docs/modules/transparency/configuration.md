@@ -49,7 +49,6 @@
 :default: True
 :description: Whether to show a progress bar when computing attributions. Currently
   implemented for Captum and SHAP explainers; Alibi ignores this key and emits a warning.
-
   `raitap.max_batch_size` has been removed. Use `raitap.batch_size` instead.
 
 :option: raitap.progress_desc
