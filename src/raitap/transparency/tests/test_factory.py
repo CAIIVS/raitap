@@ -343,6 +343,52 @@ def test_create_explainer_rejects_unknown_top_level_keys() -> None:
         create_explainer(config)
 
 
+def test_create_explainer_warns_on_unknown_raitap_keys(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class _StubExplainer:
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
+
+        def explain(self, *_args: Any, **_kwargs: Any) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "raitap.transparency.factory.instantiate",
+        lambda _cfg: _StubExplainer(),
+    )
+    config = OmegaConf.create(
+        {
+            "_target_": "CaptumExplainer",
+            "algorithm": "Saliency",
+            "raitap": {"bacth_size": 2},
+        }
+    )
+
+    with caplog.at_level("WARNING"):
+        create_explainer(config)
+
+    assert "bacth_size" in caplog.text
+
+
+def test_create_explainer_rejects_removed_max_batch_size_raitap_key() -> None:
+    config = OmegaConf.create(
+        {
+            "_target_": "CaptumExplainer",
+            "algorithm": "Saliency",
+            "raitap": {"max_batch_size": 2},
+        }
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"raitap\.max_batch_size has been removed; use raitap\.batch_size instead\.",
+    ):
+        create_explainer(config)
+
+
 def test_create_explainer_forwards_constructor_to_instantiate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

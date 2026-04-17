@@ -51,6 +51,27 @@ _REMOVED_RAITAP_KEYS = {
 _DATA_SOURCE_KEYS = frozenset({"source", "n_samples"})
 
 
+class _ParsedExplainerConfig:
+    def __init__(
+        self,
+        *,
+        raw: dict[str, Any],
+        target_path: str,
+        resolved_target: str,
+        algorithm: Any,
+        constructor: dict[str, Any],
+        call: dict[str, Any],
+        raitap: dict[str, Any],
+    ) -> None:
+        self.raw = raw
+        self.target_path = target_path
+        self.resolved_target = resolved_target
+        self.algorithm = algorithm
+        self.constructor = constructor
+        self.call = call
+        self.raitap = raitap
+
+
 def _raw_transparency_config(explainer_config: Any) -> dict[str, Any]:
     return cfg_to_dict(explainer_config)
 
@@ -129,6 +150,30 @@ def _validate_raitap_keys(raitap_cfg: dict[str, Any], *, explainer_name: str) ->
         explainer_name,
         sorted_unknown,
         sorted_valid,
+    )
+
+
+def _parse_explainer_config(explainer_config: Any) -> _ParsedExplainerConfig:
+    raw_transparency_config = _raw_transparency_config(explainer_config)
+    _validate_explainer_top_level_keys(raw_transparency_config)
+
+    target_path = str(raw_transparency_config.get("_target_", ""))
+    resolved_target = resolve_target(target_path, _TRANSPARENCY_PREFIX)
+    constructor_plain = _transparency_subdict(
+        raw_transparency_config.get("constructor"), label="constructor"
+    )
+    call_plain = _transparency_subdict(raw_transparency_config.get("call"), label="call")
+    raitap_plain = _transparency_subdict(raw_transparency_config.get("raitap"), label="raitap")
+    _validate_raitap_keys(raitap_plain, explainer_name=resolved_target or target_path or "?")
+
+    return _ParsedExplainerConfig(
+        raw=raw_transparency_config,
+        target_path=target_path,
+        resolved_target=resolved_target,
+        algorithm=raw_transparency_config.get("algorithm"),
+        constructor=constructor_plain,
+        call=call_plain,
+        raitap=raitap_plain,
     )
 
 
@@ -232,8 +277,8 @@ class Explanation:
         **kwargs: Any,
     ) -> ExplanationResult:
         explainer_config = config.transparency[explainer_name]
-        raw_transparency_config = _raw_transparency_config(explainer_config)
-        algorithm = str(raw_transparency_config.get("algorithm", ""))
+        parsed = _parse_explainer_config(explainer_config)
+        algorithm = str(parsed.algorithm or "")
         explainer, explainer_target = create_explainer(explainer_config)
         _maybe_emit_third_party_license_warnings(explainer)
         visualisers = create_visualisers(explainer_config)
@@ -242,11 +287,10 @@ class Explanation:
         backend = _require_model_backend(model)
         explainer.check_backend_compat(backend)
 
-        call_from_config = _transparency_subdict(raw_transparency_config.get("call"), label="call")
-        raitap_cfg = _transparency_subdict(raw_transparency_config.get("raitap"), label="raitap")
+        call_from_config = dict(parsed.call)
+        raitap_cfg = dict(parsed.raitap)
         if sample_names is not None:
             raitap_cfg.setdefault("sample_names", sample_names)
-        _validate_raitap_keys(raitap_cfg, explainer_name=explainer_name)
 
         merged_kwargs = _resolve_call_data_sources({**call_from_config, **kwargs})
         merged_kwargs = backend._prepare_kwargs(merged_kwargs)
@@ -266,38 +310,31 @@ class Explanation:
 
 
 def create_explainer(explainer_config: Any) -> tuple[ExplainerAdapter, str]:
-    raw_transparency_config = _raw_transparency_config(explainer_config)
-    _validate_explainer_top_level_keys(raw_transparency_config)
-
-    constructor_plain = _transparency_subdict(
-        raw_transparency_config.get("constructor"), label="constructor"
-    )
-    target_path = str(raw_transparency_config.get("_target_", ""))
-    resolved_target = resolve_target(target_path, _TRANSPARENCY_PREFIX)
+    parsed = _parse_explainer_config(explainer_config)
 
     instantiate_cfg: dict[str, Any] = {
-        **constructor_plain,
-        "algorithm": raw_transparency_config.get("algorithm"),
-        "_target_": resolved_target,
+        **parsed.constructor,
+        "algorithm": parsed.algorithm,
+        "_target_": parsed.resolved_target,
     }
 
     try:
         explainer = instantiate(instantiate_cfg)
     except Exception as error:
-        logger.exception("Explainer instantiation failed for target %r", target_path)
+        logger.exception("Explainer instantiation failed for target %r", parsed.target_path)
         raise ValueError(
-            f"Could not instantiate explainer {target_path!r}.\n"
+            f"Could not instantiate explainer {parsed.target_path!r}.\n"
             "Check that _target_ points to a valid ExplainerAdapter implementation "
             "(e.g. AttributionOnlyExplainer or FullExplainer subclass)."
         ) from error
 
     if not isinstance(explainer, ExplainerAdapter):
         raise ValueError(
-            f"Instantiated explainer {target_path!r} does not implement ExplainerAdapter. "
+            f"Instantiated explainer {parsed.target_path!r} does not implement ExplainerAdapter. "
             "Configured explainers must have callable explain() and check_backend_compat() methods."
         )
 
-    return cast("ExplainerAdapter", explainer), resolved_target
+    return cast("ExplainerAdapter", explainer), parsed.resolved_target
 
 
 def create_visualisers(explainer_config: Any) -> list[ConfiguredVisualiser]:
