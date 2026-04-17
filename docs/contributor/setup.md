@@ -9,7 +9,7 @@
 - [uv](https://docs.astral.sh/uv/) package manager
 
 :::{note}
-Python 3.14 is not supported yet because **Hydra 1.3.2** currently breaks there. Create and use a **Python 3.13** environment locally. CI and release workflows should continue to use Python 3.13 until Hydra support changes.
+Python 3.14 is not supported yet due to Hydra's own requirements. The project already enforces Python 3.13 usage, you do not need to run any command.
 :::
 
 ### 1. Install dependencies
