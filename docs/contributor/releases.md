@@ -9,7 +9,7 @@ Use this for normal releases.
 1. Merge your work into `main` as usual, using [conventional commits](pull-requests.md) as titles.
 2. Whenever one of those PRs is merged to main, the automation will create a new release PR, automatically handling version numbering and including all changes since the last release.
 3. Once you want to release the new version, merge that automated release PR back into main.
-4. The automation will publish to PyPI.
+4. The automation will publish to PyPI, then deploy the GitHub Pages documentation from the same release tag so the public site matches the package on PyPI.
 
 ## Alternate path: publish from a version tag
 
@@ -17,7 +17,7 @@ Use this only when you **already** have a correct **`v*.*.*`** tag on the commit
 
 1. Ensure the commit you want is tagged with a semver tag such as **`v1.2.3`** (leading `v`, three numeric parts).
 2. **Push that tag** to GitHub (for example `git push origin v1.2.3`).
-3. Publishing to PyPI is triggered from that tag push. You still do not upload the package from your laptop unless your team explicitly chooses a different process.
+3. Publishing to PyPI is triggered from that tag push, then the documentation site is deployed from the same tag. You still do not upload the package from your laptop unless your team explicitly chooses a different process.
 
 Coordinate with maintainers before using this path so you do not double-publish or publish the wrong commit.
 
