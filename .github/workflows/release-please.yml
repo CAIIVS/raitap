@@ -51,3 +51,14 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
+
+  deploy-docs:
+    needs: publish-pypi
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/docs-pages-deploy.yml
+    with:
+      ref: ${{ needs.release-please.outputs.tag_name }}
