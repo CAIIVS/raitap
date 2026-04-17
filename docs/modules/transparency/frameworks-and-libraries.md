@@ -262,6 +262,11 @@ These overrides bypass version constraints declared by Alibi and its transitive 
 - **`KernelShap`** — black-box SHAP-style explanations. RAITAP passes a NumPy batch through your **`torch.nn.Module`** (converted to tensors on the model’s device). Optional `call` keys include `background_data`, `task` (`"classification"` / `"regression"`), `nsamples`, and `target` (class index for classification).
 - **`IntegratedGradients`** — Alibi’s TensorFlow/Keras API only. Put a **`keras_model`** (`tf.keras.Model`) in the Hydra **`constructor`** block. For PyTorch integrated gradients, use **Captum** or **`KernelShap`** here.
 
+RAITAP explainer-level metadata keys `raitap.sample_names` and `raitap.show_sample_names`
+are honoured for downstream visualisers. RAITAP batching/progress keys
+(`raitap.batch_size`, `raitap.max_batch_size`, `raitap.show_progress`,
+`raitap.progress_desc`) are currently ignored for Alibi and emit a warning when set.
+
 Example (tabular-oriented preset lives under `src/raitap/configs/transparency/alibi_kernel.yaml`):
 
 ```yaml

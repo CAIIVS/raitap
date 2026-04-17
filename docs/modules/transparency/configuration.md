@@ -41,23 +41,27 @@
 :allowed: int
 :default: None
 :description: Batch size for computing attributions. If not specified, the explainer
-  will compute attributions in a single pass.
+  will compute attributions in a single pass. Currently implemented for Captum and
+  SHAP explainers; Alibi ignores this key and emits a warning.
 
 :option: raitap.max_batch_size
 :allowed: int
 :default: None
 :description: Maximum batch size for computing attributions. If not specified, the explainer
-  will compute attributions in a single pass.
+  will compute attributions in a single pass. Currently implemented for Captum and
+  SHAP explainers; Alibi ignores this key and emits a warning.
 
 :option: raitap.show_progress
 :allowed: bool
 :default: True
-:description: Whether to show a progress bar when computing attributions.
+:description: Whether to show a progress bar when computing attributions. Currently
+  implemented for Captum and SHAP explainers; Alibi ignores this key and emits a warning.
 
 :option: raitap.progress_desc
 :allowed: str
 :default: null
-:description: Description of the progress bar.
+:description: Description of the progress bar. Currently implemented for Captum and
+  SHAP explainers; Alibi ignores this key and emits a warning.
 
 :option: raitap.sample_names
 :allowed: list[str]

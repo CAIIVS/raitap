@@ -7,6 +7,7 @@ Alibi Explain is licensed under Seldon's BSL 1.1 (not GPLv3). See installation a
 from __future__ import annotations
 
 import importlib.util
+import logging
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -22,6 +23,11 @@ from .full_explainer import FullExplainer
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+logger = logging.getLogger(__name__)
+_UNSUPPORTED_RAITAP_KEYS = frozenset(
+    {"batch_size", "max_batch_size", "show_progress", "progress_desc"}
+)
 
 
 @contextmanager
@@ -73,6 +79,10 @@ class AlibiExplainer(FullExplainer):
 
     ``IntegratedGradients`` follows Alibi's TensorFlow/Keras API: pass ``keras_model`` in the
     Hydra ``constructor`` block.  The ``model`` argument to :meth:`explain` is ignored.
+
+    RAITAP ``raitap`` metadata keys ``sample_names`` and ``show_sample_names`` are honoured for
+    downstream visualisers. RAITAP batching/progress keys are currently ignored for Alibi and
+    trigger a warning when provided.
     """
 
     ALIBI_BSL_LICENSE_WARNING: ClassVar[bool] = True
@@ -110,6 +120,13 @@ class AlibiExplainer(FullExplainer):
         del backend
         visualisers_list: list[ConfiguredVisualiser] = [] if visualisers is None else visualisers
         rk = {} if raitap_kwargs is None else dict(raitap_kwargs)
+        ignored_raitap_keys = [key for key in sorted(_UNSUPPORTED_RAITAP_KEYS) if key in rk]
+        if ignored_raitap_keys:
+            logger.warning(
+                "AlibiExplainer ignores RAITAP runtime keys that control batching/progress: %s. "
+                "Only sample_names and show_sample_names are honoured from raitap_kwargs.",
+                ", ".join(ignored_raitap_keys),
+            )
         metadata_kwargs = {
             **kwargs,
             "sample_names": rk.get("sample_names"),

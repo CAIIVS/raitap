@@ -72,6 +72,36 @@ def test_alibi_tree_shap_raises_without_tree_model(
         explainer.explain(simple_mlp, sample_tabular[:2], run_dir=tmp_path / "transparency")
 
 
+@pytest.mark.usefixtures("needs_alibi")
+def test_alibi_warns_when_unsupported_raitap_batching_keys_are_provided(
+    simple_mlp: torch.nn.Module,
+    sample_tabular: torch.Tensor,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    explainer = AlibiExplainer("KernelShap")
+    inputs = sample_tabular[:4]
+
+    with caplog.at_level("WARNING"):
+        result = explainer.explain(
+            simple_mlp,
+            inputs,
+            run_dir=tmp_path / "transparency",
+            nsamples=20,
+            raitap_kwargs={
+                "batch_size": 2,
+                "show_progress": False,
+                "progress_desc": "ignored",
+            },
+        )
+
+    assert result.attributions.shape == inputs.shape
+    assert "ignores RAITAP runtime keys" in caplog.text
+    assert "batch_size" in caplog.text
+    assert "show_progress" in caplog.text
+    assert "progress_desc" in caplog.text
+
+
 @pytest.mark.usefixtures("needs_alibi", "reset_alibi_bsl_warning_flag")
 def test_explanation_factory_alibi_emits_warning_once(
     simple_mlp: torch.nn.Module,
