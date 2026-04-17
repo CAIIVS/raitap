@@ -56,19 +56,23 @@ When in doubt:
 
 - identify your GPU generation using NVIDIA's compatibility pages for [current GPUs](https://developer.nvidia.com/cuda/gpus) and [legacy GPUs](https://developer.nvidia.com/cuda/gpus/legacy)
 - check the [PyTorch releases page](https://github.com/pytorch/pytorch/releases) for a release and CUDA wheel family that supports your hardware
-- install RAITAP with the matching PyTorch index if the default resolver path is not appropriate for your machine
+- install the PyTorch CUDA packages from the matching PyTorch index, then install RAITAP and the remaining extras from PyPI
 
-For example, if you are installing RAITAP on a **Volta / V100** system and want to use the **`cu126`** PyTorch wheels, install the CUDA extras like this:
+For example, if you are installing RAITAP on a **Volta / V100** system and want to use the **`cu126`** PyTorch wheels, the most robust approach is to install in **two steps**:
 
 ```{install-tabs}
 :uv:
-uv pip install --extra-index-url https://download.pytorch.org/whl/cu126 "raitap[torch-cuda,transparency]"
+uv pip install --extra-index-url https://download.pytorch.org/whl/cu126 torch torchvision
+uv pip install "raitap[torch-cuda,transparency]"
 
 :pip:
-pip install --extra-index-url https://download.pytorch.org/whl/cu126 "raitap[torch-cuda,transparency]"
+pip install --extra-index-url https://download.pytorch.org/whl/cu126 torch torchvision
+pip install "raitap[torch-cuda,transparency]"
 ```
 
-If you also need extras that pull packages which should still come from **PyPI** rather than the PyTorch index, it can be safer to install in **two steps**. This came up in cluster testing with `metrics`, where `torchmetrics` should resolve from PyPI while `torch` / `torchvision` should come from the PyTorch CUDA index.
+This keeps the PyTorch packages on the CUDA wheel family you selected, while letting RAITAP and the remaining dependencies resolve normally from PyPI.
+
+If you also need extras such as `metrics`, the same two-step pattern still applies:
 
 ```{install-tabs}
 :uv:
@@ -80,7 +84,7 @@ pip install --extra-index-url https://download.pytorch.org/whl/cu126 torch torch
 pip install "raitap[launcher,transparency,metrics,reporting]"
 ```
 
-This keeps the PyTorch packages on the CUDA wheel family you selected, while letting packages such as `torchmetrics` resolve normally from PyPI.
+This came up in cluster testing with `metrics`, where `torchmetrics` should resolve from PyPI while `torch` / `torchvision` should come from the PyTorch CUDA index.
 
 This is an example for older cards that need that wheel family. It is **not** the required default for every CUDA-capable install.
 :::
