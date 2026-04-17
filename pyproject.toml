@@ -20,7 +20,8 @@ maintainers = [
 description = "Python library to assess the responsibility level of AI models for integration into MLOps workflows."
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.13"
+# Hydra 1.3.2 is part of the published runtime and currently breaks on Python 3.14.
+requires-python = ">=3.13,<3.14"
 keywords = [
   "artificial intelligence",
   "deep learning",
@@ -229,8 +230,8 @@ explicit = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/raitap"]
-include = ["src/raitap/py.typed", "src/raitap/**/*.yaml", "src/raitap/**/*.yml"]
-exclude = ["src/raitap/**/test_*.py", "src/raitap/**/conftest.py"]
+include = ["src/raitap/py.typed", "src/raitap/configs/**/*.yaml", "src/raitap/configs/**/*.yml"]
+exclude = ["src/raitap/**/test_*.py", "src/raitap/**/conftest.py", "src/raitap/configs/zhaw/*.yaml", "src/raitap/configs/zhaw/*.yml"]
 
 [tool.ruff]
 line-length = 100
