@@ -47,7 +47,7 @@ pip install "raitap[onnx-cpu]" # replace `onnx-cpu` with your group
 - Apple MPS support is coming soon.
 :::
 
-```{dropdown} Older NVIDIA GPUs and CUDA wheel selection
+:::{dropdown} Older NVIDIA GPUs and CUDA wheel selection
 RAITAP does not force a single CUDA wheel family for packaged installs. The right PyTorch CUDA wheels depend on your GPU generation and on which CUDA wheel families a given PyTorch release supports.
 
 This matters mainly for **older NVIDIA GPUs**, especially **Volta / V100** systems, where a resolver may pick a newer CUDA wheel family that is not a good match for the hardware even though the install itself succeeds.
@@ -68,8 +68,22 @@ uv pip install --extra-index-url https://download.pytorch.org/whl/cu126 "raitap[
 pip install --extra-index-url https://download.pytorch.org/whl/cu126 "raitap[torch-cuda,transparency]"
 ```
 
-This is an example for older cards that need that wheel family. It is **not** the required default for every CUDA-capable install.
+If you also need extras that pull packages which should still come from **PyPI** rather than the PyTorch index, it can be safer to install in **two steps**. This came up in cluster testing with `metrics`, where `torchmetrics` should resolve from PyPI while `torch` / `torchvision` should come from the PyTorch CUDA index.
+
+```{install-tabs}
+:uv:
+uv pip install --extra-index-url https://download.pytorch.org/whl/cu126 torch torchvision
+uv pip install "raitap[launcher,transparency,metrics,reporting]"
+
+:pip:
+pip install --extra-index-url https://download.pytorch.org/whl/cu126 torch torchvision
+pip install "raitap[launcher,transparency,metrics,reporting]"
 ```
+
+This keeps the PyTorch packages on the CUDA wheel family you selected, while letting packages such as `torchmetrics` resolve normally from PyPI.
+
+This is an example for older cards that need that wheel family. It is **not** the required default for every CUDA-capable install.
+:::
 
 ### Assessment dependencies
 
