@@ -47,6 +47,30 @@ pip install "raitap[onnx-cpu]" # replace `onnx-cpu` with your group
 - Apple MPS support is coming soon.
 :::
 
+#### Older NVIDIA GPUs and CUDA wheel selection
+
+RAITAP does not force a single CUDA wheel family for packaged installs. The right PyTorch CUDA wheels depend on your GPU generation and on which CUDA wheel families a given PyTorch release supports.
+
+This matters mainly for **older NVIDIA GPUs**, especially **Volta / V100** systems, where a resolver may pick a newer CUDA wheel family that is not a good match for the hardware even though the install itself succeeds.
+
+When in doubt:
+
+- identify your GPU generation using NVIDIA's compatibility pages for [current GPUs](https://developer.nvidia.com/cuda/gpus) and [legacy GPUs](https://developer.nvidia.com/cuda/gpus/legacy)
+- check the [PyTorch releases page](https://github.com/pytorch/pytorch/releases) for a release and CUDA wheel family that supports your hardware
+- install RAITAP with the matching PyTorch index if the default resolver path is not appropriate for your machine
+
+For example, if you are installing RAITAP on a **Volta / V100** system and want to use the **`cu126`** PyTorch wheels, install the CUDA extras like this:
+
+```{install-tabs}
+:uv:
+uv pip install --extra-index-url https://download.pytorch.org/whl/cu126 "raitap[torch-cuda,transparency]"
+
+:pip:
+pip install --extra-index-url https://download.pytorch.org/whl/cu126 "raitap[torch-cuda,transparency]"
+```
+
+This is an example for older cards that need that wheel family. It is **not** the required default for every CUDA-capable install.
+
 ### Assessment dependencies
 
 You can then install the dependencies for the assessment modules you want to use.

@@ -5,8 +5,12 @@
 ### 0. Prerequisites
 
 - The repository cloned.
-- Python 3.13 or higher
+- Python 3.13.x
 - [uv](https://docs.astral.sh/uv/) package manager
+
+:::{note}
+Python 3.14 is not supported yet because **Hydra 1.3.2** currently breaks there. Create and use a **Python 3.13** environment locally. CI and release workflows should continue to use Python 3.13 until Hydra support changes.
+:::
 
 ### 1. Install dependencies
 
