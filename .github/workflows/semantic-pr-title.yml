@@ -32,6 +32,7 @@ jobs:
             chore
             revert
             deps
+            publish
           scopes: |
             transparency
             tracking

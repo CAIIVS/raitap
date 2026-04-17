@@ -56,6 +56,7 @@ modules/reporting/index
 :caption: Reference
 
 reference/api/index
+changelog
 license
 ```
 
