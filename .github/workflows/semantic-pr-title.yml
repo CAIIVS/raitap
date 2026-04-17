@@ -46,7 +46,8 @@ jobs:
             data
             reporting
             dev
-            deps-dev
+            prod
+            actions
           requireScope: false
           validateSingleCommitMatchesPrTitle: true
           subjectPattern: ^.+$
