@@ -78,7 +78,7 @@ Explainer config is split into three buckets:
 - `call` for verbatim library kwargs such as `target`, `baselines`, or `background_data`
 - `raitap` for RAITAP-owned runtime options such as batching, progress bars, and sample-name metadata
 
-If you set `raitap.batch_size`, progress bars are enabled by default and can be disabled with `raitap.show_progress: false`.
+`raitap.show_progress` defaults to `true`. Progress bars are only shown when RAITAP outer batching is active via `raitap.batch_size`.
 `raitap.max_batch_size` has been removed; use `raitap.batch_size` instead.
 
 ```yaml
