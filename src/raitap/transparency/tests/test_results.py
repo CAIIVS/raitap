@@ -284,6 +284,52 @@ def test_explanation_visualise_adds_generic_sample_name_title_when_opted_in(tmp_
     assert result.figure.get_suptitle() == "ISIC_1 (+1)"
 
 
+def test_explanation_visualise_uses_explainer_level_show_sample_names_default(
+    tmp_path: Path,
+) -> None:
+    class _ContextRecordingVisualiser(BaseVisualiser):
+        def __init__(self) -> None:
+            self.last_show_sample_names: bool | None = None
+            self.last_sample_names: list[str] = []
+
+        def visualise(
+            self,
+            attributions: torch.Tensor,
+            inputs: torch.Tensor | None = None,
+            *,
+            context: VisualisationContext | None = None,
+            **kw: Any,
+        ) -> Figure:
+            del attributions, inputs, kw
+            self.last_show_sample_names = context.show_sample_names if context is not None else None
+            sample_names = context.sample_names if context is not None else None
+            self.last_sample_names = [] if sample_names is None else list(sample_names)
+            fig, _ax = plt.subplots(figsize=(1, 1))
+            return fig
+
+    run_dir = tmp_path / "exp_explainer_level_show_names"
+    vis = _ContextRecordingVisualiser()
+    explanation = ExplanationResult(
+        attributions=torch.randn(2, 3, 4, 4),
+        inputs=torch.randn(2, 3, 4, 4),
+        run_dir=run_dir,
+        experiment_name="e",
+        explainer_target="t",
+        algorithm="a",
+        visualisers=[ConfiguredVisualiser(visualiser=vis, call_kwargs={})],
+        kwargs={
+            "sample_names": ["ISIC_1", "ISIC_2"],
+            "show_sample_names": True,
+        },
+    )
+    explanation.write_artifacts()
+
+    explanation.visualise()
+
+    assert vis.last_show_sample_names is True
+    assert vis.last_sample_names == ["ISIC_1", "ISIC_2"]
+
+
 def test_explanation_visualise_trims_sample_names_for_shorter_batch(tmp_path: Path) -> None:
     class _SampleNameVisualiser(BaseVisualiser):
         def __init__(self) -> None:

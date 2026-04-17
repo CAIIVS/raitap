@@ -129,7 +129,9 @@ class ExplanationResult(Trackable, Reportable):
             merged_call = {**configured.call_kwargs, **kwargs}
             attributions = merged_call.pop("attributions", self.attributions)
             inputs = merged_call.pop("inputs", self.inputs)
-            show_sample_names = bool(merged_call.pop("show_sample_names", False))
+            show_sample_names = bool(
+                merged_call.pop("show_sample_names", self.kwargs.get("show_sample_names", False))
+            )
             sample_names_value = merged_call.pop("sample_names", self.kwargs.get("sample_names"))
             sample_names = _normalise_sample_names(sample_names_value)
 
