@@ -51,7 +51,7 @@ class TransparencyConfig:
     #       source: "imagenet_samples"
     #       n_samples: 50
     call: dict[str, Any] = field(default_factory=dict)
-    # RAITAP-owned runtime options such as batching, progress bars, and
+    # RAITAP-owned runtime options such as batch_size, progress bars, and
     # sample-name metadata. These keys are not forwarded to the explainability library.
     raitap: dict[str, Any] = field(default_factory=dict)
     # Each entry needs at least ``_target_``; ``constructor`` / ``call`` are optional

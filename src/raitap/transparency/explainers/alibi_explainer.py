@@ -25,9 +25,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 logger = logging.getLogger(__name__)
-_UNSUPPORTED_RAITAP_KEYS = frozenset(
-    {"batch_size", "max_batch_size", "show_progress", "progress_desc"}
-)
+_UNSUPPORTED_RAITAP_KEYS = frozenset({"batch_size", "show_progress", "progress_desc"})
 
 
 @contextmanager

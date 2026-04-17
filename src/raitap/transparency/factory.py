@@ -36,13 +36,15 @@ _VISUALISER_ENTRY_KEYS = frozenset({"_target_", "constructor", "call"})
 _RAITAP_KEYS = frozenset(
     {
         "batch_size",
-        "max_batch_size",
         "show_progress",
         "progress_desc",
         "sample_names",
         "show_sample_names",
     }
 )
+_REMOVED_RAITAP_KEYS = {
+    "max_batch_size": "raitap.max_batch_size has been removed; use raitap.batch_size instead."
+}
 
 # Keys that identify a dict value in ``call:`` as a data-source reference.
 # A value matches when it is a plain dict containing at least ``source``.
@@ -112,6 +114,10 @@ def _validate_visualiser_entry_keys(entry: dict[str, Any], *, target_hint: str) 
 
 
 def _validate_raitap_keys(raitap_cfg: dict[str, Any], *, explainer_name: str) -> None:
+    for key, message in _REMOVED_RAITAP_KEYS.items():
+        if key in raitap_cfg:
+            raise ValueError(message)
+
     unknown = set(raitap_cfg) - _RAITAP_KEYS
     if not unknown:
         return

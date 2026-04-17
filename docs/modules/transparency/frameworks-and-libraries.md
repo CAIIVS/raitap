@@ -264,8 +264,8 @@ These overrides bypass version constraints declared by Alibi and its transitive 
 
 RAITAP explainer-level metadata keys `raitap.sample_names` and `raitap.show_sample_names`
 are honoured for downstream visualisers. RAITAP batching/progress keys
-(`raitap.batch_size`, `raitap.max_batch_size`, `raitap.show_progress`,
-`raitap.progress_desc`) are currently ignored for Alibi and emit a warning when set.
+(`raitap.batch_size`, `raitap.show_progress`, `raitap.progress_desc`) are currently
+ignored for Alibi and emit a warning when set.
 
 Example (tabular-oriented preset lives under `src/raitap/configs/transparency/alibi_kernel.yaml`):
 

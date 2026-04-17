@@ -166,16 +166,14 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
 
     @staticmethod
     def _batch_size_from_raitap_kwargs(raitap_kwargs: dict[str, Any]) -> int | None:
-        for key in ("batch_size", "max_batch_size"):
-            candidate = raitap_kwargs.get(key)
-            if candidate is None:
-                continue
-            if not isinstance(candidate, int):
-                raise TypeError(f"{key} must be an int, got {type(candidate).__name__}.")
-            if candidate <= 0:
-                raise ValueError(f"{key} must be > 0, got {candidate}.")
-            return candidate
-        return None
+        candidate = raitap_kwargs.get("batch_size")
+        if candidate is None:
+            return None
+        if not isinstance(candidate, int):
+            raise TypeError(f"batch_size must be an int, got {type(candidate).__name__}.")
+        if candidate <= 0:
+            raise ValueError(f"batch_size must be > 0, got {candidate}.")
+        return candidate
 
     @staticmethod
     def _progress_settings_from_raitap_kwargs(

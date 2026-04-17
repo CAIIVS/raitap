@@ -620,6 +620,52 @@ def test_explanation_warns_on_unknown_raitap_keys(
     assert "bacth_size" in caplog.text
 
 
+def test_explanation_rejects_removed_max_batch_size_raitap_key(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sample_images: torch.Tensor,
+) -> None:
+    class RecordingExplainer:
+        algorithm = "Saliency"
+
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
+
+        def explain(self, *_args: Any, **_kwargs: Any) -> ExplanationResult:
+            return MagicMock(spec=ExplanationResult)
+
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "raitap": {"max_batch_size": 2},
+                "visualisers": [],
+            }
+        ),
+    )
+
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (RecordingExplainer(), "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
+
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    with pytest.raises(
+        ValueError,
+        match=r"raitap\.max_batch_size has been removed; use raitap\.batch_size instead\.",
+    ):
+        Explanation(
+            config,
+            "test_explainer",
+            model=model,  # type: ignore[arg-type]
+            inputs=sample_images,
+        )
+
+
 def test_explanation_prepares_runtime_tensor_kwargs_with_backend(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
