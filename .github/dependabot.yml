@@ -12,7 +12,7 @@ updates:
     labels:
       - "dependencies"
     commit-message:
-      prefix: "deps"
+      prefix: "deps(prod)"
       prefix-development: "deps(dev)"
 
   # Monitor GitHub Actions - only security and major updates
@@ -21,6 +21,8 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(actions)"
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-minor", "version-update:semver-patch"]
