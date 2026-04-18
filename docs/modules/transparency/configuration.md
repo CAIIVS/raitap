@@ -98,7 +98,6 @@ transparency:
         n_samples: 32
     raitap:
       batch_size: 1
-      show_progress: true
     visualisers:
       - _target_: "ShapImageVisualiser"
 

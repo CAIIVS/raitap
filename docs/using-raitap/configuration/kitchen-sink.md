@@ -55,7 +55,6 @@ transparency:
         n_samples: 32
     raitap:
       batch_size: 1
-      show_progress: true
       progress_desc: "SHAP batches"
     visualisers:
       - _target_: "ShapImageVisualiser"

@@ -25,7 +25,6 @@ transparency:
         source: imagenet_samples
     raitap:
       batch_size: 1
-      show_progress: true
     visualisers:
       - _target_: "ShapImageVisualiser"
         call:
@@ -100,7 +99,6 @@ transparency:
         source: imagenet_samples
     raitap:
       batch_size: 1
-      show_progress: true
 ```
 
 `GradientExplainer`, `DeepExplainer`, and `KernelExplainer` usually require
@@ -181,7 +179,6 @@ transparency:
         n_samples: 50
     raitap:
       batch_size: 1
-      show_progress: true
     visualisers:
       # Minimal configuration
       - _target_: "ShapImageVisualiser"
