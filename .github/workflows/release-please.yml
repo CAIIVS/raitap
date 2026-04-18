@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+env:
+  RELEASE_PLEASE_TARGET_BRANCH: main
+
 permissions:
   contents: write
   pull-requests: write
@@ -15,6 +18,7 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+      prs_created: ${{ steps.release.outputs.prs_created }}
     steps:
       - id: release
         uses: googleapis/release-please-action@v4
@@ -22,7 +26,41 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-          target-branch: main
+          target-branch: ${{ env.RELEASE_PLEASE_TARGET_BRANCH }}
+
+  # Release Please pushes with GITHUB_TOKEN, which does not trigger pull_request workflows (including
+  # sync-uv-lock-on-release-pr.yml). Regenerate the lockfile in this same workflow when the release PR changes.
+  sync-uv-lock:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.prs_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: release-please--branches--${{ env.RELEASE_PLEASE_TARGET_BRANCH }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Regenerate uv.lock
+        run: uv lock
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add uv.lock
+          if git diff --staged --quiet; then
+            echo "No uv.lock changes."
+          else
+            git commit -m "chore: sync uv.lock"
+            git push
+          fi
 
   # Publishes when Release Please creates a release in the same workflow run. Tag-push workflows do not run for
   # resources created with GITHUB_TOKEN (GitHub limitation); see publish-pypi.yml for manual or PAT-created tags.

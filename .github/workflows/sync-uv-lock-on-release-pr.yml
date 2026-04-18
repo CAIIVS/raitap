@@ -1,5 +1,8 @@
 name: Sync uv.lock on Release Please PRs
 
+# Runs when the release PR branch is updated by something other than GITHUB_TOKEN (e.g. a user push), because
+# pushes performed with GITHUB_TOKEN do not trigger new workflow runs. Release Please runs lock sync in release-please.yml.
+
 on:
   pull_request:
     branches:
