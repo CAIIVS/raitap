@@ -620,6 +620,62 @@ def test_explanation_injects_runtime_sample_names_into_raitap_kwargs(
     }
 
 
+def test_explanation_runtime_sample_names_override_raitap_config(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sample_images: torch.Tensor,
+) -> None:
+    class RecordingExplainer:
+        algorithm = "Saliency"
+
+        def __init__(self) -> None:
+            self.last_explain_kwargs: dict[str, Any] = {}
+
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
+
+        def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
+            self.last_explain_kwargs = dict(kwargs)
+            return MagicMock(spec=ExplanationResult)
+
+    explainer = RecordingExplainer()
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "raitap": {
+                    "sample_names": ["from_config_1", "from_config_2"],
+                    "show_sample_names": True,
+                },
+                "visualisers": [],
+            }
+        ),
+    )
+
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (explainer, "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
+
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    Explanation(
+        config,
+        "test_explainer",
+        model=model,  # type: ignore[arg-type]
+        inputs=sample_images,
+        sample_names=["from_runtime_1", "from_runtime_2"],
+    )
+
+    assert explainer.last_explain_kwargs["raitap_kwargs"] == {
+        "show_sample_names": True,
+        "sample_names": ["from_runtime_1", "from_runtime_2"],
+    }
+
+
 def test_explanation_warns_on_unknown_raitap_keys(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
