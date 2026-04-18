@@ -15,7 +15,6 @@ shap_gradient:
     #   n_samples: 50
   raitap:
     batch_size: 1
-    show_progress: true
     progress_desc: "SHAP batches"
   visualisers:
     - _target_: ShapImageVisualiser
