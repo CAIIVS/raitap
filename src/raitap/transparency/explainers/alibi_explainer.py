@@ -28,6 +28,12 @@ logger = logging.getLogger(__name__)
 _UNSUPPORTED_RAITAP_KEYS = frozenset({"batch_size", "show_progress", "progress_desc"})
 
 
+def _should_warn_for_unsupported_raitap_key(key: str, value: Any) -> bool:
+    if key == "show_progress":
+        return True
+    return value is not None
+
+
 @contextmanager
 def _alibi_kernel_shap_shap050_multiclass_patch() -> Iterator[None]:
     """
@@ -118,7 +124,11 @@ class AlibiExplainer(FullExplainer):
         del backend
         visualisers_list: list[ConfiguredVisualiser] = [] if visualisers is None else visualisers
         rk = {} if raitap_kwargs is None else dict(raitap_kwargs)
-        ignored_raitap_keys = [key for key in sorted(_UNSUPPORTED_RAITAP_KEYS) if key in rk]
+        ignored_raitap_keys = [
+            key
+            for key in sorted(_UNSUPPORTED_RAITAP_KEYS)
+            if key in rk and _should_warn_for_unsupported_raitap_key(key, rk[key])
+        ]
         if ignored_raitap_keys:
             logger.warning(
                 "AlibiExplainer ignores RAITAP runtime keys that control batching/progress: %s. "

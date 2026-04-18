@@ -102,6 +102,32 @@ def test_alibi_warns_when_unsupported_raitap_batching_keys_are_provided(
     assert "progress_desc" in caplog.text
 
 
+@pytest.mark.usefixtures("needs_alibi")
+def test_alibi_does_not_warn_for_unset_unsupported_raitap_keys(
+    simple_mlp: torch.nn.Module,
+    sample_tabular: torch.Tensor,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    explainer = AlibiExplainer("KernelShap")
+    inputs = sample_tabular[:4]
+
+    with caplog.at_level("WARNING"):
+        result = explainer.explain(
+            simple_mlp,
+            inputs,
+            run_dir=tmp_path / "transparency",
+            nsamples=20,
+            raitap_kwargs={
+                "batch_size": None,
+                "progress_desc": None,
+            },
+        )
+
+    assert result.attributions.shape == inputs.shape
+    assert "ignores RAITAP runtime keys" not in caplog.text
+
+
 @pytest.mark.usefixtures("needs_alibi", "reset_alibi_bsl_warning_flag")
 def test_explanation_factory_alibi_emits_warning_once(
     simple_mlp: torch.nn.Module,
