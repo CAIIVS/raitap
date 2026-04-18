@@ -334,6 +334,7 @@ def _assert_metadata_invariants(
         "algorithm",
         "visualisers",
         "kwargs",
+        "call_kwargs",
         "payload_kind",
     }
     assert metadata["payload_kind"] == "attributions"
@@ -341,6 +342,7 @@ def _assert_metadata_invariants(
     assert metadata["algorithm"] == case.algorithm
     assert str(metadata["target"]).endswith(_framework_target_suffix(case))
     assert isinstance(metadata["kwargs"], dict)
+    assert isinstance(metadata["call_kwargs"], dict)
     assert isinstance(metadata["visualisers"], list)
     if has_visualisers:
         assert len(cast("list[str]", metadata["visualisers"])) >= 1
@@ -476,12 +478,12 @@ def assert_behavior_case(
     )
 
     expected_target = _expected_serialised_target(case, result.inputs)
-    metadata_kwargs = cast("dict[str, object]", metadata_after["kwargs"])
+    metadata_call_kwargs = cast("dict[str, object]", metadata_after["call_kwargs"])
     if expected_target is not None:
-        assert metadata_kwargs["target"] == expected_target
+        assert metadata_call_kwargs["target"] == expected_target
 
     for key, value in case.expected_metadata_kwargs.items():
-        assert metadata_kwargs[key] == value
+        assert metadata_call_kwargs[key] == value
 
     if case.visualiser_cls is None:
         assert result.visualisations == []

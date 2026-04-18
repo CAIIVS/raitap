@@ -7,6 +7,7 @@ Alibi Explain is licensed under Seldon's BSL 1.1 (not GPLv3). See installation a
 from __future__ import annotations
 
 import importlib.util
+import logging
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -22,6 +23,15 @@ from .full_explainer import FullExplainer
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+logger = logging.getLogger(__name__)
+_UNSUPPORTED_RAITAP_KEYS = frozenset({"batch_size", "show_progress", "progress_desc"})
+
+
+def _should_warn_for_unsupported_raitap_key(key: str, value: Any) -> bool:
+    if key == "show_progress":
+        return True
+    return value is not None
 
 
 @contextmanager
@@ -73,6 +83,10 @@ class AlibiExplainer(FullExplainer):
 
     ``IntegratedGradients`` follows Alibi's TensorFlow/Keras API: pass ``keras_model`` in the
     Hydra ``constructor`` block.  The ``model`` argument to :meth:`explain` is ignored.
+
+    RAITAP ``raitap`` metadata keys ``sample_names`` and ``show_sample_names`` are honoured for
+    downstream visualisers. RAITAP batching/progress keys are currently ignored for Alibi and
+    trigger a warning when provided.
     """
 
     ALIBI_BSL_LICENSE_WARNING: ClassVar[bool] = True
@@ -95,6 +109,7 @@ class AlibiExplainer(FullExplainer):
         explainer_target: str | None = None,
         explainer_name: str | None = None,
         visualisers: list[ConfiguredVisualiser] | None = None,
+        raitap_kwargs: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> ExplanationResult:
         if importlib.util.find_spec("alibi") is None:
@@ -108,8 +123,23 @@ class AlibiExplainer(FullExplainer):
 
         del backend
         visualisers_list: list[ConfiguredVisualiser] = [] if visualisers is None else visualisers
-        metadata_kwargs = dict(kwargs)
-        call_kwargs = self._attribution_kwargs(kwargs)
+        rk = {} if raitap_kwargs is None else dict(raitap_kwargs)
+        ignored_raitap_keys = [
+            key
+            for key in sorted(_UNSUPPORTED_RAITAP_KEYS)
+            if key in rk and _should_warn_for_unsupported_raitap_key(key, rk[key])
+        ]
+        if ignored_raitap_keys:
+            logger.warning(
+                "AlibiExplainer ignores RAITAP runtime keys that control batching/progress: %s. "
+                "Only sample_names and show_sample_names are honoured from raitap_kwargs.",
+                ", ".join(ignored_raitap_keys),
+            )
+        metadata_kwargs = {
+            "sample_names": rk.get("sample_names"),
+            "show_sample_names": bool(rk.get("show_sample_names", False)),
+        }
+        call_kwargs = dict(kwargs)
 
         if self.algorithm == "KernelShap":
             attributions = self._kernel_shap_attributions(model, inputs, **call_kwargs)
@@ -136,6 +166,7 @@ class AlibiExplainer(FullExplainer):
             algorithm=self.algorithm,
             explainer_name=explainer_name,
             kwargs=metadata_kwargs,
+            call_kwargs=call_kwargs,
             visualisers=visualisers_list,
             payload_kind=self.output_payload_kind,
         )

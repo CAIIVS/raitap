@@ -41,8 +41,8 @@ class TransparencyConfig:
     # Constructor kwargs for the explainer / underlying library method (e.g. Captum
     # ``IntegratedGradients(model, **kwargs)``, SHAP ``GradientExplainer(model, data, **kwargs)``).
     constructor: dict[str, Any] = field(default_factory=dict)
-    # Per-call kwargs for ``compute_attributions`` (Captum ``.attribute()``,
-    # SHAP ``.shap_values()``).
+    # Per-call kwargs forwarded verbatim to the underlying library
+    # (Captum ``.attribute()``, SHAP ``.shap_values()``, etc.).
     # Any value that is a dict with a ``source`` key is treated as a data-source reference
     # and loaded as a tensor at runtime.  Example for SHAP background data::
     #
@@ -51,6 +51,9 @@ class TransparencyConfig:
     #       source: "imagenet_samples"
     #       n_samples: 50
     call: dict[str, Any] = field(default_factory=dict)
+    # RAITAP-owned runtime options such as batch_size, progress bars, and
+    # sample-name metadata. These keys are not forwarded to the explainability library.
+    raitap: dict[str, Any] = field(default_factory=dict)
     # Each entry needs at least ``_target_``; ``constructor`` / ``call`` are optional
     # (same split as explainer). Default is minimal: Captum explainer + image visualiser.
     visualisers: list[Any] = field(default_factory=lambda: [{"_target_": "CaptumImageVisualiser"}])

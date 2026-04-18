@@ -26,6 +26,21 @@ def _serialisable(value: Any) -> Any:
     return to_json_serialisable(value)
 
 
+def _serialisable_call_kwarg(value: Any) -> Any:
+    if isinstance(value, torch.Tensor):
+        return {
+            "type": "torch.Tensor",
+            "shape": list(value.shape),
+            "dtype": str(value.dtype),
+            "device": str(value.device),
+        }
+    if isinstance(value, dict):
+        return {str(key): _serialisable_call_kwarg(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_serialisable_call_kwarg(item) for item in value]
+    return _serialisable(value)
+
+
 def _batch_size(value: Any) -> int | None:
     shape = getattr(value, "shape", None)
     if shape is None:
@@ -72,6 +87,7 @@ class ExplanationResult(Trackable, Reportable):
     algorithm: str
     explainer_name: str | None = None
     kwargs: dict[str, Any] = field(default_factory=dict)
+    call_kwargs: dict[str, Any] = field(default_factory=dict)
     visualiser_targets: list[str] = field(default_factory=list)
     visualisers: list[ConfiguredVisualiser] = field(default_factory=list, repr=False)
     payload_kind: ExplanationPayloadKind = ExplanationPayloadKind.ATTRIBUTIONS
@@ -111,6 +127,9 @@ class ExplanationResult(Trackable, Reportable):
             "visualisers": targets,
             "payload_kind": self.payload_kind.value,
             "kwargs": {key: _serialisable(value) for key, value in self.kwargs.items()},
+            "call_kwargs": {
+                key: _serialisable_call_kwarg(value) for key, value in self.call_kwargs.items()
+            },
         }
 
     def _write_metadata(self) -> None:
@@ -129,7 +148,9 @@ class ExplanationResult(Trackable, Reportable):
             merged_call = {**configured.call_kwargs, **kwargs}
             attributions = merged_call.pop("attributions", self.attributions)
             inputs = merged_call.pop("inputs", self.inputs)
-            show_sample_names = bool(merged_call.pop("show_sample_names", False))
+            show_sample_names = bool(
+                merged_call.pop("show_sample_names", self.kwargs.get("show_sample_names", False))
+            )
             sample_names_value = merged_call.pop("sample_names", self.kwargs.get("sample_names"))
             sample_names = _normalise_sample_names(sample_names_value)
 

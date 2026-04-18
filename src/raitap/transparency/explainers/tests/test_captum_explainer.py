@@ -140,7 +140,7 @@ class TestCaptumExplainer:
             sample_images,
             run_dir=tmp_path / "transparency",
             target=[0, 1, 2, 3],
-            batch_size=2,
+            raitap_kwargs={"batch_size": 2},
         )
 
         assert isinstance(result.attributions, torch.Tensor)
@@ -185,7 +185,7 @@ class TestCaptumExplainer:
             run_dir=tmp_path / "transparency",
             backend=onnx_linear_backend,
             target=0,
-            batch_size=2,
+            raitap_kwargs={"batch_size": 2},
         )
 
         assert isinstance(result.attributions, torch.Tensor)

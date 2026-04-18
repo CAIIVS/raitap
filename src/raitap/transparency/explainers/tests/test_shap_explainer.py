@@ -86,7 +86,7 @@ class TestShapExplainer:
             run_dir=tmp_path / "transparency",
             background_data=background,
             target=[0, 1, 2, 3],
-            batch_size=2,
+            raitap_kwargs={"batch_size": 2},
         )
 
         assert isinstance(result.attributions, torch.Tensor)
