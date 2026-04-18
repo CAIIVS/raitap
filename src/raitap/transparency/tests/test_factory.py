@@ -847,6 +847,68 @@ def test_explanation_warns_once_on_misplaced_raitap_call_keys(
     assert "sample_names" in messages[0]
 
 
+def test_explanation_migrates_misplaced_raitap_call_keys_into_raitap_kwargs(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sample_images: torch.Tensor,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class RecordingExplainer:
+        algorithm = "Saliency"
+
+        def __init__(self) -> None:
+            self.last_explain_kwargs: dict[str, Any] = {}
+
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
+
+        def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
+            self.last_explain_kwargs = dict(kwargs)
+            return MagicMock(spec=ExplanationResult)
+
+    explainer = RecordingExplainer()
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "call": {
+                    "target": 0,
+                    "show_progress": True,
+                    "batch_size": 2,
+                },
+                "visualisers": [],
+            }
+        ),
+    )
+
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (explainer, "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
+
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    with caplog.at_level("WARNING"):
+        Explanation(
+            config,
+            "test_explainer",
+            model=model,  # type: ignore[arg-type]
+            inputs=sample_images,
+        )
+
+    assert explainer.last_explain_kwargs["target"] == 0
+    assert "show_progress" not in explainer.last_explain_kwargs
+    assert "batch_size" not in explainer.last_explain_kwargs
+    assert explainer.last_explain_kwargs["raitap_kwargs"] == {
+        "show_progress": True,
+        "batch_size": 2,
+    }
+    assert "RAITAP-owned keys under 'call:'" in caplog.text
+
+
 def test_explanation_clears_parsed_config_cache_on_visualiser_compat_failure(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

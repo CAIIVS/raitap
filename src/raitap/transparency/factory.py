@@ -171,6 +171,16 @@ def _warn_on_misplaced_raitap_call_keys(call_cfg: dict[str, Any], *, explainer_n
     )
 
 
+def _migrate_misplaced_raitap_call_keys(
+    call_cfg: dict[str, Any],
+    raitap_cfg: dict[str, Any],
+) -> None:
+    misplaced = sorted(set(call_cfg).intersection(_MISPLACED_RAITAP_CALL_WARNING_KEYS))
+    for key in misplaced:
+        value = call_cfg.pop(key)
+        raitap_cfg.setdefault(key, value)
+
+
 def _parse_explainer_config(explainer_config: Any) -> _ParsedExplainerConfig:
     raw_transparency_config = _raw_transparency_config(explainer_config)
     _validate_explainer_top_level_keys(raw_transparency_config)
@@ -185,6 +195,7 @@ def _parse_explainer_config(explainer_config: Any) -> _ParsedExplainerConfig:
     explainer_name = resolved_target or target_path or "?"
     _validate_raitap_keys(raitap_plain, explainer_name=explainer_name)
     _warn_on_misplaced_raitap_call_keys(call_plain, explainer_name=explainer_name)
+    _migrate_misplaced_raitap_call_keys(call_plain, raitap_plain)
 
     return _ParsedExplainerConfig(
         raw=raw_transparency_config,
