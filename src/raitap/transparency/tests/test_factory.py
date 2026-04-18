@@ -373,6 +373,75 @@ def test_create_explainer_warns_on_unknown_raitap_keys(
     assert "bacth_size" in caplog.text
 
 
+def test_create_explainer_warns_on_misplaced_raitap_call_keys(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class _StubExplainer:
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
+
+        def explain(self, *_args: Any, **_kwargs: Any) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "raitap.transparency.factory.instantiate",
+        lambda _cfg: _StubExplainer(),
+    )
+    config = OmegaConf.create(
+        {
+            "_target_": "CaptumExplainer",
+            "algorithm": "Saliency",
+            "call": {
+                "batch_size": 2,
+                "progress_desc": "batches",
+                "sample_names": ["a", "b"],
+                "show_sample_names": True,
+            },
+        }
+    )
+
+    with caplog.at_level("WARNING"):
+        create_explainer(config)
+
+    assert "RAITAP-owned keys under 'call:'" in caplog.text
+    assert "batch_size" in caplog.text
+    assert "progress_desc" in caplog.text
+    assert "sample_names" in caplog.text
+    assert "show_sample_names" in caplog.text
+
+
+def test_create_explainer_does_not_warn_on_call_show_progress(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class _StubExplainer:
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
+
+        def explain(self, *_args: Any, **_kwargs: Any) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "raitap.transparency.factory.instantiate",
+        lambda _cfg: _StubExplainer(),
+    )
+    config = OmegaConf.create(
+        {
+            "_target_": "CaptumExplainer",
+            "algorithm": "KernelShap",
+            "call": {"show_progress": True},
+        }
+    )
+
+    with caplog.at_level("WARNING"):
+        create_explainer(config)
+
+    assert "RAITAP-owned keys under 'call:'" not in caplog.text
+
+
 def test_create_explainer_rejects_removed_max_batch_size_raitap_key() -> None:
     config = OmegaConf.create(
         {
@@ -562,7 +631,6 @@ def test_explanation_uses_real_shap_preset_defaults_and_runtime_overrides(
     assert explainer.last_explain_kwargs["nsamples"] == 10
     assert explainer.last_explain_kwargs["raitap_kwargs"] == {
         "batch_size": 1,
-        "show_progress": True,
         "progress_desc": "SHAP batches",
     }
 
@@ -720,6 +788,55 @@ def test_explanation_warns_on_unknown_raitap_keys(
         )
 
     assert "bacth_size" in caplog.text
+
+
+def test_explanation_warns_once_on_misplaced_raitap_call_keys(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sample_images: torch.Tensor,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class _StubExplainer:
+        algorithm = "Saliency"
+
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
+
+        def explain(self, *_args: Any, **_kwargs: Any) -> ExplanationResult:
+            return MagicMock(spec=ExplanationResult)
+
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "call": {"sample_names": ["cfg_a", "cfg_b"]},
+                "visualisers": [],
+            }
+        ),
+    )
+
+    monkeypatch.setattr("raitap.transparency.factory.instantiate", lambda _cfg: _StubExplainer())
+    monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
+
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    with caplog.at_level("WARNING"):
+        Explanation(
+            config,
+            "test_explainer",
+            model=model,  # type: ignore[arg-type]
+            inputs=sample_images,
+        )
+
+    messages = [
+        record.message
+        for record in caplog.records
+        if "RAITAP-owned keys under 'call:'" in record.message
+    ]
+    assert len(messages) == 1
+    assert "sample_names" in messages[0]
 
 
 def test_explanation_rejects_removed_max_batch_size_raitap_key(

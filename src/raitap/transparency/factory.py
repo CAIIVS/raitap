@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 _TRANSPARENCY_PREFIX = "raitap.transparency."
 logger = logging.getLogger(__name__)
 _ALIBI_BSL_WARNING_EMITTED = False
+_PARSED_EXPLAINER_CONFIG_CACHE: dict[int, "_ParsedExplainerConfig"] = {}
 
 _EXPLAINER_TOP_LEVEL_KEYS = frozenset(
     {"_target_", "algorithm", "visualisers", "constructor", "call", "raitap"},
@@ -41,6 +42,9 @@ _RAITAP_KEYS = frozenset(
         "sample_names",
         "show_sample_names",
     }
+)
+_MISPLACED_RAITAP_CALL_WARNING_KEYS = frozenset(
+    {"batch_size", "progress_desc", "sample_names", "show_sample_names"}
 )
 _REMOVED_RAITAP_KEYS = {
     "max_batch_size": "raitap.max_batch_size has been removed; use raitap.batch_size instead."
@@ -153,6 +157,20 @@ def _validate_raitap_keys(raitap_cfg: dict[str, Any], *, explainer_name: str) ->
     )
 
 
+def _warn_on_misplaced_raitap_call_keys(call_cfg: dict[str, Any], *, explainer_name: str) -> None:
+    misplaced = sorted(set(call_cfg).intersection(_MISPLACED_RAITAP_CALL_WARNING_KEYS))
+    if not misplaced:
+        return
+
+    keys = ", ".join(misplaced)
+    logger.warning(
+        "Explainer %r has RAITAP-owned keys under 'call:': %s. These keys usually belong "
+        "under 'raitap:' while 'call:' is intended for library kwargs only.",
+        explainer_name,
+        keys,
+    )
+
+
 def _parse_explainer_config(explainer_config: Any) -> _ParsedExplainerConfig:
     raw_transparency_config = _raw_transparency_config(explainer_config)
     _validate_explainer_top_level_keys(raw_transparency_config)
@@ -164,7 +182,9 @@ def _parse_explainer_config(explainer_config: Any) -> _ParsedExplainerConfig:
     )
     call_plain = _transparency_subdict(raw_transparency_config.get("call"), label="call")
     raitap_plain = _transparency_subdict(raw_transparency_config.get("raitap"), label="raitap")
-    _validate_raitap_keys(raitap_plain, explainer_name=resolved_target or target_path or "?")
+    explainer_name = resolved_target or target_path or "?"
+    _validate_raitap_keys(raitap_plain, explainer_name=explainer_name)
+    _warn_on_misplaced_raitap_call_keys(call_plain, explainer_name=explainer_name)
 
     return _ParsedExplainerConfig(
         raw=raw_transparency_config,
@@ -214,6 +234,34 @@ def _resolve_call_data_sources(call_kwargs: dict[str, Any]) -> dict[str, Any]:
         else:
             resolved[key] = value
     return resolved
+
+
+def _instantiate_explainer_from_parsed(
+    parsed: _ParsedExplainerConfig,
+) -> tuple[ExplainerAdapter, str]:
+    instantiate_cfg: dict[str, Any] = {
+        **parsed.constructor,
+        "algorithm": parsed.algorithm,
+        "_target_": parsed.resolved_target,
+    }
+
+    try:
+        explainer = instantiate(instantiate_cfg)
+    except Exception as error:
+        logger.exception("Explainer instantiation failed for target %r", parsed.target_path)
+        raise ValueError(
+            f"Could not instantiate explainer {parsed.target_path!r}.\n"
+            "Check that _target_ points to a valid ExplainerAdapter implementation "
+            "(e.g. AttributionOnlyExplainer or FullExplainer subclass)."
+        ) from error
+
+    if not isinstance(explainer, ExplainerAdapter):
+        raise ValueError(
+            f"Instantiated explainer {parsed.target_path!r} does not implement ExplainerAdapter. "
+            "Configured explainers must have callable explain() and check_backend_compat() methods."
+        )
+
+    return cast("ExplainerAdapter", explainer), parsed.resolved_target
 
 
 def _require_model_backend(model: object) -> ModelBackend:
@@ -279,6 +327,7 @@ class Explanation:
         explainer_config = config.transparency[explainer_name]
         parsed = _parse_explainer_config(explainer_config)
         algorithm = str(parsed.algorithm or "")
+        _PARSED_EXPLAINER_CONFIG_CACHE[id(explainer_config)] = parsed
         explainer, explainer_target = create_explainer(explainer_config)
         _maybe_emit_third_party_license_warnings(explainer)
         visualisers = create_visualisers(explainer_config)
@@ -310,31 +359,10 @@ class Explanation:
 
 
 def create_explainer(explainer_config: Any) -> tuple[ExplainerAdapter, str]:
-    parsed = _parse_explainer_config(explainer_config)
-
-    instantiate_cfg: dict[str, Any] = {
-        **parsed.constructor,
-        "algorithm": parsed.algorithm,
-        "_target_": parsed.resolved_target,
-    }
-
-    try:
-        explainer = instantiate(instantiate_cfg)
-    except Exception as error:
-        logger.exception("Explainer instantiation failed for target %r", parsed.target_path)
-        raise ValueError(
-            f"Could not instantiate explainer {parsed.target_path!r}.\n"
-            "Check that _target_ points to a valid ExplainerAdapter implementation "
-            "(e.g. AttributionOnlyExplainer or FullExplainer subclass)."
-        ) from error
-
-    if not isinstance(explainer, ExplainerAdapter):
-        raise ValueError(
-            f"Instantiated explainer {parsed.target_path!r} does not implement ExplainerAdapter. "
-            "Configured explainers must have callable explain() and check_backend_compat() methods."
-        )
-
-    return cast("ExplainerAdapter", explainer), parsed.resolved_target
+    parsed = _PARSED_EXPLAINER_CONFIG_CACHE.pop(id(explainer_config), None)
+    if parsed is None:
+        parsed = _parse_explainer_config(explainer_config)
+    return _instantiate_explainer_from_parsed(parsed)
 
 
 def create_visualisers(explainer_config: Any) -> list[ConfiguredVisualiser]:
