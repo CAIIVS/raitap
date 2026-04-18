@@ -67,14 +67,19 @@
 :option: raitap.show_sample_names
 :allowed: bool
 :default: False
-:description: Default toggle for showing sample names in visualiser titles.
+:description: Default toggle for showing sample names in visualiser titles. Set
+  the explainer-level default here under `raitap:`. If a specific visualiser
+  needs different behaviour, override it with
+  `visualisers[].call.show_sample_names`.
 
 :option: visualisers
 :allowed: list[dict]
 :default: []
 :description: Visualiser definitions. Each entry must include at least
   `_target_`. Each visualiser can also define its own `constructor` and `call`
-  blocks.
+  blocks. Use `visualisers[].call.show_sample_names` for per-visualiser sample
+  name overrides; use `raitap.show_sample_names` for the shared explainer-level
+  default.
 
 :yaml:
 transparency:

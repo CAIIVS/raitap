@@ -154,6 +154,10 @@ Override these via the visualiser `call` key or at runtime:
 
 `sample_names` usually comes from the explainer's `raitap.sample_names` metadata, but
 you can still override it directly on the visualiser call when needed.
+`show_sample_names` follows the same pattern: set the shared default under
+`raitap.show_sample_names` on the explainer, then override it per visualiser
+via `visualisers[].call.show_sample_names` when one renderer should behave
+differently.
 
 | Parameter           | Type                | Default | Description                                                          |
 | ------------------- | ------------------- | ------- | -------------------------------------------------------------------- |
@@ -260,7 +264,10 @@ These overrides bypass version constraints declared by Alibi and its transitive 
 - **`IntegratedGradients`** — Alibi’s TensorFlow/Keras API only. Put a **`keras_model`** (`tf.keras.Model`) in the Hydra **`constructor`** block. For PyTorch integrated gradients, use **Captum** or **`KernelShap`** here.
 
 RAITAP explainer-level metadata keys `raitap.sample_names` and `raitap.show_sample_names`
-are honoured for downstream visualisers. RAITAP batching/progress keys
+are honoured for downstream visualisers as the default metadata values. If a
+specific visualiser needs different sample-name rendering, override it under
+`visualisers[].call.sample_names` or `visualisers[].call.show_sample_names`.
+RAITAP batching/progress keys
 (`raitap.batch_size`, `raitap.show_progress`, `raitap.progress_desc`) are currently
 ignored for Alibi and emit a warning when set.
 
