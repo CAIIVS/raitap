@@ -136,7 +136,6 @@ class AlibiExplainer(FullExplainer):
                 ", ".join(ignored_raitap_keys),
             )
         metadata_kwargs = {
-            **kwargs,
             "sample_names": rk.get("sample_names"),
             "show_sample_names": bool(rk.get("show_sample_names", False)),
         }
@@ -167,6 +166,7 @@ class AlibiExplainer(FullExplainer):
             algorithm=self.algorithm,
             explainer_name=explainer_name,
             kwargs=metadata_kwargs,
+            call_kwargs=call_kwargs,
             visualisers=visualisers_list,
             payload_kind=self.output_payload_kind,
         )

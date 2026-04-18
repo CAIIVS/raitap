@@ -89,7 +89,7 @@ def test_explain_stores_raitap_visualisation_metadata_in_kwargs() -> None:
     assert torch.equal(result.attributions, inputs)
     assert explainer.last_target == 7
     # Rendering/propagation behavior is covered at the ExplanationResult.visualise layer.
-    assert result.kwargs["target"] == 7
+    assert result.call_kwargs["target"] == 7
     assert result.kwargs["sample_names"] == ["ISIC_1", "ISIC_2"]
     assert result.kwargs["show_sample_names"] is True
 

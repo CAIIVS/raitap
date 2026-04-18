@@ -72,6 +72,7 @@ class ExplanationResult(Trackable, Reportable):
     algorithm: str
     explainer_name: str | None = None
     kwargs: dict[str, Any] = field(default_factory=dict)
+    call_kwargs: dict[str, Any] = field(default_factory=dict)
     visualiser_targets: list[str] = field(default_factory=list)
     visualisers: list[ConfiguredVisualiser] = field(default_factory=list, repr=False)
     payload_kind: ExplanationPayloadKind = ExplanationPayloadKind.ATTRIBUTIONS
@@ -111,6 +112,7 @@ class ExplanationResult(Trackable, Reportable):
             "visualisers": targets,
             "payload_kind": self.payload_kind.value,
             "kwargs": {key: _serialisable(value) for key, value in self.kwargs.items()},
+            "call_kwargs": {key: _serialisable(value) for key, value in self.call_kwargs.items()},
         }
 
     def _write_metadata(self) -> None:

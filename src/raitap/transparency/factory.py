@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 _TRANSPARENCY_PREFIX = "raitap.transparency."
 logger = logging.getLogger(__name__)
 _ALIBI_BSL_WARNING_EMITTED = False
-_PARSED_EXPLAINER_CONFIG_CACHE: dict[int, "_ParsedExplainerConfig"] = {}
+_PARSED_EXPLAINER_CONFIG_CACHE: dict[int, _ParsedExplainerConfig] = {}
 
 _EXPLAINER_TOP_LEVEL_KEYS = frozenset(
     {"_target_", "algorithm", "visualisers", "constructor", "call", "raitap"},
@@ -44,7 +44,7 @@ _RAITAP_KEYS = frozenset(
     }
 )
 _MISPLACED_RAITAP_CALL_WARNING_KEYS = frozenset(
-    {"batch_size", "progress_desc", "sample_names", "show_sample_names"}
+    {"batch_size", "show_progress", "progress_desc", "sample_names", "show_sample_names"}
 )
 _REMOVED_RAITAP_KEYS = {
     "max_batch_size": "raitap.max_batch_size has been removed; use raitap.batch_size instead."
@@ -327,39 +327,43 @@ class Explanation:
         explainer_config = config.transparency[explainer_name]
         parsed = _parse_explainer_config(explainer_config)
         algorithm = str(parsed.algorithm or "")
-        _PARSED_EXPLAINER_CONFIG_CACHE[id(explainer_config)] = parsed
-        explainer, explainer_target = create_explainer(explainer_config)
-        _maybe_emit_third_party_license_warnings(explainer)
-        visualisers = create_visualisers(explainer_config)
-        check_explainer_visualiser_compat(explainer_target, algorithm, visualisers)
-        check_explainer_visualiser_payload_compat(explainer, explainer_target, visualisers)
-        backend = _require_model_backend(model)
-        explainer.check_backend_compat(backend)
+        cache_key = id(explainer_config)
+        _PARSED_EXPLAINER_CONFIG_CACHE[cache_key] = parsed
+        try:
+            explainer, explainer_target = create_explainer(explainer_config)
+            _maybe_emit_third_party_license_warnings(explainer)
+            visualisers = create_visualisers(explainer_config)
+            check_explainer_visualiser_compat(explainer_target, algorithm, visualisers)
+            check_explainer_visualiser_payload_compat(explainer, explainer_target, visualisers)
+            backend = _require_model_backend(model)
+            explainer.check_backend_compat(backend)
 
-        call_from_config = dict(parsed.call)
-        raitap_cfg = dict(parsed.raitap)
-        if sample_names is not None:
-            raitap_cfg["sample_names"] = sample_names
+            call_from_config = dict(parsed.call)
+            raitap_cfg = dict(parsed.raitap)
+            if sample_names is not None:
+                raitap_cfg["sample_names"] = sample_names
 
-        merged_kwargs = _resolve_call_data_sources({**call_from_config, **kwargs})
-        merged_kwargs = backend._prepare_kwargs(merged_kwargs)
+            merged_kwargs = _resolve_call_data_sources({**call_from_config, **kwargs})
+            merged_kwargs = backend._prepare_kwargs(merged_kwargs)
 
-        return explainer.explain(
-            backend.as_model_for_explanation(),
-            inputs,
-            backend=backend,
-            run_dir=resolve_run_dir(config, subdir=f"transparency/{explainer_name}"),
-            experiment_name=str(getattr(config, "experiment_name", "")),
-            explainer_target=explainer_target,
-            explainer_name=explainer_name,
-            visualisers=visualisers,
-            raitap_kwargs=raitap_cfg,
-            **merged_kwargs,
-        )
+            return explainer.explain(
+                backend.as_model_for_explanation(),
+                inputs,
+                backend=backend,
+                run_dir=resolve_run_dir(config, subdir=f"transparency/{explainer_name}"),
+                experiment_name=str(getattr(config, "experiment_name", "")),
+                explainer_target=explainer_target,
+                explainer_name=explainer_name,
+                visualisers=visualisers,
+                raitap_kwargs=raitap_cfg,
+                **merged_kwargs,
+            )
+        finally:
+            _PARSED_EXPLAINER_CONFIG_CACHE.pop(cache_key, None)
 
 
 def create_explainer(explainer_config: Any) -> tuple[ExplainerAdapter, str]:
-    parsed = _PARSED_EXPLAINER_CONFIG_CACHE.pop(id(explainer_config), None)
+    parsed = _PARSED_EXPLAINER_CONFIG_CACHE.get(id(explainer_config))
     if parsed is None:
         parsed = _parse_explainer_config(explainer_config)
     return _instantiate_explainer_from_parsed(parsed)

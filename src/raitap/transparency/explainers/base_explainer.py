@@ -72,14 +72,14 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
         batch_size = self._batch_size_from_raitap_kwargs(rk)
         show_progress, progress_desc = self._progress_settings_from_raitap_kwargs(rk)
         metadata_kwargs = {
-            **kwargs,
             "sample_names": rk.get("sample_names"),
             "show_sample_names": bool(rk.get("show_sample_names", False)),
         }
+        call_kwargs = dict(kwargs)
         attributions = self._compute_with_optional_batches(
             model,
             inputs,
-            dict(kwargs),
+            call_kwargs,
             backend,
             batch_size=batch_size,
             show_progress=show_progress,
@@ -103,6 +103,7 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
             algorithm=getattr(self, "algorithm", ""),
             explainer_name=explainer_name,
             kwargs=metadata_kwargs,
+            call_kwargs=call_kwargs,
             visualisers=visualisers_list,
             payload_kind=self.output_payload_kind,
         )

@@ -18,6 +18,7 @@ from raitap.transparency import (
 )
 from raitap.transparency.contracts import ExplanationPayloadKind
 from raitap.transparency.factory import (
+    _PARSED_EXPLAINER_CONFIG_CACHE,
     Explanation,
     _resolve_call_data_sources,
     check_explainer_visualiser_compat,
@@ -412,7 +413,7 @@ def test_create_explainer_warns_on_misplaced_raitap_call_keys(
     assert "show_sample_names" in caplog.text
 
 
-def test_create_explainer_does_not_warn_on_call_show_progress(
+def test_create_explainer_warns_on_call_show_progress(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -439,7 +440,8 @@ def test_create_explainer_does_not_warn_on_call_show_progress(
     with caplog.at_level("WARNING"):
         create_explainer(config)
 
-    assert "RAITAP-owned keys under 'call:'" not in caplog.text
+    assert "RAITAP-owned keys under 'call:'" in caplog.text
+    assert "show_progress" in caplog.text
 
 
 def test_create_explainer_rejects_removed_max_batch_size_raitap_key() -> None:
@@ -818,7 +820,10 @@ def test_explanation_warns_once_on_misplaced_raitap_call_keys(
         ),
     )
 
-    monkeypatch.setattr("raitap.transparency.factory.instantiate", lambda _cfg: _StubExplainer())
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (_StubExplainer(), "raitap.transparency.ShapExplainer"),
+    )
     monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
@@ -837,6 +842,49 @@ def test_explanation_warns_once_on_misplaced_raitap_call_keys(
     ]
     assert len(messages) == 1
     assert "sample_names" in messages[0]
+
+
+def test_explanation_clears_parsed_config_cache_on_visualiser_compat_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    class _StubExplainer:
+        algorithm = "KernelExplainer"
+
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
+
+        def explain(self, *_args: Any, **_kwargs: Any) -> ExplanationResult:
+            raise AssertionError("explain() should not be called on incompatibility")
+
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.ShapExplainer",
+                "algorithm": "KernelExplainer",
+                "call": {"sample_names": ["cfg_a", "cfg_b"]},
+                "visualisers": [{"_target_": "raitap.transparency.ShapImageVisualiser"}],
+            }
+        ),
+    )
+
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (_StubExplainer(), "raitap.transparency.ShapExplainer"),
+    )
+
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    with pytest.raises(VisualiserIncompatibilityError):
+        Explanation(
+            config,
+            "test_explainer",
+            model=model,  # type: ignore[arg-type]
+            inputs=torch.zeros(1, 3, 8, 8),
+        )
+
+    assert _PARSED_EXPLAINER_CONFIG_CACHE == {}
 
 
 def test_explanation_rejects_removed_max_batch_size_raitap_key(
