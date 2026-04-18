@@ -104,6 +104,42 @@ def test_serialisable_converts_nested_set_and_dict() -> None:
     assert result["nested"]["k"] == 1
 
 
+def test_explanation_metadata_summarises_tensor_call_kwargs(tmp_path: Path) -> None:
+    run_dir = tmp_path / "exp_call_kwargs_summary"
+    explanation = ExplanationResult(
+        attributions=torch.randn(1, 3, 4, 4),
+        inputs=torch.randn(1, 3, 4, 4),
+        run_dir=run_dir,
+        experiment_name="e",
+        explainer_target="t",
+        algorithm="a",
+        kwargs={"show_sample_names": True},
+        call_kwargs={
+            "target": 7,
+            "background_data": torch.randn(2, 3, 4, 4),
+            "nested": {"baselines": torch.zeros(1, 3, 4, 4)},
+        },
+    )
+
+    metadata = explanation._metadata()
+
+    assert metadata["kwargs"] == {"show_sample_names": True}
+    call_kwargs = metadata["call_kwargs"]
+    assert call_kwargs["target"] == 7
+    assert call_kwargs["background_data"] == {
+        "type": "torch.Tensor",
+        "shape": [2, 3, 4, 4],
+        "dtype": "torch.float32",
+        "device": "cpu",
+    }
+    assert call_kwargs["nested"]["baselines"] == {
+        "type": "torch.Tensor",
+        "shape": [1, 3, 4, 4],
+        "dtype": "torch.float32",
+        "device": "cpu",
+    }
+
+
 def test_explanation_log_no_visualisers_logs_run_directory(tmp_path: Path) -> None:
     run_dir = tmp_path / "exp"
     explanation = _make_explanation(run_dir)

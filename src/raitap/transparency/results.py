@@ -26,6 +26,21 @@ def _serialisable(value: Any) -> Any:
     return to_json_serialisable(value)
 
 
+def _serialisable_call_kwarg(value: Any) -> Any:
+    if isinstance(value, torch.Tensor):
+        return {
+            "type": "torch.Tensor",
+            "shape": list(value.shape),
+            "dtype": str(value.dtype),
+            "device": str(value.device),
+        }
+    if isinstance(value, dict):
+        return {str(key): _serialisable_call_kwarg(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_serialisable_call_kwarg(item) for item in value]
+    return _serialisable(value)
+
+
 def _batch_size(value: Any) -> int | None:
     shape = getattr(value, "shape", None)
     if shape is None:
@@ -112,7 +127,9 @@ class ExplanationResult(Trackable, Reportable):
             "visualisers": targets,
             "payload_kind": self.payload_kind.value,
             "kwargs": {key: _serialisable(value) for key, value in self.kwargs.items()},
-            "call_kwargs": {key: _serialisable(value) for key, value in self.call_kwargs.items()},
+            "call_kwargs": {
+                key: _serialisable_call_kwarg(value) for key, value in self.call_kwargs.items()
+            },
         }
 
     def _write_metadata(self) -> None:

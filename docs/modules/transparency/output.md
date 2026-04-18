@@ -21,3 +21,7 @@ visualiser using the pattern `<VisualiserClassName>_<index>.png`.
   `sample_names` and `show_sample_names`
 - `call_kwargs`: library invocation parameters such as `target`, `baselines`,
   `background_data`, or `nsamples`
+
+`call_kwargs` is a best-effort JSON summary of the library invocation. Scalar
+values are stored directly, while tensor-like values are summarized rather than
+embedded verbatim so `metadata.json` stays lightweight and readable.
