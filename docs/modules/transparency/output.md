@@ -15,7 +15,7 @@
 If an explainer uses more than one visualiser, RAITAP writes one PNG per
 visualiser using the pattern `<VisualiserClassName>_<index>.png`.
 
-`metadata.json` now stores two separate buckets:
+`metadata.json` stores two separate buckets:
 
 - `kwargs`: RAITAP-owned metadata used for downstream visualisation, such as
   `sample_names` and `show_sample_names`

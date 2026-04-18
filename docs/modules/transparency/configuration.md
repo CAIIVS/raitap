@@ -60,8 +60,8 @@
 :option: raitap.sample_names
 :allowed: list[str]
 :default: null
-:description: Optional per-sample names for downstream visualisers. This is
-  usually injected at runtime from the data pipeline. If runtime sample names
+:description: Optional per-sample names for downstream visualisers. This can be
+  injected at runtime from the data pipeline. If runtime sample names
   are provided, they take precedence over `raitap.sample_names` from config.
 
 :option: raitap.show_sample_names
