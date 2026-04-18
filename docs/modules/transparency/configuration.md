@@ -8,7 +8,7 @@
   `_target_`, `algorithm`, and visualiser compatibility.
 
 :option: _target_
-:allowed: "CaptumExplainer", "ShapExplainer"
+:allowed: "CaptumExplainer", "ShapExplainer", "AlibiExplainer"
 :default: null
 :description: Hydra target for the explainer class.
 
@@ -26,37 +26,60 @@
 :option: call
 :allowed: dict
 :default: null
-:description: Keyword arguments passed when computing attributions. Any nested
-  dict with a `source` key is treated as a runtime data source.
+:description: Keyword arguments passed verbatim to the underlying library when
+  computing attributions. Any nested dict with a `source` key is treated as a
+  runtime data source.
 
-:option: call.batch_size
+:option: raitap
+:allowed: dict
+:default: null
+:description: RAITAP-owned runtime options such as batching, progress display,
+  and sample-name metadata. These keys are not forwarded to the underlying
+  explainability library.
+
+:option: raitap.batch_size
 :allowed: int
 :default: None
 :description: Batch size for computing attributions. If not specified, the explainer
-  will compute attributions in a single pass.
+  will compute attributions in a single pass. Currently implemented for Captum and
+  SHAP explainers; Alibi ignores this key and emits a warning.
 
-:option: call.max_batch_size
-:allowed: int
-:default: None
-:description: Maximum batch size for computing attributions. If not specified, the explainer
-  will compute attributions in a single pass.
-
-:option: call.show_progress
+:option: raitap.show_progress
 :allowed: bool
 :default: True
-:description: Whether to show a progress bar when computing attributions.
+:description: Whether to show a progress bar when computing attributions. Currently
+  implemented for Captum and SHAP explainers; Alibi ignores this key and emits a warning.
+  `raitap.max_batch_size` has been removed. Use `raitap.batch_size` instead.
 
-:option: call.progress_desc
+:option: raitap.progress_desc
 :allowed: str
 :default: null
-:description: Description of the progress bar.
+:description: Description of the progress bar. Currently implemented for Captum and
+  SHAP explainers; Alibi ignores this key and emits a warning.
+
+:option: raitap.sample_names
+:allowed: list[str]
+:default: null
+:description: Optional per-sample names for downstream visualisers. This can be
+  injected at runtime from the data pipeline. If runtime sample names
+  are provided, they take precedence over `raitap.sample_names` from config.
+
+:option: raitap.show_sample_names
+:allowed: bool
+:default: False
+:description: Default toggle for showing sample names in visualiser titles. Set
+  the explainer-level default here under `raitap:`. If a specific visualiser
+  needs different behaviour, override it with
+  `visualisers[].call.show_sample_names`.
 
 :option: visualisers
 :allowed: list[dict]
 :default: []
 :description: Visualiser definitions. Each entry must include at least
   `_target_`. Each visualiser can also define its own `constructor` and `call`
-  blocks.
+  blocks. Use `visualisers[].call.show_sample_names` for per-visualiser sample
+  name overrides; use `raitap.show_sample_names` for the shared explainer-level
+  default.
 
 :yaml:
 transparency:
@@ -75,9 +98,12 @@ transparency:
     constructor:
       local_smoothing: 0.0
     call:
+      target: 0
       background_data:
         source: "./data/background"
         n_samples: 32
+    raitap:
+      batch_size: 1
     visualisers:
       - _target_: "ShapImageVisualiser"
 

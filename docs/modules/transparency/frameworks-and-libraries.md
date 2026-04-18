@@ -1,10 +1,16 @@
 # Supported libraries
 
-## `constructor` and `call` keys
+## `constructor`, `call`, and `raitap` keys
 
-Both explainers and visualisers support the `constructor` and `call` keys. They pass `kwargs` to the constructor and to the runtime method (`explain` or `visualise`).
+Explainers support three config buckets:
 
-This allows you to configure the underlying library object. Here an example:
+- `constructor`: kwargs for the explainer constructor or underlying library object
+- `call`: verbatim library kwargs for the underlying attribution call
+- `raitap`: RAITAP-owned runtime options such as batching, progress bars, and sample-name metadata
+
+Visualisers continue to support `constructor` and `call` only.
+
+This keeps the boundary clear for users: `call` is what Captum, SHAP, or Alibi sees, while `raitap` is what RAITAP itself consumes. Example:
 
 ```yaml
 transparency:
@@ -17,6 +23,8 @@ transparency:
       target: 0
       background_data:
         source: imagenet_samples
+    raitap:
+      batch_size: 1
     visualisers:
       - _target_: "ShapImageVisualiser"
         call:
@@ -89,6 +97,8 @@ transparency:
       target: 0
       background_data:
         source: imagenet_samples
+    raitap:
+      batch_size: 1
 ```
 
 `GradientExplainer`, `DeepExplainer`, and `KernelExplainer` usually require
@@ -140,7 +150,14 @@ Configure these via the `constructor` key when defining the visualiser:
 
 ##### Call parameters
 
-Override these via the `call` key or at runtime:
+Override these via the visualiser `call` key or at runtime:
+
+`sample_names` usually comes from the explainer's `raitap.sample_names` metadata, but
+you can still override it directly on the visualiser call when needed.
+`show_sample_names` follows the same pattern: set the shared default under
+`raitap.show_sample_names` on the explainer, then override it per visualiser
+via `visualisers[].call.show_sample_names` when one renderer should behave
+differently.
 
 | Parameter           | Type                | Default | Description                                                          |
 | ------------------- | ------------------- | ------- | -------------------------------------------------------------------- |
@@ -164,6 +181,8 @@ transparency:
       background_data:
         source: imagenet_samples
         n_samples: 50
+    raitap:
+      batch_size: 1
     visualisers:
       # Minimal configuration
       - _target_: "ShapImageVisualiser"
@@ -244,6 +263,14 @@ These overrides bypass version constraints declared by Alibi and its transitive 
 - **`KernelShap`** — black-box SHAP-style explanations. RAITAP passes a NumPy batch through your **`torch.nn.Module`** (converted to tensors on the model’s device). Optional `call` keys include `background_data`, `task` (`"classification"` / `"regression"`), `nsamples`, and `target` (class index for classification).
 - **`IntegratedGradients`** — Alibi’s TensorFlow/Keras API only. Put a **`keras_model`** (`tf.keras.Model`) in the Hydra **`constructor`** block. For PyTorch integrated gradients, use **Captum** or **`KernelShap`** here.
 
+RAITAP explainer-level metadata keys `raitap.sample_names` and `raitap.show_sample_names`
+are honoured for downstream visualisers as the default metadata values. If a
+specific visualiser needs different sample-name rendering, override it under
+`visualisers[].call.sample_names` or `visualisers[].call.show_sample_names`.
+RAITAP batching/progress keys
+(`raitap.batch_size`, `raitap.show_progress`, `raitap.progress_desc`) are currently
+ignored for Alibi and emit a warning when set.
+
 Example (tabular-oriented preset lives under `src/raitap/configs/transparency/alibi_kernel.yaml`):
 
 ```yaml
@@ -254,6 +281,8 @@ transparency:
     call:
       nsamples: 32
       task: classification
+    raitap:
+      show_sample_names: false
     visualisers:
       - _target_: TabularBarChartVisualiser
 ```
