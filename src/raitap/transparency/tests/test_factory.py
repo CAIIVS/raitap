@@ -694,6 +694,7 @@ def test_explanation_runtime_sample_names_override_raitap_config(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     sample_images: torch.Tensor,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     class RecordingExplainer:
         algorithm = "Saliency"
@@ -732,18 +733,20 @@ def test_explanation_runtime_sample_names_override_raitap_config(
     monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-    Explanation(
-        config,
-        "test_explainer",
-        model=model,  # type: ignore[arg-type]
-        inputs=sample_images,
-        sample_names=["from_runtime_1", "from_runtime_2"],
-    )
+    with caplog.at_level("DEBUG"):
+        Explanation(
+            config,
+            "test_explainer",
+            model=model,  # type: ignore[arg-type]
+            inputs=sample_images,
+            sample_names=["from_runtime_1", "from_runtime_2"],
+        )
 
     assert explainer.last_explain_kwargs["raitap_kwargs"] == {
         "show_sample_names": True,
         "sample_names": ["from_runtime_1", "from_runtime_2"],
     }
+    assert "override raitap.sample_names from config" in caplog.text
 
 
 def test_explanation_warns_on_unknown_raitap_keys(
