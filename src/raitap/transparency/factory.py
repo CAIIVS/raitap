@@ -341,10 +341,7 @@ class Explanation:
             call_from_config = dict(parsed.call)
             raitap_cfg = dict(parsed.raitap)
             if sample_names is not None:
-                if (
-                    "sample_names" in raitap_cfg
-                    and raitap_cfg["sample_names"] != sample_names
-                ):
+                if "sample_names" in raitap_cfg and raitap_cfg["sample_names"] != sample_names:
                     logger.debug(
                         "Runtime sample_names for explainer %r override "
                         "raitap.sample_names from config.",
