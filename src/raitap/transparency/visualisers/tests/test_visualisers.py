@@ -40,7 +40,7 @@ class TestCaptumImageVisualiser:
 
         fig = visualiser.visualise(attributions)
         assert fig is not None
-        assert len(fig.axes) >= 4  # at least one axes per sample
+        assert len(fig.axes) == 8  # 2 axes per sample (original + attribution) for 4 samples
 
     @pytest.mark.usefixtures("needs_captum")
     def test_max_samples_limit(self) -> None:
@@ -48,7 +48,7 @@ class TestCaptumImageVisualiser:
         large_batch = torch.randn(64, 3, 32, 32)
 
         fig = visualiser.visualise(large_batch, max_samples=4)
-        assert len(fig.axes) >= 4
+        assert len(fig.axes) == 8
 
     @pytest.mark.usefixtures("needs_captum")
     def test_overlay_with_inputs(self, sample_images: torch.Tensor) -> None:
@@ -81,7 +81,7 @@ class TestCaptumImageVisualiser:
 
         fig = visualiser.visualise(attributions, inputs=sample_images, max_samples=2)
 
-        assert len(fig.axes) >= 2
+        assert len(fig.axes) == 2
         assert fig.axes[0].get_title() == ""
 
     @pytest.mark.usefixtures("needs_captum")

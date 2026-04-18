@@ -13,7 +13,7 @@ as defined in [Towards the certification of AI-based systems](https://doi.org/10
 
 ## Where does it fit in my workflow?
 
-RAITAP is configured via YAML [Hydra](https://hydra.cc/) configs or CLI flags, and then ran via a CLI command.
+RAITAP is configured via YAML [Hydra](https://hydra.cc/) configs or CLI flags, and then run via a CLI command.
 
 This means it can be used either as:
 
