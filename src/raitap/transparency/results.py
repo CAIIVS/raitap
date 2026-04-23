@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any
 import matplotlib.pyplot as plt
 import torch
 
-from raitap.reporting.sections import Reportable, ReportGroup
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 from raitap.utils.serialization import to_json_serialisable
 
@@ -83,7 +82,7 @@ class ConfiguredVisualiser:
 
 
 @dataclass
-class ExplanationResult(Trackable, Reportable):
+class ExplanationResult(Trackable):
     attributions: torch.Tensor
     inputs: torch.Tensor
     run_dir: Path
@@ -102,12 +101,6 @@ class ExplanationResult(Trackable, Reportable):
         # Ensure tensors are detached and on CPU to avoid GPU memory retention
         self.attributions = self.attributions.detach().cpu()
         self.inputs = self.inputs.detach().cpu()
-
-    def to_report_group(self) -> ReportGroup:
-        return ReportGroup(
-            heading=f"Explainer: {self.explainer_name or self.algorithm}",
-            images=tuple(sorted(self.run_dir.glob("*.png"))),
-        )
 
     def write_artifacts(self) -> None:
         self.run_dir.mkdir(parents=True, exist_ok=True)
