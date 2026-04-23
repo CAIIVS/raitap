@@ -13,6 +13,8 @@ if TYPE_CHECKING:
     import torch
     from matplotlib.figure import Figure
 
+    from raitap.transparency.contracts import VisualisationContext
+
 
 class TabularBarChartVisualiser(BaseVisualiser):
     """
@@ -31,7 +33,12 @@ class TabularBarChartVisualiser(BaseVisualiser):
         self.feature_names = feature_names
 
     def visualise(
-        self, attributions: torch.Tensor, inputs: torch.Tensor | None = None, **kwargs: Any
+        self,
+        attributions: torch.Tensor,
+        inputs: torch.Tensor | None = None,
+        *,
+        context: VisualisationContext | None = None,
+        **kwargs: Any,
     ) -> Figure:
         """
         Create feature importance bar chart.
@@ -39,10 +46,13 @@ class TabularBarChartVisualiser(BaseVisualiser):
         Args:
             attributions: (B, num_features) array
             inputs: Not used for tabular visualization
+            context: Standard RAITAP metadata (not used by this aggregate visualiser)
 
         Returns:
             Matplotlib figure
         """
+        del context, kwargs
+
         # Convert to numpy
         if hasattr(attributions, "detach"):
             attrs_np = attributions.detach().cpu().numpy()
