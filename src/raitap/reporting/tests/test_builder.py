@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
 import torch
+from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
 from raitap.configs import set_output_root
@@ -18,8 +20,6 @@ from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult,
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from matplotlib.figure import Figure
 
 
@@ -257,6 +257,99 @@ def test_reporting_sweep_callback_builds_merged_report_from_child_manifests(
     assert report.manifest.metadata["skipped_children"] == ["2"]
     assert [section.title for section in report.sections] == ["Metrics"]
     assert report.sections[0].groups[0].heading.startswith("Job 0")
+
+
+def test_reporting_configs_compose_sweep_report_controls() -> None:
+    cfg = _compose_raitap_config()
+    assert cfg.reporting.sweep_report is True
+    assert cfg.hydra.callbacks.reporting_sweep._target_.endswith("ReportingSweepCallback")
+
+    disabled_cfg = _compose_raitap_config(["reporting=disabled"])
+    assert disabled_cfg.reporting._target_ is None
+    assert disabled_cfg.reporting.sweep_report is False
+    # The root callback remains registered; runtime guards suppress work when reporting is off.
+    assert disabled_cfg.hydra.callbacks.reporting_sweep._target_.endswith("ReportingSweepCallback")
+
+    legacy_null_cfg = OmegaConf.load(_configs_dir() / "reporting" / "null.yaml")
+    assert legacy_null_cfg._target_ is None
+    assert legacy_null_cfg.sweep_report is False
+
+    opt_out_cfg = _compose_raitap_config(["reporting.sweep_report=false"])
+    assert opt_out_cfg.reporting._target_ == "PDFReporter"
+    assert opt_out_cfg.reporting.sweep_report is False
+
+
+def test_reporting_sweep_callback_skips_when_sweep_report_disabled(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    sweep_dir = tmp_path / "multirun"
+    sweep_dir.mkdir()
+    _write_child_manifest(sweep_dir / "0", heading="Metrics A")
+    create_report = SimpleNamespace(called=False)
+
+    def _capture_report(*args: Any, **kwargs: Any) -> None:
+        del args, kwargs
+        create_report.called = True
+
+    monkeypatch.setattr("raitap.reporting.hydra_callback.create_report", _capture_report)
+
+    config = OmegaConf.create(
+        {
+            "experiment_name": "demo",
+            "reporting": {
+                "_target_": "PDFReporter",
+                "filename": "report.pdf",
+                "sweep_report": False,
+            },
+            "hydra": {"sweep": {"dir": str(sweep_dir)}},
+        }
+    )
+
+    ReportingSweepCallback().on_multirun_end(config)
+
+    assert create_report.called is False
+
+
+def test_reporting_sweep_callback_skips_when_reporting_disabled(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    sweep_dir = tmp_path / "multirun"
+    sweep_dir.mkdir()
+    _write_child_manifest(sweep_dir / "0", heading="Metrics A")
+    create_report = SimpleNamespace(called=False)
+
+    def _capture_report(*args: Any, **kwargs: Any) -> None:
+        del args, kwargs
+        create_report.called = True
+
+    monkeypatch.setattr("raitap.reporting.hydra_callback.create_report", _capture_report)
+
+    config = OmegaConf.create(
+        {
+            "experiment_name": "demo",
+            "reporting": {"_target_": None, "sweep_report": False},
+            "hydra": {"sweep": {"dir": str(sweep_dir)}},
+        }
+    )
+
+    ReportingSweepCallback().on_multirun_end(config)
+
+    assert create_report.called is False
+
+
+def _compose_raitap_config(overrides: list[str] | None = None) -> Any:
+    with initialize_config_dir(version_base="1.3", config_dir=str(_configs_dir())):
+        return compose(
+            config_name="config",
+            overrides=[] if overrides is None else overrides,
+            return_hydra_config=True,
+        )
+
+
+def _configs_dir() -> Path:
+    return (Path(__file__).resolve().parents[2] / "configs").resolve()
 
 
 def _write_child_manifest(child_dir: Path, *, heading: str) -> None:
