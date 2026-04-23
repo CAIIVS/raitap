@@ -88,6 +88,8 @@ def build_merged_report(
     assets_dir = report_dir / "_assets"
     assets_dir.mkdir(parents=True, exist_ok=True)
 
+    # Preserve the canonical single-run order for merged reports. Future/unknown
+    # sections are appended after these headings in first-seen manifest order.
     sections_by_title: dict[str, list[ReportGroup]] = {
         "Metrics": [],
         "Global Explanations": [],
