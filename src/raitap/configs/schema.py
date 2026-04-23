@@ -95,7 +95,7 @@ class ReportingConfig:
     filename: str = "report.pdf"
     include_config: bool = True
     include_metadata: bool = True
-    sweep_report: bool = True
+    multirun_report: bool = True
     formatting: ReportingFormattingConfig = field(default_factory=ReportingFormattingConfig)
 
 

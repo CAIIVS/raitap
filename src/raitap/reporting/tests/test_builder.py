@@ -316,27 +316,27 @@ def test_reporting_sweep_callback_builds_merged_report_from_child_manifests(
     assert report.sections[0].groups[0].heading.startswith("Job 0")
 
 
-def test_reporting_configs_compose_sweep_report_controls() -> None:
+def test_reporting_configs_compose_multirun_report_controls() -> None:
     cfg = _compose_raitap_config()
-    assert cfg.reporting.sweep_report is True
+    assert cfg.reporting.multirun_report is True
     assert cfg.hydra.callbacks.reporting_sweep._target_.endswith("ReportingSweepCallback")
 
     disabled_cfg = _compose_raitap_config(["reporting=disabled"])
     assert disabled_cfg.reporting._target_ is None
-    assert disabled_cfg.reporting.sweep_report is False
+    assert disabled_cfg.reporting.multirun_report is False
     # The root callback remains registered; runtime guards suppress work when reporting is off.
     assert disabled_cfg.hydra.callbacks.reporting_sweep._target_.endswith("ReportingSweepCallback")
 
     legacy_null_cfg = OmegaConf.load(_configs_dir() / "reporting" / "null.yaml")
     assert legacy_null_cfg._target_ is None
-    assert legacy_null_cfg.sweep_report is False
+    assert legacy_null_cfg.multirun_report is False
 
-    opt_out_cfg = _compose_raitap_config(["reporting.sweep_report=false"])
+    opt_out_cfg = _compose_raitap_config(["reporting.multirun_report=false"])
     assert opt_out_cfg.reporting._target_ == "PDFReporter"
-    assert opt_out_cfg.reporting.sweep_report is False
+    assert opt_out_cfg.reporting.multirun_report is False
 
 
-def test_reporting_sweep_callback_skips_when_sweep_report_disabled(
+def test_reporting_sweep_callback_skips_when_multirun_report_disabled(
     tmp_path: Path,
     monkeypatch: Any,
 ) -> None:
@@ -357,7 +357,7 @@ def test_reporting_sweep_callback_skips_when_sweep_report_disabled(
             "reporting": {
                 "_target_": "PDFReporter",
                 "filename": "report.pdf",
-                "sweep_report": False,
+                "multirun_report": False,
             },
             "hydra": {"sweep": {"dir": str(sweep_dir)}},
         }
@@ -386,7 +386,7 @@ def test_reporting_sweep_callback_skips_when_reporting_disabled(
     config = OmegaConf.create(
         {
             "experiment_name": "demo",
-            "reporting": {"_target_": None, "sweep_report": False},
+            "reporting": {"_target_": None, "multirun_report": False},
             "hydra": {"sweep": {"dir": str(sweep_dir)}},
         }
     )

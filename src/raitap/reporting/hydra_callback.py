@@ -24,10 +24,10 @@ class ReportingSweepCallback(Callback):
             return
 
         reporting_cfg = getattr(config, "reporting", None)
-        if not bool(getattr(reporting_cfg, "sweep_report", True)):
+        if not bool(getattr(reporting_cfg, "multirun_report", True)):
             # The callback can still be registered for reporting-enabled configs; this flag
             # disables only the merged multirun report, not normal per-run reports.
-            logger.debug("reporting.sweep_report=false; skipping merged sweep report.")
+            logger.debug("reporting.multirun_report=false; skipping merged sweep report.")
             return
 
         sweep_dir_value = OmegaConf.select(config, "hydra.sweep.dir")

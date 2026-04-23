@@ -2,4 +2,4 @@ _target_: PDFReporter
 filename: report.pdf
 include_config: true
 include_metadata: true
-sweep_report: true
+multirun_report: true

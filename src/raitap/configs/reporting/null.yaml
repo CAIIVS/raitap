@@ -1,4 +1,4 @@
 # DEPRECATED: use `reporting=disabled` instead.
 # `reporting=null` is parsed by Hydra as None in CLI overrides, not as this config group.
 _target_: null
-sweep_report: false
+multirun_report: false
