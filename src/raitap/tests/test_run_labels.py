@@ -15,6 +15,18 @@ if TYPE_CHECKING:
     from raitap.models import Model
 
 
+class _BackendStub:
+    def __init__(self, output: torch.Tensor) -> None:
+        self._output = output
+
+    def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
+        return inputs
+
+    def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
+        del inputs
+        return self._output
+
+
 def _minimal_run_config() -> SimpleNamespace:
     return SimpleNamespace(
         transparency={"default": {}},
@@ -55,7 +67,7 @@ def test_run_without_tracking_passes_ground_truth_labels_to_metrics(
 ) -> None:
     config = _minimal_run_config()
     logits = torch.tensor([[0.2, 0.8], [0.9, 0.1]], dtype=torch.float32)
-    model = SimpleNamespace(network=lambda _: logits)
+    model = SimpleNamespace(backend=_BackendStub(logits))
     data = SimpleNamespace(
         tensor=torch.zeros((2, 3, 4, 4), dtype=torch.float32),
         labels=torch.tensor([1, 0], dtype=torch.long),
@@ -83,9 +95,9 @@ def test_run_without_tracking_passes_ground_truth_labels_to_metrics(
     monkeypatch.setattr(run_pipeline, "Explanation", DummyExplanation)
 
     outputs = run_pipeline._run_without_tracking(
-        cast("AppConfig", config),
-        cast("Model", model),
-        cast("Data", data),
+        cast("AppConfig", cast("object", config)),
+        cast("Model", cast("object", model)),
+        cast("Data", cast("object", data)),
     )
 
     assert outputs.metrics is not None
