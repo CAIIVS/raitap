@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
@@ -24,6 +24,7 @@ class ReportGroup:
     heading: str
     images: tuple[Path, ...] = ()
     table_rows: tuple[tuple[str, str], ...] = ()
+    metadata: dict[str, object] = field(default_factory=dict)
 
 
 @runtime_checkable
@@ -46,7 +47,13 @@ class ReportSection:
 
     title: str
     groups: tuple[ReportGroup, ...]
+    metadata: dict[str, object] = field(default_factory=dict)
 
     @classmethod
-    def from_groups(cls, title: str, groups: Sequence[ReportGroup]) -> ReportSection:
-        return cls(title=title, groups=tuple(groups))
+    def from_groups(
+        cls,
+        title: str,
+        groups: Sequence[ReportGroup],
+        metadata: dict[str, object] | None = None,
+    ) -> ReportSection:
+        return cls(title=title, groups=tuple(groups), metadata={} if metadata is None else metadata)

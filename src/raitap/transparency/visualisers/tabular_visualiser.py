@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,6 +20,8 @@ class TabularBarChartVisualiser(BaseVisualiser):
 
     Works with any attribution method (Captum, SHAP, etc.)
     """
+
+    report_scope: ClassVar[str] = "global"
 
     def __init__(self, feature_names: list[str] | None = None):
         """

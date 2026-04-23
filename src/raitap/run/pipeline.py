@@ -18,12 +18,12 @@ from raitap.metrics import (
 )
 from raitap.models import Model
 from raitap.reporting import (
-    ReportSection,
+    build_report,
     create_report,
     reporting_enabled,
 )
 from raitap.run.forward_output import extract_primary_tensor
-from raitap.run.outputs import RunOutputs
+from raitap.run.outputs import PredictionSummary, RunOutputs
 from raitap.tracking import BaseTracker
 from raitap.transparency.factory import Explanation
 
@@ -46,18 +46,8 @@ def run(config: AppConfig) -> RunOutputs:
     report_generation = None
     if reporting_enabled(config):
         logger.info("Generating report...")
-        sections = []
-        if outputs.metrics is not None:
-            sections.append(
-                ReportSection.from_groups("Metrics", [outputs.metrics.to_report_group()])
-            )
-        transparency_section = ReportSection.from_groups(
-            title="Transparency",
-            groups=[explanation.to_report_group() for explanation in outputs.explanations],
-        )
-        if transparency_section.groups:
-            sections.append(transparency_section)
-        report_generation = create_report(config=config, sections=sections)
+        report = build_report(config, outputs)
+        report_generation = create_report(config=config, report=report)
 
     tracking_config = getattr(config, "tracking", None)
     has_tracker = bool(tracking_config and getattr(tracking_config, "_target_", None))
@@ -133,6 +123,13 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
         visualisations=visualisations,
         metrics=metrics_eval,
         forward_output=forward_output.detach().cpu(),
+        sample_ids=getattr(data, "sample_ids", None),
+        targets=getattr(data, "labels", None),
+        prediction_summaries=_prediction_summaries(
+            forward_output=forward_output,
+            sample_ids=getattr(data, "sample_ids", None),
+            targets=getattr(data, "labels", None),
+        ),
     )
 
 
@@ -164,3 +161,53 @@ def _resolve_explainer_runtime_kwargs(
 
     predictions, _ = metrics_prediction_pair(forward_output)
     return {"target": predictions.detach()}
+
+
+def _prediction_summaries(
+    *,
+    forward_output: torch.Tensor,
+    sample_ids: list[str] | None,
+    targets: torch.Tensor | None,
+) -> tuple[PredictionSummary, ...]:
+    if forward_output.ndim != 2 or forward_output.shape[1] < 2:
+        return ()
+
+    probabilities = torch.softmax(forward_output.detach().cpu(), dim=1)
+    confidences, predictions = probabilities.max(dim=1)
+    resolved_targets = _valid_targets_for_reporting(
+        targets=targets,
+        expected=int(predictions.shape[0]),
+    )
+
+    summaries: list[PredictionSummary] = []
+    names = [] if sample_ids is None else [str(item) for item in sample_ids]
+    pairs = zip(predictions, confidences, strict=False)
+    for index, (predicted_class, confidence) in enumerate(pairs):
+        target_class: int | None = None
+        correct: bool | None = None
+        if resolved_targets is not None:
+            target_class = int(resolved_targets[index].item())
+            correct = int(predicted_class.item()) == target_class
+        summaries.append(
+            PredictionSummary(
+                sample_index=index,
+                sample_id=names[index] if index < len(names) else None,
+                predicted_class=int(predicted_class.item()),
+                target_class=target_class,
+                confidence=float(confidence.item()),
+                correct=correct,
+            )
+        )
+    return tuple(summaries)
+
+
+def _valid_targets_for_reporting(
+    *,
+    targets: torch.Tensor | None,
+    expected: int,
+) -> torch.Tensor | None:
+    if targets is None:
+        return None
+    if targets.ndim != 1 or int(targets.shape[0]) != expected:
+        return None
+    return targets.detach().cpu()

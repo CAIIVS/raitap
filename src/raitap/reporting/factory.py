@@ -10,13 +10,12 @@ from raitap.configs import cfg_to_dict, resolve_target
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
     from pathlib import Path
 
     from raitap.configs.schema import AppConfig
 
     from .base_reporter import BaseReporter
-    from .sections import ReportSection
+    from .builder import BuiltReport
 
 
 logger = logging.getLogger(__name__)
@@ -40,6 +39,7 @@ class ReportGeneration(Trackable):
 
     report_path: Path
     reporter: BaseReporter
+    manifest_path: Path
 
     def log(self, tracker: BaseTracker | None, **kwargs: Any) -> None:
         """Upload report to tracking system if configured."""
@@ -55,7 +55,7 @@ class ReportGeneration(Trackable):
 
 def create_report(
     config: AppConfig,
-    sections: Sequence[ReportSection],
+    report: BuiltReport,
 ) -> ReportGeneration:
     """Factory function to create and generate report."""
     reporting_config = cfg_to_dict(config.reporting)
@@ -72,10 +72,13 @@ def create_report(
             "Check that _target_ points to a valid BaseReporter implementation."
         ) from error
 
-    report_path = reporter.generate(sections)
+    report_path = reporter.generate(report.sections)
+    manifest_path = report.report_dir / "report_manifest.json"
+    report.manifest.write(manifest_path, report_dir=report.report_dir)
     logger.info("Report generated: %s", report_path)
 
     return ReportGeneration(
         report_path=report_path,
         reporter=reporter,
+        manifest_path=manifest_path,
     )

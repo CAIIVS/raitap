@@ -104,6 +104,8 @@ class ShapBarVisualiser(BaseVisualiser):
     Compatible with all SHAP explainer algorithms.
     """
 
+    report_scope: ClassVar[str] = "global"
+
     def __init__(self, feature_names: list[str] | None = None, max_display: int = 20):
         self.feature_names = feature_names
         self.max_display = max_display
@@ -153,6 +155,8 @@ class ShapBeeswarmVisualiser(BaseVisualiser):
 
     Compatible with all SHAP explainer algorithms.
     """
+
+    report_scope: ClassVar[str] = "global"
 
     def __init__(self, feature_names: list[str] | None = None, max_display: int = 20):
         self.feature_names = feature_names

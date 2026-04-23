@@ -34,15 +34,25 @@ def test_pdf_reporter_instantiation(mock_config: AppConfig) -> None:
     assert reporter.config == mock_config
 
 
-@patch("borb.pdf.Document")
-@patch("borb.pdf.PDF")
-def test_pdf_reporter_generates_file(
-    mock_pdf: MagicMock, mock_doc: MagicMock, mock_config: AppConfig, tmp_path: Path
-) -> None:
+def _mock_borb() -> SimpleNamespace:
+    return SimpleNamespace(
+        Document=MagicMock(return_value=MagicMock()),
+        PDF=SimpleNamespace(write=MagicMock()),
+        Page=MagicMock(return_value=MagicMock()),
+        Paragraph=MagicMock(),
+        SingleColumnLayout=MagicMock(return_value=MagicMock(append_layout_element=MagicMock())),
+        FixedColumnWidthTable=MagicMock(return_value=MagicMock(append_layout_element=MagicMock())),
+        Image=MagicMock(),
+        Chart=MagicMock(),
+    )
+
+
+def test_pdf_reporter_generates_file(mock_config: AppConfig, tmp_path: Path) -> None:
     """Test basic PDF generation."""
     reporter = PDFReporter(mock_config)
 
-    output_path = reporter.generate(())
+    with patch("raitap.reporting.pdf_reporter._borb_pdf_ns", return_value=_mock_borb()):
+        output_path = reporter.generate(())
 
     # Verify output path
     assert output_path.exists() is False or output_path.parent.exists()
@@ -52,10 +62,7 @@ def test_pdf_reporter_generates_file(
 
 def test_pdf_reporter_creates_report_directory(mock_config: AppConfig, tmp_path: Path) -> None:
     """Test that report directory is created."""
-    with (
-        patch("borb.pdf.Document"),
-        patch("borb.pdf.PDF"),
-    ):
+    with patch("raitap.reporting.pdf_reporter._borb_pdf_ns", return_value=_mock_borb()):
         reporter = PDFReporter(mock_config)
         output_path = reporter.generate(())
 

@@ -69,6 +69,11 @@ def _sample_names_title(sample_names: list[str]) -> str:
     return first if remaining <= 0 else f"{first} (+{remaining})"
 
 
+def _report_scope_for_visualiser(visualiser: BaseVisualiser) -> str:
+    raw = getattr(type(visualiser), "report_scope", "local")
+    return "global" if str(raw).strip().lower() == "global" else "local"
+
+
 @dataclass(frozen=True)
 class ConfiguredVisualiser:
     """Visualiser instance plus per-call kwargs for ``BaseVisualiser.visualise``."""
@@ -201,6 +206,7 @@ class ExplanationResult(Trackable, Reportable):
                     visualiser_name=visualiser_name,
                     visualiser_target=visualiser_target,
                     output_path=output_path,
+                    report_scope=_report_scope_for_visualiser(vis),
                 )
             )
 
@@ -209,6 +215,77 @@ class ExplanationResult(Trackable, Reportable):
             self._write_metadata()
 
         return results
+
+    def has_visualisations_for_scope(self, scope: str) -> bool:
+        wanted = "global" if scope == "global" else "local"
+        return any(
+            _report_scope_for_visualiser(configured.visualiser) == wanted
+            for configured in self.visualisers
+        )
+
+    def save_visualisations_for_report(
+        self,
+        output_dir: Path,
+        *,
+        scope: str,
+        file_stem_prefix: str,
+        sample_index: int | None = None,
+    ) -> tuple[Path, ...]:
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        selected_paths: list[Path] = []
+        wanted = "global" if scope == "global" else "local"
+
+        for index, configured in enumerate(self.visualisers):
+            vis = configured.visualiser
+            if _report_scope_for_visualiser(vis) != wanted:
+                continue
+
+            merged_call = dict(configured.call_kwargs)
+            attributions = merged_call.pop("attributions", self.attributions)
+            inputs = merged_call.pop("inputs", self.inputs)
+            show_sample_names = bool(
+                merged_call.pop("show_sample_names", self.kwargs.get("show_sample_names", False))
+            )
+            sample_names_value = merged_call.pop("sample_names", self.kwargs.get("sample_names"))
+            sample_names = _normalise_sample_names(sample_names_value)
+
+            if sample_index is not None:
+                attributions = attributions[sample_index : sample_index + 1]
+                inputs = inputs[sample_index : sample_index + 1]
+                if sample_names:
+                    sample_names = sample_names[sample_index : sample_index + 1]
+            else:
+                limit = _batch_size(attributions) or _batch_size(inputs)
+                if limit is not None:
+                    sample_names = sample_names[:limit]
+
+            context = VisualisationContext(
+                algorithm=self.algorithm,
+                sample_names=sample_names,
+                show_sample_names=show_sample_names,
+            )
+            figure = vis.visualise(attributions, inputs=inputs, context=context, **merged_call)
+
+            if (
+                show_sample_names
+                and sample_names
+                and not figure.texts
+                and not any(ax.get_title() for ax in figure.axes)
+            ):
+                figure.suptitle(_sample_names_title(sample_names), fontsize=10)
+                figure.tight_layout()
+
+            cls = type(vis)
+            output_path = output_dir / f"{file_stem_prefix}_{cls.__name__}_{index}.png"
+            try:
+                figure.savefig(output_path, bbox_inches="tight", dpi=150)
+            finally:
+                plt.close(figure)
+            selected_paths.append(output_path)
+
+        return tuple(selected_paths)
 
     def log(
         self,
@@ -262,6 +339,7 @@ class VisualisationResult(Trackable):
     visualiser_name: str
     visualiser_target: str
     output_path: Path
+    report_scope: str = "local"
 
     def __post_init__(self) -> None:
         self.output_path = Path(self.output_path)
