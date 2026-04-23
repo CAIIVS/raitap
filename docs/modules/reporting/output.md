@@ -55,7 +55,12 @@ aggregates.
 
 ### Local Explanations
 
-Local explanations are per-sample visualisations. The section contains:
+Local explanations are per-sample visualisations. RAITAP automatically selects a
+small set of important examples so the report stays compact even when the run
+contains a full batch or test set. By default, local details include up to three
+selected samples.
+
+The section contains:
 
 - **Overview**: one shared most-relevant sample, rendered once per active local
   explainer so the visual comparison is meaningful.
@@ -71,7 +76,9 @@ priority order:
 
 Duplicate samples are removed in priority order. For unlabeled classification
 runs, selection uses confidence only. For non-classification or unsupported
-output shapes, RAITAP falls back to the first available sample.
+output shapes, RAITAP falls back to the first available sample. Classification
+confidence is the maximum softmax probability of the model output for each
+sample.
 
 ## Hydra Multiruns
 
