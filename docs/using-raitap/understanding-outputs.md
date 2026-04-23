@@ -21,6 +21,10 @@ outputs/                                      # Hydra's default output directory
         │   ├── artifacts.json
         │   ├── metadata.json
         │   └── metrics.json
+        ├── reports/                          # PDF report and report-only assets
+        │   ├── report.pdf
+        │   ├── report_manifest.json
+        │   └── _assets/
         └── transparency/                     # Transparency module outputs (see below for details)
             ├── explainerA/                    
             │   ├── attributions.pt           
@@ -32,6 +36,10 @@ outputs/                                      # Hydra's default output directory
                 ├── visualisation1.png
                 └── metadata.json              
 ```
+
+The `transparency/` directory keeps the full explainer artifacts for debugging
+and tracking. The `reports/` directory contains the compact report, its
+`report_manifest.json`, and curated report-only figure assets.
 
 You may want to look at each module's output directory for more details:
 

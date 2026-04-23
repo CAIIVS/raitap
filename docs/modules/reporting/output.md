@@ -1,30 +1,103 @@
 # Output
 
-## Structure
+RAITAP reports are compact summaries of the run, not a dump of every artifact
+written by the metrics and transparency modules. The report builder first creates
+structured report content, then the PDF renderer lays that content out.
 
-Generated PDF reports contain the following sections:
+## Files
 
-### 1. Cover Page
+A reporting-enabled single run writes:
 
-The cover page displays:
+```text
+reports/
+├── report.pdf
+├── report_manifest.json
+└── _assets/
+    ├── ... aggregate global summary figures
+    └── ... selected local sample figures
+```
 
-- Experiment name
-- Generation timestamp
-- Model source
-- Dataset name
+`report_manifest.json` records the semantic report structure, selected samples,
+asset paths, and metadata used for sweep-level merging. The manifest is the
+source of truth for merged reports; RAITAP does not stitch child PDFs together.
 
-### 2. Metrics Section
+The original explainer artifacts are still kept under `transparency/` for
+debugging and tracking. Report-local figures under `reports/_assets/` are the
+curated subset used in the PDF.
 
-If metrics are enabled in the pipeline, this section includes:
+## PDF Structure
 
-- **Metrics Table** - Key-value table of all scalar metrics
-- **Metrics Overview Chart** - Bar chart visualisation of metric values
-- **Confusion Matrix** - If available in metric artifacts
+Generated PDF reports use this section order:
 
-### 3. Figure sections
+1. **Metrics**
+2. **Global Explanations**
+3. **Local Explanations**
 
-The pipeline passes one or more **sections**; each has a title and ordered **groups**. Each group has a heading and raster figures matched under its output directory (by default `*.png`).
+Empty sections are omitted. For example, a run without metrics will start with
+global explanations if true global content exists, otherwise local explanations.
 
-The default assessment run includes a **Transparency** section: for each configured explainer, a group lists the PNGs written to that explainer’s run directory. Additional modules (for example robustness) can supply further sections the same way.
+### Metrics
 
-Groups with no matching files are skipped (no placeholder text). If every group in a section is empty, the section title is not emitted either.
+When metrics are enabled, this section includes the scalar metric table and any
+metric figures produced by the metrics module.
+
+### Global Explanations
+
+This section contains true global content only:
+
+- Native global visualisations, such as SHAP summary, bar, or beeswarm plots.
+- RAITAP-generated aggregate summaries for multi-sample attribution runs.
+
+For image attributions, RAITAP can create a mean absolute attribution heatmap
+over the batch. For tabular attributions, RAITAP can create a mean absolute
+feature-importance chart. Single-sample runs do not create fake global
+aggregates.
+
+### Local Explanations
+
+Local explanations are per-sample visualisations. The section contains:
+
+- **Overview**: one shared most-relevant sample, rendered once per active local
+  explainer so the visual comparison is meaningful.
+- **Details**: selected important samples, grouped sample by sample, with one
+  local visual from each active explainer.
+
+For labeled classification outputs, RAITAP selects local detail samples in this
+priority order:
+
+1. Highest-confidence incorrect prediction.
+2. Lowest-confidence prediction.
+3. Highest-confidence correct prediction.
+
+Duplicate samples are removed in priority order. For unlabeled classification
+runs, selection uses confidence only. For non-classification or unsupported
+output shapes, RAITAP falls back to the first available sample.
+
+## Hydra Multiruns
+
+Each Hydra child run still writes its own `reports/report.pdf` and
+`reports/report_manifest.json`. At the end of a multirun, RAITAP also creates one
+merged report under the sweep directory:
+
+```text
+multirun/.../
+├── 0/
+│   └── reports/
+│       ├── report.pdf
+│       └── report_manifest.json
+├── 1/
+│   └── reports/
+│       ├── report.pdf
+│       └── report_manifest.json
+└── reports/
+    ├── report.pdf
+    ├── report_manifest.json
+    └── _assets/
+```
+
+The merged report concatenates child manifest content in Hydra job order and
+prefixes groups with the child job label and override summary. Missing child
+manifests are skipped and recorded in the parent manifest metadata.
+
+Set `reporting.multirun_report=false` to disable only the merged parent report while
+keeping per-run reports.

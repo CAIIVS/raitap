@@ -11,6 +11,12 @@
 :default: "report.pdf"
 :description: Name of the generated PDF report file.
 
+:option: multirun_report
+:allowed: boolean
+:default: true
+:description: Whether Hydra multiruns should create one merged parent report at
+  the sweep directory level. Set to false to keep per-run reports only.
+
 :option: include_config
 :allowed: boolean
 :default: true
@@ -56,8 +62,28 @@
 reporting:
   _target_: "PDFReporter"
   filename: "experiment_report.pdf"
+  multirun_report: true
   formatting:
     figures_max_pages: 10
 
-:cli: reporting=pdf reporting.filename="my_report.pdf" reporting.formatting.figures_max_pages=10
+:cli: reporting=pdf reporting.filename="my_report.pdf" reporting.multirun_report=false reporting.formatting.figures_max_pages=10
 ```
+
+**Disabling reports**
+
+Use `reporting=disabled` to turn report generation off cleanly:
+
+```bash
+uv run raitap reporting=disabled
+```
+
+For multiruns, `reporting.multirun_report=false` disables only the merged parent
+report. Individual child runs still generate their normal reports:
+
+```bash
+uv run raitap --multirun reporting=pdf reporting.multirun_report=false transparency=demo,shap_gradient
+```
+
+The legacy `reporting=null` config group is kept for compatibility inside the
+package, but Hydra treats `reporting=null` as a special CLI value. Prefer
+`reporting=disabled` in user commands and YAML defaults.
