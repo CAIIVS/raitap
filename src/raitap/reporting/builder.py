@@ -318,7 +318,7 @@ def _build_local_section(
 
 
 def _build_aggregate_asset(explanation: ExplanationResult, *, assets_dir: Path) -> Path | None:
-    if not explanation.has_visualisations_for_scope("local"):
+    if not explanation.has_local_visualisers():
         return None
 
     attrs = explanation.attributions
