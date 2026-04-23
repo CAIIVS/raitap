@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 
 from raitap.configs import resolve_run_dir
 from raitap.run.outputs import PredictionSummary, RunOutputs
+from raitap.transparency.visualisers import TabularBarChartVisualiser
 
 from .manifest import ReportManifest
 from .sections import ReportGroup, ReportSection
@@ -336,7 +337,7 @@ def _build_aggregate_asset(explanation: ExplanationResult, *, assets_dir: Path) 
         )
         return output_path
     if attrs.ndim == 2:
-        _save_tabular_aggregate(
+        _save_tabular_visualiser_aggregate(
             attrs,
             output_path=output_path,
             title=f"{explainer_name} Mean Absolute Attribution",
@@ -384,16 +385,15 @@ def _save_image_aggregate(
     plt.close(fig)
 
 
-def _save_tabular_aggregate(attributions: torch.Tensor, *, output_path: Path, title: str) -> None:
-    values = attributions.abs().mean(dim=0).cpu().numpy()
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.bar(list(range(len(values))), values)
-    ax.set_xlabel("Feature")
-    ax.set_ylabel("Mean Absolute Attribution")
-    ax.set_title(title)
-    fig.tight_layout()
-    fig.savefig(output_path, bbox_inches="tight", dpi=150)
-    plt.close(fig)
+def _save_tabular_visualiser_aggregate(
+    attributions: torch.Tensor, *, output_path: Path, title: str
+) -> None:
+    visualiser = TabularBarChartVisualiser()
+    figure = visualiser.visualise(attributions, title=title)
+    try:
+        figure.savefig(output_path, bbox_inches="tight", dpi=150)
+    finally:
+        plt.close(figure)
 
 
 def _select_samples(outputs: RunOutputs) -> list[SelectedSample]:

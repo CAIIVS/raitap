@@ -38,6 +38,7 @@ class TabularBarChartVisualiser(BaseVisualiser):
         inputs: torch.Tensor | None = None,
         *,
         context: VisualisationContext | None = None,
+        title: str | None = None,
         **kwargs: Any,
     ) -> Figure:
         """
@@ -47,6 +48,7 @@ class TabularBarChartVisualiser(BaseVisualiser):
             attributions: (B, num_features) array
             inputs: Not used for tabular visualization
             context: Standard RAITAP metadata (not used by this aggregate visualiser)
+            title: Optional chart title override
 
         Returns:
             Matplotlib figure
@@ -75,7 +77,7 @@ class TabularBarChartVisualiser(BaseVisualiser):
 
         ax.set_ylabel("Mean Absolute Attribution")
         ax.set_xlabel("Features")
-        ax.set_title("Feature Importance")
+        ax.set_title(title or "Feature Importance")
         ax.grid(axis="y", alpha=0.3)
 
         fig.tight_layout()

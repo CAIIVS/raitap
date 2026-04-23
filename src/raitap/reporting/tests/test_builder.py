@@ -182,6 +182,63 @@ def test_build_report_skips_fake_global_for_single_sample(tmp_path: Path) -> Non
     assert [section.title for section in report.sections] == ["Local Explanations"]
 
 
+def test_build_report_uses_tabular_visualiser_for_tabular_aggregate(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    config = AppConfig(experiment_name="tabular")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    calls: list[tuple[torch.Tensor, str | None]] = []
+
+    class _RecordingTabularVisualiser:
+        def visualise(
+            self,
+            attributions: torch.Tensor,
+            inputs: torch.Tensor | None = None,
+            *,
+            title: str | None = None,
+            **kwargs: Any,
+        ) -> Figure:
+            del inputs, kwargs
+            calls.append((attributions.clone(), title))
+            fig, ax = plt.subplots(figsize=(1, 1))
+            ax.plot([0, 1], [0, 1])
+            return fig
+
+    monkeypatch.setattr(
+        "raitap.reporting.builder.TabularBarChartVisualiser",
+        _RecordingTabularVisualiser,
+    )
+
+    explanation = ExplanationResult(
+        attributions=torch.rand(3, 4),
+        inputs=torch.rand(3, 4),
+        run_dir=tmp_path / "transparency" / "tabular_exp",
+        experiment_name="tabular",
+        explainer_target="t",
+        algorithm="KernelShap",
+        explainer_name="tabular_exp",
+        visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
+    )
+    outputs = RunOutputs(
+        explanations=[explanation],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.tensor([[0.1, 0.9], [0.8, 0.2], [0.95, 0.05]]),
+    )
+
+    report = build_report(config, outputs)
+
+    assert calls
+    assert torch.equal(calls[0][0], explanation.attributions)
+    assert calls[0][1] == "tabular_exp Mean Absolute Attribution"
+    global_section = next(
+        section for section in report.sections if section.title == "Global Explanations"
+    )
+    assert global_section.groups[0].images[0].exists()
+
+
 def test_report_manifest_round_trip_preserves_relative_images(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="demo")
     set_output_root(config, tmp_path)
