@@ -73,8 +73,8 @@ def create_report(
         ) from error
 
     report_path = reporter.generate(report.sections)
-    manifest_path = report.report_dir / "report_manifest.json"
-    report.manifest.write(manifest_path, report_dir=report.report_dir)
+    manifest_path = report_path.parent / "report_manifest.json"
+    report.manifest.write(manifest_path, report_dir=report_path.parent)
     logger.info("Report generated: %s", report_path)
 
     return ReportGeneration(

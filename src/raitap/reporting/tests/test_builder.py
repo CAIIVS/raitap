@@ -12,7 +12,8 @@ from omegaconf import OmegaConf
 
 from raitap.configs import set_output_root
 from raitap.configs.schema import AppConfig, ReportingConfig
-from raitap.reporting.builder import _copy_asset, build_report
+from raitap.reporting.builder import BuiltReport, _copy_asset, build_report
+from raitap.reporting.factory import create_report
 from raitap.reporting.hydra_callback import ReportingSweepCallback
 from raitap.reporting.manifest import ReportManifest
 from raitap.reporting.sections import ReportGroup, ReportSection
@@ -288,6 +289,43 @@ def test_report_manifest_round_trip_preserves_relative_images(tmp_path: Path) ->
         for group in section.groups
         for path in group.images
     )
+
+
+def test_create_report_writes_manifest_next_to_generated_report(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    config = AppConfig(experiment_name="demo")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    built_report = ReportSection.from_groups(
+        "Metrics",
+        [ReportGroup(heading="Performance Metrics", table_rows=(("accuracy", "0.9"),))],
+    )
+    report = ReportManifest(kind="run", sections=(built_report,))
+    built = BuiltReport(
+        report_dir=tmp_path / "builder-reports",
+        sections=(built_report,),
+        manifest=report,
+    )
+
+    class _ReporterStub:
+        def __init__(self, _config: Any) -> None:
+            pass
+
+        def generate(self, sections: Any) -> Path:
+            del sections
+            output_path = tmp_path / "generated-reports" / "report.pdf"
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_bytes(b"%PDF-1.4\n")
+            return output_path
+
+    monkeypatch.setattr("raitap.reporting.factory.instantiate", lambda _cfg: _ReporterStub)
+
+    generated = create_report(config, built)
+
+    assert generated.report_path.parent == tmp_path / "generated-reports"
+    assert generated.manifest_path == generated.report_path.parent / "report_manifest.json"
+    assert generated.manifest_path.exists()
 
 
 def test_reporting_sweep_callback_builds_merged_report_from_child_manifests(
