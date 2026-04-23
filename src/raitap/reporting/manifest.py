@@ -105,7 +105,11 @@ def _path_to_manifest_value(path: Path, *, report_dir: Path) -> str:
 
 
 def _path_from_manifest_value(value: str, *, report_dir: Path) -> Path:
+    base_dir = report_dir.resolve()
     path = Path(value)
-    if path.is_absolute():
-        return path
-    return report_dir / path
+    candidate = path.resolve() if path.is_absolute() else (base_dir / path).resolve()
+    try:
+        candidate.relative_to(base_dir)
+    except ValueError as error:
+        raise ValueError(f"Manifest path escapes report directory: {value}") from error
+    return candidate

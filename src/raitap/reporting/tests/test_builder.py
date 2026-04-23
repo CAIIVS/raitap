@@ -291,6 +291,39 @@ def test_report_manifest_round_trip_preserves_relative_images(tmp_path: Path) ->
     )
 
 
+def test_report_manifest_rejects_paths_outside_report_dir(tmp_path: Path) -> None:
+    report_dir = tmp_path / "reports"
+    report_dir.mkdir()
+    manifest_path = report_dir / "report_manifest.json"
+    manifest_path.write_text(
+        """
+{
+  "kind": "run",
+  "filename": "report.pdf",
+  "metadata": {},
+  "sections": [
+    {
+      "title": "Metrics",
+      "metadata": {},
+      "groups": [
+        {
+          "heading": "Performance Metrics",
+          "table_rows": [],
+          "images": ["../outside.png"],
+          "metadata": {}
+        }
+      ]
+    }
+  ]
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="escapes report directory"):
+        ReportManifest.load(manifest_path)
+
+
 def test_create_report_writes_manifest_next_to_generated_report(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
