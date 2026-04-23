@@ -75,13 +75,26 @@ def _section_from_dict(payload: dict[str, Any], *, report_dir: Path) -> ReportSe
 def _group_from_dict(payload: dict[str, Any], *, report_dir: Path) -> ReportGroup:
     return ReportGroup(
         heading=str(payload.get("heading", "")),
-        table_rows=tuple(tuple(map(str, row)) for row in payload.get("table_rows", [])),
+        table_rows=_table_rows_from_manifest(payload.get("table_rows", [])),
         images=tuple(
             _path_from_manifest_value(str(image), report_dir=report_dir)
             for image in payload.get("images", [])
         ),
         metadata=dict(payload.get("metadata", {})),
     )
+
+
+def _table_rows_from_manifest(value: Any) -> tuple[tuple[str, str], ...]:
+    rows: list[tuple[str, str]] = []
+    if not isinstance(value, list):
+        return ()
+
+    for row in value:
+        if not isinstance(row, (list, tuple)) or len(row) != 2:
+            continue
+        name, cell_value = row
+        rows.append((str(name), str(cell_value)))
+    return tuple(rows)
 
 
 def _path_to_manifest_value(path: Path, *, report_dir: Path) -> str:
