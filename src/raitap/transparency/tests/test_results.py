@@ -412,6 +412,55 @@ def test_explanation_visualise_trims_sample_names_for_shorter_batch(tmp_path: Pa
     assert vis.received_names == ["ISIC_1"]
 
 
+def test_report_visualisation_resets_visualiser_sample_index_for_sliced_batch(
+    tmp_path: Path,
+) -> None:
+    class _SampleIndexVisualiser(BaseVisualiser):
+        def __init__(self) -> None:
+            self.sample_index = 2
+            self.seen_attribution: torch.Tensor | None = None
+
+        def visualise(
+            self,
+            attributions: torch.Tensor,
+            inputs: torch.Tensor | None = None,
+            *,
+            context: VisualisationContext | None = None,
+            **kw: Any,
+        ) -> Figure:
+            del inputs, context, kw
+            self.seen_attribution = attributions[self.sample_index].clone()
+            fig, _ax = plt.subplots(figsize=(1, 1))
+            return fig
+
+    run_dir = tmp_path / "exp_report_sample_index"
+    vis = _SampleIndexVisualiser()
+    attributions = torch.tensor([[1.0], [2.0], [3.0]])
+    explanation = ExplanationResult(
+        attributions=attributions,
+        inputs=torch.zeros(3, 1),
+        run_dir=run_dir,
+        experiment_name="e",
+        explainer_target="t",
+        algorithm="a",
+        visualisers=[ConfiguredVisualiser(visualiser=vis)],
+    )
+    explanation.write_artifacts()
+
+    paths = explanation.save_visualisations_for_report(
+        tmp_path / "assets",
+        scope="local",
+        file_stem_prefix="sample",
+        sample_index=1,
+    )
+
+    assert len(paths) == 1
+    assert paths[0].exists()
+    assert vis.sample_index == 2
+    assert vis.seen_attribution is not None
+    assert torch.equal(vis.seen_attribution, attributions[1])
+
+
 def test_explanation_visualise_forwards_algorithm_when_supported(tmp_path: Path) -> None:
     class _AlgorithmVisualiser(BaseVisualiser):
         def __init__(self) -> None:

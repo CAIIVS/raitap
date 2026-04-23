@@ -266,7 +266,20 @@ class ExplanationResult(Trackable, Reportable):
                 sample_names=sample_names,
                 show_sample_names=show_sample_names,
             )
-            figure = vis.visualise(attributions, inputs=inputs, context=context, **merged_call)
+            original_visualiser_sample_index = getattr(vis, "sample_index", None)
+            reset_visualiser_sample_index = (
+                sample_index is not None and original_visualiser_sample_index is not None
+            )
+            if reset_visualiser_sample_index:
+                # Report rendering has already sliced to a one-sample batch, so visualisers
+                # with their own batch selector must read index 0 inside that slice.
+                visualiser_with_sample_index: Any = vis
+                visualiser_with_sample_index.sample_index = 0
+            try:
+                figure = vis.visualise(attributions, inputs=inputs, context=context, **merged_call)
+            finally:
+                if reset_visualiser_sample_index:
+                    visualiser_with_sample_index.sample_index = original_visualiser_sample_index
 
             if (
                 show_sample_names
