@@ -451,7 +451,11 @@ def _batch_size(outputs: RunOutputs) -> int:
 
 
 def _copy_asset(source: Path, *, assets_dir: Path, target_name: str) -> Path:
-    target = assets_dir / target_name
+    target_name_path = Path(target_name)
+    if target_name_path.is_absolute() or len(target_name_path.parts) != 1:
+        raise ValueError(f"Asset target names must be simple filenames, got {target_name!r}.")
+
+    target = assets_dir / target_name_path.name
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source, target)
     return target

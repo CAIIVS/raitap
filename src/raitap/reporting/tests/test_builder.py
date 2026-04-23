@@ -5,13 +5,14 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
+import pytest
 import torch
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
 from raitap.configs import set_output_root
 from raitap.configs.schema import AppConfig, ReportingConfig
-from raitap.reporting.builder import build_report
+from raitap.reporting.builder import _copy_asset, build_report
 from raitap.reporting.hydra_callback import ReportingSweepCallback
 from raitap.reporting.manifest import ReportManifest
 from raitap.reporting.sections import ReportGroup, ReportSection
@@ -150,6 +151,14 @@ def test_build_report_orders_sections_and_ranks_samples(tmp_path: Path) -> None:
         for group in section.groups
         for path in group.images
     )
+
+
+def test_copy_asset_rejects_path_like_target_names(tmp_path: Path) -> None:
+    source = _write_test_image(tmp_path / "source.png")
+    assets_dir = tmp_path / "reports" / "_assets"
+
+    with pytest.raises(ValueError, match="simple filenames"):
+        _copy_asset(source, assets_dir=assets_dir, target_name="../escape.png")
 
 
 def test_build_report_skips_fake_global_for_single_sample(tmp_path: Path) -> None:
