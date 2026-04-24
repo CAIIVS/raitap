@@ -28,6 +28,8 @@ class DataConfig:
     description: str | None = None
     # Path to a local dir, or a named sample set (e.g. "imagenet_samples")
     source: str | None = None
+    # Optional model-forward batch size for predictions/metrics. None uses the pipeline default.
+    forward_batch_size: int | None = None
     labels: LabelsConfig = field(default_factory=LabelsConfig)
 
 

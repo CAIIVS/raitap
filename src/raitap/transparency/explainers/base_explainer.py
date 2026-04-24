@@ -5,7 +5,7 @@ from __future__ import annotations
 import gc
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 import torch
 
@@ -122,13 +122,19 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
         progress_desc: str | None = None,
     ) -> torch.Tensor:
         if batch_size is None or inputs.shape[0] <= batch_size:
+            prepared_inputs = self._prepare_inputs_for_backend(inputs, backend)
             attributions = self.compute_attributions(
                 model,
-                inputs,
+                prepared_inputs,
                 backend=backend,
                 **attribution_kwargs,
             )
-            return self._normalise_attributions(attributions)
+            normalised = self._normalise_attributions(attributions)
+            del attributions, prepared_inputs
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            return normalised
 
         chunks: list[torch.Tensor] = []
         total_batch = int(inputs.shape[0])
@@ -143,23 +149,33 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
         for start in starts:
             end = min(start + batch_size, total_batch)
             batch_inputs = inputs[start:end]
+            prepared_batch_inputs = self._prepare_inputs_for_backend(batch_inputs, backend)
             batch_kwargs = self._slice_kwargs_for_batch(attribution_kwargs, start, end, total_batch)
             chunk = self.compute_attributions(
                 model,
-                batch_inputs,
+                prepared_batch_inputs,
                 backend=backend,
                 **batch_kwargs,
             )
             # Normalise all attribution outputs to detached CPU tensors so batched and
             # unbatched runs return the same device semantics and persist consistently.
             chunks.append(self._normalise_attributions(chunk))
-            del chunk, batch_inputs, batch_kwargs
+            del chunk, batch_inputs, prepared_batch_inputs, batch_kwargs
             # Clean up memory after each batch to avoid OOM errors in long runs
             # (e.g. with SHAP partition explainer).
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
         return torch.cat(chunks, dim=0)
+
+    @staticmethod
+    def _prepare_inputs_for_backend(inputs: torch.Tensor, backend: object | None) -> torch.Tensor:
+        if backend is None:
+            return inputs
+        prepare_inputs = getattr(backend, "_prepare_inputs", None)
+        if not callable(prepare_inputs):
+            return inputs
+        return cast("torch.Tensor", prepare_inputs(inputs))
 
     @staticmethod
     def _normalise_attributions(attributions: torch.Tensor) -> torch.Tensor:

@@ -29,6 +29,10 @@ from raitap.transparency.factory import Explanation
 
 logger = logging.getLogger(__name__)
 
+# Conservative default for prediction/metrics forwards. Transparency methods have their own
+# per-explainer ``transparency.*.raitap.batch_size`` controls.
+_DEFAULT_FORWARD_BATCH_SIZE = 32
+
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
@@ -76,11 +80,10 @@ def run(config: AppConfig) -> RunOutputs:
 
 def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOutputs:
     backend = model.backend
-    data_tensor = backend._prepare_inputs(data.tensor)
+    data_tensor = data.tensor
 
     with torch.no_grad():
-        raw_output: Any = backend(data_tensor)
-        forward_output = extract_primary_tensor(raw_output)
+        forward_output = _forward_primary_tensor(config, backend, data_tensor)
 
     metrics_eval: MetricsEvaluation | None = None
     if metrics_run_enabled(config):
@@ -131,6 +134,44 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
             targets=getattr(data, "labels", None),
         ),
     )
+
+
+def _forward_primary_tensor(config: AppConfig, backend: Any, inputs: torch.Tensor) -> torch.Tensor:
+    batch_size = _resolve_forward_batch_size(config)
+    total_batch = int(inputs.shape[0])
+    if total_batch <= batch_size:
+        prepared_inputs = backend._prepare_inputs(inputs)
+        raw_output: Any = backend(prepared_inputs)
+        forward_output = extract_primary_tensor(raw_output).detach().cpu()
+        del prepared_inputs, raw_output
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        return forward_output
+
+    chunks: list[torch.Tensor] = []
+    for start in range(0, total_batch, batch_size):
+        end = min(start + batch_size, total_batch)
+        prepared_inputs = backend._prepare_inputs(inputs[start:end])
+        raw_output = backend(prepared_inputs)
+        chunks.append(extract_primary_tensor(raw_output).detach().cpu())
+        del prepared_inputs, raw_output
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    return torch.cat(chunks, dim=0)
+
+
+def _resolve_forward_batch_size(config: AppConfig) -> int:
+    """Resolve prediction/metrics forward batch size from config, falling back to 32."""
+    configured = getattr(getattr(config, "run", None), "forward_batch_size", None)
+    if configured is None:
+        configured = getattr(getattr(config, "data", None), "forward_batch_size", None)
+    if configured is None:
+        return _DEFAULT_FORWARD_BATCH_SIZE
+    if not isinstance(configured, int):
+        raise TypeError(f"forward_batch_size must be an int, got {type(configured).__name__}.")
+    if configured <= 0:
+        raise ValueError(f"forward_batch_size must be > 0, got {configured}.")
+    return configured
 
 
 def print_summary(config: AppConfig, model: Model) -> None:
