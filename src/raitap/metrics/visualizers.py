@@ -36,6 +36,7 @@ class MetricsVisualizer:
             ax.set_xlabel("Metric")
             ax.set_ylabel("Value")
             ax.set_title("Metrics Overview")
+            ax.set_ylim(0.0, 1.0)
             ax.tick_params(axis="x", rotation=45)
             fig.tight_layout()
 
