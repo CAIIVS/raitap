@@ -7,6 +7,14 @@
   See {doc}`frameworks-and-libraries` for the backend behaviour behind
   `_target_`, `algorithm`, and visualiser compatibility.
 
+  RAITAP has two separate batch-size controls because predictions and
+  explanations are different workload stages. `data.forward_batch_size`
+  controls the model forward pass used for predictions, metrics, report sample
+  selection, and `call.target: auto_pred`. `transparency.<explainer>.raitap.batch_size`
+  controls attribution computation for that explainer. Expensive methods such
+  as SHAP or Captum Occlusion often need a much smaller attribution batch size
+  than the prediction batch size.
+
 :option: _target_
 :allowed: "CaptumExplainer", "ShapExplainer", "AlibiExplainer"
 :default: null
@@ -42,7 +50,10 @@
 :default: None
 :description: Batch size for computing attributions. If not specified, the explainer
   will compute attributions in a single pass. Currently implemented for Captum and
-  SHAP explainers; Alibi ignores this key and emits a warning.
+  SHAP explainers; Alibi ignores this key and emits a warning. This controls only
+  the explainer attribution stage. It does not control the initial prediction
+  forward pass used for metrics, report sample ranking, or `auto_pred` targets;
+  configure that with `data.forward_batch_size`.
 
 :option: raitap.show_progress
 :allowed: bool

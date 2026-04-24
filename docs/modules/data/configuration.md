@@ -17,6 +17,15 @@
 :description: Path to a local data directory, or a named sample set such as
   `"imagenet_samples"`.
 
+:option: forward_batch_size
+:allowed: int, null
+:default: null
+:description: Optional batch size for the initial model forward pass used to
+  produce predictions for metrics, report sample ranking, and `auto_pred`
+  explainer targets. If omitted, RAITAP uses its pipeline default of `32`.
+  This does not control explainer attribution batching; use
+  `transparency.<explainer>.raitap.batch_size` for that.
+
 :option: labels.source
 :allowed: string, null
 :default: null
@@ -45,6 +54,7 @@ data:
   name: "my-dataset"
   description: "Internal validation set"
   source: "./data/images"
+  forward_batch_size: 32
   labels:
     source: "./data/labels.csv"
     id_column: "image"
