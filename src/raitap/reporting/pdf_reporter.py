@@ -63,6 +63,40 @@ def _column_content_bounds_pt() -> tuple[int, int]:
 
 _DEFAULT_RASTER_MULT = 3.0
 _DEFAULT_RASTER_MAX_EDGE_PX = 2400
+_MAX_PDF_TEXT_LEN = 180
+_MAX_PDF_TOKEN_LEN = 40
+
+
+def _middle_truncate(value: str, *, max_length: int) -> str:
+    if len(value) <= max_length:
+        return value
+    if max_length <= 3:
+        return "." * max_length
+    left = (max_length - 3) // 2
+    right = max_length - 3 - left
+    return f"{value[:left]}...{value[-right:]}"
+
+
+def _shorten_path_token(token: str) -> str:
+    if token == "N/A":
+        return token
+    if "/" not in token and "\\" not in token:
+        return token
+    candidate = Path(token.replace("\\", "/")).name
+    return candidate or token
+
+
+def _pdf_display_text(value: Any) -> str:
+    text = "N/A" if value is None else str(value)
+    words = [
+        _middle_truncate(
+            _shorten_path_token(word),
+            max_length=_MAX_PDF_TOKEN_LEN,
+        )
+        for word in text.split()
+    ]
+    shortened = " ".join(words) if words else text
+    return _middle_truncate(shortened, max_length=_MAX_PDF_TEXT_LEN)
 
 
 def _reporting_formatting(reporting: Any) -> Any:
@@ -203,20 +237,26 @@ class PDFReporter(BaseReporter):
 
         layout.append_layout_element(
             b.Paragraph(
-                "RAITAP Assessment Report",
+                _pdf_display_text("RAITAP Assessment Report"),
                 font_size=24,
                 font="Helvetica-Bold",
             )
         )
 
-        layout.append_layout_element(b.Paragraph(f"Experiment: {self.config.experiment_name}"))
         layout.append_layout_element(
-            b.Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            b.Paragraph(_pdf_display_text(f"Experiment: {self.config.experiment_name}"))
         )
         layout.append_layout_element(
-            b.Paragraph(f"Model: {getattr(self.config.model, 'source', 'N/A')}")
+            b.Paragraph(
+                _pdf_display_text(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            )
         )
-        layout.append_layout_element(b.Paragraph(f"Dataset: {self.config.data.name}"))
+        layout.append_layout_element(
+            b.Paragraph(_pdf_display_text(f"Model: {getattr(self.config.model, 'source', 'N/A')}"))
+        )
+        layout.append_layout_element(
+            b.Paragraph(_pdf_display_text(f"Dataset: {self.config.data.name}"))
+        )
 
     def _add_sections(
         self,
@@ -251,12 +291,20 @@ class PDFReporter(BaseReporter):
                     doc.append_page(page)
                     layout = b.SingleColumnLayout(page)
                     layout.append_layout_element(
-                        b.Paragraph(section.title, font_size=20, font="Helvetica-Bold")
+                        b.Paragraph(
+                            _pdf_display_text(section.title),
+                            font_size=20,
+                            font="Helvetica-Bold",
+                        )
                     )
                     section_open = True
 
                 layout.append_layout_element(
-                    b.Paragraph(group.heading, font_size=16, font="Helvetica-Bold")
+                    b.Paragraph(
+                        _pdf_display_text(group.heading),
+                        font_size=16,
+                        font="Helvetica-Bold",
+                    )
                 )
 
                 if group.table_rows:
@@ -271,7 +319,7 @@ class PDFReporter(BaseReporter):
                     except Exception as e:
                         logger.warning("Failed to add image %s: %s", image_path, e)
                         layout.append_layout_element(
-                            b.Paragraph(f"(Failed to load: {image_path.name})")
+                            b.Paragraph(_pdf_display_text(f"(Failed to load: {image_path.name})"))
                         )
 
     def _add_table(self, layout: Any, group: ReportGroup, b: SimpleNamespace) -> None:
@@ -283,5 +331,5 @@ class PDFReporter(BaseReporter):
         )
         for row in table_data:
             for cell in row:
-                table.append_layout_element(b.Paragraph(str(cell)))
+                table.append_layout_element(b.Paragraph(_pdf_display_text(cell)))
         layout.append_layout_element(table)

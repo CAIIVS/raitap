@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
     from raitap.configs.schema import AppConfig
 
+
 from raitap import run as run_module
 from raitap.metrics import metrics_prediction_pair
 from raitap.run import __main__ as run_entry
