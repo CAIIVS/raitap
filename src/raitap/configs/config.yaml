@@ -4,7 +4,7 @@ defaults:
   - model: vit_b32
   - data: isic2018
   - metrics: classification
-  - reporting: pdf
+  - reporting: disabled
 
 hardware: gpu
 experiment_name: demo

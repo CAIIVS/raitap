@@ -71,10 +71,17 @@ reporting:
 
 **Disabling reports**
 
-Use `reporting=disabled` to turn report generation off cleanly:
+Reporting is disabled by default. Use `reporting=disabled` to turn report
+generation off explicitly in overrides or YAML defaults:
 
 ```bash
 uv run raitap reporting=disabled
+```
+
+Use `reporting=pdf` to opt in to PDF report generation:
+
+```bash
+uv run raitap reporting=pdf
 ```
 
 For multiruns, `reporting.multirun_report=false` disables only the merged parent
@@ -83,7 +90,3 @@ report. Individual child runs still generate their normal reports:
 ```bash
 uv run raitap --multirun reporting=pdf reporting.multirun_report=false transparency=demo,shap_gradient
 ```
-
-The legacy `reporting=null` config group is kept for compatibility inside the
-package, but Hydra treats `reporting=null` as a special CLI value. Prefer
-`reporting=disabled` in user commands and YAML defaults.

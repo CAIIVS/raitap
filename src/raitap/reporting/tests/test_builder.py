@@ -472,7 +472,8 @@ def test_build_merged_report_keeps_empty_metrics_groups(tmp_path: Path) -> None:
 
 def test_reporting_configs_compose_multirun_report_controls() -> None:
     cfg = _compose_raitap_config()
-    assert cfg.reporting.multirun_report is True
+    assert cfg.reporting._target_ is None
+    assert cfg.reporting.multirun_report is False
     assert cfg.hydra.callbacks.reporting_sweep._target_.endswith("ReportingSweepCallback")
 
     disabled_cfg = _compose_raitap_config(["reporting=disabled"])
@@ -481,11 +482,11 @@ def test_reporting_configs_compose_multirun_report_controls() -> None:
     # The root callback remains registered; runtime guards suppress work when reporting is off.
     assert disabled_cfg.hydra.callbacks.reporting_sweep._target_.endswith("ReportingSweepCallback")
 
-    legacy_null_cfg = OmegaConf.load(_configs_dir() / "reporting" / "null.yaml")
-    assert legacy_null_cfg._target_ is None
-    assert legacy_null_cfg.multirun_report is False
+    pdf_cfg = _compose_raitap_config(["reporting=pdf"])
+    assert pdf_cfg.reporting._target_ == "PDFReporter"
+    assert pdf_cfg.reporting.multirun_report is True
 
-    opt_out_cfg = _compose_raitap_config(["reporting.multirun_report=false"])
+    opt_out_cfg = _compose_raitap_config(["reporting=pdf", "reporting.multirun_report=false"])
     assert opt_out_cfg.reporting._target_ == "PDFReporter"
     assert opt_out_cfg.reporting.multirun_report is False
 
