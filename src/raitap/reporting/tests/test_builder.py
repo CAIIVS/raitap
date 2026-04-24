@@ -12,7 +12,7 @@ from omegaconf import OmegaConf
 
 from raitap.configs import set_output_root
 from raitap.configs.schema import AppConfig, ReportingConfig
-from raitap.reporting.builder import BuiltReport, _copy_asset, build_report
+from raitap.reporting.builder import BuiltReport, _copy_asset, build_merged_report, build_report
 from raitap.reporting.factory import create_report
 from raitap.reporting.hydra_callback import ReportingSweepCallback
 from raitap.reporting.manifest import ReportManifest
@@ -397,6 +397,79 @@ def test_reporting_sweep_callback_builds_merged_report_from_child_manifests(
     assert report.sections[0].groups[0].heading.startswith("Job 0")
 
 
+def test_build_merged_report_deduplicates_identical_metrics_only(tmp_path: Path) -> None:
+    sweep_dir = tmp_path / "multirun"
+    sweep_dir.mkdir()
+    _write_child_manifest(
+        sweep_dir / "0",
+        heading="Metrics A",
+        table_rows=(("accuracy", "0.9000"),),
+        include_local=True,
+    )
+    _write_child_manifest(
+        sweep_dir / "1",
+        heading="Metrics B",
+        table_rows=(("accuracy", "0.9000"),),
+        include_local=True,
+    )
+    _write_child_manifest(
+        sweep_dir / "2",
+        heading="Metrics C",
+        table_rows=(("accuracy", "0.8000"),),
+        include_local=True,
+    )
+    child_manifests: list[tuple[str, str | None, ReportManifest]] = [
+        (
+            f"Job {index}",
+            None,
+            ReportManifest.load(sweep_dir / str(index) / "reports" / "report_manifest.json"),
+        )
+        for index in range(3)
+    ]
+
+    report = build_merged_report(
+        AppConfig(experiment_name="demo"),
+        sweep_dir=sweep_dir,
+        child_manifests=child_manifests,
+        skipped_children=[],
+    )
+
+    sections = {section.title: section for section in report.sections}
+    assert [group.heading for group in sections["Metrics"].groups] == [
+        "Job 0 - Metrics A",
+        "Job 2 - Metrics C",
+    ]
+    assert len(sections["Local Explanations"].groups) == 3
+
+
+def test_build_merged_report_keeps_empty_metrics_groups(tmp_path: Path) -> None:
+    sweep_dir = tmp_path / "multirun"
+    sweep_dir.mkdir()
+    _write_child_manifest(sweep_dir / "0", heading="Metrics A", table_rows=())
+    _write_child_manifest(sweep_dir / "1", heading="Metrics B", table_rows=())
+    child_manifests: list[tuple[str, str | None, ReportManifest]] = [
+        (
+            f"Job {index}",
+            None,
+            ReportManifest.load(sweep_dir / str(index) / "reports" / "report_manifest.json"),
+        )
+        for index in range(2)
+    ]
+
+    report = build_merged_report(
+        AppConfig(experiment_name="demo"),
+        sweep_dir=sweep_dir,
+        child_manifests=child_manifests,
+        skipped_children=[],
+    )
+
+    sections = {section.title: section for section in report.sections}
+    assert [group.heading for group in sections["Metrics"].groups] == [
+        "Job 0 - Metrics A",
+        "Job 1 - Metrics B",
+    ]
+
+
 def test_reporting_configs_compose_multirun_report_controls() -> None:
     cfg = _compose_raitap_config()
     assert cfg.reporting.multirun_report is True
@@ -490,24 +563,46 @@ def _configs_dir() -> Path:
     return (Path(__file__).resolve().parents[2] / "configs").resolve()
 
 
-def _write_child_manifest(child_dir: Path, *, heading: str) -> None:
+def _write_child_manifest(
+    child_dir: Path,
+    *,
+    heading: str,
+    table_rows: tuple[tuple[str, str], ...] = (("accuracy", "0.9000"),),
+    include_local: bool = False,
+) -> None:
     report_dir = child_dir / "reports"
     report_dir.mkdir(parents=True)
     asset = _write_test_image(report_dir / "_assets" / "child.png")
-    manifest = ReportManifest(
-        kind="run",
-        sections=(
+    sections = [
+        ReportSection.from_groups(
+            "Metrics",
+            [
+                ReportGroup(
+                    heading=heading,
+                    images=(asset,),
+                    table_rows=table_rows,
+                    metadata={"role": "metrics"},
+                )
+            ],
+        )
+    ]
+    if include_local:
+        local_asset = _write_test_image(report_dir / "_assets" / "local.png")
+        sections.append(
             ReportSection.from_groups(
-                "Metrics",
+                "Local Explanations",
                 [
                     ReportGroup(
-                        heading=heading,
-                        images=(asset,),
-                        metadata={"role": "metrics"},
+                        heading=f"Local {heading}",
+                        images=(local_asset,),
+                        metadata={"role": "local"},
                     )
                 ],
-            ),
-        ),
+            )
+        )
+    manifest = ReportManifest(
+        kind="run",
+        sections=tuple(sections),
         metadata={"experiment_name": child_dir.name},
     )
     manifest.write(report_dir / "report_manifest.json", report_dir=report_dir)

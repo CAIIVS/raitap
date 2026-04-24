@@ -95,6 +95,7 @@ def build_merged_report(
         "Global Explanations": [],
         "Local Explanations": [],
     }
+    seen_metrics_rows: set[tuple[tuple[str, str], ...]] = set()
 
     for job_label, override_summary, manifest in child_manifests:
         prefix = job_label if not override_summary else f"{job_label} ({override_summary})"
@@ -102,6 +103,11 @@ def build_merged_report(
             if section.title not in sections_by_title:
                 sections_by_title[section.title] = []
             for group_index, group in enumerate(section.groups):
+                if section.title == "Metrics" and group.table_rows:
+                    metrics_key = tuple(group.table_rows)
+                    if metrics_key in seen_metrics_rows:
+                        continue
+                    seen_metrics_rows.add(metrics_key)
                 copied_images = tuple(
                     _copy_asset(
                         image_path,
