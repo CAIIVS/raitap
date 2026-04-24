@@ -217,9 +217,7 @@ class PDFReporter(BaseReporter):
         b = _borb_pdf_ns()
 
         run_dir = (
-            report_dir
-            if report_dir is not None
-            else resolve_run_dir(self.config, subdir="reports")
+            report_dir if report_dir is not None else resolve_run_dir(self.config, subdir="reports")
         )
         run_dir.mkdir(parents=True, exist_ok=True)
 
