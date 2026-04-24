@@ -207,11 +207,20 @@ def _image_limits_for_figures(
 class PDFReporter(BaseReporter):
     """PDF report generator using borb library."""
 
-    def generate(self, sections: Sequence[ReportSection]) -> Path:
+    def generate(
+        self,
+        sections: Sequence[ReportSection],
+        *,
+        report_dir: Path | None = None,
+    ) -> Path:
         """Generate PDF report."""
         b = _borb_pdf_ns()
 
-        run_dir = resolve_run_dir(self.config, subdir="reports")
+        run_dir = (
+            report_dir
+            if report_dir is not None
+            else resolve_run_dir(self.config, subdir="reports")
+        )
         run_dir.mkdir(parents=True, exist_ok=True)
 
         filename = getattr(self.config.reporting, "filename", "report.pdf")

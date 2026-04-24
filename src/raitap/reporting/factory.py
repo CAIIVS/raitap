@@ -72,7 +72,7 @@ def create_report(
             "Check that _target_ points to a valid BaseReporter implementation."
         ) from error
 
-    report_path = reporter.generate(report.sections)
+    report_path = reporter.generate(report.sections, report_dir=report.report_dir)
     manifest_path = report_path.parent / "report_manifest.json"
     report.manifest.write(manifest_path, report_dir=report_path.parent)
     logger.info("Report generated: %s", report_path)

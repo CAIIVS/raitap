@@ -345,9 +345,10 @@ def test_create_report_writes_manifest_next_to_generated_report(
         def __init__(self, _config: Any) -> None:
             pass
 
-        def generate(self, sections: Any) -> Path:
+        def generate(self, sections: Any, *, report_dir: Path | None = None) -> Path:
             del sections
-            output_path = tmp_path / "generated-reports" / "report.pdf"
+            output_root = tmp_path / "generated-reports" if report_dir is None else report_dir
+            output_path = output_root / "report.pdf"
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_bytes(b"%PDF-1.4\n")
             return output_path
@@ -356,7 +357,7 @@ def test_create_report_writes_manifest_next_to_generated_report(
 
     generated = create_report(config, built)
 
-    assert generated.report_path.parent == tmp_path / "generated-reports"
+    assert generated.report_path.parent == built.report_dir
     assert generated.manifest_path == generated.report_path.parent / "report_manifest.json"
     assert generated.manifest_path.exists()
 
