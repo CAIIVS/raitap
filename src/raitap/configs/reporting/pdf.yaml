@@ -1,5 +1,11 @@
-_target_: PDFReporter
-filename: report.pdf
-include_config: true
-include_metadata: true
-multirun_report: true
+# @package _global_
+
+reporting:
+  _target_: PDFReporter
+  filename: report.pdf
+  multirun_report: true
+
+hydra:
+  callbacks:
+    reporting_sweep:
+      _target_: raitap.reporting.hydra_callback.ReportingSweepCallback
