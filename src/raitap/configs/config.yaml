@@ -8,8 +8,3 @@ defaults:
 
 hardware: gpu
 experiment_name: demo
-
-hydra:
-  callbacks:
-    reporting_sweep:
-      _target_: raitap.reporting.hydra_callback.ReportingSweepCallback
