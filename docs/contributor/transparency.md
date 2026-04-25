@@ -29,7 +29,7 @@ All visualisers implement `BaseVisualiser`, which defines:
 - `save(attributions, output_path, inputs, **kwargs) -> None` (optional, has default implementation)
 - `compatible_algorithms: frozenset[str]` (empty = all algorithms)
 - `supported_payload_kinds: ClassVar[frozenset[ExplanationPayloadKind]]` — default `{ATTRIBUTIONS}`. An **empty** `frozenset()` means the visualiser accepts **all** payload kinds (wildcard). The factory raises `PayloadVisualiserIncompatibilityError` if the explainer’s `output_payload_kind` is not listed when the set is non-empty.
-- `report_scope: ClassVar[str]` — default `"local"`. Set to `"global"` only for true aggregate or library-native global visualisations such as SHAP bar, beeswarm, or summary plots.
+- `report_scope: ClassVar[str]` — defines which report group the visualiser belongs to. The default `"local"` means RAITAP places the output in **Local Explanations** because it represents one sample at a time, as with `CaptumImageVisualiser` or `ShapImageVisualiser`. Set this to `"global"` only when the visualiser itself already produces a true aggregate view for the whole run or dataset, so RAITAP places it in **Global Explanations**. Examples include `ShapBarVisualiser` and `ShapBeeswarmVisualiser`. Representative montages of a few samples are still `"local"`.
 
 After `create_explainer`, `factory.Explanation` may emit **third-party license warnings** (e.g. Alibi BSL) at most once per process via `logging.warning`.
 
