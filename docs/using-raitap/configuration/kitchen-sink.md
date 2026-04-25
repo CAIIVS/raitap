@@ -15,8 +15,6 @@ data:
   name: "my-dataset"
   description: "Internal validation set"
   source: "./data/images"
-  # Prediction/metrics forward pass batch size. This is separate from explainer
-  # attribution batching under transparency.<explainer>.raitap.batch_size.
   forward_batch_size: 32
   labels:
     source: "./data/labels.csv"
