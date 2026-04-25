@@ -68,25 +68,3 @@ reporting:
 
 :cli: reporting=pdf reporting.filename="my_report.pdf" reporting.multirun_report=false reporting.formatting.figures_max_pages=10
 ```
-
-**Disabling reports**
-
-Reporting is disabled by default. Use `reporting=disabled` to turn report
-generation off explicitly in overrides or YAML defaults:
-
-```bash
-uv run raitap reporting=disabled
-```
-
-Use `reporting=pdf` to opt in to PDF report generation:
-
-```bash
-uv run raitap reporting=pdf
-```
-
-For multiruns, `reporting.multirun_report=false` disables only the merged parent
-report. Individual child runs still generate their normal reports:
-
-```bash
-uv run raitap --multirun reporting=pdf reporting.multirun_report=false transparency=demo,shap_gradient
-```
