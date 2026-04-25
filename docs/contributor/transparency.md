@@ -232,9 +232,9 @@ To add a new visualiser:
 
     `report_scope` controls where report builders place the visualisation:
     `"local"` means per-sample output, while `"global"` means true global output.
-    Do not mark representative local montages as global. RAITAP can generate its
-    own aggregate global summaries from local attribution tensors when a run has
-    multiple samples.
+    Do not mark representative local montages as global. Use `"global"` only
+    when the visualiser itself produces a true run-level or dataset-level
+    summary plot. The global section is only for those native global outputs.
 
 2. **Export from `__init__.py`**
 

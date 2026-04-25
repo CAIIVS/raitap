@@ -55,24 +55,6 @@ class _LocalImageVisualiser(BaseVisualiser):
         return fig
 
 
-class _GlobalVisualiser(BaseVisualiser):
-    report_scope = "global"
-
-    def visualise(
-        self,
-        attributions: torch.Tensor,
-        inputs: torch.Tensor | None = None,
-        *,
-        context: Any = None,
-        **kwargs: Any,
-    ) -> Figure:
-        del attributions, inputs, context, kwargs
-        fig, ax = plt.subplots(figsize=(2, 2))
-        ax.plot([0, 1], [0, 1])
-        ax.set_title("global")
-        return fig
-
-
 def test_build_report_orders_sections_and_ranks_samples(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="demo")
     set_output_root(config, tmp_path)
@@ -162,16 +144,16 @@ def test_copy_asset_rejects_path_like_target_names(tmp_path: Path) -> None:
         _copy_asset(source, assets_dir=assets_dir, target_name="../escape.png")
 
 
-def test_build_report_skips_fake_global_for_single_sample(tmp_path: Path) -> None:
-    config = AppConfig(experiment_name="single")
+def test_build_report_skips_global_section_for_local_only_outputs(tmp_path: Path) -> None:
+    config = AppConfig(experiment_name="local_only")
     set_output_root(config, tmp_path)
     config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
 
     explanation = ExplanationResult(
-        attributions=torch.rand(1, 1, 4, 4),
-        inputs=torch.rand(1, 1, 4, 4),
+        attributions=torch.rand(3, 1, 4, 4),
+        inputs=torch.rand(3, 1, 4, 4),
         run_dir=tmp_path / "transparency" / "exp",
-        experiment_name="single",
+        experiment_name="local_only",
         explainer_target="t",
         algorithm="IntegratedGradients",
         explainer_name="captum_ig",
@@ -181,72 +163,17 @@ def test_build_report_skips_fake_global_for_single_sample(tmp_path: Path) -> Non
         explanations=[explanation],
         visualisations=[],
         metrics=None,
-        forward_output=torch.tensor([[0.1, 0.9]]),
+        forward_output=torch.tensor([[0.1, 0.9], [0.8, 0.2], [0.95, 0.05]]),
         prediction_summaries=(
             PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9, correct=None),
+            PredictionSummary(sample_index=1, predicted_class=0, confidence=0.8, correct=None),
+            PredictionSummary(sample_index=2, predicted_class=0, confidence=0.95, correct=None),
         ),
     )
 
     report = build_report(config, outputs)
 
     assert [section.title for section in report.sections] == ["Local Explanations"]
-
-
-def test_build_report_uses_tabular_visualiser_for_tabular_aggregate(
-    tmp_path: Path,
-    monkeypatch: Any,
-) -> None:
-    config = AppConfig(experiment_name="tabular")
-    set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
-    calls: list[tuple[torch.Tensor, str | None]] = []
-
-    class _RecordingTabularVisualiser:
-        def visualise(
-            self,
-            attributions: torch.Tensor,
-            inputs: torch.Tensor | None = None,
-            *,
-            title: str | None = None,
-            **kwargs: Any,
-        ) -> Figure:
-            del inputs, kwargs
-            calls.append((attributions.clone(), title))
-            fig, ax = plt.subplots(figsize=(1, 1))
-            ax.plot([0, 1], [0, 1])
-            return fig
-
-    monkeypatch.setattr(
-        "raitap.reporting.builder.TabularBarChartVisualiser",
-        _RecordingTabularVisualiser,
-    )
-
-    explanation = ExplanationResult(
-        attributions=torch.rand(3, 4),
-        inputs=torch.rand(3, 4),
-        run_dir=tmp_path / "transparency" / "tabular_exp",
-        experiment_name="tabular",
-        explainer_target="t",
-        algorithm="KernelShap",
-        explainer_name="tabular_exp",
-        visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
-    )
-    outputs = RunOutputs(
-        explanations=[explanation],
-        visualisations=[],
-        metrics=None,
-        forward_output=torch.tensor([[0.1, 0.9], [0.8, 0.2], [0.95, 0.05]]),
-    )
-
-    report = build_report(config, outputs)
-
-    assert calls
-    assert torch.equal(calls[0][0], explanation.attributions)
-    assert calls[0][1] == "tabular_exp Mean Absolute Attribution"
-    global_section = next(
-        section for section in report.sections if section.title == "Global Explanations"
-    )
-    assert global_section.groups[0].images[0].exists()
 
 
 def test_report_manifest_round_trip_preserves_relative_images(tmp_path: Path) -> None:

@@ -216,10 +216,6 @@ class ExplanationResult(Trackable):
             for configured in self.visualisers
         )
 
-    def has_local_visualisers(self) -> bool:
-        """Return whether this explanation has per-sample visualisers to aggregate."""
-        return self.has_visualisations_for_scope("local")
-
     def save_visualisations_for_report(
         self,
         output_dir: Path,

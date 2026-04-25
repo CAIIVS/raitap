@@ -13,7 +13,7 @@ reports/
 ├── report.pdf
 ├── report_manifest.json
 └── _assets/
-    ├── ... aggregate global summary figures
+    ├── ... native global figures
     └── ... selected local sample figures
 ```
 
@@ -46,12 +46,10 @@ metric figures produced by the metrics module.
 This section contains true global content only:
 
 - Native global visualisations, such as SHAP summary, bar, or beeswarm plots.
-- RAITAP-generated aggregate summaries for multi-sample attribution runs.
 
-For image attributions, RAITAP can create a mean absolute attribution heatmap
-over the batch. For tabular attributions, RAITAP can create a mean absolute
-feature-importance chart. Single-sample runs do not create fake global
-aggregates.
+RAITAP does not synthesize report-level global explanation artifacts from local
+attribution tensors. This section is reserved for outputs produced directly by
+the configured visualiser or underlying library.
 
 ### Local Explanations
 

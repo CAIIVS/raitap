@@ -6,23 +6,20 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import matplotlib.pyplot as plt
-
 from raitap.configs import resolve_run_dir
 from raitap.run.outputs import PredictionSummary, RunOutputs
-from raitap.transparency.visualisers import TabularBarChartVisualiser
 
 from .manifest import ReportManifest
 from .sections import ReportGroup, ReportSection
 
 if TYPE_CHECKING:
-    import torch
-
     from raitap.configs.schema import AppConfig
-    from raitap.transparency.results import ExplanationResult, VisualisationResult
+    from raitap.transparency.results import VisualisationResult
 
 logger = logging.getLogger(__name__)
 
+# Caps both the selected sample pool and, after reserving the first item for the
+# overview, the number of detail groups shown in the local section.
 _MAX_LOCAL_DETAIL_SAMPLES = 3
 
 
@@ -181,27 +178,7 @@ def _build_metrics_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSe
 
 
 def _build_global_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSection | None:
-    groups: list[ReportGroup] = []
-    native_groups = _native_global_groups(outputs.visualisations, assets_dir=assets_dir)
-    groups.extend(native_groups)
-
-    if _batch_size(outputs) > 1:
-        for explanation in outputs.explanations:
-            aggregate_asset = _build_aggregate_asset(explanation, assets_dir=assets_dir)
-            if aggregate_asset is None:
-                continue
-            groups.append(
-                ReportGroup(
-                    heading=f"Explainer: {explanation.explainer_name or explanation.algorithm}",
-                    images=(aggregate_asset,),
-                    metadata={
-                        "role": "global",
-                        "source": "raitap_aggregate",
-                        "explainer_name": explanation.explainer_name or explanation.run_dir.name,
-                    },
-                )
-            )
-
+    groups = _native_global_groups(outputs.visualisations, assets_dir=assets_dir)
     if not groups:
         return None
     return ReportSection.from_groups(
@@ -321,87 +298,6 @@ def _build_local_section(
         groups,
         metadata={"section_role": "local"},
     )
-
-
-def _build_aggregate_asset(explanation: ExplanationResult, *, assets_dir: Path) -> Path | None:
-    if not explanation.has_local_visualisers():
-        return None
-
-    attrs = explanation.attributions
-    batch_size = int(attrs.shape[0]) if attrs.ndim > 0 else 0
-    if batch_size <= 1:
-        return None
-
-    explainer_name = explanation.explainer_name or explanation.run_dir.name
-    target_name = f"{_safe_name(explainer_name)}_aggregate.png"
-    output_path = assets_dir / target_name
-
-    if attrs.ndim >= 4:
-        _save_image_aggregate(
-            attrs,
-            explanation.inputs,
-            output_path=output_path,
-            title=f"{explainer_name} Mean Absolute Attribution",
-        )
-        return output_path
-    if attrs.ndim == 2:
-        _save_tabular_visualiser_aggregate(
-            attrs,
-            output_path=output_path,
-            title=f"{explainer_name} Mean Absolute Attribution",
-        )
-        return output_path
-    return None
-
-
-def _save_image_aggregate(
-    attributions: torch.Tensor,
-    inputs: torch.Tensor,
-    *,
-    output_path: Path,
-    title: str,
-) -> None:
-    mean_attr = attributions.abs().mean(dim=0)
-    heatmap = mean_attr.sum(dim=0).cpu().numpy() if mean_attr.ndim == 3 else mean_attr.cpu().numpy()
-
-    fig, axes = plt.subplots(1, 2, figsize=(8, 4))
-    if inputs.ndim == 4 and inputs.shape[0] > 1:
-        mean_input = inputs.mean(dim=0).cpu()
-        if mean_input.ndim == 3:
-            image = mean_input.permute(1, 2, 0).numpy()
-            image_min = float(image.min())
-            image_max = float(image.max())
-            if image_max > image_min:
-                image = (image - image_min) / (image_max - image_min)
-            axes[0].imshow(image)
-        else:
-            axes[0].imshow(mean_input.numpy(), cmap="gray")
-        axes[0].set_title("Mean Input")
-        axes[0].axis("off")
-    else:
-        axes[0].imshow(heatmap, cmap="viridis")
-        axes[0].set_title("Mean Absolute Attribution")
-        axes[0].axis("off")
-
-    image = axes[1].imshow(heatmap, cmap="magma")
-    axes[1].set_title("Attribution Heatmap")
-    axes[1].axis("off")
-    fig.colorbar(image, ax=axes[1], fraction=0.046, pad=0.04)
-    fig.suptitle(title)
-    fig.tight_layout()
-    fig.savefig(output_path, bbox_inches="tight", dpi=150)
-    plt.close(fig)
-
-
-def _save_tabular_visualiser_aggregate(
-    attributions: torch.Tensor, *, output_path: Path, title: str
-) -> None:
-    visualiser = TabularBarChartVisualiser()
-    figure = visualiser.visualise(attributions, title=title)
-    try:
-        figure.savefig(output_path, bbox_inches="tight", dpi=150)
-    finally:
-        plt.close(figure)
 
 
 def _select_samples(outputs: RunOutputs) -> list[SelectedSample]:
