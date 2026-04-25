@@ -399,12 +399,11 @@ def test_build_merged_report_keeps_empty_metrics_groups(tmp_path: Path) -> None:
 
 def test_reporting_configs_compose_multirun_report_controls() -> None:
     cfg = _compose_raitap_config()
-    assert cfg.reporting._target_ is None
-    assert cfg.reporting.multirun_report is False
-    assert cfg.hydra.get("callbacks") == {}
+    assert cfg.reporting._target_ == "PDFReporter"
+    assert cfg.reporting.multirun_report is True
+    assert cfg.hydra.callbacks.reporting_sweep._target_.endswith("ReportingSweepCallback")
 
-    disabled_cfg = _compose_raitap_config(["reporti"
-                                           "ng=disabled"])
+    disabled_cfg = _compose_raitap_config(["reporting=disabled"])
     assert disabled_cfg.reporting._target_ is None
     assert disabled_cfg.reporting.multirun_report is False
     assert disabled_cfg.hydra.get("callbacks") == {}
