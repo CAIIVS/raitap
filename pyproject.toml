@@ -67,9 +67,9 @@ Source = "https://github.com/CAIIVS/raitap/"
 torch-cpu = ["torch>=2.10.0", "torchvision>=0.20.0"]
 torch-cuda = ["torch>=2.10.0", "torchvision>=0.20.0"]
 torch-intel = [
-  "torch>=2.10.0; python_full_version < '3.14'",
-  "torchvision>=0.20.0; python_full_version < '3.14'",
-  "triton-xpu; python_full_version < '3.14'",
+  "torch>=2.10.0; python_full_version < '3.14' and sys_platform != 'darwin'",
+  "torchvision>=0.20.0; python_full_version < '3.14' and sys_platform != 'darwin'",
+  "triton-xpu; python_full_version < '3.14' and sys_platform != 'darwin'",
 ]
 # TODO remove bundled torch deps once ONNX no longer relies on torch tensors internally
 onnx-cpu = [
@@ -85,12 +85,12 @@ onnx-cuda = [
   "torchvision>=0.20.0",
 ]
 onnx-intel = [
-  "onnx>=1.21.0",
-  "onnxruntime-openvino>=1.24.1",
+  "onnx>=1.21.0; sys_platform != 'darwin'",
+  "onnxruntime-openvino>=1.24.1; sys_platform != 'darwin'",
   "openvino>=2025.1.0; sys_platform == 'win32'",
-  "torch>=2.10.0; python_full_version < '3.14'",
-  "torchvision>=0.20.0; python_full_version < '3.14'",
-  "triton-xpu; python_full_version < '3.14'",
+  "torch>=2.10.0; python_full_version < '3.14' and sys_platform != 'darwin'",
+  "torchvision>=0.20.0; python_full_version < '3.14' and sys_platform != 'darwin'",
+  "triton-xpu; python_full_version < '3.14' and sys_platform != 'darwin'",
 ]
 
 # Transparency module
@@ -150,7 +150,6 @@ override-dependencies = [
   "blis>=1.0.2",
   "thinc>=8.3.6,<9",
   "spacy>=3.8.0",
-  "transformers>=4.7.0,<5.0.0",
 ]
 conflicts = [
   [
