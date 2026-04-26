@@ -29,6 +29,7 @@ All visualisers implement `BaseVisualiser`, which defines:
 - `save(attributions, output_path, inputs, **kwargs) -> None` (optional, has default implementation)
 - `compatible_algorithms: frozenset[str]` (empty = all algorithms)
 - `supported_payload_kinds: ClassVar[frozenset[ExplanationPayloadKind]]` — default `{ATTRIBUTIONS}`. An **empty** `frozenset()` means the visualiser accepts **all** payload kinds (wildcard). The factory raises `PayloadVisualiserIncompatibilityError` if the explainer’s `output_payload_kind` is not listed when the set is non-empty.
+- `report_scope: ClassVar[str]` — defines which report group the visualiser belongs to. The default `"local"` means RAITAP places the output in **Local Explanations** because it represents one sample at a time, as with `CaptumImageVisualiser` or `ShapImageVisualiser`. Set this to `"global"` only when the visualiser itself already produces a true aggregate view for the whole run or dataset, so RAITAP places it in **Global Explanations**. Examples include `ShapBarVisualiser` and `ShapBeeswarmVisualiser`. Representative montages of a few samples are still `"local"`.
 
 After `create_explainer`, `factory.Explanation` may emit **third-party license warnings** (e.g. Alibi BSL) at most once per process via `logging.warning`.
 
@@ -178,15 +179,23 @@ To add a new visualiser:
 
     ```python
     # src/raitap/transparency/visualisers/new_visualiser.py
-    from .base_visualiser import BaseVisualiser
+    from pathlib import Path
+    from typing import Any
+
     import torch
     from matplotlib.figure import Figure
+
+    from raitap.transparency.contracts import VisualisationContext
+
+    from .base_visualiser import BaseVisualiser
 
     class NewVisualiser(BaseVisualiser):
         # Optional: Restrict to specific algorithms (empty = compatible with all)
         compatible_algorithms: frozenset[str] = frozenset()
         # Optional: restrict payload kinds (empty frozenset = all kinds)
         # supported_payload_kinds: ClassVar[frozenset[ExplanationPayloadKind]] = frozenset({ExplanationPayloadKind.ATTRIBUTIONS})
+        # Optional: set to "global" for true aggregate visualisations.
+        report_scope = "local"
         
         def __init__(self, **config_kwargs):
             super().__init__()
@@ -196,9 +205,12 @@ To add a new visualiser:
             self,
             attributions: torch.Tensor,
             inputs: torch.Tensor | None = None,
-            **kwargs
+            *,
+            context: VisualisationContext | None = None,
+            **kwargs: Any,
         ) -> Figure:
             """Required: Create and return a matplotlib Figure."""
+            del context, kwargs
             # Your implementation here
             pass
         
@@ -207,14 +219,22 @@ To add a new visualiser:
             attributions: torch.Tensor,
             output_path: str | Path,
             inputs: torch.Tensor | None = None,
-            **kwargs
+            *,
+            context: VisualisationContext | None = None,
+            **kwargs: Any,
         ) -> None:
             """Optional: Override for custom save logic (default uses visualise())."""
             # Default implementation in BaseVisualiser usually sufficient
-            super().save(attributions, output_path, inputs, **kwargs)
+            super().save(attributions, output_path, inputs, context=context, **kwargs)
     ```
 
     Reference `src/raitap/transparency/visualisers/captum_visualisers.py` or `shap_visualisers.py` for complete examples.
+
+    `report_scope` controls where report builders place the visualisation:
+    `"local"` means per-sample output, while `"global"` means true global output.
+    Do not mark representative local montages as global. Use `"global"` only
+    when the visualiser itself produces a true run-level or dataset-level
+    summary plot. The global section is only for those native global outputs.
 
 2. **Export from `__init__.py`**
 

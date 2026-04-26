@@ -40,4 +40,4 @@ raitap
 
 After the run is complete, the `outputs` directory can be found in the directory you ran RAITAP from.
 
-It will contain the run's metadata, as well as the transparency assessment (attributions and visualisations). Refer to the {doc}`understanding-outputs` page for more details.
+It will contain the run's metadata, the transparency assessment (attributions and visualisations), and a PDF report under `reports/`. Refer to the {doc}`understanding-outputs` page for more details.

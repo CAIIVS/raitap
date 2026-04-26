@@ -125,6 +125,8 @@ def test_run_without_tracking_forward_output_is_cpu_and_detached() -> None:
     # Transparency must be dict-like (supports .items() and [key] access)
     config = MagicMock()
     config.transparency = {"explainer1": SimpleNamespace()}
+    config.run.forward_batch_size = None
+    config.data.forward_batch_size = None
 
     fake_explanation = MagicMock()
     fake_explanation.visualise.return_value = []

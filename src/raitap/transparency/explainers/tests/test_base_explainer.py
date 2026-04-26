@@ -113,6 +113,32 @@ def test_explain_uses_optional_batching_and_slices_per_sample_kwargs() -> None:
     assert explainer.seen_background_sizes == [2, 2, 2]
 
 
+def test_explain_prepares_each_batch_with_backend() -> None:
+    class _PreparingBackend:
+        def __init__(self) -> None:
+            self.prepared_batch_sizes: list[int] = []
+
+        def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
+            self.prepared_batch_sizes.append(int(inputs.shape[0]))
+            return inputs + 10
+
+    explainer = _BatchRecordingExplainer()
+    backend = _PreparingBackend()
+    model = torch.nn.Identity()
+    inputs = torch.randn(5, 3)
+
+    result = explainer.explain(
+        model,
+        inputs,
+        backend=backend,
+        raitap_kwargs={"batch_size": 2},
+    )
+
+    assert backend.prepared_batch_sizes == [2, 2, 1]
+    assert torch.equal(result.inputs, inputs)
+    assert torch.equal(result.attributions, inputs + 10)
+
+
 def test_explain_accepts_progress_kwargs_without_forwarding_to_compute() -> None:
     explainer = _StrictExplainer()
     model = torch.nn.Identity()

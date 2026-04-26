@@ -38,6 +38,7 @@ class BaseVisualiser(ABC):
     supported_payload_kinds: ClassVar[frozenset[ExplanationPayloadKind]] = frozenset(
         {ExplanationPayloadKind.ATTRIBUTIONS}
     )
+    report_scope: ClassVar[str] = "local"
 
     @abstractmethod
     def visualise(

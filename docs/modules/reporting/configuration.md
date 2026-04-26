@@ -11,6 +11,12 @@
 :default: "report.pdf"
 :description: Name of the generated PDF report file.
 
+:option: multirun_report
+:allowed: boolean
+:default: true
+:description: Whether Hydra multiruns should create one merged parent report at
+  the sweep directory level. Set to false to keep per-run reports only.
+
 :option: include_config
 :allowed: boolean
 :default: true
@@ -56,8 +62,9 @@
 reporting:
   _target_: "PDFReporter"
   filename: "experiment_report.pdf"
+  multirun_report: true
   formatting:
     figures_max_pages: 10
 
-:cli: reporting=pdf reporting.filename="my_report.pdf" reporting.formatting.figures_max_pages=10
+:cli: reporting=pdf reporting.filename="my_report.pdf" reporting.multirun_report=false reporting.formatting.figures_max_pages=10
 ```

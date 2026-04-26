@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
     from raitap.configs.schema import AppConfig
 
+
 from raitap import run as run_module
 from raitap.metrics import metrics_prediction_pair
 from raitap.run import __main__ as run_entry
@@ -86,6 +87,35 @@ def test_metrics_prediction_pair_multiclass_and_vector() -> None:
     a, b = metrics_prediction_pair(scalar)
     assert torch.equal(a, scalar)
     assert torch.equal(b, scalar)
+
+
+def test_forward_primary_tensor_batches_backend_calls() -> None:
+    class _RecordingBackend:
+        def __init__(self) -> None:
+            self.prepared_batch_sizes: list[int] = []
+
+        def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
+            self.prepared_batch_sizes.append(int(inputs.shape[0]))
+            return inputs
+
+        def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
+            return inputs.sum(dim=1, keepdim=True)
+
+    config = SimpleNamespace(
+        run=SimpleNamespace(forward_batch_size=2),
+        data=SimpleNamespace(),
+    )
+    backend = _RecordingBackend()
+    inputs = torch.arange(10, dtype=torch.float32).reshape(5, 2)
+
+    output = run_pipeline._forward_primary_tensor(
+        cast("AppConfig", cast("object", config)),
+        backend,
+        inputs,
+    )
+
+    assert backend.prepared_batch_sizes == [2, 2, 1]
+    assert torch.equal(output, torch.tensor([[1.0], [5.0], [9.0], [13.0], [17.0]]))
 
 
 class _FakeExplainerResult:

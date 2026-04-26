@@ -17,8 +17,21 @@ def test_metrics_visualizer_creates_overview_chart() -> None:
 
     assert "metrics_overview" in figures
     assert figures["metrics_overview"] is not None
+    assert figures["metrics_overview"].axes[0].get_ylim() == (0.0, 1.0)
     # Verify it's a matplotlib Figure
     assert hasattr(figures["metrics_overview"], "savefig")
+
+
+def test_metrics_visualizer_overview_axis_does_not_auto_scale() -> None:
+    """Low scores should still render against the fixed normalized score range."""
+    result = MetricResult(
+        metrics={"accuracy": 0.2, "precision": 0.4, "recall": 0.6},
+        artifacts={},
+    )
+
+    figures = MetricsVisualizer.create_figures(result)
+
+    assert figures["metrics_overview"].axes[0].get_ylim() == (0.0, 1.0)
 
 
 def test_metrics_visualizer_empty_metrics() -> None:

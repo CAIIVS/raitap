@@ -15,6 +15,7 @@ data:
   name: "my-dataset"
   description: "Internal validation set"
   source: "./data/images"
+  forward_batch_size: 32
   labels:
     source: "./data/labels.csv"
     id_column: "image"
@@ -78,6 +79,7 @@ tracking:
 reporting:
   _target_: "PDFReporter"
   filename: "report.pdf"
+  multirun_report: true
   formatting:
     figures_max_pages: 12
 ```

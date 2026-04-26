@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,6 +13,8 @@ if TYPE_CHECKING:
     import torch
     from matplotlib.figure import Figure
 
+    from raitap.transparency.contracts import VisualisationContext
+
 
 class TabularBarChartVisualiser(BaseVisualiser):
     """
@@ -20,6 +22,8 @@ class TabularBarChartVisualiser(BaseVisualiser):
 
     Works with any attribution method (Captum, SHAP, etc.)
     """
+
+    report_scope: ClassVar[str] = "global"
 
     def __init__(self, feature_names: list[str] | None = None):
         """
@@ -29,7 +33,13 @@ class TabularBarChartVisualiser(BaseVisualiser):
         self.feature_names = feature_names
 
     def visualise(
-        self, attributions: torch.Tensor, inputs: torch.Tensor | None = None, **kwargs: Any
+        self,
+        attributions: torch.Tensor,
+        inputs: torch.Tensor | None = None,
+        *,
+        context: VisualisationContext | None = None,
+        title: str | None = None,
+        **kwargs: Any,
     ) -> Figure:
         """
         Create feature importance bar chart.
@@ -37,10 +47,14 @@ class TabularBarChartVisualiser(BaseVisualiser):
         Args:
             attributions: (B, num_features) array
             inputs: Not used for tabular visualization
+            context: Standard RAITAP metadata (not used by this aggregate visualiser)
+            title: Optional chart title override
 
         Returns:
             Matplotlib figure
         """
+        del context, kwargs
+
         # Convert to numpy
         if hasattr(attributions, "detach"):
             attrs_np = attributions.detach().cpu().numpy()
@@ -63,7 +77,7 @@ class TabularBarChartVisualiser(BaseVisualiser):
 
         ax.set_ylabel("Mean Absolute Attribution")
         ax.set_xlabel("Features")
-        ax.set_title("Feature Importance")
+        ax.set_title(title or "Feature Importance")
         ax.grid(axis="y", alpha=0.3)
 
         fig.tight_layout()

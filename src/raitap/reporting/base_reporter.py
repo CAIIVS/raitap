@@ -19,11 +19,18 @@ class BaseReporter(ABC):
         self.config = config
 
     @abstractmethod
-    def generate(self, sections: Sequence[ReportSection]) -> Path:
+    def generate(
+        self,
+        sections: Sequence[ReportSection],
+        *,
+        report_dir: Path | None = None,
+    ) -> Path:
         """Generate report and return path to output file.
 
         Args:
             sections: Ordered report sections (metrics, transparency, etc.).
+            report_dir: Optional explicit report directory. When omitted, the reporter
+                resolves the current Hydra run directory.
 
         Returns:
             Path to generated report file.

@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any
 import matplotlib.pyplot as plt
 import torch
 
-from raitap.reporting.sections import Reportable, ReportGroup
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 from raitap.utils.serialization import to_json_serialisable
 
@@ -69,6 +68,11 @@ def _sample_names_title(sample_names: list[str]) -> str:
     return first if remaining <= 0 else f"{first} (+{remaining})"
 
 
+def _report_scope_for_visualiser(visualiser: BaseVisualiser) -> str:
+    raw = getattr(type(visualiser), "report_scope", "local")
+    return "global" if str(raw).strip().lower() == "global" else "local"
+
+
 @dataclass(frozen=True)
 class ConfiguredVisualiser:
     """Visualiser instance plus per-call kwargs for ``BaseVisualiser.visualise``."""
@@ -78,7 +82,7 @@ class ConfiguredVisualiser:
 
 
 @dataclass
-class ExplanationResult(Trackable, Reportable):
+class ExplanationResult(Trackable):
     attributions: torch.Tensor
     inputs: torch.Tensor
     run_dir: Path
@@ -97,12 +101,6 @@ class ExplanationResult(Trackable, Reportable):
         # Ensure tensors are detached and on CPU to avoid GPU memory retention
         self.attributions = self.attributions.detach().cpu()
         self.inputs = self.inputs.detach().cpu()
-
-    def to_report_group(self) -> ReportGroup:
-        return ReportGroup(
-            heading=f"Explainer: {self.explainer_name or self.algorithm}",
-            images=tuple(sorted(self.run_dir.glob("*.png"))),
-        )
 
     def write_artifacts(self) -> None:
         self.run_dir.mkdir(parents=True, exist_ok=True)
@@ -201,12 +199,106 @@ class ExplanationResult(Trackable, Reportable):
                     visualiser_name=visualiser_name,
                     visualiser_target=visualiser_target,
                     output_path=output_path,
+                    report_scope=_report_scope_for_visualiser(vis),
                 )
             )
 
         if new_targets:
             self.visualiser_targets.extend(new_targets)
             self._write_metadata()
+
+        return results
+
+    def has_visualisations_for_scope(self, scope: str) -> bool:
+        wanted = "global" if scope == "global" else "local"
+        return any(
+            _report_scope_for_visualiser(configured.visualiser) == wanted
+            for configured in self.visualisers
+        )
+
+    def render_visualisations_for_scope(
+        self,
+        *,
+        scope: str,
+        sample_index: int | None = None,
+    ) -> list[VisualisationResult]:
+        """
+        Render scoped visualisations without persisting them to disk.
+
+        The returned ``VisualisationResult`` objects are intended for downstream
+        consumers such as reporting, which own file staging and figure cleanup.
+        Their ``output_path`` values are placeholders only and must not be treated
+        as real on-disk artifacts or passed to ``VisualisationResult.log()``.
+        """
+        results: list[VisualisationResult] = []
+        wanted = "global" if scope == "global" else "local"
+
+        for index, configured in enumerate(self.visualisers):
+            vis = configured.visualiser
+            if _report_scope_for_visualiser(vis) != wanted:
+                continue
+
+            merged_call = dict(configured.call_kwargs)
+            attributions = merged_call.pop("attributions", self.attributions)
+            inputs = merged_call.pop("inputs", self.inputs)
+            show_sample_names = bool(
+                merged_call.pop("show_sample_names", self.kwargs.get("show_sample_names", False))
+            )
+            sample_names_value = merged_call.pop("sample_names", self.kwargs.get("sample_names"))
+            sample_names = _normalise_sample_names(sample_names_value)
+
+            if sample_index is not None:
+                attributions = attributions[sample_index : sample_index + 1]
+                inputs = inputs[sample_index : sample_index + 1]
+                if sample_names:
+                    sample_names = sample_names[sample_index : sample_index + 1]
+            else:
+                limit = _batch_size(attributions) or _batch_size(inputs)
+                if limit is not None:
+                    sample_names = sample_names[:limit]
+
+            context = VisualisationContext(
+                algorithm=self.algorithm,
+                sample_names=sample_names,
+                show_sample_names=show_sample_names,
+            )
+            original_visualiser_sample_index = getattr(vis, "sample_index", None)
+            reset_visualiser_sample_index = (
+                sample_index is not None and original_visualiser_sample_index is not None
+            )
+            visualiser_with_sample_index: Any | None = None
+            if reset_visualiser_sample_index:
+                # Report rendering has already sliced to a one-sample batch, so visualisers
+                # with their own batch selector must read index 0 inside that slice.
+                visualiser_with_sample_index = vis
+                visualiser_with_sample_index.sample_index = 0
+            try:
+                figure = vis.visualise(attributions, inputs=inputs, context=context, **merged_call)
+            finally:
+                if visualiser_with_sample_index is not None:
+                    visualiser_with_sample_index.sample_index = original_visualiser_sample_index
+
+            if (
+                show_sample_names
+                and sample_names
+                and not figure.texts
+                and not any(ax.get_title() for ax in figure.axes)
+            ):
+                figure.suptitle(_sample_names_title(sample_names), fontsize=10)
+                figure.tight_layout()
+
+            cls = type(vis)
+            visualiser_name = f"{cls.__name__}_{index}"
+            results.append(
+                VisualisationResult(
+                    explanation=self,
+                    figure=figure,
+                    visualiser_name=visualiser_name,
+                    visualiser_target=f"{cls.__module__}.{visualiser_name}",
+                    output_path=Path(visualiser_name).with_suffix(".png"),
+                    report_scope=wanted,
+                )
+            )
 
         return results
 
@@ -262,6 +354,7 @@ class VisualisationResult(Trackable):
     visualiser_name: str
     visualiser_target: str
     output_path: Path
+    report_scope: str = "local"
 
     def __post_init__(self) -> None:
         self.output_path = Path(self.output_path)
