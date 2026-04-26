@@ -38,6 +38,9 @@ class _MetricsStub:
 
 
 class _LocalImageVisualiser(BaseVisualiser):
+    def __init__(self) -> None:
+        self.figures: list[Figure] = []
+
     def visualise(
         self,
         attributions: torch.Tensor,
@@ -52,6 +55,7 @@ class _LocalImageVisualiser(BaseVisualiser):
         if context is not None and context.sample_names:
             ax.set_title(str(context.sample_names[0]))
         ax.axis("off")
+        self.figures.append(fig)
         return fig
 
 
@@ -174,6 +178,78 @@ def test_build_report_skips_global_section_for_local_only_outputs(tmp_path: Path
     report = build_report(config, outputs)
 
     assert [section.title for section in report.sections] == ["Local Explanations"]
+
+
+def test_build_report_local_assets_are_staged_and_closed(tmp_path: Path) -> None:
+    config = AppConfig(experiment_name="local_assets")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    visualiser = _LocalImageVisualiser()
+    explanation = ExplanationResult(
+        attributions=torch.rand(3, 1, 4, 4),
+        inputs=torch.rand(3, 1, 4, 4),
+        run_dir=tmp_path / "transparency" / "exp",
+        experiment_name="local_assets",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        explainer_name="captum_ig",
+        kwargs={"sample_names": ["a", "b", "c"], "show_sample_names": True},
+        visualisers=[ConfiguredVisualiser(visualiser=visualiser)],
+    )
+    outputs = RunOutputs(
+        explanations=[explanation],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.tensor([[0.1, 0.9], [0.8, 0.2], [0.95, 0.05]]),
+        sample_ids=["a", "b", "c"],
+        prediction_summaries=(
+            PredictionSummary(sample_index=0, sample_id="a", predicted_class=1, confidence=0.9),
+            PredictionSummary(sample_index=1, sample_id="b", predicted_class=0, confidence=0.2),
+            PredictionSummary(sample_index=2, sample_id="c", predicted_class=0, confidence=0.95),
+        ),
+    )
+
+    report = build_report(config, outputs)
+
+    local_groups = report.sections[0].groups
+    assert len(local_groups) == 2
+    assert local_groups[0].images[0].name.startswith("overview_captum_ig_1_")
+    assert local_groups[1].images[0].name.startswith("detail_high_confidence_captum_ig_2_")
+    assert all(not plt.fignum_exists(fig.number) for fig in visualiser.figures)
+
+
+def test_build_report_skips_local_groups_when_no_local_visualisations(tmp_path: Path) -> None:
+    config = AppConfig(experiment_name="no_local")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    class _GlobalOnlyVisualiser(_LocalImageVisualiser):
+        report_scope = "global"
+
+    explanation = ExplanationResult(
+        attributions=torch.rand(2, 1, 4, 4),
+        inputs=torch.rand(2, 1, 4, 4),
+        run_dir=tmp_path / "transparency" / "exp",
+        experiment_name="no_local",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        visualisers=[ConfiguredVisualiser(visualiser=_GlobalOnlyVisualiser())],
+    )
+    outputs = RunOutputs(
+        explanations=[explanation],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.tensor([[0.1, 0.9], [0.8, 0.2]]),
+        prediction_summaries=(
+            PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
+            PredictionSummary(sample_index=1, predicted_class=0, confidence=0.8),
+        ),
+    )
+
+    report = build_report(config, outputs)
+
+    assert report.sections == ()
 
 
 def test_report_manifest_round_trip_preserves_relative_images(tmp_path: Path) -> None:

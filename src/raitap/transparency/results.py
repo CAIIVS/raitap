@@ -216,18 +216,21 @@ class ExplanationResult(Trackable):
             for configured in self.visualisers
         )
 
-    def save_visualisations_for_report(
+    def render_visualisations_for_scope(
         self,
-        output_dir: Path,
         *,
         scope: str,
-        file_stem_prefix: str,
         sample_index: int | None = None,
-    ) -> tuple[Path, ...]:
-        output_dir = Path(output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
+    ) -> list[VisualisationResult]:
+        """
+        Render scoped visualisations without persisting them to disk.
 
-        selected_paths: list[Path] = []
+        The returned ``VisualisationResult`` objects are intended for downstream
+        consumers such as reporting, which own file staging and figure cleanup.
+        Their ``output_path`` values are placeholders only and must not be treated
+        as real on-disk artifacts or passed to ``VisualisationResult.log()``.
+        """
+        results: list[VisualisationResult] = []
         wanted = "global" if scope == "global" else "local"
 
         for index, configured in enumerate(self.visualisers):
@@ -285,14 +288,19 @@ class ExplanationResult(Trackable):
                 figure.tight_layout()
 
             cls = type(vis)
-            output_path = output_dir / f"{file_stem_prefix}_{cls.__name__}_{index}.png"
-            try:
-                figure.savefig(output_path, bbox_inches="tight", dpi=150)
-            finally:
-                plt.close(figure)
-            selected_paths.append(output_path)
+            visualiser_name = f"{cls.__name__}_{index}"
+            results.append(
+                VisualisationResult(
+                    explanation=self,
+                    figure=figure,
+                    visualiser_name=visualiser_name,
+                    visualiser_target=f"{cls.__module__}.{visualiser_name}",
+                    output_path=Path(visualiser_name).with_suffix(".png"),
+                    report_scope=wanted,
+                )
+            )
 
-        return tuple(selected_paths)
+        return results
 
     def log(
         self,

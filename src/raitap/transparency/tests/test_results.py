@@ -447,15 +447,15 @@ def test_report_visualisation_resets_visualiser_sample_index_for_sliced_batch(
     )
     explanation.write_artifacts()
 
-    paths = explanation.save_visualisations_for_report(
-        tmp_path / "assets",
+    rendered = explanation.render_visualisations_for_scope(
         scope="local",
-        file_stem_prefix="sample",
         sample_index=1,
     )
 
-    assert len(paths) == 1
-    assert paths[0].exists()
+    assert len(rendered) == 1
+    assert rendered[0].visualiser_name == "_SampleIndexVisualiser_0"
+    assert rendered[0].report_scope == "local"
+    assert rendered[0].output_path == Path("_SampleIndexVisualiser_0.png")
     assert vis.sample_index == 2
     assert vis.seen_attribution is not None
     assert torch.equal(vis.seen_attribution, attributions[1])

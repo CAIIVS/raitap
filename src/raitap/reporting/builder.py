@@ -6,6 +6,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import matplotlib.pyplot as plt
+
 from raitap.configs import resolve_run_dir
 from raitap.run.outputs import PredictionSummary, RunOutputs
 
@@ -232,15 +234,18 @@ def _build_local_section(
     overview_sample = selected_samples[0] if selected_samples else None
     if overview_sample is not None:
         for explanation in outputs.explanations:
-            images = explanation.save_visualisations_for_report(
-                assets_dir,
+            rendered = explanation.render_visualisations_for_scope(
                 scope="local",
+                sample_index=overview_sample.summary.sample_index,
+            )
+            images = _stage_rendered_visualisations(
+                rendered,
+                assets_dir=assets_dir,
                 file_stem_prefix=(
                     "overview_"
                     f"{_safe_name(explanation.explainer_name or explanation.run_dir.name)}_"
                     f"{overview_sample.summary.sample_index}"
                 ),
-                sample_index=overview_sample.summary.sample_index,
             )
             if not images:
                 continue
@@ -265,16 +270,19 @@ def _build_local_section(
     for selected in detail_samples:
         detail_images: list[Path] = []
         for explanation in outputs.explanations:
+            rendered = explanation.render_visualisations_for_scope(
+                scope="local",
+                sample_index=selected.summary.sample_index,
+            )
             detail_images.extend(
-                explanation.save_visualisations_for_report(
-                    assets_dir,
-                    scope="local",
+                _stage_rendered_visualisations(
+                    rendered,
+                    assets_dir=assets_dir,
                     file_stem_prefix=(
                         f"detail_{selected.label}_"
                         f"{_safe_name(explanation.explainer_name or explanation.run_dir.name)}_"
                         f"{selected.summary.sample_index}"
                     ),
-                    sample_index=selected.summary.sample_index,
                 )
             )
         if not detail_images:
@@ -361,6 +369,24 @@ def _copy_asset(source: Path, *, assets_dir: Path, target_name: str) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source, target)
     return target
+
+
+def _stage_rendered_visualisations(
+    visualisations: list[VisualisationResult],
+    *,
+    assets_dir: Path,
+    file_stem_prefix: str,
+) -> tuple[Path, ...]:
+    staged: list[Path] = []
+    for visualisation in visualisations:
+        target = assets_dir / f"{file_stem_prefix}_{visualisation.visualiser_name}.png"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            visualisation.figure.savefig(target, bbox_inches="tight", dpi=150)
+        finally:
+            plt.close(visualisation.figure)
+        staged.append(target)
+    return tuple(staged)
 
 
 def _sample_label(selected: SelectedSample) -> str:
