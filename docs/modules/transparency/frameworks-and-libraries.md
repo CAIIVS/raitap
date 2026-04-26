@@ -10,7 +10,7 @@ Explainers support three config buckets:
 
 Visualisers continue to support `constructor` and `call` only.
 
-This keeps the boundary clear for users: `call` is what Captum, SHAP, or Alibi sees, while `raitap` is what RAITAP itself consumes. Example:
+This keeps the boundary clear for users: `call` is what Captum or SHAP sees, while `raitap` is what RAITAP itself consumes. Example:
 
 ```yaml
 transparency:
@@ -203,94 +203,3 @@ transparency:
 ```
 
 **Note:** `ShapImageVisualiser` requires pixel-level SHAP values from `GradientExplainer` or `DeepExplainer`. Using it with other SHAP explainers will produce meaningless plots.
-
-(alibi-frameworks)=
-
-### Alibi
-
-#### Docs
-
-- [Alibi Explain](https://docs.seldon.io/projects/alibi/en/stable/overview/high_level.html)
-
-(alibi-install-overrides)=
-
-#### Installation and license
-
-:::{warning}
-**Alibi Explain is under Seldon’s Business Source License 1.1 (BSL 1.1)** — not GPLv3. Non-production use is permitted on Seldon’s terms; production or commercial use may require a separate license. RAITAP (GPLv3) does not relicense Alibi. Read [Seldon’s license](https://github.com/SeldonIO/alibi/blob/master/LICENSE) before using.
-:::
-
-`alibi` 0.9.x hard-pins three packages that conflict with RAITAP’s own requirements:
-
-| alibi pins          | RAITAP requires                   |
-| ------------------- | --------------------------------- |
-| `numpy<2.0.0`       | `numpy>=2.4.2`                    |
-| `Pillow<11.0`       | `pillow>=10.0.0` (currently 12.x) |
-| `scikit-image<0.23` | (currently 0.26)                  |
-
-Independently, Alibi’s **spaCy** dependency can resolve to **thinc** / **blis** versions that lack **Python 3.13** wheels and fall back to **sdist** builds (often failing). The `alibi` extra is supported, but you must add **`[tool.uv]` overrides** in your own **`pyproject.toml`** — use the same entries as RAITAP’s `pyproject.toml`:
-
-```toml
-[tool.uv]
-override-dependencies = [
-  "numpy>=2.4",
-  "Pillow>=12.0",
-  "scikit-image>=0.26",
-  "blis>=1.0.2",
-  "thinc>=8.3.6,<9",
-  "spacy>=3.8.0",
-]
-```
-
-Then install with **uv** (recommended):
-
-```sh
-uv add "raitap[alibi]"
-```
-
-:::{note}
-**pip** (and other installers that are not **uv**) do **not** read `override-dependencies`. Prefer **uv** for `raitap[alibi]`; if you use **pip**, you must satisfy compatible versions of the packages above yourself — RAITAP does not document a supported **pip-only** recipe.
-:::
-
-:::{note}
-These overrides bypass version constraints declared by Alibi and its transitive dependencies but do not guarantee every Alibi algorithm works with those newer versions — Seldon has not tested or supported this combination. RAITAP’s **`KernelShap`** path is exercised in tests (including under **SHAP 0.5x**, where RAITAP adapts stacked multi-class outputs before Alibi builds explanation metadata); other algorithms may behave differently. The `alibi` extra will be cleaned up once upstream metadata and wheels align with RAITAP’s baseline.
-:::
-
-#### Explainers
-
-`AlibiExplainer` wraps a subset of [Alibi explainers](https://docs.seldon.io/projects/alibi/en/stable/api/alibi.explainers.html):
-
-- **`KernelShap`** — black-box SHAP-style explanations. RAITAP passes a NumPy batch through your **`torch.nn.Module`** (converted to tensors on the model’s device). Optional `call` keys include `background_data`, `task` (`"classification"` / `"regression"`), `nsamples`, and `target` (class index for classification).
-- **`IntegratedGradients`** — Alibi’s TensorFlow/Keras API only. Put a **`keras_model`** (`tf.keras.Model`) in the Hydra **`constructor`** block. For PyTorch integrated gradients, use **Captum** or **`KernelShap`** here.
-
-RAITAP explainer-level metadata keys `raitap.sample_names` and `raitap.show_sample_names`
-are honoured for downstream visualisers as the default metadata values. If a
-specific visualiser needs different sample-name rendering, override it under
-`visualisers[].call.sample_names` or `visualisers[].call.show_sample_names`.
-RAITAP batching/progress keys
-(`raitap.batch_size`, `raitap.show_progress`, `raitap.progress_desc`) are currently
-ignored for Alibi and emit a warning when set.
-
-Example (tabular-oriented preset lives under `src/raitap/configs/transparency/alibi_kernel.yaml`):
-
-```yaml
-transparency:
-  my_alibi_explainer:
-    _target_: AlibiExplainer
-    algorithm: KernelShap
-    call:
-      nsamples: 32
-      task: classification
-    raitap:
-      show_sample_names: false
-    visualisers:
-      - _target_: TabularBarChartVisualiser
-```
-
-#### ONNX compatibility
-
-RAITAP does not expose an ONNXRuntime-specific Alibi path. **`KernelShap` requires a PyTorch `nn.Module`** whose `forward` is invoked on tensor batches (Alibi calls your model from NumPy inputs). If your deployment uses ONNX only, use another explainer or wrap inference in an `nn.Module` that matches this contract.
-
-#### Visualiser compatibility
-
-`AlibiExplainer` produces the same kind of **tensor attributions** as Captum/SHAP (heat-map compatible), so pick RAITAP visualisers that match your input modality (for example **`TabularBarChartVisualiser`** for flat/tabular features). The sample config pairs `KernelShap` with `TabularBarChartVisualiser`; image or text pipelines should use the corresponding RAITAP image/text visualisers where shapes align.

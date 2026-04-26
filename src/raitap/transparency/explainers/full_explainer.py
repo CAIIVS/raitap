@@ -21,8 +21,7 @@ class FullExplainer(AbstractExplainer, ABC):
 
     Subclasses implement :meth:`explain` entirely — data conversion, model invocation,
     result construction, and artifact persistence.  Use this when the target library's
-    API does not map to a simple ``compute_attributions(model, inputs) → Tensor`` step
-    (e.g. Alibi Explain).
+    API does not map to a simple ``compute_attributions(model, inputs) → Tensor`` step.
     """
 
     @abstractmethod

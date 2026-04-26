@@ -18,7 +18,7 @@
     prediction batch size.
 
 :option: _target_
-:allowed: "CaptumExplainer", "ShapExplainer", "AlibiExplainer"
+:allowed: "CaptumExplainer", "ShapExplainer"
 :default: null
 :description: Hydra target for the explainer class.
 
@@ -51,8 +51,7 @@
 :allowed: int
 :default: None
 :description: Batch size for computing attributions. If not specified, the explainer
-  will compute attributions in a single pass. Currently implemented for Captum and
-  SHAP explainers; Alibi ignores this key and emits a warning. This controls only
+  will compute attributions in a single pass. This controls only
   the explainer attribution stage. It does not control the initial prediction
   forward pass used for metrics, report sample ranking, or `auto_pred` targets;
   configure that with `data.forward_batch_size`.
@@ -60,15 +59,13 @@
 :option: raitap.show_progress
 :allowed: bool
 :default: True
-:description: Whether to show a progress bar when computing attributions. Currently
-  implemented for Captum and SHAP explainers; Alibi ignores this key and emits a warning.
+:description: Whether to show a progress bar when computing attributions.
   `raitap.max_batch_size` has been removed. Use `raitap.batch_size` instead.
 
 :option: raitap.progress_desc
 :allowed: str
 :default: null
-:description: Description of the progress bar. Currently implemented for Captum and
-  SHAP explainers; Alibi ignores this key and emits a warning.
+:description: Description of the progress bar.
 
 :option: raitap.sample_names
 :allowed: list[str]

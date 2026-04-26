@@ -26,7 +26,6 @@ if TYPE_CHECKING:
 
 _TRANSPARENCY_PREFIX = "raitap.transparency."
 logger = logging.getLogger(__name__)
-_ALIBI_BSL_WARNING_EMITTED = False
 _PARSED_EXPLAINER_CONFIG_CACHE: dict[int, _ParsedExplainerConfig] = {}
 
 _EXPLAINER_TOP_LEVEL_KEYS = frozenset(
@@ -286,25 +285,6 @@ def _require_model_backend(model: object) -> ModelBackend:
     return backend
 
 
-def _maybe_emit_third_party_license_warnings(explainer: object) -> None:
-    """
-    Emit one-time warnings for explainers that bundle non-GPL third-party license terms.
-    """
-    global _ALIBI_BSL_WARNING_EMITTED
-    if not getattr(type(explainer), "ALIBI_BSL_LICENSE_WARNING", False):
-        return
-    if _ALIBI_BSL_WARNING_EMITTED:
-        return
-    _ALIBI_BSL_WARNING_EMITTED = True
-    logger.warning(
-        "This run uses Alibi Explain, which is licensed under Seldon's Business Source "
-        "License 1.1 (BSL 1.1), not GPLv3. Non-production use is allowed on Seldon's terms; "
-        "production or commercial use may require a separate license from Seldon. "
-        "See https://github.com/SeldonIO/alibi/blob/master/LICENSE and Seldon's licensing FAQ. "
-        "RAITAP (GPLv3) does not relicense Alibi."
-    )
-
-
 def check_explainer_visualiser_payload_compat(
     explainer: object,
     explainer_target: str,
@@ -342,7 +322,6 @@ class Explanation:
         _PARSED_EXPLAINER_CONFIG_CACHE[cache_key] = parsed
         try:
             explainer, explainer_target = create_explainer(explainer_config)
-            _maybe_emit_third_party_license_warnings(explainer)
             visualisers = create_visualisers(explainer_config)
             check_explainer_visualiser_compat(explainer_target, algorithm, visualisers)
             check_explainer_visualiser_payload_compat(explainer, explainer_target, visualisers)

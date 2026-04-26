@@ -11,7 +11,7 @@ or more visualisations via `explanation.visualise(**kwargs)`.
 
 Explainer classes (used as ``_target_`` values)
 -----------------------------------------------
-CaptumExplainer, ShapExplainer, AlibiExplainer (optional extra ``alibi``)
+CaptumExplainer, ShapExplainer
 
 Visualiser classes (used as ``_target_`` values in visualisers list)
 --------------------------------------------------------------------
@@ -33,7 +33,6 @@ from .exceptions import (
 # Explainer classes — public _target_ surface
 from .explainers import (
     AbstractExplainer,
-    AlibiExplainer,
     AttributionOnlyExplainer,
     CaptumExplainer,
     FullExplainer,
@@ -64,7 +63,6 @@ from .visualisers import (
 
 __all__ = [  # noqa: RUF022
     # Explainer adapters
-    "AlibiExplainer",
     "CaptumExplainer",
     "AbstractExplainer",
     "AttributionOnlyExplainer",
