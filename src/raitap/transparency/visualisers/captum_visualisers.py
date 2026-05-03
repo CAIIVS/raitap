@@ -80,6 +80,17 @@ def _resolve_title(
     return _compose_title(base_title, sample_name)
 
 
+_CAPTUM_SEQUENCE_METHOD_FAMILIES = frozenset(
+    {
+        MethodFamily.GRADIENT,
+        MethodFamily.PERTURBATION,
+        MethodFamily.SHAPLEY,
+        MethodFamily.MODEL_AGNOSTIC,
+        MethodFamily.SURROGATE,
+    }
+)
+
+
 def _last_mappable(ax: Any) -> Any:
     """Return the last Matplotlib mappable drawn on an axis, if any."""
     if getattr(ax, "images", None):
@@ -378,7 +389,9 @@ class CaptumTimeSeriesVisualiser(BaseVisualiser):
     supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset(
         {ExplanationOutputSpace.INPUT_FEATURES}
     )
-    supported_method_families: ClassVar[frozenset[MethodFamily]] = frozenset(MethodFamily)
+    supported_method_families: ClassVar[frozenset[MethodFamily]] = (
+        _CAPTUM_SEQUENCE_METHOD_FAMILIES
+    )
 
     def validate_explanation(
         self,
@@ -482,7 +495,9 @@ class CaptumTextVisualiser(BaseVisualiser):
     supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset(
         {ExplanationOutputSpace.TOKEN_SEQUENCE}
     )
-    supported_method_families: ClassVar[frozenset[MethodFamily]] = frozenset(MethodFamily)
+    supported_method_families: ClassVar[frozenset[MethodFamily]] = (
+        _CAPTUM_SEQUENCE_METHOD_FAMILIES
+    )
 
     def validate_explanation(
         self,

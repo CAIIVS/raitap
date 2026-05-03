@@ -491,6 +491,32 @@ class TestCaptumTimeSeriesVisualiser:
         CaptumTimeSeriesVisualiser().validate_explanation(explanation, torch.zeros(2, 12, 3), None)
 
     @pytest.mark.parametrize(
+        "method_families",
+        [
+            frozenset({MethodFamily.TREE}),
+            frozenset({MethodFamily.CAM}),
+        ],
+    )
+    def test_validate_explanation_rejects_unsupported_method_families(
+        self,
+        method_families: frozenset[MethodFamily],
+    ) -> None:
+        explanation = _explanation(
+            input_kind="time_series",
+            input_layout="B,T,C",
+            output_layout="B,T,C",
+            shape=(2, 12, 3),
+            method_families=method_families,
+        )
+
+        with pytest.raises(ValueError, match=r"CaptumTimeSeriesVisualiser.*method family"):
+            CaptumTimeSeriesVisualiser().validate_explanation(
+                explanation,
+                torch.zeros(2, 12, 3),
+                None,
+            )
+
+    @pytest.mark.parametrize(
         "explanation",
         [
             _explanation(input_kind=None, input_layout=None),
@@ -559,6 +585,29 @@ class TestCaptumTextVisualiser:
         )
 
         CaptumTextVisualiser().validate_explanation(explanation, torch.zeros(12), None)
+
+    @pytest.mark.parametrize(
+        "method_families",
+        [
+            frozenset({MethodFamily.TREE}),
+            frozenset({MethodFamily.CAM}),
+        ],
+    )
+    def test_validate_explanation_rejects_unsupported_method_families(
+        self,
+        method_families: frozenset[MethodFamily],
+    ) -> None:
+        explanation = _explanation(
+            input_kind="text",
+            input_layout="TOKENS",
+            output_layout="TOKENS",
+            output_space=ExplanationOutputSpace.TOKEN_SEQUENCE,
+            shape=(12,),
+            method_families=method_families,
+        )
+
+        with pytest.raises(ValueError, match=r"CaptumTextVisualiser.*method family"):
+            CaptumTextVisualiser().validate_explanation(explanation, torch.zeros(12), None)
 
     @pytest.mark.parametrize(
         "explanation",
