@@ -389,9 +389,7 @@ class CaptumTimeSeriesVisualiser(BaseVisualiser):
     supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset(
         {ExplanationOutputSpace.INPUT_FEATURES}
     )
-    supported_method_families: ClassVar[frozenset[MethodFamily]] = (
-        _CAPTUM_SEQUENCE_METHOD_FAMILIES
-    )
+    supported_method_families: ClassVar[frozenset[MethodFamily]] = _CAPTUM_SEQUENCE_METHOD_FAMILIES
 
     def validate_explanation(
         self,
@@ -495,9 +493,7 @@ class CaptumTextVisualiser(BaseVisualiser):
     supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset(
         {ExplanationOutputSpace.TOKEN_SEQUENCE}
     )
-    supported_method_families: ClassVar[frozenset[MethodFamily]] = (
-        _CAPTUM_SEQUENCE_METHOD_FAMILIES
-    )
+    supported_method_families: ClassVar[frozenset[MethodFamily]] = _CAPTUM_SEQUENCE_METHOD_FAMILIES
 
     def validate_explanation(
         self,
