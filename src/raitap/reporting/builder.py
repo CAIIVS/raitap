@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 
 from raitap.configs import resolve_run_dir
 from raitap.run.outputs import PredictionSummary, RunOutputs
+from raitap.transparency.contracts import ExplanationScope
 
 from .manifest import ReportManifest
 from .sections import ReportGroup, ReportSection
@@ -54,6 +55,10 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
     if global_section is not None:
         sections.append(global_section)
 
+    cohort_section = _build_cohort_section(outputs, assets_dir=assets_dir)
+    if cohort_section is not None:
+        sections.append(cohort_section)
+
     local_section = _build_local_section(
         outputs,
         selected_samples=selected_samples,
@@ -92,6 +97,7 @@ def build_merged_report(
     sections_by_title: dict[str, list[ReportGroup]] = {
         "Metrics": [],
         "Global Explanations": [],
+        "Cohort Explanations": [],
         "Local Explanations": [],
     }
     seen_metrics_rows: set[tuple[tuple[str, str], ...]] = set()
@@ -180,7 +186,12 @@ def _build_metrics_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSe
 
 
 def _build_global_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSection | None:
-    groups = _native_global_groups(outputs.visualisations, assets_dir=assets_dir)
+    groups = _native_scope_groups(
+        outputs.visualisations,
+        scope=ExplanationScope.GLOBAL,
+        role="global",
+        assets_dir=assets_dir,
+    )
     if not groups:
         return None
     return ReportSection.from_groups(
@@ -190,12 +201,32 @@ def _build_global_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSec
     )
 
 
-def _native_global_groups(
-    visualisations: list[VisualisationResult], *, assets_dir: Path
+def _build_cohort_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSection | None:
+    groups = _native_scope_groups(
+        outputs.visualisations,
+        scope=ExplanationScope.COHORT,
+        role="cohort",
+        assets_dir=assets_dir,
+    )
+    if not groups:
+        return None
+    return ReportSection.from_groups(
+        "Cohort Explanations",
+        groups,
+        metadata={"section_role": "cohort"},
+    )
+
+
+def _native_scope_groups(
+    visualisations: list[VisualisationResult],
+    *,
+    scope: ExplanationScope,
+    role: str,
+    assets_dir: Path,
 ) -> list[ReportGroup]:
     grouped: dict[str, list[Path]] = {}
     for visualisation in visualisations:
-        if visualisation.report_scope != "global":
+        if visualisation.scope != scope:
             continue
         explainer_name = (
             visualisation.explanation.explainer_name or visualisation.explanation.run_dir.name
@@ -203,7 +234,10 @@ def _native_global_groups(
         staged = _copy_asset(
             visualisation.output_path,
             assets_dir=assets_dir,
-            target_name=f"{explainer_name}_global_{visualisation.visualiser_name}{visualisation.output_path.suffix}",
+            target_name=(
+                f"{explainer_name}_{role}_"
+                f"{visualisation.visualiser_name}{visualisation.output_path.suffix}"
+            ),
         )
         grouped.setdefault(explainer_name, []).append(staged)
 
@@ -212,7 +246,7 @@ def _native_global_groups(
             heading=f"Explainer: {explainer_name}",
             images=tuple(images),
             metadata={
-                "role": "global",
+                "role": role,
                 "source": "native_visualiser",
                 "explainer_name": explainer_name,
             },

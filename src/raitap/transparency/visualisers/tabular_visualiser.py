@@ -7,6 +7,14 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import matplotlib.pyplot as plt
 import numpy as np
 
+from raitap.transparency.contracts import (
+    ExplanationOutputSpace,
+    ExplanationScope,
+    MethodFamily,
+    ScopeDefinitionStep,
+    VisualSummarySpec,
+)
+
 from .base_visualiser import BaseVisualiser
 
 if TYPE_CHECKING:
@@ -23,7 +31,23 @@ class TabularBarChartVisualiser(BaseVisualiser):
     Works with any attribution method (Captum, SHAP, etc.)
     """
 
-    report_scope: ClassVar[str] = "global"
+    supported_scopes: ClassVar[frozenset[ExplanationScope]] = frozenset({ExplanationScope.LOCAL})
+    supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset(
+        {
+            ExplanationOutputSpace.INPUT_FEATURES,
+            ExplanationOutputSpace.INTERPRETABLE_FEATURES,
+        }
+    )
+    supported_method_families: ClassVar[frozenset[MethodFamily]] = frozenset(MethodFamily)
+    produces_scope: ClassVar[ExplanationScope | None] = ExplanationScope.COHORT
+    scope_definition_step: ClassVar[ScopeDefinitionStep | None] = (
+        ScopeDefinitionStep.VISUALISER_SUMMARY
+    )
+    visual_summary: ClassVar[VisualSummarySpec | None] = VisualSummarySpec(
+        summary_type="tabular_bar",
+        aggregation="mean_absolute_attribution",
+        description="Mean absolute attribution by tabular feature.",
+    )
 
     def __init__(self, feature_names: list[str] | None = None):
         """
@@ -31,6 +55,35 @@ class TabularBarChartVisualiser(BaseVisualiser):
             feature_names: List of feature names for x-axis labels
         """
         self.feature_names = feature_names
+
+    def validate_explanation(
+        self,
+        explanation: object,
+        attributions: torch.Tensor,
+        inputs: torch.Tensor | None,
+    ) -> None:
+        super().validate_explanation(explanation, attributions, inputs)
+
+        semantics = getattr(explanation, "semantics", None)
+        input_spec = getattr(semantics, "input_spec", None)
+        output_space = getattr(semantics, "output_space", None)
+        kind = str(getattr(input_spec, "kind", "") or "").lower()
+        input_layout = str(getattr(input_spec, "layout", "") or "").upper().replace(" ", "")
+        layout = str(getattr(output_space, "layout", "") or "").upper().replace(" ", "")
+
+        if kind in {"image", "text", "time_series", "timeseries"}:
+            self._raise_incompatibility(
+                "input metadata",
+                kind,
+                "tabular",
+            )
+        if kind == "tabular" or input_layout in {"B,F", "(B,F)"} or layout in {"B,F", "(B,F)"}:
+            return
+        self._raise_incompatibility(
+            "tabular layout",
+            kind or input_layout or layout,
+            "(B, F) tabular/interpretable attributions",
+        )
 
     def visualise(
         self,

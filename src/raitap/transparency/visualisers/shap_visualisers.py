@@ -13,6 +13,14 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import matplotlib.pyplot as plt
 import numpy as np
 
+from raitap.transparency.contracts import (
+    ExplanationOutputSpace,
+    ExplanationScope,
+    MethodFamily,
+    ScopeDefinitionStep,
+    VisualSummarySpec,
+)
+
 from .base_visualiser import BaseVisualiser
 
 if TYPE_CHECKING:
@@ -91,20 +99,128 @@ def _image_heatmap(values: np.ndarray) -> np.ndarray:
     return values
 
 
+def _input_kind(explanation: object) -> str:
+    semantics = getattr(explanation, "semantics", None)
+    input_spec = getattr(semantics, "input_spec", None)
+    return str(getattr(input_spec, "kind", "") or "").lower()
+
+
+def _input_layout(explanation: object) -> str:
+    semantics = getattr(explanation, "semantics", None)
+    input_spec = getattr(semantics, "input_spec", None)
+    return str(getattr(input_spec, "layout", "") or "").upper().replace(" ", "")
+
+
+def _input_metadata(explanation: object) -> dict[str, object]:
+    semantics = getattr(explanation, "semantics", None)
+    input_spec = getattr(semantics, "input_spec", None)
+    metadata = getattr(input_spec, "metadata", None)
+    return dict(metadata) if metadata is not None else {}
+
+
+def _has_explicit_image_metadata(explanation: object) -> bool:
+    kind = _input_kind(explanation)
+    if kind == "image":
+        return True
+    if kind:
+        return False
+    metadata = _input_metadata(explanation)
+    return any(
+        str(metadata.get(key, "")).lower() == "image"
+        for key in ("modality", "input_kind", "data_kind", "data_type")
+    )
+
+
+def _output_layout(explanation: object) -> str:
+    semantics = getattr(explanation, "semantics", None)
+    output_space = getattr(semantics, "output_space", None)
+    return str(getattr(output_space, "layout", "") or "").upper().replace(" ", "")
+
+
+def _output_shape(
+    explanation: object, attributions: object | None = None
+) -> tuple[int, ...] | None:
+    semantics = getattr(explanation, "semantics", None)
+    output_space = getattr(semantics, "output_space", None)
+    shape = getattr(output_space, "shape", None)
+    if shape is None and attributions is not None:
+        shape = getattr(attributions, "shape", None)
+    return None if shape is None else tuple(int(dim) for dim in shape)
+
+
+def _has_image_layout(explanation: object, attributions: object) -> bool:
+    layouts = {_input_layout(explanation), _output_layout(explanation)}
+    if any(layout and layout != "NCHW" for layout in layouts):
+        return False
+    shape = _output_shape(explanation, attributions)
+    return shape is None or len(shape) >= 3
+
+
+def _is_tabular_output(explanation: object) -> bool:
+    kind = _input_kind(explanation)
+    if kind in {"image", "text", "time_series", "timeseries"}:
+        return False
+    return (
+        kind == "tabular"
+        or _input_layout(explanation) in {"B,F", "(B,F)"}
+        or _output_layout(explanation)
+        in {
+            "B,F",
+            "(B,F)",
+        }
+    )
+
+
+class _TabularSummaryContractMixin(BaseVisualiser):
+    supported_scopes: ClassVar[frozenset[ExplanationScope]] = frozenset({ExplanationScope.LOCAL})
+    supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset(
+        {
+            ExplanationOutputSpace.INPUT_FEATURES,
+            ExplanationOutputSpace.INTERPRETABLE_FEATURES,
+        }
+    )
+    supported_method_families: ClassVar[frozenset[MethodFamily]] = frozenset({MethodFamily.SHAPLEY})
+    produces_scope: ClassVar[ExplanationScope | None] = ExplanationScope.COHORT
+    scope_definition_step: ClassVar[ScopeDefinitionStep | None] = (
+        ScopeDefinitionStep.VISUALISER_SUMMARY
+    )
+
+    def validate_explanation(
+        self,
+        explanation: object,
+        attributions: torch.Tensor,
+        inputs: torch.Tensor | None,
+    ) -> None:
+        super().validate_explanation(explanation, attributions, inputs)
+        if not _is_tabular_output(explanation):
+            actual_layout = _input_kind(explanation)
+            actual_layout = actual_layout or _input_layout(explanation)
+            actual_layout = actual_layout or _output_layout(explanation)
+            self._raise_incompatibility(
+                "tabular layout",
+                actual_layout,
+                "(B, F) tabular/interpretable attributions",
+            )
+
+
 # ---------------------------------------------------------------------------
 # Tabular / general visualisers
 # Compatible with all SHAP explainer algorithms.
 # ---------------------------------------------------------------------------
 
 
-class ShapBarVisualiser(BaseVisualiser):
+class ShapBarVisualiser(_TabularSummaryContractMixin):
     """
     Mean absolute SHAP value bar chart via ``shap.summary_plot(plot_type='bar')``.
 
     Compatible with all SHAP explainer algorithms.
     """
 
-    report_scope: ClassVar[str] = "global"
+    visual_summary: ClassVar[VisualSummarySpec | None] = VisualSummarySpec(
+        summary_type="bar",
+        aggregation="mean_absolute_attribution",
+        description="Mean absolute attribution by feature.",
+    )
 
     def __init__(self, feature_names: list[str] | None = None, max_display: int = 20):
         self.feature_names = feature_names
@@ -149,14 +265,18 @@ class ShapBarVisualiser(BaseVisualiser):
         return fig
 
 
-class ShapBeeswarmVisualiser(BaseVisualiser):
+class ShapBeeswarmVisualiser(_TabularSummaryContractMixin):
     """
     SHAP beeswarm summary plot via ``shap.summary_plot()``.
 
     Compatible with all SHAP explainer algorithms.
     """
 
-    report_scope: ClassVar[str] = "global"
+    visual_summary: ClassVar[VisualSummarySpec | None] = VisualSummarySpec(
+        summary_type="beeswarm",
+        aggregation="distribution_summary",
+        description="Distribution of local attributions by feature.",
+    )
 
     def __init__(self, feature_names: list[str] | None = None, max_display: int = 20):
         self.feature_names = feature_names
@@ -344,6 +464,25 @@ class ShapImageVisualiser(BaseVisualiser):
     compatible_algorithms: ClassVar[frozenset[str]] = frozenset(
         {"GradientExplainer", "DeepExplainer"}
     )
+    supported_scopes: ClassVar[frozenset[ExplanationScope]] = frozenset({ExplanationScope.LOCAL})
+    supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset(
+        {ExplanationOutputSpace.INPUT_FEATURES}
+    )
+    supported_method_families: ClassVar[frozenset[MethodFamily]] = frozenset(
+        {MethodFamily.GRADIENT}
+    )
+
+    def validate_explanation(
+        self,
+        explanation: object,
+        attributions: torch.Tensor,
+        inputs: torch.Tensor | None,
+    ) -> None:
+        super().validate_explanation(explanation, attributions, inputs)
+        if not _has_explicit_image_metadata(explanation) or not _has_image_layout(
+            explanation, attributions
+        ):
+            self._raise_incompatibility("input metadata", _input_kind(explanation), "image")
 
     def __init__(
         self,

@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch
 
     from raitap.configs.schema import AppConfig
+    from raitap.transparency.contracts import InputSpec
 
 
 from raitap import run as run_module
@@ -549,6 +550,74 @@ def test_run_without_tracking_passes_sample_names_to_explanation(monkeypatch: Mo
     run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
     assert captured_kwargs["sample_names"] == ["isic_1", "isic_2"]
+
+
+def test_run_without_tracking_threads_sample_ids_and_image_metadata_to_explanation(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    image_path = tmp_path / "sample.png"
+    image_path.write_bytes(b"not-used-by-this-test")
+    data = SimpleNamespace(
+        tensor=torch.randn(2, 3, 8, 8),
+        sample_ids=["stable-1", "stable-2"],
+        source=str(image_path),
+    )
+    explanation = _FakeExplainerResult("exp")
+    captured_kwargs: dict[str, object] = {}
+
+    def _fake_explanation(*_args: object, **kwargs: object) -> _FakeExplainerResult:
+        captured_kwargs.update(kwargs)
+        return explanation
+
+    config = SimpleNamespace(
+        data=SimpleNamespace(source=str(image_path)),
+        transparency={"one": {}},
+        metrics=SimpleNamespace(num_classes=None),
+    )
+    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr(run_pipeline, "Explanation", _fake_explanation)
+
+    run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
+
+    assert captured_kwargs["sample_ids"] == ["stable-1", "stable-2"]
+    assert captured_kwargs["sample_names"] == ["stable-1", "stable-2"]
+    input_metadata = cast("InputSpec", captured_kwargs["input_metadata"])
+    assert input_metadata.kind == "image"
+    assert input_metadata.shape == (2, 3, 8, 8)
+    assert input_metadata.layout == "NCHW"
+
+
+def test_run_without_tracking_threads_tabular_metadata_to_explanation(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    csv_path = tmp_path / "features.csv"
+    csv_path.write_text("a,b\n1,2\n3,4")
+    data = SimpleNamespace(tensor=torch.randn(2, 2), sample_ids=None, source=str(csv_path))
+    explanation = _FakeExplainerResult("exp")
+    captured_kwargs: dict[str, object] = {}
+
+    def _fake_explanation(*_args: object, **kwargs: object) -> _FakeExplainerResult:
+        captured_kwargs.update(kwargs)
+        return explanation
+
+    config = SimpleNamespace(
+        data=SimpleNamespace(source=str(csv_path)),
+        transparency={"one": {}},
+        metrics=SimpleNamespace(num_classes=None),
+    )
+    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr(run_pipeline, "Explanation", _fake_explanation)
+
+    run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
+
+    input_metadata = cast("InputSpec", captured_kwargs["input_metadata"])
+    assert input_metadata.kind == "tabular"
+    assert input_metadata.shape == (2, 2)
+    assert input_metadata.layout == "(B,F)"
 
 
 def test_run_without_tracking_resolves_auto_pred_target(monkeypatch: MonkeyPatch) -> None:

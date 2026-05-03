@@ -2,14 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
 import pytest
-import torch
-import torch.nn as nn
-
-from raitap.models.backend import OnnxBackend
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -53,8 +48,9 @@ def isolate_transparency_test_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 
 
 @pytest.fixture
-def simple_cnn() -> nn.Module:
+def simple_cnn() -> Any:
     """Simple CNN for testing"""
+    nn = pytest.importorskip("torch.nn")
     model = nn.Sequential(
         nn.Conv2d(3, 16, 3), nn.ReLU(), nn.AdaptiveAvgPool2d(1), nn.Flatten(), nn.Linear(16, 10)
     )
@@ -63,8 +59,9 @@ def simple_cnn() -> nn.Module:
 
 
 @pytest.fixture
-def simple_mlp() -> nn.Module:
+def simple_mlp() -> Any:
     """Simple MLP for tabular data testing"""
+    nn = pytest.importorskip("torch.nn")
     model = nn.Sequential(
         nn.Linear(10, 32), nn.ReLU(), nn.Linear(32, 16), nn.ReLU(), nn.Linear(16, 2)
     )
@@ -72,25 +69,26 @@ def simple_mlp() -> nn.Module:
     return model
 
 
-class SimpleTimeSeriesClassifier(nn.Module):
-    def __init__(self) -> None:
-        super().__init__()
-        self.conv = nn.Conv1d(3, 8, kernel_size=3, padding=1)
-        self.relu = nn.ReLU()
-        self.pool = nn.AdaptiveAvgPool1d(1)
-        self.head = nn.Linear(8, 2)
-
-    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
-        channels_first = inputs.transpose(1, 2)
-        features = self.conv(channels_first)
-        features = self.relu(features)
-        pooled = self.pool(features).squeeze(-1)
-        return self.head(pooled)
-
-
 @pytest.fixture
-def simple_timeseries_model() -> nn.Module:
+def simple_timeseries_model() -> Any:
     """Simple time-series model that consumes inputs shaped (batch, time, channels)."""
+    nn = pytest.importorskip("torch.nn")
+
+    class SimpleTimeSeriesClassifier(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.conv = nn.Conv1d(3, 8, kernel_size=3, padding=1)
+            self.relu = nn.ReLU()
+            self.pool = nn.AdaptiveAvgPool1d(1)
+            self.head = nn.Linear(8, 2)
+
+        def forward(self, inputs: Any) -> Any:
+            channels_first = inputs.transpose(1, 2)
+            features = self.conv(channels_first)
+            features = self.relu(features)
+            pooled = self.pool(features).squeeze(-1)
+            return self.head(pooled)
+
     model = SimpleTimeSeriesClassifier()
     model.eval()
     return model
@@ -102,26 +100,30 @@ def simple_timeseries_model() -> nn.Module:
 
 
 @pytest.fixture
-def sample_images() -> torch.Tensor:
+def sample_images() -> Any:
     """Sample image batch: (batch, channels, height, width)."""
+    torch = pytest.importorskip("torch")
     return torch.randn(4, 3, 32, 32)
 
 
 @pytest.fixture
-def sample_tabular() -> torch.Tensor:
+def sample_tabular() -> Any:
     """Sample tabular data: (batch, features)."""
+    torch = pytest.importorskip("torch")
     return torch.randn(8, 10)
 
 
 @pytest.fixture
-def sample_timeseries() -> torch.Tensor:
+def sample_timeseries() -> Any:
     """Sample time-series batch: (batch, time_steps, channels)."""
+    torch = pytest.importorskip("torch")
     return torch.randn(4, 50, 3)
 
 
 @pytest.fixture
-def sample_text_attributions() -> torch.Tensor:
+def sample_text_attributions() -> Any:
     """1-D per-token attribution scores."""
+    torch = pytest.importorskip("torch")
     return torch.randn(15)
 
 
@@ -139,8 +141,9 @@ def token_labels() -> list[str]:
 
 @pytest.fixture
 def onnx_linear_path(tmp_path: Path, needs_onnx: None) -> Path:
-    import onnx
-    from onnx import TensorProto, helper, numpy_helper
+    import numpy as np
+    import onnx  # type: ignore[reportMissingImports]
+    from onnx import TensorProto, helper, numpy_helper  # type: ignore[reportMissingImports]
 
     path = tmp_path / "linear.onnx"
 
@@ -166,5 +169,7 @@ def onnx_linear_path(tmp_path: Path, needs_onnx: None) -> Path:
 
 
 @pytest.fixture
-def onnx_linear_backend(onnx_linear_path: Path) -> OnnxBackend:
+def onnx_linear_backend(onnx_linear_path: Path) -> Any:
+    from raitap.models.backend import OnnxBackend
+
     return OnnxBackend.from_path(onnx_linear_path)

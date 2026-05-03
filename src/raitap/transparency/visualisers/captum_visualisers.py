@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+from raitap.transparency.contracts import (
+    ExplanationOutputSpace,
+    ExplanationScope,
+    MethodFamily,
+)
 
 from .base_visualiser import BaseVisualiser
 
@@ -83,6 +89,61 @@ def _last_mappable(ax: Any) -> Any:
     return None
 
 
+def _input_kind(explanation: object) -> str:
+    semantics = getattr(explanation, "semantics", None)
+    input_spec = getattr(semantics, "input_spec", None)
+    return str(getattr(input_spec, "kind", "") or "").lower()
+
+
+def _input_layout(explanation: object) -> str:
+    semantics = getattr(explanation, "semantics", None)
+    input_spec = getattr(semantics, "input_spec", None)
+    return str(getattr(input_spec, "layout", "") or "").upper().replace(" ", "")
+
+
+def _output_layout(explanation: object) -> str:
+    semantics = getattr(explanation, "semantics", None)
+    output_space = getattr(semantics, "output_space", None)
+    return str(getattr(output_space, "layout", "") or "").upper().replace(" ", "")
+
+
+def _output_shape(explanation: object, attributions: object) -> tuple[int, ...] | None:
+    semantics = getattr(explanation, "semantics", None)
+    output_space = getattr(semantics, "output_space", None)
+    shape = getattr(output_space, "shape", None)
+    if shape is None:
+        shape = getattr(attributions, "shape", None)
+    return None if shape is None else tuple(int(dim) for dim in shape)
+
+
+def _input_metadata(explanation: object) -> dict[str, object]:
+    semantics = getattr(explanation, "semantics", None)
+    input_spec = getattr(semantics, "input_spec", None)
+    metadata = getattr(input_spec, "metadata", None)
+    return dict(metadata) if metadata is not None else {}
+
+
+def _has_explicit_image_metadata(explanation: object) -> bool:
+    kind = _input_kind(explanation)
+    if kind == "image":
+        return True
+    if kind:
+        return False
+    metadata = _input_metadata(explanation)
+    return any(
+        str(metadata.get(key, "")).lower() == "image"
+        for key in ("modality", "input_kind", "data_kind", "data_type")
+    )
+
+
+def _has_image_layout(explanation: object, attributions: object) -> bool:
+    layouts = {_input_layout(explanation), _output_layout(explanation)}
+    if any(layout and layout != "NCHW" for layout in layouts):
+        return False
+    shape = _output_shape(explanation, attributions)
+    return shape is None or len(shape) >= 3
+
+
 class CaptumImageVisualiser(BaseVisualiser):
     """
     Visualise image attributions using ``captum.attr.visualization.visualize_image_attr``.
@@ -92,6 +153,36 @@ class CaptumImageVisualiser(BaseVisualiser):
 
     Compatible with ALL Captum attribution algorithms.
     """
+
+    supported_scopes: ClassVar[frozenset[ExplanationScope]] = frozenset({ExplanationScope.LOCAL})
+    supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset(
+        {
+            ExplanationOutputSpace.INPUT_FEATURES,
+            ExplanationOutputSpace.IMAGE_SPATIAL_MAP,
+        }
+    )
+    supported_method_families: ClassVar[frozenset[MethodFamily]] = frozenset(
+        {
+            MethodFamily.GRADIENT,
+            MethodFamily.PERTURBATION,
+            MethodFamily.SHAPLEY,
+            MethodFamily.CAM,
+            MethodFamily.MODEL_AGNOSTIC,
+            MethodFamily.SURROGATE,
+        }
+    )
+
+    def validate_explanation(
+        self,
+        explanation: object,
+        attributions: torch.Tensor,
+        inputs: torch.Tensor | None,
+    ) -> None:
+        super().validate_explanation(explanation, attributions, inputs)
+        if not _has_explicit_image_metadata(explanation) or not _has_image_layout(
+            explanation, attributions
+        ):
+            self._raise_incompatibility("input metadata", _input_kind(explanation), "image")
 
     def __init__(
         self,
@@ -283,6 +374,26 @@ class CaptumTimeSeriesVisualiser(BaseVisualiser):
     Compatible with ALL Captum attribution algorithms.
     """
 
+    supported_scopes: ClassVar[frozenset[ExplanationScope]] = frozenset({ExplanationScope.LOCAL})
+    supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset(
+        {ExplanationOutputSpace.INPUT_FEATURES}
+    )
+    supported_method_families: ClassVar[frozenset[MethodFamily]] = frozenset(MethodFamily)
+
+    def validate_explanation(
+        self,
+        explanation: object,
+        attributions: torch.Tensor,
+        inputs: torch.Tensor | None,
+    ) -> None:
+        super().validate_explanation(explanation, attributions, inputs)
+        if _input_kind(explanation) not in {"time_series", "timeseries"}:
+            self._raise_incompatibility(
+                "input metadata",
+                _input_kind(explanation),
+                "time_series",
+            )
+
     def __init__(
         self,
         method: str = "overlay_individual",
@@ -366,6 +477,34 @@ class CaptumTextVisualiser(BaseVisualiser):
     Note: ``attributions`` should be a 1-D array of per-token scores for a
     single input. Pass ``token_labels`` via kwargs for readable output.
     """
+
+    supported_scopes: ClassVar[frozenset[ExplanationScope]] = frozenset({ExplanationScope.LOCAL})
+    supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset(
+        {ExplanationOutputSpace.TOKEN_SEQUENCE}
+    )
+    supported_method_families: ClassVar[frozenset[MethodFamily]] = frozenset(MethodFamily)
+
+    def validate_explanation(
+        self,
+        explanation: object,
+        attributions: torch.Tensor,
+        inputs: torch.Tensor | None,
+    ) -> None:
+        super().validate_explanation(explanation, attributions, inputs)
+        kind = _input_kind(explanation)
+        has_token_metadata = _input_layout(explanation) in {"TOKENS", "TOKEN_SEQUENCE"}
+        if kind and kind != "text":
+            self._raise_incompatibility(
+                "input metadata",
+                kind,
+                "text/token sequence",
+            )
+        if kind != "text" and not has_token_metadata:
+            self._raise_incompatibility(
+                "input metadata",
+                kind,
+                "text/token sequence",
+            )
 
     def visualise(
         self,

@@ -1,16 +1,23 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import torch
 
 import raitap.transparency.explainers.base_explainer as base_explainer_module
+from raitap.transparency.contracts import (
+    ExplanationOutputSpace,
+    ExplanationPayloadKind,
+    ExplanationScope,
+    MethodFamily,
+    ScopeDefinitionStep,
+)
 from raitap.transparency.explainers.base_explainer import AttributionOnlyExplainer
 
 
 class _StrictExplainer(AttributionOnlyExplainer):
-    algorithm = "StrictAlgo"
+    algorithm = "Saliency"
 
     def __init__(self) -> None:
         super().__init__()
@@ -29,7 +36,7 @@ class _StrictExplainer(AttributionOnlyExplainer):
 
 
 class _BatchRecordingExplainer(AttributionOnlyExplainer):
-    algorithm = "BatchRecorder"
+    algorithm = "IntegratedGradients"
 
     def __init__(self) -> None:
         super().__init__()
@@ -45,10 +52,10 @@ class _BatchRecordingExplainer(AttributionOnlyExplainer):
         **kwargs: Any,
     ) -> torch.Tensor:
         del model, kwargs
-        if isinstance(target, torch.Tensor):
-            self.seen_targets.append(target.tolist())
-        elif isinstance(target, list):
+        if isinstance(target, list):
             self.seen_targets.append(target)
+        elif target is not None:
+            self.seen_targets.append(cast("list[int]", cast("Any", target).tolist()))
         else:
             self.seen_targets.append([])
 
@@ -58,7 +65,7 @@ class _BatchRecordingExplainer(AttributionOnlyExplainer):
 
 
 class _GradTrackingExplainer(AttributionOnlyExplainer):
-    algorithm = "GradTracker"
+    algorithm = "Saliency"
 
     def compute_attributions(
         self,
@@ -71,6 +78,40 @@ class _GradTrackingExplainer(AttributionOnlyExplainer):
         return source * 2
 
 
+class _TupleExplainer(AttributionOnlyExplainer):
+    algorithm = "Saliency"
+
+    def compute_attributions(
+        self,
+        model: torch.nn.Module,
+        inputs: torch.Tensor,
+        **kwargs: Any,
+    ) -> Any:
+        del model, kwargs
+        return inputs, torch.zeros(inputs.shape[0])
+
+
+class _ListExplainer(AttributionOnlyExplainer):
+    algorithm = "Saliency"
+
+    def compute_attributions(
+        self,
+        model: torch.nn.Module,
+        inputs: torch.Tensor,
+        **kwargs: Any,
+    ) -> Any:
+        del model, kwargs
+        return [inputs]
+
+
+def _raitap_kwargs_for(inputs: torch.Tensor, **overrides: Any) -> dict[str, Any]:
+    if inputs.ndim == 4:
+        input_metadata = {"kind": "image", "shape": tuple(inputs.shape), "layout": "NCHW"}
+    else:
+        input_metadata = {"kind": "tabular", "shape": tuple(inputs.shape), "layout": "(B,F)"}
+    return {"input_metadata": input_metadata, **overrides}
+
+
 def test_explain_stores_raitap_visualisation_metadata_in_kwargs() -> None:
     explainer = _StrictExplainer()
     model = torch.nn.Identity()
@@ -80,10 +121,11 @@ def test_explain_stores_raitap_visualisation_metadata_in_kwargs() -> None:
         model,
         inputs,
         target=7,
-        raitap_kwargs={
-            "sample_names": ["ISIC_1", "ISIC_2"],
-            "show_sample_names": True,
-        },
+        raitap_kwargs=_raitap_kwargs_for(
+            inputs,
+            sample_names=["ISIC_1", "ISIC_2"],
+            show_sample_names=True,
+        ),
     )
 
     assert torch.equal(result.attributions, inputs)
@@ -92,6 +134,37 @@ def test_explain_stores_raitap_visualisation_metadata_in_kwargs() -> None:
     assert result.call_kwargs["target"] == 7
     assert result.kwargs["sample_names"] == ["ISIC_1", "ISIC_2"]
     assert result.kwargs["show_sample_names"] is True
+
+
+def test_explain_builds_semantics_with_sample_ids_separate_from_display_names() -> None:
+    explainer = _StrictExplainer()
+    model = torch.nn.Identity()
+    inputs = torch.randn(2, 3, 4, 4)
+
+    result = explainer.explain(
+        model,
+        inputs,
+        target=7,
+        raitap_kwargs={
+            "input_metadata": {"kind": "image", "shape": inputs.shape, "layout": "NCHW"},
+            "sample_ids": ["stable-1", "stable-2"],
+            "sample_names": ["Display 1", "Display 2"],
+            "show_sample_names": True,
+        },
+    )
+
+    assert result.semantics.scope is ExplanationScope.LOCAL
+    assert result.semantics.scope_definition_step is ScopeDefinitionStep.EXPLAINER_OUTPUT
+    assert result.semantics.payload_kind is ExplanationPayloadKind.ATTRIBUTIONS
+    assert result.semantics.method_families == frozenset({MethodFamily.GRADIENT})
+    assert result.semantics.sample_selection is not None
+    assert result.semantics.sample_selection.sample_ids == ["stable-1", "stable-2"]
+    assert result.semantics.sample_selection.sample_display_names == ["Display 1", "Display 2"]
+    assert result.semantics.input_spec is not None
+    assert result.semantics.input_spec.kind == "image"
+    assert result.semantics.input_spec.layout == "NCHW"
+    assert result.semantics.output_space.space is ExplanationOutputSpace.INPUT_FEATURES
+    assert result.kwargs["sample_names"] == ["Display 1", "Display 2"]
 
 
 def test_explain_uses_optional_batching_and_slices_per_sample_kwargs() -> None:
@@ -105,7 +178,7 @@ def test_explain_uses_optional_batching_and_slices_per_sample_kwargs() -> None:
         inputs,
         target=[0, 1, 2, 3, 4],
         background_data=background,
-        raitap_kwargs={"batch_size": 2},
+        raitap_kwargs=_raitap_kwargs_for(inputs, batch_size=2),
     )
 
     assert torch.equal(result.attributions, inputs)
@@ -131,7 +204,7 @@ def test_explain_prepares_each_batch_with_backend() -> None:
         model,
         inputs,
         backend=backend,
-        raitap_kwargs={"batch_size": 2},
+        raitap_kwargs=_raitap_kwargs_for(inputs, batch_size=2),
     )
 
     assert backend.prepared_batch_sizes == [2, 2, 1]
@@ -148,11 +221,12 @@ def test_explain_accepts_progress_kwargs_without_forwarding_to_compute() -> None
         model,
         inputs,
         target=7,
-        raitap_kwargs={
-            "batch_size": 1,
-            "show_progress": True,
-            "progress_desc": "SHAP smoke",
-        },
+        raitap_kwargs=_raitap_kwargs_for(
+            inputs,
+            batch_size=1,
+            show_progress=True,
+            progress_desc="SHAP smoke",
+        ),
     )
 
     assert torch.equal(result.attributions, inputs)
@@ -179,7 +253,7 @@ def test_explain_enables_progress_wrapping_by_default_for_batched_runs(
         model,
         inputs,
         target=[0, 1, 2, 3, 4],
-        raitap_kwargs={"batch_size": 2},
+        raitap_kwargs=_raitap_kwargs_for(inputs, batch_size=2),
     )
 
     assert torch.equal(result.attributions, inputs)
@@ -208,7 +282,7 @@ def test_explain_allows_disabling_progress_wrapping_explicitly(
         model,
         inputs,
         target=[0, 1, 2, 3, 4],
-        raitap_kwargs={"batch_size": 2, "show_progress": False},
+        raitap_kwargs=_raitap_kwargs_for(inputs, batch_size=2, show_progress=False),
     )
 
     assert torch.equal(result.attributions, inputs)
@@ -241,7 +315,7 @@ def test_explain_flushes_cuda_cache_between_outer_batches(
         model,
         inputs,
         target=[0, 1, 2, 3, 4],
-        raitap_kwargs={"batch_size": 2, "show_progress": False},
+        raitap_kwargs=_raitap_kwargs_for(inputs, batch_size=2, show_progress=False),
     )
 
     assert torch.equal(result.attributions, inputs)
@@ -267,7 +341,7 @@ def test_explain_detaches_batched_chunks_before_concatenation(
     result = explainer.explain(
         model,
         inputs,
-        raitap_kwargs={"batch_size": 2, "show_progress": False},
+        raitap_kwargs=_raitap_kwargs_for(inputs, batch_size=2, show_progress=False),
     )
 
     assert result.attributions.device.type == "cpu"
@@ -282,11 +356,45 @@ def test_explain_normalises_unbatched_attributions_to_detached_cpu() -> None:
     model = torch.nn.Identity()
     inputs = torch.randn(2, 3)
 
-    result = explainer.explain(model, inputs)
+    result = explainer.explain(model, inputs, raitap_kwargs=_raitap_kwargs_for(inputs))
 
     assert result.attributions.device.type == "cpu"
     assert not result.attributions.requires_grad
     assert torch.equal(result.attributions, inputs * 2)
+
+
+def test_explain_rejects_tuple_attribution_outputs_before_normalisation() -> None:
+    explainer = _TupleExplainer()
+    model = torch.nn.Identity()
+    inputs = torch.randn(2, 3)
+
+    with pytest.raises(
+        TypeError,
+        match=r"tuple/list attribution outputs.*convergence deltas.*not first-class payloads",
+    ):
+        explainer.explain(
+            model,
+            inputs,
+            raitap_kwargs=_raitap_kwargs_for(inputs),
+        )
+
+
+def test_explain_rejects_list_attribution_outputs_in_batched_path() -> None:
+    explainer = _ListExplainer()
+    model = torch.nn.Identity()
+    inputs = torch.randn(4, 3)
+
+    with pytest.raises(
+        TypeError,
+        match=r"tuple/list attribution outputs.*convergence deltas.*not first-class payloads",
+    ):
+        explainer.explain(
+            model,
+            inputs,
+            raitap_kwargs={
+                **_raitap_kwargs_for(inputs, batch_size=2, show_progress=False),
+            },
+        )
 
 
 def test_explain_rejects_invalid_progress_kwarg_types() -> None:
@@ -295,13 +403,22 @@ def test_explain_rejects_invalid_progress_kwarg_types() -> None:
     inputs = torch.randn(2, 3)
 
     with pytest.raises(TypeError, match="show_progress must be a bool"):
-        explainer.explain(model, inputs, raitap_kwargs={"show_progress": "yes"})
+        explainer.explain(
+            model,
+            inputs,
+            raitap_kwargs=_raitap_kwargs_for(inputs, show_progress="yes"),
+        )
 
     with pytest.raises(TypeError, match="progress_desc must be a str"):
         explainer.explain(
             model,
             inputs,
-            raitap_kwargs={"batch_size": 1, "show_progress": True, "progress_desc": 123},
+            raitap_kwargs=_raitap_kwargs_for(
+                inputs,
+                batch_size=1,
+                show_progress=True,
+                progress_desc=123,
+            ),
         )
 
 
@@ -311,7 +428,7 @@ def test_explain_rejects_invalid_batch_size_kwargs() -> None:
     inputs = torch.randn(2, 3)
 
     with pytest.raises(TypeError, match="batch_size must be an int"):
-        explainer.explain(model, inputs, raitap_kwargs={"batch_size": "2"})
+        explainer.explain(model, inputs, raitap_kwargs=_raitap_kwargs_for(inputs, batch_size="2"))
 
     with pytest.raises(ValueError, match="batch_size must be > 0"):
-        explainer.explain(model, inputs, raitap_kwargs={"batch_size": 0})
+        explainer.explain(model, inputs, raitap_kwargs=_raitap_kwargs_for(inputs, batch_size=0))

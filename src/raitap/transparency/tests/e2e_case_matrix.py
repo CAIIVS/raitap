@@ -11,6 +11,7 @@ from omegaconf import OmegaConf
 
 from raitap.models.backend import TorchBackend
 from raitap.transparency import ExplanationResult, VisualisationResult
+from raitap.transparency.contracts import InputSpec
 from raitap.transparency.explainers import CaptumExplainer, ShapExplainer
 from raitap.transparency.factory import Explanation
 from raitap.transparency.results import ConfiguredVisualiser
@@ -275,6 +276,12 @@ def _run_explain_case(
         explainer.check_backend_compat(backend)
         extra_call_kwargs["backend"] = backend
 
+    raitap_kwargs = dict(cast("dict[str, object]", extra_call_kwargs.pop("raitap_kwargs", {})))
+    if "batch_size" in extra_call_kwargs:
+        raitap_kwargs.setdefault("batch_size", extra_call_kwargs.pop("batch_size"))
+    raitap_kwargs.setdefault("input_metadata", _input_metadata_for_case(case, inputs))
+    extra_call_kwargs["raitap_kwargs"] = raitap_kwargs
+
     if case.framework == "captum":
         return explainer.explain(
             runtime_model,
@@ -310,8 +317,14 @@ def _assert_metadata_invariants(
         "kwargs",
         "call_kwargs",
         "payload_kind",
+        "semantics",
     }
     assert metadata["payload_kind"] == "attributions"
+    semantics = cast("dict[str, object]", metadata["semantics"])
+    assert semantics["scope"] == "local"
+    assert semantics["scope_definition_step"] == "explainer_output"
+    assert semantics["payload_kind"] == "attributions"
+    assert "output_space" in semantics
     assert metadata["experiment_name"] == case.experiment_name
     assert metadata["algorithm"] == case.algorithm
     assert str(metadata["target"]).endswith(_framework_target_suffix(case))
@@ -331,6 +344,30 @@ def expected_run_dir(case: MatrixCase, tmp_path: Path) -> Path:
             raise ValueError(f"{case.id} requires a factory explainer name.")
         return tmp_path / "transparency" / explainer_name
     return tmp_path / "transparency"
+
+
+def _input_metadata_for_case(case: MatrixCase, inputs: torch.Tensor) -> InputSpec:
+    shape = tuple(int(dim) for dim in inputs.shape)
+    if case.input_fixture == "sample_images":
+        return InputSpec(
+            kind="image",
+            shape=shape,
+            layout="NCHW",
+            metadata={"kind": "image", "layout": "NCHW"},
+        )
+    if case.input_fixture == "sample_tabular":
+        return InputSpec(
+            kind="tabular",
+            shape=shape,
+            layout="(B,F)",
+            metadata={"kind": "tabular", "layout": "(B,F)"},
+        )
+    return InputSpec(
+        kind="time_series",
+        shape=shape,
+        layout="(B,T,C)",
+        metadata={"kind": "time_series", "layout": "(B,T,C)"},
+    )
 
 
 def run_behavior_case(
@@ -373,12 +410,14 @@ def run_behavior_case(
     if case.mode == "factory":
         config = _build_factory_config(case, tmp_path)
         model_wrapper = cast("Model", SimpleNamespace(backend=TorchBackend(model)))
+        input_metadata = _input_metadata_for_case(case, inputs)
         if background is None:
             explanation = Explanation(
                 config,
                 cast("str", case.factory_explainer_name),
                 model_wrapper,
                 inputs,
+                input_metadata=input_metadata,
             )
         else:
             explanation = Explanation(
@@ -386,6 +425,7 @@ def run_behavior_case(
                 cast("str", case.factory_explainer_name),
                 model_wrapper,
                 inputs,
+                input_metadata=input_metadata,
                 background_data=background,
             )
     else:
