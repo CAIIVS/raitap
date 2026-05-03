@@ -124,14 +124,18 @@ def _output_shape(explanation: object, attributions: object) -> tuple[int, ...] 
     shape = getattr(output_space, "shape", None)
     if shape is None:
         shape = getattr(attributions, "shape", None)
-    return None if shape is None else tuple(int(dim) for dim in shape)
+    if shape is None:
+        return None
+    return tuple(int(dim) for dim in shape)
 
 
 def _input_metadata(explanation: object) -> dict[str, object]:
     semantics = getattr(explanation, "semantics", None)
     input_spec = getattr(semantics, "input_spec", None)
     metadata = getattr(input_spec, "metadata", None)
-    return dict(metadata) if metadata is not None else {}
+    if metadata is None:
+        return {}
+    return {str(k): v for k, v in dict(metadata).items()}
 
 
 def _has_explicit_image_metadata(explanation: object) -> bool:
@@ -153,6 +157,15 @@ def _has_image_layout(explanation: object, attributions: object) -> bool:
         return False
     shape = _output_shape(explanation, attributions)
     return shape is not None and len(shape) >= 3
+
+
+def _has_time_series_layout(explanation: object, attributions: object) -> bool:
+    valid_layouts = {"B,T,C", "(B,T,C)", "T,C", "(T,C)"}
+    layouts = {_input_layout(explanation), _output_layout(explanation)}
+    if any(layout and layout not in valid_layouts for layout in layouts):
+        return False
+    shape = _output_shape(explanation, attributions)
+    return shape is not None and len(shape) in {2, 3}
 
 
 class CaptumImageVisualiser(BaseVisualiser):
@@ -403,6 +416,14 @@ class CaptumTimeSeriesVisualiser(BaseVisualiser):
                 "input metadata",
                 _input_kind(explanation),
                 "time_series",
+            )
+        if not _has_time_series_layout(explanation, attributions):
+            self._raise_incompatibility(
+                "time-series layout",
+                _input_layout(explanation)
+                or _output_layout(explanation)
+                or str(_output_shape(explanation, attributions)),
+                "(B, T, C) or (T, C) attributions",
             )
 
     def __init__(

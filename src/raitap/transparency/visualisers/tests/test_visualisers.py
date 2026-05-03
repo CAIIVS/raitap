@@ -491,6 +491,30 @@ class TestCaptumTimeSeriesVisualiser:
         CaptumTimeSeriesVisualiser().validate_explanation(explanation, torch.zeros(2, 12, 3), None)
 
     @pytest.mark.parametrize(
+        "explanation",
+        [
+            _explanation(input_kind="time_series", input_layout="TOKENS", output_layout="TOKENS"),
+            _explanation(input_kind="time_series", input_layout="B,F", output_layout="B,F"),
+            _explanation(
+                input_kind="time_series",
+                input_layout="B,T,C",
+                output_layout="B,T,C",
+                shape=(12,),
+            ),
+        ],
+    )
+    def test_validate_explanation_rejects_incompatible_layout_or_shape(
+        self,
+        explanation: SimpleNamespace,
+    ) -> None:
+        with pytest.raises(ValueError, match="CaptumTimeSeriesVisualiser"):
+            CaptumTimeSeriesVisualiser().validate_explanation(
+                explanation,
+                torch.zeros(12),
+                None,
+            )
+
+    @pytest.mark.parametrize(
         "method_families",
         [
             frozenset({MethodFamily.TREE}),
