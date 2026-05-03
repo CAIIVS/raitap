@@ -88,6 +88,8 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
         sample_ids = _normalise_optional_str_list(rk.get("sample_ids"))
         sample_display_names = _normalise_optional_str_list(rk.get("sample_names"))
         call_kwargs = dict(kwargs)
+        # Validate the explainer registry before running potentially expensive attribution code.
+        method_families = method_families_for_explainer(self)
         attributions = self._compute_with_optional_batches(
             model,
             inputs,
@@ -98,7 +100,6 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
             progress_desc=progress_desc,
         )
         self.attributions = attributions
-        method_families = method_families_for_explainer(self)
         input_spec = infer_input_spec(inputs, input_metadata=rk.get("input_metadata"))
         output_space = infer_output_space(
             input_spec=input_spec,

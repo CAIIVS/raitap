@@ -35,6 +35,24 @@ class _StrictExplainer(AttributionOnlyExplainer):
         return inputs
 
 
+class _UnknownAlgorithmExplainer(AttributionOnlyExplainer):
+    algorithm = "UnregisteredAlgorithm"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.compute_called = False
+
+    def compute_attributions(
+        self,
+        model: torch.nn.Module,
+        inputs: torch.Tensor,
+        **kwargs: Any,
+    ) -> torch.Tensor:
+        del model, kwargs
+        self.compute_called = True
+        return inputs
+
+
 class _BatchRecordingExplainer(AttributionOnlyExplainer):
     algorithm = "IntegratedGradients"
 
@@ -110,6 +128,26 @@ def _raitap_kwargs_for(inputs: torch.Tensor, **overrides: Any) -> dict[str, Any]
     else:
         input_metadata = {"kind": "tabular", "shape": tuple(inputs.shape), "layout": "(B,F)"}
     return {"input_metadata": input_metadata, **overrides}
+
+
+def test_explain_rejects_unknown_method_family_before_compute() -> None:
+    explainer = _UnknownAlgorithmExplainer()
+    inputs = torch.randn(2, 3, 4, 4)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "method-family inference is not implemented for framework "
+            "_UnknownAlgorithmExplainer and algorithm UnregisteredAlgorithm"
+        ),
+    ):
+        explainer.explain(
+            torch.nn.Identity(),
+            inputs,
+            raitap_kwargs=_raitap_kwargs_for(inputs),
+        )
+
+    assert explainer.compute_called is False
 
 
 def test_explain_stores_raitap_visualisation_metadata_in_kwargs() -> None:
