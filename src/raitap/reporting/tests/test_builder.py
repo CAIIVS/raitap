@@ -18,7 +18,16 @@ from raitap.reporting.hydra_callback import ReportingSweepCallback
 from raitap.reporting.manifest import ReportManifest
 from raitap.reporting.sections import ReportGroup, ReportSection
 from raitap.run.outputs import PredictionSummary, RunOutputs
-from raitap.transparency.contracts import ExplanationScope
+from raitap.transparency.contracts import (
+    ExplanationOutputSpace,
+    ExplanationPayloadKind,
+    ExplanationScope,
+    ExplanationSemantics,
+    InputSpec,
+    MethodFamily,
+    OutputSpaceSpec,
+    ScopeDefinitionStep,
+)
 from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult, VisualisationResult
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
 
@@ -60,6 +69,28 @@ class _LocalImageVisualiser(BaseVisualiser):
         return fig
 
 
+def _local_image_semantics(shape: tuple[int, ...]) -> ExplanationSemantics:
+    return ExplanationSemantics(
+        scope=ExplanationScope.LOCAL,
+        scope_definition_step=ScopeDefinitionStep.EXPLAINER_OUTPUT,
+        payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
+        method_families=frozenset({MethodFamily.GRADIENT}),
+        target=None,
+        sample_selection=None,
+        input_spec=InputSpec(
+            kind="image",
+            shape=shape,
+            layout="NCHW",
+            metadata={"kind": "image", "layout": "NCHW"},
+        ),
+        output_space=OutputSpaceSpec(
+            space=ExplanationOutputSpace.INPUT_FEATURES,
+            shape=shape,
+            layout="NCHW",
+        ),
+    )
+
+
 def test_build_report_orders_sections_and_ranks_samples(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="demo")
     set_output_root(config, tmp_path)
@@ -73,6 +104,7 @@ def test_build_report_orders_sections_and_ranks_samples(tmp_path: Path) -> None:
         experiment_name="demo",
         explainer_target="t",
         algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((3, 1, 4, 4)),
         explainer_name="captum_ig",
         kwargs={"sample_names": ["a", "b", "c"], "show_sample_names": True},
         visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
@@ -161,6 +193,7 @@ def test_build_report_skips_global_section_for_local_only_outputs(tmp_path: Path
         experiment_name="local_only",
         explainer_target="t",
         algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((3, 1, 4, 4)),
         explainer_name="captum_ig",
         visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
     )
@@ -196,6 +229,7 @@ def test_build_report_places_cohort_visualisations_between_global_and_local(
         experiment_name="cohort",
         explainer_target="t",
         algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((2, 1, 4, 4)),
         explainer_name="captum_ig",
         visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
     )
@@ -242,6 +276,7 @@ def test_build_report_local_assets_are_staged_and_closed(tmp_path: Path) -> None
         experiment_name="local_assets",
         explainer_target="t",
         algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((3, 1, 4, 4)),
         explainer_name="captum_ig",
         kwargs={"sample_names": ["a", "b", "c"], "show_sample_names": True},
         visualisers=[ConfiguredVisualiser(visualiser=visualiser)],
@@ -283,6 +318,7 @@ def test_build_report_skips_local_groups_when_no_local_visualisations(tmp_path: 
         experiment_name="no_local",
         explainer_target="t",
         algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((2, 1, 4, 4)),
         visualisers=[ConfiguredVisualiser(visualiser=_GlobalOnlyVisualiser())],
     )
     outputs = RunOutputs(
@@ -313,6 +349,7 @@ def test_report_manifest_round_trip_preserves_relative_images(tmp_path: Path) ->
         experiment_name="demo",
         explainer_target="t",
         algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((2, 1, 4, 4)),
         explainer_name="captum_ig",
         visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
     )

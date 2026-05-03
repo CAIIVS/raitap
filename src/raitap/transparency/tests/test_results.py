@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
 import matplotlib.pyplot as plt
+import pytest
 import torch
 
 from raitap.configs import resolve_run_dir, set_output_root
@@ -156,6 +157,18 @@ def test_serialisable_converts_nested_set_and_dict() -> None:
     result = _serialisable(value)
     assert sorted(result["tags"]) == ["a", "b"]
     assert result["nested"]["k"] == 1
+
+
+def test_explanation_result_requires_explicit_semantics(tmp_path: Path) -> None:
+    with pytest.raises(TypeError, match="semantics"):
+        ExplanationResult(  # type: ignore[call-arg]
+            attributions=torch.randn(1, 3, 4, 4),
+            inputs=torch.randn(1, 3, 4, 4),
+            run_dir=tmp_path / "exp_missing_semantics",
+            experiment_name="e",
+            explainer_target="t",
+            algorithm="a",
+        )
 
 
 def test_explanation_metadata_summarises_tensor_call_kwargs(tmp_path: Path) -> None:
@@ -328,6 +341,7 @@ def test_explanation_visualise_merges_inputs_and_attributions_from_kwargs(
         experiment_name="e",
         explainer_target="t",
         algorithm="a",
+        semantics=_semantics(),
         visualisers=[
             ConfiguredVisualiser(
                 visualiser=_RecordingVisualiser(),
@@ -388,6 +402,7 @@ def test_explanation_visualise_adds_generic_sample_name_title_when_opted_in(tmp_
         experiment_name="e",
         explainer_target="t",
         algorithm="a",
+        semantics=_semantics(),
         visualisers=[
             ConfiguredVisualiser(
                 visualiser=rec,
@@ -436,6 +451,7 @@ def test_explanation_visualise_uses_explainer_level_show_sample_names_default(
         experiment_name="e",
         explainer_target="t",
         algorithm="a",
+        semantics=_semantics(),
         visualisers=[ConfiguredVisualiser(visualiser=vis, call_kwargs={})],
         kwargs={
             "sample_names": ["ISIC_1", "ISIC_2"],
@@ -481,6 +497,7 @@ def test_explanation_visualise_trims_sample_names_for_shorter_batch(tmp_path: Pa
         experiment_name="e",
         explainer_target="t",
         algorithm="a",
+        semantics=_semantics(),
         visualisers=[
             ConfiguredVisualiser(
                 visualiser=vis,
@@ -527,6 +544,7 @@ def test_report_visualisation_resets_visualiser_sample_index_for_sliced_batch(
         experiment_name="e",
         explainer_target="t",
         algorithm="a",
+        semantics=_semantics(),
         visualisers=[ConfiguredVisualiser(visualiser=vis)],
     )
     explanation.write_artifacts()
@@ -574,6 +592,7 @@ def test_explanation_visualise_forwards_algorithm_when_supported(tmp_path: Path)
         experiment_name="e",
         explainer_target="t",
         algorithm="IntegratedGradients",
+        semantics=_semantics(),
         visualisers=[ConfiguredVisualiser(visualiser=vis)],
     )
     explanation.write_artifacts()

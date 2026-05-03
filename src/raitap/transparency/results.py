@@ -15,11 +15,9 @@ from raitap.tracking.base_tracker import BaseTracker, Trackable
 from raitap.utils.serialization import to_json_serialisable
 
 from .contracts import (
-    ExplanationOutputSpace,
     ExplanationPayloadKind,
     ExplanationScope,
     ExplanationSemantics,
-    OutputSpaceSpec,
     ScopeDefinitionStep,
     VisualisationContext,
     VisualSummarySpec,
@@ -50,23 +48,6 @@ def _serialisable_semantics(value: Any) -> Any:
     if isinstance(value, (list, tuple, set)):
         return [_serialisable_semantics(item) for item in value]
     return _serialisable(value)
-
-
-def _default_semantics() -> ExplanationSemantics:
-    return ExplanationSemantics(
-        scope=ExplanationScope.LOCAL,
-        scope_definition_step=ScopeDefinitionStep.EXPLAINER_OUTPUT,
-        payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
-        method_families=frozenset(),
-        target=None,
-        sample_selection=None,
-        input_spec=None,
-        output_space=OutputSpaceSpec(
-            space=ExplanationOutputSpace.INPUT_FEATURES,
-            shape=None,
-            layout=None,
-        ),
-    )
 
 
 def _serialisable_call_kwarg(value: Any) -> Any:
@@ -156,7 +137,7 @@ class ExplanationResult(Trackable):
     visualiser_targets: list[str] = field(default_factory=list)
     visualisers: list[ConfiguredVisualiser] = field(default_factory=list, repr=False)
     payload_kind: ExplanationPayloadKind = ExplanationPayloadKind.ATTRIBUTIONS
-    semantics: ExplanationSemantics = field(default_factory=_default_semantics)
+    semantics: ExplanationSemantics = field(kw_only=True)
 
     def __post_init__(self) -> None:
         self.run_dir = Path(self.run_dir)
