@@ -4,7 +4,7 @@ This page describes the internal transparency architecture and how to extend it 
 
 ## Overview
 
-The transparency module wraps XAI frameworks (Captum, SHAP) behind a unified interface driven by Hydra `_target_` instantiation. Explainers produce an `ExplanationResult`; visualisers render attribution tensors to PNG on disk.
+The transparency module wraps XAI frameworks (Captum, SHAP) behind a unified interface driven by Hydra `_target_` instantiation. Explainers produce an `ExplanationResult` with typed semantics; visualisers validate those semantics before rendering attribution tensors to PNG on disk.
 
 Explainers form a three-level hierarchy (see `src/raitap/transparency/explainers/base_explainer.py` and `full_explainer.py`):
 
@@ -20,15 +20,26 @@ AbstractExplainer                       # root — owns output_payload_kind + ch
 - **`AttributionOnlyExplainer`** — extend this when the framework should manage the full `explain` pipeline. Subclasses implement only `compute_attributions(model, inputs, **kwargs) → Tensor`; batching, normalisation, result wrapping, and `write_artifacts` are handled by this class.
 - **`FullExplainer`** — extend this when you own the entire `explain` pipeline yourself (data conversion, model invocation, result construction, persistence).
 
-Each explainer class sets **`output_payload_kind: ClassVar[ExplanationPayloadKind]`** (default `ATTRIBUTIONS`). `ExplanationResult` stores `payload_kind` and includes it in `metadata.json`.
+Each explainer class sets **`output_payload_kind: ClassVar[ExplanationPayloadKind]`** (default `ATTRIBUTIONS`). `ExplanationResult.semantics` records the payload kind together with scope, method families, sample selection, input metadata, and output-space metadata for downstream validation and reporting.
 
 All visualisers implement `BaseVisualiser`, which defines:
 
 - `visualise(attributions, inputs, **kwargs) -> Figure` (abstract, required)
 - `save(attributions, output_path, inputs, **kwargs) -> None` (optional, has default implementation)
 - `compatible_algorithms: frozenset[str]` (empty = all algorithms)
-- `supported_payload_kinds: ClassVar[frozenset[ExplanationPayloadKind]]` — default `{ATTRIBUTIONS}`. An **empty** `frozenset()` means the visualiser accepts **all** payload kinds (wildcard). The factory raises `PayloadVisualiserIncompatibilityError` if the explainer’s `output_payload_kind` is not listed when the set is non-empty.
-- `report_scope: ClassVar[str]` — defines which report group the visualiser belongs to. The default `"local"` means RAITAP places the output in **Local Explanations** because it represents one sample at a time, as with `CaptumImageVisualiser` or `ShapImageVisualiser`. Set this to `"global"` only when the visualiser itself already produces a true aggregate view for the whole run or dataset, so RAITAP places it in **Global Explanations**. Examples include `ShapBarVisualiser` and `ShapBeeswarmVisualiser`. Representative montages of a few samples are still `"local"`.
+- `supported_payload_kinds: ClassVar[frozenset[ExplanationPayloadKind]]` — payload categories the visualiser can render.
+- `supported_scopes: ClassVar[frozenset[ExplanationScope]]` — explanation scopes the visualiser can consume, such as local attribution artifacts.
+- `supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]]` — attribution coordinate spaces the visualiser can render.
+- `supported_method_families: ClassVar[frozenset[MethodFamily]]` — method families the visualiser understands.
+- `produces_scope: ClassVar[ExplanationScope | None]` — optional produced scope when the visualiser summarizes or otherwise changes the result scope.
+- `scope_definition_step: ClassVar[ScopeDefinitionStep | None]` — where the produced scope was defined when `produces_scope` is set.
+- `visual_summary: ClassVar[VisualSummarySpec | None]` — optional metadata for summary visualisations.
+- `validate_explanation(explanation, attributions, inputs) -> None` — render-time compatibility validation.
+
+Visualisers that preserve the explanation scope leave `produces_scope` unset.
+Visualisers that summarize local collections set it explicitly. For example,
+SHAP bar, SHAP beeswarm, and tabular bar visualisers consume local tabular or
+interpretable attributions and produce cohort visual summaries.
 
 ## Important files
 
@@ -40,8 +51,8 @@ Transparency runs after the forward pass in `src/raitap/run/pipeline.py`. For ea
 
 1. `Explanation(config, name, model, data)` creates the explainer and visualisers using the factory functions
 2. The explainer's `explain()` method returns an `ExplanationResult` (for `AttributionOnlyExplainer`, after calling `compute_attributions()`)
-3. `ExplanationResult.write_artifacts()` saves attributions and metadata to disk (`payload_kind` is recorded in metadata)
-4. `ExplanationResult.visualise()` iterates through configured visualisers, calling each one's `visualise()` method and saving the figures
+3. `ExplanationResult.write_artifacts()` saves attributions and typed metadata to disk
+4. `ExplanationResult.visualise()` iterates through configured visualisers, validates each one against the explanation semantics, calls `visualise()`, and saves the figures
 
 Each explainer writes to its own subdirectory under the Hydra run folder. See {doc}`../using-raitap/understanding-outputs` for more details.
 
@@ -159,17 +170,28 @@ To add a new visualiser:
     import torch
     from matplotlib.figure import Figure
 
-    from raitap.transparency.contracts import VisualisationContext
+    from raitap.transparency.contracts import (
+        ExplanationOutputSpace,
+        ExplanationPayloadKind,
+        ExplanationScope,
+        MethodFamily,
+        VisualisationContext,
+    )
 
     from .base_visualiser import BaseVisualiser
 
     class NewVisualiser(BaseVisualiser):
         # Optional: Restrict to specific algorithms (empty = compatible with all)
         compatible_algorithms: frozenset[str] = frozenset()
-        # Optional: restrict payload kinds (empty frozenset = all kinds)
-        # supported_payload_kinds: ClassVar[frozenset[ExplanationPayloadKind]] = frozenset({ExplanationPayloadKind.ATTRIBUTIONS})
-        # Optional: set to "global" for true aggregate visualisations.
-        report_scope = "local"
+        # Declare typed semantic compatibility for the explanation artifacts
+        # this visualiser can render.
+        supported_payload_kinds = frozenset({ExplanationPayloadKind.ATTRIBUTIONS})
+        supported_scopes = frozenset({ExplanationScope.LOCAL})
+        supported_output_spaces = frozenset({ExplanationOutputSpace.INPUT_FEATURES})
+        supported_method_families = frozenset({MethodFamily.GRADIENT})
+        produces_scope = None
+        scope_definition_step = None
+        visual_summary = None
         
         def __init__(self, **config_kwargs):
             super().__init__()
@@ -204,11 +226,11 @@ To add a new visualiser:
 
     Reference `src/raitap/transparency/visualisers/captum_visualisers.py` or `shap_visualisers.py` for complete examples.
 
-    `report_scope` controls where report builders place the visualisation:
-    `"local"` means per-sample output, while `"global"` means true global output.
-    Do not mark representative local montages as global. Use `"global"` only
-    when the visualiser itself produces a true run-level or dataset-level
-    summary plot. The global section is only for those native global outputs.
+    Reporting placement comes from the rendered `VisualisationResult.scope`.
+    Preserve the input explanation scope for per-sample renderers. Set
+    `produces_scope` only when the renderer changes the semantic breadth of the
+    result, such as summarizing a local batch into a cohort figure. Do not mark
+    representative local montages or arbitrary debug batches as global.
 
 2. **Export from `__init__.py`**
 
