@@ -141,7 +141,7 @@ def _has_image_layout(explanation: object, attributions: object) -> bool:
     if any(layout and layout != "NCHW" for layout in layouts):
         return False
     shape = _output_shape(explanation, attributions)
-    return shape is None or len(shape) >= 3
+    return shape is not None and len(shape) >= 3
 
 
 class CaptumImageVisualiser(BaseVisualiser):

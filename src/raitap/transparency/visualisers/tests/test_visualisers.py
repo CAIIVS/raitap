@@ -50,7 +50,7 @@ def _explanation(
     input_layout: str | None = "(B, F)",
     input_metadata: dict[str, object] | None = None,
     output_layout: str | None = "(B, F)",
-    shape: tuple[int, ...] = (4, 10),
+    shape: tuple[int, ...] | None = (4, 10),
 ) -> SimpleNamespace:
     return SimpleNamespace(
         semantics=ExplanationSemantics(
@@ -194,6 +194,17 @@ class TestCaptumImageVisualiser:
                 torch.zeros(2, 3, 32, 32),
                 None,
             )
+
+    def test_validate_explanation_rejects_missing_shape_metadata(self) -> None:
+        explanation = _explanation(
+            input_kind="image",
+            input_layout="NCHW",
+            output_layout="NCHW",
+            shape=None,
+        )
+
+        with pytest.raises(ValueError, match=r"CaptumImageVisualiser.*input metadata"):
+            CaptumImageVisualiser().validate_explanation(explanation, object(), None)  # type: ignore[arg-type]
 
     @pytest.mark.usefixtures("needs_captum")
     def test_visualise_tensor(self, sample_images: torch.Tensor) -> None:
@@ -831,6 +842,18 @@ class TestShapImageVisualiser:
                 torch.zeros(2, 3, 32, 32),
                 None,
             )
+
+    def test_validate_explanation_rejects_missing_shape_metadata(self) -> None:
+        explanation = _explanation(
+            input_kind="image",
+            input_layout="NCHW",
+            output_layout="NCHW",
+            shape=None,
+            method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+        )
+
+        with pytest.raises(ValueError, match=r"ShapImageVisualiser.*input metadata"):
+            ShapImageVisualiser().validate_explanation(explanation, object(), None)  # type: ignore[arg-type]
 
     @pytest.mark.parametrize(
         "method_families",
