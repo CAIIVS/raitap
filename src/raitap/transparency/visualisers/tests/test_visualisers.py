@@ -611,6 +611,36 @@ class TestCaptumTextVisualiser:
         CaptumTextVisualiser().validate_explanation(explanation, torch.zeros(12), None)
 
     @pytest.mark.parametrize(
+        "explanation",
+        [
+            _explanation(
+                input_kind="text",
+                input_layout="TOKENS",
+                output_layout="TOKENS",
+                output_space=ExplanationOutputSpace.TOKEN_SEQUENCE,
+                shape=(2, 12),
+            ),
+            _explanation(
+                input_kind="text",
+                input_layout="B,F",
+                output_layout="B,F",
+                output_space=ExplanationOutputSpace.TOKEN_SEQUENCE,
+                shape=(2, 10),
+            ),
+        ],
+    )
+    def test_validate_explanation_rejects_incompatible_text_layout_or_shape(
+        self,
+        explanation: SimpleNamespace,
+    ) -> None:
+        with pytest.raises(ValueError, match="CaptumTextVisualiser"):
+            CaptumTextVisualiser().validate_explanation(
+                explanation,
+                torch.zeros(2, 10),
+                None,
+            )
+
+    @pytest.mark.parametrize(
         "method_families",
         [
             frozenset({MethodFamily.TREE}),

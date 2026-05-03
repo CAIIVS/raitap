@@ -168,6 +168,15 @@ def _has_time_series_layout(explanation: object, attributions: object) -> bool:
     return shape is not None and len(shape) in {2, 3}
 
 
+def _has_token_layout(explanation: object, attributions: object) -> bool:
+    valid_layouts = {"TOKENS", "TOKEN_SEQUENCE"}
+    layouts = {_input_layout(explanation), _output_layout(explanation)}
+    if any(layout and layout not in valid_layouts for layout in layouts):
+        return False
+    shape = _output_shape(explanation, attributions)
+    return shape is not None and len(shape) == 1
+
+
 class CaptumImageVisualiser(BaseVisualiser):
     """
     Visualise image attributions using ``captum.attr.visualization.visualize_image_attr``.
@@ -524,18 +533,19 @@ class CaptumTextVisualiser(BaseVisualiser):
     ) -> None:
         super().validate_explanation(explanation, attributions, inputs)
         kind = _input_kind(explanation)
-        has_token_metadata = _input_layout(explanation) in {"TOKENS", "TOKEN_SEQUENCE"}
         if kind and kind != "text":
             self._raise_incompatibility(
                 "input metadata",
                 kind,
                 "text/token sequence",
             )
-        if kind != "text" and not has_token_metadata:
+        if not _has_token_layout(explanation, attributions):
             self._raise_incompatibility(
-                "input metadata",
-                kind,
-                "text/token sequence",
+                "token-sequence layout",
+                _input_layout(explanation)
+                or _output_layout(explanation)
+                or str(_output_shape(explanation, attributions)),
+                "1-D token attributions with TOKENS/TOKEN_SEQUENCE layout",
             )
 
     def visualise(
