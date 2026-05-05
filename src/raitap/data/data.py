@@ -124,6 +124,7 @@ class Data(Trackable):
         id_column = _resolve_labels_id_column(labels_df, labels_id_column)
         labels_column = _get_optional_config_value(labels_cfg, "column")
         labels_encoding = _get_optional_config_value(labels_cfg, "encoding")
+        labels_id_strategy = _get_optional_config_value(labels_cfg, "id_strategy") or "auto"
         encoded_labels = _extract_class_labels(
             labels_df,
             labels_column=labels_column,
@@ -134,11 +135,13 @@ class Data(Trackable):
         expected = int(self.tensor.shape[0])
         if self.sample_ids and id_column:
             id_series = _column_as_series(labels_df, id_column)
+            strategy = _resolve_id_strategy(labels_id_strategy, id_series)
             try:
                 aligned_labels = _align_labels_to_samples(
                     sample_ids=self.sample_ids,
                     raw_label_ids=id_series,
                     encoded_labels=encoded_labels,
+                    strategy=strategy,
                 )
             except ValueError as error:
                 warnings.warn(
@@ -498,9 +501,34 @@ def _resolve_sample_ids(files: list[Path], root: Path) -> list[str]:
     return sorted(p.relative_to(root).as_posix() for p in files)
 
 
-def _normalise_sample_id(value: object) -> str:
-    text = str(value).strip()
-    return Path(text).stem
+def _normalise_sample_id(value: object, strategy: str = "stem") -> str:
+    """Normalise a label-file id or discovered sample id into a comparable key.
+
+    - ``strategy="stem"``: legacy behaviour. Strip the directory and the
+      extension; e.g. ``"NORMAL/IM-0001.jpeg"`` → ``"IM-0001"``.
+    - ``strategy="relative_path"``: keep the directory; strip only the
+      extension. e.g. ``"NORMAL\\IM-0001.jpeg"`` → ``"NORMAL/IM-0001"``.
+    """
+    text = str(value).strip().replace("\\", "/")
+    p = Path(text)
+    if strategy == "relative_path":
+        return p.with_suffix("").as_posix()
+    return p.stem
+
+
+def _resolve_id_strategy(strategy: str, raw_label_ids: pd.Series) -> str:
+    if strategy == "auto":
+        for raw in raw_label_ids.tolist():
+            text = str(raw)
+            if "/" in text or "\\" in text:
+                return "relative_path"
+        return "stem"
+    if strategy in {"relative_path", "stem"}:
+        return strategy
+    raise ValueError(
+        f"Unsupported data.labels.id_strategy {strategy!r}. "
+        "Use 'auto', 'relative_path', or 'stem'."
+    )
 
 
 def _column_as_series(df: pd.DataFrame, column_name: str) -> pd.Series:
@@ -516,9 +544,12 @@ def _align_labels_to_samples(
     sample_ids: list[str],
     raw_label_ids: pd.Series,
     encoded_labels: list[int],
+    strategy: str = "stem",
 ) -> list[int]:
-    normalised_sample_ids = [_normalise_sample_id(sid) for sid in sample_ids]
-    normalised_label_ids = [_normalise_sample_id(raw_id) for raw_id in raw_label_ids.tolist()]
+    normalised_sample_ids = [_normalise_sample_id(sid, strategy) for sid in sample_ids]
+    normalised_label_ids = [
+        _normalise_sample_id(raw_id, strategy) for raw_id in raw_label_ids.tolist()
+    ]
     duplicates = sorted(
         [row_id for row_id, count in Counter(normalised_label_ids).items() if count > 1]
     )
