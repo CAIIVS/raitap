@@ -2783,7 +2783,7 @@ wheels = [
 
 [[package]]
 name = "raitap"
-version = "0.2.1"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "hydra-core" },
@@ -3519,14 +3519,14 @@ dependencies = [
     { name = "typing-extensions", marker = "(platform_machine != 's390x' and platform_machine != 'x86_64' and extra == 'extra-6-raitap-onnx-cpu' and extra == 'extra-6-raitap-onnx-cuda') or (platform_machine != 's390x' and platform_machine != 'x86_64' and extra == 'extra-6-raitap-onnx-cpu' and extra == 'extra-6-raitap-onnx-intel') or (platform_machine != 's390x' and platform_machine != 'x86_64' and extra == 'extra-6-raitap-onnx-cpu' and extra == 'extra-6-raitap-torch-cuda') or (platform_machine != 's390x' and platform_machine != 'x86_64' and extra == 'extra-6-raitap-onnx-cpu' and extra == 'extra-6-raitap-torch-intel') or (platform_machine != 's390x' and platform_machine != 'x86_64' and extra == 'extra-6-raitap-onnx-cuda' and extra == 'extra-6-raitap-onnx-intel') or (platform_machine != 's390x' and platform_machine != 'x86_64' and extra == 'extra-6-raitap-onnx-cuda' and extra == 'extra-6-raitap-torch-cpu') or (platform_machine != 's390x' and platform_machine != 'x86_64' and extra == 'extra-6-raitap-onnx-cuda' and extra == 'extra-6-raitap-torch-intel') or (platform_machine != 's390x' and platform_machine != 'x86_64' and extra == 'extra-6-raitap-onnx-intel' and extra == 'extra-6-raitap-torch-cpu') or (platform_machine != 's390x' and platform_machine != 'x86_64' and extra == 'extra-6-raitap-onnx-intel' and extra == 'extra-6-raitap-torch-cuda') or (platform_machine != 's390x' and platform_machine != 'x86_64' and extra == 'extra-6-raitap-torch-cpu' and extra == 'extra-6-raitap-torch-cuda') or (platform_machine != 's390x' and platform_machine != 'x86_64' and extra == 'extra-6-raitap-torch-cpu' and extra == 'extra-6-raitap-torch-intel') or (platform_machine != 's390x' and platform_machine != 'x86_64' and extra == 'extra-6-raitap-torch-cuda' and extra == 'extra-6-raitap-torch-intel') or (platform_machine == 's390x' and extra == 'extra-6-raitap-onnx-cpu') or (platform_machine == 'x86_64' and extra == 'extra-6-raitap-onnx-cpu') or (platform_machine == 'x86_64' and extra == 'extra-6-raitap-torch-cpu') or (platform_machine == 's390x' and extra == 'extra-6-raitap-onnx-cuda' and extra == 'extra-6-raitap-onnx-intel') or (platform_machine == 's390x' and extra == 'extra-6-raitap-onnx-cuda' and extra == 'extra-6-raitap-torch-cpu') or (platform_machine == 's390x' and extra == 'extra-6-raitap-onnx-cuda' and extra == 'extra-6-raitap-torch-intel') or (platform_machine == 's390x' and extra == 'extra-6-raitap-onnx-intel' and extra == 'extra-6-raitap-torch-cpu') or (platform_machine == 's390x' and extra == 'extra-6-raitap-onnx-intel' and extra == 'extra-6-raitap-torch-cuda') or (platform_machine == 's390x' and extra == 'extra-6-raitap-torch-cpu' and extra == 'extra-6-raitap-torch-cuda') or (platform_machine == 's390x' and extra == 'extra-6-raitap-torch-cpu' and extra == 'extra-6-raitap-torch-intel') or (platform_machine == 's390x' and extra == 'extra-6-raitap-torch-cuda' and extra == 'extra-6-raitap-torch-intel') or (platform_machine == 'x86_64' and extra == 'extra-6-raitap-onnx-cuda' and extra == 'extra-6-raitap-onnx-intel') or (platform_machine == 'x86_64' and extra == 'extra-6-raitap-onnx-cuda' and extra == 'extra-6-raitap-torch-intel') or (platform_machine == 'x86_64' and extra == 'extra-6-raitap-onnx-intel' and extra == 'extra-6-raitap-torch-cuda') or (platform_machine == 'x86_64' and extra == 'extra-6-raitap-torch-cuda' and extra == 'extra-6-raitap-torch-intel') or (sys_platform != 'darwin' and extra == 'extra-6-raitap-onnx-cpu') or (sys_platform != 'darwin' and extra == 'extra-6-raitap-torch-cpu') or (sys_platform != 'darwin' and extra == 'extra-6-raitap-onnx-cuda' and extra == 'extra-6-raitap-onnx-intel') or (sys_platform != 'darwin' and extra == 'extra-6-raitap-onnx-cuda' and extra == 'extra-6-raitap-torch-intel') or (sys_platform != 'darwin' and extra == 'extra-6-raitap-onnx-intel' and extra == 'extra-6-raitap-torch-cuda') or (sys_platform != 'darwin' and extra == 'extra-6-raitap-torch-cuda' and extra == 'extra-6-raitap-torch-intel')" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.11.0%2Bcpu-cp313-cp313-linux_s390x.whl", upload-time = "2026-03-23T14:59:04Z" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.11.0%2Bcpu-cp313-cp313-manylinux_2_28_aarch64.whl", upload-time = "2026-03-23T14:59:04Z" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.11.0%2Bcpu-cp313-cp313-manylinux_2_28_x86_64.whl", upload-time = "2026-03-23T14:59:05Z" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.11.0%2Bcpu-cp313-cp313-win_amd64.whl", upload-time = "2026-03-23T14:59:06Z" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.11.0%2Bcpu-cp313-cp313t-linux_s390x.whl", upload-time = "2026-03-23T14:59:07Z" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.11.0%2Bcpu-cp313-cp313t-manylinux_2_28_aarch64.whl", upload-time = "2026-03-23T14:59:07Z" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.11.0%2Bcpu-cp313-cp313t-manylinux_2_28_x86_64.whl", upload-time = "2026-03-23T14:59:07Z" },
-    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.11.0%2Bcpu-cp313-cp313t-win_amd64.whl", upload-time = "2026-03-23T14:59:09Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.11.0%2Bcpu-cp313-cp313-linux_s390x.whl", hash = "sha256:d1eff25ccc454faf21c9666c81bfab8e405e87c12d300708d4559620bc191a36", upload-time = "2026-04-28T00:06:42Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.11.0%2Bcpu-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:48b3e21a311445acdd0b27f13830e21d93adef70d4721e051e9f059baeb9b8f9", upload-time = "2026-04-28T00:06:51Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.11.0%2Bcpu-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:45025d7752dbc6b4c784c03afaee9c5f19730ce084b2e43fc9a2fe1677d9ff86", upload-time = "2026-04-28T00:07:02Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.11.0%2Bcpu-cp313-cp313-win_amd64.whl", hash = "sha256:ed70d4a4fc9f8b826c02fa1a9800a83820fb2fa6ae607680b53390f9ef394d85", upload-time = "2026-04-28T00:07:12Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.11.0%2Bcpu-cp313-cp313t-linux_s390x.whl", hash = "sha256:65d427a196ab0abe359b93c5bffedd76ded02df2b1b1d2d9f11a2609b69f426a", upload-time = "2026-04-28T00:07:19Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.11.0%2Bcpu-cp313-cp313t-manylinux_2_28_aarch64.whl", hash = "sha256:8f13dc7075ae04ca5f876a9f40b4e47522a04c23e30824b4409f42a3f3e57aa4", upload-time = "2026-04-28T00:07:27Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.11.0%2Bcpu-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:8713bb8679376ea0ec25742100b6cfb8447e0904c48bddefb9eb0ac1abbfa60a", upload-time = "2026-04-28T00:07:37Z" },
+    { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.11.0%2Bcpu-cp313-cp313t-win_amd64.whl", hash = "sha256:62ec1f1694c185f601eab74eb7fc0e8e10c64c06ae82f13c3592774c231c4877", upload-time = "2026-04-28T00:07:47Z" },
 ]
 
 [[package]]
@@ -3560,12 +3560,12 @@ dependencies = [
     { name = "typing-extensions", marker = "extra == 'extra-6-raitap-onnx-cuda' or extra == 'extra-6-raitap-torch-cuda' or (extra == 'extra-6-raitap-onnx-cpu' and extra == 'extra-6-raitap-onnx-intel') or (extra == 'extra-6-raitap-onnx-cpu' and extra == 'extra-6-raitap-torch-intel') or (extra == 'extra-6-raitap-onnx-intel' and extra == 'extra-6-raitap-torch-cpu') or (extra == 'extra-6-raitap-torch-cpu' and extra == 'extra-6-raitap-torch-intel')" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cu126/torch-2.11.0%2Bcu126-cp313-cp313-manylinux_2_28_aarch64.whl", upload-time = "2026-03-23T14:59:44Z" },
-    { url = "https://download-r2.pytorch.org/whl/cu126/torch-2.11.0%2Bcu126-cp313-cp313-manylinux_2_28_x86_64.whl", upload-time = "2026-03-23T14:59:51Z" },
-    { url = "https://download-r2.pytorch.org/whl/cu126/torch-2.11.0%2Bcu126-cp313-cp313-win_amd64.whl", upload-time = "2026-03-23T14:59:51Z" },
-    { url = "https://download-r2.pytorch.org/whl/cu126/torch-2.11.0%2Bcu126-cp313-cp313t-manylinux_2_28_aarch64.whl", upload-time = "2026-03-23T14:59:56Z" },
-    { url = "https://download-r2.pytorch.org/whl/cu126/torch-2.11.0%2Bcu126-cp313-cp313t-manylinux_2_28_x86_64.whl", upload-time = "2026-03-23T15:00:03Z" },
-    { url = "https://download-r2.pytorch.org/whl/cu126/torch-2.11.0%2Bcu126-cp313-cp313t-win_amd64.whl", upload-time = "2026-03-23T15:00:07Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu126/torch-2.11.0%2Bcu126-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:3bbbfc7ed16d878aef9b91a8e78c033bf131ffb8357e23ff80911210683a31b3", upload-time = "2026-04-27T20:58:05Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu126/torch-2.11.0%2Bcu126-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:5f6e2a5709876dd25a5fe0d4f0ab1ef33b33bb60431fcbfe768ab6468dcfe88a", upload-time = "2026-04-27T20:58:40Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu126/torch-2.11.0%2Bcu126-cp313-cp313-win_amd64.whl", hash = "sha256:12f7f1b73ba522576ea2050fbe2dc720a30cf681c73b8ea2d4f5480d66fad8f3", upload-time = "2026-04-27T21:00:22Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu126/torch-2.11.0%2Bcu126-cp313-cp313t-manylinux_2_28_aarch64.whl", hash = "sha256:7945e39fe82b85d7d018f68085ffaa6c5305a1634adb0bc792d835953b36fc9b", upload-time = "2026-04-27T21:02:11Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu126/torch-2.11.0%2Bcu126-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:47adcccf4de0fdb4a1550f477d919daec74f1007d15d939acfcef3080d26f9ec", upload-time = "2026-04-27T21:02:46Z" },
+    { url = "https://download-r2.pytorch.org/whl/cu126/torch-2.11.0%2Bcu126-cp313-cp313t-win_amd64.whl", hash = "sha256:478ba5a57cba329f6878cf4c9bf6baa21c17c2e2b39784e0f7d3ee56b10a85a7", upload-time = "2026-04-27T21:04:33Z" },
 ]
 
 [[package]]
