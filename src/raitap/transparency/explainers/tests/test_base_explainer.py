@@ -35,6 +35,10 @@ class _StrictExplainer(AttributionOnlyExplainer):
         return inputs
 
 
+class _GlobalScopeExplainer(_StrictExplainer):
+    output_scope = ExplanationScope.GLOBAL
+
+
 class _UnknownAlgorithmExplainer(AttributionOnlyExplainer):
     algorithm = "UnregisteredAlgorithm"
 
@@ -203,6 +207,20 @@ def test_explain_builds_semantics_with_sample_ids_separate_from_display_names() 
     assert result.semantics.input_spec.layout == "NCHW"
     assert result.semantics.output_space.space is ExplanationOutputSpace.INPUT_FEATURES
     assert result.kwargs["sample_names"] == ["Display 1", "Display 2"]
+
+
+def test_explain_uses_declared_output_scope() -> None:
+    explainer = _GlobalScopeExplainer()
+    model = torch.nn.Identity()
+    inputs = torch.randn(2, 3, 4, 4)
+
+    result = explainer.explain(
+        model,
+        inputs,
+        raitap_kwargs=_raitap_kwargs_for(inputs),
+    )
+
+    assert result.semantics.scope is ExplanationScope.GLOBAL
 
 
 def test_explain_uses_optional_batching_and_slices_per_sample_kwargs() -> None:

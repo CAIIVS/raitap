@@ -20,6 +20,7 @@ from ..contracts import (
     InputSpec,
     SampleSelection,
     ScopeDefinitionStep,
+    explainer_output_scope,
 )
 from ..results import ConfiguredVisualiser, ExplanationResult
 from ..semantics import infer_input_spec, infer_output_space, method_families_for_explainer
@@ -40,6 +41,7 @@ class AbstractExplainer:
     """
 
     output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
+    output_scope: ClassVar[ExplanationScope] = ExplanationScope.LOCAL
 
     def check_backend_compat(self, backend: object) -> None:
         del backend
@@ -110,7 +112,7 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
         )
         _validate_output_space_shape(input_spec=input_spec, output_space=output_space)
         semantics = ExplanationSemantics(
-            scope=ExplanationScope.LOCAL,
+            scope=explainer_output_scope(self),
             scope_definition_step=ScopeDefinitionStep.EXPLAINER_OUTPUT,
             payload_kind=self.output_payload_kind,
             method_families=method_families,

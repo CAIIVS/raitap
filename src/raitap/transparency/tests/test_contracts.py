@@ -45,6 +45,7 @@ OutputSpaceSpec = contracts.OutputSpaceSpec
 SampleSelection = contracts.SampleSelection
 ScopeDefinitionStep = contracts.ScopeDefinitionStep
 TensorLayout = contracts.TensorLayout
+explainer_output_scope = contracts.explainer_output_scope
 
 
 def test_semantic_enum_members_are_exact_and_not_placeholders() -> None:
@@ -146,6 +147,14 @@ def test_output_space_spec_normalises_layout_aliases() -> None:
     )
 
     assert output_space.layout is TensorLayout.BATCH_FEATURE
+
+
+def test_explainer_output_scope_uses_declared_class_contract_or_local_default() -> None:
+    class GlobalScopeExplainer:
+        output_scope = ExplanationScope.GLOBAL
+
+    assert explainer_output_scope(GlobalScopeExplainer()) is ExplanationScope.GLOBAL
+    assert explainer_output_scope(object()) is ExplanationScope.LOCAL
 
 
 def test_sample_ids_and_display_names_remain_separate() -> None:

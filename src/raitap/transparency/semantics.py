@@ -8,7 +8,6 @@ from typing import Any
 from .contracts import (
     ExplainerCapability,
     ExplanationOutputSpace,
-    ExplanationScope,
     InputKind,
     InputSpec,
     MethodFamily,
@@ -16,6 +15,7 @@ from .contracts import (
     ScopeDefinitionStep,
     TensorLayout,
     explainer_output_kind,
+    explainer_output_scope,
 )
 
 SHAP_METHOD_FAMILIES: Mapping[str, frozenset[MethodFamily]] = {
@@ -62,9 +62,7 @@ def explainer_capability(explainer: object) -> ExplainerCapability:
 
     method_families = method_families_for_explainer(explainer)
     return ExplainerCapability(
-        # Built-in explainers emit per-sample attributions; summary visualisers/reporting
-        # may later aggregate those local outputs into cohort or global sections.
-        scope=ExplanationScope.LOCAL,
+        scope=explainer_output_scope(explainer),
         scope_definition_step=ScopeDefinitionStep.EXPLAINER_OUTPUT,
         payload_kind=explainer_output_kind(explainer),
         method_families=method_families,

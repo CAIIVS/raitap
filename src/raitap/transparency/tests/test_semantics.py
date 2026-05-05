@@ -140,6 +140,23 @@ def test_explainer_capability_uses_local_explainer_output_contract() -> None:
     )
 
 
+def test_explainer_capability_uses_explainer_declared_output_scope() -> None:
+    class GlobalScopeExplainer:
+        framework = "captum"
+        algorithm = "LayerGradCam"
+        output_scope = ExplanationScope.GLOBAL
+
+    capability = explainer_capability(GlobalScopeExplainer())
+
+    assert capability.scope is ExplanationScope.GLOBAL
+
+
+def test_explainer_capability_defaults_to_local_scope_without_declaration() -> None:
+    capability = explainer_capability(_explainer("captum", "LayerGradCam"))
+
+    assert capability.scope is ExplanationScope.LOCAL
+
+
 def test_infer_input_spec_preserves_explicit_metadata() -> None:
     metadata = {"kind": "tabular", "shape": (4, 3), "layout": "(B,F)"}
 

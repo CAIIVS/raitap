@@ -93,6 +93,13 @@ def explainer_output_kind(explainer: object) -> ExplanationPayloadKind:
     return ExplanationPayloadKind.ATTRIBUTIONS
 
 
+def explainer_output_scope(explainer: object) -> ExplanationScope:
+    raw = getattr(type(explainer), "output_scope", None)
+    if isinstance(raw, ExplanationScope):
+        return raw
+    return ExplanationScope.LOCAL
+
+
 @dataclass(frozen=True)
 class ExplanationTarget:
     """Model output target described by an explanation."""
