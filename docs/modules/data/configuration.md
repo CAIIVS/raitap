@@ -76,27 +76,5 @@ data:
 :cli: data.source="./data/images" data.labels.source="./data/labels.csv" data.labels.column=label
 ```
 
-## Nested ImageFolder layout
-
-`data.source` is walked recursively. To support layouts like
-
-```
-data/test/
-├── NORMAL/IM-0001.jpeg
-├── NORMAL/IM-0002.jpeg
-└── PNEUMONIA/IM-0001.jpeg   # colliding stem with NORMAL/
-```
-
-write the labels file with relative posix paths:
-
-```csv
-image,label
-NORMAL/IM-0001.jpeg,0
-NORMAL/IM-0002.jpeg,0
-PNEUMONIA/IM-0001.jpeg,1
-```
-
-The default `labels.id_strategy: "auto"` detects the path separators and
-matches by relative path (extension is stripped during comparison, so
-`NORMAL/IM-0001.jpeg` and `NORMAL/IM-0001` both work). Sample order is
-sorted by relative posix path.
+For nested `ImageFolder`-style layouts (e.g. `data/test/<class>/<file>.jpg`)
+see {doc}`own-vs-built-in`.

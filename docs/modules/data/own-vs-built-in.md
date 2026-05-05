@@ -26,6 +26,13 @@ data:
 
 Example (nested ImageFolder layout — `data/test/<class>/<file>.jpg`):
 
+```
+data/test/
+├── NORMAL/IM-0001.jpeg
+├── NORMAL/IM-0002.jpeg
+└── PNEUMONIA/IM-0001.jpeg   # colliding stem with NORMAL/
+```
+
 ```yaml
 data:
   source: "./data/test"
@@ -36,8 +43,20 @@ data:
     # id_strategy: "auto"   # default — relative paths auto-detected
 ```
 
-with `labels.csv` rows like `NORMAL/IM-0001.jpeg,0`. See
-{doc}`configuration` for the full `id_strategy` reference.
+with `labels.csv` rows like:
+
+```text
+image,label
+NORMAL/IM-0001.jpeg,0
+NORMAL/IM-0002.jpeg,0
+PNEUMONIA/IM-0001.jpeg,1
+```
+
+The default `labels.id_strategy: "auto"` detects the path separators and
+matches by relative path (extension is stripped during comparison, so
+`NORMAL/IM-0001.jpeg` and `NORMAL/IM-0001` both work). Sample order is
+sorted by relative posix path. See {doc}`configuration` for the full
+`id_strategy` reference.
 
 If you want to evaluate metrics against ground-truth labels, configure the
 optional `data.labels` block as described in {doc}`configuration`.
