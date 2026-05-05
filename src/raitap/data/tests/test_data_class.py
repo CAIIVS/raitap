@@ -187,9 +187,7 @@ class TestDataConstructor:
         _write_image(data_dir / "NORMAL" / "IM-0001.jpeg")
         _write_image(data_dir / "PNEUMONIA" / "IM-0001.jpeg")
         labels_file = tmp_path / "labels.csv"
-        labels_file.write_text(
-            "image,label\nNORMAL/IM-0001.jpeg,0\nPNEUMONIA/IM-0001.jpeg,1\n"
-        )
+        labels_file.write_text("image,label\nNORMAL/IM-0001.jpeg,0\nPNEUMONIA/IM-0001.jpeg,1\n")
         config = _make_config(
             str(data_dir),
             labels_source=str(labels_file),
@@ -227,18 +225,14 @@ class TestDataConstructor:
         assert data.labels is not None
         assert data.labels.tolist() == [7, 8]
 
-    def test_data_explicit_stem_strategy_with_nested_collisions_warns(
-        self, tmp_path: Path
-    ) -> None:
+    def test_data_explicit_stem_strategy_with_nested_collisions_warns(self, tmp_path: Path) -> None:
         data_dir = tmp_path / "images"
         (data_dir / "NORMAL").mkdir(parents=True)
         (data_dir / "PNEUMONIA").mkdir(parents=True)
         _write_image(data_dir / "NORMAL" / "IM-0001.jpeg")
         _write_image(data_dir / "PNEUMONIA" / "IM-0001.jpeg")
         labels_file = tmp_path / "labels.csv"
-        labels_file.write_text(
-            "image,label\nNORMAL/IM-0001.jpeg,0\nPNEUMONIA/IM-0001.jpeg,1\n"
-        )
+        labels_file.write_text("image,label\nNORMAL/IM-0001.jpeg,0\nPNEUMONIA/IM-0001.jpeg,1\n")
         config = _make_config(
             str(data_dir),
             labels_source=str(labels_file),
@@ -268,7 +262,7 @@ class TestDataConstructor:
             labels_id_strategy="bogus",
         )
 
-        with pytest.raises(ValueError, match="Unsupported data.labels.id_strategy"):
+        with pytest.raises(ValueError, match=r"Unsupported data\.labels\.id_strategy"):
             Data(config)
 
     def test_data_raises_for_unsupported_labels_encoding(self, tmp_path: Path) -> None:
