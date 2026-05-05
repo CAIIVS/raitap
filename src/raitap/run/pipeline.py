@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import torch
 
 from raitap.configs import cfg_to_dict, resolve_run_dir
-from raitap.data import Data
-from raitap.data.samples import SAMPLE_SOURCES
+from raitap.data import Data, infer_data_input_metadata
 from raitap.metrics import (
     Metrics,
     MetricsEvaluation,
@@ -213,65 +211,19 @@ def _resolve_explainer_runtime_kwargs(
 
 def _input_metadata_for_data(config: AppConfig, data: Data) -> InputSpec:
     explicit = getattr(data, "input_metadata", None)
-    if explicit is None:
-        explicit = getattr(getattr(config, "data", None), "input_metadata", None)
     if isinstance(explicit, InputSpec):
         return explicit
-    if explicit is not None:
-        explicit = cfg_to_dict(explicit)
-        kind = explicit.get("kind")
-        layout = explicit.get("layout")
-        feature_names = explicit.get("feature_names")
-        shape = explicit.get("shape", getattr(data.tensor, "shape", None))
-        return InputSpec(
-            kind=None if kind is None else str(kind),
-            shape=_shape_tuple(shape),
-            layout=None if layout is None else str(layout),
-            feature_names=None if feature_names is None else [str(item) for item in feature_names],
-            metadata=dict(explicit),
-        )
-
-    source = str(
-        getattr(data, "source", None) or getattr(getattr(config, "data", None), "source", "")
+    config_explicit = getattr(getattr(config, "data", None), "input_metadata", None)
+    if isinstance(config_explicit, InputSpec):
+        return config_explicit
+    metadata = infer_data_input_metadata(config, data)
+    return InputSpec(
+        kind=metadata.kind,
+        shape=metadata.shape,
+        layout=metadata.layout,
+        feature_names=metadata.feature_names,
+        metadata=metadata.metadata,
     )
-    shape = _shape_tuple(getattr(data.tensor, "shape", None))
-    if _is_image_source(source):
-        return InputSpec(kind="image", shape=shape, layout="NCHW")
-    if _is_tabular_source(source):
-        return InputSpec(kind="tabular", shape=shape, layout="(B,F)")
-    return InputSpec(kind=None, shape=shape, layout=None)
-
-
-def _is_image_source(source: str) -> bool:
-    if source in SAMPLE_SOURCES:
-        return True
-    path = Path(source)
-    if path.suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp", ".webp"}:
-        return True
-    if path.is_dir():
-        return any(
-            child.suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
-            for child in path.iterdir()
-        )
-    return False
-
-
-def _is_tabular_source(source: str) -> bool:
-    path = Path(source)
-    if path.suffix.lower() in {".csv", ".tsv", ".parquet"}:
-        return True
-    if path.is_dir():
-        return any(child.suffix.lower() in {".csv", ".tsv", ".parquet"} for child in path.iterdir())
-    return False
-
-
-def _shape_tuple(value: object) -> tuple[int, ...] | None:
-    if value is None:
-        return None
-    try:
-        return tuple(int(item) for item in value)  # type: ignore[union-attr]
-    except (TypeError, ValueError):
-        return None
 
 
 def _prediction_summaries(
