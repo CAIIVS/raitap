@@ -6,8 +6,19 @@ from typing import Any
 
 @dataclass
 class ModelConfig:
-    # Path to a local .pth file, or a built-in name (e.g. "resnet50")
+    # Path to a local .pt / .pth / .onnx file, or a built-in name (e.g. "resnet50").
     source: str | None = None
+    # Architecture spec used when ``source`` points at a state-dict (``.pt`` /
+    # ``.pth`` containing a ``dict``). Either a torchvision model name (e.g.
+    # ``"resnet18"``) or any value accepted by ``getattr(torchvision.models, ...)``.
+    arch: str | None = None
+    # Number of output classes used to instantiate the architecture before
+    # ``load_state_dict``. Required together with ``arch`` for state-dict loading.
+    num_classes: int | None = None
+    # Whether to construct the architecture with ImageNet pretrained weights
+    # before loading the state-dict. Usually ``False`` since weights come from
+    # the state-dict itself.
+    pretrained: bool = False
 
 
 @dataclass
