@@ -123,16 +123,23 @@ def _build_arch_from_config(model_cfg: Any) -> nn.Module:
     return factory(weights=weights, num_classes=num_classes)
 
 
-def _load_torch_module_from_path(
-    path: Path, *, model_cfg: Any, device: torch.device
-) -> nn.Module:
+def _load_torch_module_from_path(path: Path, *, model_cfg: Any, device: torch.device) -> nn.Module:
     scripted = _try_torchscript_load(path)
     if scripted is not None:
         scripted.to(device)
         scripted.eval()
         return scripted
 
-    obj = torch.load(path, map_location="cpu", weights_only=False)
+    # Try the safe path first: `weights_only=True` only deserialises tensors and
+    # state-dicts, refusing arbitrary pickled objects (no code execution risk).
+    # Pickled `nn.Module` checkpoints fail this and fall through to the
+    # deprecated unsafe path below.
+    pickled_module = False
+    try:
+        obj: Any = torch.load(path, map_location="cpu", weights_only=True)
+    except Exception:
+        pickled_module = True
+        obj = torch.load(path, map_location="cpu", weights_only=False)
 
     if isinstance(obj, dict):
         module = _build_arch_from_config(model_cfg)
@@ -142,14 +149,16 @@ def _load_torch_module_from_path(
         return module
 
     if isinstance(obj, nn.Module):
-        warnings.warn(
-            f"Loading pickled nn.Module from {path}: this format is fragile across "
-            "environments and torchvision versions. Prefer "
-            "`torch.save(model.state_dict(), path)` with model.arch + "
-            "model.num_classes set in the config, or `torch.jit.save(scripted, path)`.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+        if pickled_module:
+            warnings.warn(
+                f"Loading pickled nn.Module from {path}: this format is fragile across "
+                "environments and torchvision versions, and requires unsafe pickle "
+                "deserialisation. Prefer `torch.save(model.state_dict(), path)` with "
+                "model.arch + model.num_classes set in the config, or "
+                "`torch.jit.save(scripted, path)`.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         obj.to(device)
         obj.eval()
         return obj
