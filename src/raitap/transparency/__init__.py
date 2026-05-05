@@ -31,11 +31,13 @@ from .contracts import (
     ExplanationScope,
     ExplanationSemantics,
     ExplanationTarget,
+    InputKind,
     InputSpec,
     MethodFamily,
     OutputSpaceSpec,
     SampleSelection,
     ScopeDefinitionStep,
+    TensorLayout,
     VisualSummarySpec,
 )
 from .exceptions import (
@@ -157,11 +159,13 @@ __all__ = [  # noqa: RUF022
     "ExplanationScope",
     "ExplanationSemantics",
     "ExplanationTarget",
+    "InputKind",
     "InputSpec",
     "MethodFamily",
     "OutputSpaceSpec",
     "SampleSelection",
     "ScopeDefinitionStep",
+    "TensorLayout",
     "VisualSummarySpec",
     # Semantic helpers
     "explainer_capability",

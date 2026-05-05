@@ -42,9 +42,11 @@ contracts, semantics = _load_contracts_and_semantics()
 ExplanationOutputSpace = contracts.ExplanationOutputSpace
 ExplanationPayloadKind = contracts.ExplanationPayloadKind
 ExplanationScope = contracts.ExplanationScope
+InputKind = contracts.InputKind
 InputSpec = contracts.InputSpec
 MethodFamily = contracts.MethodFamily
 ScopeDefinitionStep = contracts.ScopeDefinitionStep
+TensorLayout = contracts.TensorLayout
 CAPTUM_METHOD_FAMILIES = semantics.CAPTUM_METHOD_FAMILIES
 SHAP_METHOD_FAMILIES = semantics.SHAP_METHOD_FAMILIES
 explainer_capability = semantics.explainer_capability
@@ -144,12 +146,34 @@ def test_infer_input_spec_preserves_explicit_metadata() -> None:
     input_spec = infer_input_spec(input_metadata=metadata, feature_names=["x", "y", "z"])
 
     assert input_spec == InputSpec(
-        kind="tabular",
+        kind=InputKind.TABULAR,
         shape=(4, 3),
-        layout="(B,F)",
+        layout=TensorLayout.BATCH_FEATURE,
         feature_names=["x", "y", "z"],
         metadata=metadata,
     )
+    assert input_spec.kind is InputKind.TABULAR
+    assert input_spec.layout is TensorLayout.BATCH_FEATURE
+
+
+@pytest.mark.parametrize(
+    ("raw_layout", "expected_layout"),
+    [
+        ("B,F", TensorLayout.BATCH_FEATURE),
+        ("(B,F)", TensorLayout.BATCH_FEATURE),
+        ("B,T,C", TensorLayout.BATCH_TIME_CHANNEL),
+        ("(B,T,C)", TensorLayout.BATCH_TIME_CHANNEL),
+        ("TOKEN_SEQUENCE", TensorLayout.TOKEN_SEQUENCE),
+        ("TOKENS", TensorLayout.TOKEN_SEQUENCE),
+    ],
+)
+def test_infer_input_spec_accepts_legacy_layout_aliases(
+    raw_layout: str,
+    expected_layout: object,
+) -> None:
+    input_spec = infer_input_spec(input_metadata={"kind": "text", "layout": raw_layout})
+
+    assert input_spec.layout is expected_layout
 
 
 def test_infer_output_space_requires_metadata_for_ambiguous_shapes() -> None:
@@ -165,7 +189,7 @@ def test_infer_output_space_uses_cam_method_family_for_image_spatial_maps() -> N
     )
 
     assert output_space.space is ExplanationOutputSpace.IMAGE_SPATIAL_MAP
-    assert output_space.layout == "NCHW"
+    assert output_space.layout is TensorLayout.BATCH_CHANNEL_HEIGHT_WIDTH
     assert output_space.layer_path == "features.0"
     assert output_space.requires_interpolation is True
 

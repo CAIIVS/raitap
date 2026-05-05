@@ -9,10 +9,12 @@ from .contracts import (
     ExplainerCapability,
     ExplanationOutputSpace,
     ExplanationScope,
+    InputKind,
     InputSpec,
     MethodFamily,
     OutputSpaceSpec,
     ScopeDefinitionStep,
+    TensorLayout,
     explainer_output_kind,
 )
 
@@ -60,6 +62,8 @@ def explainer_capability(explainer: object) -> ExplainerCapability:
 
     method_families = method_families_for_explainer(explainer)
     return ExplainerCapability(
+        # Built-in explainers emit per-sample attributions; summary visualisers/reporting
+        # may later aggregate those local outputs into cohort or global sections.
         scope=ExplanationScope.LOCAL,
         scope_definition_step=ScopeDefinitionStep.EXPLAINER_OUTPUT,
         payload_kind=explainer_output_kind(explainer),
@@ -72,8 +76,8 @@ def infer_input_spec(
     inputs: object | None = None,
     *,
     input_metadata: InputSpec | Mapping[str, Any] | None = None,
-    kind: str | None = None,
-    layout: str | None = None,
+    kind: InputKind | str | None = None,
+    layout: TensorLayout | str | None = None,
     feature_names: Sequence[str] | None = None,
 ) -> InputSpec:
     """Build an ``InputSpec`` from explicit metadata and tensor shape."""
@@ -124,10 +128,13 @@ def infer_output_space(
     shape = _shape_tuple(getattr(attributions, "shape", None))
     features = list(feature_names) if feature_names is not None else input_spec.feature_names
 
-    input_kind = (input_spec.kind or "").lower()
-    input_layout = (input_spec.layout or "").upper()
+    input_kind = input_spec.kind
+    input_layout = input_spec.layout
     if MethodFamily.CAM in resolved_method_families:
-        if input_kind == "image" or input_layout == "NCHW":
+        if (
+            input_kind is InputKind.IMAGE
+            or input_layout is TensorLayout.BATCH_CHANNEL_HEIGHT_WIDTH
+        ):
             return OutputSpaceSpec(
                 space=ExplanationOutputSpace.IMAGE_SPATIAL_MAP,
                 shape=shape,
@@ -145,7 +152,7 @@ def infer_output_space(
             requires_interpolation=False,
         )
 
-    if input_kind == "text" or input_layout in {"TOKENS", "TOKEN_SEQUENCE"}:
+    if input_kind is InputKind.TEXT or input_layout is TensorLayout.TOKEN_SEQUENCE:
         return OutputSpaceSpec(
             space=ExplanationOutputSpace.TOKEN_SEQUENCE,
             shape=shape,
@@ -153,7 +160,7 @@ def infer_output_space(
             feature_names=features,
         )
 
-    if input_kind in {"time_series", "timeseries"}:
+    if input_kind is InputKind.TIME_SERIES:
         return OutputSpaceSpec(
             space=ExplanationOutputSpace.INPUT_FEATURES,
             shape=shape,
@@ -162,7 +169,10 @@ def infer_output_space(
             feature_names=features,
         )
 
-    if input_kind in {"image", "tabular"} or input_layout in {"NCHW", "B,F", "(B,F)"}:
+    if input_kind in {InputKind.IMAGE, InputKind.TABULAR} or input_layout in {
+        TensorLayout.BATCH_CHANNEL_HEIGHT_WIDTH,
+        TensorLayout.BATCH_FEATURE,
+    }:
         return OutputSpaceSpec(
             space=ExplanationOutputSpace.INPUT_FEATURES,
             shape=shape,

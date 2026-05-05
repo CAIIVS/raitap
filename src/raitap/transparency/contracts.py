@@ -56,6 +56,24 @@ class ExplanationOutputSpace(StrEnum):
     TOKEN_SEQUENCE = "token_sequence"
 
 
+class InputKind(StrEnum):
+    """Known input modalities used by semantic validation."""
+
+    IMAGE = "image"
+    TABULAR = "tabular"
+    TEXT = "text"
+    TIME_SERIES = "time_series"
+
+
+class TensorLayout(StrEnum):
+    """Named tensor layouts accepted by built-in visualisers."""
+
+    BATCH_CHANNEL_HEIGHT_WIDTH = "NCHW"
+    BATCH_FEATURE = "(B,F)"
+    BATCH_TIME_CHANNEL = "(B,T,C)"
+    TOKEN_SEQUENCE = "TOKENS"
+
+
 class MethodFamily(StrEnum):
     """Explicit algorithm families supported by the typed transparency contract."""
 
@@ -89,27 +107,57 @@ class SampleSelection:
     sample_display_names: list[str] | None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class InputSpec:
     """Input metadata used for deterministic semantic inference."""
 
-    kind: str | None
+    kind: InputKind | None
     shape: tuple[int, ...] | None
-    layout: str | None
+    layout: TensorLayout | None
     feature_names: list[str] | None = None
     metadata: Mapping[str, Any] | None = None
 
+    def __init__(
+        self,
+        kind: InputKind | str | None,
+        shape: tuple[int, ...] | None,
+        layout: TensorLayout | str | None,
+        feature_names: list[str] | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> None:
+        object.__setattr__(self, "kind", normalise_input_kind(kind))
+        object.__setattr__(self, "shape", shape)
+        object.__setattr__(self, "layout", normalise_tensor_layout(layout))
+        object.__setattr__(self, "feature_names", feature_names)
+        object.__setattr__(self, "metadata", metadata)
 
-@dataclass(frozen=True)
+
+@dataclass(frozen=True, init=False)
 class OutputSpaceSpec:
     """Attribution output-space metadata."""
 
     space: ExplanationOutputSpace
     shape: tuple[int, ...] | None
-    layout: str | None
+    layout: TensorLayout | None
     layer_path: str | None = None
     feature_names: list[str] | None = None
     requires_interpolation: bool = False
+
+    def __init__(
+        self,
+        space: ExplanationOutputSpace,
+        shape: tuple[int, ...] | None,
+        layout: TensorLayout | str | None,
+        layer_path: str | None = None,
+        feature_names: list[str] | None = None,
+        requires_interpolation: bool = False,
+    ) -> None:
+        object.__setattr__(self, "space", space)
+        object.__setattr__(self, "shape", shape)
+        object.__setattr__(self, "layout", normalise_tensor_layout(layout))
+        object.__setattr__(self, "layer_path", layer_path)
+        object.__setattr__(self, "feature_names", feature_names)
+        object.__setattr__(self, "requires_interpolation", requires_interpolation)
 
 
 @dataclass(frozen=True)
@@ -144,6 +192,46 @@ class ExplainerCapability:
     payload_kind: ExplanationPayloadKind
     method_families: frozenset[MethodFamily]
     candidate_output_spaces: frozenset[ExplanationOutputSpace]
+
+
+def normalise_input_kind(value: InputKind | str | None) -> InputKind | None:
+    """Return a typed input kind from a string or enum boundary value."""
+
+    if value is None or isinstance(value, InputKind):
+        return value
+    raw = str(value).strip().lower()
+    if raw == "timeseries":
+        return InputKind.TIME_SERIES
+    for candidate in InputKind:
+        if raw in {candidate.value, candidate.name.lower()}:
+            return candidate
+    raise ValueError(f"Unknown input kind {value!r}.")
+
+
+def normalise_tensor_layout(value: TensorLayout | str | None) -> TensorLayout | None:
+    """Return a typed tensor layout from a string or enum boundary value."""
+
+    if value is None or isinstance(value, TensorLayout):
+        return value
+    raw = str(value).strip()
+    compact = raw.upper().replace(" ", "")
+    aliases = {
+        TensorLayout.BATCH_CHANNEL_HEIGHT_WIDTH.value: TensorLayout.BATCH_CHANNEL_HEIGHT_WIDTH,
+        TensorLayout.BATCH_CHANNEL_HEIGHT_WIDTH.name: TensorLayout.BATCH_CHANNEL_HEIGHT_WIDTH,
+        "B,F": TensorLayout.BATCH_FEATURE,
+        TensorLayout.BATCH_FEATURE.value: TensorLayout.BATCH_FEATURE,
+        TensorLayout.BATCH_FEATURE.name: TensorLayout.BATCH_FEATURE,
+        "B,T,C": TensorLayout.BATCH_TIME_CHANNEL,
+        TensorLayout.BATCH_TIME_CHANNEL.value: TensorLayout.BATCH_TIME_CHANNEL,
+        TensorLayout.BATCH_TIME_CHANNEL.name: TensorLayout.BATCH_TIME_CHANNEL,
+        "TOKEN_SEQUENCE": TensorLayout.TOKEN_SEQUENCE,
+        TensorLayout.TOKEN_SEQUENCE.value: TensorLayout.TOKEN_SEQUENCE,
+        TensorLayout.TOKEN_SEQUENCE.name: TensorLayout.TOKEN_SEQUENCE,
+    }
+    try:
+        return aliases[compact]
+    except KeyError as error:
+        raise ValueError(f"Unknown tensor layout {value!r}.") from error
 
 
 @dataclass(frozen=True)

@@ -11,7 +11,7 @@ from omegaconf import OmegaConf
 
 from raitap.models.backend import TorchBackend
 from raitap.transparency import ExplanationResult, VisualisationResult
-from raitap.transparency.contracts import InputSpec
+from raitap.transparency.contracts import InputKind, InputSpec, TensorLayout
 from raitap.transparency.explainers import CaptumExplainer, ShapExplainer
 from raitap.transparency.factory import Explanation
 from raitap.transparency.results import ConfiguredVisualiser
@@ -350,22 +350,22 @@ def _input_metadata_for_case(case: MatrixCase, inputs: torch.Tensor) -> InputSpe
     shape = tuple(int(dim) for dim in inputs.shape)
     if case.input_fixture == "sample_images":
         return InputSpec(
-            kind="image",
+            kind=InputKind.IMAGE,
             shape=shape,
-            layout="NCHW",
+            layout=TensorLayout.BATCH_CHANNEL_HEIGHT_WIDTH,
             metadata={"kind": "image", "layout": "NCHW"},
         )
     if case.input_fixture == "sample_tabular":
         return InputSpec(
-            kind="tabular",
+            kind=InputKind.TABULAR,
             shape=shape,
-            layout="(B,F)",
+            layout=TensorLayout.BATCH_FEATURE,
             metadata={"kind": "tabular", "layout": "(B,F)"},
         )
     return InputSpec(
-        kind="time_series",
+        kind=InputKind.TIME_SERIES,
         shape=shape,
-        layout="(B,T,C)",
+        layout=TensorLayout.BATCH_TIME_CHANNEL,
         metadata={"kind": "time_series", "layout": "(B,T,C)"},
     )
 

@@ -38,11 +38,13 @@ ExplanationPayloadKind = contracts.ExplanationPayloadKind
 ExplanationScope = contracts.ExplanationScope
 ExplanationSemantics = contracts.ExplanationSemantics
 ExplanationTarget = contracts.ExplanationTarget
+InputKind = contracts.InputKind
 InputSpec = contracts.InputSpec
 MethodFamily = contracts.MethodFamily
 OutputSpaceSpec = contracts.OutputSpaceSpec
 SampleSelection = contracts.SampleSelection
 ScopeDefinitionStep = contracts.ScopeDefinitionStep
+TensorLayout = contracts.TensorLayout
 
 
 def test_semantic_enum_members_are_exact_and_not_placeholders() -> None:
@@ -56,6 +58,18 @@ def test_semantic_enum_members_are_exact_and_not_placeholders() -> None:
         "INTERPRETABLE_FEATURES",
         "LAYER_ACTIVATION",
         "IMAGE_SPATIAL_MAP",
+        "TOKEN_SEQUENCE",
+    }
+    assert {member.name for member in InputKind} == {
+        "IMAGE",
+        "TABULAR",
+        "TEXT",
+        "TIME_SERIES",
+    }
+    assert {member.name for member in TensorLayout} == {
+        "BATCH_CHANNEL_HEIGHT_WIDTH",
+        "BATCH_FEATURE",
+        "BATCH_TIME_CHANNEL",
         "TOKEN_SEQUENCE",
     }
     assert {member.name for member in MethodFamily} == {
@@ -73,6 +87,8 @@ def test_semantic_enum_members_are_exact_and_not_placeholders() -> None:
         ExplanationScope,
         ScopeDefinitionStep,
         ExplanationOutputSpace,
+        InputKind,
+        TensorLayout,
         MethodFamily,
     )
     for enum_cls in semantic_enums:
@@ -101,12 +117,35 @@ def test_explanation_semantics_has_only_contract_fields() -> None:
 
 
 def test_public_contract_type_hints_resolve_without_optional_runtime_imports() -> None:
+    assert get_type_hints(InputSpec)["kind"] == InputKind | None
+    assert get_type_hints(InputSpec)["layout"] == TensorLayout | None
     assert get_type_hints(InputSpec)["metadata"] == contracts.Mapping[str, Any] | None
+    assert get_type_hints(InputSpec.__init__)["kind"] == InputKind | str | None
+    assert get_type_hints(InputSpec.__init__)["layout"] == TensorLayout | str | None
+    assert get_type_hints(OutputSpaceSpec)["layout"] == TensorLayout | None
+    assert get_type_hints(OutputSpaceSpec.__init__)["layout"] == TensorLayout | str | None
 
     explain_hints = get_type_hints(contracts.ExplainerAdapter.explain)
     assert explain_hints["model"] is Any
     assert explain_hints["inputs"] is Any
     assert explain_hints["return"] is Any
+
+
+def test_input_spec_normalises_legacy_strings_to_typed_metadata() -> None:
+    input_spec = InputSpec(kind="image", shape=(2, 3, 8, 8), layout="NCHW")
+
+    assert input_spec.kind is InputKind.IMAGE
+    assert input_spec.layout is TensorLayout.BATCH_CHANNEL_HEIGHT_WIDTH
+
+
+def test_output_space_spec_normalises_layout_aliases() -> None:
+    output_space = OutputSpaceSpec(
+        space=ExplanationOutputSpace.INPUT_FEATURES,
+        shape=(2, 3),
+        layout="B,F",
+    )
+
+    assert output_space.layout is TensorLayout.BATCH_FEATURE
 
 
 def test_sample_ids_and_display_names_remain_separate() -> None:
