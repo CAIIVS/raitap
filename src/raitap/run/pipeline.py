@@ -84,6 +84,8 @@ def run(config: AppConfig) -> RunOutputs:
 def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOutputs:
     backend = model.backend
     data_tensor = data.tensor
+    sample_ids = data.sample_ids
+    labels = data.labels
 
     with torch.no_grad():
         forward_output = _forward_primary_tensor(config, backend, data_tensor)
@@ -97,7 +99,7 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
         ):
             config.metrics.num_classes = int(forward_output.shape[1])
         preds, _ = metrics_prediction_pair(forward_output)
-        targs = resolve_metric_targets(preds, getattr(data, "labels", None))
+        targs = resolve_metric_targets(preds, labels)
         metrics_eval = Metrics(config, preds, targs)
 
     explanations: list[ExplanationResult] = []
@@ -119,8 +121,8 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
             model,
             data_tensor,
             input_metadata=_input_metadata_for_data(config, data),
-            sample_ids=getattr(data, "sample_ids", None),
-            sample_names=getattr(data, "sample_ids", None),
+            sample_ids=sample_ids,
+            sample_names=sample_ids,
             **runtime_kwargs,
         )
         explanations.append(explanation)
@@ -131,12 +133,12 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
         visualisations=visualisations,
         metrics=metrics_eval,
         forward_output=forward_output.detach().cpu(),
-        sample_ids=getattr(data, "sample_ids", None),
-        targets=getattr(data, "labels", None),
+        sample_ids=sample_ids,
+        targets=labels,
         prediction_summaries=_prediction_summaries(
             forward_output=forward_output,
-            sample_ids=getattr(data, "sample_ids", None),
-            targets=getattr(data, "labels", None),
+            sample_ids=sample_ids,
+            targets=labels,
         ),
     )
 

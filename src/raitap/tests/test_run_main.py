@@ -456,7 +456,7 @@ def test_run_with_tracking_config_but_no_target_skips_tracking(monkeypatch: Monk
 
 def test_run_without_tracking_raises_if_no_explainers(monkeypatch: MonkeyPatch) -> None:
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-    data = SimpleNamespace(tensor=torch.randn(2, 3))
+    data = SimpleNamespace(tensor=torch.randn(2, 3), sample_ids=None, labels=None)
     config = SimpleNamespace(transparency={}, metrics=SimpleNamespace(num_classes=None))
 
     monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: False)
@@ -472,7 +472,7 @@ def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: M
             return torch.tensor([[0.1, 0.9, 0.0], [0.8, 0.1, 0.1]])
 
     model = SimpleNamespace(backend=_BackendStub(_Net()))
-    data = SimpleNamespace(tensor=torch.randn(2, 4))
+    data = SimpleNamespace(tensor=torch.randn(2, 4), sample_ids=None, labels=None)
     explanation = _FakeExplainerResult("exp")
     metrics_calls: list[tuple[object, torch.Tensor, torch.Tensor]] = []
 
@@ -508,7 +508,7 @@ def test_run_without_tracking_uses_provided_num_classes(monkeypatch: MonkeyPatch
             return torch.tensor([[0.1, 0.9, 0.0]])
 
     model = SimpleNamespace(backend=_BackendStub(_Net()))
-    data = SimpleNamespace(tensor=torch.randn(1, 4))
+    data = SimpleNamespace(tensor=torch.randn(1, 4), sample_ids=None, labels=None)
     explanation = _FakeExplainerResult("exp")
 
     def _fake_explanation(*_args: object, **_kwargs: object) -> _FakeExplainerResult:
@@ -532,6 +532,7 @@ def test_run_without_tracking_passes_sample_names_to_explanation(monkeypatch: Mo
     data = SimpleNamespace(
         tensor=torch.randn(2, 3),
         sample_ids=["isic_1", "isic_2"],
+        labels=None,
     )
     explanation = _FakeExplainerResult("exp")
     captured_kwargs: dict[str, object] = {}
@@ -562,6 +563,7 @@ def test_run_without_tracking_threads_sample_ids_and_image_metadata_to_explanati
     data = SimpleNamespace(
         tensor=torch.randn(2, 3, 8, 8),
         sample_ids=["stable-1", "stable-2"],
+        labels=None,
         source=str(image_path),
     )
     explanation = _FakeExplainerResult("exp")
@@ -596,7 +598,12 @@ def test_run_without_tracking_threads_tabular_metadata_to_explanation(
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     csv_path = tmp_path / "features.csv"
     csv_path.write_text("a,b\n1,2\n3,4")
-    data = SimpleNamespace(tensor=torch.randn(2, 2), sample_ids=None, source=str(csv_path))
+    data = SimpleNamespace(
+        tensor=torch.randn(2, 2),
+        sample_ids=None,
+        labels=None,
+        source=str(csv_path),
+    )
     explanation = _FakeExplainerResult("exp")
     captured_kwargs: dict[str, object] = {}
 
@@ -627,7 +634,7 @@ def test_run_without_tracking_resolves_auto_pred_target(monkeypatch: MonkeyPatch
             return torch.tensor([[0.1, 0.9, 0.0], [0.8, 0.1, 0.1]])
 
     model = SimpleNamespace(backend=_BackendStub(_Net()))
-    data = SimpleNamespace(tensor=torch.randn(2, 4), sample_ids=None)
+    data = SimpleNamespace(tensor=torch.randn(2, 4), sample_ids=None, labels=None)
     explanation = _FakeExplainerResult("exp")
     captured_kwargs: dict[str, object] = {}
 
