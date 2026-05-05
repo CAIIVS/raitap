@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any
 
 
 @dataclass
@@ -20,12 +20,12 @@ class LabelsConfig:
     column: str | None = None
     # Optional parsing strategy for labels: "index", "one_hot", or "argmax".
     encoding: str | None = None
-    # Strategy for matching label-file ids to discovered sample files:
+    # Strategy for matching label-file ids to discovered sample files. One of:
     #   "auto"          — pick "relative_path" if any id contains "/" or "\\"; else "stem".
     #   "relative_path" — ids are resolved as posix-style paths relative to ``data.source``
     #                     (supports nested ImageFolder layouts with colliding stems).
     #   "stem"          — legacy flat-dir behaviour: match by ``Path(id).stem`` only.
-    id_strategy: Literal["auto", "relative_path", "stem"] = "auto"
+    id_strategy: str = "auto"
 
 
 @dataclass
