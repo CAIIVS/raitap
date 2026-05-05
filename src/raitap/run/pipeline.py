@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 import torch
 
 from raitap.configs import cfg_to_dict, resolve_run_dir
-from raitap.data import Data
+from raitap.data import Data, infer_data_input_metadata
 from raitap.metrics import (
     Metrics,
     MetricsEvaluation,
@@ -25,6 +25,7 @@ from raitap.reporting import (
 from raitap.run.forward_output import extract_primary_tensor
 from raitap.run.outputs import PredictionSummary, RunOutputs
 from raitap.tracking import BaseTracker
+from raitap.transparency.contracts import InputSpec
 from raitap.transparency.factory import Explanation
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,8 @@ def run(config: AppConfig) -> RunOutputs:
 def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOutputs:
     backend = model.backend
     data_tensor = data.tensor
+    sample_ids = data.sample_ids
+    labels = data.labels
 
     with torch.no_grad():
         forward_output = _forward_primary_tensor(config, backend, data_tensor)
@@ -94,7 +97,7 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
         ):
             config.metrics.num_classes = int(forward_output.shape[1])
         preds, _ = metrics_prediction_pair(forward_output)
-        targs = resolve_metric_targets(preds, getattr(data, "labels", None))
+        targs = resolve_metric_targets(preds, labels)
         metrics_eval = Metrics(config, preds, targs)
 
     explanations: list[ExplanationResult] = []
@@ -115,7 +118,9 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
             name,
             model,
             data_tensor,
-            sample_names=getattr(data, "sample_ids", None),
+            input_metadata=_input_metadata_for_data(config, data),
+            sample_ids=sample_ids,
+            sample_names=sample_ids,
             **runtime_kwargs,
         )
         explanations.append(explanation)
@@ -126,12 +131,12 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
         visualisations=visualisations,
         metrics=metrics_eval,
         forward_output=forward_output.detach().cpu(),
-        sample_ids=getattr(data, "sample_ids", None),
-        targets=getattr(data, "labels", None),
+        sample_ids=sample_ids,
+        targets=labels,
         prediction_summaries=_prediction_summaries(
             forward_output=forward_output,
-            sample_ids=getattr(data, "sample_ids", None),
-            targets=getattr(data, "labels", None),
+            sample_ids=sample_ids,
+            targets=labels,
         ),
     )
 
@@ -202,6 +207,23 @@ def _resolve_explainer_runtime_kwargs(
 
     predictions, _ = metrics_prediction_pair(forward_output)
     return {"target": predictions.detach()}
+
+
+def _input_metadata_for_data(config: AppConfig, data: Data) -> InputSpec:
+    explicit = getattr(data, "input_metadata", None)
+    if isinstance(explicit, InputSpec):
+        return explicit
+    config_explicit = getattr(getattr(config, "data", None), "input_metadata", None)
+    if isinstance(config_explicit, InputSpec):
+        return config_explicit
+    metadata = infer_data_input_metadata(config, data)
+    return InputSpec(
+        kind=metadata.kind,
+        shape=metadata.shape,
+        layout=metadata.layout,
+        feature_names=metadata.feature_names,
+        metadata=metadata.metadata,
+    )
 
 
 def _prediction_summaries(

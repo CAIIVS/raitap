@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 import torch
 
+from raitap.transparency.contracts import InputSpec
 from raitap.transparency.explainers import CaptumExplainer
 
 if TYPE_CHECKING:
@@ -140,7 +141,15 @@ class TestCaptumExplainer:
             sample_images,
             run_dir=tmp_path / "transparency",
             target=[0, 1, 2, 3],
-            raitap_kwargs={"batch_size": 2},
+            raitap_kwargs={
+                "batch_size": 2,
+                "input_metadata": InputSpec(
+                    kind="image",
+                    shape=tuple(sample_images.shape),
+                    layout="NCHW",
+                    metadata={"kind": "image", "layout": "NCHW"},
+                ),
+            },
         )
 
         assert isinstance(result.attributions, torch.Tensor)
@@ -163,6 +172,14 @@ class TestCaptumExplainer:
             run_dir=tmp_path / "transparency",
             backend=onnx_linear_backend,
             target=0,
+            raitap_kwargs={
+                "input_metadata": InputSpec(
+                    kind="tabular",
+                    shape=tuple(inputs.shape),
+                    layout="(B,F)",
+                    metadata={"kind": "tabular", "layout": "(B,F)"},
+                )
+            },
         )
 
         assert isinstance(result.attributions, torch.Tensor)
@@ -185,7 +202,15 @@ class TestCaptumExplainer:
             run_dir=tmp_path / "transparency",
             backend=onnx_linear_backend,
             target=0,
-            raitap_kwargs={"batch_size": 2},
+            raitap_kwargs={
+                "batch_size": 2,
+                "input_metadata": InputSpec(
+                    kind="tabular",
+                    shape=tuple(inputs.shape),
+                    layout="(B,F)",
+                    metadata={"kind": "tabular", "layout": "(B,F)"},
+                ),
+            },
         )
 
         assert isinstance(result.attributions, torch.Tensor)

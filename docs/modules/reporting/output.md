@@ -13,7 +13,7 @@ reports/
 ├── report.pdf
 ├── report_manifest.json
 └── _assets/
-    ├── ... native global figures
+    ├── ... native global or cohort summary figures
     └── ... selected local sample figures
 ```
 
@@ -31,10 +31,12 @@ Generated PDF reports use this section order:
 
 1. **Metrics**
 2. **Global Explanations**
-3. **Local Explanations**
+3. **Cohort Explanations**
+4. **Local Explanations**
 
 Empty sections are omitted. For example, a run without metrics will start with
-global explanations if true global content exists, otherwise local explanations.
+global explanations if true global content exists, cohort explanations if only
+batch summaries exist, otherwise local explanations.
 
 ### Metrics
 
@@ -45,11 +47,23 @@ metric figures produced by the metrics module.
 
 This section contains true global content only:
 
-- Native global visualisations, such as SHAP summary, bar, or beeswarm plots.
+- Native global visualisations backed by a dataset, population, or model-wide
+  explanation contract.
 
 RAITAP does not synthesize report-level global explanation artifacts from local
 attribution tensors. This section is reserved for outputs produced directly by
-the configured visualiser or underlying library.
+the configured visualiser or underlying library with `GLOBAL` scope.
+
+Current built-in transparency visualisers do not produce global outputs, so this
+section is usually omitted.
+
+### Cohort Explanations
+
+Cohort explanations summarize the selected input batch or cohort. Current SHAP
+bar, SHAP beeswarm, and tabular bar summaries belong here because they aggregate
+local attribution values from the selected samples. RAITAP intentionally does
+not call those figures global unless a future first-class dataset, population,
+or model-wide contract proves that scope.
 
 ### Local Explanations
 

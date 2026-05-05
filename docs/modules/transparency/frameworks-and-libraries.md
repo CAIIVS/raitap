@@ -31,6 +31,31 @@ transparency:
           max_samples: 1
 ```
 
+## Typed semantics and visualiser compatibility
+
+RAITAP uses typed scope, method-family, and output-space semantics to validate
+visualisers against the explanation artifact they receive. In short:
+
+- explainers produce typed `ExplanationResult.semantics`
+- visualisers declare the payload kinds, scopes, output spaces, and method
+  families they can render
+- reporting places rendered figures by `VisualisationResult.scope`; see
+  {doc}`../reporting/output` for report section placement
+
+| Visualiser | Consumes | Produces | Notes |
+| --- | --- | --- | --- |
+| `CaptumImageVisualiser` | Local image input-feature attributions and supported image/CAM spatial maps | Local visualisation | Rejects tabular, token, and time-series layouts. |
+| `CaptumTextVisualiser` | Local token-sequence attributions | Local visualisation | Requires explicit token metadata. |
+| `CaptumTimeSeriesVisualiser` | Local time-series attributions | Local visualisation | Requires explicit time-series metadata. |
+| `ShapImageVisualiser` | Local image-shaped SHAP values from `GradientExplainer` or `DeepExplainer` | Local visualisation | Intended for pixel-level SHAP values, not tabular SHAP outputs. |
+| `ShapBarVisualiser` | Local tabular or interpretable SHAP attributions | Cohort visual summary | Summarizes the selected batch or cohort, so it is reported under Cohort Explanations. |
+| `ShapBeeswarmVisualiser` | Local tabular or interpretable SHAP attributions | Cohort visual summary | Summarizes attribution distributions for the selected batch or cohort. |
+| `ShapForceVisualiser` | Local tabular or interpretable SHAP attributions for one selected sample | Local visualisation | Preserves local scope. |
+| `ShapWaterfallVisualiser` | Local tabular or interpretable SHAP attributions for one selected sample | Local visualisation | Preserves local scope. |
+| `TabularBarChartVisualiser` | Local tabular or interpretable attributions | Cohort visual summary | Uses mean absolute attribution-style aggregation for the selected batch or cohort. |
+
+Contributor-facing details about semantic contracts are documented in {doc}`../../contributor/transparency`.
+
 ## Explainer libraries
 
 ### Captum
@@ -74,7 +99,10 @@ RAITAP currently supports the following [Captum visualisers](https://captum.ai/a
 - `CaptumTextVisualiser`
 - `CaptumTimeSeriesVisualiser`
 
-All three are compatible with all Captum algorithms in RAITAP.
+Compatibility is semantic, not just framework-based. Image visualisation expects
+image input metadata or supported CAM/spatial-map output. Text and time-series
+visualisation require explicit token or time-series metadata before they can be
+validated.
 
 ### SHAP
 
@@ -112,10 +140,15 @@ Only `KernelExplainer` is compatible.
 
 #### Visualiser compatibility
 
-The following SHAP visualisers are compatible with all SHAP algorithms:
+The following SHAP visualisers render tabular or interpretable SHAP values and
+produce cohort summaries:
 
 - `ShapBarVisualiser`
 - `ShapBeeswarmVisualiser`
+
+The following SHAP visualisers render one selected sample and preserve local
+scope:
+
 - `ShapForceVisualiser`
 - `ShapWaterfallVisualiser`
 
@@ -202,4 +235,4 @@ transparency:
           show_sample_names: true
 ```
 
-**Note:** `ShapImageVisualiser` requires pixel-level SHAP values from `GradientExplainer` or `DeepExplainer`. Using it with other SHAP explainers will produce meaningless plots.
+**Note:** `ShapImageVisualiser` requires pixel-level SHAP values from `GradientExplainer` or `DeepExplainer`. Other SHAP visualisers are intended for tabular or interpretable feature outputs and are treated as cohort summaries when they aggregate the selected batch.

@@ -12,9 +12,20 @@ from raitap.data import load_tensor_from_source
 from raitap.models.backend import ModelBackend
 
 from .algorithm_allowlist import ensure_algorithm_in_allowlist
-from .contracts import ExplainerAdapter, explainer_output_kind
+from .contracts import (
+    ExplainerAdapter,
+    ExplanationOutputSpace,
+    InputSpec,
+    MethodFamily,
+    explainer_output_kind,
+)
 from .exceptions import PayloadVisualiserIncompatibilityError, VisualiserIncompatibilityError
 from .results import ConfiguredVisualiser
+from .semantics import (
+    CAPTUM_METHOD_FAMILIES,
+    SHAP_METHOD_FAMILIES,
+    explainer_capability,
+)
 
 if TYPE_CHECKING:
     import torch
@@ -36,14 +47,24 @@ _VISUALISER_ENTRY_KEYS = frozenset({"_target_", "constructor", "call"})
 _RAITAP_KEYS = frozenset(
     {
         "batch_size",
+        "input_metadata",
         "show_progress",
         "progress_desc",
+        "sample_ids",
         "sample_names",
         "show_sample_names",
     }
 )
 _MISPLACED_RAITAP_CALL_WARNING_KEYS = frozenset(
-    {"batch_size", "show_progress", "progress_desc", "sample_names", "show_sample_names"}
+    {
+        "batch_size",
+        "input_metadata",
+        "show_progress",
+        "progress_desc",
+        "sample_ids",
+        "sample_names",
+        "show_sample_names",
+    }
 )
 _REMOVED_RAITAP_KEYS = {
     "max_batch_size": "raitap.max_batch_size has been removed; use raitap.batch_size instead."
@@ -305,6 +326,49 @@ def check_explainer_visualiser_payload_compat(
             )
 
 
+def check_explainer_visualiser_semantic_compat(
+    explainer: object,
+    explainer_target: str,
+    visualisers: list[ConfiguredVisualiser],
+) -> None:
+    if not _requires_registry_semantics(explainer, explainer_target):
+        return
+
+    capability = explainer_capability(explainer)
+
+    for configured in visualisers:
+        visualiser = configured.visualiser
+        supported_method_families = _enum_frozenset(
+            getattr(type(visualiser), "supported_method_families", frozenset()),
+            MethodFamily,
+        )
+        if supported_method_families and not capability.method_families.intersection(
+            supported_method_families
+        ):
+            raise ValueError(
+                f"Visualiser {type(visualiser).__name__!r} does not support explainer "
+                f"method families {sorted(f.value for f in capability.method_families)}. "
+                "Its supported method families are "
+                f"{sorted(f.value for f in supported_method_families)}."
+            )
+
+        supported_output_spaces = _enum_frozenset(
+            getattr(type(visualiser), "supported_output_spaces", frozenset()),
+            ExplanationOutputSpace,
+        )
+        if not supported_output_spaces:
+            continue
+        if capability.candidate_output_spaces.intersection(supported_output_spaces):
+            continue
+        raise ValueError(
+            f"Visualiser {type(visualiser).__name__!r} does not support explainer "
+            "candidate output spaces "
+            f"{sorted(s.value for s in capability.candidate_output_spaces)}. "
+            "Its supported output spaces are "
+            f"{sorted(s.value for s in supported_output_spaces)}."
+        )
+
+
 class Explanation:
     def __new__(
         cls,
@@ -312,6 +376,8 @@ class Explanation:
         explainer_name: str,
         model: Model,
         inputs: torch.Tensor,
+        input_metadata: InputSpec | dict[str, Any] | None = None,
+        sample_ids: list[str] | None = None,
         sample_names: list[str] | None = None,
         **kwargs: Any,
     ) -> ExplanationResult:
@@ -325,6 +391,11 @@ class Explanation:
             visualisers = create_visualisers(explainer_config)
             check_explainer_visualiser_compat(explainer_target, algorithm, visualisers)
             check_explainer_visualiser_payload_compat(explainer, explainer_target, visualisers)
+            check_explainer_visualiser_semantic_compat(
+                explainer,
+                explainer_target,
+                visualisers,
+            )
             backend = _require_model_backend(model)
             explainer.check_backend_compat(backend)
 
@@ -338,6 +409,10 @@ class Explanation:
                         explainer_name,
                     )
                 raitap_cfg["sample_names"] = sample_names
+            if sample_ids is not None:
+                raitap_cfg["sample_ids"] = sample_ids
+            if input_metadata is not None:
+                raitap_cfg["input_metadata"] = input_metadata
 
             merged_kwargs = _resolve_call_data_sources({**call_from_config, **kwargs})
             merged_kwargs = backend._prepare_kwargs(merged_kwargs)
@@ -414,3 +489,31 @@ def check_explainer_visualiser_compat(
             algorithm=algorithm,
             compatible_algorithms=sorted(visualiser.compatible_algorithms),
         )
+
+
+def _requires_registry_semantics(explainer: object, explainer_target: str) -> bool:
+    target = explainer_target.lower()
+    class_name = type(explainer).__name__.lower()
+    if "shap" in target or "captum" in target or "shap" in class_name or "captum" in class_name:
+        return True
+    algorithm = str(getattr(explainer, "algorithm", ""))
+    return algorithm in SHAP_METHOD_FAMILIES or algorithm in CAPTUM_METHOD_FAMILIES
+
+
+def _enum_frozenset(value: object, enum_type: type[Any]) -> frozenset[Any]:
+    if value is None:
+        return frozenset()
+    if isinstance(value, str):
+        iterable = [value]
+    else:
+        try:
+            iterable = list(value)  # type: ignore[arg-type]
+        except TypeError:
+            iterable = [value]
+    out = []
+    for item in iterable:
+        if isinstance(item, enum_type):
+            out.append(item)
+        else:
+            out.append(enum_type(str(item)))
+    return frozenset(out)

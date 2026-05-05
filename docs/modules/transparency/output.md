@@ -15,7 +15,9 @@
 If an explainer uses more than one visualiser, RAITAP writes one PNG per
 visualiser using the pattern `<VisualiserClassName>_<index>.png`.
 
-`metadata.json` stores two separate buckets:
+`metadata.json` stores typed explanation semantics, including scope, payload
+kind, method families, sample selection, input metadata, and output-space
+metadata. It also keeps two separate runtime buckets:
 
 - `kwargs`: RAITAP-owned metadata used for downstream visualisation, such as
   `sample_names` and `show_sample_names`

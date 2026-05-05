@@ -11,8 +11,19 @@ import torch
 
 from raitap.configs import resolve_run_dir
 
-from ..contracts import ExplanationPayloadKind
+from ..contracts import (
+    ExplanationOutputSpace,
+    ExplanationPayloadKind,
+    ExplanationScope,
+    ExplanationSemantics,
+    ExplanationTarget,
+    InputSpec,
+    SampleSelection,
+    ScopeDefinitionStep,
+    explainer_output_scope,
+)
 from ..results import ConfiguredVisualiser, ExplanationResult
+from ..semantics import infer_input_spec, infer_output_space, method_families_for_explainer
 
 _NON_BATCHABLE_KWARGS = frozenset({"background_data"})
 
@@ -30,6 +41,7 @@ class AbstractExplainer:
     """
 
     output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
+    output_scope: ClassVar[ExplanationScope] = ExplanationScope.LOCAL
 
     def check_backend_compat(self, backend: object) -> None:
         del backend
@@ -75,7 +87,11 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
             "sample_names": rk.get("sample_names"),
             "show_sample_names": bool(rk.get("show_sample_names", False)),
         }
+        sample_ids = _normalise_optional_str_list(rk.get("sample_ids"))
+        sample_display_names = _normalise_optional_str_list(rk.get("sample_names"))
         call_kwargs = dict(kwargs)
+        # Validate the explainer registry before running potentially expensive attribution code.
+        method_families = method_families_for_explainer(self)
         attributions = self._compute_with_optional_batches(
             model,
             inputs,
@@ -86,6 +102,28 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
             progress_desc=progress_desc,
         )
         self.attributions = attributions
+        input_spec = infer_input_spec(inputs, input_metadata=rk.get("input_metadata"))
+        output_space = infer_output_space(
+            input_spec=input_spec,
+            attributions=attributions,
+            explainer=self,
+            method_families=method_families,
+            layer_path=_layer_path_for_explainer(self),
+        )
+        _validate_output_space_shape(input_spec=input_spec, output_space=output_space)
+        semantics = ExplanationSemantics(
+            scope=explainer_output_scope(self),
+            scope_definition_step=ScopeDefinitionStep.EXPLAINER_OUTPUT,
+            payload_kind=self.output_payload_kind,
+            method_families=method_families,
+            target=ExplanationTarget(target=_normalise_target(call_kwargs.get("target"))),
+            sample_selection=SampleSelection(
+                sample_ids=sample_ids,
+                sample_display_names=sample_display_names,
+            ),
+            input_spec=input_spec,
+            output_space=output_space,
+        )
 
         explanation = ExplanationResult(
             attributions=attributions,
@@ -106,6 +144,7 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
             call_kwargs=call_kwargs,
             visualisers=visualisers_list,
             payload_kind=self.output_payload_kind,
+            semantics=semantics,
         )
         explanation.write_artifacts()
         return explanation
@@ -129,6 +168,7 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
                 backend=backend,
                 **attribution_kwargs,
             )
+            self._reject_structured_attributions(attributions)
             normalised = self._normalise_attributions(attributions)
             del attributions, prepared_inputs
             gc.collect()
@@ -157,6 +197,7 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
                 backend=backend,
                 **batch_kwargs,
             )
+            self._reject_structured_attributions(chunk)
             # Normalise all attribution outputs to detached CPU tensors so batched and
             # unbatched runs return the same device semantics and persist consistently.
             chunks.append(self._normalise_attributions(chunk))
@@ -180,6 +221,14 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
     @staticmethod
     def _normalise_attributions(attributions: torch.Tensor) -> torch.Tensor:
         return attributions.detach().cpu()
+
+    @staticmethod
+    def _reject_structured_attributions(attributions: object) -> None:
+        if isinstance(attributions, (tuple, list)):
+            raise TypeError(
+                "tuple/list attribution outputs are not supported; convergence deltas are "
+                "not first-class payloads yet."
+            )
 
     @staticmethod
     def _batch_size_from_raitap_kwargs(raitap_kwargs: dict[str, Any]) -> int | None:
@@ -284,3 +333,50 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
         Returns:
             Attribution tensor matching the input shape.
         """
+
+
+def _normalise_optional_str_list(value: Any) -> list[str] | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, (list, tuple)):
+        return [str(item) for item in value]
+    return [str(value)]
+
+
+def _normalise_target(value: Any) -> int | str | list[int] | None:
+    if value is None:
+        return None
+    if isinstance(value, (int, str)):
+        return value
+    if isinstance(value, torch.Tensor):
+        detached = value.detach().cpu()
+        if detached.ndim == 0:
+            return int(detached.item())
+        return [int(item) for item in detached.flatten().tolist()]
+    if isinstance(value, (list, tuple)):
+        return [int(item) for item in value]
+    return str(value)
+
+
+def _layer_path_for_explainer(explainer: object) -> str | None:
+    init_kwargs = getattr(explainer, "init_kwargs", None)
+    if isinstance(init_kwargs, dict) and init_kwargs.get("layer_path") is not None:
+        return str(init_kwargs["layer_path"])
+    return None
+
+
+def _validate_output_space_shape(*, input_spec: InputSpec, output_space: object) -> None:
+    if getattr(output_space, "space", None) is not ExplanationOutputSpace.INPUT_FEATURES:
+        return
+    if input_spec.shape is None:
+        return
+    output_shape = getattr(output_space, "shape", None)
+    if output_shape is None:
+        return
+    if tuple(output_shape) != tuple(input_spec.shape):
+        raise ValueError(
+            "Input-feature attribution output shape must match input metadata shape; "
+            f"got attribution shape {tuple(output_shape)} and input shape {input_spec.shape}."
+        )

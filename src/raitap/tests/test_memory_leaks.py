@@ -10,7 +10,17 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 
-from raitap.transparency.results import ExplanationPayloadKind, ExplanationResult
+from raitap.transparency.contracts import (
+    ExplanationOutputSpace,
+    ExplanationPayloadKind,
+    ExplanationScope,
+    ExplanationSemantics,
+    InputSpec,
+    MethodFamily,
+    OutputSpaceSpec,
+    ScopeDefinitionStep,
+)
+from raitap.transparency.results import ExplanationResult
 
 if TYPE_CHECKING:
     from raitap.data import Data
@@ -19,6 +29,28 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 # ExplanationResult: tensors must be detached and on CPU after construction
 # ---------------------------------------------------------------------------
+
+
+def _minimal_semantics(shape: tuple[int, ...]) -> ExplanationSemantics:
+    return ExplanationSemantics(
+        scope=ExplanationScope.LOCAL,
+        scope_definition_step=ScopeDefinitionStep.EXPLAINER_OUTPUT,
+        payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
+        method_families=frozenset({MethodFamily.GRADIENT}),
+        target=None,
+        sample_selection=None,
+        input_spec=InputSpec(
+            kind="tabular",
+            shape=shape,
+            layout="(B,F)",
+            metadata={"kind": "tabular", "layout": "(B,F)"},
+        ),
+        output_space=OutputSpaceSpec(
+            space=ExplanationOutputSpace.INPUT_FEATURES,
+            shape=shape,
+            layout="(B,F)",
+        ),
+    )
 
 
 def test_explanation_result_detaches_tensors() -> None:
@@ -35,6 +67,7 @@ def test_explanation_result_detaches_tensors() -> None:
         explainer_target="test_target",
         algorithm="test_alg",
         payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
+        semantics=_minimal_semantics((2, 3)),
     )
 
     assert not res.attributions.requires_grad, "attributions must not retain grad"
@@ -63,6 +96,7 @@ def test_explanation_result_moves_tensors_to_cpu(device: str) -> None:
         explainer_target="test_target",
         algorithm="test_alg",
         payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
+        semantics=_minimal_semantics((2, 3)),
     )
 
     assert res.attributions.device.type == "cpu"

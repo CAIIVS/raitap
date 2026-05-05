@@ -18,6 +18,16 @@ from raitap.reporting.hydra_callback import ReportingSweepCallback
 from raitap.reporting.manifest import ReportManifest
 from raitap.reporting.sections import ReportGroup, ReportSection
 from raitap.run.outputs import PredictionSummary, RunOutputs
+from raitap.transparency.contracts import (
+    ExplanationOutputSpace,
+    ExplanationPayloadKind,
+    ExplanationScope,
+    ExplanationSemantics,
+    InputSpec,
+    MethodFamily,
+    OutputSpaceSpec,
+    ScopeDefinitionStep,
+)
 from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult, VisualisationResult
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
 
@@ -59,6 +69,28 @@ class _LocalImageVisualiser(BaseVisualiser):
         return fig
 
 
+def _local_image_semantics(shape: tuple[int, ...]) -> ExplanationSemantics:
+    return ExplanationSemantics(
+        scope=ExplanationScope.LOCAL,
+        scope_definition_step=ScopeDefinitionStep.EXPLAINER_OUTPUT,
+        payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
+        method_families=frozenset({MethodFamily.GRADIENT}),
+        target=None,
+        sample_selection=None,
+        input_spec=InputSpec(
+            kind="image",
+            shape=shape,
+            layout="NCHW",
+            metadata={"kind": "image", "layout": "NCHW"},
+        ),
+        output_space=OutputSpaceSpec(
+            space=ExplanationOutputSpace.INPUT_FEATURES,
+            shape=shape,
+            layout="NCHW",
+        ),
+    )
+
+
 def test_build_report_orders_sections_and_ranks_samples(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="demo")
     set_output_root(config, tmp_path)
@@ -72,6 +104,7 @@ def test_build_report_orders_sections_and_ranks_samples(tmp_path: Path) -> None:
         experiment_name="demo",
         explainer_target="t",
         algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((3, 1, 4, 4)),
         explainer_name="captum_ig",
         kwargs={"sample_names": ["a", "b", "c"], "show_sample_names": True},
         visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
@@ -83,7 +116,7 @@ def test_build_report_orders_sections_and_ranks_samples(tmp_path: Path) -> None:
         visualiser_name="Global_0",
         visualiser_target="test.Global_0",
         output_path=native_global_path,
-        report_scope="global",
+        scope=ExplanationScope.GLOBAL,
     )
 
     outputs = RunOutputs(
@@ -160,6 +193,7 @@ def test_build_report_skips_global_section_for_local_only_outputs(tmp_path: Path
         experiment_name="local_only",
         explainer_target="t",
         algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((3, 1, 4, 4)),
         explainer_name="captum_ig",
         visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
     )
@@ -180,6 +214,55 @@ def test_build_report_skips_global_section_for_local_only_outputs(tmp_path: Path
     assert [section.title for section in report.sections] == ["Local Explanations"]
 
 
+def test_build_report_places_cohort_visualisations_between_global_and_local(
+    tmp_path: Path,
+) -> None:
+    config = AppConfig(experiment_name="cohort")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    metrics_image = _write_test_image(tmp_path / "metrics.png")
+    explanation = ExplanationResult(
+        attributions=torch.rand(2, 1, 4, 4),
+        inputs=torch.rand(2, 1, 4, 4),
+        run_dir=tmp_path / "transparency" / "exp",
+        experiment_name="cohort",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((2, 1, 4, 4)),
+        explainer_name="captum_ig",
+        visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
+    )
+    native_cohort_path = _write_test_image(tmp_path / "native_cohort.png")
+    native_cohort = VisualisationResult(
+        explanation=explanation,
+        figure=plt.figure(),
+        visualiser_name="Cohort_0",
+        visualiser_target="test.Cohort_0",
+        output_path=native_cohort_path,
+        scope=ExplanationScope.COHORT,
+    )
+    outputs = RunOutputs(
+        explanations=[explanation],
+        visualisations=[native_cohort],
+        metrics=_MetricsStub(metrics_image),  # type: ignore[arg-type]
+        forward_output=torch.tensor([[0.1, 0.9], [0.8, 0.2]]),
+        prediction_summaries=(
+            PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
+            PredictionSummary(sample_index=1, predicted_class=0, confidence=0.8),
+        ),
+    )
+
+    report = build_report(config, outputs)
+
+    assert [section.title for section in report.sections] == [
+        "Metrics",
+        "Cohort Explanations",
+        "Local Explanations",
+    ]
+    assert report.sections[1].groups[0].metadata["role"] == "cohort"
+
+
 def test_build_report_local_assets_are_staged_and_closed(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="local_assets")
     set_output_root(config, tmp_path)
@@ -193,6 +276,7 @@ def test_build_report_local_assets_are_staged_and_closed(tmp_path: Path) -> None
         experiment_name="local_assets",
         explainer_target="t",
         algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((3, 1, 4, 4)),
         explainer_name="captum_ig",
         kwargs={"sample_names": ["a", "b", "c"], "show_sample_names": True},
         visualisers=[ConfiguredVisualiser(visualiser=visualiser)],
@@ -225,7 +309,7 @@ def test_build_report_skips_local_groups_when_no_local_visualisations(tmp_path: 
     config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
 
     class _GlobalOnlyVisualiser(_LocalImageVisualiser):
-        report_scope = "global"
+        produces_scope = ExplanationScope.GLOBAL
 
     explanation = ExplanationResult(
         attributions=torch.rand(2, 1, 4, 4),
@@ -234,6 +318,7 @@ def test_build_report_skips_local_groups_when_no_local_visualisations(tmp_path: 
         experiment_name="no_local",
         explainer_target="t",
         algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((2, 1, 4, 4)),
         visualisers=[ConfiguredVisualiser(visualiser=_GlobalOnlyVisualiser())],
     )
     outputs = RunOutputs(
@@ -264,6 +349,7 @@ def test_report_manifest_round_trip_preserves_relative_images(tmp_path: Path) ->
         experiment_name="demo",
         explainer_target="t",
         algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((2, 1, 4, 4)),
         explainer_name="captum_ig",
         visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
     )
@@ -445,6 +531,39 @@ def test_build_merged_report_deduplicates_identical_metrics_only(tmp_path: Path)
     assert len(sections["Local Explanations"].groups) == 3
 
 
+def test_build_merged_report_preserves_present_section_order_with_cohort(
+    tmp_path: Path,
+) -> None:
+    sweep_dir = tmp_path / "multirun"
+    sweep_dir.mkdir()
+    _write_child_manifest(
+        sweep_dir / "0",
+        heading="Metrics A",
+        include_cohort=True,
+        include_local=True,
+    )
+    child_manifests: list[tuple[str, str | None, ReportManifest]] = [
+        (
+            "Job 0",
+            None,
+            ReportManifest.load(sweep_dir / "0" / "reports" / "report_manifest.json"),
+        )
+    ]
+
+    report = build_merged_report(
+        AppConfig(experiment_name="demo"),
+        sweep_dir=sweep_dir,
+        child_manifests=child_manifests,
+        skipped_children=[],
+    )
+
+    assert [section.title for section in report.sections] == [
+        "Metrics",
+        "Cohort Explanations",
+        "Local Explanations",
+    ]
+
+
 def test_build_merged_report_keeps_empty_metrics_groups(tmp_path: Path) -> None:
     sweep_dir = tmp_path / "multirun"
     sweep_dir.mkdir()
@@ -572,6 +691,7 @@ def _write_child_manifest(
     *,
     heading: str,
     table_rows: tuple[tuple[str, str], ...] = (("accuracy", "0.9000"),),
+    include_cohort: bool = False,
     include_local: bool = False,
 ) -> None:
     report_dir = child_dir / "reports"
@@ -591,6 +711,20 @@ def _write_child_manifest(
         )
     ]
     if include_local:
+        if include_cohort:
+            cohort_asset = _write_test_image(report_dir / "_assets" / "cohort.png")
+            sections.append(
+                ReportSection.from_groups(
+                    "Cohort Explanations",
+                    [
+                        ReportGroup(
+                            heading=f"Cohort {heading}",
+                            images=(cohort_asset,),
+                            metadata={"role": "cohort"},
+                        )
+                    ],
+                )
+            )
         local_asset = _write_test_image(report_dir / "_assets" / "local.png")
         sections.append(
             ReportSection.from_groups(

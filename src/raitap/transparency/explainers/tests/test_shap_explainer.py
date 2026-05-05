@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import pytest
 import torch
 
+from raitap.transparency.contracts import InputSpec
 from raitap.transparency.explainers import ShapExplainer
 from raitap.transparency.explainers.shap_explainer import _select_target_attributions
 
@@ -86,7 +87,15 @@ class TestShapExplainer:
             run_dir=tmp_path / "transparency",
             background_data=background,
             target=[0, 1, 2, 3],
-            raitap_kwargs={"batch_size": 2},
+            raitap_kwargs={
+                "batch_size": 2,
+                "input_metadata": InputSpec(
+                    kind="image",
+                    shape=tuple(sample_images.shape),
+                    layout="NCHW",
+                    metadata={"kind": "image", "layout": "NCHW"},
+                ),
+            },
         )
 
         assert isinstance(result.attributions, torch.Tensor)
@@ -196,6 +205,14 @@ class TestShapExplainer:
             background_data=background,
             target=0,
             nsamples=10,
+            raitap_kwargs={
+                "input_metadata": InputSpec(
+                    kind="tabular",
+                    shape=tuple(inputs.shape),
+                    layout="(B,F)",
+                    metadata={"kind": "tabular", "layout": "(B,F)"},
+                )
+            },
         )
 
         assert isinstance(result.attributions, torch.Tensor)

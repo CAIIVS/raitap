@@ -1,14 +1,28 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
 import matplotlib.pyplot as plt
+import pytest
 import torch
 
 from raitap.configs import resolve_run_dir, set_output_root
 from raitap.configs.schema import AppConfig
+from raitap.transparency.contracts import (
+    ExplanationOutputSpace,
+    ExplanationPayloadKind,
+    ExplanationScope,
+    ExplanationSemantics,
+    ExplanationTarget,
+    InputSpec,
+    MethodFamily,
+    OutputSpaceSpec,
+    SampleSelection,
+    ScopeDefinitionStep,
+)
 from raitap.transparency.explainers.base_explainer import AttributionOnlyExplainer
 from raitap.transparency.results import (
     ConfiguredVisualiser,
@@ -26,6 +40,35 @@ if TYPE_CHECKING:
     from raitap.transparency.contracts import VisualisationContext
 
 
+def _semantics(
+    *,
+    method_families: frozenset[MethodFamily] = frozenset({MethodFamily.GRADIENT}),
+) -> ExplanationSemantics:
+    return ExplanationSemantics(
+        scope=ExplanationScope.LOCAL,
+        scope_definition_step=ScopeDefinitionStep.EXPLAINER_OUTPUT,
+        payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
+        method_families=method_families,
+        target=ExplanationTarget(target=0),
+        sample_selection=SampleSelection(
+            sample_ids=["stable-1"],
+            sample_display_names=["Display 1"],
+        ),
+        input_spec=InputSpec(
+            kind="image",
+            shape=(1, 3, 4, 4),
+            layout="NCHW",
+            feature_names=None,
+            metadata={"kind": "image", "layout": "NCHW"},
+        ),
+        output_space=OutputSpaceSpec(
+            space=ExplanationOutputSpace.INPUT_FEATURES,
+            shape=(1, 3, 4, 4),
+            layout="NCHW",
+        ),
+    )
+
+
 def _make_explanation(run_dir: Path, *, explainer_name: str | None = "exp") -> ExplanationResult:
     return ExplanationResult(
         attributions=torch.randn(1, 3, 4, 4),
@@ -34,11 +77,15 @@ def _make_explanation(run_dir: Path, *, explainer_name: str | None = "exp") -> E
         experiment_name="test-exp",
         explainer_target="raitap.transparency.CaptumExplainer",
         algorithm="Saliency",
+        semantics=_semantics(),
         explainer_name=explainer_name,
     )
 
 
 class _IdentityExplainer(AttributionOnlyExplainer):
+    algorithm = "Saliency"
+    explainer_framework = "Captum"
+
     def compute_attributions(
         self,
         model: torch.nn.Module,
@@ -84,6 +131,14 @@ def test_base_explainer_uses_unified_output_root(monkeypatch: MonkeyPatch, tmp_p
         torch.nn.Identity(),
         inputs,
         output_root=tmp_path,
+        raitap_kwargs={
+            "input_metadata": InputSpec(
+                kind="image",
+                shape=tuple(inputs.shape),
+                layout="NCHW",
+                metadata={"kind": "image", "layout": "NCHW"},
+            )
+        },
     )
 
     assert result.run_dir == tmp_path / "transparency"
@@ -104,6 +159,18 @@ def test_serialisable_converts_nested_set_and_dict() -> None:
     assert result["nested"]["k"] == 1
 
 
+def test_explanation_result_requires_explicit_semantics(tmp_path: Path) -> None:
+    with pytest.raises(TypeError, match="semantics"):
+        ExplanationResult(  # type: ignore[call-arg]
+            attributions=torch.randn(1, 3, 4, 4),
+            inputs=torch.randn(1, 3, 4, 4),
+            run_dir=tmp_path / "exp_missing_semantics",
+            experiment_name="e",
+            explainer_target="t",
+            algorithm="a",
+        )
+
+
 def test_explanation_metadata_summarises_tensor_call_kwargs(tmp_path: Path) -> None:
     run_dir = tmp_path / "exp_call_kwargs_summary"
     explanation = ExplanationResult(
@@ -113,6 +180,7 @@ def test_explanation_metadata_summarises_tensor_call_kwargs(tmp_path: Path) -> N
         experiment_name="e",
         explainer_target="t",
         algorithm="a",
+        semantics=_semantics(),
         kwargs={"show_sample_names": True},
         call_kwargs={
             "target": 7,
@@ -138,6 +206,35 @@ def test_explanation_metadata_summarises_tensor_call_kwargs(tmp_path: Path) -> N
         "dtype": "torch.float32",
         "device": "cpu",
     }
+
+
+def test_explanation_metadata_serializes_semantics_to_json(tmp_path: Path) -> None:
+    run_dir = tmp_path / "exp_semantics"
+    explanation = ExplanationResult(
+        attributions=torch.randn(1, 3, 4, 4),
+        inputs=torch.randn(1, 3, 4, 4),
+        run_dir=run_dir,
+        experiment_name="e",
+        explainer_target="raitap.transparency.CaptumExplainer",
+        algorithm="Saliency",
+        semantics=_semantics(),
+    )
+
+    explanation.write_artifacts()
+
+    metadata = json.loads((run_dir / "metadata.json").read_text(encoding="utf-8"))
+    assert metadata["semantics"]["scope"] == "local"
+    assert metadata["semantics"]["scope_definition_step"] == "explainer_output"
+    assert metadata["semantics"]["payload_kind"] == "attributions"
+    assert metadata["semantics"]["method_families"] == ["gradient"]
+    assert metadata["semantics"]["target"] == {"target": 0, "label": None}
+    assert metadata["semantics"]["sample_selection"] == {
+        "sample_ids": ["stable-1"],
+        "sample_display_names": ["Display 1"],
+    }
+    assert metadata["semantics"]["input_spec"]["kind"] == "image"
+    assert metadata["semantics"]["input_spec"]["layout"] == "NCHW"
+    assert metadata["semantics"]["output_space"]["space"] == "input_features"
 
 
 def test_explanation_log_no_visualisers_logs_run_directory(tmp_path: Path) -> None:
@@ -244,6 +341,7 @@ def test_explanation_visualise_merges_inputs_and_attributions_from_kwargs(
         experiment_name="e",
         explainer_target="t",
         algorithm="a",
+        semantics=_semantics(),
         visualisers=[
             ConfiguredVisualiser(
                 visualiser=_RecordingVisualiser(),
@@ -304,6 +402,7 @@ def test_explanation_visualise_adds_generic_sample_name_title_when_opted_in(tmp_
         experiment_name="e",
         explainer_target="t",
         algorithm="a",
+        semantics=_semantics(),
         visualisers=[
             ConfiguredVisualiser(
                 visualiser=rec,
@@ -352,6 +451,7 @@ def test_explanation_visualise_uses_explainer_level_show_sample_names_default(
         experiment_name="e",
         explainer_target="t",
         algorithm="a",
+        semantics=_semantics(),
         visualisers=[ConfiguredVisualiser(visualiser=vis, call_kwargs={})],
         kwargs={
             "sample_names": ["ISIC_1", "ISIC_2"],
@@ -397,6 +497,7 @@ def test_explanation_visualise_trims_sample_names_for_shorter_batch(tmp_path: Pa
         experiment_name="e",
         explainer_target="t",
         algorithm="a",
+        semantics=_semantics(),
         visualisers=[
             ConfiguredVisualiser(
                 visualiser=vis,
@@ -443,6 +544,7 @@ def test_report_visualisation_resets_visualiser_sample_index_for_sliced_batch(
         experiment_name="e",
         explainer_target="t",
         algorithm="a",
+        semantics=_semantics(),
         visualisers=[ConfiguredVisualiser(visualiser=vis)],
     )
     explanation.write_artifacts()
@@ -454,7 +556,7 @@ def test_report_visualisation_resets_visualiser_sample_index_for_sliced_batch(
 
     assert len(rendered) == 1
     assert rendered[0].visualiser_name == "_SampleIndexVisualiser_0"
-    assert rendered[0].report_scope == "local"
+    assert rendered[0].scope == ExplanationScope.LOCAL
     assert rendered[0].output_path == Path("_SampleIndexVisualiser_0.png")
     assert vis.sample_index == 2
     assert vis.seen_attribution is not None
@@ -490,6 +592,7 @@ def test_explanation_visualise_forwards_algorithm_when_supported(tmp_path: Path)
         experiment_name="e",
         explainer_target="t",
         algorithm="IntegratedGradients",
+        semantics=_semantics(),
         visualisers=[ConfiguredVisualiser(visualiser=vis)],
     )
     explanation.write_artifacts()
@@ -509,6 +612,9 @@ def test_explanation_visualise_sets_shap_image_default_title_from_algorithm(tmp_
         experiment_name="e",
         explainer_target="t",
         algorithm="GradientExplainer",
+        semantics=_semantics(
+            method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT})
+        ),
         visualisers=[ConfiguredVisualiser(visualiser=ShapImageVisualiser(show_colorbar=False))],
     )
     explanation.write_artifacts()
@@ -528,6 +634,9 @@ def test_explanation_visualise_preserves_shap_constructor_title(tmp_path: Path) 
         experiment_name="e",
         explainer_target="t",
         algorithm="GradientExplainer",
+        semantics=_semantics(
+            method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT})
+        ),
         visualisers=[
             ConfiguredVisualiser(
                 visualiser=ShapImageVisualiser(title="Configured SHAP", show_colorbar=False)
@@ -551,6 +660,9 @@ def test_explanation_visualise_preserves_explicit_shap_image_title(tmp_path: Pat
         experiment_name="e",
         explainer_target="t",
         algorithm="GradientExplainer",
+        semantics=_semantics(
+            method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT})
+        ),
         visualisers=[
             ConfiguredVisualiser(
                 visualiser=ShapImageVisualiser(title="Configured SHAP", show_colorbar=False),
@@ -577,6 +689,9 @@ def test_explanation_visualise_forwards_algorithm_to_shap_subclasses(tmp_path: P
         experiment_name="e",
         explainer_target="t",
         algorithm="DeepExplainer",
+        semantics=_semantics(
+            method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT})
+        ),
         visualisers=[
             ConfiguredVisualiser(visualiser=_SubclassedShapImageVisualiser(show_colorbar=False))
         ],

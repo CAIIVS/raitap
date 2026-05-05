@@ -13,6 +13,7 @@ from omegaconf import OmegaConf
 from raitap.configs import set_output_root
 from raitap.models.backend import TorchBackend
 from raitap.transparency import ExplanationResult, VisualisationResult
+from raitap.transparency.contracts import InputSpec
 from raitap.transparency.explainers import CaptumExplainer
 from raitap.transparency.factory import Explanation
 from raitap.transparency.results import ConfiguredVisualiser
@@ -112,6 +113,14 @@ def test_end_to_end_captum_object_api(
         sample_images,
         run_dir=tmp_path / "transparency",
         target=0,
+        raitap_kwargs={
+            "input_metadata": InputSpec(
+                kind="image",
+                shape=tuple(sample_images.shape),
+                layout="NCHW",
+                metadata={"kind": "image", "layout": "NCHW"},
+            )
+        },
         visualisers=[ConfiguredVisualiser(visualiser=CaptumImageVisualiser())],
     )
     visualisations = explanation.visualise()
@@ -139,6 +148,14 @@ def test_tabular_visualisation_object_api(
         sample_tabular,
         run_dir=tmp_path / "transparency",
         target=0,
+        raitap_kwargs={
+            "input_metadata": InputSpec(
+                kind="tabular",
+                shape=tuple(sample_tabular.shape),
+                layout="(B,F)",
+                metadata={"kind": "tabular", "layout": "(B,F)"},
+            )
+        },
     )
 
     explanation.visualisers = [
@@ -168,6 +185,12 @@ def test_config_helpers_support_visualiser_for_loop(
         "test_explainer",
         model,  # type: ignore[arg-type]
         sample_images,
+        input_metadata=InputSpec(
+            kind="image",
+            shape=tuple(sample_images.shape),
+            layout="NCHW",
+            metadata={"kind": "image", "layout": "NCHW"},
+        ),
         target=0,
     )
     visualisations = explanation.visualise()
@@ -190,6 +213,14 @@ def test_explanation_log_only_uploads_explanation_artifacts(
         sample_images,
         run_dir=tmp_path / "transparency",
         target=0,
+        raitap_kwargs={
+            "input_metadata": InputSpec(
+                kind="image",
+                shape=tuple(sample_images.shape),
+                layout="NCHW",
+                metadata={"kind": "image", "layout": "NCHW"},
+            )
+        },
         visualisers=[ConfiguredVisualiser(visualiser=CaptumImageVisualiser())],
     )
     _ = explanation.visualise()
@@ -216,6 +247,14 @@ def test_visualisation_log_uploads_only_visualisation_artifact(
         sample_images,
         run_dir=tmp_path / "transparency",
         target=0,
+        raitap_kwargs={
+            "input_metadata": InputSpec(
+                kind="image",
+                shape=tuple(sample_images.shape),
+                layout="NCHW",
+                metadata={"kind": "image", "layout": "NCHW"},
+            )
+        },
         visualisers=[ConfiguredVisualiser(visualiser=CaptumImageVisualiser())],
     )
     visualisations = explanation.visualise()

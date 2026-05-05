@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 import shutil
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, is_dataclass
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -13,7 +14,14 @@ import torch
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 from raitap.utils.serialization import to_json_serialisable
 
-from .contracts import ExplanationPayloadKind, VisualisationContext
+from .contracts import (
+    ExplanationPayloadKind,
+    ExplanationScope,
+    ExplanationSemantics,
+    ScopeDefinitionStep,
+    VisualisationContext,
+    VisualSummarySpec,
+)
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -23,6 +31,23 @@ if TYPE_CHECKING:
 
 def _serialisable(value: Any) -> Any:
     return to_json_serialisable(value)
+
+
+def _serialisable_semantics(value: Any) -> Any:
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, frozenset):
+        return sorted(_serialisable_semantics(item) for item in value)
+    if is_dataclass(value) and not isinstance(value, type):
+        return {
+            str(item.name): _serialisable_semantics(getattr(value, item.name))
+            for item in fields(value)
+        }
+    if isinstance(value, dict):
+        return {str(key): _serialisable_semantics(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_serialisable_semantics(item) for item in value]
+    return _serialisable(value)
 
 
 def _serialisable_call_kwarg(value: Any) -> Any:
@@ -68,9 +93,26 @@ def _sample_names_title(sample_names: list[str]) -> str:
     return first if remaining <= 0 else f"{first} (+{remaining})"
 
 
-def _report_scope_for_visualiser(visualiser: BaseVisualiser) -> str:
-    raw = getattr(type(visualiser), "report_scope", "local")
-    return "global" if str(raw).strip().lower() == "global" else "local"
+def _normalise_scope(scope: ExplanationScope | str) -> ExplanationScope:
+    if isinstance(scope, ExplanationScope):
+        return scope
+    raw = str(scope).strip().lower()
+    for candidate in ExplanationScope:
+        if raw in {candidate.value, candidate.name.lower()}:
+            return candidate
+    raise ValueError(f"Unknown explanation scope {scope!r}.")
+
+
+def _normalise_scope_definition_step(
+    step: ScopeDefinitionStep | str,
+) -> ScopeDefinitionStep:
+    if isinstance(step, ScopeDefinitionStep):
+        return step
+    raw = str(step).strip().lower()
+    for candidate in ScopeDefinitionStep:
+        if raw in {candidate.value, candidate.name.lower()}:
+            return candidate
+    raise ValueError(f"Unknown scope definition step {step!r}.")
 
 
 @dataclass(frozen=True)
@@ -95,9 +137,12 @@ class ExplanationResult(Trackable):
     visualiser_targets: list[str] = field(default_factory=list)
     visualisers: list[ConfiguredVisualiser] = field(default_factory=list, repr=False)
     payload_kind: ExplanationPayloadKind = ExplanationPayloadKind.ATTRIBUTIONS
+    semantics: ExplanationSemantics = field(kw_only=True)
 
     def __post_init__(self) -> None:
         self.run_dir = Path(self.run_dir)
+        if not isinstance(self.semantics, ExplanationSemantics):
+            raise TypeError("ExplanationResult.semantics must be an ExplanationSemantics.")
         # Ensure tensors are detached and on CPU to avoid GPU memory retention
         self.attributions = self.attributions.detach().cpu()
         self.inputs = self.inputs.detach().cpu()
@@ -124,6 +169,7 @@ class ExplanationResult(Trackable):
             "algorithm": self.algorithm,
             "visualisers": targets,
             "payload_kind": self.payload_kind.value,
+            "semantics": _serialisable_semantics(self.semantics),
             "kwargs": {key: _serialisable(value) for key, value in self.kwargs.items()},
             "call_kwargs": {
                 key: _serialisable_call_kwarg(value) for key, value in self.call_kwargs.items()
@@ -163,6 +209,8 @@ class ExplanationResult(Trackable):
                 show_sample_names=show_sample_names,
             )
 
+            vis.validate_explanation(self, attributions, inputs)
+
             # Standard visualise() call with context and library-specific kwargs
             figure = vis.visualise(attributions, inputs=inputs, context=context, **merged_call)
 
@@ -199,7 +247,9 @@ class ExplanationResult(Trackable):
                     visualiser_name=visualiser_name,
                     visualiser_target=visualiser_target,
                     output_path=output_path,
-                    report_scope=_report_scope_for_visualiser(vis),
+                    scope=self._scope_for_visualiser(vis),
+                    scope_definition_step=self._scope_definition_step_for_visualiser(vis),
+                    visual_summary=getattr(type(vis), "visual_summary", None),
                 )
             )
 
@@ -209,17 +259,17 @@ class ExplanationResult(Trackable):
 
         return results
 
-    def has_visualisations_for_scope(self, scope: str) -> bool:
-        wanted = "global" if scope == "global" else "local"
+    def has_visualisations_for_scope(self, scope: ExplanationScope | str) -> bool:
+        wanted = _normalise_scope(scope)
         return any(
-            _report_scope_for_visualiser(configured.visualiser) == wanted
+            self._scope_for_visualiser(configured.visualiser) == wanted
             for configured in self.visualisers
         )
 
     def render_visualisations_for_scope(
         self,
         *,
-        scope: str,
+        scope: ExplanationScope | str,
         sample_index: int | None = None,
     ) -> list[VisualisationResult]:
         """
@@ -231,11 +281,11 @@ class ExplanationResult(Trackable):
         as real on-disk artifacts or passed to ``VisualisationResult.log()``.
         """
         results: list[VisualisationResult] = []
-        wanted = "global" if scope == "global" else "local"
+        wanted = _normalise_scope(scope)
 
         for index, configured in enumerate(self.visualisers):
             vis = configured.visualiser
-            if _report_scope_for_visualiser(vis) != wanted:
+            if self._scope_for_visualiser(vis) != wanted:
                 continue
 
             merged_call = dict(configured.call_kwargs)
@@ -262,6 +312,7 @@ class ExplanationResult(Trackable):
                 sample_names=sample_names,
                 show_sample_names=show_sample_names,
             )
+            vis.validate_explanation(self, attributions, inputs)
             original_visualiser_sample_index = getattr(vis, "sample_index", None)
             reset_visualiser_sample_index = (
                 sample_index is not None and original_visualiser_sample_index is not None
@@ -296,11 +347,31 @@ class ExplanationResult(Trackable):
                     visualiser_name=visualiser_name,
                     visualiser_target=f"{cls.__module__}.{visualiser_name}",
                     output_path=Path(visualiser_name).with_suffix(".png"),
-                    report_scope=wanted,
+                    scope=wanted,
+                    scope_definition_step=self._scope_definition_step_for_visualiser(vis),
+                    visual_summary=getattr(type(vis), "visual_summary", None),
                 )
             )
 
         return results
+
+    def _scope_for_visualiser(self, visualiser: BaseVisualiser) -> ExplanationScope:
+        produced = getattr(type(visualiser), "produces_scope", None)
+        if produced is not None:
+            return _normalise_scope(produced)
+        return self.semantics.scope
+
+    def _scope_definition_step_for_visualiser(
+        self,
+        visualiser: BaseVisualiser,
+    ) -> ScopeDefinitionStep:
+        produced = getattr(type(visualiser), "produces_scope", None)
+        if produced is None:
+            return self.semantics.scope_definition_step
+        step = getattr(type(visualiser), "scope_definition_step", None)
+        if step is None:
+            return ScopeDefinitionStep.VISUALISER_SUMMARY
+        return _normalise_scope_definition_step(step)
 
     def log(
         self,
@@ -354,10 +425,14 @@ class VisualisationResult(Trackable):
     visualiser_name: str
     visualiser_target: str
     output_path: Path
-    report_scope: str = "local"
+    scope: ExplanationScope = ExplanationScope.LOCAL
+    scope_definition_step: ScopeDefinitionStep = ScopeDefinitionStep.EXPLAINER_OUTPUT
+    visual_summary: VisualSummarySpec | None = None
 
     def __post_init__(self) -> None:
         self.output_path = Path(self.output_path)
+        self.scope = _normalise_scope(self.scope)
+        self.scope_definition_step = _normalise_scope_definition_step(self.scope_definition_step)
 
     def log(
         self,

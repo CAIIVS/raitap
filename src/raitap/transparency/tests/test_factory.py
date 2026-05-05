@@ -16,7 +16,12 @@ from raitap.transparency import (
     PayloadVisualiserIncompatibilityError,
     VisualiserIncompatibilityError,
 )
-from raitap.transparency.contracts import ExplanationPayloadKind
+from raitap.transparency.contracts import (
+    ExplanationOutputSpace,
+    ExplanationPayloadKind,
+    InputSpec,
+    MethodFamily,
+)
 from raitap.transparency.factory import (
     _PARSED_EXPLAINER_CONFIG_CACHE,
     Explanation,
@@ -32,6 +37,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     from raitap.configs.schema import AppConfig
+    from raitap.models import Model
 
 
 class _BackendStub(ModelBackend):
@@ -76,6 +82,15 @@ def _make_config(tmp_path: Path, transparency_config: Any) -> AppConfig:
     )
 
 
+def _image_input_metadata(inputs: torch.Tensor) -> InputSpec:
+    return InputSpec(
+        kind="image",
+        shape=tuple(inputs.shape),
+        layout="NCHW",
+        metadata={"kind": "image", "layout": "NCHW"},
+    )
+
+
 @pytest.mark.usefixtures("needs_captum")
 def test_explanation_returns_explanation_result(
     simple_cnn: torch.nn.Module,
@@ -94,8 +109,14 @@ def test_explanation_returns_explanation_result(
         ),
     )
 
-    model = SimpleNamespace(backend=_BackendStub(simple_cnn))
-    explanation = Explanation(config, "test_explainer", model, sample_images)  # type: ignore[arg-type]
+    model = cast("Model", SimpleNamespace(backend=_BackendStub(simple_cnn)))
+    explanation = Explanation(  # type: ignore[arg-type]
+        config,
+        "test_explainer",
+        model,
+        sample_images,
+        input_metadata=_image_input_metadata(sample_images),
+    )
 
     assert isinstance(explanation, ExplanationResult)
     assert explanation.attributions.shape == sample_images.shape
@@ -217,8 +238,14 @@ def test_payload_kind_wildcard_visualiser_passes(
             ConfiguredVisualiser(visualiser=_WildcardPayloadVisualiser(), call_kwargs={})
         ],
     )
-    model = SimpleNamespace(backend=_BackendStub(simple_cnn))
-    explanation = Explanation(config, "test_explainer", model, sample_images)  # type: ignore[arg-type]
+    model = cast("Model", SimpleNamespace(backend=_BackendStub(simple_cnn)))
+    explanation = Explanation(  # type: ignore[arg-type]
+        config,
+        "test_explainer",
+        model,
+        sample_images,
+        input_metadata=_image_input_metadata(sample_images),
+    )
 
     assert isinstance(explanation, ExplanationResult)
 
@@ -264,6 +291,265 @@ def test_payload_kind_mismatch_raises(
     model = SimpleNamespace(backend=_BackendStub(simple_cnn))
     with pytest.raises(PayloadVisualiserIncompatibilityError):
         Explanation(config, "test_explainer", model, sample_images)  # type: ignore[arg-type]
+
+
+def test_explanation_passes_sample_ids_display_names_and_input_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sample_images: torch.Tensor,
+) -> None:
+    class RecordingExplainer:
+        algorithm = "Saliency"
+        output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
+
+        def __init__(self) -> None:
+            self.last_raitap_kwargs: dict[str, Any] = {}
+
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+
+        def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
+            self.last_raitap_kwargs = dict(kwargs["raitap_kwargs"])
+            return MagicMock(spec=ExplanationResult)
+
+    explainer = RecordingExplainer()
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "raitap": {"sample_names": ["configured-name"], "show_sample_names": True},
+                "visualisers": [],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (explainer, "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
+
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    Explanation(
+        config,
+        "test_explainer",
+        model=model,  # type: ignore[arg-type]
+        inputs=sample_images,
+        input_metadata={"kind": "image", "shape": sample_images.shape, "layout": "NCHW"},
+        sample_ids=["stable-1", "stable-2"],
+        sample_names=["Display 1", "Display 2"],
+    )
+
+    assert explainer.last_raitap_kwargs["sample_ids"] == ["stable-1", "stable-2"]
+    assert explainer.last_raitap_kwargs["sample_names"] == ["Display 1", "Display 2"]
+    assert explainer.last_raitap_kwargs["input_metadata"]["kind"] == "image"
+    assert explainer.last_raitap_kwargs["input_metadata"]["layout"] == "NCHW"
+    assert explainer.last_raitap_kwargs["show_sample_names"] is True
+
+
+def test_explanation_rejects_method_family_mismatch_before_compute(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sample_images: torch.Tensor,
+) -> None:
+    class GradientExplainer:
+        algorithm = "Saliency"
+        output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
+
+        def __init__(self) -> None:
+            self.explain_called = False
+
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+
+        def explain(self, *_args: Any, **_kwargs: Any) -> ExplanationResult:
+            self.explain_called = True
+            return MagicMock(spec=ExplanationResult)
+
+    class _PerturbationOnlyVisualiser(BaseVisualiser):
+        supported_method_families: ClassVar[frozenset[MethodFamily]] = frozenset(
+            {MethodFamily.PERTURBATION}
+        )
+
+        def visualise(
+            self,
+            attributions: torch.Tensor,
+            inputs: torch.Tensor | None = None,
+            **kwargs: Any,
+        ) -> Figure:
+            del attributions, inputs, kwargs
+            fig, _ax = plt.subplots(figsize=(1, 1))
+            return fig
+
+    explainer = GradientExplainer()
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (explainer, "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_visualisers",
+        lambda _cfg: [
+            ConfiguredVisualiser(visualiser=_PerturbationOnlyVisualiser(), call_kwargs={})
+        ],
+    )
+
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    with pytest.raises(ValueError, match="method families"):
+        Explanation(
+            config,
+            "test_explainer",
+            model=model,  # type: ignore[arg-type]
+            inputs=sample_images,
+            input_metadata={"kind": "image", "layout": "NCHW"},
+        )
+
+    assert explainer.explain_called is False
+
+
+def test_explanation_rejects_candidate_output_space_mismatch_before_compute(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sample_images: torch.Tensor,
+) -> None:
+    class GradientExplainer:
+        algorithm = "Saliency"
+        output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
+
+        def __init__(self) -> None:
+            self.explain_called = False
+
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+
+        def explain(self, *_args: Any, **_kwargs: Any) -> ExplanationResult:
+            self.explain_called = True
+            return MagicMock(spec=ExplanationResult)
+
+    class _SpatialOnlyVisualiser(BaseVisualiser):
+        supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset(
+            {ExplanationOutputSpace.IMAGE_SPATIAL_MAP}
+        )
+
+        def visualise(
+            self,
+            attributions: torch.Tensor,
+            inputs: torch.Tensor | None = None,
+            **kwargs: Any,
+        ) -> Figure:
+            del attributions, inputs, kwargs
+            fig, _ax = plt.subplots(figsize=(1, 1))
+            return fig
+
+    explainer = GradientExplainer()
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (explainer, "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_visualisers",
+        lambda _cfg: [ConfiguredVisualiser(visualiser=_SpatialOnlyVisualiser(), call_kwargs={})],
+    )
+
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    with pytest.raises(ValueError, match="candidate output spaces"):
+        Explanation(
+            config,
+            "test_explainer",
+            model=model,  # type: ignore[arg-type]
+            inputs=sample_images,
+            input_metadata={"kind": "image", "layout": "NCHW"},
+        )
+
+    assert explainer.explain_called is False
+
+
+def test_explanation_allows_any_supported_candidate_output_space_before_compute(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sample_images: torch.Tensor,
+) -> None:
+    class GradientExplainer:
+        algorithm = "Saliency"
+        output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
+
+        def __init__(self) -> None:
+            self.explain_called = False
+
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+
+        def explain(self, *_args: Any, **_kwargs: Any) -> ExplanationResult:
+            self.explain_called = True
+            return MagicMock(spec=ExplanationResult)
+
+    class _InterpretableOnlyVisualiser(BaseVisualiser):
+        supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset(
+            {ExplanationOutputSpace.INTERPRETABLE_FEATURES}
+        )
+
+        def visualise(
+            self,
+            attributions: torch.Tensor,
+            inputs: torch.Tensor | None = None,
+            **kwargs: Any,
+        ) -> Figure:
+            del attributions, inputs, kwargs
+            fig, _ax = plt.subplots(figsize=(1, 1))
+            return fig
+
+    explainer = GradientExplainer()
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (explainer, "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_visualisers",
+        lambda _cfg: [
+            ConfiguredVisualiser(visualiser=_InterpretableOnlyVisualiser(), call_kwargs={})
+        ],
+    )
+
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    Explanation(
+        config,
+        "test_explainer",
+        model=model,  # type: ignore[arg-type]
+        inputs=sample_images,
+        input_metadata={"kind": "image", "layout": "NCHW"},
+    )
+
+    assert explainer.explain_called is True
 
 
 def test_create_explainer_resolves_short_target_and_strips_visualisers(
@@ -1022,7 +1308,7 @@ def test_explanation_prepares_runtime_tensor_kwargs_with_backend(
             prepared = dict(kwargs)
             baselines = prepared.get("baselines")
             if isinstance(baselines, torch.Tensor):
-                prepared["baselines"] = baselines.to(torch.device("meta"))
+                prepared["baselines"] = cast("Any", baselines).to(torch.device("meta"))
             return prepared
 
     explainer = RecordingExplainer()

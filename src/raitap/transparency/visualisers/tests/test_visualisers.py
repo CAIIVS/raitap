@@ -2,14 +2,26 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import pytest
 import torch
 
-from raitap.transparency.contracts import VisualisationContext
+from raitap.transparency.contracts import (
+    ExplanationOutputSpace,
+    ExplanationPayloadKind,
+    ExplanationScope,
+    ExplanationSemantics,
+    InputSpec,
+    MethodFamily,
+    OutputSpaceSpec,
+    ScopeDefinitionStep,
+    VisualisationContext,
+)
 from raitap.transparency.visualisers import (
+    BaseVisualiser,
     CaptumImageVisualiser,
     CaptumTextVisualiser,
     CaptumTimeSeriesVisualiser,
@@ -23,6 +35,101 @@ from raitap.transparency.visualisers import (
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from typing import Any
+
+    from matplotlib.figure import Figure
+
+
+def _explanation(
+    *,
+    scope: ExplanationScope = ExplanationScope.LOCAL,
+    payload_kind: ExplanationPayloadKind = ExplanationPayloadKind.ATTRIBUTIONS,
+    output_space: ExplanationOutputSpace = ExplanationOutputSpace.INPUT_FEATURES,
+    method_families: frozenset[MethodFamily] = frozenset({MethodFamily.GRADIENT}),
+    input_kind: str | None = "tabular",
+    input_layout: str | None = "(B, F)",
+    input_metadata: dict[str, object] | None = None,
+    output_layout: str | None = "(B, F)",
+    shape: tuple[int, ...] | None = (4, 10),
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        semantics=ExplanationSemantics(
+            scope=scope,
+            scope_definition_step=ScopeDefinitionStep.EXPLAINER_OUTPUT,
+            payload_kind=payload_kind,
+            method_families=method_families,
+            target=None,
+            sample_selection=None,
+            input_spec=InputSpec(
+                kind=input_kind,
+                shape=shape,
+                layout=input_layout,
+                metadata=input_metadata,
+            )
+            if input_kind is not None or input_layout is not None or input_metadata is not None
+            else None,
+            output_space=OutputSpaceSpec(
+                space=output_space,
+                shape=shape,
+                layout=output_layout,
+            ),
+        )
+    )
+
+
+class _ContractVisualiser(BaseVisualiser):
+    supported_payload_kinds = frozenset({ExplanationPayloadKind.ATTRIBUTIONS})
+    supported_scopes = frozenset({ExplanationScope.LOCAL})
+    supported_output_spaces = frozenset({ExplanationOutputSpace.INPUT_FEATURES})
+    supported_method_families = frozenset({MethodFamily.GRADIENT})
+
+    def visualise(
+        self,
+        attributions: torch.Tensor,
+        inputs: torch.Tensor | None = None,
+        **kwargs: Any,
+    ) -> Figure:
+        del attributions, inputs, kwargs
+        fig, _ax = plt.subplots(figsize=(1, 1))
+        return fig
+
+
+class TestBaseVisualiserContract:
+    def test_validate_explanation_accepts_matching_semantics(self) -> None:
+        _ContractVisualiser().validate_explanation(
+            _explanation(),
+            torch.zeros(4, 10),
+            None,
+        )
+
+    @pytest.mark.parametrize(
+        ("explanation", "dimension"),
+        [
+            (
+                _explanation(payload_kind=ExplanationPayloadKind.STRUCTURED),
+                "payload kind",
+            ),
+            (
+                _explanation(scope=ExplanationScope.COHORT),
+                "scope",
+            ),
+            (
+                _explanation(output_space=ExplanationOutputSpace.TOKEN_SEQUENCE),
+                "output space",
+            ),
+            (
+                _explanation(method_families=frozenset({MethodFamily.TREE})),
+                "method family",
+            ),
+        ],
+    )
+    def test_validate_explanation_rejects_failed_dimension(
+        self,
+        explanation: SimpleNamespace,
+        dimension: str,
+    ) -> None:
+        with pytest.raises(ValueError, match=rf"_ContractVisualiser.*{dimension}"):
+            _ContractVisualiser().validate_explanation(explanation, torch.zeros(4, 10), None)
 
 
 class TestCaptumImageVisualiser:
@@ -32,6 +139,72 @@ class TestCaptumImageVisualiser:
         visualiser = CaptumImageVisualiser()
         assert visualiser is not None
         assert visualiser.include_original_image is True
+
+    @pytest.mark.parametrize(
+        "explanation",
+        [
+            _explanation(
+                input_kind="image",
+                input_layout="NCHW",
+                output_layout="NCHW",
+                shape=(2, 3, 32, 32),
+                method_families=frozenset({MethodFamily.GRADIENT}),
+            ),
+            _explanation(
+                input_kind="image",
+                input_layout="NCHW",
+                output_layout="NCHW",
+                output_space=ExplanationOutputSpace.IMAGE_SPATIAL_MAP,
+                shape=(2, 1, 8, 8),
+                method_families=frozenset({MethodFamily.GRADIENT, MethodFamily.CAM}),
+            ),
+            _explanation(
+                input_kind=None,
+                input_layout="NCHW",
+                input_metadata={"modality": "image"},
+                output_layout="NCHW",
+                shape=(2, 3, 32, 32),
+                method_families=frozenset({MethodFamily.GRADIENT}),
+            ),
+        ],
+    )
+    def test_validate_explanation_accepts_image_and_cam_semantics(
+        self,
+        explanation: SimpleNamespace,
+    ) -> None:
+        CaptumImageVisualiser().validate_explanation(explanation, torch.zeros(2, 3, 32, 32), None)
+
+    def test_validate_explanation_rejects_tabular_semantics(self) -> None:
+        explanation = _explanation(input_kind="tabular", shape=(2, 10))
+
+        with pytest.raises(ValueError, match=r"CaptumImageVisualiser.*input metadata"):
+            CaptumImageVisualiser().validate_explanation(explanation, torch.zeros(2, 10), None)
+
+    def test_validate_explanation_rejects_contradictory_non_image_nchw_metadata(self) -> None:
+        explanation = _explanation(
+            input_kind="tabular",
+            input_layout="NCHW",
+            output_layout="NCHW",
+            shape=(2, 3, 32, 32),
+        )
+
+        with pytest.raises(ValueError, match=r"CaptumImageVisualiser.*input metadata"):
+            CaptumImageVisualiser().validate_explanation(
+                explanation,
+                torch.zeros(2, 3, 32, 32),
+                None,
+            )
+
+    def test_validate_explanation_rejects_missing_shape_metadata(self) -> None:
+        explanation = _explanation(
+            input_kind="image",
+            input_layout="NCHW",
+            output_layout="NCHW",
+            shape=None,
+        )
+
+        with pytest.raises(ValueError, match=r"CaptumImageVisualiser.*input metadata"):
+            CaptumImageVisualiser().validate_explanation(explanation, object(), None)  # type: ignore[arg-type]
 
     @pytest.mark.usefixtures("needs_captum")
     def test_visualise_tensor(self, sample_images: torch.Tensor) -> None:
@@ -222,6 +395,54 @@ class TestTabularBarChartVisualiser:
         visualiser = TabularBarChartVisualiser()
         assert visualiser is not None
 
+    def test_contract_produces_cohort_visualiser_summary(self) -> None:
+        assert TabularBarChartVisualiser.produces_scope is ExplanationScope.COHORT
+        assert (
+            TabularBarChartVisualiser.scope_definition_step
+            is ScopeDefinitionStep.VISUALISER_SUMMARY
+        )
+        assert TabularBarChartVisualiser.visual_summary is not None
+        assert TabularBarChartVisualiser.visual_summary.aggregation == "mean_absolute_attribution"
+
+    def test_validate_explanation_accepts_tabular_bf_semantics(self) -> None:
+        TabularBarChartVisualiser().validate_explanation(
+            _explanation(input_kind="tabular", shape=(4, 10)),
+            torch.zeros(4, 10),
+            None,
+        )
+
+    @pytest.mark.parametrize(
+        "explanation",
+        [
+            _explanation(
+                input_kind="image",
+                input_layout="NCHW",
+                output_layout="NCHW",
+                shape=(2, 3, 32, 32),
+            ),
+            _explanation(
+                input_kind="time_series",
+                input_layout="B,T,C",
+                output_layout="B,T,C",
+                shape=(2, 12, 3),
+            ),
+            _explanation(
+                input_kind="text",
+                input_layout="TOKENS",
+                output_layout="TOKENS",
+                output_space=ExplanationOutputSpace.TOKEN_SEQUENCE,
+                shape=(12,),
+            ),
+            _explanation(input_kind=None, input_layout=None, output_layout=None, shape=(2, 10)),
+        ],
+    )
+    def test_validate_explanation_rejects_non_tabular_layouts(
+        self,
+        explanation: SimpleNamespace,
+    ) -> None:
+        with pytest.raises(ValueError, match="TabularBarChartVisualiser"):
+            TabularBarChartVisualiser().validate_explanation(explanation, torch.zeros(2, 10), None)
+
     def test_initialization_with_feature_names(self, feature_names: list[str]) -> None:
         """Test initialization with feature names"""
         visualiser = TabularBarChartVisualiser(feature_names=feature_names)
@@ -259,6 +480,91 @@ class TestCaptumTimeSeriesVisualiser:
         visualiser = CaptumTimeSeriesVisualiser()
         assert visualiser is not None
 
+    def test_validate_explanation_accepts_explicit_time_series_metadata(self) -> None:
+        explanation = _explanation(
+            input_kind="time_series",
+            input_layout="B,T,C",
+            output_layout="B,T,C",
+            shape=(2, 12, 3),
+        )
+
+        CaptumTimeSeriesVisualiser().validate_explanation(explanation, torch.zeros(2, 12, 3), None)
+
+    @pytest.mark.parametrize(
+        "explanation",
+        [
+            _explanation(input_kind="time_series", input_layout="TOKENS", output_layout="TOKENS"),
+            _explanation(input_kind="time_series", input_layout="B,F", output_layout="B,F"),
+            _explanation(
+                input_kind="time_series",
+                input_layout="B,T,C",
+                output_layout="B,T,C",
+                shape=(12,),
+            ),
+        ],
+    )
+    def test_validate_explanation_rejects_incompatible_layout_or_shape(
+        self,
+        explanation: SimpleNamespace,
+    ) -> None:
+        with pytest.raises(ValueError, match="CaptumTimeSeriesVisualiser"):
+            CaptumTimeSeriesVisualiser().validate_explanation(
+                explanation,
+                torch.zeros(12),
+                None,
+            )
+
+    @pytest.mark.parametrize(
+        "method_families",
+        [
+            frozenset({MethodFamily.TREE}),
+            frozenset({MethodFamily.CAM}),
+        ],
+    )
+    def test_validate_explanation_rejects_unsupported_method_families(
+        self,
+        method_families: frozenset[MethodFamily],
+    ) -> None:
+        explanation = _explanation(
+            input_kind="time_series",
+            input_layout="B,T,C",
+            output_layout="B,T,C",
+            shape=(2, 12, 3),
+            method_families=method_families,
+        )
+
+        with pytest.raises(ValueError, match=r"CaptumTimeSeriesVisualiser.*method family"):
+            CaptumTimeSeriesVisualiser().validate_explanation(
+                explanation,
+                torch.zeros(2, 12, 3),
+                None,
+            )
+
+    @pytest.mark.parametrize(
+        "explanation",
+        [
+            _explanation(input_kind=None, input_layout=None),
+            _explanation(input_kind="tabular", shape=(2, 10)),
+            _explanation(
+                input_kind="text",
+                input_layout="TOKENS",
+                output_layout="TOKENS",
+                output_space=ExplanationOutputSpace.TOKEN_SEQUENCE,
+                shape=(12,),
+            ),
+        ],
+    )
+    def test_validate_explanation_rejects_missing_or_incompatible_metadata(
+        self,
+        explanation: SimpleNamespace,
+    ) -> None:
+        with pytest.raises(ValueError, match="CaptumTimeSeriesVisualiser"):
+            CaptumTimeSeriesVisualiser().validate_explanation(
+                explanation,
+                torch.zeros(2, 12, 3),
+                None,
+            )
+
     @pytest.mark.usefixtures("needs_captum")
     def test_visualise_requires_inputs(self, sample_timeseries: torch.Tensor) -> None:
         """visualise() requires inputs alongside attributions."""
@@ -293,6 +599,97 @@ class TestCaptumTextVisualiser:
         visualiser = CaptumTextVisualiser()
         assert visualiser is not None
 
+    def test_validate_explanation_accepts_token_sequence_metadata(self) -> None:
+        explanation = _explanation(
+            input_kind="text",
+            input_layout="TOKENS",
+            output_layout="TOKENS",
+            output_space=ExplanationOutputSpace.TOKEN_SEQUENCE,
+            shape=(12,),
+        )
+
+        CaptumTextVisualiser().validate_explanation(explanation, torch.zeros(12), None)
+
+    @pytest.mark.parametrize(
+        "explanation",
+        [
+            _explanation(
+                input_kind="text",
+                input_layout="TOKENS",
+                output_layout="TOKENS",
+                output_space=ExplanationOutputSpace.TOKEN_SEQUENCE,
+                shape=(2, 12),
+            ),
+            _explanation(
+                input_kind="text",
+                input_layout="B,F",
+                output_layout="B,F",
+                output_space=ExplanationOutputSpace.TOKEN_SEQUENCE,
+                shape=(2, 10),
+            ),
+        ],
+    )
+    def test_validate_explanation_rejects_incompatible_text_layout_or_shape(
+        self,
+        explanation: SimpleNamespace,
+    ) -> None:
+        with pytest.raises(ValueError, match="CaptumTextVisualiser"):
+            CaptumTextVisualiser().validate_explanation(
+                explanation,
+                torch.zeros(2, 10),
+                None,
+            )
+
+    @pytest.mark.parametrize(
+        "method_families",
+        [
+            frozenset({MethodFamily.TREE}),
+            frozenset({MethodFamily.CAM}),
+        ],
+    )
+    def test_validate_explanation_rejects_unsupported_method_families(
+        self,
+        method_families: frozenset[MethodFamily],
+    ) -> None:
+        explanation = _explanation(
+            input_kind="text",
+            input_layout="TOKENS",
+            output_layout="TOKENS",
+            output_space=ExplanationOutputSpace.TOKEN_SEQUENCE,
+            shape=(12,),
+            method_families=method_families,
+        )
+
+        with pytest.raises(ValueError, match=r"CaptumTextVisualiser.*method family"):
+            CaptumTextVisualiser().validate_explanation(explanation, torch.zeros(12), None)
+
+    @pytest.mark.parametrize(
+        "explanation",
+        [
+            _explanation(input_kind=None, input_layout=None),
+            _explanation(input_kind="tabular", shape=(2, 10)),
+            _explanation(
+                input_kind="time_series",
+                input_layout="B,T,C",
+                output_layout="B,T,C",
+                shape=(2, 12, 3),
+            ),
+            _explanation(
+                input_kind="time_series",
+                input_layout="TOKENS",
+                output_layout="TOKENS",
+                output_space=ExplanationOutputSpace.TOKEN_SEQUENCE,
+                shape=(12,),
+            ),
+        ],
+    )
+    def test_validate_explanation_rejects_missing_or_incompatible_metadata(
+        self,
+        explanation: SimpleNamespace,
+    ) -> None:
+        with pytest.raises(ValueError, match="CaptumTextVisualiser"):
+            CaptumTextVisualiser().validate_explanation(explanation, torch.zeros(12), None)
+
     def test_visualise_1d_tensor(self, sample_text_attributions: torch.Tensor) -> None:
         """1-D attribution tensor produces a figure."""
         visualiser = CaptumTextVisualiser()
@@ -320,6 +717,43 @@ class TestShapBarVisualiser:
     def test_initialization(self) -> None:
         visualiser = ShapBarVisualiser()
         assert visualiser is not None
+
+    def test_contract_produces_cohort_visualiser_summary(self) -> None:
+        assert ShapBarVisualiser.produces_scope is ExplanationScope.COHORT
+        assert ShapBarVisualiser.scope_definition_step is ScopeDefinitionStep.VISUALISER_SUMMARY
+        assert ShapBarVisualiser.visual_summary is not None
+        assert ShapBarVisualiser.visual_summary.aggregation == "mean_absolute_attribution"
+
+    def test_validate_explanation_accepts_tabular_shap_semantics(self) -> None:
+        explanation = _explanation(
+            method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.TREE}),
+        )
+
+        ShapBarVisualiser().validate_explanation(explanation, torch.zeros(4, 10), None)
+
+    def test_validate_explanation_rejects_image_shap_values(self) -> None:
+        explanation = _explanation(
+            input_kind="image",
+            input_layout="NCHW",
+            output_layout="NCHW",
+            shape=(2, 3, 32, 32),
+            method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+        )
+
+        with pytest.raises(ValueError, match=r"ShapBarVisualiser.*tabular layout"):
+            ShapBarVisualiser().validate_explanation(explanation, torch.zeros(2, 3, 32, 32), None)
+
+    def test_validate_explanation_rejects_shape_only_semantics(self) -> None:
+        explanation = _explanation(
+            input_kind=None,
+            input_layout=None,
+            output_layout=None,
+            shape=(4, 10),
+            method_families=frozenset({MethodFamily.SHAPLEY}),
+        )
+
+        with pytest.raises(ValueError, match=r"ShapBarVisualiser.*tabular layout"):
+            ShapBarVisualiser().validate_explanation(explanation, torch.zeros(4, 10), None)
 
     @pytest.mark.usefixtures("needs_shap")
     def test_visualise_tensor(self, sample_tabular: torch.Tensor) -> None:
@@ -351,6 +785,46 @@ class TestShapBeeswarmVisualiser:
     def test_initialization(self) -> None:
         visualiser = ShapBeeswarmVisualiser()
         assert visualiser is not None
+
+    def test_contract_produces_cohort_distribution_summary(self) -> None:
+        assert ShapBeeswarmVisualiser.produces_scope is ExplanationScope.COHORT
+        assert (
+            ShapBeeswarmVisualiser.scope_definition_step is ScopeDefinitionStep.VISUALISER_SUMMARY
+        )
+        assert ShapBeeswarmVisualiser.visual_summary is not None
+        assert ShapBeeswarmVisualiser.visual_summary.aggregation == "distribution_summary"
+
+    def test_validate_explanation_rejects_image_shap_values(self) -> None:
+        explanation = _explanation(
+            input_kind="image",
+            input_layout="NCHW",
+            output_layout="NCHW",
+            shape=(2, 3, 32, 32),
+            method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+        )
+
+        with pytest.raises(ValueError, match=r"ShapBeeswarmVisualiser.*tabular layout"):
+            ShapBeeswarmVisualiser().validate_explanation(
+                explanation,
+                torch.zeros(2, 3, 32, 32),
+                None,
+            )
+
+    def test_validate_explanation_rejects_shape_only_semantics(self) -> None:
+        explanation = _explanation(
+            input_kind=None,
+            input_layout=None,
+            output_layout=None,
+            shape=(4, 10),
+            method_families=frozenset({MethodFamily.SHAPLEY}),
+        )
+
+        with pytest.raises(ValueError, match=r"ShapBeeswarmVisualiser.*tabular layout"):
+            ShapBeeswarmVisualiser().validate_explanation(
+                explanation,
+                torch.zeros(4, 10),
+                None,
+            )
 
     @pytest.mark.usefixtures("needs_shap")
     def test_visualise_tensor(self, sample_tabular: torch.Tensor) -> None:
@@ -432,6 +906,83 @@ class TestShapImageVisualiser:
         assert ShapImageVisualiser.compatible_algorithms == frozenset(
             {"GradientExplainer", "DeepExplainer"}
         )
+
+    def test_validate_explanation_accepts_gradient_image_shap_semantics(self) -> None:
+        explanation = _explanation(
+            input_kind="image",
+            input_layout="NCHW",
+            output_layout="NCHW",
+            shape=(2, 3, 32, 32),
+            method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+        )
+
+        ShapImageVisualiser().validate_explanation(explanation, torch.zeros(2, 3, 32, 32), None)
+
+    def test_validate_explanation_accepts_explicit_image_metadata_without_kind(self) -> None:
+        explanation = _explanation(
+            input_kind=None,
+            input_layout="NCHW",
+            input_metadata={"modality": "image"},
+            output_layout="NCHW",
+            shape=(2, 3, 32, 32),
+            method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+        )
+
+        ShapImageVisualiser().validate_explanation(explanation, torch.zeros(2, 3, 32, 32), None)
+
+    def test_validate_explanation_rejects_contradictory_non_image_nchw_metadata(self) -> None:
+        explanation = _explanation(
+            input_kind="tabular",
+            input_layout="NCHW",
+            output_layout="NCHW",
+            shape=(2, 3, 32, 32),
+            method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+        )
+
+        with pytest.raises(ValueError, match=r"ShapImageVisualiser.*input metadata"):
+            ShapImageVisualiser().validate_explanation(
+                explanation,
+                torch.zeros(2, 3, 32, 32),
+                None,
+            )
+
+    def test_validate_explanation_rejects_missing_shape_metadata(self) -> None:
+        explanation = _explanation(
+            input_kind="image",
+            input_layout="NCHW",
+            output_layout="NCHW",
+            shape=None,
+            method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+        )
+
+        with pytest.raises(ValueError, match=r"ShapImageVisualiser.*input metadata"):
+            ShapImageVisualiser().validate_explanation(explanation, object(), None)  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize(
+        "method_families",
+        [
+            frozenset({MethodFamily.SHAPLEY, MethodFamily.PERTURBATION}),
+            frozenset({MethodFamily.SHAPLEY, MethodFamily.TREE}),
+        ],
+    )
+    def test_validate_explanation_rejects_non_gradient_shap_semantics(
+        self,
+        method_families: frozenset[MethodFamily],
+    ) -> None:
+        explanation = _explanation(
+            input_kind="image",
+            input_layout="NCHW",
+            output_layout="NCHW",
+            shape=(2, 3, 32, 32),
+            method_families=method_families,
+        )
+
+        with pytest.raises(ValueError, match=r"ShapImageVisualiser.*method family"):
+            ShapImageVisualiser().validate_explanation(
+                explanation,
+                torch.zeros(2, 3, 32, 32),
+                None,
+            )
 
     @pytest.mark.usefixtures("needs_shap")
     def test_visualise_image_batch(self, sample_images: torch.Tensor) -> None:

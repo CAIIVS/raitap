@@ -70,6 +70,7 @@ def test_run_without_tracking_passes_ground_truth_labels_to_metrics(
     model = SimpleNamespace(backend=_BackendStub(logits))
     data = SimpleNamespace(
         tensor=torch.zeros((2, 3, 4, 4), dtype=torch.float32),
+        sample_ids=None,
         labels=torch.tensor([1, 0], dtype=torch.long),
     )
     captured: dict[str, torch.Tensor] = {}

@@ -7,9 +7,12 @@ Data module, handles:
 """
 
 from .data import Data, load_numpy_from_source, load_tensor_from_source
+from .metadata import DataInputMetadata, infer_data_input_metadata
 
 __all__ = [
     "Data",
+    "DataInputMetadata",
+    "infer_data_input_metadata",
     "load_numpy_from_source",
     "load_tensor_from_source",
 ]
