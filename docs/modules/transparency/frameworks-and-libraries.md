@@ -41,8 +41,6 @@ visualisers against the explanation artifact they receive. In short:
   families they can render
 - reporting places rendered figures by `VisualisationResult.scope`
 
-See {doc}`explanation-scope` for the user-facing scope model.
-
 | Visualiser | Consumes | Produces | Notes |
 | --- | --- | --- | --- |
 | `CaptumImageVisualiser` | Local image input-feature attributions and supported image/CAM spatial maps | Local visualisation | Rejects tabular, token, and time-series layouts. |
@@ -54,6 +52,8 @@ See {doc}`explanation-scope` for the user-facing scope model.
 | `ShapForceVisualiser` | Local tabular or interpretable SHAP attributions for one selected sample | Local visualisation | Preserves local scope. |
 | `ShapWaterfallVisualiser` | Local tabular or interpretable SHAP attributions for one selected sample | Local visualisation | Preserves local scope. |
 | `TabularBarChartVisualiser` | Local tabular or interpretable attributions | Cohort visual summary | Uses mean absolute attribution-style aggregation for the selected batch or cohort. |
+
+Contributor-facing details about semantic contracts are documented in {doc}`../../contributor/transparency`.
 
 ## Explainer libraries
 

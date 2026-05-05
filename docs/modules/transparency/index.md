@@ -12,7 +12,6 @@ Captum- and SHAP-based explainers behind the same config surface.
 :caption: Transparency module documentation
 
 configuration
-explanation-scope
 frameworks-and-libraries
 output
 ```
