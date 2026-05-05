@@ -39,7 +39,8 @@ visualisers against the explanation artifact they receive. In short:
 - explainers produce typed `ExplanationResult.semantics`
 - visualisers declare the payload kinds, scopes, output spaces, and method
   families they can render
-- reporting places rendered figures by `VisualisationResult.scope`
+- reporting places rendered figures by `VisualisationResult.scope`; see
+  {doc}`../reporting/output` for report section placement
 
 | Visualiser | Consumes | Produces | Notes |
 | --- | --- | --- | --- |
