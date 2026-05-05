@@ -8,11 +8,12 @@ directory.
 Supported inputs include:
 
 - A directory of images such as `.jpg`, `.png`, `.bmp`, or `.webp`
+  (walked recursively — nested `ImageFolder`-style layouts are supported)
 - A single image file
 - A CSV, TSV, or Parquet file
 - A directory containing CSV, TSV, or Parquet files
 
-Example:
+Example (flat directory):
 
 ```yaml
 data:
@@ -22,6 +23,21 @@ data:
     id_column: "image"
     column: "label"
 ```
+
+Example (nested ImageFolder layout — `data/test/<class>/<file>.jpg`):
+
+```yaml
+data:
+  source: "./data/test"
+  labels:
+    source: "./data/labels.csv"
+    id_column: "image"
+    column: "label"
+    # id_strategy: "auto"   # default — relative paths auto-detected
+```
+
+with `labels.csv` rows like `NORMAL/IM-0001.jpeg,0`. See
+{doc}`configuration` for the full `id_strategy` reference.
 
 If you want to evaluate metrics against ground-truth labels, configure the
 optional `data.labels` block as described in {doc}`configuration`.
