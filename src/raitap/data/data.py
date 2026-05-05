@@ -84,10 +84,10 @@ class Data(Trackable):
                     "Separate them into different directories."
                 )
             if image_files:
-                tensor = _load_images(path)
+                tensor = torch.from_numpy(_stack_images_numpy(image_files))
                 return tensor, _resolve_sample_ids(image_files, root=path)
             if tabular_files:
-                return _load_tabular_dir(path), None
+                return torch.from_numpy(_concat_tabular_numpy(tabular_files)), None
             raise FileNotFoundError(
                 f"No supported files found in {path}.\n"
                 f"Supported image formats: {_IMAGE_EXTENSIONS}\n"
@@ -277,9 +277,9 @@ def _load_numpy_from_path(path: Path) -> np.ndarray[Any, Any]:
                 "Separate them into different directories."
             )
         if image_files:
-            return _load_images_numpy(path)
+            return _stack_images_numpy(image_files)
         if tabular_files:
-            return _load_tabular_dir_numpy(path)
+            return _concat_tabular_numpy(tabular_files)
         raise FileNotFoundError(
             f"No supported files found in {path}.\n"
             f"Supported image formats: {_IMAGE_EXTENSIONS}\n"
@@ -343,29 +343,18 @@ def get_source_path(source: str) -> Path:
 
 def _list_images_recursive(root: Path) -> list[Path]:
     """Discover image files under ``root`` recursively, sorted by relative posix path."""
-    files = [
-        p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in _IMAGE_EXTENSIONS
-    ]
+    files = [p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in _IMAGE_EXTENSIONS]
     return sorted(files, key=lambda p: p.relative_to(root).as_posix())
 
 
 def _list_tabular_recursive(root: Path) -> list[Path]:
     """Discover tabular files under ``root`` recursively, sorted by relative posix path."""
-    files = [
-        p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in _TABULAR_EXTENSIONS
-    ]
+    files = [p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in _TABULAR_EXTENSIONS]
     return sorted(files, key=lambda p: p.relative_to(root).as_posix())
 
 
-def _load_images_numpy(path: Path) -> np.ndarray[Any, Any]:
-    """Load image files from a directory (or a single file) as NCHW float32 arrays in [0, 1]."""
-    if path.is_dir():
-        files = _list_images_recursive(path)
-        if not files:
-            raise FileNotFoundError(f"No image files found in {path}")
-    else:
-        files = [path]
-
+def _stack_images_numpy(files: list[Path]) -> np.ndarray[Any, Any]:
+    """Stack pre-discovered image files into an NCHW float32 array in [0, 1]."""
     arrays = []
     for f in files:
         arr = np.array(Image.open(f).convert("RGB"))  # HWC uint8
@@ -379,6 +368,17 @@ def _load_images_numpy(path: Path) -> np.ndarray[Any, Any]:
             f"Images have inconsistent shapes: {sizes}. "
             "Resize them to a common size before loading."
         ) from None
+
+
+def _load_images_numpy(path: Path) -> np.ndarray[Any, Any]:
+    """Load image files from a directory (or a single file) as NCHW float32 arrays in [0, 1]."""
+    if path.is_dir():
+        files = _list_images_recursive(path)
+        if not files:
+            raise FileNotFoundError(f"No image files found in {path}")
+    else:
+        files = [path]
+    return _stack_images_numpy(files)
 
 
 def _load_images(path: Path) -> torch.Tensor:
@@ -526,8 +526,7 @@ def _resolve_id_strategy(strategy: str, raw_label_ids: pd.Series) -> str:
     if strategy in {"relative_path", "stem"}:
         return strategy
     raise ValueError(
-        f"Unsupported data.labels.id_strategy {strategy!r}. "
-        "Use 'auto', 'relative_path', or 'stem'."
+        f"Unsupported data.labels.id_strategy {strategy!r}. Use 'auto', 'relative_path', or 'stem'."
     )
 
 
@@ -573,9 +572,8 @@ def _align_labels_to_samples(
     return [label_by_id[sid] for sid in normalised_sample_ids]
 
 
-def _load_tabular_dir_numpy(path: Path) -> np.ndarray[Any, Any]:
-    """Load all tabular files from a directory as a single float32 array, concatenating rows."""
-    files = _list_tabular_recursive(path)
+def _concat_tabular_numpy(files: list[Path]) -> np.ndarray[Any, Any]:
+    """Concatenate pre-discovered tabular files row-wise into a float32 array."""
     arrays = [_load_tabular_numpy(f) for f in files]
     try:
         return np.concatenate(arrays)
@@ -585,6 +583,11 @@ def _load_tabular_dir_numpy(path: Path) -> np.ndarray[Any, Any]:
             f"Tabular files have inconsistent column counts: {shapes}. "
             "All files must have the same number of columns."
         ) from None
+
+
+def _load_tabular_dir_numpy(path: Path) -> np.ndarray[Any, Any]:
+    """Load all tabular files from a directory as a single float32 array, concatenating rows."""
+    return _concat_tabular_numpy(_list_tabular_recursive(path))
 
 
 def _load_tabular_dir(path: Path) -> torch.Tensor:
