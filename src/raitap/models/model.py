@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -34,7 +35,7 @@ class Model(Trackable):
         suffix = path.suffix.lower()
 
         if path.exists() or suffix:
-            return _load_from_path(path, hardware=hardware)
+            return _load_from_path(path, model_cfg=config.model, hardware=hardware)
 
         name = str(source).lower()
         if hasattr(models, name):
@@ -51,12 +52,15 @@ class Model(Trackable):
         tracker.log_model(self.backend)
 
 
-def _load_from_path(path: Path, *, hardware: str) -> ModelBackend:
+def _load_from_path(path: Path, *, model_cfg: Any, hardware: str) -> ModelBackend:
     """
     Load a model backend from a file path.
 
     Args:
         path: Path to the model file.
+        model_cfg: ``ModelConfig``-shaped object providing ``arch``,
+            ``num_classes``, and ``pretrained`` for state-dict loading.
+        hardware: Hardware label resolved into a device.
 
     Returns:
         Model backend ready for inference and explanation.
@@ -73,7 +77,8 @@ def _load_from_path(path: Path, *, hardware: str) -> ModelBackend:
 
     if path.suffix.lower() in {".pth", ".pt"}:
         device = resolve_torch_device(hardware)
-        return TorchBackend(_load_torch_module_from_path(path, device=device), device=device)
+        module = _load_torch_module_from_path(path, model_cfg=model_cfg, device=device)
+        return TorchBackend(module, device=device)
 
     raise ValueError(
         f"Unsupported model format {path.suffix!r}. Supported formats: {_supported_model_formats()}"
@@ -90,7 +95,37 @@ def _try_torchscript_load(path: Path) -> nn.Module | None:
     return scripted
 
 
-def _load_torch_module_from_path(path: Path, *, device: torch.device) -> nn.Module:
+def _build_arch_from_config(model_cfg: Any) -> nn.Module:
+    """Instantiate a torchvision architecture from ``model_cfg`` for state-dict loading."""
+    arch = getattr(model_cfg, "arch", None)
+    num_classes = getattr(model_cfg, "num_classes", None)
+    pretrained = bool(getattr(model_cfg, "pretrained", False))
+
+    missing = [
+        name for name, value in (("arch", arch), ("num_classes", num_classes)) if value is None
+    ]
+    if missing:
+        raise ValueError(
+            "State-dict loading requires model."
+            + " and model.".join(missing)
+            + ". Set them in your config, e.g.:\n"
+            "  model:\n"
+            "    source: path/to/weights.pth\n"
+            "    arch: resnet18\n"
+            "    num_classes: 2"
+        )
+
+    factory = getattr(models, arch, None)
+    if factory is None:
+        raise ValueError(f"model.arch {arch!r} is not a known torchvision model.")
+
+    weights = "DEFAULT" if pretrained else None
+    return factory(weights=weights, num_classes=num_classes)
+
+
+def _load_torch_module_from_path(
+    path: Path, *, model_cfg: Any, device: torch.device
+) -> nn.Module:
     scripted = _try_torchscript_load(path)
     if scripted is not None:
         scripted.to(device)
@@ -100,18 +135,26 @@ def _load_torch_module_from_path(path: Path, *, device: torch.device) -> nn.Modu
     obj = torch.load(path, map_location="cpu", weights_only=False)
 
     if isinstance(obj, dict):
-        raise ValueError(
-            f"{path} appears to contain a state-dict, not a full model.\n"
-            "Save the full model with torch.save(model, path) or load the "
-            "state-dict manually and pass the model directly to the explainer."
+        module = _build_arch_from_config(model_cfg)
+        module.load_state_dict(obj, strict=True)
+        module.to(device)
+        module.eval()
+        return module
+
+    if isinstance(obj, nn.Module):
+        warnings.warn(
+            f"Loading pickled nn.Module from {path}: this format is fragile across "
+            "environments and torchvision versions. Prefer "
+            "`torch.save(model.state_dict(), path)` with model.arch + "
+            "model.num_classes set in the config, or `torch.jit.save(scripted, path)`.",
+            DeprecationWarning,
+            stacklevel=2,
         )
+        obj.to(device)
+        obj.eval()
+        return obj
 
-    if not isinstance(obj, nn.Module):
-        raise ValueError(f"Expected an nn.Module in {path}, got {type(obj).__name__}.")
-
-    obj.to(device)
-    obj.eval()
-    return obj
+    raise ValueError(f"Expected an nn.Module or state-dict in {path}, got {type(obj).__name__}.")
 
 
 def _load_pretrained(model_name: str, *, hardware: str) -> ModelBackend:
