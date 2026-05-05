@@ -80,7 +80,23 @@ def _load_from_path(path: Path, *, hardware: str) -> ModelBackend:
     )
 
 
+def _try_torchscript_load(path: Path) -> nn.Module | None:
+    """Try to load *path* as a TorchScript archive; return ``None`` if it isn't one."""
+    try:
+        scripted = torch.jit.load(str(path), map_location="cpu")
+    except RuntimeError:
+        # Not a TorchScript archive — fall back to the regular torch.load path.
+        return None
+    return scripted
+
+
 def _load_torch_module_from_path(path: Path, *, device: torch.device) -> nn.Module:
+    scripted = _try_torchscript_load(path)
+    if scripted is not None:
+        scripted.to(device)
+        scripted.eval()
+        return scripted
+
     obj = torch.load(path, map_location="cpu", weights_only=False)
 
     if isinstance(obj, dict):
