@@ -18,13 +18,24 @@ from raitap.models import Model
 from raitap.models.backend import TorchBackend
 
 
-def _make_config(source: str) -> AppConfig:
+def _make_config(
+    source: str,
+    *,
+    arch: str | None = None,
+    num_classes: int | None = None,
+    pretrained: bool = False,
+    hardware: str = "cpu",
+) -> AppConfig:
     return cast(
         "AppConfig",
         SimpleNamespace(
             model=SimpleNamespace(
                 source=source,
-            )
+                arch=arch,
+                num_classes=num_classes,
+                pretrained=pretrained,
+            ),
+            hardware=hardware,
         ),
     )
 
@@ -44,9 +55,62 @@ class TestModelConstructor:
         torch.save(dummy_model, model_path)
 
         config = _make_config(str(model_path))
-        model = Model(config)
+        with pytest.warns(DeprecationWarning, match="pickled nn.Module"):
+            model = Model(config)
 
         assert isinstance(model.backend.as_model_for_explanation(), torch.nn.Module)
+
+    def test_model_loads_from_state_dict(self, tmp_path: Path) -> None:
+        from torchvision import models as tv_models
+
+        ref = tv_models.resnet18(weights=None, num_classes=2)
+        model_path = tmp_path / "weights.pth"
+        torch.save(ref.state_dict(), model_path)
+
+        config = _make_config(str(model_path), arch="resnet18", num_classes=2)
+        model = Model(config)
+
+        loaded = model.backend.as_model_for_explanation()
+        assert loaded.__class__.__name__ == "ResNet"
+        # State dict round-trips: parameters should compare equal.
+        for (n1, p1), (n2, p2) in zip(
+            ref.state_dict().items(), loaded.state_dict().items(), strict=True
+        ):
+            assert n1 == n2
+            assert torch.equal(p1, p2.cpu())
+
+    def test_model_state_dict_without_arch_raises(self, tmp_path: Path) -> None:
+        ref = torch.nn.Linear(4, 2)
+        model_path = tmp_path / "weights.pth"
+        torch.save(ref.state_dict(), model_path)
+
+        config = _make_config(str(model_path))  # no arch / num_classes
+        with pytest.raises(ValueError, match="State-dict loading requires"):
+            Model(config)
+
+    def test_model_state_dict_with_unknown_arch_raises(self, tmp_path: Path) -> None:
+        ref = torch.nn.Linear(4, 2)
+        model_path = tmp_path / "weights.pth"
+        torch.save(ref.state_dict(), model_path)
+
+        config = _make_config(str(model_path), arch="not_a_model", num_classes=2)
+        with pytest.raises(ValueError, match="not a known torchvision model"):
+            Model(config)
+
+    def test_model_loads_torchscript_file(self, tmp_path: Path) -> None:
+        ref = torch.nn.Linear(4, 2).eval()
+        scripted = torch.jit.script(ref)
+        model_path = tmp_path / "scripted.pt"
+        scripted.save(str(model_path))
+
+        config = _make_config(str(model_path))
+        model = Model(config)
+
+        loaded = model.backend.as_model_for_explanation()
+        assert isinstance(loaded, torch.jit.ScriptModule)
+        # Sanity: forward pass produces same output as the eager reference.
+        x = torch.randn(3, 4)
+        torch.testing.assert_close(loaded(x), ref(x))
 
     def test_model_raises_if_source_is_none(self) -> None:
         config = _make_config("")

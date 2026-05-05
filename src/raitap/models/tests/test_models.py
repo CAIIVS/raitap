@@ -50,14 +50,30 @@ def _as_inference_session(session: _FakeOnnxSession) -> ort.InferenceSession:
     return cast("ort.InferenceSession", session)
 
 
-def _make_config(source: str, *, hardware: str = "gpu") -> AppConfig:
+def _make_config(
+    source: str,
+    *,
+    hardware: str = "gpu",
+    arch: str | None = None,
+    num_classes: int | None = None,
+    pretrained: bool = False,
+) -> AppConfig:
     return cast(
         "AppConfig",
         type(
             "AppConfig",
             (),
             {
-                "model": type("ModelConfig", (), {"source": source})(),
+                "model": type(
+                    "ModelConfig",
+                    (),
+                    {
+                        "source": source,
+                        "arch": arch,
+                        "num_classes": num_classes,
+                        "pretrained": pretrained,
+                    },
+                )(),
                 "hardware": hardware,
             },
         )(),
@@ -125,19 +141,22 @@ def saved_onnx(tmp_path: Path) -> Path:
 class TestLoadModelFromPath:
     def test_loads_pth_file(self, saved_pth: Path) -> None:
         cfg = _make_config(str(saved_pth))
-        model = Model(cfg)
+        with pytest.warns(DeprecationWarning, match="pickled nn.Module"):
+            model = Model(cfg)
         assert isinstance(model.backend, TorchBackend)
         assert isinstance(model.backend.as_model_for_explanation(), nn.Module)
 
     def test_loads_pt_file(self, saved_pt: Path) -> None:
         cfg = _make_config(str(saved_pt))
-        model = Model(cfg)
+        with pytest.warns(DeprecationWarning, match="pickled nn.Module"):
+            model = Model(cfg)
         assert isinstance(model.backend, TorchBackend)
         assert isinstance(model.backend.as_model_for_explanation(), nn.Module)
 
     def test_returns_eval_mode(self, saved_pth: Path) -> None:
         cfg = _make_config(str(saved_pth))
-        model = Model(cfg).backend.as_model_for_explanation()
+        with pytest.warns(DeprecationWarning, match="pickled nn.Module"):
+            model = Model(cfg).backend.as_model_for_explanation()
         assert not model.training
 
     def test_missing_file_raises_file_not_found(self, tmp_path: Path) -> None:
@@ -152,16 +171,59 @@ class TestLoadModelFromPath:
         with pytest.raises(ValueError, match="Unsupported model format"):
             Model(cfg)
 
-    def test_state_dict_raises_value_error(self, saved_state_dict: Path) -> None:
+    def test_state_dict_loads_with_arch_and_num_classes(self, tmp_path: Path) -> None:
+        from torchvision import models as tv_models
+
+        ref = tv_models.resnet18(weights=None, num_classes=3)
+        path = tmp_path / "weights.pth"
+        torch.save(ref.state_dict(), path)
+        cfg = _make_config(str(path), arch="resnet18", num_classes=3)
+        model = Model(cfg)
+        assert isinstance(model.backend, TorchBackend)
+        loaded = model.backend.as_model_for_explanation()
+        # Round-trip: identical parameter values.
+        for k, v in ref.state_dict().items():
+            assert torch.equal(v, loaded.state_dict()[k].cpu())
+
+    def test_state_dict_without_arch_raises(self, saved_state_dict: Path) -> None:
         cfg = _make_config(str(saved_state_dict))
-        with pytest.raises(ValueError, match="state-dict"):
+        with pytest.raises(ValueError, match="State-dict loading requires"):
+            Model(cfg)
+
+    def test_state_dict_with_mismatched_num_classes_raises(self, tmp_path: Path) -> None:
+        from torchvision import models as tv_models
+
+        ref = tv_models.resnet18(weights=None, num_classes=10)
+        path = tmp_path / "weights.pth"
+        torch.save(ref.state_dict(), path)
+        cfg = _make_config(str(path), arch="resnet18", num_classes=2)
+        with pytest.raises(RuntimeError, match=r"size mismatch|shape"):
+            Model(cfg)
+
+    def test_torchscript_load_via_jit(self, tmp_path: Path) -> None:
+        ref = nn.Linear(4, 2).eval()
+        scripted = torch.jit.script(ref)
+        path = tmp_path / "scripted.pt"
+        scripted.save(str(path))
+        cfg = _make_config(str(path), hardware="cpu")
+        loaded = Model(cfg).backend.as_model_for_explanation()
+        assert isinstance(loaded, torch.jit.ScriptModule)
+        x = torch.randn(2, 4)
+        torch.testing.assert_close(loaded(x), ref(x))
+
+    def test_pickled_module_load_emits_deprecation_warning(self, saved_pth: Path) -> None:
+        cfg = _make_config(str(saved_pth))
+        with pytest.warns(
+            DeprecationWarning,
+            match=r"Loading pickled nn\.Module.*Prefer.*state_dict",
+        ):
             Model(cfg)
 
     def test_non_module_object_raises_value_error(self, tmp_path: Path) -> None:
         path = tmp_path / "tensor.pth"
         torch.save(torch.randn(3, 3), path)
         cfg = _make_config(str(path))
-        with pytest.raises(ValueError, match=r"Expected an nn\.Module"):
+        with pytest.raises(ValueError, match=r"Expected an nn\.Module or state-dict"):
             Model(cfg)
 
     def test_loads_onnx_file(self, saved_onnx: Path) -> None:
