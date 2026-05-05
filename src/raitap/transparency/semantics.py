@@ -129,10 +129,7 @@ def infer_output_space(
     input_kind = input_spec.kind
     input_layout = input_spec.layout
     if MethodFamily.CAM in resolved_method_families:
-        if (
-            input_kind is InputKind.IMAGE
-            or input_layout is TensorLayout.BATCH_CHANNEL_HEIGHT_WIDTH
-        ):
+        if input_kind is InputKind.IMAGE or input_layout is TensorLayout.BATCH_CHANNEL_HEIGHT_WIDTH:
             return OutputSpaceSpec(
                 space=ExplanationOutputSpace.IMAGE_SPATIAL_MAP,
                 shape=shape,
