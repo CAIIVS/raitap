@@ -1,4 +1,4 @@
-![PyPI - Version](https://img.shields.io/pypi/v/raitap) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/CAIIVS/raitap)
+[![PyPI - Version](https://img.shields.io/pypi/v/raitap)](https://pypi.org/project/raitap/) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/CAIIVS/raitap)
 
 <img src="https://raw.githubusercontent.com/CAIIVS/raitap/main/assets/images/tech_assessment_platform_logo.png" width="400">
 
