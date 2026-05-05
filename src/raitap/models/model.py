@@ -97,8 +97,8 @@ def _try_torchscript_load(path: Path) -> nn.Module | None:
 
 def _build_arch_from_config(model_cfg: Any) -> nn.Module:
     """Instantiate a torchvision architecture from ``model_cfg`` for state-dict loading."""
-    arch = getattr(model_cfg, "arch", None)
-    num_classes = getattr(model_cfg, "num_classes", None)
+    arch: str | None = getattr(model_cfg, "arch", None)
+    num_classes: int | None = getattr(model_cfg, "num_classes", None)
     pretrained = bool(getattr(model_cfg, "pretrained", False))
 
     missing = [
@@ -114,6 +114,7 @@ def _build_arch_from_config(model_cfg: Any) -> nn.Module:
             "    arch: resnet18\n"
             "    num_classes: 2"
         )
+    assert arch is not None and num_classes is not None  # narrowed by `missing` check
 
     factory = getattr(models, arch, None)
     if factory is None:
