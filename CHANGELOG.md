@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.1](https://github.com/CAIIVS/raitap/compare/v0.4.0...v0.4.1) (2026-05-06)
+
+
+### Bug fixes
+
+* **data:** nested ImageFolder layouts blocked input_metadata inference ([#107](https://github.com/CAIIVS/raitap/issues/107)) ([87fa454](https://github.com/CAIIVS/raitap/commit/87fa4542ab8e588aaa89541e136b6381dde9f900))
+* **data:** suggest id_strategy in label-alignment error messages ([#106](https://github.com/CAIIVS/raitap/issues/106)) ([da2875e](https://github.com/CAIIVS/raitap/commit/da2875eca65c53dc8be8b15d2c97f8d1877fd38c))
+
+
+### Documentation
+
+* **transparency:** surface required raitap.input_metadata config ([#105](https://github.com/CAIIVS/raitap/issues/105)) ([a2ae60f](https://github.com/CAIIVS/raitap/commit/a2ae60f1f913d7d566b7604d88a48aa7f96f4b21))
+
 ## [0.4.0](https://github.com/CAIIVS/raitap/compare/v0.3.0...v0.4.0) (2026-05-06)
 
 
