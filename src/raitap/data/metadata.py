@@ -50,18 +50,24 @@ def infer_data_input_metadata(config: object, data: object) -> DataInputMetadata
     return DataInputMetadata(kind=None, shape=shape, layout=None)
 
 
+def _case_insensitive_glob(ext: str) -> str:
+    """Build a case-insensitive glob suffix for ``ext`` (e.g. ``.jpg`` →
+    ``*.[jJ][pP][gG]``)."""
+    return "*" + "".join(f"[{c.lower()}{c.upper()}]" if c.isalpha() else c for c in ext)
+
+
 def _has_extension_recursive(path: Path, extensions: set[str]) -> bool:
     """True if any file under ``path`` (recursively) has a matching extension.
 
-    Iterates per-extension globs (``rglob('*<ext>')``) so the OS layer skips
-    non-matching dirents instead of yielding every file. Short-circuits on the
-    first match. Filesystem errors (unreadable subdirs, broken symlinks, etc.)
-    are swallowed — this helper is best-effort source detection, not data
-    validation.
+    Case-insensitive: ``IMG_001.JPG`` matches ``.jpg``. Iterates per-extension
+    case-insensitive globs so the OS layer skips non-matching dirents instead
+    of yielding every file. Short-circuits on the first match. Filesystem
+    errors (unreadable subdirs, broken symlinks, etc.) are swallowed — this
+    helper is best-effort source detection, not data validation.
     """
     try:
         for ext in extensions:
-            if next(path.rglob(f"*{ext}"), None) is not None:
+            if next(path.rglob(_case_insensitive_glob(ext)), None) is not None:
                 return True
     except OSError:
         return False
