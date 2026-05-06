@@ -177,7 +177,15 @@ def infer_output_space(
         )
 
     raise ValueError(
-        "Output-space inference requires explicit input metadata; shape alone is ambiguous."
+        "Output-space inference requires explicit input metadata; shape alone is "
+        "ambiguous. Set ``transparency.<explainer>.raitap.input_metadata.kind`` "
+        "(one of: image, tabular, text, time_series) and optionally "
+        "``layout`` (one of: NCHW, (B,F), (B,T,C), TOKENS) in your config. "
+        "Example::\n\n"
+        "    raitap:\n"
+        "      input_metadata:\n"
+        "        kind: image\n"
+        "        layout: NCHW\n"
     )
 
 
