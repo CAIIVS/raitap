@@ -246,15 +246,15 @@ class TestDataConstructor:
         with pytest.warns(UserWarning) as record:
             data = Data(config)
         assert data.labels is None
-        # Error message hints at id_strategy + suggests relative_path.
         msgs = [str(w.message) for w in record]
         assert any("Duplicate label IDs" in m for m in msgs)
-        assert any("id_strategy" in m and "relative_path" in m for m in msgs)
+        # Hint pins the specific guidance: switch strategy + use relative paths.
+        assert any(
+            "id_strategy=relative_path" in m and "stem-only matching collapses" in m for m in msgs
+        )
 
-    def test_data_missing_label_error_hints_at_id_strategy(self, tmp_path: Path) -> None:
-        # Nested data + flat label ids + forced relative_path → mismatch.
-        # Sample ids come back as 'NORMAL/IM-0001' (with subdir) but labels
-        # only carry 'IM-0001' (no subdir) → missing under strict path matching.
+    def test_data_missing_label_hint_for_nested_samples_flat_labels(self, tmp_path: Path) -> None:
+        # Nested data + flat label ids under relative_path → strategy mismatch.
         data_dir = tmp_path / "images"
         (data_dir / "NORMAL").mkdir(parents=True)
         _write_image(data_dir / "NORMAL" / "IM-0001.jpeg")
@@ -273,7 +273,34 @@ class TestDataConstructor:
             data = Data(config)
         assert data.labels is None
         msgs = [str(w.message) for w in record]
-        assert any("Missing labels" in m and "id_strategy" in m for m in msgs)
+        # Hint pins the specific direction: nested data, flat labels.
+        assert any("Missing labels" in m and "nested layout" in m for m in msgs)
+
+    def test_data_missing_label_hint_for_stem_mode_with_path_labels(self, tmp_path: Path) -> None:
+        # Flat data dir + path-shaped label ids (with unique stems so the
+        # duplicate-ID guard doesn't fire first) + forced stem mode → label
+        # ids carry path separators that stem-mode strips, so sample stems
+        # never line up. The raw-input check catches the strategy mismatch.
+        data_dir = tmp_path / "images"
+        data_dir.mkdir()
+        _write_image(data_dir / "X.jpeg")
+        labels_file = tmp_path / "labels.csv"
+        labels_file.write_text("image,label\nNORMAL/Y.jpeg,0\nPNEUMONIA/Z.jpeg,1\n")
+        config = _make_config(
+            str(data_dir),
+            labels_source=str(labels_file),
+            labels_id_column="image",
+            labels_column="label",
+            labels_encoding="index",
+            labels_id_strategy="stem",
+        )
+
+        with pytest.warns(UserWarning) as record:
+            data = Data(config)
+        assert data.labels is None
+        msgs = [str(w.message) for w in record]
+        # Hint pins stem-mode + relative_path remediation.
+        assert any("Missing labels" in m and "id_strategy=relative_path" in m for m in msgs)
 
     def test_data_raises_for_unsupported_id_strategy(self, tmp_path: Path) -> None:
         data_dir = tmp_path / "images"
