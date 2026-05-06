@@ -100,6 +100,25 @@ def test_is_tabular_source_recurses_into_subdirs(tmp_path: Path) -> None:
     assert is_tabular_source(str(nested))
 
 
+def test_is_image_source_matches_uppercase_extensions(tmp_path: Path) -> None:
+    # Many real-world dumps use ``.JPG`` / ``.JPEG`` (e.g. camera exports).
+    # Detection must be case-insensitive on Linux too — ``Path.rglob`` is
+    # case-sensitive there, so the implementation needs an explicit fix.
+    image_dir = tmp_path / "uppercase_images"
+    image_dir.mkdir()
+    (image_dir / "IMG_001.JPG").write_bytes(b"not-an-image-for-this-test")
+
+    assert is_image_source(str(image_dir))
+
+
+def test_is_tabular_source_matches_uppercase_extensions(tmp_path: Path) -> None:
+    table_dir = tmp_path / "uppercase_tables"
+    table_dir.mkdir()
+    (table_dir / "DATA.CSV").write_text("a,b\n1,2\n")
+
+    assert is_tabular_source(str(table_dir))
+
+
 def test_shape_tuple_returns_none_for_invalid_shapes() -> None:
     assert shape_tuple(None) is None
     assert shape_tuple(object()) is None
