@@ -198,6 +198,18 @@ def test_infer_output_space_requires_metadata_for_ambiguous_shapes() -> None:
         infer_output_space(input_spec=InputSpec(kind=None, shape=(4, 3), layout=None))
 
 
+def test_infer_output_space_error_names_config_key_and_valid_kinds() -> None:
+    with pytest.raises(ValueError) as exc_info:
+        infer_output_space(input_spec=InputSpec(kind=None, shape=(4, 3), layout=None))
+    msg = str(exc_info.value)
+    # Names the config key explicitly so users know where to set it.
+    assert "raitap.input_metadata" in msg
+    assert "kind" in msg
+    # Lists every valid kind.
+    for kind in ("image", "tabular", "text", "time_series"):
+        assert kind in msg
+
+
 def test_infer_output_space_uses_cam_method_family_for_image_spatial_maps() -> None:
     output_space = infer_output_space(
         input_spec=InputSpec(kind="image", shape=(2, 3, 8, 8), layout="NCHW"),
