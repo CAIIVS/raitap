@@ -76,19 +76,18 @@ class Data(Trackable):
                 )
 
         if path.is_dir():
-            all_files = list(path.iterdir())
-            image_files = [f for f in all_files if f.suffix.lower() in _IMAGE_EXTENSIONS]
-            tabular_files = [f for f in all_files if f.suffix.lower() in _TABULAR_EXTENSIONS]
+            image_files = _list_images_recursive(path)
+            tabular_files = _list_tabular_recursive(path)
             if image_files and tabular_files:
                 raise ValueError(
                     f"Directory {path} contains both image and tabular files. "
                     "Separate them into different directories."
                 )
             if image_files:
-                tensor = _load_images(path)
-                return tensor, _resolve_sample_ids(image_files)
+                tensor = torch.from_numpy(_stack_images_numpy(image_files))
+                return tensor, _resolve_sample_ids(image_files, root=path)
             if tabular_files:
-                return _load_tabular_dir(path), None
+                return torch.from_numpy(_concat_tabular_numpy(tabular_files)), None
             raise FileNotFoundError(
                 f"No supported files found in {path}.\n"
                 f"Supported image formats: {_IMAGE_EXTENSIONS}\n"
@@ -97,7 +96,7 @@ class Data(Trackable):
 
         suffix = path.suffix.lower()
         if suffix in _IMAGE_EXTENSIONS:
-            return _load_images(path), _resolve_sample_ids([path])
+            return _load_images(path), _resolve_sample_ids([path], root=path.parent)
         if suffix in _TABULAR_EXTENSIONS:
             return _load_tabular(path), None
 
@@ -125,6 +124,7 @@ class Data(Trackable):
         id_column = _resolve_labels_id_column(labels_df, labels_id_column)
         labels_column = _get_optional_config_value(labels_cfg, "column")
         labels_encoding = _get_optional_config_value(labels_cfg, "encoding")
+        labels_id_strategy = _get_optional_config_value(labels_cfg, "id_strategy") or "auto"
         encoded_labels = _extract_class_labels(
             labels_df,
             labels_column=labels_column,
@@ -135,11 +135,13 @@ class Data(Trackable):
         expected = int(self.tensor.shape[0])
         if self.sample_ids and id_column:
             id_series = _column_as_series(labels_df, id_column)
+            strategy = _resolve_id_strategy(labels_id_strategy, id_series)
             try:
                 aligned_labels = _align_labels_to_samples(
                     sample_ids=self.sample_ids,
                     raw_label_ids=id_series,
                     encoded_labels=encoded_labels,
+                    strategy=strategy,
                 )
             except ValueError as error:
                 warnings.warn(
@@ -267,18 +269,17 @@ def load_numpy_from_source(source: str, n_samples: int | None = None) -> np.ndar
 def _load_numpy_from_path(path: Path) -> np.ndarray[Any, Any]:
     """Load a numpy array from a single file or directory (no sample IDs returned)."""
     if path.is_dir():
-        all_files = list(path.iterdir())
-        image_files = [f for f in all_files if f.suffix.lower() in _IMAGE_EXTENSIONS]
-        tabular_files = [f for f in all_files if f.suffix.lower() in _TABULAR_EXTENSIONS]
+        image_files = _list_images_recursive(path)
+        tabular_files = _list_tabular_recursive(path)
         if image_files and tabular_files:
             raise ValueError(
                 f"Directory {path} contains both image and tabular files. "
                 "Separate them into different directories."
             )
         if image_files:
-            return _load_images_numpy(path)
+            return _stack_images_numpy(image_files)
         if tabular_files:
-            return _load_tabular_dir_numpy(path)
+            return _concat_tabular_numpy(tabular_files)
         raise FileNotFoundError(
             f"No supported files found in {path}.\n"
             f"Supported image formats: {_IMAGE_EXTENSIONS}\n"
@@ -340,15 +341,20 @@ def get_source_path(source: str) -> Path:
     )
 
 
-def _load_images_numpy(path: Path) -> np.ndarray[Any, Any]:
-    """Load image files from a directory (or a single file) as NCHW float32 arrays in [0, 1]."""
-    if path.is_dir():
-        files = sorted(f for f in path.iterdir() if f.suffix.lower() in _IMAGE_EXTENSIONS)
-        if not files:
-            raise FileNotFoundError(f"No image files found in {path}")
-    else:
-        files = [path]
+def _list_images_recursive(root: Path) -> list[Path]:
+    """Discover image files under ``root`` recursively, sorted by relative posix path."""
+    files = [p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in _IMAGE_EXTENSIONS]
+    return sorted(files, key=lambda p: p.relative_to(root).as_posix())
 
+
+def _list_tabular_recursive(root: Path) -> list[Path]:
+    """Discover tabular files under ``root`` recursively, sorted by relative posix path."""
+    files = [p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in _TABULAR_EXTENSIONS]
+    return sorted(files, key=lambda p: p.relative_to(root).as_posix())
+
+
+def _stack_images_numpy(files: list[Path]) -> np.ndarray[Any, Any]:
+    """Stack pre-discovered image files into an NCHW float32 array in [0, 1]."""
     arrays = []
     for f in files:
         arr = np.array(Image.open(f).convert("RGB"))  # HWC uint8
@@ -362,6 +368,17 @@ def _load_images_numpy(path: Path) -> np.ndarray[Any, Any]:
             f"Images have inconsistent shapes: {sizes}. "
             "Resize them to a common size before loading."
         ) from None
+
+
+def _load_images_numpy(path: Path) -> np.ndarray[Any, Any]:
+    """Load image files from a directory (or a single file) as NCHW float32 arrays in [0, 1]."""
+    if path.is_dir():
+        files = _list_images_recursive(path)
+        if not files:
+            raise FileNotFoundError(f"No image files found in {path}")
+    else:
+        files = [path]
+    return _stack_images_numpy(files)
 
 
 def _load_images(path: Path) -> torch.Tensor:
@@ -479,13 +496,38 @@ def _extract_class_labels(
     return matrix.argmax(axis=1).astype(int).tolist()
 
 
-def _resolve_sample_ids(files: list[Path]) -> list[str]:
-    return sorted(_normalise_sample_id(path.name) for path in files)
+def _resolve_sample_ids(files: list[Path], root: Path) -> list[str]:
+    """Sample ids are posix-style paths relative to ``root`` (extension included)."""
+    return sorted(p.relative_to(root).as_posix() for p in files)
 
 
-def _normalise_sample_id(value: object) -> str:
-    text = str(value).strip()
-    return Path(text).stem
+def _normalise_sample_id(value: object, strategy: str = "stem") -> str:
+    """Normalise a label-file id or discovered sample id into a comparable key.
+
+    - ``strategy="stem"``: legacy behaviour. Strip the directory and the
+      extension; e.g. ``"NORMAL/IM-0001.jpeg"`` → ``"IM-0001"``.
+    - ``strategy="relative_path"``: keep the directory; strip only the
+      extension. e.g. ``"NORMAL\\IM-0001.jpeg"`` → ``"NORMAL/IM-0001"``.
+    """
+    text = str(value).strip().replace("\\", "/")
+    p = Path(text)
+    if strategy == "relative_path":
+        return p.with_suffix("").as_posix()
+    return p.stem
+
+
+def _resolve_id_strategy(strategy: str, raw_label_ids: pd.Series) -> str:
+    if strategy == "auto":
+        for raw in raw_label_ids.tolist():
+            text = str(raw)
+            if "/" in text or "\\" in text:
+                return "relative_path"
+        return "stem"
+    if strategy in {"relative_path", "stem"}:
+        return strategy
+    raise ValueError(
+        f"Unsupported data.labels.id_strategy {strategy!r}. Use 'auto', 'relative_path', or 'stem'."
+    )
 
 
 def _column_as_series(df: pd.DataFrame, column_name: str) -> pd.Series:
@@ -501,8 +543,12 @@ def _align_labels_to_samples(
     sample_ids: list[str],
     raw_label_ids: pd.Series,
     encoded_labels: list[int],
+    strategy: str = "stem",
 ) -> list[int]:
-    normalised_label_ids = [_normalise_sample_id(raw_id) for raw_id in raw_label_ids.tolist()]
+    normalised_sample_ids = [_normalise_sample_id(sid, strategy) for sid in sample_ids]
+    normalised_label_ids = [
+        _normalise_sample_id(raw_id, strategy) for raw_id in raw_label_ids.tolist()
+    ]
     duplicates = sorted(
         [row_id for row_id, count in Counter(normalised_label_ids).items() if count > 1]
     )
@@ -516,19 +562,18 @@ def _align_labels_to_samples(
         row_id: int(label)
         for row_id, label in zip(normalised_label_ids, encoded_labels, strict=False)
     }
-    missing_ids = [sample_id for sample_id in sample_ids if sample_id not in label_by_id]
+    missing_ids = [sid for sid in normalised_sample_ids if sid not in label_by_id]
     if missing_ids:
         preview = ", ".join(missing_ids[:5])
         raise ValueError(
             "Missing labels for some sample IDs "
             f"({preview}{'...' if len(missing_ids) > 5 else ''})."
         )
-    return [label_by_id[sample_id] for sample_id in sample_ids]
+    return [label_by_id[sid] for sid in normalised_sample_ids]
 
 
-def _load_tabular_dir_numpy(path: Path) -> np.ndarray[Any, Any]:
-    """Load all tabular files from a directory as a single float32 array, concatenating rows."""
-    files = sorted(f for f in path.iterdir() if f.suffix.lower() in _TABULAR_EXTENSIONS)
+def _concat_tabular_numpy(files: list[Path]) -> np.ndarray[Any, Any]:
+    """Concatenate pre-discovered tabular files row-wise into a float32 array."""
     arrays = [_load_tabular_numpy(f) for f in files]
     try:
         return np.concatenate(arrays)
@@ -538,6 +583,11 @@ def _load_tabular_dir_numpy(path: Path) -> np.ndarray[Any, Any]:
             f"Tabular files have inconsistent column counts: {shapes}. "
             "All files must have the same number of columns."
         ) from None
+
+
+def _load_tabular_dir_numpy(path: Path) -> np.ndarray[Any, Any]:
+    """Load all tabular files from a directory as a single float32 array, concatenating rows."""
+    return _concat_tabular_numpy(_list_tabular_recursive(path))
 
 
 def _load_tabular_dir(path: Path) -> torch.Tensor:
