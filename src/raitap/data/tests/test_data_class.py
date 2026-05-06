@@ -31,6 +31,7 @@ def _make_config(
     labels_id_column: str | None = None,
     labels_column: str | None = None,
     labels_encoding: str | None = None,
+    labels_id_strategy: str | None = None,
 ) -> AppConfig:
     return cast(
         "AppConfig",
@@ -43,6 +44,7 @@ def _make_config(
                     id_column=labels_id_column,
                     column=labels_column,
                     encoding=labels_encoding,
+                    id_strategy=labels_id_strategy,
                 ),
             )
         ),
@@ -175,6 +177,93 @@ class TestDataConstructor:
             data = Data(config)
 
         assert data.labels is None
+
+    def test_data_loads_nested_layout_with_relative_paths(self, tmp_path: Path) -> None:
+        # Colliding stems across class subdirs — old stem-only matching would
+        # silently drop rows; new id_strategy=auto resolves them as paths.
+        data_dir = tmp_path / "images"
+        (data_dir / "NORMAL").mkdir(parents=True)
+        (data_dir / "PNEUMONIA").mkdir(parents=True)
+        _write_image(data_dir / "NORMAL" / "IM-0001.jpeg")
+        _write_image(data_dir / "PNEUMONIA" / "IM-0001.jpeg")
+        labels_file = tmp_path / "labels.csv"
+        labels_file.write_text("image,label\nNORMAL/IM-0001.jpeg,0\nPNEUMONIA/IM-0001.jpeg,1\n")
+        config = _make_config(
+            str(data_dir),
+            labels_source=str(labels_file),
+            labels_id_column="image",
+            labels_column="label",
+            labels_encoding="index",
+        )
+
+        data = Data(config)
+
+        assert data.tensor.shape[0] == 2
+        assert data.labels is not None
+        # Sample order is sorted by relative posix path: NORMAL/* < PNEUMONIA/*.
+        assert data.labels.tolist() == [0, 1]
+
+    def test_data_auto_detects_relative_paths_from_separators(self, tmp_path: Path) -> None:
+        data_dir = tmp_path / "images"
+        (data_dir / "a").mkdir(parents=True)
+        (data_dir / "b").mkdir(parents=True)
+        _write_image(data_dir / "a" / "x.jpg")
+        _write_image(data_dir / "b" / "x.jpg")
+        labels_file = tmp_path / "labels.csv"
+        # Backslash separator should also trigger relative_path mode.
+        labels_file.write_text("image,label\na\\x.jpg,7\nb\\x.jpg,8\n")
+        config = _make_config(
+            str(data_dir),
+            labels_source=str(labels_file),
+            labels_id_column="image",
+            labels_column="label",
+            labels_encoding="index",
+        )
+
+        data = Data(config)
+
+        assert data.labels is not None
+        assert data.labels.tolist() == [7, 8]
+
+    def test_data_explicit_stem_strategy_with_nested_collisions_warns(self, tmp_path: Path) -> None:
+        data_dir = tmp_path / "images"
+        (data_dir / "NORMAL").mkdir(parents=True)
+        (data_dir / "PNEUMONIA").mkdir(parents=True)
+        _write_image(data_dir / "NORMAL" / "IM-0001.jpeg")
+        _write_image(data_dir / "PNEUMONIA" / "IM-0001.jpeg")
+        labels_file = tmp_path / "labels.csv"
+        labels_file.write_text("image,label\nNORMAL/IM-0001.jpeg,0\nPNEUMONIA/IM-0001.jpeg,1\n")
+        config = _make_config(
+            str(data_dir),
+            labels_source=str(labels_file),
+            labels_id_column="image",
+            labels_column="label",
+            labels_encoding="index",
+            labels_id_strategy="stem",
+        )
+
+        # Forcing stem mode collapses both rows to the same key → duplicate.
+        with pytest.warns(UserWarning, match="Duplicate label IDs"):
+            data = Data(config)
+        assert data.labels is None
+
+    def test_data_raises_for_unsupported_id_strategy(self, tmp_path: Path) -> None:
+        data_dir = tmp_path / "images"
+        data_dir.mkdir()
+        _write_image(data_dir / "x.jpg")
+        labels_file = tmp_path / "labels.csv"
+        labels_file.write_text("image,label\nx,0\n")
+        config = _make_config(
+            str(data_dir),
+            labels_source=str(labels_file),
+            labels_id_column="image",
+            labels_column="label",
+            labels_encoding="index",
+            labels_id_strategy="bogus",
+        )
+
+        with pytest.raises(ValueError, match=r"Unsupported data\.labels\.id_strategy"):
+            Data(config)
 
     def test_data_raises_for_unsupported_labels_encoding(self, tmp_path: Path) -> None:
         csv_file = tmp_path / "data.csv"

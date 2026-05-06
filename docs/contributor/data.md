@@ -34,3 +34,22 @@ To add a new built-in dataset config:
 4. **Update documentation**
 
     Add the new dataset name to the list in `docs/modules/data/own-vs-built-in.md`.
+
+## Sample discovery and label alignment
+
+`data.source` directories are walked **recursively** (`Path.rglob`) and
+sample ids are computed as posix-style paths relative to the source root
+(e.g. `NORMAL/IM-0001.jpeg`). This supports nested `ImageFolder`-style
+layouts where filename stems may collide across class subdirs.
+
+Label alignment is governed by `data.labels.id_strategy`:
+
+- `"auto"` (default) — inspects the id column once. If any value contains
+  `/` or `\`, switches to `"relative_path"`; otherwise `"stem"`.
+- `"relative_path"` — strips only the file extension during comparison;
+  directory components are retained.
+- `"stem"` — legacy flat-dir behaviour (`Path(id).stem`).
+
+Both sides (sample ids from disk + label ids from the file) are normalised
+the same way before lookup. Duplicate normalised label ids raise a
+warning and disable label-based metrics for that run.

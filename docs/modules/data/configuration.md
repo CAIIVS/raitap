@@ -49,6 +49,17 @@
 :default: null
 :description: Optional label parsing strategy.
 
+:option: labels.id_strategy
+:allowed: "auto", "relative_path", "stem"
+:default: "auto"
+:description: How label-file ids are matched against discovered sample
+  files. `"auto"` (default) inspects the id column and switches to
+  `"relative_path"` if any value contains `/` or `\`, otherwise falls back
+  to `"stem"`. `"relative_path"` keeps directory components and supports
+  nested ImageFolder layouts (e.g. `NORMAL/IM-0001.jpeg`) — required when
+  filename stems collide across class subdirs. `"stem"` is the legacy
+  flat-dir behaviour.
+
 :yaml:
 data:
   name: "my-dataset"
@@ -60,6 +71,10 @@ data:
     id_column: "image"
     column: "label"
     encoding: "index"
+    id_strategy: "auto"
 
 :cli: data.source="./data/images" data.labels.source="./data/labels.csv" data.labels.column=label
 ```
+
+For nested `ImageFolder`-style layouts (e.g. `data/test/<class>/<file>.jpg`)
+see {doc}`own-vs-built-in`.
