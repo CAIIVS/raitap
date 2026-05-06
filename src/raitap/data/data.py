@@ -575,30 +575,17 @@ def _align_labels_to_samples(
     if missing_ids:
         preview = ", ".join(missing_ids[:5])
         more = "..." if len(missing_ids) > 5 else ""
-        # Inspect the *raw* (pre-normalisation) inputs to diagnose strategy
-        # mismatch. Normalised ids no longer carry separators in stem mode,
-        # so we have to look at what the user actually supplied.
+        # Strategy hints only fire under ``relative_path`` — stem mode strips
+        # directory components from both sides symmetrically, so a missing
+        # match means basenames don't line up (genuine data/label gap), not
+        # a strategy mismatch. Inspect the *raw* (pre-normalisation) inputs
+        # since normalised ids no longer carry separators.
         samples_have_separators = any("/" in s or "\\" in s for s in sample_ids)
         labels_have_separators = any(
             "/" in str(r) or "\\" in str(r) for r in raw_label_ids.tolist()
         )
         hint = ""
-        # Asymmetric separator presence is a strong signal of strategy
-        # mismatch: only one side carries directory components, so stem-mode
-        # normalisation will line up neither across samples nor against labels.
-        # When both sides have (or both lack) separators, stem stripping is
-        # consistent and any missing rows are a genuine data/label gap, not a
-        # strategy issue — suppress the hint there.
-        if strategy == "stem" and samples_have_separators != labels_have_separators:
-            hint = (
-                " Hint: raw ids on one side carry path separators while the "
-                "other side doesn't, so stem-mode normalisation drops the "
-                "directory components asymmetrically and the keys never line "
-                "up. Set data.labels.id_strategy=relative_path "
-                "(or =auto, the default) to match by relative path on both "
-                "sides."
-            )
-        elif strategy == "relative_path" and samples_have_separators and not labels_have_separators:
+        if strategy == "relative_path" and samples_have_separators and not labels_have_separators:
             hint = (
                 " Hint: data.source has a nested layout (sample ids contain "
                 "path separators) but label ids don't — under "
