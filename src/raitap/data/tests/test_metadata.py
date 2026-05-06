@@ -80,6 +80,26 @@ def test_source_helpers_detect_directory_contents(tmp_path: Path) -> None:
     assert is_tabular_source(str(table_dir))
 
 
+def test_is_image_source_recurses_into_class_subdirs(tmp_path: Path) -> None:
+    # Nested ``ImageFolder`` layout (post-#95): images live under per-class
+    # subdirs, not the root. is_image_source must still recognise the dir.
+    nested = tmp_path / "test"
+    (nested / "NORMAL").mkdir(parents=True)
+    (nested / "PNEUMONIA").mkdir(parents=True)
+    (nested / "NORMAL" / "IM-0001.jpeg").write_bytes(b"not-an-image-for-this-test")
+    (nested / "PNEUMONIA" / "IM-0002.jpeg").write_bytes(b"not-an-image-for-this-test")
+
+    assert is_image_source(str(nested))
+
+
+def test_is_tabular_source_recurses_into_subdirs(tmp_path: Path) -> None:
+    nested = tmp_path / "tabular"
+    (nested / "shard_a").mkdir(parents=True)
+    (nested / "shard_a" / "rows.csv").write_text("a,b\n1,2\n")
+
+    assert is_tabular_source(str(nested))
+
+
 def test_shape_tuple_returns_none_for_invalid_shapes() -> None:
     assert shape_tuple(None) is None
     assert shape_tuple(object()) is None
