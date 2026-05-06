@@ -202,12 +202,27 @@ def test_infer_output_space_error_names_config_key_and_valid_kinds() -> None:
     with pytest.raises(ValueError) as exc_info:
         infer_output_space(input_spec=InputSpec(kind=None, shape=(4, 3), layout=None))
     msg = str(exc_info.value)
-    # Names the config key explicitly so users know where to set it.
-    assert "raitap.input_metadata" in msg
+    # Names both keys explicitly so users know they have a choice.
+    assert "input_metadata" in msg
     assert "kind" in msg
+    assert "layout" in msg
     # Lists every valid kind.
     for kind in ("image", "tabular", "text", "time_series"):
         assert kind in msg
+    # Lists every valid layout.
+    for layout in ("NCHW", "(B,F)", "(B,T,C)", "TOKENS"):
+        assert layout in msg
+    # Includes a YAML example so users can copy-paste the fix.
+    assert "raitap:" in msg
+    assert "input_metadata:" in msg
+
+
+def test_infer_output_space_layout_alone_disambiguates() -> None:
+    # Setting only ``layout`` (no ``kind``) is enough — covers what the
+    # error message promises about either key being sufficient.
+    spec = InputSpec(kind=None, shape=(2, 3, 8, 8), layout="NCHW")
+    output_space = infer_output_space(input_spec=spec, algorithm="IntegratedGradients")
+    assert output_space.space is ExplanationOutputSpace.INPUT_FEATURES
 
 
 def test_infer_output_space_uses_cam_method_family_for_image_spatial_maps() -> None:
