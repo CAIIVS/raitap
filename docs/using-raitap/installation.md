@@ -93,6 +93,40 @@ This came up in cluster testing with `metrics`, where `torchmetrics` should reso
 This is an example for older cards that need that wheel family. It is **not** the required default for every CUDA-capable install.
 :::
 
+:::{dropdown} Intel GPU (XPU) wheel selection
+PyTorch's `+xpu` wheels (`torch`, `torchvision`) and `triton-xpu` are not on PyPI — they live on the Intel index at `download.pytorch.org/whl/xpu`. PyPI only hosts a yanked `triton-xpu==0.0.2`.
+
+uv `[tool.uv.sources]` declared inside RAITAP do **not** propagate to consumers, so a project depending on RAITAP must redeclare the routing:
+
+```toml
+[tool.uv.sources]
+torch       = [{ index = "pytorch-intel" }]
+torchvision = [{ index = "pytorch-intel" }]
+triton-xpu  = [{ index = "pytorch-intel" }]
+
+[[tool.uv.index]]
+name     = "pytorch-intel"
+url      = "https://download.pytorch.org/whl/xpu"
+explicit = true
+```
+
+Then install RAITAP with the `torch-intel` (or `onnx-intel`) extra:
+
+```{install-tabs}
+:uv:
+uv add "raitap[torch-intel,transparency]"
+
+:pip:
+pip install --extra-index-url https://download.pytorch.org/whl/xpu \
+  torch torchvision
+pip install "raitap[torch-intel,transparency]"
+```
+
+Without this routing, resolution fails with:
+
+> Because only `triton-xpu<3.0.0` is available and `raitap[torch-intel]` depends on `triton-xpu>=3.0.0`, we can conclude that `raitap[torch-intel]` cannot be used.
+:::
+
 ### Assessment dependencies
 
 You can then install the dependencies for the assessment modules you want to use.
