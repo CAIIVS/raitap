@@ -66,7 +66,7 @@ def _has_extension_recursive(path: Path, extensions: set[str]) -> bool:
     helper is best-effort source detection, not data validation.
     """
     try:
-        for ext in extensions:
+        for ext in sorted(extensions):
             if next(path.rglob(_case_insensitive_glob(ext)), None) is not None:
                 return True
     except OSError:
