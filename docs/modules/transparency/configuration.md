@@ -120,9 +120,7 @@ transparency:
           max_samples: 1
   my_second_explainer:
     _target_: "ShapExplainer"
-    algorithm: "GradientExplainer"
-    constructor:
-      local_smoothing: 0.0
+    algorithm: "KernelExplainer"
     call:
       target: 0
       background_data:
@@ -135,7 +133,7 @@ transparency:
         layout: "(B,F)"
         feature_names: [age, income, score]
     visualisers:
-      - _target_: "ShapImageVisualiser"
+      - _target_: "ShapBarVisualiser"
 
 :cli: transparency.captum_ig.algorithm=GradientShap
 ```
