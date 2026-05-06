@@ -178,9 +178,12 @@ def infer_output_space(
 
     raise ValueError(
         "Output-space inference requires explicit input metadata; shape alone is "
-        "ambiguous. Set ``transparency.<explainer>.raitap.input_metadata.kind`` "
-        "(one of: image, tabular, text, time_series) and optionally "
-        "``layout`` (one of: NCHW, (B,F), (B,T,C), TOKENS) in your config. "
+        "ambiguous. Set either ``input_metadata.kind`` "
+        "(one of: image, tabular, text, time_series) or ``input_metadata.layout`` "
+        "(one of: NCHW, (B,F), (B,T,C), TOKENS) — a recognised value for either "
+        "key is enough to disambiguate. Direct callers pass via "
+        "``infer_input_spec(input_metadata=...)``; Hydra users set "
+        "``transparency.<explainer>.raitap.input_metadata`` in config. "
         "Example::\n\n"
         "    raitap:\n"
         "      input_metadata:\n"
