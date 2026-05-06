@@ -554,8 +554,17 @@ def _align_labels_to_samples(
     )
     if duplicates:
         preview = ", ".join(duplicates[:5])
+        more = "..." if len(duplicates) > 5 else ""
+        hint = ""
+        if strategy == "stem":
+            hint = (
+                " Hint: stem-only matching collapses ids that share a filename "
+                "across subdirs (e.g. NORMAL/IM-0001.jpeg vs PNEUMONIA/IM-0001.jpeg). "
+                "Set data.labels.id_strategy=relative_path (or =auto, the default) "
+                "and use posix-style relative paths in the id column."
+            )
         raise ValueError(
-            f"Duplicate label IDs detected ({preview}{'...' if len(duplicates) > 5 else ''})."
+            f"Duplicate label IDs detected ({preview}{more}) under id_strategy={strategy!r}.{hint}"
         )
 
     label_by_id = {
@@ -565,9 +574,25 @@ def _align_labels_to_samples(
     missing_ids = [sid for sid in normalised_sample_ids if sid not in label_by_id]
     if missing_ids:
         preview = ", ".join(missing_ids[:5])
+        more = "..." if len(missing_ids) > 5 else ""
+        hint = ""
+        looks_like_path = any("/" in sid or "\\" in sid for sid in missing_ids)
+        if strategy == "stem" and looks_like_path:
+            hint = (
+                " Hint: sample ids include path separators but id_strategy='stem' "
+                "strips directory components. Set data.labels.id_strategy=relative_path "
+                "(or =auto, the default)."
+            )
+        elif strategy == "relative_path" and not looks_like_path:
+            hint = (
+                " Hint: under id_strategy='relative_path', label ids must include "
+                "directory components matching data.source's subdir layout "
+                "(e.g. 'NORMAL/IM-0001.jpeg'). For flat-dir layouts, use "
+                "id_strategy=stem (or =auto, the default)."
+            )
         raise ValueError(
-            "Missing labels for some sample IDs "
-            f"({preview}{'...' if len(missing_ids) > 5 else ''})."
+            f"Missing labels for some sample IDs ({preview}{more}) under "
+            f"id_strategy={strategy!r}.{hint}"
         )
     return [label_by_id[sid] for sid in normalised_sample_ids]
 
