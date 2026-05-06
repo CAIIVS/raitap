@@ -85,23 +85,12 @@
 :option: raitap.input_metadata
 :allowed: dict
 :default: null
-:description: Input modality + layout hints used by output-space inference and
-  visualiser selection. **Required for any non-trivial input shape** —
-  RAITAP will not guess the modality from tensor shape alone (e.g. a 4-D
-  tensor could be image NCHW or video). Keys:
-
-  - `kind` (str): one of `image`, `tabular`, `text`, `time_series`.
-  - `layout` (str, optional): one of `NCHW` (image), `(B,F)` (tabular),
-    `(B,T,C)` (time series), `TOKENS` (text).
-  - `feature_names` (list[str], optional): per-feature labels for tabular
-    or time-series outputs.
-
-  Example for a ResNet-style image model::
-
-      raitap:
-        input_metadata:
-          kind: image
-          layout: NCHW
+:description: Required input modality + layout hints used by output-space
+  inference and visualiser selection. Required keys: `kind` (one of `image`,
+  `tabular`, `text`, `time_series`). Optional keys: `layout` (`NCHW`, `(B,F)`,
+  `(B,T,C)`, `TOKENS`) and `feature_names` for tabular / time-series. RAITAP
+  will not guess the modality from tensor shape alone — without this block,
+  `infer_output_space` raises a `ValueError`.
 
 :option: visualisers
 :allowed: list[dict]
@@ -119,6 +108,10 @@ transparency:
     algorithm: "IntegratedGradients"
     call:
       target: 0
+    raitap:
+      input_metadata:
+        kind: image
+        layout: NCHW
     visualisers:
       - _target_: "CaptumImageVisualiser"
         call:
@@ -135,6 +128,10 @@ transparency:
         n_samples: 32
     raitap:
       batch_size: 1
+      input_metadata:
+        kind: tabular
+        layout: "(B,F)"
+        feature_names: [age, income, score]
     visualisers:
       - _target_: "ShapImageVisualiser"
 
