@@ -209,7 +209,11 @@ def _resolve_explainer_runtime_kwargs(
     return {"target": predictions.detach()}
 
 
-def _input_metadata_for_data(config: AppConfig, data: Data) -> InputSpec:
+def _input_metadata_for_data(config: AppConfig, data: Data) -> InputSpec | None:
+    """Return runtime input metadata derived from the data object, or ``None``
+    if inference can't determine the input kind (in which case any
+    ``transparency.<explainer>.raitap.input_metadata`` from the explainer
+    config will be used unchanged)."""
     explicit = getattr(data, "input_metadata", None)
     if isinstance(explicit, InputSpec):
         return explicit
@@ -217,6 +221,10 @@ def _input_metadata_for_data(config: AppConfig, data: Data) -> InputSpec:
     if isinstance(config_explicit, InputSpec):
         return config_explicit
     metadata = infer_data_input_metadata(config, data)
+    if metadata.kind is None:
+        # Don't override yaml-provided ``raitap.input_metadata`` with an empty
+        # spec — the user must have set it deliberately.
+        return None
     return InputSpec(
         kind=metadata.kind,
         shape=metadata.shape,
