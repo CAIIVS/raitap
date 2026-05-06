@@ -217,12 +217,26 @@ def test_infer_output_space_error_names_config_key_and_valid_kinds() -> None:
     assert "input_metadata:" in msg
 
 
-def test_infer_output_space_layout_alone_disambiguates() -> None:
-    # Setting only ``layout`` (no ``kind``) is enough — covers what the
-    # error message promises about either key being sufficient.
-    spec = InputSpec(kind=None, shape=(2, 3, 8, 8), layout="NCHW")
+@pytest.mark.parametrize(
+    ("layout", "shape", "expected_space"),
+    [
+        ("NCHW", (2, 3, 8, 8), ExplanationOutputSpace.INPUT_FEATURES),
+        ("(B,F)", (2, 5), ExplanationOutputSpace.INPUT_FEATURES),
+        ("(B,T,C)", (2, 4, 3), ExplanationOutputSpace.INPUT_FEATURES),
+        ("TOKENS", (2, 6), ExplanationOutputSpace.TOKEN_SEQUENCE),
+    ],
+)
+def test_infer_output_space_layout_alone_disambiguates(
+    layout: str,
+    shape: tuple[int, ...],
+    expected_space: ExplanationOutputSpace,
+) -> None:
+    # Each layout listed in the error message must be sufficient on its own
+    # (no ``kind``) to pick an output space — the contract the message
+    # advertises.
+    spec = InputSpec(kind=None, shape=shape, layout=layout)
     output_space = infer_output_space(input_spec=spec, algorithm="IntegratedGradients")
-    assert output_space.space is ExplanationOutputSpace.INPUT_FEATURES
+    assert output_space.space is expected_space
 
 
 def test_infer_output_space_uses_cam_method_family_for_image_spatial_maps() -> None:
