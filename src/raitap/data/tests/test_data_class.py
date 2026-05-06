@@ -276,9 +276,7 @@ class TestDataConstructor:
         # Hint pins the specific direction: nested data, flat labels.
         assert any("Missing labels" in m and "nested layout" in m for m in msgs)
 
-    def test_data_missing_label_hint_for_nested_labels_flat_samples(
-        self, tmp_path: Path
-    ) -> None:
+    def test_data_missing_label_hint_for_nested_labels_flat_samples(self, tmp_path: Path) -> None:
         # Inverse direction: flat data dir + label ids carrying directory
         # prefixes. Exercises the second relative_path hint branch.
         data_dir = tmp_path / "images"
@@ -299,10 +297,7 @@ class TestDataConstructor:
             data = Data(config)
         assert data.labels is None
         msgs = [str(w.message) for w in record]
-        assert any(
-            "Missing labels" in m and "label ids contain path separators" in m
-            for m in msgs
-        )
+        assert any("Missing labels" in m and "label ids contain path separators" in m for m in msgs)
 
     def test_data_missing_label_no_hint_under_stem_mode(self, tmp_path: Path) -> None:
         # Stem mode strips dirs symmetrically, so a missing match is a real
