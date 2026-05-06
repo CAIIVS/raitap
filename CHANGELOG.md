@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.0](https://github.com/CAIIVS/raitap/compare/v0.3.0...v0.4.0) (2026-05-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* **model:** state_dict + TorchScript loaders; deprecate pickled nn.Module ([#104](https://github.com/CAIIVS/raitap/issues/104))
+* **data:** path-based labels.csv resolution + recursive image walk ([#103](https://github.com/CAIIVS/raitap/issues/103))
+
+### Features
+
+* **data:** path-based labels.csv resolution + recursive image walk ([#103](https://github.com/CAIIVS/raitap/issues/103)) ([8bc55e2](https://github.com/CAIIVS/raitap/commit/8bc55e2d91f7c4a1965820de93d4de343b87c252))
+* **model:** state_dict + TorchScript loaders; deprecate pickled nn.Module ([#104](https://github.com/CAIIVS/raitap/issues/104)) ([6511b98](https://github.com/CAIIVS/raitap/commit/6511b982b898e37e0a72867004a14b5c515922be))
+
+
+### Documentation
+
+* badge link in README ([4264a58](https://github.com/CAIIVS/raitap/commit/4264a5892c6479f2196968eb4a2d4e93d0e4d692))
+
 ## [0.3.0](https://github.com/CAIIVS/raitap/compare/v0.2.1...v0.3.0) (2026-05-05)
 
 
