@@ -51,8 +51,17 @@ def infer_data_input_metadata(config: object, data: object) -> DataInputMetadata
 
 
 def _has_extension_recursive(path: Path, extensions: set[str]) -> bool:
-    """True if any file under ``path`` (recursively) has a matching extension."""
-    return any(child.is_file() and child.suffix.lower() in extensions for child in path.rglob("*"))
+    """True if any file under ``path`` (recursively) has a matching extension.
+
+    Filesystem errors (unreadable subdirs, broken symlinks, etc.) are swallowed
+    — this helper is best-effort source detection, not data validation.
+    """
+    try:
+        return any(
+            child.is_file() and child.suffix.lower() in extensions for child in path.rglob("*")
+        )
+    except OSError:
+        return False
 
 
 def is_image_source(source: str) -> bool:
