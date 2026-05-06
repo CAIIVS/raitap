@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/CAIIVS/raitap/compare/v0.4.1...v0.4.2) (2026-05-06)
+
+
+### Bug fixes
+
+* **deps:** pin triton-xpu&gt;=3.0.0 to skip yanked 0.0.2 ([#111](https://github.com/CAIIVS/raitap/issues/111)) ([42f1932](https://github.com/CAIIVS/raitap/commit/42f193204210a0cba334551d4ace7f104c5d4119))
+
 ## [0.4.1](https://github.com/CAIIVS/raitap/compare/v0.4.0...v0.4.1) (2026-05-06)
 
 
