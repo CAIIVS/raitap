@@ -545,9 +545,10 @@ def _align_labels_to_samples(
     encoded_labels: list[int],
     strategy: str = "stem",
 ) -> list[int]:
+    raw_label_ids_list = raw_label_ids.tolist()
     normalised_sample_ids = [_normalise_sample_id(sid, strategy) for sid in sample_ids]
     normalised_label_ids = [
-        _normalise_sample_id(raw_id, strategy) for raw_id in raw_label_ids.tolist()
+        _normalise_sample_id(raw_id, strategy) for raw_id in raw_label_ids_list
     ]
     duplicates = sorted(
         [row_id for row_id, count in Counter(normalised_label_ids).items() if count > 1]
@@ -582,7 +583,7 @@ def _align_labels_to_samples(
         # since normalised ids no longer carry separators.
         samples_have_separators = any("/" in s or "\\" in s for s in sample_ids)
         labels_have_separators = any(
-            "/" in str(r) or "\\" in str(r) for r in raw_label_ids.tolist()
+            "/" in str(r) or "\\" in str(r) for r in raw_label_ids_list
         )
         hint = ""
         if strategy == "relative_path" and samples_have_separators and not labels_have_separators:
