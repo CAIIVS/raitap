@@ -90,14 +90,16 @@ raitap:
   batch_size: 8
   show_progress: false
   progress_desc: My explainer batches
-  # Required: tells RAITAP how to interpret the input tensor shape so it
-  # can infer the explanation output space and pick visualisers.
+  # Optional but often necessary for direct API callers: tells RAITAP how
+  # to interpret the input tensor shape. Either ``kind`` or ``layout`` is
+  # enough on its own — a recognised value for either disambiguates the
+  # output space.
   input_metadata:
     kind: image          # one of: image, tabular, text, time_series
-    layout: NCHW         # optional: NCHW | (B,F) | (B,T,C) | TOKENS
+    layout: NCHW         # one of: NCHW | (B,F) | (B,T,C) | TOKENS
 ```
 
-`raitap.input_metadata.kind` is required — without it, output-space inference fails with `ValueError: Output-space inference requires explicit input metadata; shape alone is ambiguous.` See the configuration docs for the full table.
+The full run pipeline (`raitap.run.pipeline`) auto-infers `input_metadata` from `data.source` for common image and tabular layouts, so most users won't need to set this explicitly. Direct callers of `infer_output_space` (or runs where source-based inference can't determine the modality) must pass it — without it, the helper raises `ValueError: Output-space inference requires explicit input metadata; shape alone is ambiguous.` See the configuration docs for the full table.
 
 ## Supported algorithms
 

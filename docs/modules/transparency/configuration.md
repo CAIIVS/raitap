@@ -85,12 +85,14 @@
 :option: raitap.input_metadata
 :allowed: dict
 :default: null
-:description: Required input modality + layout hints used by output-space
-  inference and visualiser selection. Required keys: `kind` (one of `image`,
-  `tabular`, `text`, `time_series`). Optional keys: `layout` (`NCHW`, `(B,F)`,
-  `(B,T,C)`, `TOKENS`) and `feature_names` for tabular / time-series. RAITAP
-  will not guess the modality from tensor shape alone — without this block,
-  `infer_output_space` raises a `ValueError`.
+:description: Input modality + layout hints used by output-space inference
+  and visualiser selection. Keys: `kind` (one of `image`, `tabular`, `text`,
+  `time_series`), `layout` (`NCHW`, `(B,F)`, `(B,T,C)`, `TOKENS`),
+  `feature_names`. Either `kind` or `layout` alone is enough to disambiguate
+  the output space. The full run pipeline auto-infers `input_metadata` from
+  `data.source` for image and tabular layouts, so most users won't need to
+  set this. Direct callers of `infer_output_space` must pass it explicitly —
+  otherwise the helper raises `ValueError`.
 
 :option: visualisers
 :allowed: list[dict]
