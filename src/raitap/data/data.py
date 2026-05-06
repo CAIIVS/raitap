@@ -575,20 +575,36 @@ def _align_labels_to_samples(
     if missing_ids:
         preview = ", ".join(missing_ids[:5])
         more = "..." if len(missing_ids) > 5 else ""
+        # Inspect the *raw* (pre-normalisation) inputs to diagnose strategy
+        # mismatch. Normalised ids no longer carry separators in stem mode,
+        # so we have to look at what the user actually supplied.
+        samples_have_separators = any("/" in s or "\\" in s for s in sample_ids)
+        labels_have_separators = any(
+            "/" in str(r) or "\\" in str(r) for r in raw_label_ids.tolist()
+        )
         hint = ""
-        looks_like_path = any("/" in sid or "\\" in sid for sid in missing_ids)
-        if strategy == "stem" and looks_like_path:
+        if strategy == "stem" and (samples_have_separators or labels_have_separators):
             hint = (
-                " Hint: sample ids include path separators but id_strategy='stem' "
-                "strips directory components. Set data.labels.id_strategy=relative_path "
-                "(or =auto, the default)."
+                " Hint: raw ids include path separators but id_strategy='stem' "
+                "strips directory components, so different files with the same "
+                "filename normalise to the same key. Set "
+                "data.labels.id_strategy=relative_path (or =auto, the default) "
+                "to match by relative path."
             )
-        elif strategy == "relative_path" and not looks_like_path:
+        elif strategy == "relative_path" and samples_have_separators and not labels_have_separators:
             hint = (
-                " Hint: under id_strategy='relative_path', label ids must include "
-                "directory components matching data.source's subdir layout "
-                "(e.g. 'NORMAL/IM-0001.jpeg'). For flat-dir layouts, use "
-                "id_strategy=stem (or =auto, the default)."
+                " Hint: data.source has a nested layout (sample ids contain "
+                "path separators) but label ids don't — under "
+                "id_strategy='relative_path' both sides must use the same "
+                "relative-path form (e.g. 'NORMAL/IM-0001.jpeg'). Either add "
+                "the directory prefix to your label ids, or use "
+                "id_strategy=stem to match by basename only."
+            )
+        elif strategy == "relative_path" and labels_have_separators and not samples_have_separators:
+            hint = (
+                " Hint: label ids contain path separators but data.source is "
+                "flat (sample ids don't). Drop the directory prefix from the "
+                "label ids, or use id_strategy=stem to match by basename only."
             )
         raise ValueError(
             f"Missing labels for some sample IDs ({preview}{more}) under "
