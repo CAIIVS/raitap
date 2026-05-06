@@ -90,6 +90,29 @@ pip install "raitap[launcher,transparency,metrics,reporting]"
 
 This came up in cluster testing with `metrics`, where `torchmetrics` should resolve from PyPI while `torch` / `torchvision` should come from the PyTorch CUDA index.
 
+For projects using **`uv add` / a managed `pyproject.toml`** (instead of `uv pip install`), the equivalent declarative pattern requires both an index source mapping **and** promoting `torch` / `torchvision` to direct dependencies — uv only honors source overrides for direct deps, not transitive ones pulled in by `raitap[torch-cuda]`:
+
+```toml
+[project]
+dependencies = [
+  "raitap[torch-cuda, ...]>=0.4.2",
+  # Direct-dep promotion is required for the source mapping below to fire.
+  "torch>=2.10.0",
+  "torchvision>=0.20.0",
+]
+
+[tool.uv.sources]
+torch       = [{ index = "pytorch-cuda" }]
+torchvision = [{ index = "pytorch-cuda" }]
+
+[[tool.uv.index]]
+name     = "pytorch-cuda"
+url      = "https://download.pytorch.org/whl/cu126"
+explicit = true
+```
+
+For most modern NVIDIA GPUs the routing is unnecessary — PyPI's default `torch` wheel ships with CUDA support and resolves transparently. Use this pattern only when you need a specific CUDA wheel family (cu118, cu121, cu126).
+
 This is an example for older cards that need that wheel family. It is **not** the required default for every CUDA-capable install.
 :::
 
