@@ -69,7 +69,10 @@ torch-cuda = ["torch>=2.10.0", "torchvision>=0.20.0"]
 torch-intel = [
   "torch>=2.10.0; python_full_version < '3.14' and sys_platform != 'darwin'",
   "torchvision>=0.20.0; python_full_version < '3.14' and sys_platform != 'darwin'",
-  "triton-xpu; python_full_version < '3.14' and sys_platform != 'darwin'",
+  # Pin triton-xpu>=3.0.0 — its only PyPI release (0.0.2) is yanked. The
+  # 3.x wheels live on the pytorch-intel index (routed via [tool.uv.sources]
+  # below) and are pulled in transitively by torch==*+xpu. See #110.
+  "triton-xpu>=3.0.0; python_full_version < '3.14' and sys_platform != 'darwin'",
 ]
 # TODO remove bundled torch deps once ONNX no longer relies on torch tensors internally
 onnx-cpu = [
@@ -90,7 +93,7 @@ onnx-intel = [
   "openvino>=2025.1.0; sys_platform == 'win32'",
   "torch>=2.10.0; python_full_version < '3.14' and sys_platform != 'darwin'",
   "torchvision>=0.20.0; python_full_version < '3.14' and sys_platform != 'darwin'",
-  "triton-xpu; python_full_version < '3.14' and sys_platform != 'darwin'",
+  "triton-xpu>=3.0.0; python_full_version < '3.14' and sys_platform != 'darwin'",
 ]
 
 # Transparency module
@@ -197,6 +200,8 @@ torchvision = [
   { index = "pytorch-intel", extra = "torch-intel" },
   { index = "pytorch-intel", extra = "onnx-intel" },
 ]
+# Route triton-xpu at the pytorch-intel index where the 3.x wheels live;
+# PyPI only hosts the yanked 0.0.2. See #110.
 triton-xpu = [
   { index = "pytorch-intel", extra = "torch-intel" },
   { index = "pytorch-intel", extra = "onnx-intel" },
