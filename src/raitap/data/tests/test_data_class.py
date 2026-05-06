@@ -243,9 +243,37 @@ class TestDataConstructor:
         )
 
         # Forcing stem mode collapses both rows to the same key → duplicate.
-        with pytest.warns(UserWarning, match="Duplicate label IDs"):
+        with pytest.warns(UserWarning) as record:
             data = Data(config)
         assert data.labels is None
+        # Error message hints at id_strategy + suggests relative_path.
+        msgs = [str(w.message) for w in record]
+        assert any("Duplicate label IDs" in m for m in msgs)
+        assert any("id_strategy" in m and "relative_path" in m for m in msgs)
+
+    def test_data_missing_label_error_hints_at_id_strategy(self, tmp_path: Path) -> None:
+        # Nested data + flat label ids + forced relative_path → mismatch.
+        # Sample ids come back as 'NORMAL/IM-0001' (with subdir) but labels
+        # only carry 'IM-0001' (no subdir) → missing under strict path matching.
+        data_dir = tmp_path / "images"
+        (data_dir / "NORMAL").mkdir(parents=True)
+        _write_image(data_dir / "NORMAL" / "IM-0001.jpeg")
+        labels_file = tmp_path / "labels.csv"
+        labels_file.write_text("image,label\nIM-0001.jpeg,0\n")
+        config = _make_config(
+            str(data_dir),
+            labels_source=str(labels_file),
+            labels_id_column="image",
+            labels_column="label",
+            labels_encoding="index",
+            labels_id_strategy="relative_path",
+        )
+
+        with pytest.warns(UserWarning) as record:
+            data = Data(config)
+        assert data.labels is None
+        msgs = [str(w.message) for w in record]
+        assert any("Missing labels" in m and "id_strategy" in m for m in msgs)
 
     def test_data_raises_for_unsupported_id_strategy(self, tmp_path: Path) -> None:
         data_dir = tmp_path / "images"
