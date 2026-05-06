@@ -299,8 +299,42 @@ class TestDataConstructor:
             data = Data(config)
         assert data.labels is None
         msgs = [str(w.message) for w in record]
-        # Hint pins stem-mode + relative_path remediation.
-        assert any("Missing labels" in m and "id_strategy=relative_path" in m for m in msgs)
+        # Hint pins stem-mode + relative_path remediation, plus the
+        # asymmetric-separator wording that distinguishes strategy mismatch
+        # from a generic data gap.
+        assert any(
+            "Missing labels" in m and "id_strategy=relative_path" in m and "asymmetrically" in m
+            for m in msgs
+        )
+
+    def test_data_missing_label_no_strategy_hint_when_separators_match(
+        self, tmp_path: Path
+    ) -> None:
+        # Genuine data gap (sample exists on disk but no matching label row),
+        # not a strategy mismatch — both sides use the same separator style.
+        # Hint should NOT fire to avoid misleading the user.
+        data_dir = tmp_path / "images"
+        data_dir.mkdir()
+        _write_image(data_dir / "X.jpeg")
+        _write_image(data_dir / "Y.jpeg")
+        labels_file = tmp_path / "labels.csv"
+        labels_file.write_text("image,label\nX.jpeg,0\n")  # Y missing entirely
+        config = _make_config(
+            str(data_dir),
+            labels_source=str(labels_file),
+            labels_id_column="image",
+            labels_column="label",
+            labels_encoding="index",
+            labels_id_strategy="stem",
+        )
+
+        with pytest.warns(UserWarning) as record:
+            data = Data(config)
+        assert data.labels is None
+        msgs = [str(w.message) for w in record]
+        assert any("Missing labels" in m for m in msgs)
+        # No strategy hint — neither side carries separators.
+        assert not any("id_strategy=relative_path" in m for m in msgs)
 
     def test_data_raises_for_unsupported_id_strategy(self, tmp_path: Path) -> None:
         data_dir = tmp_path / "images"
