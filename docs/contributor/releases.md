@@ -39,7 +39,7 @@ Otherwise **`cz bump`** can keep treating breaking changes on **0.x** as minor b
 
 ## 3. Update the contributor guide
 
-Delete this file and update {doc}`./index` to remove the `going-stable-1-0`toctree entry.
+Delete this file and update {doc}`./index` to remove the `going-stable-1-0` toctree entry.
 
 ## 4. Cutting 1.0.0
 

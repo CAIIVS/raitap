@@ -15,7 +15,7 @@ pip install raitap
 ```
 
 :::{note}
-RAITAP was currently tested with Python 3.13.x. Ensure your project matches this requirement, or expect possible issues.
+RAITAP is currently tested with Python 3.13.x. Ensure your project matches this requirement, or expect possible issues.
 :::
 
 ## 2. Install optional dependencies
