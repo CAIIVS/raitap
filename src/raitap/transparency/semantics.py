@@ -155,7 +155,7 @@ def infer_output_space(
             feature_names=features,
         )
 
-    if input_kind is InputKind.TIME_SERIES:
+    if input_kind is InputKind.TIME_SERIES or input_layout is TensorLayout.BATCH_TIME_CHANNEL:
         return OutputSpaceSpec(
             space=ExplanationOutputSpace.INPUT_FEATURES,
             shape=shape,
@@ -177,7 +177,18 @@ def infer_output_space(
         )
 
     raise ValueError(
-        "Output-space inference requires explicit input metadata; shape alone is ambiguous."
+        "Output-space inference requires explicit input metadata; shape alone is "
+        "ambiguous. Set either ``input_metadata.kind`` "
+        "(one of: image, tabular, text, time_series) or ``input_metadata.layout`` "
+        "(one of: NCHW, (B,F), (B,T,C), TOKENS) — a recognised value for either "
+        "key is enough to disambiguate. Direct callers pass via "
+        "``infer_input_spec(input_metadata=...)``; Hydra users set "
+        "``transparency.<explainer>.raitap.input_metadata`` in config. "
+        "Example::\n\n"
+        "    raitap:\n"
+        "      input_metadata:\n"
+        "        kind: image\n"
+        "        layout: NCHW\n"
     )
 
 

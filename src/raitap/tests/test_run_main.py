@@ -627,6 +627,85 @@ def test_run_without_tracking_threads_tabular_metadata_to_explanation(
     assert input_metadata.layout == "(B,F)"
 
 
+def test_run_without_tracking_passes_none_when_inference_cant_determine_kind(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    # When data.source isn't an image / tabular file or directory, runtime
+    # inference returns kind=None. The pipeline must pass ``None`` so that
+    # any yaml-provided ``transparency.<explainer>.raitap.input_metadata``
+    # is left intact downstream (no silent overwrite with an empty spec).
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    empty_dir = tmp_path / "unknown"
+    empty_dir.mkdir()
+    data = SimpleNamespace(
+        tensor=torch.randn(2, 3, 8, 8),
+        sample_ids=None,
+        labels=None,
+        source=str(empty_dir),
+    )
+    explanation = _FakeExplainerResult("exp")
+    captured_kwargs: dict[str, object] = {}
+
+    def _fake_explanation(*_args: object, **kwargs: object) -> _FakeExplainerResult:
+        captured_kwargs.update(kwargs)
+        return explanation
+
+    config = SimpleNamespace(
+        data=SimpleNamespace(source=str(empty_dir)),
+        transparency={"one": {}},
+        metrics=SimpleNamespace(num_classes=None),
+    )
+    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr(run_pipeline, "Explanation", _fake_explanation)
+
+    run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
+
+    assert captured_kwargs["input_metadata"] is None
+
+
+def test_run_without_tracking_preserves_layout_only_input_metadata(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    # Source kind can't be inferred from disk, but data.input_metadata in yaml
+    # supplies a layout. The pipeline must surface that layout downstream
+    # rather than dropping it (output-space inference accepts layout alone).
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    empty_dir = tmp_path / "unknown"
+    empty_dir.mkdir()
+    data = SimpleNamespace(
+        tensor=torch.randn(2, 4, 3),
+        sample_ids=None,
+        labels=None,
+        source=str(empty_dir),
+    )
+    explanation = _FakeExplainerResult("exp")
+    captured_kwargs: dict[str, object] = {}
+
+    def _fake_explanation(*_args: object, **kwargs: object) -> _FakeExplainerResult:
+        captured_kwargs.update(kwargs)
+        return explanation
+
+    config = SimpleNamespace(
+        data=SimpleNamespace(
+            source=str(empty_dir),
+            input_metadata={"layout": "(B,T,C)"},
+        ),
+        transparency={"one": {}},
+        metrics=SimpleNamespace(num_classes=None),
+    )
+    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr(run_pipeline, "Explanation", _fake_explanation)
+
+    run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
+
+    spec = captured_kwargs["input_metadata"]
+    assert spec is not None
+    assert getattr(spec, "kind", "missing") is None
+    assert str(getattr(spec, "layout", None)) == "(B,T,C)"
+
+
 def test_run_without_tracking_resolves_auto_pred_target(monkeypatch: MonkeyPatch) -> None:
     class _Net(torch.nn.Module):
         def forward(self, x: torch.Tensor) -> torch.Tensor:
