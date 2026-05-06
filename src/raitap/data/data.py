@@ -545,17 +545,25 @@ def _align_labels_to_samples(
     encoded_labels: list[int],
     strategy: str = "stem",
 ) -> list[int]:
+    raw_label_ids_list = raw_label_ids.tolist()
     normalised_sample_ids = [_normalise_sample_id(sid, strategy) for sid in sample_ids]
-    normalised_label_ids = [
-        _normalise_sample_id(raw_id, strategy) for raw_id in raw_label_ids.tolist()
-    ]
+    normalised_label_ids = [_normalise_sample_id(raw_id, strategy) for raw_id in raw_label_ids_list]
     duplicates = sorted(
         [row_id for row_id, count in Counter(normalised_label_ids).items() if count > 1]
     )
     if duplicates:
         preview = ", ".join(duplicates[:5])
+        more = "..." if len(duplicates) > 5 else ""
+        hint = ""
+        if strategy == "stem":
+            hint = (
+                " Hint: stem-only matching collapses ids that share a filename "
+                "across subdirs (e.g. NORMAL/IM-0001.jpeg vs PNEUMONIA/IM-0001.jpeg). "
+                "Set data.labels.id_strategy=relative_path (or =auto, the default) "
+                "and use posix-style relative paths in the id column."
+            )
         raise ValueError(
-            f"Duplicate label IDs detected ({preview}{'...' if len(duplicates) > 5 else ''})."
+            f"Duplicate label IDs detected ({preview}{more}) under id_strategy={strategy!r}.{hint}"
         )
 
     label_by_id = {
@@ -565,9 +573,33 @@ def _align_labels_to_samples(
     missing_ids = [sid for sid in normalised_sample_ids if sid not in label_by_id]
     if missing_ids:
         preview = ", ".join(missing_ids[:5])
+        more = "..." if len(missing_ids) > 5 else ""
+        # Strategy hints only fire under ``relative_path`` — stem mode strips
+        # directory components from both sides symmetrically, so a missing
+        # match means basenames don't line up (genuine data/label gap), not
+        # a strategy mismatch. Inspect the *raw* (pre-normalisation) inputs
+        # since normalised ids no longer carry separators.
+        samples_have_separators = any("/" in s or "\\" in s for s in sample_ids)
+        labels_have_separators = any("/" in str(r) or "\\" in str(r) for r in raw_label_ids_list)
+        hint = ""
+        if strategy == "relative_path" and samples_have_separators and not labels_have_separators:
+            hint = (
+                " Hint: data.source has a nested layout (sample ids contain "
+                "path separators) but label ids don't — under "
+                "id_strategy='relative_path' both sides must use the same "
+                "relative-path form (e.g. 'NORMAL/IM-0001.jpeg'). Either add "
+                "the directory prefix to your label ids, or use "
+                "id_strategy=stem to match by basename only."
+            )
+        elif strategy == "relative_path" and labels_have_separators and not samples_have_separators:
+            hint = (
+                " Hint: label ids contain path separators but data.source is "
+                "flat (sample ids don't). Drop the directory prefix from the "
+                "label ids, or use id_strategy=stem to match by basename only."
+            )
         raise ValueError(
-            "Missing labels for some sample IDs "
-            f"({preview}{'...' if len(missing_ids) > 5 else ''})."
+            f"Missing labels for some sample IDs ({preview}{more}) under "
+            f"id_strategy={strategy!r}.{hint}"
         )
     return [label_by_id[sid] for sid in normalised_sample_ids]
 

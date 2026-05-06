@@ -243,9 +243,89 @@ class TestDataConstructor:
         )
 
         # Forcing stem mode collapses both rows to the same key → duplicate.
-        with pytest.warns(UserWarning, match="Duplicate label IDs"):
+        with pytest.warns(UserWarning) as record:
             data = Data(config)
         assert data.labels is None
+        msgs = [str(w.message) for w in record]
+        assert any("Duplicate label IDs" in m for m in msgs)
+        # Hint pins the specific guidance: switch strategy + use relative paths.
+        assert any(
+            "id_strategy=relative_path" in m and "stem-only matching collapses" in m for m in msgs
+        )
+
+    def test_data_missing_label_hint_for_nested_samples_flat_labels(self, tmp_path: Path) -> None:
+        # Nested data + flat label ids under relative_path → strategy mismatch.
+        data_dir = tmp_path / "images"
+        (data_dir / "NORMAL").mkdir(parents=True)
+        _write_image(data_dir / "NORMAL" / "IM-0001.jpeg")
+        labels_file = tmp_path / "labels.csv"
+        labels_file.write_text("image,label\nIM-0001.jpeg,0\n")
+        config = _make_config(
+            str(data_dir),
+            labels_source=str(labels_file),
+            labels_id_column="image",
+            labels_column="label",
+            labels_encoding="index",
+            labels_id_strategy="relative_path",
+        )
+
+        with pytest.warns(UserWarning) as record:
+            data = Data(config)
+        assert data.labels is None
+        msgs = [str(w.message) for w in record]
+        # Hint pins the specific direction: nested data, flat labels.
+        assert any("Missing labels" in m and "nested layout" in m for m in msgs)
+
+    def test_data_missing_label_hint_for_nested_labels_flat_samples(self, tmp_path: Path) -> None:
+        # Inverse direction: flat data dir + label ids carrying directory
+        # prefixes. Exercises the second relative_path hint branch.
+        data_dir = tmp_path / "images"
+        data_dir.mkdir()
+        _write_image(data_dir / "Y.jpeg")
+        labels_file = tmp_path / "labels.csv"
+        labels_file.write_text("image,label\nPNEUMONIA/Y.jpeg,0\n")
+        config = _make_config(
+            str(data_dir),
+            labels_source=str(labels_file),
+            labels_id_column="image",
+            labels_column="label",
+            labels_encoding="index",
+            labels_id_strategy="relative_path",
+        )
+
+        with pytest.warns(UserWarning) as record:
+            data = Data(config)
+        assert data.labels is None
+        msgs = [str(w.message) for w in record]
+        assert any("Missing labels" in m and "label ids contain path separators" in m for m in msgs)
+
+    def test_data_missing_label_no_hint_under_stem_mode(self, tmp_path: Path) -> None:
+        # Stem mode strips dirs symmetrically, so a missing match is a real
+        # basename gap — not a strategy issue. Hint must not fire for any
+        # combination of separators (incl. asymmetric), since switching to
+        # relative_path won't fix the gap either.
+        data_dir = tmp_path / "images"
+        data_dir.mkdir()
+        _write_image(data_dir / "X.jpeg")
+        labels_file = tmp_path / "labels.csv"
+        labels_file.write_text("image,label\nNORMAL/Y.jpeg,0\nPNEUMONIA/Z.jpeg,1\n")
+        config = _make_config(
+            str(data_dir),
+            labels_source=str(labels_file),
+            labels_id_column="image",
+            labels_column="label",
+            labels_encoding="index",
+            labels_id_strategy="stem",
+        )
+
+        with pytest.warns(UserWarning) as record:
+            data = Data(config)
+        assert data.labels is None
+        msgs = [str(w.message) for w in record]
+        assert any("Missing labels" in m for m in msgs)
+        # No strategy hint — switching strategies wouldn't make X match Y/Z.
+        assert not any("id_strategy=relative_path" in m for m in msgs)
+        assert not any("id_strategy=stem" in m and "Hint:" in m for m in msgs)
 
     def test_data_raises_for_unsupported_id_strategy(self, tmp_path: Path) -> None:
         data_dir = tmp_path / "images"
