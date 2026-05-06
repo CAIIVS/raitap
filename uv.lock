@@ -2933,8 +2933,8 @@ requires-dist = [
     { name = "torchvision", marker = "extra == 'onnx-cuda'", specifier = ">=0.20.0", index = "https://download.pytorch.org/whl/cu126", conflict = { package = "raitap", extra = "onnx-cuda" } },
     { name = "torchvision", marker = "extra == 'torch-cpu'", specifier = ">=0.20.0", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "raitap", extra = "torch-cpu" } },
     { name = "torchvision", marker = "extra == 'torch-cuda'", specifier = ">=0.20.0", index = "https://download.pytorch.org/whl/cu126", conflict = { package = "raitap", extra = "torch-cuda" } },
-    { name = "triton-xpu", marker = "python_full_version < '3.14' and sys_platform != 'darwin' and extra == 'onnx-intel'", index = "https://download.pytorch.org/whl/xpu", conflict = { package = "raitap", extra = "onnx-intel" } },
-    { name = "triton-xpu", marker = "python_full_version < '3.14' and sys_platform != 'darwin' and extra == 'torch-intel'", index = "https://download.pytorch.org/whl/xpu", conflict = { package = "raitap", extra = "torch-intel" } },
+    { name = "triton-xpu", marker = "python_full_version < '3.14' and sys_platform != 'darwin' and extra == 'onnx-intel'", specifier = ">=3.0.0", index = "https://download.pytorch.org/whl/xpu", conflict = { package = "raitap", extra = "onnx-intel" } },
+    { name = "triton-xpu", marker = "python_full_version < '3.14' and sys_platform != 'darwin' and extra == 'torch-intel'", specifier = ">=3.0.0", index = "https://download.pytorch.org/whl/xpu", conflict = { package = "raitap", extra = "torch-intel" } },
 ]
 provides-extras = ["torch-cpu", "torch-cuda", "torch-intel", "onnx-cpu", "onnx-cuda", "onnx-intel", "shap", "captum", "transparency", "launcher", "mlflow", "tracking", "metrics", "reporting"]
 
