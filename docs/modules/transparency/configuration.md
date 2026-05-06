@@ -82,6 +82,18 @@
   needs different behaviour, override it with
   `visualisers[].call.show_sample_names`.
 
+:option: raitap.input_metadata
+:allowed: dict
+:default: null
+:description: Input modality + layout hints used by output-space inference
+  and visualiser selection. Keys: `kind` (one of `image`, `tabular`, `text`,
+  `time_series`), `layout` (`NCHW`, `(B,F)`, `(B,T,C)`, `TOKENS`),
+  `feature_names`. Either `kind` or `layout` alone is enough to disambiguate
+  the output space. The full run pipeline auto-infers `input_metadata` from
+  `data.source` for image and tabular layouts, so most users won't need to
+  set this. Direct callers of `infer_output_space` must pass it explicitly —
+  otherwise the helper raises `ValueError`.
+
 :option: visualisers
 :allowed: list[dict]
 :default: []
@@ -98,15 +110,17 @@ transparency:
     algorithm: "IntegratedGradients"
     call:
       target: 0
+    raitap:
+      input_metadata:
+        kind: image
+        layout: NCHW
     visualisers:
       - _target_: "CaptumImageVisualiser"
         call:
           max_samples: 1
   my_second_explainer:
     _target_: "ShapExplainer"
-    algorithm: "GradientExplainer"
-    constructor:
-      local_smoothing: 0.0
+    algorithm: "KernelExplainer"
     call:
       target: 0
       background_data:
@@ -114,8 +128,12 @@ transparency:
         n_samples: 32
     raitap:
       batch_size: 1
+      input_metadata:
+        kind: tabular
+        layout: "(B,F)"
+        feature_names: [age, income, score]
     visualisers:
-      - _target_: "ShapImageVisualiser"
+      - _target_: "ShapBarVisualiser"
 
 :cli: transparency.captum_ig.algorithm=GradientShap
 ```
