@@ -583,13 +583,20 @@ def _align_labels_to_samples(
             "/" in str(r) or "\\" in str(r) for r in raw_label_ids.tolist()
         )
         hint = ""
-        if strategy == "stem" and (samples_have_separators or labels_have_separators):
+        # Asymmetric separator presence is a strong signal of strategy
+        # mismatch: only one side carries directory components, so stem-mode
+        # normalisation will line up neither across samples nor against labels.
+        # When both sides have (or both lack) separators, stem stripping is
+        # consistent and any missing rows are a genuine data/label gap, not a
+        # strategy issue — suppress the hint there.
+        if strategy == "stem" and samples_have_separators != labels_have_separators:
             hint = (
-                " Hint: raw ids include path separators but id_strategy='stem' "
-                "strips directory components, so different files with the same "
-                "filename normalise to the same key. Set "
-                "data.labels.id_strategy=relative_path (or =auto, the default) "
-                "to match by relative path."
+                " Hint: raw ids on one side carry path separators while the "
+                "other side doesn't, so stem-mode normalisation drops the "
+                "directory components asymmetrically and the keys never line "
+                "up. Set data.labels.id_strategy=relative_path "
+                "(or =auto, the default) to match by relative path on both "
+                "sides."
             )
         elif strategy == "relative_path" and samples_have_separators and not labels_have_separators:
             hint = (
