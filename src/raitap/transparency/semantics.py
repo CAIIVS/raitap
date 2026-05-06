@@ -155,7 +155,7 @@ def infer_output_space(
             feature_names=features,
         )
 
-    if input_kind is InputKind.TIME_SERIES:
+    if input_kind is InputKind.TIME_SERIES or input_layout is TensorLayout.BATCH_TIME_CHANNEL:
         return OutputSpaceSpec(
             space=ExplanationOutputSpace.INPUT_FEATURES,
             shape=shape,
