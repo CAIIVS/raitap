@@ -50,6 +50,11 @@ def infer_data_input_metadata(config: object, data: object) -> DataInputMetadata
     return DataInputMetadata(kind=None, shape=shape, layout=None)
 
 
+def _has_extension_recursive(path: Path, extensions: set[str]) -> bool:
+    """True if any file under ``path`` (recursively) has a matching extension."""
+    return any(child.is_file() and child.suffix.lower() in extensions for child in path.rglob("*"))
+
+
 def is_image_source(source: str) -> bool:
     if source in SAMPLE_SOURCES:
         return True
@@ -57,7 +62,7 @@ def is_image_source(source: str) -> bool:
     if path.suffix.lower() in _IMAGE_EXTENSIONS:
         return True
     if path.is_dir():
-        return any(child.suffix.lower() in _IMAGE_EXTENSIONS for child in path.iterdir())
+        return _has_extension_recursive(path, _IMAGE_EXTENSIONS)
     return False
 
 
@@ -66,7 +71,7 @@ def is_tabular_source(source: str) -> bool:
     if path.suffix.lower() in _TABULAR_EXTENSIONS:
         return True
     if path.is_dir():
-        return any(child.suffix.lower() in _TABULAR_EXTENSIONS for child in path.iterdir())
+        return _has_extension_recursive(path, _TABULAR_EXTENSIONS)
     return False
 
 
