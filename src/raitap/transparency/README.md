@@ -90,7 +90,14 @@ raitap:
   batch_size: 8
   show_progress: false
   progress_desc: My explainer batches
+  # Required: tells RAITAP how to interpret the input tensor shape so it
+  # can infer the explanation output space and pick visualisers.
+  input_metadata:
+    kind: image          # one of: image, tabular, text, time_series
+    layout: NCHW         # optional: NCHW | (B,F) | (B,T,C) | TOKENS
 ```
+
+`raitap.input_metadata.kind` is required — without it, output-space inference fails with `ValueError: Output-space inference requires explicit input metadata; shape alone is ambiguous.` See the configuration docs for the full table.
 
 ## Supported algorithms
 
