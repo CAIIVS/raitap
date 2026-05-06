@@ -276,11 +276,37 @@ class TestDataConstructor:
         # Hint pins the specific direction: nested data, flat labels.
         assert any("Missing labels" in m and "nested layout" in m for m in msgs)
 
-    def test_data_missing_label_hint_for_stem_mode_with_path_labels(self, tmp_path: Path) -> None:
-        # Flat data dir + path-shaped label ids (with unique stems so the
-        # duplicate-ID guard doesn't fire first) + forced stem mode → label
-        # ids carry path separators that stem-mode strips, so sample stems
-        # never line up. The raw-input check catches the strategy mismatch.
+    def test_data_missing_label_hint_for_flat_labels_under_relative_path(
+        self, tmp_path: Path
+    ) -> None:
+        # Mirror of the nested-samples test, expressed as a separate scenario
+        # to exercise the second relative_path hint branch (label-side flat
+        # ids, sample-side path ids).
+        data_dir = tmp_path / "images"
+        (data_dir / "PNEUMONIA").mkdir(parents=True)
+        _write_image(data_dir / "PNEUMONIA" / "Y.jpeg")
+        labels_file = tmp_path / "labels.csv"
+        labels_file.write_text("image,label\nY.jpeg,0\n")
+        config = _make_config(
+            str(data_dir),
+            labels_source=str(labels_file),
+            labels_id_column="image",
+            labels_column="label",
+            labels_encoding="index",
+            labels_id_strategy="relative_path",
+        )
+
+        with pytest.warns(UserWarning) as record:
+            data = Data(config)
+        assert data.labels is None
+        msgs = [str(w.message) for w in record]
+        assert any("Missing labels" in m and "nested layout" in m for m in msgs)
+
+    def test_data_missing_label_no_hint_under_stem_mode(self, tmp_path: Path) -> None:
+        # Stem mode strips dirs symmetrically, so a missing match is a real
+        # basename gap — not a strategy issue. Hint must not fire for any
+        # combination of separators (incl. asymmetric), since switching to
+        # relative_path won't fix the gap either.
         data_dir = tmp_path / "images"
         data_dir.mkdir()
         _write_image(data_dir / "X.jpeg")
@@ -299,42 +325,10 @@ class TestDataConstructor:
             data = Data(config)
         assert data.labels is None
         msgs = [str(w.message) for w in record]
-        # Hint pins stem-mode + relative_path remediation, plus the
-        # asymmetric-separator wording that distinguishes strategy mismatch
-        # from a generic data gap.
-        assert any(
-            "Missing labels" in m and "id_strategy=relative_path" in m and "asymmetrically" in m
-            for m in msgs
-        )
-
-    def test_data_missing_label_no_strategy_hint_when_separators_match(
-        self, tmp_path: Path
-    ) -> None:
-        # Genuine data gap (sample exists on disk but no matching label row),
-        # not a strategy mismatch — both sides use the same separator style.
-        # Hint should NOT fire to avoid misleading the user.
-        data_dir = tmp_path / "images"
-        data_dir.mkdir()
-        _write_image(data_dir / "X.jpeg")
-        _write_image(data_dir / "Y.jpeg")
-        labels_file = tmp_path / "labels.csv"
-        labels_file.write_text("image,label\nX.jpeg,0\n")  # Y missing entirely
-        config = _make_config(
-            str(data_dir),
-            labels_source=str(labels_file),
-            labels_id_column="image",
-            labels_column="label",
-            labels_encoding="index",
-            labels_id_strategy="stem",
-        )
-
-        with pytest.warns(UserWarning) as record:
-            data = Data(config)
-        assert data.labels is None
-        msgs = [str(w.message) for w in record]
         assert any("Missing labels" in m for m in msgs)
-        # No strategy hint — neither side carries separators.
+        # No strategy hint — switching strategies wouldn't make X match Y/Z.
         assert not any("id_strategy=relative_path" in m for m in msgs)
+        assert not any("id_strategy=stem" in m and "Hint:" in m for m in msgs)
 
     def test_data_raises_for_unsupported_id_strategy(self, tmp_path: Path) -> None:
         data_dir = tmp_path / "images"
