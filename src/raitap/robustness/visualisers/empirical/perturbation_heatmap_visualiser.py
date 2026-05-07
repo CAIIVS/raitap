@@ -30,7 +30,7 @@ class PerturbationHeatmapVisualiser(BaseRobustnessVisualiser):
         *,
         max_samples: int = 4,
         cmap: str = "seismic",
-        aggregate_channels: str = "mean_abs",
+        aggregate_channels: str = "mean",
     ) -> None:
         self.max_samples = max(int(max_samples), 1)
         self.cmap = cmap

@@ -236,22 +236,37 @@ def _resolve_objective(hints: AssessorSemanticsHints, call_kwargs: Mapping[str, 
     return hints.objective
 
 
-def _resolve_epsilon(hints: AssessorSemanticsHints, call_kwargs: Mapping[str, Any]) -> float | None:
-    for key in ("eps", "epsilon"):
-        if key in call_kwargs and call_kwargs[key] is not None:
-            value = call_kwargs[key]
-            if isinstance(value, (list, tuple)):
-                # multi-epsilon sweeps fall outside the rework scope; the foolbox
-                # adapter validates this earlier with a clearer message.
-                return None
-            return float(value)
-    if "epsilons" in call_kwargs and call_kwargs["epsilons"] is not None:
-        value = call_kwargs["epsilons"]
-        if isinstance(value, (int, float)):
-            return float(value)
-        # list / tuple ⇒ sweep, see above.
-        return None
+def _resolve_epsilon(
+    hints: AssessorSemanticsHints,
+    *kwarg_sources: Mapping[str, Any],
+) -> float | None:
+    for source in kwarg_sources:
+        for key in ("eps", "epsilon"):
+            if key in source and source[key] is not None:
+                value = source[key]
+                if isinstance(value, (list, tuple)):
+                    # multi-epsilon sweeps fall outside the rework scope; the foolbox
+                    # adapter validates this earlier with a clearer message.
+                    return None
+                return float(value)
+        if "epsilons" in source and source["epsilons"] is not None:
+            value = source["epsilons"]
+            if isinstance(value, (int, float)):
+                return float(value)
+            # list / tuple => sweep, see above.
+            return None
     return hints.default_epsilon
+
+
+def _first_kwarg(
+    kwarg_sources: tuple[Mapping[str, Any], ...],
+    *keys: str,
+) -> Any:
+    for source in kwarg_sources:
+        for key in keys:
+            if key in source and source[key] is not None:
+                return source[key]
+    return None
 
 
 def assessor_semantics(
@@ -264,15 +279,23 @@ def assessor_semantics(
     sample_ids: list[str] | None = None,
     sample_names: list[str] | None = None,
 ) -> RobustnessSemantics:
-    """Build a :class:`RobustnessSemantics` from the configured assessor and its kwargs."""
+    """Build a :class:`RobustnessSemantics` from the configured assessor and its kwargs.
+
+    Budget fields (``epsilon``, ``step_size``, ``steps``) may live on either side of
+    the constructor / call split depending on the framework. Torchattacks adapters
+    typically configure them via ``constructor:`` (they're attack ``__init__`` args);
+    foolbox uses ``call:``. We therefore look in the assessor's stored
+    ``init_kwargs`` first, then in the runtime ``call_kwargs``, before falling back
+    to the registry default.
+    """
     del targets  # reserved for future per-sample target metadata; not used yet.
     hints = hints_for_assessor(assessor)
+    init_kwargs: Mapping[str, Any] = getattr(assessor, "init_kwargs", {}) or {}
+    sources: tuple[Mapping[str, Any], ...] = (call_kwargs, init_kwargs)
     objective = _resolve_objective(hints, call_kwargs)
-    epsilon = _resolve_epsilon(hints, call_kwargs)
-    step_size = call_kwargs.get("alpha")
-    if step_size is None:
-        step_size = call_kwargs.get("step_size")
-    steps = call_kwargs.get("steps")
+    epsilon = _resolve_epsilon(hints, *sources)
+    step_size = _first_kwarg(sources, "alpha", "step_size")
+    steps = _first_kwarg(sources, "steps")
     budget = PerturbationBudget(
         norm=hints.norm,
         epsilon=float(epsilon) if epsilon is not None else None,

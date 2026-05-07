@@ -88,11 +88,14 @@ class RobustnessConfig:
     # (robustness=torchattacks_pgd / foolbox_lin_pgd).
     _target_: str = "TorchattacksAssessor"
     algorithm: str = "PGD"
-    # Constructor kwargs for the assessor / underlying library method.
+    # Constructor kwargs forwarded to the assessor's ``__init__``. For torchattacks
+    # adapters this is where attack hyperparameters live (eps, alpha, steps), since
+    # torchattacks consumes them at attack-instance construction.
     constructor: dict[str, Any] = field(default_factory=dict)
-    # Per-call kwargs forwarded verbatim to the underlying library (eps, alpha, steps, ...).
-    # Any value that is a dict with a ``source`` key is treated as a data-source reference
-    # and loaded as a tensor at runtime.
+    # Per-call kwargs forwarded verbatim to the assessor at ``assess()`` time. For
+    # foolbox adapters this is where the runtime budget (eps / epsilons) lives.
+    # Any value that is a dict with a ``source`` key is treated as a data-source
+    # reference and loaded as a tensor at runtime.
     call: dict[str, Any] = field(default_factory=dict)
     # RAITAP-owned runtime options such as batch_size, progress bars, and
     # sample-name metadata. Not forwarded to the underlying library.

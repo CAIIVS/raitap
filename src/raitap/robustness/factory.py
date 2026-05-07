@@ -117,8 +117,10 @@ def _validate_assessor_top_level_keys(raw: dict[str, Any]) -> None:
         sorted_unknown = ", ".join(sorted(unknown))
         raise ValueError(
             f"Unknown robustness assessor config keys: {sorted_unknown}. "
-            "Put constructor args under 'constructor', library kwargs (e.g. eps, alpha, "
-            "steps) under 'call', and RAITAP-owned options under 'raitap'."
+            "Put __init__ kwargs under 'constructor', per-call kwargs under 'call', "
+            "and RAITAP-owned options under 'raitap'. Where the attack hyperparameters "
+            "(eps / alpha / steps) live depends on the underlying library: torchattacks "
+            "treats them as constructor args, foolbox as call args."
         )
 
 

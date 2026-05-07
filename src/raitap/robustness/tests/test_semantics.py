@@ -41,6 +41,24 @@ def test_hints_for_assessor_routes_to_foolbox() -> None:
     assert hints.method_kind == MethodKind.EMPIRICAL_ATTACK
 
 
+def test_assessor_semantics_reads_budget_from_constructor_kwargs() -> None:
+    # Torchattacks puts eps / alpha / steps under YAML ``constructor:`` because those
+    # are the attack class's __init__ kwargs. The semantics resolver must look there.
+    assessor = TorchattacksAssessor(algorithm="PGD", eps=0.04, alpha=0.005, steps=12)
+    inputs = torch.randn(2, 3, 4, 4)
+    targets = torch.tensor([0, 1])
+    semantics = assessor_semantics(
+        assessor,
+        call_kwargs={},
+        raitap_kwargs={},
+        inputs=inputs,
+        targets=targets,
+    )
+    assert semantics.budget.epsilon == 0.04
+    assert semantics.budget.step_size == 0.005
+    assert semantics.budget.steps == 12
+
+
 def test_assessor_semantics_extracts_budget_and_targeted_objective() -> None:
     assessor = TorchattacksAssessor(algorithm="PGD")
     inputs = torch.randn(2, 3, 4, 4)
