@@ -15,6 +15,8 @@ from raitap.transparency.contracts import ExplanationScope
 from .manifest import ReportManifest
 from .sections import ReportGroup, ReportSection
 
+from raitap.robustness.contracts import MethodKind
+
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
     from raitap.robustness.results import RobustnessResult, RobustnessVisualisationResult
@@ -207,7 +209,7 @@ def _build_robustness_section(
     for index, result in enumerate(outputs.robustness_results):
         assessor_name = result.assessor_name or result.run_dir.name
         method_kind_value = result.method_kind.value
-        if result.method_kind.name == "EMPIRICAL_ATTACK":
+        if result.method_kind == MethodKind.EMPIRICAL_ATTACK:
             heading = f"Adversarial attack — {result.algorithm} ({assessor_name})"
         else:
             heading = f"Robustness certification — {result.algorithm} ({assessor_name})"
