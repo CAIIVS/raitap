@@ -409,6 +409,14 @@ def test_build_report_explicit_selection_rejects_non_list_config_shapes(
         build_report(config, outputs)
 
 
+def test_build_report_explicit_selection_rejects_empty_list(tmp_path: Path) -> None:
+    config, outputs = _explicit_selection_case(tmp_path)
+    config.reporting.sample_selection = []  # type: ignore[union-attr]
+
+    with pytest.raises(ValueError, match=r"must contain at least one sample"):
+        build_report(config, outputs)
+
+
 def test_build_report_skips_local_groups_when_no_local_visualisations(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="no_local")
     set_output_root(config, tmp_path)

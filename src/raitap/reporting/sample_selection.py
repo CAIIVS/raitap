@@ -52,9 +52,15 @@ def _normalise_selection_entries(selection: Any) -> list[Any]:
     if isinstance(selection, (str, bytes, Mapping)):
         raise ValueError(_selection_shape_error())
     try:
-        return list(selection)
+        entries = list(selection)
     except TypeError as error:
         raise ValueError(_selection_shape_error()) from error
+    if not entries:
+        raise ValueError(
+            "reporting.sample_selection must contain at least one sample. "
+            "Use null to keep automatic report sample selection."
+        )
+    return entries
 
 
 def _selection_shape_error() -> str:
