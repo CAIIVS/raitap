@@ -88,8 +88,7 @@ def _resolve_string_entry(entry: str, *, sample_ids: list[str], batch_size: int)
             matched_ids = ", ".join(sample_ids[index] for index in matches[:5])
             suffix = "" if len(matches) <= 5 else f", ... ({len(matches)} matches)"
             raise ValueError(
-                f"Report sample selection {entry!r} is ambiguous; it matches "
-                f"{matched_ids}{suffix}."
+                f"Report sample selection {entry!r} is ambiguous; it matches {matched_ids}{suffix}."
             )
 
     preview = ", ".join(sample_ids[:5])
