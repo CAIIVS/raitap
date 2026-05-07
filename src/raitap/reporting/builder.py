@@ -9,17 +9,16 @@ from typing import TYPE_CHECKING
 import matplotlib.pyplot as plt
 
 from raitap.configs import resolve_run_dir
+from raitap.robustness.contracts import MethodKind
 from raitap.run.outputs import PredictionSummary, RunOutputs
 from raitap.transparency.contracts import ExplanationScope
 
 from .manifest import ReportManifest
 from .sections import ReportGroup, ReportSection
 
-from raitap.robustness.contracts import MethodKind
-
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
-    from raitap.robustness.results import RobustnessResult, RobustnessVisualisationResult
+    from raitap.robustness.results import RobustnessVisualisationResult
     from raitap.transparency.results import VisualisationResult
 
 logger = logging.getLogger(__name__)
@@ -192,17 +191,13 @@ def _build_metrics_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSe
     return ReportSection.from_groups("Metrics", [group], metadata={"section_role": "metrics"})
 
 
-def _build_robustness_section(
-    outputs: RunOutputs, *, assets_dir: Path
-) -> ReportSection | None:
+def _build_robustness_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSection | None:
     if not outputs.robustness_results:
         return None
 
     visualisations_by_assessor: dict[str, list[RobustnessVisualisationResult]] = {}
     for visualisation in outputs.robustness_visualisations:
-        assessor_name = (
-            visualisation.result.assessor_name or visualisation.result.run_dir.name
-        )
+        assessor_name = visualisation.result.assessor_name or visualisation.result.run_dir.name
         visualisations_by_assessor.setdefault(assessor_name, []).append(visualisation)
 
     groups: list[ReportGroup] = []

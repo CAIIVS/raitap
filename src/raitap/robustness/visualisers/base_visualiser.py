@@ -5,13 +5,12 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from ..contracts import MethodKind
 from ..exceptions import MethodKindVisualiserIncompatibilityError
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
-    from ..contracts import RobustnessVisualisationContext
+    from ..contracts import MethodKind, RobustnessVisualisationContext
     from ..results import RobustnessResult
 
 

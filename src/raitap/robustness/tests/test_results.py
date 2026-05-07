@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import torch
 
@@ -19,6 +19,9 @@ from raitap.robustness.results import (
     RobustnessResult,
     encode_verdicts,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _semantics_for_test() -> RobustnessSemantics:
@@ -41,7 +44,7 @@ def _empirical_metrics() -> RobustnessMetrics:
     )
 
 
-def test_metrics_as_dict_drops_none_fields():
+def test_metrics_as_dict_drops_none_fields() -> None:
     metrics = _empirical_metrics()
     out = metrics.as_dict()
     assert out["clean_accuracy"] == 0.9
@@ -49,15 +52,13 @@ def test_metrics_as_dict_drops_none_fields():
     assert "verified_rate" not in out
 
 
-def test_robustness_result_writes_pt_and_metadata(tmp_path: Path):
+def test_robustness_result_writes_pt_and_metadata(tmp_path: Path) -> None:
     inputs = torch.randn(2, 3, 4, 4)
     perturbed = inputs + 0.01
     targets = torch.tensor([0, 1])
     clean_preds = torch.tensor([0, 1])
     adv_preds = torch.tensor([1, 1])
-    verdicts = encode_verdicts(
-        [RobustnessVerdict.ATTACKED, RobustnessVerdict.NOT_ATTACKED]
-    )
+    verdicts = encode_verdicts([RobustnessVerdict.ATTACKED, RobustnessVerdict.NOT_ATTACKED])
 
     result = RobustnessResult(
         clean_inputs=inputs,

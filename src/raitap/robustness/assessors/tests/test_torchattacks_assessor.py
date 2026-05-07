@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 import torch
 
@@ -28,18 +26,18 @@ class _TinyClassifier(torch.nn.Module):
         return self.layer(x.flatten(1))
 
 
-def test_check_backend_compat_rejects_non_autograd_backend():
+def test_check_backend_compat_rejects_non_autograd_backend() -> None:
     assessor = TorchattacksAssessor(algorithm="FGSM", eps=0.03)
     with pytest.raises(AssessorBackendIncompatibilityError):
         assessor.check_backend_compat(_OnnxLikeBackend())
 
 
-def test_check_backend_compat_accepts_autograd_backend():
+def test_check_backend_compat_accepts_autograd_backend() -> None:
     assessor = TorchattacksAssessor(algorithm="FGSM", eps=0.03)
     assessor.check_backend_compat(_AutogradBackend())  # no raise
 
 
-def test_generate_adversarial_runs_with_fgsm():
+def test_generate_adversarial_runs_with_fgsm() -> None:
     torch.manual_seed(0)
     model = _TinyClassifier()
     inputs = torch.rand(4, 3, 4, 4)

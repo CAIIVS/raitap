@@ -66,9 +66,7 @@ class PerturbationHeatmapVisualiser(BaseRobustnessVisualiser):
 
         for col in range(n):
             heatmap = _aggregate(delta[col].numpy(), self.aggregate_channels)
-            axes[0][col].imshow(
-                heatmap, cmap=self.cmap, vmin=-global_extreme, vmax=global_extreme
-            )
+            axes[0][col].imshow(heatmap, cmap=self.cmap, vmin=-global_extreme, vmax=global_extreme)
             axes[0][col].set_axis_off()
             sample_title = (
                 sample_names[col] if context.show_sample_names and col < len(sample_names) else ""

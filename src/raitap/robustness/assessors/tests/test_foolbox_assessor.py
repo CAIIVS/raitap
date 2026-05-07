@@ -26,13 +26,13 @@ class _TinyClassifier(torch.nn.Module):
         return self.layer(x.flatten(1))
 
 
-def test_foolbox_rejects_non_autograd_backend():
+def test_foolbox_rejects_non_autograd_backend() -> None:
     assessor = FoolboxAssessor(algorithm="LinfPGD")
     with pytest.raises(AssessorBackendIncompatibilityError):
         assessor.check_backend_compat(_OnnxLikeBackend())
 
 
-def test_foolbox_rejects_list_epsilons():
+def test_foolbox_rejects_list_epsilons() -> None:
     model = _TinyClassifier()
     inputs = torch.rand(2, 3, 4, 4)
     targets = torch.tensor([0, 1])
@@ -41,10 +41,10 @@ def test_foolbox_rejects_list_epsilons():
         assessor.generate_adversarial(model, inputs, targets, epsilons=[0.01, 0.03])
 
 
-def test_foolbox_requires_epsilon():
+def test_foolbox_requires_epsilon() -> None:
     model = _TinyClassifier()
     inputs = torch.rand(2, 3, 4, 4)
     targets = torch.tensor([0, 1])
     assessor = FoolboxAssessor(algorithm="LinfFastGradientAttack")
-    with pytest.raises(ValueError, match="requires `call.eps`"):
+    with pytest.raises(ValueError, match=r"requires `call\.eps`"):
         assessor.generate_adversarial(model, inputs, targets)

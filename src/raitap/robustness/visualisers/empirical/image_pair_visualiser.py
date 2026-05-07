@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 
 class ImagePairVisualiser(BaseRobustnessVisualiser):
-    """Render N rows × 3 columns: clean, perturbed, signed perturbation."""
+    """Render N rows by 3 columns: clean, perturbed, signed perturbation."""
 
     supported_method_kinds: ClassVar[frozenset[MethodKind]] = frozenset(
         {MethodKind.EMPIRICAL_ATTACK}
@@ -68,9 +68,7 @@ class ImagePairVisualiser(BaseRobustnessVisualiser):
 
             axes[row][0].imshow(clean_image, cmap="gray" if clean_image.ndim == 2 else None)
             axes[row][0].set_axis_off()
-            axes[row][1].imshow(
-                perturbed_image, cmap="gray" if perturbed_image.ndim == 2 else None
-            )
+            axes[row][1].imshow(perturbed_image, cmap="gray" if perturbed_image.ndim == 2 else None)
             axes[row][1].set_axis_off()
             axes[row][2].imshow(diff, cmap=self.cmap, vmin=-diff_extreme, vmax=diff_extreme)
             axes[row][2].set_axis_off()

@@ -30,7 +30,6 @@ from ..contracts import (
     Objective,
     PerturbationBudget,
     PerturbationNorm,
-    RobustnessSemantics,
     RobustnessVerdict,
     ThreatModel,
     VerificationOutcome,
@@ -204,8 +203,7 @@ class EmpiricalAttackAssessor(BaseAssessor, ABC):
                 else resolve_run_dir(output_root=output_root, subdir="robustness")
             ),
             experiment_name=experiment_name,
-            assessor_target=assessor_target
-            or f"{type(self).__module__}.{type(self).__name__}",
+            assessor_target=assessor_target or f"{type(self).__module__}.{type(self).__name__}",
             algorithm=str(getattr(self, "algorithm", "")),
             assessor_name=assessor_name,
             kwargs={
@@ -405,8 +403,7 @@ class FormalVerificationAssessor(BaseAssessor, ABC):
                 else resolve_run_dir(output_root=output_root, subdir="robustness")
             ),
             experiment_name=experiment_name,
-            assessor_target=assessor_target
-            or f"{type(self).__module__}.{type(self).__name__}",
+            assessor_target=assessor_target or f"{type(self).__module__}.{type(self).__name__}",
             algorithm=str(getattr(self, "algorithm", "")),
             assessor_name=assessor_name,
             kwargs={
@@ -467,7 +464,7 @@ def _empirical_verdicts(
 
 
 def _count_verdicts(verdicts: list[RobustnessVerdict]) -> dict[RobustnessVerdict, int]:
-    counts: dict[RobustnessVerdict, int] = {v: 0 for v in RobustnessVerdict}
+    counts: dict[RobustnessVerdict, int] = dict.fromkeys(RobustnessVerdict, 0)
     for verdict in verdicts:
         counts[verdict] += 1
     return counts
@@ -498,12 +495,8 @@ def _assemble_counter_examples(
         distance[i] = _per_sample_norm(delta, norm)[0]
 
     # Predictions only for FALSIFIED rows; fill non-FALSIFIED with -1 sentinel.
-    perturbed_predictions = torch.full(
-        (int(inputs.shape[0]),), fill_value=-1, dtype=torch.long
-    )
-    falsified_indices = [
-        i for i, v in enumerate(verdicts) if v == RobustnessVerdict.FALSIFIED
-    ]
+    perturbed_predictions = torch.full((int(inputs.shape[0]),), fill_value=-1, dtype=torch.long)
+    falsified_indices = [i for i, v in enumerate(verdicts) if v == RobustnessVerdict.FALSIFIED]
     if falsified_indices:
         falsified_inputs = perturbed[falsified_indices].nan_to_num(nan=0.0)
         falsified_preds = _argmax_predictions(model, falsified_inputs)
@@ -565,14 +558,10 @@ def _pop_int_kwarg(raitap_kwargs: dict[str, Any], key: str) -> int | None:
 def _pop_progress_settings(raitap_kwargs: dict[str, Any]) -> tuple[bool, str | None]:
     show_progress = raitap_kwargs.pop("show_progress", True)
     if not isinstance(show_progress, bool):
-        raise TypeError(
-            f"raitap.show_progress must be a bool, got {type(show_progress).__name__}."
-        )
+        raise TypeError(f"raitap.show_progress must be a bool, got {type(show_progress).__name__}.")
     progress_desc = raitap_kwargs.pop("progress_desc", None)
     if progress_desc is not None and not isinstance(progress_desc, str):
-        raise TypeError(
-            f"raitap.progress_desc must be a str, got {type(progress_desc).__name__}."
-        )
+        raise TypeError(f"raitap.progress_desc must be a str, got {type(progress_desc).__name__}.")
     return show_progress, progress_desc
 
 

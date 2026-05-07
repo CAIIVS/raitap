@@ -17,31 +17,31 @@ from raitap.robustness.semantics import (
 )
 
 
-def test_torchattacks_registry_covers_pgd():
+def test_torchattacks_registry_covers_pgd() -> None:
     hints = TORCHATTACKS_REGISTRY["PGD"]
     assert hints.method_kind == MethodKind.EMPIRICAL_ATTACK
     assert hints.norm == PerturbationNorm.LINF
     assert "iterative" in hints.families
 
 
-def test_foolbox_registry_distinguishes_l2_from_linf():
+def test_foolbox_registry_distinguishes_l2_from_linf() -> None:
     assert FOOLBOX_REGISTRY["LinfPGD"].norm == PerturbationNorm.LINF
     assert FOOLBOX_REGISTRY["L2PGD"].norm == PerturbationNorm.L2
 
 
-def test_hints_for_assessor_routes_to_torchattacks():
+def test_hints_for_assessor_routes_to_torchattacks() -> None:
     assessor = TorchattacksAssessor(algorithm="FGSM")
     hints = hints_for_assessor(assessor)
     assert hints.threat_model == ThreatModel.WHITE_BOX
 
 
-def test_hints_for_assessor_routes_to_foolbox():
+def test_hints_for_assessor_routes_to_foolbox() -> None:
     assessor = FoolboxAssessor(algorithm="LinfPGD")
     hints = hints_for_assessor(assessor)
     assert hints.method_kind == MethodKind.EMPIRICAL_ATTACK
 
 
-def test_assessor_semantics_extracts_budget_and_targeted_objective():
+def test_assessor_semantics_extracts_budget_and_targeted_objective() -> None:
     assessor = TorchattacksAssessor(algorithm="PGD")
     inputs = torch.randn(2, 3, 4, 4)
     targets = torch.tensor([0, 1])

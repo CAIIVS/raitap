@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from raitap.transparency.contracts import InputSpec, SampleSelection
 from raitap.transparency.semantics import infer_input_spec
@@ -17,6 +16,9 @@ from .contracts import (
     RobustnessSemantics,
     ThreatModel,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
 
 
 @dataclass(frozen=True)
@@ -172,9 +174,13 @@ def _registry_for(assessor: object) -> Mapping[str, AssessorSemanticsHints]:
     cls = type(assessor)
     qualified = f"{cls.__module__}.{cls.__name__}".lower()
     name = cls.__name__.lower()
-    if any(hint.lower() in qualified or hint.lower() in name for hint in _TORCHATTACKS_TARGET_HINTS):
+
+    def _matches(hints: tuple[str, ...]) -> bool:
+        return any(h.lower() in qualified or h.lower() in name for h in hints)
+
+    if _matches(_TORCHATTACKS_TARGET_HINTS):
         return TORCHATTACKS_REGISTRY
-    if any(hint.lower() in qualified or hint.lower() in name for hint in _FOOLBOX_TARGET_HINTS):
+    if _matches(_FOOLBOX_TARGET_HINTS):
         return FOOLBOX_REGISTRY
     raise ValueError(
         f"No semantics registry registered for assessor type {cls.__name__!r}. "
@@ -224,17 +230,13 @@ def _extract_target_classes(call_kwargs: Mapping[str, Any]) -> Sequence[int] | N
     return None
 
 
-def _resolve_objective(
-    hints: AssessorSemanticsHints, call_kwargs: Mapping[str, Any]
-) -> Objective:
+def _resolve_objective(hints: AssessorSemanticsHints, call_kwargs: Mapping[str, Any]) -> Objective:
     if _extract_target_classes(call_kwargs) is not None:
         return Objective.TARGETED
     return hints.objective
 
 
-def _resolve_epsilon(
-    hints: AssessorSemanticsHints, call_kwargs: Mapping[str, Any]
-) -> float | None:
+def _resolve_epsilon(hints: AssessorSemanticsHints, call_kwargs: Mapping[str, Any]) -> float | None:
     for key in ("eps", "epsilon"):
         if key in call_kwargs and call_kwargs[key] is not None:
             value = call_kwargs[key]

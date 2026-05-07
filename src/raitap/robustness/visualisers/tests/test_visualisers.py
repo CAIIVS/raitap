@@ -32,9 +32,7 @@ def _make_result() -> RobustnessResult:
         clean_inputs=inputs,
         targets=targets,
         clean_predictions=torch.tensor([0, 1]),
-        verdicts=encode_verdicts(
-            [RobustnessVerdict.ATTACKED, RobustnessVerdict.NOT_ATTACKED]
-        ),
+        verdicts=encode_verdicts([RobustnessVerdict.ATTACKED, RobustnessVerdict.NOT_ATTACKED]),
         metrics=RobustnessMetrics(clean_accuracy=1.0, adversarial_accuracy=0.5),
         run_dir=Path("."),
         experiment_name="t",
@@ -63,18 +61,18 @@ def _empirical_context() -> RobustnessVisualisationContext:
     )
 
 
-def test_image_pair_visualiser_renders_figure():
+def test_image_pair_visualiser_renders_figure() -> None:
     result = _make_result()
     visualiser = ImagePairVisualiser(max_samples=2)
     visualiser.validate_result(result)
     figure = visualiser.visualise(result, context=_empirical_context())
     try:
-        assert len(figure.axes) == 6  # 2 rows × 3 columns
+        assert len(figure.axes) == 6  # 2 rows by 3 columns
     finally:
         plt.close(figure)
 
 
-def test_perturbation_heatmap_visualiser_renders_figure():
+def test_perturbation_heatmap_visualiser_renders_figure() -> None:
     result = _make_result()
     visualiser = PerturbationHeatmapVisualiser(max_samples=2)
     visualiser.validate_result(result)
@@ -85,13 +83,11 @@ def test_perturbation_heatmap_visualiser_renders_figure():
         plt.close(figure)
 
 
-def test_validate_result_blocks_wrong_method_kind():
+def test_validate_result_blocks_wrong_method_kind() -> None:
     result = _make_result()
     # Force a verifier-only visualiser by patching supported_method_kinds.
     visualiser = ImagePairVisualiser(max_samples=1)
-    type(visualiser).supported_method_kinds = frozenset(
-        {MethodKind.FORMAL_VERIFICATION}
-    )
+    type(visualiser).supported_method_kinds = frozenset({MethodKind.FORMAL_VERIFICATION})
     try:
         with pytest.raises(MethodKindVisualiserIncompatibilityError):
             visualiser.validate_result(result)

@@ -48,7 +48,7 @@ _MISPLACED_RAITAP_CALL_WARNING_KEYS = _RAITAP_KEYS
 
 _DATA_SOURCE_KEYS = frozenset({"source", "n_samples"})
 
-_PARSED_ASSESSOR_CONFIG_CACHE: dict[int, "_ParsedAssessorConfig"] = {}
+_PARSED_ASSESSOR_CONFIG_CACHE: dict[int, _ParsedAssessorConfig] = {}
 
 
 class _ParsedAssessorConfig:
@@ -198,11 +198,7 @@ def _resolve_call_data_sources(call_kwargs: dict[str, Any]) -> dict[str, Any]:
     """Replace ``call:`` values matching ``{source, n_samples}`` with loaded tensors."""
     resolved: dict[str, Any] = {}
     for key, value in call_kwargs.items():
-        if (
-            isinstance(value, dict)
-            and set(value).issubset(_DATA_SOURCE_KEYS)
-            and "source" in value
-        ):
+        if isinstance(value, dict) and set(value).issubset(_DATA_SOURCE_KEYS) and "source" in value:
             source = value["source"]
             n_samples = value.get("n_samples")
             if n_samples is not None and not isinstance(n_samples, int):
@@ -282,7 +278,7 @@ def check_assessor_visualiser_compat(
 
 
 class RobustnessAssessment:
-    """Callable factory entry-point that mirrors :class:`raitap.transparency.factory.Explanation`."""
+    """Factory entry-point mirroring :class:`raitap.transparency.factory.Explanation`."""
 
     def __new__(
         cls,
@@ -375,12 +371,8 @@ def create_robustness_visualisers(
             visualiser = instantiate(instantiate_cfg)
         except Exception as error:
             logger.exception("Visualiser instantiation failed for target %r", visualiser_target)
-            raise ValueError(
-                f"Could not instantiate visualiser {visualiser_target!r}."
-            ) from error
+            raise ValueError(f"Could not instantiate visualiser {visualiser_target!r}.") from error
 
-        out.append(
-            ConfiguredRobustnessVisualiser(visualiser=visualiser, call_kwargs=call_plain)
-        )
+        out.append(ConfiguredRobustnessVisualiser(visualiser=visualiser, call_kwargs=call_plain))
 
     return out

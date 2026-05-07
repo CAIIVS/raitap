@@ -83,7 +83,7 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
 
         device = _model_device(model) or inputs.device
         inputs_dev = inputs.to(device)
-        targets_dev = (criterion if criterion is not None else targets.to(device))
+        targets_dev = criterion if criterion is not None else targets.to(device)
 
         fmodel = foolbox.PyTorchModel(
             model,
@@ -130,9 +130,7 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
         if target_labels is None and target_classes is None:
             return None
         criteria = foolbox_module.criteria
-        wanted = (
-            target_labels if target_labels is not None else target_classes
-        )
+        wanted = target_labels if target_labels is not None else target_classes
         if not isinstance(wanted, torch.Tensor):
             if isinstance(wanted, int):
                 wanted = torch.full_like(targets, fill_value=int(wanted), dtype=torch.long)

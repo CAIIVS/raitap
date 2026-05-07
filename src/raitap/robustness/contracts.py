@@ -8,7 +8,7 @@ model's robustness against perturbations:
   perturbation budget (torchattacks, foolbox, …). A "non-attack" outcome does
   *not* prove robustness; it just means the configured attack failed.
 * ``MethodKind.FORMAL_VERIFICATION`` — prove (or refute) that no adversarial
-  example exists within the budget (auto_LiRPA, α,β-CROWN, …). Outcomes are
+  example exists within the budget (auto_LiRPA, alpha-beta-CROWN, ...). Outcomes are
   verified / falsified / unknown.
 
 A single :class:`RobustnessSemantics` carries this distinction so that downstream

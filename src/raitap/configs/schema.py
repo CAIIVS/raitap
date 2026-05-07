@@ -84,7 +84,8 @@ class TransparencyConfig:
 class RobustnessConfig:
     # Hydra _target_: points to a BaseAssessor subclass
     # (e.g. EmpiricalAttackAssessor or FormalVerificationAssessor implementation).
-    # Overridden by the robustness config-group YAML (robustness=torchattacks_pgd / foolbox_lin_pgd).
+    # Overridden by the robustness config-group YAML
+    # (robustness=torchattacks_pgd / foolbox_lin_pgd).
     _target_: str = "TorchattacksAssessor"
     algorithm: str = "PGD"
     # Constructor kwargs for the assessor / underlying library method.
@@ -98,9 +99,7 @@ class RobustnessConfig:
     raitap: dict[str, Any] = field(default_factory=dict)
     # Each entry needs at least ``_target_``; ``constructor`` / ``call`` are optional.
     # Default is the empirical image-pair visualiser.
-    visualisers: list[Any] = field(
-        default_factory=lambda: [{"_target_": "ImagePairVisualiser"}]
-    )
+    visualisers: list[Any] = field(default_factory=lambda: [{"_target_": "ImagePairVisualiser"}])
 
 
 @dataclass

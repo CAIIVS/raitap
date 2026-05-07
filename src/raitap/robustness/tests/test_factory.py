@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 
+from raitap.robustness.assessors import TorchattacksAssessor
+from raitap.robustness.contracts import MethodKind
+from raitap.robustness.exceptions import MethodKindVisualiserIncompatibilityError
 from raitap.robustness.factory import (
     _parse_assessor_config,
     _resolve_call_data_sources,
     check_assessor_visualiser_compat,
 )
-from raitap.robustness.assessors import TorchattacksAssessor
-from raitap.robustness.contracts import MethodKind
-from raitap.robustness.exceptions import MethodKindVisualiserIncompatibilityError
 from raitap.robustness.results import ConfiguredRobustnessVisualiser
 from raitap.robustness.visualisers.base_visualiser import BaseRobustnessVisualiser
 
@@ -19,11 +17,11 @@ from raitap.robustness.visualisers.base_visualiser import BaseRobustnessVisualis
 class _OnlyFormalVisualiser(BaseRobustnessVisualiser):
     supported_method_kinds = frozenset({MethodKind.FORMAL_VERIFICATION})
 
-    def visualise(self, result, *, context, **kwargs):  # noqa: ANN001, ARG002
+    def visualise(self, result, *, context, **kwargs) -> object:  # noqa: ANN001
         raise NotImplementedError
 
 
-def test_parse_validates_top_level_keys():
+def test_parse_validates_top_level_keys() -> None:
     with pytest.raises(ValueError, match="Unknown robustness assessor config keys"):
         _parse_assessor_config(
             {
@@ -34,7 +32,7 @@ def test_parse_validates_top_level_keys():
         )
 
 
-def test_parse_migrates_misplaced_raitap_keys():
+def test_parse_migrates_misplaced_raitap_keys() -> None:
     parsed = _parse_assessor_config(
         {
             "_target_": "TorchattacksAssessor",
@@ -47,12 +45,12 @@ def test_parse_migrates_misplaced_raitap_keys():
     assert parsed.raitap["batch_size"] == 8
 
 
-def test_resolve_call_data_sources_passes_through_non_source_dicts():
+def test_resolve_call_data_sources_passes_through_non_source_dicts() -> None:
     out = _resolve_call_data_sources({"target_labels": [0, 1]})
     assert out == {"target_labels": [0, 1]}
 
 
-def test_check_visualiser_compat_raises_on_method_kind_mismatch():
+def test_check_visualiser_compat_raises_on_method_kind_mismatch() -> None:
     assessor = TorchattacksAssessor(algorithm="PGD")  # EMPIRICAL_ATTACK
     visualiser = _OnlyFormalVisualiser()
     configured = [ConfiguredRobustnessVisualiser(visualiser=visualiser)]

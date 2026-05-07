@@ -6,7 +6,7 @@ module distinguishes two complementary methods:
 
 * **Empirical attacks** — try to find an adversarial example (torchattacks, foolbox).
 * **Formal verification** — prove no adversarial example exists (auto_LiRPA,
-  α,β-CROWN; arrives in a follow-up PR — the module shape already accommodates it).
+  alpha-beta-CROWN; arrives in a follow-up PR — the module shape already accommodates it).
 
 Public Surface
 --------------
