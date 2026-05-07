@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.3](https://github.com/CAIIVS/raitap/compare/v0.4.2...v0.4.3) (2026-05-07)
+
+
+### Documentation
+
+* add Context7 widget script to Sphinx docs ([deea214](https://github.com/CAIIVS/raitap/commit/deea214a406fa4c11a6151a485186c6135a3164c))
+* context7.json with URL and public key ([73c30c3](https://github.com/CAIIVS/raitap/commit/73c30c35b0338d9e0ba8fad00ad7ffa9926bc496))
+
 ## [0.4.2](https://github.com/CAIIVS/raitap/compare/v0.4.1...v0.4.2) (2026-05-06)
 
 
