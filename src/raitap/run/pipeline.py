@@ -25,6 +25,7 @@ from raitap.reporting import (
 from raitap.run.forward_output import extract_primary_tensor
 from raitap.run.outputs import PredictionSummary, RunOutputs
 from raitap.tracking import BaseTracker
+from raitap.robustness.factory import RobustnessAssessment
 from raitap.transparency.contracts import InputSpec
 from raitap.transparency.factory import Explanation
 
@@ -37,6 +38,7 @@ _DEFAULT_FORWARD_BATCH_SIZE = 32
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
+    from raitap.robustness.results import RobustnessResult, RobustnessVisualisationResult
     from raitap.transparency.results import ExplanationResult, VisualisationResult
 
 
@@ -60,6 +62,7 @@ def run(config: AppConfig) -> RunOutputs:
         return outputs
 
     use_subdirs = len(outputs.explanations) > 1
+    use_robustness_subdirs = len(outputs.robustness_results) > 1
     with BaseTracker.create_tracker(config) as tracker:
         tracker.log_config()
         if getattr(config.tracking, "log_model", False):
@@ -71,6 +74,10 @@ def run(config: AppConfig) -> RunOutputs:
             explanation.log(tracker, use_subdirectory=use_subdirs)
         for visualisation in outputs.visualisations:
             visualisation.log(tracker, use_subdirectory=use_subdirs)
+        for robustness_result in outputs.robustness_results:
+            robustness_result.log(tracker, use_subdirectory=use_robustness_subdirs)
+        for robustness_visualisation in outputs.robustness_visualisations:
+            robustness_visualisation.log(tracker, use_subdirectory=use_robustness_subdirs)
         # Log report to tracker
         reporting_cfg = getattr(config, "reporting", None)
         if report_generation is not None and reporting_cfg is not None:
@@ -126,6 +133,23 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
         explanations.append(explanation)
         visualisations.extend(explanation.visualise())
 
+    robustness_results: list[RobustnessResult] = []
+    robustness_visualisations: list[RobustnessVisualisationResult] = []
+    robustness_assessors = getattr(config, "robustness", None) or {}
+    for name in robustness_assessors:
+        result = RobustnessAssessment(
+            config,
+            name,
+            model,
+            data_tensor,
+            labels,
+            input_metadata=_input_metadata_for_data(config, data),
+            sample_ids=sample_ids,
+            sample_names=sample_ids,
+        )
+        robustness_results.append(result)
+        robustness_visualisations.extend(result.visualise())
+
     return RunOutputs(
         explanations=explanations,
         visualisations=visualisations,
@@ -138,6 +162,8 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
             sample_ids=sample_ids,
             targets=labels,
         ),
+        robustness_results=robustness_results,
+        robustness_visualisations=robustness_visualisations,
     )
 
 
@@ -188,6 +214,7 @@ def print_summary(config: AppConfig, model: Model) -> None:
     logger.info("Dataset: %s", config.data.name)
     logger.info("Hardware: %s", model.backend.hardware_label)
     logger.info("Explainers: %s", list(config.transparency.keys()))
+    logger.info("Robustness: %s", list((getattr(config, "robustness", None) or {}).keys()) or "off")
     logger.info("Metrics: %s", "on" if metrics_run_enabled(config) else "off")
     logger.info("Output: %s\n", resolve_run_dir(config))
 

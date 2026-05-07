@@ -1,6 +1,7 @@
 defaults:
   - _self_
   - transparency: demo
+  - robustness: null
   - model: vit_b32
   - data: isic2018
   - metrics: classification

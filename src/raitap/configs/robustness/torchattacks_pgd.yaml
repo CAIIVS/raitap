@@ -1,0 +1,9 @@
+pgd:
+  _target_: TorchattacksAssessor
+  algorithm: PGD
+  constructor:
+    eps: 0.03
+    alpha: 0.0078
+    steps: 10
+  visualisers:
+    - _target_: ImagePairVisualiser
