@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -22,7 +23,7 @@ def resolve_report_sample_selection(
     if selection is None:
         return None
 
-    entries = list(selection)
+    entries = _normalise_selection_entries(selection)
     ids = [] if sample_ids is None else [str(sample_id) for sample_id in sample_ids]
     resolved: list[ResolvedReportSample] = []
     seen: dict[int, Any] = {}
@@ -45,6 +46,22 @@ def resolve_report_sample_selection(
         )
 
     return resolved
+
+
+def _normalise_selection_entries(selection: Any) -> list[Any]:
+    if isinstance(selection, (str, bytes, Mapping)):
+        raise ValueError(_selection_shape_error())
+    try:
+        return list(selection)
+    except TypeError as error:
+        raise ValueError(_selection_shape_error()) from error
+
+
+def _selection_shape_error() -> str:
+    return (
+        "reporting.sample_selection must be a list of sample IDs, filenames, "
+        "or zero-based indices. For one sample, use reporting.sample_selection=[...]."
+    )
 
 
 def _resolve_entry(entry: Any, *, sample_ids: list[str], batch_size: int) -> int:

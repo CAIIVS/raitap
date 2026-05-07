@@ -394,6 +394,21 @@ def test_build_report_explicit_duplicate_selection_fails(tmp_path: Path) -> None
         build_report(config, outputs)
 
 
+@pytest.mark.parametrize(
+    "sample_selection",
+    ["case_alpha.png", 1, {"samples": ["case_alpha.png"]}],
+)
+def test_build_report_explicit_selection_rejects_non_list_config_shapes(
+    tmp_path: Path,
+    sample_selection: Any,
+) -> None:
+    config, outputs = _explicit_selection_case(tmp_path)
+    config.reporting.sample_selection = sample_selection  # type: ignore[union-attr,assignment]
+
+    with pytest.raises(ValueError, match=r"reporting[.]sample_selection must be a list"):
+        build_report(config, outputs)
+
+
 def test_build_report_skips_local_groups_when_no_local_visualisations(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="no_local")
     set_output_root(config, tmp_path)
