@@ -297,6 +297,49 @@ def test_run_without_tracking_returns_outputs(monkeypatch: MonkeyPatch) -> None:
     tracker_factory.assert_not_called()
 
 
+def test_run_invalid_report_sample_selection_fails_before_pipeline_work(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    data = SimpleNamespace(
+        tensor=torch.randn(1, 3),
+        sample_ids=["case_alpha.png"],
+        labels=None,
+    )
+    fake_output = run_module.RunOutputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.tensor([0]),
+    )
+    pipeline_work = MagicMock(return_value=fake_output)
+    build_report = MagicMock()
+    create_report = MagicMock()
+    tracker_factory = MagicMock()
+
+    monkeypatch.setattr(run_pipeline, "Model", lambda _cfg: model)
+    monkeypatch.setattr(run_pipeline, "Data", lambda _cfg: data)
+    monkeypatch.setattr(run_pipeline, "_run_without_tracking", pipeline_work)
+    monkeypatch.setattr(run_pipeline, "build_report", build_report)
+    monkeypatch.setattr(run_pipeline, "create_report", create_report)
+    monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
+    monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
+
+    config = SimpleNamespace(
+        reporting=SimpleNamespace(_target_="PDFReporter", sample_selection=["missing.png"]),
+        tracking=None,
+        experiment_name="test",
+    )
+
+    with pytest.raises(ValueError, match=r"missing[.]png"):
+        run_module.run(config)  # type: ignore[arg-type]
+
+    pipeline_work.assert_not_called()
+    build_report.assert_not_called()
+    create_report.assert_not_called()
+    tracker_factory.assert_not_called()
+
+
 def test_run_with_tracking_logs_all_outputs(monkeypatch: MonkeyPatch) -> None:
     model = SimpleNamespace(
         backend=_BackendStub(torch.nn.Identity()),

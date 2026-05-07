@@ -13,6 +13,7 @@ from raitap.run.outputs import PredictionSummary, RunOutputs
 from raitap.transparency.contracts import ExplanationScope
 
 from .manifest import ReportManifest
+from .sample_selection import ResolvedReportSample, resolve_report_sample_selection
 from .sections import ReportGroup, ReportSection
 
 if TYPE_CHECKING:
@@ -30,6 +31,8 @@ _MAX_LOCAL_DETAIL_SAMPLES = 3
 class SelectedSample:
     label: str
     summary: PredictionSummary
+    selection_source: str = "automatic"
+    requested_sample: object | None = None
 
 
 @dataclass(frozen=True)
@@ -44,7 +47,17 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
     assets_dir = report_dir / "_assets"
     assets_dir.mkdir(parents=True, exist_ok=True)
 
-    selected_samples = _select_samples(outputs)
+    configured_selection = getattr(getattr(config, "reporting", None), "sample_selection", None)
+    explicit_samples = resolve_report_sample_selection(
+        configured_selection,
+        sample_ids=outputs.sample_ids,
+        batch_size=_batch_size(outputs),
+    )
+    selected_samples = (
+        _explicit_selected_samples(explicit_samples, outputs=outputs)
+        if explicit_samples is not None
+        else _select_samples(outputs)
+    )
     sections: list[ReportSection] = []
 
     metrics_section = _build_metrics_section(outputs, assets_dir=assets_dir)
@@ -63,6 +76,7 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
         outputs,
         selected_samples=selected_samples,
         assets_dir=assets_dir,
+        explicit_selection=explicit_samples is not None,
     )
     if local_section is not None:
         sections.append(local_section)
@@ -73,7 +87,7 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
         metadata={
             "experiment_name": getattr(config, "experiment_name", None),
             "selected_samples": [
-                {"label": sample.label, **asdict(sample.summary)} for sample in selected_samples
+                _selected_sample_manifest_entry(sample) for sample in selected_samples
             ],
         },
         filename=getattr(getattr(config, "reporting", None), "filename", "report.pdf"),
@@ -260,12 +274,15 @@ def _build_local_section(
     *,
     selected_samples: list[SelectedSample],
     assets_dir: Path,
+    explicit_selection: bool = False,
 ) -> ReportSection | None:
     if not outputs.explanations:
         return None
 
     groups: list[ReportGroup] = []
-    overview_sample = selected_samples[0] if selected_samples else None
+    overview_sample = (
+        None if explicit_selection else selected_samples[0] if selected_samples else None
+    )
     if overview_sample is not None:
         for explanation in outputs.explanations:
             rendered = explanation.render_visualisations_for_scope(
@@ -295,6 +312,7 @@ def _build_local_section(
                         "role": "local_overview",
                         "bucket": overview_sample.label,
                         "sample_index": overview_sample.summary.sample_index,
+                        "selection_source": overview_sample.selection_source,
                         "explainer_name": explanation.explainer_name or explanation.run_dir.name,
                     },
                 )
@@ -329,6 +347,8 @@ def _build_local_section(
                     "role": "local_detail",
                     "bucket": selected.label,
                     "sample_index": selected.summary.sample_index,
+                    "selection_source": selected.selection_source,
+                    **_requested_sample_metadata(selected),
                 },
             )
         )
@@ -388,6 +408,31 @@ def _select_samples(outputs: RunOutputs) -> list[SelectedSample]:
     return selected
 
 
+def _explicit_selected_samples(
+    resolved_samples: list[ResolvedReportSample],
+    *,
+    outputs: RunOutputs,
+) -> list[SelectedSample]:
+    summaries = {summary.sample_index: summary for summary in outputs.prediction_summaries}
+    return [
+        SelectedSample(
+            label="user_selected",
+            summary=summaries.get(
+                resolved.sample_index,
+                PredictionSummary(
+                    sample_index=resolved.sample_index,
+                    predicted_class=-1,
+                    confidence=0.0,
+                    sample_id=resolved.sample_id,
+                ),
+            ),
+            selection_source="user",
+            requested_sample=resolved.requested_sample,
+        )
+        for resolved in resolved_samples
+    ]
+
+
 def _batch_size(outputs: RunOutputs) -> int:
     if outputs.forward_output.ndim > 0:
         return int(outputs.forward_output.shape[0])
@@ -438,6 +483,22 @@ def _sample_label(selected: SelectedSample) -> str:
     if summary.correct is not None:
         parts.append("correct" if summary.correct else "wrong")
     return " | ".join(parts)
+
+
+def _selected_sample_manifest_entry(sample: SelectedSample) -> dict[str, object]:
+    entry: dict[str, object] = {
+        "label": sample.label,
+        **asdict(sample.summary),
+        "selection_source": sample.selection_source,
+    }
+    entry.update(_requested_sample_metadata(sample))
+    return entry
+
+
+def _requested_sample_metadata(sample: SelectedSample) -> dict[str, object]:
+    if sample.requested_sample is None:
+        return {}
+    return {"requested_sample": sample.requested_sample}
 
 
 def _safe_name(value: str) -> str:
