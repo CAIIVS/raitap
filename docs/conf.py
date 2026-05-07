@@ -96,6 +96,9 @@ html_theme = "furo"
 html_title = "RAITAP Documentation"
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
+html_js_files = [
+    ("https://context7.com/widget.js", {"data-library": "/caiivs/raitap"}),
+]
 
 # Copyright footer
 copyright = "2025, Stanislas Laurent, Jonas Vonderhagen, Philipp Denzel, Oliver Forster"
