@@ -43,6 +43,8 @@ from ..results import (
 from ..semantics import assessor_semantics
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from torch import nn
 
 logger = logging.getLogger(__name__)
@@ -64,19 +66,20 @@ class BaseAssessor:
 
 def _resolve_per_sample_target(
     targets: torch.Tensor,
-    target_classes: tuple[int, ...] | None,
+    target_classes: Sequence[int] | None,
 ) -> torch.Tensor:
     """Return per-sample reference labels used for verdict computation."""
     if target_classes is None:
         return targets
-    if len(target_classes) == 1:
-        return torch.full_like(targets, fill_value=int(target_classes[0]))
-    if len(target_classes) != int(targets.shape[0]):
+    target_list = list(target_classes)
+    if len(target_list) == 1:
+        return torch.full_like(targets, fill_value=int(target_list[0]))
+    if len(target_list) != int(targets.shape[0]):
         raise ValueError(
             "Length of target_classes must equal the batch size or be 1; "
-            f"got {len(target_classes)} for batch size {int(targets.shape[0])}."
+            f"got {len(target_list)} for batch size {int(targets.shape[0])}."
         )
-    return torch.tensor(target_classes, dtype=targets.dtype, device=targets.device)
+    return torch.tensor(target_list, dtype=targets.dtype, device=targets.device)
 
 
 def _per_sample_norm(delta: torch.Tensor, norm: PerturbationNorm) -> torch.Tensor:

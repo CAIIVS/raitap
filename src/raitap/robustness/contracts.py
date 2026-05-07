@@ -22,7 +22,7 @@ from collections.abc import Sequence  # noqa: TC003
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path  # noqa: TC003
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, ClassVar, Protocol, runtime_checkable
 
 from raitap.transparency.contracts import InputSpec, SampleSelection  # noqa: TC001
 
@@ -147,7 +147,7 @@ class AssessorAdapter(Protocol):
     ``explain(model, inputs, …)``.
     """
 
-    method_kind: MethodKind
+    method_kind: ClassVar[MethodKind]
 
     def check_backend_compat(self, backend: object) -> None:
         pass

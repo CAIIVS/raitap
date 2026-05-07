@@ -47,7 +47,7 @@ class TorchattacksAssessor(EmpiricalAttackAssessor):
     ) -> torch.Tensor:
         del backend
         try:
-            import torchattacks
+            import torchattacks  # pyright: ignore[reportMissingImports]
         except ImportError as error:
             raise ImportError(
                 "TorchattacksAssessor requires the optional dependency 'torchattacks'. "

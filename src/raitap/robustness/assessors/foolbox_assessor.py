@@ -61,7 +61,7 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
     ) -> torch.Tensor:
         del backend
         try:
-            import foolbox
+            import foolbox  # pyright: ignore[reportMissingImports]
         except ImportError as error:
             raise ImportError(
                 "FoolboxAssessor requires the optional dependency 'foolbox'. "
@@ -85,7 +85,7 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
         inputs_dev = inputs.to(device)
         targets_dev = criterion if criterion is not None else targets.to(device)
 
-        fmodel = foolbox.PyTorchModel(
+        fmodel = foolbox.PyTorchModel(  # pyright: ignore[reportPrivateImportUsage]
             model,
             bounds=self.bounds,
             preprocessing=self.preprocessing,

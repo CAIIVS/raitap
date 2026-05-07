@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from raitap.robustness.assessors import TorchattacksAssessor
@@ -17,7 +19,7 @@ from raitap.robustness.visualisers.base_visualiser import BaseRobustnessVisualis
 class _OnlyFormalVisualiser(BaseRobustnessVisualiser):
     supported_method_kinds = frozenset({MethodKind.FORMAL_VERIFICATION})
 
-    def visualise(self, result, *, context, **kwargs) -> object:  # noqa: ANN001
+    def visualise(self, result, *, context, **kwargs) -> Any:  # noqa: ANN001
         raise NotImplementedError
 
 
