@@ -90,7 +90,77 @@ pip install "raitap[launcher,transparency,metrics,reporting]"
 
 This came up in cluster testing with `metrics`, where `torchmetrics` should resolve from PyPI while `torch` / `torchvision` should come from the PyTorch CUDA index.
 
+For projects using **`uv add` / a managed `pyproject.toml`** (instead of `uv pip install`), the equivalent declarative pattern requires both an index source mapping **and** promoting `torch` / `torchvision` to direct dependencies — uv only honors source overrides for direct deps, not transitive ones pulled in by `raitap[torch-cuda]`:
+
+```toml
+[project]
+dependencies = [
+  "raitap[torch-cuda, ...]>=0.4.2",
+  # Direct-dep promotion is required for the source mapping below to fire.
+  "torch>=2.10.0",
+  "torchvision>=0.20.0",
+]
+
+[tool.uv.sources]
+torch       = [{ index = "pytorch-cuda" }]
+torchvision = [{ index = "pytorch-cuda" }]
+
+[[tool.uv.index]]
+name     = "pytorch-cuda"
+url      = "https://download.pytorch.org/whl/cu126"
+explicit = true
+```
+
+For most modern NVIDIA GPUs the routing is unnecessary — PyPI's default `torch` wheel ships with CUDA support and resolves transparently. Use this pattern only when you need a specific CUDA wheel family (cu118, cu121, cu126).
+
 This is an example for older cards that need that wheel family. It is **not** the required default for every CUDA-capable install.
+:::
+
+:::{dropdown} Intel GPU (XPU) wheel selection
+PyTorch's `+xpu` wheels (`torch`, `torchvision`) and `triton-xpu` are not on PyPI — they live on the Intel index at `download.pytorch.org/whl/xpu`. PyPI only hosts a yanked `triton-xpu==0.0.2`.
+
+uv `[tool.uv.sources]` declared inside RAITAP do **not** propagate to consumers, so a project depending on RAITAP must redeclare the routing **and** promote `triton-xpu` to a direct dependency. uv only honors source overrides for direct deps; transitive `triton-xpu` (pulled in by `raitap[torch-intel] → torch+xpu`) is queried against PyPI alone and resolution fails.
+
+In your project's `pyproject.toml`:
+
+```toml
+[project]
+dependencies = [
+  "raitap[torch-intel, ...]>=0.4.2; sys_platform != 'linux' and sys_platform != 'darwin'",
+  # Promote triton-xpu to a direct dep so the source mapping below
+  # routes it to the pytorch-intel index. Required — uv does not apply
+  # source overrides to transitive deps.
+  "triton-xpu>=3.0.0; sys_platform != 'linux' and sys_platform != 'darwin'",
+]
+
+[tool.uv.sources]
+torch       = [{ index = "pytorch-intel" }]
+torchvision = [{ index = "pytorch-intel" }]
+triton-xpu  = [{ index = "pytorch-intel" }]
+
+[[tool.uv.index]]
+name     = "pytorch-intel"
+url      = "https://download.pytorch.org/whl/xpu"
+explicit = true
+```
+
+Then sync:
+
+```{install-tabs}
+:uv:
+uv sync
+
+:pip:
+pip install --extra-index-url https://download.pytorch.org/whl/xpu \
+  torch torchvision triton-xpu
+pip install "raitap[torch-intel,transparency]"
+```
+
+Without the source mapping AND the direct-dep promotion, resolution fails with:
+
+> Because only `triton-xpu<3.0.0` is available and `raitap[torch-intel]` depends on `triton-xpu>=3.0.0`, we can conclude that `raitap[torch-intel]` cannot be used.
+
+The misleading hint about prereleases (`3.3.0b1`) is a symptom: uv only sees PyPI's yanked release line because the source override never fires for the transitive dep.
 :::
 
 ### Assessment dependencies
