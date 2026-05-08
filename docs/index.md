@@ -46,6 +46,7 @@ using-raitap/job-launcher
 modules/model/index
 modules/data/index
 modules/transparency/index
+modules/robustness/index
 modules/metrics/index
 modules/tracking/index
 modules/reporting/index

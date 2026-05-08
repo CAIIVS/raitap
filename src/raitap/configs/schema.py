@@ -81,6 +81,31 @@ class TransparencyConfig:
 
 
 @dataclass
+class RobustnessConfig:
+    # Hydra _target_: points to a BaseAssessor subclass
+    # (e.g. EmpiricalAttackAssessor or FormalVerificationAssessor implementation).
+    # Overridden by the robustness config-group YAML
+    # (robustness=torchattacks_pgd / foolbox_lin_pgd).
+    _target_: str = "TorchattacksAssessor"
+    algorithm: str = "PGD"
+    # Constructor kwargs forwarded to the assessor's ``__init__``. For torchattacks
+    # adapters this is where attack hyperparameters live (eps, alpha, steps), since
+    # torchattacks consumes them at attack-instance construction.
+    constructor: dict[str, Any] = field(default_factory=dict)
+    # Per-call kwargs forwarded verbatim to the assessor at ``assess()`` time. For
+    # foolbox adapters this is where the runtime budget (eps / epsilons) lives.
+    # Any value that is a dict with a ``source`` key is treated as a data-source
+    # reference and loaded as a tensor at runtime.
+    call: dict[str, Any] = field(default_factory=dict)
+    # RAITAP-owned runtime options such as batch_size, progress bars, and
+    # sample-name metadata. Not forwarded to the underlying library.
+    raitap: dict[str, Any] = field(default_factory=dict)
+    # Each entry needs at least ``_target_``; ``constructor`` / ``call`` are optional.
+    # Default is the empirical image-pair visualiser.
+    visualisers: list[Any] = field(default_factory=lambda: [{"_target_": "ImagePairVisualiser"}])
+
+
+@dataclass
 class MetricsConfig:
     _target_: str = "ClassificationMetrics"
     task: str = "multiclass"
@@ -125,6 +150,7 @@ class AppConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     data: DataConfig = field(default_factory=DataConfig)
     transparency: dict[str, Any] = field(default_factory=lambda: {"default": TransparencyConfig()})
+    robustness: dict[str, Any] = field(default_factory=dict)
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
     tracking: TrackingConfig = field(default_factory=TrackingConfig)
     reporting: ReportingConfig | None = None  # Optional, null by default

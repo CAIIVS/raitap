@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import matplotlib.pyplot as plt
 
 from raitap.configs import resolve_run_dir
+from raitap.robustness.contracts import MethodKind
 from raitap.run.outputs import PredictionSummary, RunOutputs
 from raitap.transparency.contracts import ExplanationScope
 
@@ -17,6 +18,7 @@ from .sections import ReportGroup, ReportSection
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
+    from raitap.robustness.results import RobustnessVisualisationResult
     from raitap.transparency.results import VisualisationResult
 
 logger = logging.getLogger(__name__)
@@ -67,6 +69,10 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
     if local_section is not None:
         sections.append(local_section)
 
+    robustness_section = _build_robustness_section(outputs, assets_dir=assets_dir)
+    if robustness_section is not None:
+        sections.append(robustness_section)
+
     manifest = ReportManifest(
         kind="run",
         sections=tuple(sections),
@@ -99,6 +105,7 @@ def build_merged_report(
         "Global Explanations": [],
         "Cohort Explanations": [],
         "Local Explanations": [],
+        "Robustness": [],
     }
     seen_metrics_rows: set[tuple[tuple[str, str], ...]] = set()
 
@@ -183,6 +190,74 @@ def _build_metrics_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSe
         metadata={"role": "metrics"},
     )
     return ReportSection.from_groups("Metrics", [group], metadata={"section_role": "metrics"})
+
+
+def _build_robustness_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSection | None:
+    if not outputs.robustness_results:
+        return None
+
+    visualisations_by_assessor: dict[str, list[RobustnessVisualisationResult]] = {}
+    for visualisation in outputs.robustness_visualisations:
+        assessor_name = visualisation.result.assessor_name or visualisation.result.run_dir.name
+        visualisations_by_assessor.setdefault(assessor_name, []).append(visualisation)
+
+    groups: list[ReportGroup] = []
+    for index, result in enumerate(outputs.robustness_results):
+        assessor_name = result.assessor_name or result.run_dir.name
+        method_kind_value = result.method_kind.value
+        if result.method_kind == MethodKind.EMPIRICAL_ATTACK:
+            heading = f"Adversarial attack - {result.algorithm} ({assessor_name})"
+        else:
+            heading = f"Robustness certification - {result.algorithm} ({assessor_name})"
+
+        budget = result.semantics.budget
+        table_rows: list[tuple[str, str]] = [
+            ("assessor", assessor_name),
+            ("algorithm", result.algorithm),
+            ("method_kind", method_kind_value),
+            ("threat_model", result.semantics.threat_model.value),
+            ("objective", result.semantics.objective.value),
+            ("norm", budget.norm.value),
+        ]
+        if budget.epsilon is not None:
+            table_rows.append(("epsilon", f"{budget.epsilon:g}"))
+        for metric_name, metric_value in result.metrics.as_dict().items():
+            table_rows.append((metric_name, f"{metric_value:.4f}"))
+
+        staged_images: list[Path] = []
+        for vis_index, visualisation in enumerate(
+            visualisations_by_assessor.get(assessor_name, [])
+        ):
+            staged_images.append(
+                _copy_asset(
+                    visualisation.output_path,
+                    assets_dir=assets_dir,
+                    target_name=(
+                        f"robustness_{index}_{_safe_name(assessor_name)}_"
+                        f"{vis_index}{visualisation.output_path.suffix}"
+                    ),
+                )
+            )
+
+        groups.append(
+            ReportGroup(
+                heading=heading,
+                images=tuple(staged_images),
+                table_rows=tuple(table_rows),
+                metadata={
+                    "role": "robustness",
+                    "assessor_name": assessor_name,
+                    "algorithm": result.algorithm,
+                    "method_kind": method_kind_value,
+                },
+            )
+        )
+
+    return ReportSection.from_groups(
+        "Robustness",
+        groups,
+        metadata={"section_role": "robustness"},
+    )
 
 
 def _build_global_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSection | None:
