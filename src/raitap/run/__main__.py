@@ -16,6 +16,11 @@ from typing import TYPE_CHECKING
 import hydra
 
 from raitap.run.pipeline import run
+from raitap.utils.console import (
+    print_complete_panel,
+    print_failure_panel,
+    setup_logging,
+)
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
@@ -64,15 +69,16 @@ def _prepare_cli_argv(argv: list[str]) -> list[str]:
 
 @hydra.main(version_base="1.3", config_path=str(_CONFIG_DIR), config_name=_DEFAULT_CONFIG_NAME)
 def _hydra_main(config: AppConfig) -> None:
-    logging.basicConfig(level=logging.INFO, format="%(message)s", force=True)
+    setup_logging(level=logging.INFO)
     start_time = time.perf_counter()
-    run(config)
-    duration = time.perf_counter() - start_time
-
-    logger.info("\n%s", "=" * 60)
-    logger.info("Assessment complete!")
-    logger.info("Full run duration: %s", _format_duration(duration))
-    logger.info("%s", "=" * 60)
+    try:
+        run(config)
+    except BaseException as exc:
+        duration = _format_duration(time.perf_counter() - start_time)
+        print_failure_panel(exc, duration)
+        raise
+    duration = _format_duration(time.perf_counter() - start_time)
+    print_complete_panel(duration)
 
 
 def main() -> None:

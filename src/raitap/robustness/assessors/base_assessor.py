@@ -588,11 +588,9 @@ def _wrap_with_progress(
     total_batches: int,
     progress_desc: str,
 ) -> Any:
-    try:
-        from tqdm.auto import tqdm
-    except ImportError:
-        return iterable
-    return tqdm(iterable, total=total_batches, desc=progress_desc)
+    from raitap.utils.console import iter_with_progress
+
+    return iter_with_progress(iterable, total=total_batches, desc=progress_desc)
 
 
 def _pop_int_kwarg(raitap_kwargs: dict[str, Any], key: str) -> int | None:
