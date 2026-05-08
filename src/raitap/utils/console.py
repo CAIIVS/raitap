@@ -51,6 +51,9 @@ _stderr_console: Console | None = None
 # Source-prefix from `warnings.formatwarning`: "<path>:<line>: <Category>: msg".
 _WARNING_PREFIX_RE = re.compile(r"^(?P<src>.+?:\d+):\s*(?P<cat>\w+Warning):\s*(?P<msg>.*)$", re.DOTALL)
 
+# Pull subsystem from a raitap path: ".../raitap/<subsystem>/...".
+_SUBSYSTEM_RE = re.compile(r"raitap[\\/](?!src[\\/])(?P<sub>\w+)[\\/]")
+
 # Detect Windows-drive or POSIX absolute paths inside arbitrary log messages.
 _PATH_RE = re.compile(r"(?:[A-Za-z]:[\\/]|(?<![\w/])/)[^\s]+")
 _PATH_TRIM = ".,;:)]}\""
@@ -123,6 +126,8 @@ _LEVEL_ICONS: dict[int, tuple[str, str]] = {
 class RaitapRichHandler(RichHandler):
     """RichHandler with icon level-prefix and Panel rendering for multi-line warnings/errors."""
 
+    _last_was_panel: bool = False
+
     def get_level_text(self, record: logging.LogRecord) -> Text:
         icon, style = _LEVEL_ICONS.get(record.levelno, ("·", "white"))
         return Text(icon, style=style)
@@ -142,6 +147,7 @@ class RaitapRichHandler(RichHandler):
             self._emit_panel(record, message)
             return
         super().emit(record)
+        self._last_was_panel = False
 
     def _emit_panel(self, record: logging.LogRecord, message: str) -> None:
         if record.levelno >= logging.ERROR:
@@ -161,14 +167,17 @@ class RaitapRichHandler(RichHandler):
         if warn_match:
             cat = warn_match.group("cat")
             src = warn_match.group("src")
-            header_parts.append(f"[{sub_style}]· {cat}[/]")
-            header_parts.append(f"[{sub_style}]· {src}[/]")
+            sub_match = _SUBSYSTEM_RE.search(src)
+            scope = sub_match.group("sub").capitalize() if sub_match else cat
+            header_parts.append(f"[{sub_style}]· {scope}[/]")
+            header_parts.append(f"[{main_style}]· {src}[/]")
             body = warn_match.group("msg").strip()
         else:
             head_match = _LOGGER_HEADER_RE.match(message.strip())
             if head_match:
                 header_parts.append(f"[{sub_style}]· {head_match.group('head')}[/]")
-                body = head_match.group("msg").strip()
+                stripped = head_match.group("msg").strip()
+                body = stripped[:1].upper() + stripped[1:] if stripped else stripped
 
         panel = Panel(
             _linkify_message(body),
@@ -178,9 +187,11 @@ class RaitapRichHandler(RichHandler):
             padding=(0, 1),
         )
         try:
-            self.console.print()
+            if not self._last_was_panel:
+                self.console.print()
             self.console.print(panel)
             self.console.print()
+            self._last_was_panel = True
         except Exception:  # noqa: BLE001 - never let logging crash the run
             super().emit(record)
 
@@ -219,7 +230,23 @@ def _format_warning_compact(
     lineno: int,
     line: str | None = None,
 ) -> str:
-    return f"{filename}:{lineno}: {category.__name__}: {message}"
+    """Override `filename:lineno` with the actual `warnings.warn()` callsite
+    in raitap so subsystem inference works regardless of ``stacklevel=``."""
+    actual_file, actual_line = _resolve_warn_origin(filename, lineno)
+    return f"{actual_file}:{actual_line}: {category.__name__}: {message}"
+
+
+def _resolve_warn_origin(default_file: str, default_line: int) -> tuple[str, int]:
+    frame: Any = sys._getframe()
+    while frame is not None:
+        path = frame.f_code.co_filename
+        # Stop at the first raitap/<subsystem>/ frame, ignoring stdlib warnings.
+        normalized = path.replace("\\", "/")
+        if "/raitap/" in normalized and "/raitap/utils/console.py" not in normalized:
+            if _SUBSYSTEM_RE.search(path):
+                return path, frame.f_lineno
+        frame = frame.f_back
+    return default_file, default_line
 
 
 def _format_value(value: Any, *, dot: bool = False, dot_style: str = "green") -> Text:
