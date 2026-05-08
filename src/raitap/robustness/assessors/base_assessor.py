@@ -592,6 +592,7 @@ def _wrap_with_progress(
 
     return iter_with_progress(iterable, total=total_batches, desc=progress_desc)
 
+
 def _pop_int_kwarg(raitap_kwargs: dict[str, Any], key: str) -> int | None:
     value = raitap_kwargs.pop(key, None)
     if value is None:

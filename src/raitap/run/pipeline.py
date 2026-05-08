@@ -212,6 +212,7 @@ def print_summary(config: AppConfig, model: Model) -> None:
 
     print_summary_panel(config, model)
 
+
 def _resolve_explainer_runtime_kwargs(
     explainer_config: Any,
     *,
