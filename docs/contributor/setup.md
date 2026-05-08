@@ -31,7 +31,7 @@ RAITAP supports many machine and model configurations. To avoid conflicts, only 
     - Apple MPS support is coming soon.
     :::
 
-2. Decide which optional dependencies you need. It can either be a whole module (e.g. `transparency`, `metrics`, `tracking`) or a specific framework/integration (e.g. `shap`, `captum`, `mlflow`).
+2. Decide which optional dependencies you need. It can either be a whole module (e.g. `transparency`, `robustness`, `metrics`, `tracking`) or a specific framework/integration (e.g. `shap`, `captum`, `torchattacks`, `foolbox`, `mlflow`).
 
 3. Consolidate all the dependency groups into a single command and run it. Notice the `--group dev`   flag to install the contributor environment. Here an example:
 

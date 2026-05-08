@@ -47,10 +47,14 @@ autodoc_mock_imports = [
     "captum",
     "captum.attr",
     "faster_coco_eval",
+    "foolbox",
+    "foolbox.attacks",
+    "foolbox.criteria",
     "mlflow",
     "onnxruntime",
     "openvino",
     "shap",
+    "torchattacks",
     "torch",
     "torch.nn",
     "torch.backends",
@@ -96,6 +100,9 @@ html_theme = "furo"
 html_title = "RAITAP Documentation"
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
+html_js_files = [
+    ("https://context7.com/widget.js", {"data-library": "/caiivs/raitap"}),
+]
 
 # Copyright footer
 copyright = "2025, Stanislas Laurent, Jonas Vonderhagen, Philipp Denzel, Oliver Forster"

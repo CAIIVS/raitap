@@ -1,0 +1,10 @@
+linf_pgd:
+  _target_: FoolboxAssessor
+  algorithm: LinfPGD
+  constructor:
+    rel_stepsize: 0.025
+    steps: 40
+  call:
+    eps: 0.03
+  visualisers:
+    - _target_: ImagePairVisualiser

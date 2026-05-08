@@ -45,6 +45,7 @@ jobs:
             model
             data
             reporting
+            robustness
             dev
             prod
             actions
