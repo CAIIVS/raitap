@@ -16,6 +16,7 @@ from raitap.reporting.builder import BuiltReport, _copy_asset, build_merged_repo
 from raitap.reporting.factory import create_report
 from raitap.reporting.hydra_callback import ReportingSweepCallback
 from raitap.reporting.manifest import ReportManifest
+from raitap.reporting.sample_selection import ReportSampleSelectionEntry
 from raitap.reporting.sections import ReportGroup, ReportSection
 from raitap.run.outputs import PredictionSummary, RunOutputs
 from raitap.transparency.contracts import (
@@ -415,6 +416,22 @@ def test_build_report_explicit_selection_rejects_empty_list(tmp_path: Path) -> N
 
     with pytest.raises(ValueError, match=r"must contain at least one sample"):
         build_report(config, outputs)
+
+
+@pytest.mark.parametrize("sample_selection", [[True], [{"sample": "case_alpha.png"}], [[0]]])
+def test_build_report_explicit_selection_rejects_unsupported_entries(
+    tmp_path: Path,
+    sample_selection: Any,
+) -> None:
+    config, outputs = _explicit_selection_case(tmp_path)
+    config.reporting.sample_selection = sample_selection  # type: ignore[union-attr,assignment]
+
+    with pytest.raises(ValueError, match="Unsupported report sample selection entry"):
+        build_report(config, outputs)
+
+
+def test_report_sample_selection_entry_type_documents_supported_values() -> None:
+    assert ReportSampleSelectionEntry == int | str
 
 
 def test_build_report_skips_local_groups_when_no_local_visualisations(tmp_path: Path) -> None:

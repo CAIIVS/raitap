@@ -5,12 +5,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+ReportSampleSelectionEntry = int | str
+
 
 @dataclass(frozen=True)
 class ResolvedReportSample:
+    """Resolved form of one explicit report sample request."""
+
+    # Batch index used for rendering local explanations; always available after resolution.
     sample_index: int
+    # Dataset sample ID retained for report metadata when sample IDs are available.
     sample_id: str | None
-    requested_sample: Any
+    # Original valid user entry: a sample ID/filename string or zero-based batch index.
+    requested_sample: ReportSampleSelectionEntry
 
 
 def resolve_report_sample_selection(
@@ -26,7 +33,7 @@ def resolve_report_sample_selection(
     entries = _normalise_selection_entries(selection)
     ids = [] if sample_ids is None else [str(sample_id) for sample_id in sample_ids]
     resolved: list[ResolvedReportSample] = []
-    seen: dict[int, Any] = {}
+    seen: dict[int, ReportSampleSelectionEntry] = {}
 
     for entry in entries:
         sample_index = _resolve_entry(entry, sample_ids=ids, batch_size=batch_size)
@@ -48,19 +55,19 @@ def resolve_report_sample_selection(
     return resolved
 
 
-def _normalise_selection_entries(selection: Any) -> list[Any]:
+def _normalise_selection_entries(selection: Any) -> list[ReportSampleSelectionEntry]:
     if isinstance(selection, (str, bytes, Mapping)):
         raise ValueError(_selection_shape_error())
     try:
-        entries = list(selection)
+        raw_entries = list(selection)
     except TypeError as error:
         raise ValueError(_selection_shape_error()) from error
-    if not entries:
+    if not raw_entries:
         raise ValueError(
             "reporting.sample_selection must contain at least one sample. "
             "Use null to keep automatic report sample selection."
         )
-    return entries
+    return [_normalise_selection_entry(entry) for entry in raw_entries]
 
 
 def _selection_shape_error() -> str:
@@ -70,9 +77,17 @@ def _selection_shape_error() -> str:
     )
 
 
-def _resolve_entry(entry: Any, *, sample_ids: list[str], batch_size: int) -> int:
+def _normalise_selection_entry(entry: Any) -> ReportSampleSelectionEntry:
     if isinstance(entry, bool):
         raise ValueError(f"Unsupported report sample selection entry {entry!r}.")
+    if isinstance(entry, (int, str)):
+        return entry
+    raise ValueError(f"Unsupported report sample selection entry {entry!r}.")
+
+
+def _resolve_entry(
+    entry: ReportSampleSelectionEntry, *, sample_ids: list[str], batch_size: int
+) -> int:
     if isinstance(entry, int):
         if entry < 0 or entry >= batch_size:
             raise ValueError(
@@ -82,7 +97,7 @@ def _resolve_entry(entry: Any, *, sample_ids: list[str], batch_size: int) -> int
         return entry
     if isinstance(entry, str):
         return _resolve_string_entry(entry, sample_ids=sample_ids, batch_size=batch_size)
-    raise ValueError(f"Unsupported report sample selection entry {entry!r}.")
+    raise AssertionError(f"Unexpected report sample selection entry {entry!r}.")
 
 
 def _resolve_string_entry(entry: str, *, sample_ids: list[str], batch_size: int) -> int:
