@@ -278,7 +278,9 @@ class RaitapRichHandler(RichHandler):
 
         if is_dev_install():
             header_parts.append(f"[{sub_style}]· {scope}[/]")
-            header_parts.append(f"[{main_style} link={_src_to_uri(src)}]· {src}[/]")
+            header_parts.append(
+                f"[{main_style}]· [/][{main_style} link={_src_to_uri(src)}]{src}[/]"
+            )
             if third_party is not None:
                 header_parts.append(f"[{sub_style}]· via {third_party.capitalize()}[/]")
             return
