@@ -233,7 +233,6 @@ class PDFReporter(BaseReporter):
 
         b.PDF.write(what=doc, where_to=output_path)
 
-        logger.info("PDF report written to: %s", output_path)
         return output_path
 
     def _add_cover_page(self, doc: Any, b: SimpleNamespace) -> None:
