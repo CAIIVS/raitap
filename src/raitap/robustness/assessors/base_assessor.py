@@ -474,7 +474,12 @@ def _prepare_inputs_for_forward(
     """
     prepare = getattr(backend, "_prepare_inputs", None)
     if callable(prepare):
-        return prepare(inputs)
+        prepared = prepare(inputs)
+        if not isinstance(prepared, torch.Tensor):
+            raise TypeError(
+                f"backend._prepare_inputs returned {type(prepared).__name__}, expected Tensor."
+            )
+        return prepared
     if model is not None:
         for parameter in model.parameters():
             target = parameter.device

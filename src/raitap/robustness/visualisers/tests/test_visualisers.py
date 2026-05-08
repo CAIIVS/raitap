@@ -131,6 +131,7 @@ def test_image_pair_visualiser_uses_shared_display_range_for_clean_and_perturbed
     try:
         clean_arr = figure.axes[0].images[0].get_array()
         perturbed_arr = figure.axes[1].images[0].get_array()
+        assert clean_arr is not None and perturbed_arr is not None
         # Same display range -> images differ by exactly the perturbation, not by a stretched scale.
         assert clean_arr.shape == perturbed_arr.shape
         diff = abs(float(perturbed_arr.mean()) - float(clean_arr.mean()))
