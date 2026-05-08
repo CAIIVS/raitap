@@ -11,7 +11,7 @@ model's robustness against perturbations:
   example exists within the budget (auto_LiRPA, alpha-beta-CROWN, ...). Outcomes are
   verified / falsified / unknown.
 
-A single :class:`RobustnessSemantics` carries this distinction so that downstream
+A single ``RobustnessSemantics`` carries this distinction so that downstream
 result handling, reporting, and visualiser-compatibility checks can branch on
 ``method_kind`` instead of duck-typing.
 """
@@ -142,7 +142,7 @@ class RobustnessVisualisationContext:
 class AssessorAdapter(Protocol):
     """Protocol every assessor adapter must satisfy.
 
-    Mirrors :class:`raitap.transparency.contracts.ExplainerAdapter` but for the
+    Mirrors ``raitap.transparency.contracts.ExplainerAdapter`` but for the
     robustness pipeline: ``assess(model, inputs, targets, …)`` instead of
     ``explain(model, inputs, …)``.
     """
@@ -172,7 +172,7 @@ class AssessorAdapter(Protocol):
 
 @dataclass(frozen=True)
 class VerificationOutcome:
-    """Per-sample result returned by a :class:`FormalVerificationAssessor`.
+    """Per-sample result returned by a ``FormalVerificationAssessor``.
 
     ``counter_example`` is set only when the verifier produced an explicit
     falsification; ``lower_bounds`` / ``upper_bounds`` are per-class logit bounds

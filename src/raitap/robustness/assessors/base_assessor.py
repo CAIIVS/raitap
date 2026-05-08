@@ -3,13 +3,13 @@
 Three layers, mirroring transparency's split between framework-owned and
 adapter-owned pipelines:
 
-* :class:`BaseAssessor` — root: declares ``method_kind`` and the no-op
+* ``BaseAssessor`` - root: declares ``method_kind`` and the no-op
   ``check_backend_compat`` default.
-* :class:`EmpiricalAttackAssessor` — framework owns ``assess()``; subclasses
-  implement only :meth:`generate_adversarial`.
-* :class:`FormalVerificationAssessor` — framework owns ``assess()``; subclasses
-  implement only :meth:`verify_sample` and return a per-sample
-  :class:`~raitap.robustness.contracts.VerificationOutcome`.
+* ``EmpiricalAttackAssessor`` - framework owns ``assess()``; subclasses
+  implement only ``generate_adversarial``.
+* ``FormalVerificationAssessor`` - framework owns ``assess()``; subclasses
+  implement only ``verify_sample`` and return a per-sample
+  ``VerificationOutcome``.
 """
 
 from __future__ import annotations
@@ -283,7 +283,7 @@ class EmpiricalAttackAssessor(BaseAssessor, ABC):
 
 
 class FormalVerificationAssessor(BaseAssessor, ABC):
-    """Formal-verification adapter: subclass implements per-sample :meth:`verify_sample`."""
+    """Formal-verification adapter: subclass implements per-sample ``verify_sample``."""
 
     method_kind: ClassVar[MethodKind] = MethodKind.FORMAL_VERIFICATION
 

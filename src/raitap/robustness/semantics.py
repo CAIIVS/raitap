@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class AssessorSemanticsHints:
-    """Per-algorithm metadata read by :func:`assessor_semantics`."""
+    """Per-algorithm metadata read by ``assessor_semantics``."""
 
     method_kind: MethodKind
     threat_model: ThreatModel
@@ -174,7 +174,7 @@ def _registry_for(assessor: object) -> Mapping[str, AssessorSemanticsHints]:
 
     Each adapter declares its own registry on the class so semantics doesn't
     have to branch on framework names. Adding a new framework = subclass
-    :class:`BaseAssessor` and set the ClassVar; no edits here required.
+    ``BaseAssessor`` and set the ClassVar; no edits here required.
     """
     registry = getattr(type(assessor), "algorithm_registry", None)
     if registry is None:
@@ -301,7 +301,7 @@ def assessor_semantics(
     sample_ids: list[str] | None = None,
     sample_names: list[str] | None = None,
 ) -> RobustnessSemantics:
-    """Build a :class:`RobustnessSemantics` from the configured assessor and its kwargs.
+    """Build a ``RobustnessSemantics`` from the configured assessor and its kwargs.
 
     Budget fields (``epsilon``, ``step_size``, ``steps``) live in only one of the
     two YAML blocks per framework, governed by the assessor's

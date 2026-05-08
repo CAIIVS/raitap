@@ -280,7 +280,7 @@ def check_assessor_visualiser_compat(
 
 
 class RobustnessAssessment:
-    """Factory entry-point mirroring :class:`raitap.transparency.factory.Explanation`."""
+    """Factory entry-point mirroring ``raitap.transparency.factory.Explanation``."""
 
     def __new__(
         cls,

@@ -27,7 +27,7 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
     Multi-epsilon sweeps (passing a list to ``epsilons`` so foolbox returns a
     per-eps list of tensors) are intentionally **not** supported in this adapter
     — they would change the result tensor shape across configurations and break
-    the uniform :class:`raitap.robustness.results.RobustnessResult` contract.
+    the uniform ``RobustnessResult`` contract.
     A future ``MultiEpsilonAssessor`` will own that surface.
     """
 

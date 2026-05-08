@@ -90,7 +90,7 @@ class RobustnessMetrics:
 
     ``clean_accuracy`` is always populated. Empirical-only / verifier-only fields
     are populated by the matching base assessor pipeline; the unused half stays
-    ``None`` and is dropped from :meth:`as_dict`.
+    ``None`` and is dropped from ``as_dict``.
     """
 
     clean_accuracy: float
