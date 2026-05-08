@@ -14,7 +14,7 @@ from PIL import Image
 from raitap.data.utils import download_file
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 
-from .samples import SAMPLE_SOURCES, _load_sample
+from .samples import SAMPLE_SOURCES, _load_sample, resolve_sample_labels_path
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +112,7 @@ class Data(Trackable):
         if not labels_source:
             return None
 
-        labels_path = get_source_path(labels_source)
+        labels_path = get_source_path(labels_source, kind="labels")
         labels_df = _load_tabular_frame(labels_path)
         if labels_df.empty:
             warnings.warn(
@@ -303,16 +303,22 @@ def _load_tensor_from_path(path: Path) -> torch.Tensor:
     return torch.from_numpy(_load_numpy_from_path(path))
 
 
-def get_source_path(source: str) -> Path:
+def get_source_path(source: str, *, kind: str = "data") -> Path:
     """
     Obtain the local path to the specified source.
-    There are two possible cases:
-    1. URL (``http://`` / ``https://``) → download to a cache, of which the path is returned.
-    2. Existing local path → returned as-is.
 
+    Resolution order:
+
+    1. URL (``http://`` / ``https://``) → download to a cache, return file path.
+    2. Existing local path → returned as-is.
+    3. Named demo sample (key in ``SAMPLE_SOURCES``) → download bundle, return
+       cache directory for ``kind="data"`` or the bundled labels CSV for
+       ``kind="labels"``.
 
     Args:
-        source: URL or local path.
+        source: URL, local path, or sample name.
+        kind: ``"data"`` (default) returns sample image directories;
+            ``"labels"`` returns the sample-bundled ``labels.csv``.
 
     Returns:
         Local :class:`~pathlib.Path` (file or directory).
@@ -333,11 +339,26 @@ def get_source_path(source: str) -> Path:
     if path.exists():
         return path
 
+    if source in SAMPLE_SOURCES:
+        if kind == "labels":
+            labels_path = resolve_sample_labels_path(source)
+            if labels_path is None:
+                raise ValueError(
+                    f"Sample {source!r} does not ship ground-truth labels.\n"
+                    "Set ``data.labels.source`` to a labels file (CSV/TSV/Parquet) instead."
+                )
+            return labels_path
+        # ``kind="data"`` — materialise the image bundle and return its directory.
+        from .samples import _resolve_sample
+
+        cache_dir = _resolve_sample(source)
+        assert cache_dir is not None  # guaranteed by SAMPLE_SOURCES membership
+        return cache_dir
+
     demo_samples = ", ".join(f'"{s}"' for s in SAMPLE_SOURCES)
     raise ValueError(
         f"Data source {source!r} could not be resolved.\n"
-        f"Expected a URL or a local path.\n"
-        f"For named demo samples use load_data directly. Known demo samples: {demo_samples}"
+        f"Expected a URL, local path, or sample name. Known samples: {demo_samples}"
     )
 
 

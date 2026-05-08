@@ -107,6 +107,21 @@ SAMPLE_SOURCES: dict[str, list[tuple[str, str]]] = {
 
 _CACHE_DIR = Path.home() / ".cache" / "raitap"
 
+# Per-sample ground-truth labels keyed by image filename. Filled only for
+# samples whose labels can be supplied honestly (e.g. ``imagenet_samples``
+# matches a 1000-class ImageNet model). Other samples ship without labels —
+# ``data.labels.source`` simply has nothing to resolve to.
+SAMPLE_LABELS: dict[str, dict[str, int]] = {
+    "imagenet_samples": {
+        "tench.jpg": 0,
+        "shih_tzu.jpg": 155,
+        "golden_retriever.jpg": 207,
+        "tiger_cat.jpg": 282,
+    },
+}
+
+_LABELS_FILENAME = "labels.csv"
+
 
 def _resolve_sample(name: str) -> Path | None:
     """
@@ -128,7 +143,30 @@ def _resolve_sample(name: str) -> Path | None:
         if not dest.exists():
             logger.info("Downloading %s...", filename)
             download_file(url, dest)
+    _materialise_sample_labels(name, cache_dir)
     return cache_dir
+
+
+def _materialise_sample_labels(name: str, cache_dir: Path) -> None:
+    """Write ``labels.csv`` into ``cache_dir`` for samples that ship labels."""
+    labels = SAMPLE_LABELS.get(name)
+    if not labels:
+        return
+    dest = cache_dir / _LABELS_FILENAME
+    if dest.exists():
+        return
+    lines = ["image,label", *(f"{filename},{idx}" for filename, idx in labels.items())]
+    dest.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def resolve_sample_labels_path(name: str) -> Path | None:
+    """Return the labels CSV for a known sample, or ``None`` if it has none."""
+    if name not in SAMPLE_LABELS:
+        return None
+    cache_dir = _resolve_sample(name)
+    if cache_dir is None:
+        return None
+    return cache_dir / _LABELS_FILENAME
 
 
 # Default resize for demo images. Source images have inconsistent dimensions,

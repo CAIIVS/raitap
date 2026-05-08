@@ -61,6 +61,46 @@ class TestGetSourcePath:
         with pytest.raises(ValueError, match="could not be resolved"):
             get_source_path("/totally/nonexistent/path/data.csv")
 
+    def test_sample_name_resolves_to_cache_dir(self, tmp_path: Path) -> None:
+        with patch("raitap.data.samples._CACHE_DIR", tmp_path), patch(
+            "raitap.data.samples.download_file"
+        ) as mock_download:
+
+            def _create_file(_url: str, dest: Path) -> None:
+                dest.write_bytes(b"x")
+
+            mock_download.side_effect = _create_file
+            result = get_source_path("imagenet_samples")
+
+        assert result.is_dir()
+        assert result == tmp_path / "imagenet_samples"
+
+    def test_sample_name_labels_resolves_to_csv(self, tmp_path: Path) -> None:
+        with patch("raitap.data.samples._CACHE_DIR", tmp_path), patch(
+            "raitap.data.samples.download_file"
+        ) as mock_download:
+
+            def _create_file(_url: str, dest: Path) -> None:
+                dest.write_bytes(b"x")
+
+            mock_download.side_effect = _create_file
+            result = get_source_path("imagenet_samples", kind="labels")
+
+        assert result.is_file()
+        assert result.name == "labels.csv"
+        content = result.read_text(encoding="utf-8")
+        assert "image,label" in content
+        assert "tench.jpg,0" in content
+        assert "golden_retriever.jpg,207" in content
+
+    def test_sample_name_without_labels_raises(self, tmp_path: Path) -> None:
+        with patch("raitap.data.samples._CACHE_DIR", tmp_path), patch(
+            "raitap.data.samples.download_file"
+        ) as mock_download:
+            mock_download.side_effect = lambda _url, dest: dest.write_bytes(b"x")
+            with pytest.raises(ValueError, match="does not ship ground-truth labels"):
+                get_source_path("malaria", kind="labels")
+
     def test_url_downloads_and_caches(self, tmp_path: Path) -> None:
         fake_content = b"fake file content"
         mock_response = MagicMock()

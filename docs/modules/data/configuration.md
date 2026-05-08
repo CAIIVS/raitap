@@ -14,8 +14,10 @@
 :option: source
 :allowed: string, null
 :default: null
-:description: Path to a local data directory, or a named sample set such as
-  `"imagenet_samples"`.
+:description: Path to a local data directory or file, a URL, or a named
+  sample set such as `"imagenet_samples"`. Sample names download on first
+  use into `~/.cache/raitap/<name>/`; the same name is also accepted by
+  `labels.source` when the sample bundles ground-truth labels.
 
 :option: forward_batch_size
 :allowed: int, null
@@ -29,8 +31,10 @@
 :option: labels.source
 :allowed: string, null
 :default: null
-:description: Optional path to a labels file. Supported formats are CSV, TSV,
-  and Parquet.
+:description: Optional path to a labels file (CSV, TSV, or Parquet), URL, or
+  named sample set. When set to a sample name (e.g. `"imagenet_samples"`),
+  raitap resolves to the labels CSV bundled with that sample. Sample sets
+  without bundled labels raise an error.
 
 :option: labels.id_column
 :allowed: string, null
