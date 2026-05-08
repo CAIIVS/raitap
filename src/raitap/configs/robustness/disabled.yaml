@@ -1,3 +1,0 @@
-# Disables robustness assessment. The pipeline iterates over `config.robustness`
-# entries; an empty dict means no assessment is run.
-{}
