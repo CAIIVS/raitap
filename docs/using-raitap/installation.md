@@ -117,16 +117,6 @@ uv add "raitap[captum]"
 pip install "raitap[captum]"
 ```
 
-For the robustness module, the equivalent umbrella extra is `robustness` (pulls in both supported frameworks); single-framework extras are `torchattacks` and `foolbox`:
-
-```{install-tabs}
-:uv:
-uv add "raitap[robustness]"
-
-:pip:
-pip install "raitap[robustness]"
-```
-
 ### Combine multiple extras
 
 Of course, such optional dependency groups can be combined. For instance:
