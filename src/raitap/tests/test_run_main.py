@@ -454,14 +454,20 @@ def test_run_with_tracking_config_but_no_target_skips_tracking(monkeypatch: Monk
     tracker_factory.assert_not_called()
 
 
-def test_run_without_tracking_raises_if_no_explainers(monkeypatch: MonkeyPatch) -> None:
+def test_run_without_tracking_raises_if_no_explainers_or_assessors(
+    monkeypatch: MonkeyPatch,
+) -> None:
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     data = SimpleNamespace(tensor=torch.randn(2, 3), sample_ids=None, labels=None)
-    config = SimpleNamespace(transparency={}, metrics=SimpleNamespace(num_classes=None))
+    config = SimpleNamespace(
+        transparency={},
+        robustness={},
+        metrics=SimpleNamespace(num_classes=None),
+    )
 
     monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: False)
 
-    with pytest.raises(ValueError, match="No explainers configured"):
+    with pytest.raises(ValueError, match="No explainers or robustness assessors configured"):
         run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
 
