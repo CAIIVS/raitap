@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 
-from raitap.configs import cfg_to_dict, resolve_run_dir
+from raitap.configs import cfg_to_dict
 from raitap.data import Data, infer_data_input_metadata
 from raitap.metrics import (
     Metrics,
@@ -222,17 +222,9 @@ def _resolve_forward_batch_size(config: AppConfig) -> int:
 
 
 def print_summary(config: AppConfig, model: Model) -> None:
-    logger.info("%s", "=" * 60)
-    logger.info("RAITAP Assessment")
-    logger.info("%s", "=" * 60)
-    logger.info("\nExperiment: %s", config.experiment_name)
-    logger.info("Model: %s", config.model.source)
-    logger.info("Dataset: %s", config.data.name)
-    logger.info("Hardware: %s", model.backend.hardware_label)
-    logger.info("Explainers: %s", list(config.transparency.keys()))
-    logger.info("Robustness: %s", list((getattr(config, "robustness", None) or {}).keys()) or "off")
-    logger.info("Metrics: %s", "on" if metrics_run_enabled(config) else "off")
-    logger.info("Output: %s\n", resolve_run_dir(config))
+    from raitap.utils.console import print_summary_panel
+
+    print_summary_panel(config, model)
 
 
 def _resolve_explainer_runtime_kwargs(

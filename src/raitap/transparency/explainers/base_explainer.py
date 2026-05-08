@@ -263,13 +263,10 @@ class AttributionOnlyExplainer(AbstractExplainer, ABC):
         total_batches: int,
         progress_desc: str | None,
     ) -> Any:
-        try:
-            from tqdm.auto import tqdm
-        except ImportError:
-            return starts
+        from raitap.utils.console import iter_with_progress
 
         desc = progress_desc or f"{getattr(self, 'algorithm', type(self).__name__)} batches"
-        return tqdm(starts, total=total_batches, desc=desc)
+        return iter_with_progress(starts, total=total_batches, desc=desc)
 
     def _slice_kwargs_for_batch(
         self,

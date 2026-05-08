@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import sys
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, cast
@@ -244,7 +243,7 @@ def test_hydra_main_loads_custom_config_name_from_cwd_and_keeps_packaged_default
 
 
 def test_print_summary_logs_hydra_resolved_output_dir(
-    monkeypatch: MonkeyPatch, caplog: pytest.LogCaptureFixture
+    monkeypatch: MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     class _HydraRuntime:
         output_dir = "hydra-output"
@@ -264,10 +263,10 @@ def test_print_summary_logs_hydra_resolved_output_dir(
     )
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
 
-    with caplog.at_level(logging.INFO):
-        run_pipeline.print_summary(config, model)  # type: ignore[arg-type]
+    run_pipeline.print_summary(config, model)  # type: ignore[arg-type]
 
-    assert any("Output: hydra-output" in message for message in caplog.messages)
+    captured = capsys.readouterr()
+    assert "hydra-output" in captured.out
 
 
 def test_run_without_tracking_returns_outputs(monkeypatch: MonkeyPatch) -> None:
