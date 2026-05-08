@@ -53,10 +53,6 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
     if metrics_section is not None:
         sections.append(metrics_section)
 
-    robustness_section = _build_robustness_section(outputs, assets_dir=assets_dir)
-    if robustness_section is not None:
-        sections.append(robustness_section)
-
     global_section = _build_global_section(outputs, assets_dir=assets_dir)
     if global_section is not None:
         sections.append(global_section)
@@ -72,6 +68,10 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
     )
     if local_section is not None:
         sections.append(local_section)
+
+    robustness_section = _build_robustness_section(outputs, assets_dir=assets_dir)
+    if robustness_section is not None:
+        sections.append(robustness_section)
 
     manifest = ReportManifest(
         kind="run",
@@ -105,6 +105,7 @@ def build_merged_report(
         "Global Explanations": [],
         "Cohort Explanations": [],
         "Local Explanations": [],
+        "Robustness": [],
     }
     seen_metrics_rows: set[tuple[tuple[str, str], ...]] = set()
 
