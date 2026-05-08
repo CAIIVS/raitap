@@ -117,6 +117,7 @@ class MLFlowTracker(BaseTracker):
         # Track spawned subprocesses for cleanup
         self._server_process: Any = None
         self._ui_process: Any = None
+        self._run_ui_path: str | None = None
 
         self._prepare_local_mlflow_paths()
         self._ensure_server_running()
@@ -124,7 +125,8 @@ class MLFlowTracker(BaseTracker):
         self._mlflow.set_tracking_uri(self.tracking_uri)
         self._ensure_direct_store_experiment()
         self._mlflow.set_experiment(config.experiment_name)
-        self._mlflow.start_run(run_name=config.experiment_name)
+        run = self._mlflow.start_run(run_name=config.experiment_name)
+        self._run_ui_path = self._build_run_ui_path(run)
 
     def terminate(self, successfully: bool = True) -> None:
         from mlflow.entities import RunStatus
@@ -244,8 +246,9 @@ class MLFlowTracker(BaseTracker):
         import webbrowser
 
         if self.tracking_uri.startswith("http"):
-            raitap_log.info("Opening MLflow UI at %s", self.tracking_uri)
-            webbrowser.open(self.tracking_uri)
+            url = self._mlflow_ui_url(self.tracking_uri)
+            raitap_log.info("Opening MLflow UI at %s", url)
+            webbrowser.open(url)
         else:
             host = DEFAULT_MLFLOW_UI_HOST
             port = DEFAULT_MLFLOW_UI_PORT
@@ -274,7 +277,23 @@ class MLFlowTracker(BaseTracker):
                     self.tracking_uri,
                 )
 
-            webbrowser.open(url)
+            webbrowser.open(self._mlflow_ui_url(url))
+
+    @staticmethod
+    def _build_run_ui_path(run: Any) -> str | None:
+        run_info = getattr(run, "info", None)
+        experiment_id = getattr(run_info, "experiment_id", None)
+        run_id = getattr(run_info, "run_id", None)
+        if not isinstance(experiment_id, str) or not isinstance(run_id, str):
+            return None
+        if not experiment_id or not run_id:
+            return None
+        return f"#/experiments/{experiment_id}/runs/{run_id}"
+
+    def _mlflow_ui_url(self, base_url: str) -> str:
+        if self._run_ui_path is None:
+            return base_url
+        return f"{base_url.rstrip('/')}/{self._run_ui_path}"
 
     def _prepare_local_mlflow_paths(self) -> None:
         sqlite_path = self._sqlite_file_path(self.backend_store_uri)
