@@ -67,6 +67,18 @@ _PATH_TRIM = '.,;:)]}"'
 _LOGGER_HEADER_RE = re.compile(r"^(?P<head>[A-Z][\w\- ]{1,40}):\s+(?P<msg>.+)$", re.DOTALL)
 
 
+def _src_to_uri(src: str) -> str:
+    """Build a ``file://`` URI from a ``path:line`` string for OSC 8 hyperlinks."""
+    from pathlib import Path
+
+    path_only = src.rsplit(":", 1)[0] if ":" in src else src
+    try:
+        return Path(path_only).as_uri()
+    except (ValueError, OSError):
+        normalized = path_only.replace("\\", "/")
+        return f"file:///{normalized.lstrip('/')}"
+
+
 def _linkify_message(message: str) -> Text:
     """Wrap any path-like substrings in a cyan OSC 8 hyperlink."""
     from pathlib import Path
@@ -175,7 +187,7 @@ class RaitapRichHandler(RichHandler):
             sub_match = _SUBSYSTEM_RE.search(src)
             scope = sub_match.group("sub").capitalize() if sub_match else cat
             header_parts.append(f"[{sub_style}]· {scope}[/]")
-            header_parts.append(f"[{main_style}]· {src}[/]")
+            header_parts.append(f"[{main_style} link={_src_to_uri(src)}]· {src}[/]")
             body = warn_match.group("msg").strip()
         else:
             head_match = _LOGGER_HEADER_RE.match(message.strip())
