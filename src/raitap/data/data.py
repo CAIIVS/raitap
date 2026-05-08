@@ -4,7 +4,7 @@ import logging
 import warnings
 from collections import Counter
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 import numpy as np
 import pandas as pd
@@ -61,7 +61,7 @@ class Data(Trackable):
             )
 
         if source in SAMPLE_SOURCES:
-            return _load_sample(source), None
+            return _load_sample(source)
 
         if source.startswith(("http://", "https://")):
             path = get_source_path(source)
@@ -212,7 +212,7 @@ def load_tensor_from_source(source: str, n_samples: int | None = None) -> torch.
             or the file type is not supported.
     """
     if source in SAMPLE_SOURCES:
-        tensor = _load_sample(source)
+        tensor, _ = _load_sample(source)
     elif source.startswith(("http://", "https://")):
         path = get_source_path(source)
         tensor = _load_tensor_from_path(path)
@@ -243,7 +243,8 @@ def load_numpy_from_source(source: str, n_samples: int | None = None) -> np.ndar
     all other paths are torch-free.
     """
     if source in SAMPLE_SOURCES:
-        arr: np.ndarray[Any, Any] = _load_sample(source).numpy()
+        sample_tensor, _ = _load_sample(source)
+        arr: np.ndarray[Any, Any] = sample_tensor.numpy()
     elif source.startswith(("http://", "https://")):
         path = get_source_path(source)
         arr = _load_numpy_from_path(path)
@@ -303,6 +304,9 @@ def _load_tensor_from_path(path: Path) -> torch.Tensor:
     return torch.from_numpy(_load_numpy_from_path(path))
 
 
+_VALID_SOURCE_KINDS: Final[frozenset[str]] = frozenset({"data", "labels"})
+
+
 def get_source_path(source: str, *, kind: str = "data") -> Path:
     """
     Obtain the local path to the specified source.
@@ -324,8 +328,11 @@ def get_source_path(source: str, *, kind: str = "data") -> Path:
         Local :class:`~pathlib.Path` (file or directory).
 
     Raises:
-        ValueError: If *source* cannot be resolved.
+        ValueError: If *source* cannot be resolved or *kind* is not one of
+            ``"data"`` or ``"labels"``.
     """
+    if kind not in _VALID_SOURCE_KINDS:
+        raise ValueError(f"Invalid kind {kind!r}; expected one of {sorted(_VALID_SOURCE_KINDS)}.")
     if source.startswith(("http://", "https://")):
         filename = source.rstrip("/").split("/")[-1] or "download"
         dest = _CACHE_DIR / "downloads" / filename

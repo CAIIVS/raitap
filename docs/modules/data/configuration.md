@@ -3,7 +3,7 @@
 
 :option: name
 :allowed: string
-:default: "isic2018"
+:default: "imagenet_samples"
 :description: Name shown in outputs and tracking metadata. 
 
 :option: description

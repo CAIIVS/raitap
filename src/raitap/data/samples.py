@@ -148,14 +148,21 @@ def _resolve_sample(name: str) -> Path | None:
 
 
 def _materialise_sample_labels(name: str, cache_dir: Path) -> None:
-    """Write ``labels.csv`` into ``cache_dir`` for samples that ship labels."""
+    """Write ``labels.csv`` into ``cache_dir`` for samples that ship labels.
+
+    Rows are sorted by filename to match :func:`_load_sample`, which sorts
+    image files alphabetically. This guarantees that even row-order label
+    alignment (used when ``sample_ids`` is unavailable) produces the right
+    label per image.
+    """
     labels = SAMPLE_LABELS.get(name)
     if not labels:
         return
     dest = cache_dir / _LABELS_FILENAME
     if dest.exists():
         return
-    lines = ["image,label", *(f"{filename},{idx}" for filename, idx in labels.items())]
+    rows = sorted(labels.items())
+    lines = ["image,label", *(f"{filename},{idx}" for filename, idx in rows)]
     dest.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -174,9 +181,9 @@ def resolve_sample_labels_path(name: str) -> Path | None:
 _DEMO_SIZE = 224
 
 
-def _load_sample(name: str, size: int = _DEMO_SIZE) -> torch.Tensor:
+def _load_sample(name: str, size: int = _DEMO_SIZE) -> tuple[torch.Tensor, list[str]]:
     """
-    Load a named demo dataset as a resized tensor.
+    Load a named demo dataset as a resized tensor plus per-row sample IDs.
 
     Downloads files if needed, then resizes each image to ``(size, size)`` so
     they can be stacked into a batch. **Only used for demo samples** — consumer
@@ -187,7 +194,10 @@ def _load_sample(name: str, size: int = _DEMO_SIZE) -> torch.Tensor:
         size: Edge length to resize images to (default 224).
 
     Returns:
-        Float32 tensor of shape ``(N, 3, size, size)`` in ``[0, 1]``.
+        Tuple of ``(tensor, sample_ids)`` where ``tensor`` is float32 with
+        shape ``(N, 3, size, size)`` in ``[0, 1]`` and ``sample_ids`` lists
+        the source filenames in the same row order, so ``data.labels.source``
+        can align labels by filename.
     """
     directory = _resolve_sample(name)
     if directory is None:
@@ -203,4 +213,4 @@ def _load_sample(name: str, size: int = _DEMO_SIZE) -> torch.Tensor:
         img = Image.open(f).convert("RGB").resize((size, size), Image.Resampling.BILINEAR)
         arr = np.array(img)
         tensors.append(torch.from_numpy(arr).permute(2, 0, 1).float() / 255.0)
-    return torch.stack(tensors)
+    return torch.stack(tensors), [f.name for f in files]

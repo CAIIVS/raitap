@@ -104,6 +104,12 @@ class TestGetSourcePath:
             with pytest.raises(ValueError, match="does not ship ground-truth labels"):
                 get_source_path("malaria", kind="labels")
 
+    def test_invalid_kind_raises(self, tmp_path: Path) -> None:
+        f = tmp_path / "data.csv"
+        f.write_text("a,b\n1,2")
+        with pytest.raises(ValueError, match="Invalid kind"):
+            get_source_path(str(f), kind="lables")
+
     def test_url_downloads_and_caches(self, tmp_path: Path) -> None:
         fake_content = b"fake file content"
         mock_response = MagicMock()
@@ -389,6 +395,50 @@ class TestLoadData:
             data = Data(cfg)
         assert data.tensor.shape == (1, 3, 32, 32)
 
+    def test_sample_labels_align_with_sample_images(self, tmp_path: Path) -> None:
+        from raitap.data.samples import SAMPLE_LABELS
+
+        with (
+            patch("raitap.data.samples._CACHE_DIR", tmp_path),
+            patch("raitap.data.samples.download_file") as mock_download,
+            patch("raitap.data.samples._DEMO_SIZE", 32),
+        ):
+            mock_download.side_effect = lambda _url, dest: _write_image(dest, 32, 32)
+            cfg = cast(
+                "AppConfig",
+                type(
+                    "AppConfig",
+                    (),
+                    {
+                        "data": type(
+                            "DataConfig",
+                            (),
+                            {
+                                "source": "imagenet_samples",
+                                "name": "imagenet_samples",
+                                "labels": type(
+                                    "LabelsConfig",
+                                    (),
+                                    {
+                                        "source": "imagenet_samples",
+                                        "id_column": "image",
+                                        "column": "label",
+                                        "encoding": "index",
+                                    },
+                                )(),
+                            },
+                        )()
+                    },
+                )(),
+            )
+            data = Data(cfg)
+
+        expected_ids = sorted(SAMPLE_LABELS["imagenet_samples"].keys())
+        assert data.sample_ids == expected_ids
+        expected_labels = [SAMPLE_LABELS["imagenet_samples"][fn] for fn in expected_ids]
+        assert data.labels is not None
+        assert data.labels.tolist() == expected_labels
+
 
 class TestDescribeData:
     def test_describe_data_includes_shape_dtype_and_sample_shape(self, tmp_path: Path) -> None:
@@ -501,11 +551,13 @@ class TestSampleSources:
             _write_image(cache_dir / filename, 64, 64)
 
         with patch("raitap.data.samples._CACHE_DIR", tmp_path):
-            tensor = _load_sample(name, size=32)
+            tensor, sample_ids = _load_sample(name, size=32)
 
         n = len(SAMPLE_SOURCES[name])
         assert tensor.shape == (n, 3, 32, 32)
         assert tensor.dtype == torch.float32
+        assert len(sample_ids) == n
+        assert sample_ids == sorted(sample_ids)
 
     def test_load_sample_unknown_raises(self) -> None:
         with pytest.raises(ValueError, match="not a known demo sample"):
