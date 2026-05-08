@@ -117,6 +117,10 @@ def resolve_diagnostic_from_frames(default_file: str, default_line: int) -> Diag
                 rai_path = path
                 rai_line = getattr(frame, "f_lineno", default_line)
                 rai_sub = sub
+        # Both pieces of information resolved — no need to keep walking the
+        # rest of the (potentially deep) stack just to confirm.
+        if rai_path is not None and third_party is not None:
+            break
         frame = getattr(frame, "f_back", None)
 
     if rai_path is None:

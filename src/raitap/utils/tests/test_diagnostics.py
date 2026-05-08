@@ -52,6 +52,44 @@ class TestResolveDiagnosticFromFrames:
         assert _classify_subsystem("/x/raitap/utils/console.py") == "utils"
         assert _classify_subsystem("/no/raitap/here.py") is None
 
+    def test_resolves_subsystem_when_raitap_frame_on_stack(self) -> None:
+        """Walk should pick up the first ``raitap/<subsystem>/`` frame and
+        report the matching subsystem and file. Synthesise the frame chain
+        with ``types.SimpleNamespace`` to avoid having to mount real Python
+        modules under ``raitap/metrics/``.
+        """
+        import types
+        from unittest.mock import patch
+
+        from raitap.utils import diagnostics as diag_mod
+
+        # Bottom-up chain: utils/console.py (filtered) → metrics/inputs.py
+        # (the qualifying raitap frame) → captum/foo.py (third-party).
+        captum_frame = types.SimpleNamespace(
+            f_code=types.SimpleNamespace(co_filename="/x/site-packages/captum/foo.py"),
+            f_lineno=10,
+            f_back=None,
+        )
+        metrics_frame = types.SimpleNamespace(
+            f_code=types.SimpleNamespace(co_filename="/x/raitap/metrics/inputs.py"),
+            f_lineno=99,
+            f_back=captum_frame,
+        )
+        utils_frame = types.SimpleNamespace(
+            f_code=types.SimpleNamespace(co_filename="/x/raitap/utils/console.py"),
+            f_lineno=1,
+            f_back=metrics_frame,
+        )
+
+        with patch.object(diag_mod.sys, "_getframe", return_value=utils_frame):
+            diag = resolve_diagnostic_from_frames("/orig.py", 1)
+
+        assert diag.subsystem == "metrics"
+        assert diag.file == "/x/raitap/metrics/inputs.py"
+        assert diag.line == 99
+        # third_party detected from a deeper frame, not the default filename.
+        assert diag.third_party_lib == "captum"
+
     def test_classify_subsystem_rejects_nested_raitap_dir_names(self) -> None:
         """CI checkouts at ``/work/raitap/raitap/.venv/...`` must not match
         ``raitap`` itself as a subsystem when the first ``raitap/`` segment is
