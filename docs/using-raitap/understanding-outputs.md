@@ -25,21 +25,31 @@ outputs/                                      # Hydra's default output directory
         │   ├── report.pdf
         │   ├── report_manifest.json
         │   └── _assets/
-        └── transparency/                     # Transparency module outputs (see below for details)
-            ├── explainerA/                    
-            │   ├── attributions.pt           
-            │   ├── visualisation1.png
-            │   ├── visualisation2.png
-            │   └── metadata.json              
-            └── explainerB/                    
-                ├── attributions.pt           
-                ├── visualisation1.png
-                └── metadata.json              
+        ├── transparency/                     # Transparency module outputs (see below for details)
+        │   ├── explainerA/
+        │   │   ├── attributions.pt
+        │   │   ├── visualisation1.png
+        │   │   ├── visualisation2.png
+        │   │   └── metadata.json
+        │   └── explainerB/
+        │       ├── attributions.pt
+        │       ├── visualisation1.png
+        │       └── metadata.json
+        └── robustness/                       # Robustness module outputs (see below for details)
+            ├── pgd/
+            │   ├── robustness_data.pt
+            │   ├── ImagePairVisualiser_0.png
+            │   └── metadata.json
+            └── fgsm/
+                ├── robustness_data.pt
+                ├── ImagePairVisualiser_0.png
+                └── metadata.json
 ```
 
-The `transparency/` directory keeps the full explainer artifacts for debugging
-and tracking. The `reports/` directory contains the compact report, its
-`report_manifest.json`, and curated report-only figure assets.
+The `transparency/` and `robustness/` directories keep the full assessor
+artifacts for debugging and tracking. The `reports/` directory contains the
+compact report, its `report_manifest.json`, and curated report-only figure
+assets.
 
 You may want to look at each module's output directory for more details:
 
@@ -48,6 +58,11 @@ You may want to look at each module's output directory for more details:
 
 :::{grid-item-card} Transparency
 :link: ../../modules/transparency/output
+:link-type: doc
+:::
+
+:::{grid-item-card} Robustness
+:link: ../../modules/robustness/output
 :link-type: doc
 :::
 

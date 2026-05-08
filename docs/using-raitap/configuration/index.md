@@ -25,6 +25,7 @@ RAITAP's pipeline is composed of modules. Each has their own configuration optio
 Model <../../modules/model/configuration>
 Data <../../modules/data/configuration>
 Transparency <../../modules/transparency/configuration>
+Robustness <../../modules/robustness/configuration>
 Metrics <../../modules/metrics/configuration>
 Tracking <../../modules/tracking/configuration>
 ```
@@ -51,6 +52,13 @@ Configure the input data and labels.
 :link-type: doc
 
 Configure explainers and visualisers.
+:::
+
+:::{grid-item-card} Robustness
+:link: ../../modules/robustness/configuration
+:link-type: doc
+
+Configure adversarial-attack and verification assessors.
 :::
 
 :::{grid-item-card} Metrics
