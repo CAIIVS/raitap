@@ -70,7 +70,7 @@ def mock_subprocess() -> Generator[MagicMock]:
 @pytest.fixture
 def tracker(mock_mlflow: MagicMock) -> MLFlowTracker:
     # Avoid server startup by setting tracking_uri to something non-http
-    config = _make_config(url="./mlruns")
+    config = _make_config(url="sqlite:///mlflow/mlflow.db")
     with patch("raitap.tracking.mlflow_tracker.MLFlowTracker._ensure_server_running"):
         return MLFlowTracker(config)
 
@@ -137,6 +137,21 @@ def test_mlflow_tracker_creates_direct_sqlite_experiment_with_artifact_root(
         artifact_location="./mlflow/artifacts",
     )
     mock_mlflow.set_experiment.assert_called_once_with("test_experiment")
+
+
+def test_mlflow_tracker_reuses_existing_direct_sqlite_experiment(
+    mock_mlflow: MagicMock,
+) -> None:
+    mock_mlflow.get_experiment_by_name.return_value = MagicMock()
+    config = _make_config(url="sqlite:///mlflow/mlflow.db")
+
+    with patch("raitap.tracking.mlflow_tracker.MLFlowTracker._ensure_server_running"):
+        MLFlowTracker(config)
+
+    mock_mlflow.set_tracking_uri.assert_called_once_with("sqlite:///mlflow/mlflow.db")
+    mock_mlflow.create_experiment.assert_not_called()
+    mock_mlflow.set_experiment.assert_called_once_with("test_experiment")
+    mock_mlflow.start_run.assert_called_once_with(run_name="test_experiment")
 
 
 def test_mlflow_tracker_starts_local_server_with_sqlite_backend(
