@@ -186,7 +186,13 @@ class RaitapRichHandler(RichHandler):
 
         body = message
         header_parts = [f"[{main_style}]{icon} {label}[/]"]
-        warn_match = _WARNING_PREFIX_RE.match(message.strip())
+        # Only treat the "<path>:<line>: <Category>: msg" shape as a warnings.warn
+        # payload when it actually came from logging.captureWarnings (logger name
+        # ``py.warnings``). Otherwise an unrelated WARNING that happens to match
+        # the pattern would desync the per-thread origin queue and mislabel the
+        # next real warning.
+        is_py_warning = record.name == "py.warnings"
+        warn_match = _WARNING_PREFIX_RE.match(message.strip()) if is_py_warning else None
         if warn_match:
             cat = warn_match.group("cat")
             src = warn_match.group("src")

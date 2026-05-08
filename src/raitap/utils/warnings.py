@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import re
 import sys
+import threading
 import warnings
 from collections import deque
 from dataclasses import dataclass
@@ -69,10 +70,20 @@ class WarningOrigin:
     third_party_lib: str | None
 
 
-# In-order queue of origins resolved by :func:`_format_warning_compact`. Drained
-# by the rich handler when it parses a warning panel. Single-process / mostly
-# single-threaded use; emit order matches warn order.
-_PENDING_ORIGINS: deque[WarningOrigin] = deque()
+# Per-thread FIFO of origins resolved by :func:`_format_warning_compact`,
+# drained by the rich handler when it parses a warning panel. Thread-local so
+# concurrent ``warnings.warn`` calls (e.g. dataloader workers) can't shuffle
+# origins between unrelated panels. Emit order matches warn order *within* a
+# thread, which is what the warnings/logging pipeline already guarantees.
+_origin_state = threading.local()
+
+
+def _origin_queue() -> deque[WarningOrigin]:
+    queue = getattr(_origin_state, "queue", None)
+    if queue is None:
+        queue = deque()
+        _origin_state.queue = queue
+    return queue
 
 
 def _detect_third_party(path: str) -> str | None:
@@ -167,12 +178,15 @@ def is_dev_install() -> bool:
     try:
         import raitap
 
-        location = (raitap.__file__ or "").replace("\\", "/")
+        location = (raitap.__file__ or "").replace("\\", "/").lower()
     except Exception:
         return False
     if not location:
         return False
-    return "/site-packages/" not in location
+    # ``site-packages`` (PyPI / venv) and ``dist-packages`` (Debian/Ubuntu) both
+    # indicate an installed wheel. Case-insensitive to handle Windows ``Lib``
+    # variants and odd casing in custom layouts.
+    return "/site-packages/" not in location and "/dist-packages/" not in location
 
 
 def docs_url(origin: WarningOrigin) -> str | None:
@@ -189,19 +203,20 @@ def docs_url(origin: WarningOrigin) -> str | None:
 
 def _push_origin(origin: WarningOrigin) -> None:
     """Stash an origin for the rich handler to drain."""
-    _PENDING_ORIGINS.append(origin)
+    _origin_queue().append(origin)
 
 
 def _pop_origin() -> WarningOrigin | None:
     """Pop the next stashed origin, or ``None`` if the queue is empty."""
-    if not _PENDING_ORIGINS:
+    queue = _origin_queue()
+    if not queue:
         return None
-    return _PENDING_ORIGINS.popleft()
+    return queue.popleft()
 
 
 def _clear_origins() -> None:
-    """Test helper: reset the pending-origin queue."""
-    _PENDING_ORIGINS.clear()
+    """Test helper: reset the pending-origin queue for the current thread."""
+    _origin_queue().clear()
 
 
 __all__ = [

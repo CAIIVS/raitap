@@ -110,6 +110,45 @@ class TestIsDevInstall:
         ):
             assert is_dev_install() is False
 
+    def test_dist_packages_treated_as_installed(self) -> None:
+        """Debian/Ubuntu system Python wheels live under ``dist-packages/``."""
+        is_dev_install.cache_clear()
+        with patch("raitap.__file__", "/usr/lib/python3/dist-packages/raitap/__init__.py"):
+            assert is_dev_install() is False
+
+    def test_case_insensitive_site_packages(self) -> None:
+        """Windows venv paths sometimes appear as ``Lib/Site-Packages``."""
+        is_dev_install.cache_clear()
+        with patch(
+            "raitap.__file__",
+            r"C:\Venv\Lib\Site-Packages\raitap\__init__.py",
+        ):
+            assert is_dev_install() is False
+
+
+class TestOriginQueueIsThreadLocal:
+    def test_pushes_in_one_thread_dont_leak_into_another(self) -> None:
+        import threading
+
+        from raitap.utils.warnings import _pop_origin, _push_origin
+
+        sentinel = WarningOrigin(subsystem="metrics", file="/x.py", line=1, third_party_lib=None)
+        _push_origin(sentinel)
+
+        observed: list[WarningOrigin | None] = []
+
+        def _worker() -> None:
+            observed.append(_pop_origin())
+
+        thread = threading.Thread(target=_worker)
+        thread.start()
+        thread.join()
+
+        # Worker thread sees an empty queue (no leak from main thread).
+        assert observed == [None]
+        # Main-thread queue is still intact.
+        assert _pop_origin() == sentinel
+
 
 class TestDocsUrl:
     def test_raitap_subsystem_returns_module_url(self) -> None:
