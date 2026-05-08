@@ -42,6 +42,11 @@ if TYPE_CHECKING:
     from raitap.transparency.results import ExplanationResult, VisualisationResult
 
 
+def _log_phase_start(phase: str, n: int) -> None:
+    suffix = "s" if n > 1 else ""
+    logger.info("Performing %s%s (%d)...", phase, suffix, n)
+
+
 def run(config: AppConfig) -> RunOutputs:
     model = Model(config)
     data = Data(config)
@@ -119,7 +124,7 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
         raise ValueError("No explainers or robustness assessors configured")
 
     if explainers:
-        logger.info("Performing transparency assessment (%d)...", len(explainers))
+        _log_phase_start("transparency assessment", len(explainers))
     for name, _explainer_cfg in explainers:
         runtime_kwargs = _resolve_explainer_runtime_kwargs(
             config.transparency[name],
@@ -142,7 +147,7 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
     robustness_results: list[RobustnessResult] = []
     robustness_visualisations: list[RobustnessVisualisationResult] = []
     if robustness_assessors:
-        logger.info("Performing robustness assessment (%d)...", len(robustness_assessors))
+        _log_phase_start("robustness assessment", len(robustness_assessors))
     robustness_targets = _robustness_targets(labels=labels, forward_output=forward_output)
     for name in robustness_assessors:
         result = RobustnessAssessment(
