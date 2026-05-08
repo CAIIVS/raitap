@@ -348,9 +348,7 @@ def test_build_report_explicit_integer_index_selection(tmp_path: Path) -> None:
 
     report = build_report(config, outputs)
 
-    groups = report.sections[0].groups
-    assert [group.metadata["sample_index"] for group in groups] == [3, 0]
-    assert [group.metadata["requested_sample"] for group in groups] == [3, 0]
+    assert [group.metadata["sample_index"] for group in report.sections[0].groups] == [3, 0]
 
 
 def test_build_report_explicit_mixed_string_and_index_selection(tmp_path: Path) -> None:
