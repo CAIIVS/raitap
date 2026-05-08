@@ -205,9 +205,9 @@ def _build_robustness_section(outputs: RunOutputs, *, assets_dir: Path) -> Repor
         assessor_name = result.assessor_name or result.run_dir.name
         method_kind_value = result.method_kind.value
         if result.method_kind == MethodKind.EMPIRICAL_ATTACK:
-            heading = f"Adversarial attack — {result.algorithm} ({assessor_name})"
+            heading = f"Adversarial attack - {result.algorithm} ({assessor_name})"
         else:
-            heading = f"Robustness certification — {result.algorithm} ({assessor_name})"
+            heading = f"Robustness certification - {result.algorithm} ({assessor_name})"
 
         budget = result.semantics.budget
         table_rows: list[tuple[str, str]] = [
