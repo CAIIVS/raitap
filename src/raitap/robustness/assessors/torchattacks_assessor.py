@@ -71,11 +71,14 @@ class TorchattacksAssessor(EmpiricalAttackAssessor):
         target_kwargs = self._maybe_set_targeted(attack, kwargs)
 
         device = _model_device(model) or inputs.device
-        inputs_dev = inputs.to(device)
-        targets_dev = targets.to(device)
+        # torchattacks methods (PGDL2, CW, DeepFool, Square, ...) call ``.view(...)``
+        # internally, which needs contiguous memory. RAITAP's image loader produces
+        # NCHW tensors via HWC->CHW transpose, so we make inputs contiguous defensively.
+        inputs_dev = inputs.to(device).contiguous()
+        targets_dev = targets.to(device).contiguous()
 
         if target_kwargs is not None:
-            adversarial = attack(inputs_dev, target_kwargs.to(device))
+            adversarial = attack(inputs_dev, target_kwargs.to(device).contiguous())
         else:
             adversarial = attack(inputs_dev, targets_dev)
         return adversarial.detach()

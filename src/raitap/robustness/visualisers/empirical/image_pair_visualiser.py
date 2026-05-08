@@ -64,7 +64,9 @@ class ImagePairVisualiser(BaseRobustnessVisualiser):
         for row in range(n):
             clean_image = _as_displayable(clean[row])
             perturbed_image = _as_displayable(perturbed[row])
-            diff = perturbed_image - clean_image
+            # imshow treats RGB-shaped arrays as literal colors and ignores cmap/vmin/vmax;
+            # reduce to a 2D scalar map so the diverging cmap actually applies.
+            diff = _signed_perturbation_heatmap(perturbed[row] - clean[row])
 
             axes[row][0].imshow(clean_image, cmap="gray" if clean_image.ndim == 2 else None)
             axes[row][0].set_axis_off()
@@ -116,6 +118,30 @@ def _normalise01(array: np.ndarray) -> np.ndarray:
     if hi - lo < 1e-6:
         return np.zeros_like(array)
     return (array - lo) / (hi - lo)
+
+
+def _signed_perturbation_heatmap(delta: torch.Tensor) -> np.ndarray:
+    """Reduce a signed per-channel perturbation to one scalar per pixel.
+
+    Picks the channel with the largest absolute deviation per pixel and keeps
+    its signed value; for grayscale (C=1) just drops the channel dim. The
+    returned 2D array can be passed to ``imshow(cmap=..., vmin=..., vmax=...)``
+    so the diverging colormap actually applies (matplotlib treats 3-channel
+    arrays as literal RGB and ignores ``cmap`` / ``vmin`` / ``vmax``).
+    """
+    array = delta.detach().cpu().to(torch.float32).numpy()
+    if array.ndim == 3:
+        if array.shape[0] in (1, 3):
+            if array.shape[0] == 1:
+                return array[0]
+            channel_indices = np.abs(array).argmax(axis=0)
+            return np.take_along_axis(array, channel_indices[None, ...], axis=0)[0]
+        if array.shape[-1] in (1, 3):
+            if array.shape[-1] == 1:
+                return array[..., 0]
+            channel_indices = np.abs(array).argmax(axis=-1)
+            return np.take_along_axis(array, channel_indices[..., None], axis=-1)[..., 0]
+    return array
 
 
 def _format_title(label: str, predicted: int, target: int, sample_id: str) -> str:

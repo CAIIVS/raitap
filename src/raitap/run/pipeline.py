@@ -110,9 +110,11 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
     explanations: list[ExplanationResult] = []
     visualisations: list[VisualisationResult] = []
 
-    explainers = config.transparency.items()
-    if not explainers:
-        raise ValueError("No explainers configured")
+    explainers = list((getattr(config, "transparency", None) or {}).items())
+    robustness_assessors = getattr(config, "robustness", None) or {}
+
+    if not explainers and not robustness_assessors:
+        raise ValueError("No explainers or robustness assessors configured")
 
     for name, _explainer_cfg in explainers:
         runtime_kwargs = _resolve_explainer_runtime_kwargs(
@@ -135,7 +137,6 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
 
     robustness_results: list[RobustnessResult] = []
     robustness_visualisations: list[RobustnessVisualisationResult] = []
-    robustness_assessors = getattr(config, "robustness", None) or {}
     for name in robustness_assessors:
         result = RobustnessAssessment(
             config,

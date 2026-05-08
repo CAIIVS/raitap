@@ -82,8 +82,12 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
         criterion = self._build_criterion(foolbox, kwargs, targets)
 
         device = _model_device(model) or inputs.device
-        inputs_dev = inputs.to(device)
-        targets_dev = criterion if criterion is not None else targets.to(device)
+        # Defensive contiguity: foolbox attacks may call ``.view(...)`` internally,
+        # and RAITAP's image loader produces non-contiguous NCHW tensors via HWC->CHW.
+        inputs_dev = inputs.to(device).contiguous()
+        targets_dev = (
+            criterion if criterion is not None else targets.to(device).contiguous()
+        )
 
         fmodel = foolbox.PyTorchModel(  # pyright: ignore[reportPrivateImportUsage]
             model,
