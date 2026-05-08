@@ -92,11 +92,13 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
     sample_ids = data.sample_ids
     labels = data.labels
 
+    logger.info("Running model forward pass...")
     with torch.no_grad():
         forward_output = _forward_primary_tensor(config, backend, data_tensor)
 
     metrics_eval: MetricsEvaluation | None = None
     if metrics_run_enabled(config):
+        logger.info("Computing metrics...")
         if (
             getattr(config.metrics, "num_classes", None) is None
             and forward_output.ndim == 2
@@ -116,6 +118,8 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
     if not explainers and not robustness_assessors:
         raise ValueError("No explainers or robustness assessors configured")
 
+    if explainers:
+        logger.info("Performing transparency assessment (%d)...", len(explainers))
     for name, _explainer_cfg in explainers:
         runtime_kwargs = _resolve_explainer_runtime_kwargs(
             config.transparency[name],
@@ -137,6 +141,8 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
 
     robustness_results: list[RobustnessResult] = []
     robustness_visualisations: list[RobustnessVisualisationResult] = []
+    if robustness_assessors:
+        logger.info("Performing robustness assessment (%d)...", len(robustness_assessors))
     robustness_targets = _robustness_targets(labels=labels, forward_output=forward_output)
     for name in robustness_assessors:
         result = RobustnessAssessment(
