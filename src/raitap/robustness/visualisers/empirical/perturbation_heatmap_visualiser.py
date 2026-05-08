@@ -10,6 +10,7 @@ import torch
 
 from ...contracts import MethodKind
 from ..base_visualiser import BaseRobustnessVisualiser
+from .image_pair_visualiser import _require_image_modality, _signed_perturbation_heatmap
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -18,8 +19,18 @@ if TYPE_CHECKING:
     from ...results import RobustnessResult
 
 
+_SUPPORTED_MODES = frozenset({"signed_dominant", "mean_abs", "mean", "max_abs"})
+
+
 class PerturbationHeatmapVisualiser(BaseRobustnessVisualiser):
-    """Render the signed perturbation tensor as a diverging heatmap."""
+    """Render the perturbation tensor as a heatmap.
+
+    Default ``aggregate_channels="signed_dominant"`` keeps the signed value of
+    the channel with the largest absolute deviation per pixel — preserves sign
+    *and* avoids the cancellation that happens when ``mean`` averages opposing
+    signs across channels (e.g. ``+eps`` on R and ``-eps`` on G displaying as
+    ~0). Other modes (``mean``, ``mean_abs``, ``max_abs``) are kept as opt-ins.
+    """
 
     supported_method_kinds: ClassVar[frozenset[MethodKind]] = frozenset(
         {MethodKind.EMPIRICAL_ATTACK}
@@ -30,13 +41,13 @@ class PerturbationHeatmapVisualiser(BaseRobustnessVisualiser):
         *,
         max_samples: int = 4,
         cmap: str = "seismic",
-        aggregate_channels: str = "mean",
+        aggregate_channels: str = "signed_dominant",
     ) -> None:
         self.max_samples = max(int(max_samples), 1)
         self.cmap = cmap
-        if aggregate_channels not in {"mean_abs", "mean", "max_abs"}:
+        if aggregate_channels not in _SUPPORTED_MODES:
             raise ValueError(
-                "aggregate_channels must be one of {'mean_abs', 'mean', 'max_abs'}, "
+                f"aggregate_channels must be one of {sorted(_SUPPORTED_MODES)}, "
                 f"got {aggregate_channels!r}."
             )
         self.aggregate_channels = aggregate_channels
@@ -53,6 +64,7 @@ class PerturbationHeatmapVisualiser(BaseRobustnessVisualiser):
             raise ValueError(
                 "PerturbationHeatmapVisualiser requires perturbed_inputs on the result."
             )
+        _require_image_modality(result, type(self).__name__)
 
         clean = _to_image_batch(result.clean_inputs)
         perturbed = _to_image_batch(result.perturbed_inputs)
@@ -65,7 +77,7 @@ class PerturbationHeatmapVisualiser(BaseRobustnessVisualiser):
         global_extreme = max(global_extreme, 1e-6)
 
         for col in range(n):
-            heatmap = _aggregate(delta[col].numpy(), self.aggregate_channels)
+            heatmap = _aggregate(delta[col], self.aggregate_channels)
             axes[0][col].imshow(heatmap, cmap=self.cmap, vmin=-global_extreme, vmax=global_extreme)
             axes[0][col].set_axis_off()
             sample_title = (
@@ -83,10 +95,13 @@ def _to_image_batch(tensor: torch.Tensor) -> torch.Tensor:
     return tensor
 
 
-def _aggregate(array: np.ndarray, mode: str) -> np.ndarray:
+def _aggregate(delta: torch.Tensor, mode: str) -> np.ndarray:
+    if mode == "signed_dominant":
+        return _signed_perturbation_heatmap(delta)
+    array = delta.numpy()
     if array.ndim == 2:
         return array
-    # array: (C, H, W)
+    # (C, H, W)
     if mode == "mean_abs":
         return np.abs(array).mean(axis=0)
     if mode == "mean":

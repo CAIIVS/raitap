@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
+from raitap.transparency.contracts import InputKind
+
 from ...contracts import MethodKind
 from ..base_visualiser import BaseRobustnessVisualiser
 
@@ -48,6 +50,7 @@ class ImagePairVisualiser(BaseRobustnessVisualiser):
             raise ValueError(
                 "ImagePairVisualiser requires perturbed_inputs to be present on the result."
             )
+        _require_image_modality(result, type(self).__name__)
         clean = _to_image_batch(result.clean_inputs)
         perturbed = _to_image_batch(result.perturbed_inputs)
         n = min(int(clean.shape[0]), self.max_samples)
@@ -59,11 +62,16 @@ class ImagePairVisualiser(BaseRobustnessVisualiser):
         )
         diff_extreme = max(diff_extreme, 1e-6)
 
+        # Use one display range across both clean and perturbed so the eye can
+        # compare them; per-cell normalisation would shift the perturbed image's
+        # scale relative to the clean image and visually exaggerate the attack.
+        display_lo, display_hi = _shared_display_range(clean[:n], perturbed[:n])
+
         sample_names = context.sample_names or []
 
         for row in range(n):
-            clean_image = _as_displayable(clean[row])
-            perturbed_image = _as_displayable(perturbed[row])
+            clean_image = _as_displayable(clean[row], lo=display_lo, hi=display_hi)
+            perturbed_image = _as_displayable(perturbed[row], lo=display_lo, hi=display_hi)
             # imshow treats RGB-shaped arrays as literal colors and ignores cmap/vmin/vmax;
             # reduce to a 2D scalar map so the diverging cmap actually applies.
             diff = _signed_perturbation_heatmap(perturbed[row] - clean[row])
@@ -101,23 +109,65 @@ def _to_image_batch(tensor: torch.Tensor) -> torch.Tensor:
     return tensor
 
 
-def _as_displayable(sample: torch.Tensor) -> np.ndarray:
-    """Convert a (C, H, W) or (H, W) tensor to a HWC / HW float32 array in [0, 1]."""
+def _as_displayable(
+    sample: torch.Tensor,
+    *,
+    lo: float,
+    hi: float,
+) -> np.ndarray:
+    """Convert a (C, H, W) or (H, W) tensor to a HWC / HW float32 array in [0, 1].
+
+    ``lo`` / ``hi`` are the display range used for normalisation; pass values
+    derived once across the full clean+perturbed pair so both images share a
+    scale (per-cell normalisation would visually exaggerate the attack).
+    """
     array = sample.detach().cpu().to(torch.float32).numpy()
     if array.ndim == 3:
         if array.shape[0] in (1, 3):
             array = np.transpose(array, (1, 2, 0))
         if array.shape[-1] == 1:
             array = array[..., 0]
-    array = np.clip(array, 0.0, 1.0) if array.max() <= 1.0 + 1e-3 else _normalise01(array)
-    return array
-
-
-def _normalise01(array: np.ndarray) -> np.ndarray:
-    lo, hi = float(array.min()), float(array.max())
-    if hi - lo < 1e-6:
+    span = hi - lo
+    if span < 1e-6:
         return np.zeros_like(array)
-    return (array - lo) / (hi - lo)
+    return np.clip((array - lo) / span, 0.0, 1.0)
+
+
+def _shared_display_range(clean: torch.Tensor, perturbed: torch.Tensor) -> tuple[float, float]:
+    """Return a single ``(lo, hi)`` covering both batches.
+
+    Tensors loaded by RAITAP are in ``[0, 1]`` (see :mod:`raitap.data`); we keep
+    that as the canonical range for inputs that haven't drifted out of it (an
+    attack can clip-overflow by an FGSM step). When something is clearly outside
+    ``[0, 1]`` (e.g. uint8 ``[0, 255]`` or normalised model inputs), we fall back
+    to the observed min/max so the visualiser still produces a readable image.
+    """
+    combined = torch.cat(
+        [clean.detach().to(torch.float32).flatten(), perturbed.detach().to(torch.float32).flatten()]
+    )
+    sample_min = float(combined.min().item())
+    sample_max = float(combined.max().item())
+    if sample_min >= -1e-3 and sample_max <= 1.0 + 1e-3:
+        return 0.0, 1.0
+    return sample_min, sample_max
+
+
+def _require_image_modality(result: RobustnessResult, visualiser_name: str) -> None:
+    """Refuse to render a non-image robustness result through an image visualiser.
+
+    ``BaseRobustnessVisualiser.validate_result`` only enforces ``method_kind``;
+    image visualisers additionally need the result's input modality to be IMAGE
+    so the (B, C, H, W) layout assumption holds. Without this guard a tabular
+    or time-series result would silently feed garbage into ``imshow``.
+    """
+    spec = getattr(result.semantics, "input_spec", None)
+    kind = getattr(spec, "kind", None)
+    if kind is not None and kind != InputKind.IMAGE:
+        raise ValueError(
+            f"{visualiser_name} only renders image-modality results; "
+            f"got input_spec.kind={kind.value!r}. Configure an image-aware "
+            "visualiser or omit this entry from the assessor's visualisers list."
+        )
 
 
 def _signed_perturbation_heatmap(delta: torch.Tensor) -> np.ndarray:
