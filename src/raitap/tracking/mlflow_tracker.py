@@ -127,7 +127,31 @@ class MLFlowTracker(BaseTracker):
         self._ui_process: Any = None
         self._run_ui_path: str | None = None
 
-        self._prepare_local_mlflow_paths()
+        if not self.tracking_uri.startswith("http"):
+            if self._output_forwarding_url_configured:
+                if self._sqlite_file_path(self.tracking_uri) is not None:
+                    self._prepare_local_mlflow_paths(
+                        backend_store_uri=self.tracking_uri,
+                        artifact_root=(
+                            self.default_artifact_root
+                            if self._default_artifact_root_configured
+                            else None
+                        ),
+                    )
+                else:
+                    self._prepare_local_mlflow_paths(
+                        file_store_uri=self.tracking_uri,
+                        artifact_root=(
+                            self.default_artifact_root
+                            if self._default_artifact_root_configured
+                            else None
+                        ),
+                    )
+            else:
+                self._prepare_local_mlflow_paths(
+                    backend_store_uri=self.backend_store_uri,
+                    artifact_root=self.default_artifact_root,
+                )
         self._ensure_server_running()
 
         self._mlflow.set_tracking_uri(self.tracking_uri)
@@ -221,6 +245,10 @@ class MLFlowTracker(BaseTracker):
         port = parsed.port or 5000
 
         if self._is_localhost(host) and not self._is_port_open(host, port):
+            self._prepare_local_mlflow_paths(
+                backend_store_uri=self.backend_store_uri,
+                artifact_root=self.default_artifact_root,
+            )
             raitap_log.info(
                 "MLflow server not running. Starting server at %s...", self.tracking_uri
             )
@@ -303,14 +331,24 @@ class MLFlowTracker(BaseTracker):
             return base_url
         return f"{base_url.rstrip('/')}/{self._run_ui_path}"
 
-    def _prepare_local_mlflow_paths(self) -> None:
-        sqlite_path = self._sqlite_file_path(self.backend_store_uri)
-        if sqlite_path is not None:
-            sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+    def _prepare_local_mlflow_paths(
+        self,
+        *,
+        backend_store_uri: str | None = None,
+        artifact_root: str | None = None,
+        file_store_uri: str | None = None,
+    ) -> None:
+        if backend_store_uri is not None:
+            sqlite_path = self._sqlite_file_path(backend_store_uri)
+            if sqlite_path is not None:
+                sqlite_path.parent.mkdir(parents=True, exist_ok=True)
 
-        artifact_path = self._local_artifact_path(self.default_artifact_root)
-        if artifact_path is not None:
-            artifact_path.mkdir(parents=True, exist_ok=True)
+        for uri in (artifact_root, file_store_uri):
+            if uri is None:
+                continue
+            path = self._local_artifact_path(uri)
+            if path is not None:
+                path.mkdir(parents=True, exist_ok=True)
 
     def _ensure_direct_store_experiment(self) -> None:
         if self.tracking_uri.startswith("http"):
@@ -318,10 +356,16 @@ class MLFlowTracker(BaseTracker):
 
         experiment = self._mlflow.get_experiment_by_name(self.config.experiment_name)
         if experiment is None:
-            self._mlflow.create_experiment(
-                self.config.experiment_name,
-                artifact_location=self.default_artifact_root,
-            )
+            if (
+                not self._output_forwarding_url_configured
+                or self._default_artifact_root_configured
+            ):
+                self._mlflow.create_experiment(
+                    self.config.experiment_name,
+                    artifact_location=self.default_artifact_root,
+                )
+            else:
+                self._mlflow.create_experiment(self.config.experiment_name)
 
     def _wait_for_port_ready(self, host: str, port: int, timeout: float = 10) -> bool:
         """
