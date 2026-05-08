@@ -7,14 +7,13 @@ ANSI-colored boxes on a real terminal and clean ASCII when redirected.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import re
 import sys
 import warnings
-from typing import TYPE_CHECKING, Any
-
-from collections.abc import Iterable, Iterator
 from datetime import timedelta
+from typing import TYPE_CHECKING, Any
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -42,6 +41,8 @@ _THEME = Theme(
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
+
     from raitap.configs.schema import AppConfig
     from raitap.models import Model
 
@@ -49,7 +50,10 @@ _console: Console | None = None
 _stderr_console: Console | None = None
 
 # Source-prefix from `warnings.formatwarning`: "<path>:<line>: <Category>: msg".
-_WARNING_PREFIX_RE = re.compile(r"^(?P<src>.+?:\d+):\s*(?P<cat>\w+Warning):\s*(?P<msg>.*)$", re.DOTALL)
+_WARNING_PREFIX_RE = re.compile(
+    r"^(?P<src>.+?:\d+):\s*(?P<cat>\w+Warning):\s*(?P<msg>.*)$",
+    re.DOTALL,
+)
 
 # Pull subsystem from a raitap path: ".../raitap/<subsystem>/...".
 _SUBSYSTEM_RE = re.compile(r"raitap[\\/](?!src[\\/])(?P<sub>\w+)[\\/]")
@@ -58,7 +62,8 @@ _SUBSYSTEM_RE = re.compile(r"raitap[\\/](?!src[\\/])(?P<sub>\w+)[\\/]")
 _PATH_RE = re.compile(r"(?:[A-Za-z]:[\\/]|(?<![\w/])/)[^\s]+")
 _PATH_TRIM = ".,;:)]}\""
 
-# "Header: rest" pattern for non-warnings.warn WARNING records (e.g. logger.warning("Robustness: …")).
+# "Header: rest" pattern for non-warnings.warn WARNING records.
+# Example match: ``logger.warning("Robustness: no labels…")``.
 _LOGGER_HEADER_RE = re.compile(r"^(?P<head>[A-Z][\w\- ]{1,40}):\s+(?P<msg>.+)$", re.DOTALL)
 
 
@@ -75,7 +80,8 @@ def _linkify_message(message: str) -> Text:
         trailing = raw[len(trimmed):]
         try:
             uri = Path(trimmed).as_uri()
-        except Exception:  # noqa: BLE001 - non-absolute or invalid path
+        except (ValueError, OSError):
+            # Non-absolute or invalid path — fall back to manual file:// URI.
             normalized = trimmed.replace("\\", "/")
             uri = f"file:///{normalized.lstrip('/')}"
         rendered.append(trimmed, style=f"cyan link {uri}")
@@ -92,10 +98,9 @@ def _reconfigure_utf8(stream: Any) -> None:
     reconfigure = getattr(stream, "reconfigure", None)
     if reconfigure is None:
         return
-    try:
+    # Stream may be redirected/closed; safely no-op in that case.
+    with contextlib.suppress(ValueError, OSError):
         reconfigure(encoding="utf-8", errors="replace")
-    except Exception:  # noqa: BLE001 - stream may be redirected/closed
-        pass
 
 
 def get_console() -> Console:
@@ -138,7 +143,7 @@ class RaitapRichHandler(RichHandler):
     def emit(self, record: logging.LogRecord) -> None:
         try:
             message = record.getMessage()
-        except Exception:  # noqa: BLE001
+        except Exception:
             super().emit(record)
             return
 
@@ -192,7 +197,8 @@ class RaitapRichHandler(RichHandler):
             self.console.print(panel)
             self.console.print()
             self._last_was_panel = True
-        except Exception:  # noqa: BLE001 - never let logging crash the run
+        except Exception:
+            # Never let logging crash the run — fall back to plain RichHandler.
             super().emit(record)
 
 
@@ -242,9 +248,12 @@ def _resolve_warn_origin(default_file: str, default_line: int) -> tuple[str, int
         path = frame.f_code.co_filename
         # Stop at the first raitap/<subsystem>/ frame, ignoring stdlib warnings.
         normalized = path.replace("\\", "/")
-        if "/raitap/" in normalized and "/raitap/utils/console.py" not in normalized:
-            if _SUBSYSTEM_RE.search(path):
-                return path, frame.f_lineno
+        if (
+            "/raitap/" in normalized
+            and "/raitap/utils/console.py" not in normalized
+            and _SUBSYSTEM_RE.search(path)
+        ):
+            return path, frame.f_lineno
         frame = frame.f_back
     return default_file, default_line
 
@@ -258,7 +267,9 @@ def _format_value(value: Any, *, dot: bool = False, dot_style: str = "green") ->
         return Text("—", style="dim")
     if isinstance(value, bool):
         if value:
-            return Text.assemble(("● ", dot_style), ("on", "green")) if dot else Text("on", style="green")
+            if dot:
+                return Text.assemble(("● ", dot_style), ("on", "green"))
+            return Text("on", style="green")
         return Text("off", style="dim")
     if isinstance(value, list | tuple):
         return Text(", ".join(str(item) for item in value))
@@ -284,7 +295,7 @@ def print_summary_panel(config: AppConfig, model: Model) -> None:
     try:
         from raitap.metrics import metrics_run_enabled
         metrics_on = metrics_run_enabled(config)
-    except Exception:  # noqa: BLE001
+    except Exception:
         metrics_on = False
 
     table = Table.grid(padding=(0, 2))
@@ -311,7 +322,8 @@ def print_summary_panel(config: AppConfig, model: Model) -> None:
         run_dir = str(resolve_run_dir(config))
         run_uri = Path(run_dir).resolve().as_uri()
         output_text = Text(run_dir, style=f"cyan link {run_uri}")
-    except Exception:  # noqa: BLE001 - banner must not crash the run
+    except Exception:
+        # Banner must never crash the run — fall back to em-dash placeholder.
         output_text = Text("—", style="dim")
     table.add_row("output", output_text)
 

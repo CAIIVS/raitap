@@ -73,7 +73,7 @@ def _hydra_main(config: AppConfig) -> None:
     start_time = time.perf_counter()
     try:
         run(config)
-    except BaseException as exc:
+    except Exception as exc:
         duration = _format_duration(time.perf_counter() - start_time)
         print_failure_panel(exc, duration)
         raise
