@@ -106,9 +106,7 @@ class MLFlowTracker(BaseTracker):
         tracking_conf = _tracking_dict(config)
         configured_backend_store_uri = _param_str(tracking_conf.get("backend_store_uri"))
         configured_default_artifact_root = _param_str(tracking_conf.get("default_artifact_root"))
-        configured_output_forwarding_url = _param_str(
-            tracking_conf.get("output_forwarding_url")
-        )
+        configured_output_forwarding_url = _param_str(tracking_conf.get("output_forwarding_url"))
 
         self._backend_store_uri_configured = configured_backend_store_uri is not None
         self._default_artifact_root_configured = configured_default_artifact_root is not None
@@ -356,10 +354,7 @@ class MLFlowTracker(BaseTracker):
 
         experiment = self._mlflow.get_experiment_by_name(self.config.experiment_name)
         if experiment is None:
-            if (
-                not self._output_forwarding_url_configured
-                or self._default_artifact_root_configured
-            ):
+            if not self._output_forwarding_url_configured or self._default_artifact_root_configured:
                 self._mlflow.create_experiment(
                     self.config.experiment_name,
                     artifact_location=self.default_artifact_root,
