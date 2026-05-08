@@ -137,13 +137,14 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
 
     robustness_results: list[RobustnessResult] = []
     robustness_visualisations: list[RobustnessVisualisationResult] = []
+    robustness_targets = _robustness_targets(labels=labels, forward_output=forward_output)
     for name in robustness_assessors:
         result = RobustnessAssessment(
             config,
             name,
             model,
             data_tensor,
-            labels,
+            robustness_targets,
             input_metadata=_input_metadata_for_data(config, data),
             sample_ids=sample_ids,
             sample_names=sample_ids,
@@ -235,6 +236,33 @@ def _resolve_explainer_runtime_kwargs(
 
     predictions, _ = metrics_prediction_pair(forward_output)
     return {"target": predictions.detach()}
+
+
+def _robustness_targets(
+    *,
+    labels: torch.Tensor | None,
+    forward_output: torch.Tensor,
+) -> torch.Tensor | None:
+    """Return per-sample reference labels for robustness assessors.
+
+    Mirrors the metrics fallback (see :func:`resolve_metric_targets`): when the
+    data pipeline supplies ground-truth labels we use them; otherwise we fall
+    back to ``argmax(model(clean))`` so an untargeted attack still has a
+    well-defined reference (the attack tries to push the model away from its
+    current decision). Returns ``None`` only when neither labels nor a usable
+    classification head are available, in which case the assessor will raise
+    :class:`MissingTargetsError`.
+    """
+    if labels is not None:
+        return labels
+    if forward_output.ndim != 2 or forward_output.shape[1] < 2:
+        return None
+    predictions, _ = metrics_prediction_pair(forward_output)
+    logger.warning(
+        "Robustness: no ground-truth labels provided; using model predictions "
+        "as the reference for untargeted attacks."
+    )
+    return predictions.detach().cpu()
 
 
 def _input_metadata_for_data(config: AppConfig, data: Data) -> InputSpec | None:
