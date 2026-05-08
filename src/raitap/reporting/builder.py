@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import shutil
 from dataclasses import asdict, dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -27,11 +28,16 @@ logger = logging.getLogger(__name__)
 _MAX_LOCAL_DETAIL_SAMPLES = 3
 
 
+class SelectionSource(StrEnum):
+    AUTOMATIC = "automatic"
+    USER = "user"
+
+
 @dataclass(frozen=True)
 class SelectedSample:
     label: str
     summary: PredictionSummary
-    selection_source: str = "automatic"
+    selection_source: SelectionSource = SelectionSource.AUTOMATIC
     requested_sample: object | None = None
 
 
@@ -312,7 +318,7 @@ def _build_local_section(
                         "role": "local_overview",
                         "bucket": overview_sample.label,
                         "sample_index": overview_sample.summary.sample_index,
-                        "selection_source": overview_sample.selection_source,
+                        "selection_source": overview_sample.selection_source.value,
                         "explainer_name": explanation.explainer_name or explanation.run_dir.name,
                     },
                 )
@@ -347,7 +353,7 @@ def _build_local_section(
                     "role": "local_detail",
                     "bucket": selected.label,
                     "sample_index": selected.summary.sample_index,
-                    "selection_source": selected.selection_source,
+                    "selection_source": selected.selection_source.value,
                     **_requested_sample_metadata(selected),
                 },
             )
@@ -426,7 +432,7 @@ def _explicit_selected_samples(
                     sample_id=resolved.sample_id,
                 ),
             ),
-            selection_source="user",
+            selection_source=SelectionSource.USER,
             requested_sample=resolved.requested_sample,
         )
         for resolved in resolved_samples
@@ -489,7 +495,7 @@ def _selected_sample_manifest_entry(sample: SelectedSample) -> dict[str, object]
     entry: dict[str, object] = {
         "label": sample.label,
         **asdict(sample.summary),
-        "selection_source": sample.selection_source,
+        "selection_source": sample.selection_source.value,
     }
     entry.update(_requested_sample_metadata(sample))
     return entry
