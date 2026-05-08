@@ -4,6 +4,7 @@ MLFlow tracking implementation for RAITAP
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from raitap import raitap_log
@@ -12,9 +13,12 @@ from raitap.models.backend import OnnxBackend, TorchBackend
 
 from .base_tracker import BaseTracker
 
-if TYPE_CHECKING:
-    from pathlib import Path
+DEFAULT_MLFLOW_BACKEND_STORE_URI = "sqlite:///mlflow/mlflow.db"
+DEFAULT_MLFLOW_ARTIFACT_ROOT = "./mlflow/artifacts"
+DEFAULT_MLFLOW_UI_HOST = "127.0.0.1"
+DEFAULT_MLFLOW_UI_PORT = 5000
 
+if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
 
 
@@ -100,15 +104,25 @@ class MLFlowTracker(BaseTracker):
             ) from e
 
         tracking_conf = _tracking_dict(config)
-        self.tracking_uri: str = tracking_conf.get("output_forwarding_url") or "./mlruns"
+        self.backend_store_uri: str = (
+            tracking_conf.get("backend_store_uri") or DEFAULT_MLFLOW_BACKEND_STORE_URI
+        )
+        self.default_artifact_root: str = (
+            tracking_conf.get("default_artifact_root") or DEFAULT_MLFLOW_ARTIFACT_ROOT
+        )
+        self.tracking_uri: str = (
+            tracking_conf.get("output_forwarding_url") or self.backend_store_uri
+        )
 
         # Track spawned subprocesses for cleanup
         self._server_process: Any = None
         self._ui_process: Any = None
 
+        self._prepare_local_mlflow_paths()
         self._ensure_server_running()
 
         self._mlflow.set_tracking_uri(self.tracking_uri)
+        self._ensure_direct_store_experiment()
         self._mlflow.set_experiment(config.experiment_name)
         self._mlflow.start_run(run_name=config.experiment_name)
 
@@ -119,7 +133,12 @@ class MLFlowTracker(BaseTracker):
         self._mlflow.end_run(status=RunStatus.to_string(status))
 
         if _tracking_dict(self.config).get("open_when_done", True):
-            self._open_mlflow_ui()
+            try:
+                self._open_mlflow_ui()
+            except Exception:
+                self._cleanup_subprocesses()
+                raise
+            return
 
         self._cleanup_subprocesses()
 
@@ -196,7 +215,18 @@ class MLFlowTracker(BaseTracker):
                 "MLflow server not running. Starting server at %s...", self.tracking_uri
             )
             self._server_process = subprocess.Popen(
-                ["mlflow", "server", "--host", host, "--port", str(port)],
+                [
+                    "mlflow",
+                    "server",
+                    "--host",
+                    host,
+                    "--port",
+                    str(port),
+                    "--backend-store-uri",
+                    self.backend_store_uri,
+                    "--default-artifact-root",
+                    self.default_artifact_root,
+                ],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
@@ -217,10 +247,11 @@ class MLFlowTracker(BaseTracker):
             raitap_log.info("Opening MLflow UI at %s", self.tracking_uri)
             webbrowser.open(self.tracking_uri)
         else:
-            port = 5000
-            url = f"http://127.0.0.1:{port}"
+            host = DEFAULT_MLFLOW_UI_HOST
+            port = DEFAULT_MLFLOW_UI_PORT
+            url = f"http://{host}:{port}"
 
-            if not self._is_port_open("127.0.0.1", port):
+            if not self._is_port_open(host, port):
                 raitap_log.info("Starting MLflow UI at %s", url)
                 raitap_log.info("Backend store: %s", self.tracking_uri)
 
@@ -231,12 +262,39 @@ class MLFlowTracker(BaseTracker):
                     start_new_session=True,
                 )
 
-                if not self._wait_for_port_ready("127.0.0.1", port, timeout=10):
+                if not self._wait_for_port_ready(host, port, timeout=10):
                     raitap_log.warn("MLflow UI may not be ready at %s after 10 seconds", url)
                 else:
                     raitap_log.info("MLflow UI is ready at %s", url)
+            else:
+                raitap_log.warn(
+                    "Reusing existing MLflow UI at %s; intended backend store is %s, "
+                    "but the existing UI may use a different backend store.",
+                    url,
+                    self.tracking_uri,
+                )
 
             webbrowser.open(url)
+
+    def _prepare_local_mlflow_paths(self) -> None:
+        sqlite_path = self._sqlite_file_path(self.backend_store_uri)
+        if sqlite_path is not None:
+            sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+
+        artifact_path = self._local_artifact_path(self.default_artifact_root)
+        if artifact_path is not None:
+            artifact_path.mkdir(parents=True, exist_ok=True)
+
+    def _ensure_direct_store_experiment(self) -> None:
+        if self.tracking_uri.startswith("http"):
+            return
+
+        experiment = self._mlflow.get_experiment_by_name(self.config.experiment_name)
+        if experiment is None:
+            self._mlflow.create_experiment(
+                self.config.experiment_name,
+                artifact_location=self.default_artifact_root,
+            )
 
     def _wait_for_port_ready(self, host: str, port: int, timeout: float = 10) -> bool:
         """
@@ -301,3 +359,20 @@ class MLFlowTracker(BaseTracker):
                 return True
         except (TimeoutError, ConnectionRefusedError, OSError):
             return False
+
+    @staticmethod
+    def _sqlite_file_path(uri: str) -> Path | None:
+        if not uri.startswith("sqlite:///"):
+            return None
+        raw_path = uri.removeprefix("sqlite:///")
+        if raw_path in {"", ":memory:"}:
+            return None
+        return Path(raw_path)
+
+    @staticmethod
+    def _local_artifact_path(uri: str) -> Path | None:
+        if "://" in uri and not uri.startswith("file://"):
+            return None
+        if uri.startswith("file://"):
+            uri = uri.removeprefix("file://")
+        return Path(uri)

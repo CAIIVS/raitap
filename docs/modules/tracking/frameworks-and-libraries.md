@@ -22,7 +22,17 @@ tracking:
   open_when_done: false
 ```
 
-If `output_forwarding_url` is not set, MLflow stores runs locally in `./mlruns`.
+If `output_forwarding_url` is not set, MLflow uses
+`sqlite:///mlflow/mlflow.db`. From the repository root, the database is stored
+at `mlflow/mlflow.db` and artifacts are stored under `mlflow/artifacts`.
+Users can still point `output_forwarding_url` at an existing HTTP tracking
+server.
+
+To migrate an existing file-store run history:
+
+```bash
+uv run mlflow migrate-filestore --source ./mlruns --target sqlite:///mlflow/mlflow.db
+```
 
 ### Logged artifacts
 

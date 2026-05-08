@@ -17,13 +17,19 @@ if TYPE_CHECKING:
 
     from raitap.configs.schema import AppConfig
 
-from raitap.tracking.mlflow_tracker import MLFlowTracker
+from raitap.tracking.mlflow_tracker import (
+    DEFAULT_MLFLOW_UI_HOST,
+    DEFAULT_MLFLOW_UI_PORT,
+    MLFlowTracker,
+)
 
 
 def _make_config(
-    url: str = "http://127.0.0.1:5000",
+    url: str | None = "http://127.0.0.1:5000",
     open_when_done: bool = False,
     log_model: bool = False,
+    backend_store_uri: str | None = None,
+    default_artifact_root: str | None = None,
 ) -> AppConfig:
     return cast(
         "AppConfig",
@@ -31,6 +37,8 @@ def _make_config(
             tracking=SimpleNamespace(
                 _target_="MLFlowTracker",
                 output_forwarding_url=url,
+                backend_store_uri=backend_store_uri,
+                default_artifact_root=default_artifact_root,
                 log_model=log_model,
                 open_when_done=open_when_done,
             ),
@@ -101,6 +109,174 @@ def test_mlflow_tracker_init_starts_run(mock_mlflow: MagicMock) -> None:
     mock_mlflow.set_experiment.assert_called_once_with("test_experiment")
     mock_mlflow.start_run.assert_called_once_with(run_name="test_experiment")
     assert tracker.tracking_uri == "http://127.0.0.1:5000"
+
+
+def test_mlflow_tracker_defaults_to_sqlite_backend(mock_mlflow: MagicMock) -> None:
+    config = _make_config(url=None)
+    with patch("raitap.tracking.mlflow_tracker.MLFlowTracker._ensure_server_running"):
+        tracker = MLFlowTracker(config)
+
+    mock_mlflow.set_tracking_uri.assert_called_once_with("sqlite:///mlflow/mlflow.db")
+    assert tracker.tracking_uri == "sqlite:///mlflow/mlflow.db"
+    assert tracker.backend_store_uri == "sqlite:///mlflow/mlflow.db"
+    assert tracker.default_artifact_root == "./mlflow/artifacts"
+
+
+def test_mlflow_tracker_creates_direct_sqlite_experiment_with_artifact_root(
+    mock_mlflow: MagicMock,
+) -> None:
+    mock_mlflow.get_experiment_by_name.return_value = None
+    config = _make_config(url="sqlite:///mlflow/mlflow.db")
+
+    with patch("raitap.tracking.mlflow_tracker.MLFlowTracker._ensure_server_running"):
+        MLFlowTracker(config)
+
+    mock_mlflow.set_tracking_uri.assert_called_once_with("sqlite:///mlflow/mlflow.db")
+    mock_mlflow.create_experiment.assert_called_once_with(
+        "test_experiment",
+        artifact_location="./mlflow/artifacts",
+    )
+    mock_mlflow.set_experiment.assert_called_once_with("test_experiment")
+
+
+def test_mlflow_tracker_starts_local_server_with_sqlite_backend(
+    mock_mlflow: MagicMock,
+    mock_subprocess: MagicMock,
+) -> None:
+    config = _make_config(
+        url="http://127.0.0.1:5000",
+        backend_store_uri="sqlite:///mlflow/mlflow.db",
+        default_artifact_root="./mlflow/artifacts",
+    )
+
+    with (
+        patch("raitap.tracking.mlflow_tracker.MLFlowTracker._is_port_open", return_value=False),
+        patch(
+            "raitap.tracking.mlflow_tracker.MLFlowTracker._wait_for_port_ready",
+            return_value=True,
+        ),
+    ):
+        MLFlowTracker(config)
+
+    mock_subprocess.assert_called_once_with(
+        [
+            "mlflow",
+            "server",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "5000",
+            "--backend-store-uri",
+            "sqlite:///mlflow/mlflow.db",
+            "--default-artifact-root",
+            "./mlflow/artifacts",
+        ],
+        stdout=-3,
+        stderr=-3,
+        start_new_session=True,
+    )
+
+
+def test_mlflow_tracker_opens_sqlite_ui(
+    mock_mlflow: MagicMock,
+    mock_subprocess: MagicMock,
+) -> None:
+    config = _make_config(url="sqlite:///mlflow/mlflow.db")
+    with patch("raitap.tracking.mlflow_tracker.MLFlowTracker._ensure_server_running"):
+        tracker = MLFlowTracker(config)
+
+    with (
+        patch("raitap.tracking.mlflow_tracker.MLFlowTracker._is_port_open", return_value=False),
+        patch(
+            "raitap.tracking.mlflow_tracker.MLFlowTracker._wait_for_port_ready",
+            return_value=True,
+        ),
+        patch("webbrowser.open") as mock_open,
+    ):
+        tracker._open_mlflow_ui()
+
+    ui_url = f"http://{DEFAULT_MLFLOW_UI_HOST}:{DEFAULT_MLFLOW_UI_PORT}"
+    mock_subprocess.assert_called_once_with(
+        [
+            "mlflow",
+            "ui",
+            "--backend-store-uri",
+            "sqlite:///mlflow/mlflow.db",
+            "--port",
+            str(DEFAULT_MLFLOW_UI_PORT),
+        ],
+        stdout=-3,
+        stderr=-3,
+        start_new_session=True,
+    )
+    mock_open.assert_called_once_with(ui_url)
+
+
+def test_mlflow_tracker_warns_when_reusing_existing_sqlite_ui_port(
+    mock_mlflow: MagicMock,
+    mock_subprocess: MagicMock,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    config = _make_config(url="sqlite:///mlflow/mlflow.db")
+    with patch("raitap.tracking.mlflow_tracker.MLFlowTracker._ensure_server_running"):
+        tracker = MLFlowTracker(config)
+
+    with (
+        patch("raitap.tracking.mlflow_tracker.MLFlowTracker._is_port_open", return_value=True),
+        patch("webbrowser.open") as mock_open,
+        caplog.at_level("WARNING", logger="raitap.tracking.mlflow_tracker"),
+    ):
+        tracker._open_mlflow_ui()
+
+    mock_subprocess.assert_not_called()
+    mock_open.assert_called_once_with("http://127.0.0.1:5000")
+    assert "Reusing existing MLflow UI at http://127.0.0.1:5000" in caplog.text
+    assert "sqlite:///mlflow/mlflow.db" in caplog.text
+    assert "may use a different backend store" in caplog.text
+
+
+def test_mlflow_tracker_terminate_keeps_opened_ui_running(
+    mock_mlflow: MagicMock,
+    mock_subprocess: MagicMock,
+) -> None:
+    config = _make_config(url="sqlite:///mlflow/mlflow.db", open_when_done=True)
+    with patch("raitap.tracking.mlflow_tracker.MLFlowTracker._ensure_server_running"):
+        tracker = MLFlowTracker(config)
+
+    mock_process = MagicMock()
+    mock_process.poll.return_value = None
+    mock_subprocess.return_value = mock_process
+
+    with (
+        patch("raitap.tracking.mlflow_tracker.MLFlowTracker._is_port_open", return_value=False),
+        patch(
+            "raitap.tracking.mlflow_tracker.MLFlowTracker._wait_for_port_ready",
+            return_value=True,
+        ),
+        patch("webbrowser.open"),
+    ):
+        tracker.terminate(successfully=True)
+
+    mock_mlflow.end_run.assert_called_once()
+    mock_process.terminate.assert_not_called()
+    mock_process.kill.assert_not_called()
+
+
+def test_mlflow_tracker_terminate_cleans_up_when_not_opening_ui(
+    mock_mlflow: MagicMock,
+) -> None:
+    config = _make_config(url="sqlite:///mlflow/mlflow.db", open_when_done=False)
+    with patch("raitap.tracking.mlflow_tracker.MLFlowTracker._ensure_server_running"):
+        tracker = MLFlowTracker(config)
+
+    mock_process = MagicMock()
+    mock_process.poll.return_value = None
+    tracker._ui_process = mock_process
+
+    tracker.terminate(successfully=True)
+
+    mock_mlflow.end_run.assert_called_once()
+    mock_process.terminate.assert_called_once()
 
 
 def test_mlflow_tracker_terminate_success(tracker: MLFlowTracker, mock_mlflow: MagicMock) -> None:

@@ -11,7 +11,9 @@
 :default: null
 :description: Tracking URI used by the backend. For `MLFlowTracker`, this is
   passed to MLflow as the tracking URI. It can point to a local path or an
-  HTTP endpoint. If not set, it falls back to `./mlruns`.
+  existing HTTP tracking server. If not set, it uses
+  `sqlite:///mlflow/mlflow.db`, with the database at `mlflow/mlflow.db` from
+  the repository root and artifacts under `mlflow/artifacts`.
 
 :option: log_model
 :allowed: boolean
@@ -30,5 +32,5 @@ tracking:
   output_forwarding_url: "http://127.0.0.1:5000"
   log_model: true
 
-:cli: tracking=mlflow tracking.log_model=true
+:cli: +tracking=mlflow tracking.log_model=true
 ```
