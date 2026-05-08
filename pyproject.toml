@@ -321,7 +321,9 @@ markers = [
 ]
 addopts = ["-v", "--strict-markers", "--strict-config", "--tb=short"]
 filterwarnings = [
-  # captum raises this when inputs don't already require gradients; expected during tests
+  # captum's "Input Tensor.*required_grads" is also silenced at runtime by the
+  # adapter (raitap.transparency.explainers.captum_explainer) — duplicated here
+  # because pytest resets the warnings filter between tests.
   "ignore:Input Tensor.*required_grads:UserWarning",
   # captum uses deprecated matplotlib cm.get_cmap; will be fixed upstream
   "ignore:The get_cmap function was deprecated:matplotlib.MatplotlibDeprecationWarning",

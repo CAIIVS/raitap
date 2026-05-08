@@ -7,8 +7,16 @@ from typing import TYPE_CHECKING, ClassVar
 from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
 from raitap.transparency.contracts import ExplanationPayloadKind
 from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
+from raitap.utils.warnings import suppress_warning
 
 from .base_explainer import AttributionOnlyExplainer
+
+# Captum emits this on every run when inputs don't already require gradients.
+# It auto-fixes the issue, so the warning is pure noise — silence it at import.
+suppress_warning(
+    message=r"Input Tensor.*required_grads",
+    category=UserWarning,
+)
 
 if TYPE_CHECKING:
     import torch
