@@ -1,5 +1,5 @@
 _target_: MLFlowTracker
-output_forwarding_url: http://127.0.0.1:5000
+output_forwarding_url: http://127.0.0.1:5001
 backend_store_uri: sqlite:///mlflow/mlflow.db
 default_artifact_root: ./mlflow/artifacts
 log_model: false
