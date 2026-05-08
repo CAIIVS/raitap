@@ -68,9 +68,19 @@ def mock_subprocess() -> Generator[MagicMock]:
 
 
 @pytest.fixture
-def tracker(mock_mlflow: MagicMock) -> MLFlowTracker:
+def tracker(
+    mock_mlflow: MagicMock,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> MLFlowTracker:
+    monkeypatch.chdir(tmp_path)
+    db_path = tmp_path / "mlflow" / "mlflow.db"
+    artifact_root = tmp_path / "mlflow" / "artifacts"
     # Avoid server startup by setting tracking_uri to something non-http
-    config = _make_config(url="sqlite:///mlflow/mlflow.db")
+    config = _make_config(
+        url=f"sqlite:///{db_path}",
+        default_artifact_root=str(artifact_root),
+    )
     with patch("raitap.tracking.mlflow_tracker.MLFlowTracker._ensure_server_running"):
         return MLFlowTracker(config)
 
