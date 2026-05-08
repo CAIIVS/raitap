@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 import torch
 
 from ..exceptions import AssessorBackendIncompatibilityError
-from .base_assessor import EmpiricalAttackAssessor
+from .base_assessor import EmpiricalAttackAssessor, _prepare_inputs_for_forward
 
 if TYPE_CHECKING:
     from torch import nn
@@ -59,7 +59,6 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
         backend: object | None = None,
         **kwargs: Any,
     ) -> torch.Tensor:
-        del backend
         try:
             import foolbox  # pyright: ignore[reportMissingImports]
         except ImportError as error:
@@ -81,11 +80,15 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
         eps = self._extract_scalar_eps(kwargs)
         criterion = self._build_criterion(foolbox, kwargs, targets)
 
-        device = _model_device(model) or inputs.device
-        # Defensive contiguity: foolbox attacks may call ``.view(...)`` internally,
-        # and RAITAP's image loader produces non-contiguous NCHW tensors via HWC->CHW.
-        inputs_dev = inputs.to(device).contiguous()
-        targets_dev = criterion if criterion is not None else targets.to(device).contiguous()
+        # Route device placement through the backend so the foolbox model wrapper sees
+        # the same device the rest of the pipeline forwards through. Defensive contiguity
+        # because RAITAP's image loader produces non-contiguous NCHW via HWC->CHW.
+        inputs_dev = _prepare_inputs_for_forward(inputs, model=model, backend=backend).contiguous()
+        targets_dev = (
+            criterion
+            if criterion is not None
+            else _prepare_inputs_for_forward(targets, model=model, backend=backend).contiguous()
+        )
 
         fmodel = foolbox.PyTorchModel(  # pyright: ignore[reportPrivateImportUsage]
             model,
@@ -141,7 +144,3 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
         return criteria.TargetedMisclassification(wanted)
 
 
-def _model_device(model: nn.Module) -> torch.device | None:
-    for parameter in model.parameters():
-        return parameter.device
-    return None

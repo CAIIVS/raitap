@@ -163,8 +163,8 @@ class EmpiricalAttackAssessor(BaseAssessor, ABC):
         )
 
         # Forward pass on clean and perturbed to derive predictions.
-        clean_predictions = _argmax_predictions(model, inputs)
-        adversarial_predictions = _argmax_predictions(model, perturbed)
+        clean_predictions = _argmax_predictions(model, inputs, backend=backend)
+        adversarial_predictions = _argmax_predictions(model, perturbed, backend=backend)
 
         reference_targets = _resolve_per_sample_target(targets, semantics.target_classes)
         verdicts_list, attack_success_mask = _empirical_verdicts(
@@ -328,7 +328,7 @@ class FormalVerificationAssessor(BaseAssessor, ABC):
             sample_names=sample_names,
         )
 
-        clean_predictions = _argmax_predictions(model, inputs)
+        clean_predictions = _argmax_predictions(model, inputs, backend=backend)
 
         verdict_list: list[RobustnessVerdict] = []
         counter_examples: list[torch.Tensor | None] = []
@@ -381,6 +381,7 @@ class FormalVerificationAssessor(BaseAssessor, ABC):
             verdicts=verdict_list,
             model=model,
             norm=semantics.budget.norm,
+            backend=backend,
         )
         output_bounds = _stack_optional_bounds(lower_rows, upper_rows)
 
@@ -438,16 +439,47 @@ def _detach_cpu(tensor: torch.Tensor) -> torch.Tensor:
     return tensor.detach().cpu()
 
 
-def _argmax_predictions(model: nn.Module, inputs: torch.Tensor) -> torch.Tensor:
+def _argmax_predictions(
+    model: nn.Module,
+    inputs: torch.Tensor,
+    *,
+    backend: object | None = None,
+) -> torch.Tensor:
+    """Forward ``inputs`` through ``model`` and return per-sample argmax predictions.
+
+    Routes device placement through ``backend._prepare_inputs`` when a backend
+    is supplied (matches the transparency module's pattern); falls back to a
+    parameter-device probe for callers without a backend handle (e.g. unit
+    tests using a bare ``nn.Module``).
+    """
+    prepared = _prepare_inputs_for_forward(inputs, model=model, backend=backend)
     with torch.no_grad():
-        device = next(model.parameters()).device if any(True for _ in model.parameters()) else None
-        if device is not None and inputs.device != device:
-            outputs = model(inputs.to(device))
-        else:
-            outputs = model(inputs)
+        outputs = model(prepared)
     if not isinstance(outputs, torch.Tensor):
         outputs = outputs[0] if isinstance(outputs, (list, tuple)) else outputs
     return outputs.argmax(dim=1).detach().cpu()
+
+
+def _prepare_inputs_for_forward(
+    inputs: torch.Tensor,
+    *,
+    model: nn.Module | None = None,
+    backend: object | None = None,
+) -> torch.Tensor:
+    """Move ``inputs`` to the right device for the forward pass.
+
+    Preference order: (1) ``backend._prepare_inputs`` (canonical entry point
+    used by transparency); (2) ``next(model.parameters()).device`` fallback
+    for parameter-bearing modules; (3) leave inputs untouched.
+    """
+    prepare = getattr(backend, "_prepare_inputs", None)
+    if callable(prepare):
+        return prepare(inputs)
+    if model is not None:
+        for parameter in model.parameters():
+            target = parameter.device
+            return inputs if inputs.device == target else inputs.to(target)
+    return inputs
 
 
 def _empirical_verdicts(
@@ -482,6 +514,7 @@ def _assemble_counter_examples(
     verdicts: list[RobustnessVerdict],
     model: nn.Module,
     norm: PerturbationNorm,
+    backend: object | None = None,
 ) -> tuple[torch.Tensor | None, torch.Tensor | None, torch.Tensor | None]:
     if not any(ce is not None for ce in counter_examples):
         return None, None, None
@@ -504,7 +537,7 @@ def _assemble_counter_examples(
     falsified_indices = [i for i, v in enumerate(verdicts) if v == RobustnessVerdict.FALSIFIED]
     if falsified_indices:
         falsified_inputs = perturbed[falsified_indices].nan_to_num(nan=0.0)
-        falsified_preds = _argmax_predictions(model, falsified_inputs)
+        falsified_preds = _argmax_predictions(model, falsified_inputs, backend=backend)
         for slot, value in zip(falsified_indices, falsified_preds.tolist(), strict=False):
             perturbed_predictions[slot] = int(value)
     return perturbed, perturbed_predictions, distance

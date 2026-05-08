@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 import torch
 
 from ..exceptions import AssessorBackendIncompatibilityError
-from .base_assessor import EmpiricalAttackAssessor
+from .base_assessor import EmpiricalAttackAssessor, _prepare_inputs_for_forward
 
 if TYPE_CHECKING:
     from torch import nn
@@ -45,7 +45,6 @@ class TorchattacksAssessor(EmpiricalAttackAssessor):
         backend: object | None = None,
         **kwargs: Any,
     ) -> torch.Tensor:
-        del backend
         try:
             import torchattacks  # pyright: ignore[reportMissingImports]
         except ImportError as error:
@@ -70,15 +69,22 @@ class TorchattacksAssessor(EmpiricalAttackAssessor):
 
         target_kwargs = self._maybe_set_targeted(attack, kwargs)
 
-        device = _model_device(model) or inputs.device
         # torchattacks methods (PGDL2, CW, DeepFool, Square, ...) call ``.view(...)``
         # internally, which needs contiguous memory. RAITAP's image loader produces
-        # NCHW tensors via HWC->CHW transpose, so we make inputs contiguous defensively.
-        inputs_dev = inputs.to(device).contiguous()
-        targets_dev = targets.to(device).contiguous()
+        # NCHW tensors via HWC->CHW transpose, so we make inputs contiguous defensively
+        # after routing them through the backend's ``_prepare_inputs`` for device placement.
+        inputs_dev = _prepare_inputs_for_forward(inputs, model=model, backend=backend).contiguous()
+        targets_dev = _prepare_inputs_for_forward(
+            targets, model=model, backend=backend
+        ).contiguous()
 
         if target_kwargs is not None:
-            adversarial = attack(inputs_dev, target_kwargs.to(device).contiguous())
+            adversarial = attack(
+                inputs_dev,
+                _prepare_inputs_for_forward(
+                    target_kwargs, model=model, backend=backend
+                ).contiguous(),
+            )
         else:
             adversarial = attack(inputs_dev, targets_dev)
         return adversarial.detach()
@@ -100,12 +106,6 @@ class TorchattacksAssessor(EmpiricalAttackAssessor):
         if target_labels is not None:
             return _to_long_tensor(target_labels)
         return _to_long_tensor(target_classes)
-
-
-def _model_device(model: nn.Module) -> torch.device | None:
-    for parameter in model.parameters():
-        return parameter.device
-    return None
 
 
 def _to_long_tensor(value: Any) -> torch.Tensor:
