@@ -66,6 +66,14 @@ def raitap_warn(
 
     When ``subsystem`` is omitted this behaves exactly like ``warnings.warn``;
     the rich handler will fall back to walking frames to classify the origin.
+
+    ``stacklevel`` follows the same convention as :func:`warnings.warn`:
+    ``2`` (the default) blames the immediate caller of ``raitap_warn``, which
+    is what most call sites want. Increase it when ``raitap_warn`` is itself
+    wrapped behind another helper. Internally this function adds one to the
+    given value before delegating to ``warnings.warn`` so the user-visible
+    "warning at <file:line>" still points at the original caller, not at this
+    helper's body.
     """
     if subsystem is not None:
         frame = sys._getframe(max(stacklevel - 1, 0))
