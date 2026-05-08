@@ -104,15 +104,23 @@ class MLFlowTracker(BaseTracker):
             ) from e
 
         tracking_conf = _tracking_dict(config)
+        configured_backend_store_uri = _param_str(tracking_conf.get("backend_store_uri"))
+        configured_default_artifact_root = _param_str(tracking_conf.get("default_artifact_root"))
+        configured_output_forwarding_url = _param_str(
+            tracking_conf.get("output_forwarding_url")
+        )
+
+        self._backend_store_uri_configured = configured_backend_store_uri is not None
+        self._default_artifact_root_configured = configured_default_artifact_root is not None
+        self._output_forwarding_url_configured = configured_output_forwarding_url is not None
+
         self.backend_store_uri: str = (
-            tracking_conf.get("backend_store_uri") or DEFAULT_MLFLOW_BACKEND_STORE_URI
+            configured_backend_store_uri or DEFAULT_MLFLOW_BACKEND_STORE_URI
         )
         self.default_artifact_root: str = (
-            tracking_conf.get("default_artifact_root") or DEFAULT_MLFLOW_ARTIFACT_ROOT
+            configured_default_artifact_root or DEFAULT_MLFLOW_ARTIFACT_ROOT
         )
-        self.tracking_uri: str = (
-            tracking_conf.get("output_forwarding_url") or self.backend_store_uri
-        )
+        self.tracking_uri: str = configured_output_forwarding_url or self.backend_store_uri
 
         # Track spawned subprocesses for cleanup
         self._server_process: Any = None

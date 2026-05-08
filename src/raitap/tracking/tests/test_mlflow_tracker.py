@@ -122,6 +122,44 @@ def test_mlflow_tracker_defaults_to_sqlite_backend(mock_mlflow: MagicMock) -> No
     assert tracker.default_artifact_root == "./mlflow/artifacts"
 
 
+def test_mlflow_tracker_treats_blank_uri_config_as_unset(mock_mlflow: MagicMock) -> None:
+    config = _make_config(
+        url=" ",
+        backend_store_uri="",
+        default_artifact_root="   ",
+    )
+    with patch("raitap.tracking.mlflow_tracker.MLFlowTracker._ensure_server_running"):
+        tracker = MLFlowTracker(config)
+
+    mock_mlflow.set_tracking_uri.assert_called_once_with("sqlite:///mlflow/mlflow.db")
+    assert tracker.tracking_uri == "sqlite:///mlflow/mlflow.db"
+    assert tracker.backend_store_uri == "sqlite:///mlflow/mlflow.db"
+    assert tracker.default_artifact_root == "./mlflow/artifacts"
+    assert tracker._output_forwarding_url_configured is False
+    assert tracker._backend_store_uri_configured is False
+    assert tracker._default_artifact_root_configured is False
+
+
+def test_mlflow_tracker_prefers_explicit_output_forwarding_url(
+    mock_mlflow: MagicMock,
+) -> None:
+    config = _make_config(
+        url="http://127.0.0.1:5005",
+        backend_store_uri="sqlite:///custom/mlflow.db",
+        default_artifact_root="./custom/artifacts",
+    )
+    with patch("raitap.tracking.mlflow_tracker.MLFlowTracker._ensure_server_running"):
+        tracker = MLFlowTracker(config)
+
+    mock_mlflow.set_tracking_uri.assert_called_once_with("http://127.0.0.1:5005")
+    assert tracker.tracking_uri == "http://127.0.0.1:5005"
+    assert tracker.backend_store_uri == "sqlite:///custom/mlflow.db"
+    assert tracker.default_artifact_root == "./custom/artifacts"
+    assert tracker._output_forwarding_url_configured is True
+    assert tracker._backend_store_uri_configured is True
+    assert tracker._default_artifact_root_configured is True
+
+
 def test_mlflow_tracker_creates_direct_sqlite_experiment_with_artifact_root(
     mock_mlflow: MagicMock,
 ) -> None:
