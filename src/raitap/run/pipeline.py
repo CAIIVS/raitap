@@ -84,7 +84,8 @@ def run(config: AppConfig) -> RunOutputs:
 def _validate_report_sample_selection(config: AppConfig, data: Data) -> None:
     if not reporting_enabled(config):
         return
-    selection = getattr(getattr(config, "reporting", None), "sample_selection", None)
+    reporting_cfg = config.reporting
+    selection = None if reporting_cfg is None else reporting_cfg.sample_selection
     resolve_report_sample_selection(
         selection,
         sample_ids=data.sample_ids,

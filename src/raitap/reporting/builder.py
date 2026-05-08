@@ -53,7 +53,8 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
     assets_dir = report_dir / "_assets"
     assets_dir.mkdir(parents=True, exist_ok=True)
 
-    configured_selection = getattr(getattr(config, "reporting", None), "sample_selection", None)
+    reporting_cfg = config.reporting
+    configured_selection = None if reporting_cfg is None else reporting_cfg.sample_selection
     explicit_samples = resolve_report_sample_selection(
         configured_selection,
         sample_ids=outputs.sample_ids,
