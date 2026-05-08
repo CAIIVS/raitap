@@ -60,7 +60,7 @@ _SUBSYSTEM_RE = re.compile(r"raitap[\\/](?!src[\\/])(?P<sub>\w+)[\\/]")
 
 # Detect Windows-drive or POSIX absolute paths inside arbitrary log messages.
 _PATH_RE = re.compile(r"(?:[A-Za-z]:[\\/]|(?<![\w/])/)[^\s]+")
-_PATH_TRIM = ".,;:)]}\""
+_PATH_TRIM = '.,;:)]}"'
 
 # "Header: rest" pattern for non-warnings.warn WARNING records.
 # Example match: ``logger.warning("Robustness: no labels…")``.
@@ -77,7 +77,7 @@ def _linkify_message(message: str) -> Text:
         rendered.append(message[last : match.start()])
         raw = match.group(0)
         trimmed = raw.rstrip(_PATH_TRIM)
-        trailing = raw[len(trimmed):]
+        trailing = raw[len(trimmed) :]
         try:
             uri = Path(trimmed).as_uri()
         except (ValueError, OSError):
@@ -294,6 +294,7 @@ def print_summary_panel(config: AppConfig, model: Model) -> None:
     robustness = getattr(config, "robustness", None) or {}
     try:
         from raitap.metrics import metrics_run_enabled
+
         metrics_on = metrics_run_enabled(config)
     except Exception:
         metrics_on = False
@@ -319,6 +320,7 @@ def print_summary_panel(config: AppConfig, model: Model) -> None:
         from pathlib import Path
 
         from raitap.configs import resolve_run_dir
+
         run_dir = str(resolve_run_dir(config))
         run_uri = Path(run_dir).resolve().as_uri()
         output_text = Text(run_dir, style=f"cyan link {run_uri}")
