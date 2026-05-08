@@ -16,12 +16,19 @@ if TYPE_CHECKING:
 class FoolboxAssessor(EmpiricalAttackAssessor):
     """Single wrapper for foolbox attack classes.
 
+    Foolbox consumes the perturbation budget at *call time* (``attack(fmodel,
+    inputs, targets, epsilons=...)``), so the YAML budget keys belong under
+    ``call:``; we set ``budget_kwarg_source = "call_kwargs"`` so semantics
+    metadata reflects that.
+
     Multi-epsilon sweeps (passing a list to ``epsilons`` so foolbox returns a
     per-eps list of tensors) are intentionally **not** supported in this adapter
     — they would change the result tensor shape across configurations and break
     the uniform :class:`raitap.robustness.results.RobustnessResult` contract.
     A future ``MultiEpsilonAssessor`` will own that surface.
     """
+
+    budget_kwarg_source = "call_kwargs"
 
     def __init__(
         self,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -16,6 +17,8 @@ from .contracts import (
     RobustnessSemantics,
     ThreatModel,
 )
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -238,35 +241,58 @@ def _resolve_objective(hints: AssessorSemanticsHints, call_kwargs: Mapping[str, 
 
 def _resolve_epsilon(
     hints: AssessorSemanticsHints,
-    *kwarg_sources: Mapping[str, Any],
+    source: Mapping[str, Any],
 ) -> float | None:
-    for source in kwarg_sources:
-        for key in ("eps", "epsilon"):
-            if key in source and source[key] is not None:
-                value = source[key]
-                if isinstance(value, (list, tuple)):
-                    # multi-epsilon sweeps fall outside the rework scope; the foolbox
-                    # adapter validates this earlier with a clearer message.
-                    return None
-                return float(value)
-        if "epsilons" in source and source["epsilons"] is not None:
-            value = source["epsilons"]
-            if isinstance(value, (int, float)):
-                return float(value)
-            # list / tuple => sweep, see above.
-            return None
+    for key in ("eps", "epsilon"):
+        if key in source and source[key] is not None:
+            value = source[key]
+            if isinstance(value, (list, tuple)):
+                # multi-epsilon sweeps fall outside the rework scope; the foolbox
+                # adapter validates this earlier with a clearer message.
+                return None
+            return float(value)
+    if "epsilons" in source and source["epsilons"] is not None:
+        value = source["epsilons"]
+        if isinstance(value, (int, float)):
+            return float(value)
+        return None  # list / tuple => sweep, see above.
     return hints.default_epsilon
 
 
-def _first_kwarg(
-    kwarg_sources: tuple[Mapping[str, Any], ...],
-    *keys: str,
-) -> Any:
-    for source in kwarg_sources:
-        for key in keys:
-            if key in source and source[key] is not None:
-                return source[key]
-    return None
+_BUDGET_KEY_GROUPS = (
+    ("eps", "epsilon", "epsilons"),
+    ("alpha", "step_size"),
+    ("steps",),
+)
+
+
+def _warn_misplaced_budget_keys(
+    *,
+    assessor: object,
+    authoritative: str,
+    other_source: Mapping[str, Any],
+) -> None:
+    """Warn when budget keys appear in the source the adapter doesn't read."""
+    misplaced = sorted(
+        {key for group in _BUDGET_KEY_GROUPS for key in group if key in other_source}
+    )
+    if not misplaced:
+        return
+    other_label = "call_kwargs" if authoritative == "init_kwargs" else "init_kwargs"
+    other_yaml = "call:" if other_label == "call_kwargs" else "constructor:"
+    auth_yaml = "constructor:" if authoritative == "init_kwargs" else "call:"
+    logger.warning(
+        "Assessor %s reads budget kwargs from %s (YAML %s) but found %s under "
+        "%s (YAML %s). Those values are ignored by the adapter; move them to "
+        "%s for the configured budget to take effect.",
+        type(assessor).__name__,
+        authoritative,
+        auth_yaml,
+        misplaced,
+        other_label,
+        other_yaml,
+        auth_yaml,
+    )
 
 
 def assessor_semantics(
@@ -281,21 +307,39 @@ def assessor_semantics(
 ) -> RobustnessSemantics:
     """Build a :class:`RobustnessSemantics` from the configured assessor and its kwargs.
 
-    Budget fields (``epsilon``, ``step_size``, ``steps``) may live on either side of
-    the constructor / call split depending on the framework. Torchattacks adapters
-    typically configure them via ``constructor:`` (they're attack ``__init__`` args);
-    foolbox uses ``call:``. We therefore look in the assessor's stored
-    ``init_kwargs`` first, then in the runtime ``call_kwargs``, before falling back
-    to the registry default.
+    Budget fields (``epsilon``, ``step_size``, ``steps``) live in only one of the
+    two YAML blocks per framework, governed by the assessor's
+    ``budget_kwarg_source`` ClassVar:
+
+    * torchattacks: ``"init_kwargs"`` (constructor-time, since the adapter does
+      ``attack_class(model, **init_kwargs)`` once and never forwards per-call
+      budget keys).
+    * foolbox: ``"call_kwargs"`` (foolbox attacks consume ``epsilons=...`` at
+      ``attack(...)`` time).
+
+    The reported ``RobustnessSemantics.budget`` therefore matches what the
+    adapter actually executed. Misplaced budget keys in the non-authoritative
+    source emit a warning so the user can correct the YAML.
     """
     del targets  # reserved for future per-sample target metadata; not used yet.
     hints = hints_for_assessor(assessor)
     init_kwargs: Mapping[str, Any] = getattr(assessor, "init_kwargs", {}) or {}
-    sources: tuple[Mapping[str, Any], ...] = (call_kwargs, init_kwargs)
+    authoritative_label = str(getattr(assessor, "budget_kwarg_source", "init_kwargs"))
+    if authoritative_label == "call_kwargs":
+        budget_source: Mapping[str, Any] = call_kwargs
+        other_source: Mapping[str, Any] = init_kwargs
+    else:
+        budget_source = init_kwargs
+        other_source = call_kwargs
+    _warn_misplaced_budget_keys(
+        assessor=assessor, authoritative=authoritative_label, other_source=other_source
+    )
     objective = _resolve_objective(hints, call_kwargs)
-    epsilon = _resolve_epsilon(hints, *sources)
-    step_size = _first_kwarg(sources, "alpha", "step_size")
-    steps = _first_kwarg(sources, "steps")
+    epsilon = _resolve_epsilon(hints, budget_source)
+    step_size = budget_source.get("alpha")
+    if step_size is None:
+        step_size = budget_source.get("step_size")
+    steps = budget_source.get("steps")
     budget = PerturbationBudget(
         norm=hints.norm,
         epsilon=float(epsilon) if epsilon is not None else None,

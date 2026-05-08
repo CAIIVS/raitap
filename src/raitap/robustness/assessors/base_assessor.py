@@ -59,6 +59,14 @@ class BaseAssessor:
     threat_model_default: ClassVar[ThreatModel] = ThreatModel.WHITE_BOX
     objective_default: ClassVar[Objective] = Objective.UNTARGETED
 
+    #: Which YAML block the underlying library actually consumes for budget
+    #: kwargs (``eps`` / ``alpha`` / ``steps``). ``"init_kwargs"`` means the
+    #: adapter forwards them at attack-instance construction (torchattacks);
+    #: ``"call_kwargs"`` means they are read at attack-call time (foolbox).
+    #: ``RobustnessSemantics.budget`` is derived from this source so reported
+    #: metadata always matches what the adapter executed.
+    budget_kwarg_source: ClassVar[str] = "init_kwargs"
+
     def check_backend_compat(self, backend: object) -> None:
         del backend
         return None
