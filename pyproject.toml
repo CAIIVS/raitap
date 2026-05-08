@@ -48,6 +48,9 @@ dependencies = [
   "pandas>=2.0.0",
   "pandas-stubs~=3.0.0",
   "pillow>=12.2.0",
+
+  # Terminal output (cross-platform ANSI: handles Windows console via colorama-style shim).
+  "rich>=13.7.0",
 ]
 
 [project.scripts]
