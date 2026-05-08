@@ -30,14 +30,13 @@ from rich.text import Text
 from rich.theme import Theme
 from rich.traceback import install as install_rich_traceback
 
-from raitap.utils.warnings import (
-    WarningOrigin,
-    _pop_origin,
-    _push_origin,
+from raitap.utils.diagnostics import (
+    Diagnostic,
     docs_url,
     is_dev_install,
-    resolve_warn_origin,
+    resolve_diagnostic_from_frames,
 )
+from raitap.utils.warnings import _pop_diagnostic, _push_diagnostic
 
 _THEME = Theme(
     {
@@ -196,12 +195,12 @@ class RaitapRichHandler(RichHandler):
         if warn_match:
             cat = warn_match.group("cat")
             src = warn_match.group("src")
-            origin = _pop_origin()
+            diagnostic = _pop_diagnostic()
             self._render_warning_header(
                 header_parts,
                 src=src,
                 category=cat,
-                origin=origin,
+                diagnostic=diagnostic,
                 main_style=main_style,
                 sub_style=sub_style,
             )
@@ -236,7 +235,7 @@ class RaitapRichHandler(RichHandler):
         *,
         src: str,
         category: str,
-        origin: WarningOrigin | None,
+        diagnostic: Diagnostic | None,
         main_style: str,
         sub_style: str,
     ) -> None:
@@ -252,8 +251,8 @@ class RaitapRichHandler(RichHandler):
           subsystem linked to the frameworks-and-libraries doc page.
         - **Installed wheel, unclassified**: no subheader at all.
         """
-        sub = origin.subsystem if origin else None
-        third_party = origin.third_party_lib if origin else None
+        sub = diagnostic.subsystem if diagnostic else None
+        third_party = diagnostic.third_party_lib if diagnostic else None
         scope = sub.capitalize() if sub else category
 
         if is_dev_install():
@@ -266,7 +265,7 @@ class RaitapRichHandler(RichHandler):
         # Installed: hide raw paths the user can't act on. Surface docs links instead.
         if sub is None:
             return
-        url = docs_url(origin) if origin is not None else None
+        url = docs_url(diagnostic) if diagnostic is not None else None
         if url is not None:
             header_parts.append(f"[{sub_style} link={url}]· {scope}[/]")
         else:
@@ -314,14 +313,14 @@ def _format_warning_compact(
 
     The returned canonical string ``path:line: Category: msg`` is what the
     standard ``logging.captureWarnings`` pipeline forwards to the handler. The
-    structured :class:`~raitap.utils.warnings.WarningOrigin` (subsystem +
-    third-party detection) is stashed on a queue so the handler can render an
-    audience-appropriate header without re-walking frames at emit time (frames
-    are unwound by then).
+    structured :class:`~raitap.utils.diagnostics.Diagnostic` (subsystem +
+    third-party detection) is stashed on a thread-local queue so the handler
+    can render an audience-appropriate header without re-walking frames at
+    emit time (frames are unwound by then).
     """
-    origin = resolve_warn_origin(filename, lineno)
-    _push_origin(origin)
-    return f"{origin.file}:{origin.line}: {category.__name__}: {message}"
+    diagnostic = resolve_diagnostic_from_frames(filename, lineno)
+    _push_diagnostic(diagnostic)
+    return f"{diagnostic.file}:{diagnostic.line}: {category.__name__}: {message}"
 
 
 def _format_value(value: Any, *, dot: bool = False, dot_style: str = "green") -> Text:
