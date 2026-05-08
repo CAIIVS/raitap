@@ -277,17 +277,15 @@ def _warn_misplaced_budget_keys(
     other_label = "call_kwargs" if authoritative == "init_kwargs" else "init_kwargs"
     other_yaml = "call:" if other_label == "call_kwargs" else "constructor:"
     auth_yaml = "constructor:" if authoritative == "init_kwargs" else "call:"
-    logger.warning(
-        "Assessor %s reads budget kwargs from %s (YAML %s) but found %s under "
-        "%s (YAML %s). Those values are ignored by the adapter; move them to "
-        "%s for the configured budget to take effect.",
-        type(assessor).__name__,
-        authoritative,
-        auth_yaml,
-        misplaced,
-        other_label,
-        other_yaml,
-        auth_yaml,
+    import warnings
+
+    warnings.warn(
+        f"Assessor {type(assessor).__name__} reads budget kwargs from "
+        f"{authoritative} (YAML {auth_yaml}) but found {misplaced} under "
+        f"{other_label} (YAML {other_yaml}). Those values are ignored by the "
+        f"adapter; move them to {auth_yaml} for the configured budget to take effect.",
+        UserWarning,
+        stacklevel=2,
     )
 
 

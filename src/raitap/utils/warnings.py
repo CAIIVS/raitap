@@ -12,13 +12,12 @@ from a live frame walk.
 
 from __future__ import annotations
 
+import sys
 import threading
 import warnings
 from collections import deque
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from raitap.utils.diagnostics import Diagnostic
+from raitap.utils.diagnostics import Diagnostic
 
 # Per-thread FIFO of diagnostics resolved at ``warnings.formatwarning`` time,
 # drained by the rich handler when it parses a warning panel. Thread-local so
@@ -50,6 +49,52 @@ def suppress_warning(
     warnings.filterwarnings("ignore", message=message, category=category, module=module)
 
 
+def raitap_warn(
+    message: str,
+    *,
+    subsystem: str | None = None,
+    third_party_lib: str | None = None,
+    category: type[Warning] = UserWarning,
+    stacklevel: int = 2,
+) -> None:
+    """Emit a :class:`UserWarning` with explicit raitap subsystem metadata.
+
+    Use this from call sites where the *logical* subsystem differs from the
+    file path the warning is emitted from. For example, a robustness-related
+    warning raised inside ``run/pipeline.py`` should still render under the
+    ``Robustness`` chip with a link to the robustness docs page.
+
+    When ``subsystem`` is omitted this behaves exactly like ``warnings.warn``;
+    the rich handler will fall back to walking frames to classify the origin.
+    """
+    if subsystem is not None:
+        frame = sys._getframe(max(stacklevel - 1, 0))
+        _diagnostic_override.value = Diagnostic(
+            subsystem=subsystem,
+            file=frame.f_code.co_filename,
+            line=frame.f_lineno,
+            third_party_lib=third_party_lib,
+        )
+    try:
+        warnings.warn(message, category, stacklevel=stacklevel + 1)
+    finally:
+        _diagnostic_override.value = None
+
+
+# Thread-local override consulted by :func:`_format_warning_compact` before it
+# falls back to a frame walk. Set by :func:`raitap_warn` and cleared in its
+# ``finally`` block; ``None`` between calls.
+_diagnostic_override = threading.local()
+_diagnostic_override.value = None
+
+
+def _take_diagnostic_override() -> Diagnostic | None:
+    """Pop the current thread's diagnostic override, if any."""
+    override = getattr(_diagnostic_override, "value", None)
+    _diagnostic_override.value = None
+    return override
+
+
 def _push_diagnostic(diagnostic: Diagnostic) -> None:
     """Stash a diagnostic for the rich handler to drain."""
     _diagnostic_queue().append(diagnostic)
@@ -68,4 +113,4 @@ def _clear_diagnostics() -> None:
     _diagnostic_queue().clear()
 
 
-__all__ = ["suppress_warning"]
+__all__ = ["raitap_warn", "suppress_warning"]

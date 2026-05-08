@@ -1,11 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
+import pytest
 import torch
-
-if TYPE_CHECKING:
-    import pytest
 
 from raitap.robustness.assessors import FoolboxAssessor, TorchattacksAssessor
 from raitap.robustness.contracts import (
@@ -101,14 +97,12 @@ def test_assessor_semantics_foolbox_reads_budget_from_call_kwargs() -> None:
     assert semantics.budget.steps == 25
 
 
-def test_assessor_semantics_warns_on_misplaced_budget_keys(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+def test_assessor_semantics_warns_on_misplaced_budget_keys() -> None:
     """Putting budget under the wrong YAML block must surface a clear warning."""
     assessor = TorchattacksAssessor(algorithm="PGD")  # reads init_kwargs
     inputs = torch.randn(1, 3, 4, 4)
     targets = torch.tensor([0])
-    with caplog.at_level("WARNING", logger="raitap.robustness.semantics"):
+    with pytest.warns(UserWarning, match="ignored by the adapter"):
         semantics = assessor_semantics(
             assessor,
             call_kwargs={"eps": 0.05},  # wrong source for torchattacks
@@ -119,4 +113,3 @@ def test_assessor_semantics_warns_on_misplaced_budget_keys(
     # Misplaced kwargs in call_kwargs are not consumed by the adapter, so the
     # resulting budget reflects init_kwargs (empty) plus registry default.
     assert semantics.budget.epsilon is None
-    assert any("ignored by the adapter" in record.message for record in caplog.records)

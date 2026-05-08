@@ -250,9 +250,12 @@ def _robustness_targets(
     if forward_output.ndim != 2 or forward_output.shape[1] < 2:
         return None
     predictions, _ = metrics_prediction_pair(forward_output)
-    logger.warning(
-        "Robustness: no ground-truth labels provided; using model predictions "
-        "as the reference for untargeted attacks."
+    from raitap.utils.warnings import raitap_warn
+
+    raitap_warn(
+        "No ground-truth labels provided; using model predictions as the "
+        "reference for untargeted attacks.",
+        subsystem="robustness",
     )
     return predictions.detach().cpu()
 

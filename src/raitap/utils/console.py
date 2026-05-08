@@ -36,7 +36,7 @@ from raitap.utils.diagnostics import (
     is_dev_install,
     resolve_diagnostic_from_frames,
 )
-from raitap.utils.warnings import _pop_diagnostic, _push_diagnostic
+from raitap.utils.warnings import _pop_diagnostic, _push_diagnostic, _take_diagnostic_override
 
 _THEME = Theme(
     {
@@ -208,13 +208,34 @@ class RaitapRichHandler(RichHandler):
         else:
             head_match = _LOGGER_HEADER_RE.match(message.strip())
             if head_match:
-                header_parts.append(f"[{sub_style}]· {head_match.group('head')}[/]")
+                head = head_match.group("head")
+                header_parts.append(f"[{sub_style}]· {head}[/]")
+                # logger.warning("Subsystem: …") records have no Diagnostic
+                # stashed (no frame walk happened), so synthesise one from the
+                # header text to drive the same View-docs affordance.
+                synth = Diagnostic(
+                    subsystem=head.lower(),
+                    file="",
+                    line=0,
+                    third_party_lib=None,
+                )
+                if not is_dev_install():
+                    url = docs_url(synth)
+                    if url is not None:
+                        header_parts.append(
+                            f"[{sub_style}]· [/][{sub_style} underline link={url}]View docs[/]"
+                        )
                 stripped = head_match.group("msg").strip()
                 body = stripped[:1].upper() + stripped[1:] if stripped else stripped
 
+        # Build a non-wrapping ``Text`` with overflow="ellipsis" so a narrow
+        # terminal trims chips with ``…`` instead of hard-cutting mid-word.
+        title_text = Text.from_markup(" ".join(header_parts))
+        title_text.overflow = "ellipsis"
+        title_text.no_wrap = True
         panel = Panel(
             _linkify_message(body),
-            title=" ".join(header_parts),
+            title=title_text,
             title_align="left",
             border_style=border,
             padding=(0, 1),
@@ -259,19 +280,22 @@ class RaitapRichHandler(RichHandler):
             header_parts.append(f"[{sub_style}]· {scope}[/]")
             header_parts.append(f"[{main_style} link={_src_to_uri(src)}]· {src}[/]")
             if third_party is not None:
-                header_parts.append(f"[{sub_style}]· via {third_party}[/]")
+                header_parts.append(f"[{sub_style}]· via {third_party.capitalize()}[/]")
             return
 
         # Installed: hide raw paths the user can't act on. Surface docs links instead.
         if sub is None:
             return
+        header_parts.append(f"[{sub_style}]· {scope}[/]")
+        if third_party is not None:
+            header_parts.append(f"[{sub_style}]· via {third_party.capitalize()}[/]")
         url = docs_url(diagnostic) if diagnostic is not None else None
         if url is not None:
-            header_parts.append(f"[{sub_style} link={url}]· {scope}[/]")
-        else:
-            header_parts.append(f"[{sub_style}]· {scope}[/]")
-        if third_party is not None:
-            header_parts.append(f"[{sub_style}]· via {third_party}[/]")
+            # Explicit ``View docs`` chip — clearer affordance than relying on
+            # OSC 8 styling on the subsystem text alone (Windows Terminal /
+            # other terminals don't visually mark hyperlinks by default).
+            # Link wraps only the label so the leading separator stays plain.
+            header_parts.append(f"[{sub_style}]· [/][{sub_style} underline link={url}]View docs[/]")
 
 
 def setup_logging(level: int = logging.INFO) -> None:
@@ -318,7 +342,7 @@ def _format_warning_compact(
     can render an audience-appropriate header without re-walking frames at
     emit time (frames are unwound by then).
     """
-    diagnostic = resolve_diagnostic_from_frames(filename, lineno)
+    diagnostic = _take_diagnostic_override() or resolve_diagnostic_from_frames(filename, lineno)
     _push_diagnostic(diagnostic)
     return f"{diagnostic.file}:{diagnostic.line}: {category.__name__}: {message}"
 
@@ -373,13 +397,17 @@ def print_summary_panel(config: AppConfig, model: Model) -> None:
     table.add_row("dataset", _format_value(_safe_attr(config, "data", "name")))
     hardware = _safe_attr(model, "backend", "hardware_label")
     if hardware:
-        hw_text = Text.assemble(("● ", "green"), (str(hardware), "green"))
+        # CPU runs are slow enough to be a footgun for transparency/robustness;
+        # surface that with the same yellow used for warnings.
+        hw_label = str(hardware)
+        hw_color = "yellow" if "cpu" in hw_label.lower() else "green"
+        hw_text = Text.assemble(("● ", hw_color), (hw_label, hw_color))
     else:
         hw_text = Text("—", style="dim")
     table.add_row("hardware", hw_text)
     table.add_row("explainers", _format_value(list(transparency.keys())))
     table.add_row("robustness", _format_value(list(robustness.keys())))
-    table.add_row("metrics", _format_value(metrics_on, dot=True))
+    table.add_row("metrics", Text("on" if metrics_on else "off"))
 
     try:
         from pathlib import Path
