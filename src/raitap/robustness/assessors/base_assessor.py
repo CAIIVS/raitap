@@ -128,6 +128,7 @@ class EmpiricalAttackAssessor(BaseAssessor, ABC):
         raitap_kwargs: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> RobustnessResult:
+        _require_non_empty_batch(inputs, type(self).__name__)
         visualisers_list = [] if visualisers is None else visualisers
         rk = {} if raitap_kwargs is None else dict(raitap_kwargs)
         attack_kwargs = {k: v for k, v in kwargs.items() if k not in _VISUALISATION_ONLY_KWARGS}
@@ -307,6 +308,7 @@ class FormalVerificationAssessor(BaseAssessor, ABC):
         raitap_kwargs: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> RobustnessResult:
+        _require_non_empty_batch(inputs, type(self).__name__)
         visualisers_list = [] if visualisers is None else visualisers
         rk = {} if raitap_kwargs is None else dict(raitap_kwargs)
         verify_kwargs = {k: v for k, v in kwargs.items() if k not in _VISUALISATION_ONLY_KWARGS}
@@ -566,6 +568,20 @@ def _pop_progress_settings(raitap_kwargs: dict[str, Any]) -> tuple[bool, str | N
     if progress_desc is not None and not isinstance(progress_desc, str):
         raise TypeError(f"raitap.progress_desc must be a str, got {type(progress_desc).__name__}.")
     return show_progress, progress_desc
+
+
+def _require_non_empty_batch(inputs: torch.Tensor, assessor_name: str) -> None:
+    """Refuse to assess an empty batch.
+
+    ``subplots(0, 3)`` crashes, ``tensor.max()`` on an empty tensor errors, and
+    metrics like ``attack_success_rate`` are undefined on N=0. Bail loudly with
+    context instead of producing a confusing downstream traceback.
+    """
+    if inputs.ndim == 0 or int(inputs.shape[0]) == 0:
+        raise ValueError(
+            f"{assessor_name}.assess() received an empty batch (shape={tuple(inputs.shape)}); "
+            "configure the data source so at least one sample is available."
+        )
 
 
 def _normalise_optional_str_list(value: Any) -> list[str] | None:

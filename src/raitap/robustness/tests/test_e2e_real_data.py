@@ -174,6 +174,35 @@ def test_image_pair_visualiser_diff_uses_diverging_cmap(tmp_path: Path) -> None:
         plt.close(figure)
 
 
+def test_assess_rejects_empty_batch(tmp_path: Path) -> None:
+    """Empty batches must error loudly rather than crash deep in matplotlib / metrics."""
+    inputs = torch.empty(0, 3, 8, 8)
+    targets = torch.empty(0, dtype=torch.long)
+    model = _TinyClassifier()
+
+    config = _make_robustness_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.robustness.TorchattacksAssessor",
+                "algorithm": "FGSM",
+                "constructor": {"eps": 0.05},
+                "visualisers": [],
+            }
+        ),
+    )
+    raitap_model = cast("Model", SimpleNamespace(backend=_BackendStub(model)))
+
+    with pytest.raises(ValueError, match="empty batch"):
+        RobustnessAssessment(  # type: ignore[arg-type]
+            config,
+            "pgd",
+            raitap_model,
+            inputs,
+            targets,
+        )
+
+
 def test_pipeline_allows_robustness_only_runs(tmp_path: Path) -> None:
     """Regression: pipeline used to require at least one explainer."""
     inputs = _hwc_to_nchw_non_contiguous(batch=2, hw=8)
