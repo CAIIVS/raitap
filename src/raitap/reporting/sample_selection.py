@@ -12,11 +12,11 @@ ReportSampleSelectionEntry = int | str
 class ResolvedReportSample:
     """Resolved form of one explicit report sample request."""
 
-    # Batch index used for rendering local explanations; always available after resolution.
+    # Position in the loaded batch; used to render the selected sample.
     sample_index: int
-    # Dataset sample ID retained for report metadata when sample IDs are available.
+    # Dataset-provided identifier/path for metadata; absent when IDs are unavailable.
     sample_id: str | None
-    # Original valid user entry: a sample ID/filename string or zero-based batch index.
+    # Original valid user entry: dataset ID/filename or zero-based batch index.
     requested_sample: ReportSampleSelectionEntry
 
 
