@@ -164,32 +164,28 @@ FOOLBOX_REGISTRY: Mapping[str, AssessorSemanticsHints] = {
 }
 
 
-_TORCHATTACKS_TARGET_HINTS = ("torchattacks", "TorchattacksAssessor")
-_FOOLBOX_TARGET_HINTS = ("foolbox", "FoolboxAssessor")
-
-
 _TARGET_KWARG_KEYS: frozenset[str] = frozenset(
     {"target_labels", "target_classes", "target_class", "target"}
 )
 
 
 def _registry_for(assessor: object) -> Mapping[str, AssessorSemanticsHints]:
-    cls = type(assessor)
-    qualified = f"{cls.__module__}.{cls.__name__}".lower()
-    name = cls.__name__.lower()
+    """Read the assessor's own ``algorithm_registry`` ClassVar.
 
-    def _matches(hints: tuple[str, ...]) -> bool:
-        return any(h.lower() in qualified or h.lower() in name for h in hints)
-
-    if _matches(_TORCHATTACKS_TARGET_HINTS):
-        return TORCHATTACKS_REGISTRY
-    if _matches(_FOOLBOX_TARGET_HINTS):
-        return FOOLBOX_REGISTRY
-    raise ValueError(
-        f"No semantics registry registered for assessor type {cls.__name__!r}. "
-        "Add a TORCHATTACKS_REGISTRY / FOOLBOX_REGISTRY entry, or extend "
-        "raitap.robustness.semantics with a new framework registry."
-    )
+    Each adapter declares its own registry on the class so semantics doesn't
+    have to branch on framework names. Adding a new framework = subclass
+    :class:`BaseAssessor` and set the ClassVar; no edits here required.
+    """
+    registry = getattr(type(assessor), "algorithm_registry", None)
+    if registry is None:
+        raise ValueError(
+            f"Assessor type {type(assessor).__name__!r} does not declare an "
+            "``algorithm_registry`` ClassVar. Each assessor adapter must declare "
+            "its supported algorithms (e.g. set "
+            "``algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]] = ...`` "
+            "in the subclass)."
+        )
+    return registry
 
 
 def hints_for_assessor(assessor: object) -> AssessorSemanticsHints:

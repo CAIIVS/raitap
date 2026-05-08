@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import torch
 
 from ..exceptions import AssessorBackendIncompatibilityError
+from ..semantics import TORCHATTACKS_REGISTRY, AssessorSemanticsHints
 from .base_assessor import EmpiricalAttackAssessor, _prepare_inputs_for_forward
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from torch import nn
 
 
@@ -18,6 +21,8 @@ class TorchattacksAssessor(EmpiricalAttackAssessor):
 
     Uses dynamic method loading - no need for class-per-method.
     """
+
+    algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]] = TORCHATTACKS_REGISTRY
 
     def __init__(self, algorithm: str, **init_kwargs: Any) -> None:
         self.algorithm = algorithm

@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import torch
 
 from ..exceptions import AssessorBackendIncompatibilityError
+from ..semantics import FOOLBOX_REGISTRY, AssessorSemanticsHints
 from .base_assessor import EmpiricalAttackAssessor, _prepare_inputs_for_forward
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from torch import nn
 
 
@@ -28,6 +31,7 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
     A future ``MultiEpsilonAssessor`` will own that surface.
     """
 
+    algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]] = FOOLBOX_REGISTRY
     budget_kwarg_source = "call_kwargs"
 
     def __init__(
