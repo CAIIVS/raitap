@@ -30,6 +30,15 @@ from rich.text import Text
 from rich.theme import Theme
 from rich.traceback import install as install_rich_traceback
 
+from raitap.utils.warnings import (
+    WarningOrigin,
+    _pop_origin,
+    _push_origin,
+    docs_url,
+    is_dev_install,
+    resolve_warn_origin,
+)
+
 _THEME = Theme(
     {
         "log.time": "cyan",
@@ -54,9 +63,6 @@ _WARNING_PREFIX_RE = re.compile(
     r"^(?P<src>.+?:\d+):\s*(?P<cat>\w+Warning):\s*(?P<msg>.*)$",
     re.DOTALL,
 )
-
-# Pull subsystem from a raitap path: ".../raitap/<subsystem>/...".
-_SUBSYSTEM_RE = re.compile(r"raitap[\\/](?!src[\\/])(?P<sub>\w+)[\\/]")
 
 # Detect Windows-drive or POSIX absolute paths inside arbitrary log messages.
 _PATH_RE = re.compile(r"(?:[A-Za-z]:[\\/]|(?<![\w/])/)[^\s]+")
@@ -184,10 +190,15 @@ class RaitapRichHandler(RichHandler):
         if warn_match:
             cat = warn_match.group("cat")
             src = warn_match.group("src")
-            sub_match = _SUBSYSTEM_RE.search(src)
-            scope = sub_match.group("sub").capitalize() if sub_match else cat
-            header_parts.append(f"[{sub_style}]· {scope}[/]")
-            header_parts.append(f"[{main_style} link={_src_to_uri(src)}]· {src}[/]")
+            origin = _pop_origin()
+            self._render_warning_header(
+                header_parts,
+                src=src,
+                category=cat,
+                origin=origin,
+                main_style=main_style,
+                sub_style=sub_style,
+            )
             body = warn_match.group("msg").strip()
         else:
             head_match = _LOGGER_HEADER_RE.match(message.strip())
@@ -212,6 +223,50 @@ class RaitapRichHandler(RichHandler):
         except Exception:
             # Never let logging crash the run — fall back to plain RichHandler.
             super().emit(record)
+
+    def _render_warning_header(
+        self,
+        header_parts: list[str],
+        *,
+        src: str,
+        category: str,
+        origin: WarningOrigin | None,
+        main_style: str,
+        sub_style: str,
+    ) -> None:
+        """Append subsystem / path / docs-link chips to the warning panel header.
+
+        Layout depends on the audience:
+
+        - **Dev install** (cloned repo): ``· <Subsystem> · <path:line>``,
+          ``path`` clickable. Falls back to category if no subsystem matched.
+        - **Installed wheel, raitap-emitted**: ``· <Subsystem>`` only,
+          subsystem text linked to the docs page.
+        - **Installed wheel, third-party**: ``· <Subsystem> · via <lib>``,
+          subsystem linked to the frameworks-and-libraries doc page.
+        - **Installed wheel, unclassified**: no subheader at all.
+        """
+        sub = origin.subsystem if origin else None
+        third_party = origin.third_party_lib if origin else None
+        scope = sub.capitalize() if sub else category
+
+        if is_dev_install():
+            header_parts.append(f"[{sub_style}]· {scope}[/]")
+            header_parts.append(f"[{main_style} link={_src_to_uri(src)}]· {src}[/]")
+            if third_party is not None:
+                header_parts.append(f"[{sub_style}]· via {third_party}[/]")
+            return
+
+        # Installed: hide raw paths the user can't act on. Surface docs links instead.
+        if sub is None:
+            return
+        url = docs_url(origin) if origin is not None else None
+        if url is not None:
+            header_parts.append(f"[{sub_style} link={url}]· {scope}[/]")
+        else:
+            header_parts.append(f"[{sub_style}]· {scope}[/]")
+        if third_party is not None:
+            header_parts.append(f"[{sub_style}]· via {third_party}[/]")
 
 
 def setup_logging(level: int = logging.INFO) -> None:
@@ -248,26 +303,19 @@ def _format_warning_compact(
     lineno: int,
     line: str | None = None,
 ) -> str:
-    """Override `filename:lineno` with the actual `warnings.warn()` callsite
-    in raitap so subsystem inference works regardless of ``stacklevel=``."""
-    actual_file, actual_line = _resolve_warn_origin(filename, lineno)
-    return f"{actual_file}:{actual_line}: {category.__name__}: {message}"
+    """Resolve the warn origin to the first raitap subsystem frame and stash it
+    for :class:`RaitapRichHandler`.
 
-
-def _resolve_warn_origin(default_file: str, default_line: int) -> tuple[str, int]:
-    frame: Any = sys._getframe()
-    while frame is not None:
-        path = frame.f_code.co_filename
-        # Stop at the first raitap/<subsystem>/ frame, ignoring stdlib warnings.
-        normalized = path.replace("\\", "/")
-        if (
-            "/raitap/" in normalized
-            and "/raitap/utils/console.py" not in normalized
-            and _SUBSYSTEM_RE.search(path)
-        ):
-            return path, frame.f_lineno
-        frame = frame.f_back
-    return default_file, default_line
+    The returned canonical string ``path:line: Category: msg`` is what the
+    standard ``logging.captureWarnings`` pipeline forwards to the handler. The
+    structured :class:`~raitap.utils.warnings.WarningOrigin` (subsystem +
+    third-party detection) is stashed on a queue so the handler can render an
+    audience-appropriate header without re-walking frames at emit time (frames
+    are unwound by then).
+    """
+    origin = resolve_warn_origin(filename, lineno)
+    _push_origin(origin)
+    return f"{origin.file}:{origin.line}: {category.__name__}: {message}"
 
 
 def _format_value(value: Any, *, dot: bool = False, dot_style: str = "green") -> Text:
