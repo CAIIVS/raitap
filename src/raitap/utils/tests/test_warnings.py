@@ -57,6 +57,20 @@ class TestResolveWarnOrigin:
         assert _classify_subsystem("/x/raitap/utils/console.py") == "utils"
         assert _classify_subsystem("/no/raitap/here.py") is None
 
+    def test_classify_subsystem_rejects_nested_raitap_dir_names(self) -> None:
+        """CI checkouts at ``/work/raitap/raitap/.venv/...`` must not match
+        ``raitap`` itself as a subsystem when the first ``raitap/`` segment is
+        followed by another ``raitap/`` (the package directory inside the repo)."""
+        from raitap.utils.warnings import _classify_subsystem
+
+        assert (
+            _classify_subsystem(
+                "/home/runner/work/raitap/raitap/.venv/lib/python3.13/"
+                "site-packages/_pytest/python.py"
+            )
+            is None
+        )
+
 
 class TestSuppressWarning:
     def test_suppresses_matching_warning(self) -> None:

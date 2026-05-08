@@ -37,6 +37,24 @@ _DOC_SUBSYSTEMS: Final[frozenset[str]] = frozenset(
     {"metrics", "transparency", "robustness", "data", "models", "reporting", "tracking"}
 )
 
+# Allowlist of legitimate raitap subsystem directory names. Anchoring against
+# this set prevents false matches when raitap appears multiple times in a path
+# (e.g. CI checkouts at ``/work/raitap/raitap/.venv/...``).
+_KNOWN_SUBSYSTEMS: Final[frozenset[str]] = frozenset(
+    {
+        "configs",
+        "data",
+        "metrics",
+        "models",
+        "reporting",
+        "robustness",
+        "run",
+        "tracking",
+        "transparency",
+        "utils",
+    }
+)
+
 
 @dataclass(frozen=True)
 class WarningOrigin:
@@ -69,7 +87,8 @@ def _classify_subsystem(path: str) -> str | None:
     match = _SUBSYSTEM_RE.search(path)
     if match is None:
         return None
-    return match.group("sub")
+    sub = match.group("sub")
+    return sub if sub in _KNOWN_SUBSYSTEMS else None
 
 
 def resolve_warn_origin(default_file: str, default_line: int) -> WarningOrigin:
