@@ -9,14 +9,14 @@ This page assumes you have **already installed RAITAP**. If you didn't, see the 
 
 ## 1. Install dependencies
 
-Our pre-defined examples uses a PyTorch model and runs a transparency assessment using Captum. Hence, we install the dependencies:
+Our pre-defined example uses a PyTorch model and runs both a transparency assessment (Captum) and a robustness assessment (torchattacks FGSM). Hence, we install the dependencies:
 
 ```{install-tabs}
 :uv:
-uv add "raitap[captum,reporting,torch-cpu]"
+uv add "raitap[captum,torchattacks,reporting,torch-cpu]"
 
 :pip:
-pip install "raitap[captum,reporting,torch-cpu]"
+pip install "raitap[captum,torchattacks,reporting,torch-cpu]"
 ```
 
 :::{note}
@@ -40,4 +40,4 @@ raitap
 
 After the run is complete, the `outputs` directory can be found in the directory you ran RAITAP from.
 
-It will contain the run's metadata, the transparency assessment (attributions and visualisations), and a PDF report under `reports/`. Refer to the {doc}`understanding-outputs` page for more details.
+It will contain the run's metadata, the transparency assessment (attributions and visualisations), the robustness assessment (adversarial examples, per-sample verdicts, and an image-pair visualisation), and a PDF report under `reports/`. Refer to the {doc}`understanding-outputs` page for more details.

@@ -23,6 +23,7 @@ from raitap.reporting import (
     reporting_enabled,
 )
 from raitap.reporting.sample_selection import resolve_report_sample_selection
+from raitap.robustness.factory import RobustnessAssessment
 from raitap.run.forward_output import extract_primary_tensor
 from raitap.run.outputs import PredictionSummary, RunOutputs
 from raitap.tracking import BaseTracker
@@ -38,6 +39,7 @@ _DEFAULT_FORWARD_BATCH_SIZE = 32
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
+    from raitap.robustness.results import RobustnessResult, RobustnessVisualisationResult
     from raitap.transparency.results import ExplanationResult, VisualisationResult
 
 
@@ -62,6 +64,7 @@ def run(config: AppConfig) -> RunOutputs:
         return outputs
 
     use_subdirs = len(outputs.explanations) > 1
+    use_robustness_subdirs = len(outputs.robustness_results) > 1
     with BaseTracker.create_tracker(config) as tracker:
         tracker.log_config()
         if getattr(config.tracking, "log_model", False):
@@ -73,6 +76,10 @@ def run(config: AppConfig) -> RunOutputs:
             explanation.log(tracker, use_subdirectory=use_subdirs)
         for visualisation in outputs.visualisations:
             visualisation.log(tracker, use_subdirectory=use_subdirs)
+        for robustness_result in outputs.robustness_results:
+            robustness_result.log(tracker, use_subdirectory=use_robustness_subdirs)
+        for robustness_visualisation in outputs.robustness_visualisations:
+            robustness_visualisation.log(tracker, use_subdirectory=use_robustness_subdirs)
         # Log report to tracker
         reporting_cfg = getattr(config, "reporting", None)
         if report_generation is not None and reporting_cfg is not None:
@@ -117,9 +124,11 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
     explanations: list[ExplanationResult] = []
     visualisations: list[VisualisationResult] = []
 
-    explainers = config.transparency.items()
-    if not explainers:
-        raise ValueError("No explainers configured")
+    explainers = list((getattr(config, "transparency", None) or {}).items())
+    robustness_assessors = getattr(config, "robustness", None) or {}
+
+    if not explainers and not robustness_assessors:
+        raise ValueError("No explainers or robustness assessors configured")
 
     for name, _explainer_cfg in explainers:
         runtime_kwargs = _resolve_explainer_runtime_kwargs(
@@ -140,6 +149,23 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
         explanations.append(explanation)
         visualisations.extend(explanation.visualise())
 
+    robustness_results: list[RobustnessResult] = []
+    robustness_visualisations: list[RobustnessVisualisationResult] = []
+    robustness_targets = _robustness_targets(labels=labels, forward_output=forward_output)
+    for name in robustness_assessors:
+        result = RobustnessAssessment(
+            config,
+            name,
+            model,
+            data_tensor,
+            robustness_targets,
+            input_metadata=_input_metadata_for_data(config, data),
+            sample_ids=sample_ids,
+            sample_names=sample_ids,
+        )
+        robustness_results.append(result)
+        robustness_visualisations.extend(result.visualise())
+
     return RunOutputs(
         explanations=explanations,
         visualisations=visualisations,
@@ -152,6 +178,8 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
             sample_ids=sample_ids,
             targets=labels,
         ),
+        robustness_results=robustness_results,
+        robustness_visualisations=robustness_visualisations,
     )
 
 
@@ -202,6 +230,7 @@ def print_summary(config: AppConfig, model: Model) -> None:
     logger.info("Dataset: %s", config.data.name)
     logger.info("Hardware: %s", model.backend.hardware_label)
     logger.info("Explainers: %s", list(config.transparency.keys()))
+    logger.info("Robustness: %s", list((getattr(config, "robustness", None) or {}).keys()) or "off")
     logger.info("Metrics: %s", "on" if metrics_run_enabled(config) else "off")
     logger.info("Output: %s\n", resolve_run_dir(config))
 
@@ -221,6 +250,33 @@ def _resolve_explainer_runtime_kwargs(
 
     predictions, _ = metrics_prediction_pair(forward_output)
     return {"target": predictions.detach()}
+
+
+def _robustness_targets(
+    *,
+    labels: torch.Tensor | None,
+    forward_output: torch.Tensor,
+) -> torch.Tensor | None:
+    """Return per-sample reference labels for robustness assessors.
+
+    Mirrors the metrics fallback (see :func:`resolve_metric_targets`): when the
+    data pipeline supplies ground-truth labels we use them; otherwise we fall
+    back to ``argmax(model(clean))`` so an untargeted attack still has a
+    well-defined reference (the attack tries to push the model away from its
+    current decision). Returns ``None`` only when neither labels nor a usable
+    classification head are available, in which case the assessor will raise
+    :class:`MissingTargetsError`.
+    """
+    if labels is not None:
+        return labels
+    if forward_output.ndim != 2 or forward_output.shape[1] < 2:
+        return None
+    predictions, _ = metrics_prediction_pair(forward_output)
+    logger.warning(
+        "Robustness: no ground-truth labels provided; using model predictions "
+        "as the reference for untargeted attacks."
+    )
+    return predictions.detach().cpu()
 
 
 def _input_metadata_for_data(config: AppConfig, data: Data) -> InputSpec | None:

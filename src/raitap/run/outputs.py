@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import torch
 
     from raitap.metrics import MetricsEvaluation
+    from raitap.robustness.results import RobustnessResult, RobustnessVisualisationResult
     from raitap.transparency.results import ExplanationResult, VisualisationResult
 
 
@@ -35,3 +36,5 @@ class RunOutputs:
     sample_ids: list[str] | None = None
     targets: torch.Tensor | None = None
     prediction_summaries: tuple[PredictionSummary, ...] = ()
+    robustness_results: list[RobustnessResult] = field(default_factory=list)
+    robustness_visualisations: list[RobustnessVisualisationResult] = field(default_factory=list)

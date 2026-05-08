@@ -62,6 +62,29 @@ transparency:
         constructor:
           max_samples: 2
 
+robustness:
+  pgd:
+    _target_: "TorchattacksAssessor"
+    algorithm: "PGD"
+    constructor:
+      eps: 0.03
+      alpha: 0.0078
+      steps: 10
+    visualisers:
+      - _target_: "ImagePairVisualiser"
+        constructor:
+          max_samples: 4
+  linf_pgd:
+    _target_: "FoolboxAssessor"
+    algorithm: "LinfPGD"
+    constructor:
+      rel_stepsize: 0.025
+      steps: 40
+    call:
+      eps: 0.03
+    visualisers:
+      - _target_: "PerturbationHeatmapVisualiser"
+
 metrics:
   _target_: "ClassificationMetrics"
   task: "multiclass"
