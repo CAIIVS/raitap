@@ -235,6 +235,25 @@ def test_mlflow_tracker_local_filestore_experiment_uses_mlflow_artifact_default(
     assert not (tmp_path / "mlflow" / "artifacts").exists()
 
 
+def test_mlflow_tracker_explicit_sqlite_without_artifact_root_only_prepares_db(
+    mock_mlflow: MagicMock,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    mock_mlflow.get_experiment_by_name.return_value = None
+    db_path = tmp_path / "custom" / "mlflow.db"
+    config = _make_config(url=f"sqlite:///{db_path}")
+
+    with patch("raitap.tracking.mlflow_tracker.MLFlowTracker._ensure_server_running"):
+        MLFlowTracker(config)
+
+    mock_mlflow.set_tracking_uri.assert_called_once_with(f"sqlite:///{db_path}")
+    mock_mlflow.create_experiment.assert_called_once_with("test_experiment")
+    assert (tmp_path / "custom").is_dir()
+    assert not (tmp_path / "mlflow" / "artifacts").exists()
+
+
 def test_mlflow_tracker_local_filestore_respects_explicit_artifact_root(
     mock_mlflow: MagicMock,
     tmp_path: Path,
