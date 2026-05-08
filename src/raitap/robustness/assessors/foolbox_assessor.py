@@ -142,5 +142,3 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
             else:
                 wanted = torch.tensor(list(wanted), dtype=torch.long)
         return criteria.TargetedMisclassification(wanted)
-
-
