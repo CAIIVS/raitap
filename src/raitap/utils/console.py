@@ -139,7 +139,7 @@ def get_stderr_console() -> Console:
 _LEVEL_ICONS: dict[int, tuple[str, str]] = {
     logging.DEBUG: ("·", "dim"),
     logging.INFO: ("▸", "cyan"),
-    logging.WARNING: ("▲", "bright_yellow"),
+    logging.WARNING: ("⚠︎ ", "bright_yellow"),
     logging.ERROR: ("✗", "red"),
     logging.CRITICAL: ("✗", "bold red"),
 }
@@ -173,18 +173,18 @@ class RaitapRichHandler(RichHandler):
 
     def _emit_panel(self, record: logging.LogRecord, message: str) -> None:
         if record.levelno >= logging.ERROR:
-            border, main_style, sub_style, icon, label = "red", "red", "yellow", "✗", "Error"
+            border, main_style, sub_style, icon, label = "red", "red", "yellow", "✗ ", "Error"
         else:
             border, main_style, sub_style, icon, label = (
                 "yellow",
                 "yellow",
                 "bright_yellow",
-                "▲",
+                "⚠︎  ",
                 "Warning",
             )
 
         body = message
-        header_parts = [f"[{main_style}]{icon} {label}[/]"]
+        header_parts = [f"[{main_style}]{icon}{label}[/]"]
         # Only treat the "<path>:<line>: <Category>: msg" shape as a warnings.warn
         # payload when it actually came from logging.captureWarnings (logger name
         # ``py.warnings``). Otherwise an unrelated WARNING that happens to match
@@ -404,7 +404,7 @@ def print_summary_panel(config: AppConfig, model: Model) -> None:
         hw_label = str(hardware)
         is_cpu = "cpu" in hw_label.lower()
         hw_color = "yellow" if is_cpu else "green"
-        hw_symbol = "▲ " if is_cpu else "● "
+        hw_symbol = "⚠︎  " if is_cpu else "✓ "
         if is_cpu:
             docs_url = "https://caiivs.github.io/raitap/using-raitap/installation.html#execution-dependencies"
             hw_text = Text.from_markup(
