@@ -15,7 +15,11 @@ from raitap.run.outputs import PredictionSummary, RunOutputs
 from raitap.transparency.contracts import ExplanationScope
 
 from .manifest import ReportManifest
-from .sample_selection import ResolvedReportSample, resolve_report_sample_selection
+from .sample_selection import (
+    ReportSampleSelectionEntry,
+    ResolvedReportSample,
+    resolve_report_sample_selection,
+)
 from .sections import ReportGroup, ReportSection
 
 if TYPE_CHECKING:
@@ -40,7 +44,7 @@ class SelectedSample:
     label: str
     summary: PredictionSummary
     selection_source: SelectionSource = SelectionSource.AUTOMATIC
-    requested_sample: object | None = None
+    requested_sample: ReportSampleSelectionEntry | None = None
 
 
 @dataclass(frozen=True)
@@ -496,6 +500,7 @@ def _explicit_selected_samples(
     outputs: RunOutputs,
 ) -> list[SelectedSample]:
     summaries = {summary.sample_index: summary for summary in outputs.prediction_summaries}
+    sample_ids = outputs.sample_ids or []
     return [
         SelectedSample(
             label="user_selected",
@@ -505,11 +510,15 @@ def _explicit_selected_samples(
                     sample_index=resolved.sample_index,
                     predicted_class=-1,
                     confidence=0.0,
-                    sample_id=resolved.sample_id,
+                    sample_id=(
+                        sample_ids[resolved.sample_index]
+                        if resolved.sample_index < len(sample_ids)
+                        else None
+                    ),
                 ),
             ),
             selection_source=SelectionSource.USER,
-            requested_sample=resolved.requested_sample,
+            requested_sample=resolved.requested_entry,
         )
         for resolved in resolved_samples
     ]

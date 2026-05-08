@@ -9,15 +9,32 @@ ReportSampleSelectionEntry = int | str
 
 
 @dataclass(frozen=True)
+class RequestedSampleByIndex:
+    sample_index: int
+
+
+@dataclass(frozen=True)
+class RequestedSampleById:
+    sample_id: str
+
+
+RequestedReportSample = RequestedSampleByIndex | RequestedSampleById
+
+
+@dataclass(frozen=True)
 class ResolvedReportSample:
     """Resolved form of one explicit report sample request."""
 
     # Position in the loaded batch; used to render the selected sample.
     sample_index: int
-    # Dataset-provided identifier/path for metadata; absent when IDs are unavailable.
-    sample_id: str | None
-    # Original valid user entry: dataset ID/filename or zero-based batch index.
-    requested_sample: ReportSampleSelectionEntry
+    # Original valid user entry with mutually-exclusive index/id shape.
+    requested_sample: RequestedReportSample
+
+    @property
+    def requested_entry(self) -> ReportSampleSelectionEntry:
+        if isinstance(self.requested_sample, RequestedSampleByIndex):
+            return self.requested_sample.sample_index
+        return self.requested_sample.sample_id
 
 
 def resolve_report_sample_selection(
@@ -47,8 +64,7 @@ def resolve_report_sample_selection(
         resolved.append(
             ResolvedReportSample(
                 sample_index=sample_index,
-                sample_id=ids[sample_index] if sample_index < len(ids) else None,
-                requested_sample=entry,
+                requested_sample=_requested_report_sample(entry),
             )
         )
 
@@ -83,6 +99,14 @@ def _normalise_selection_entry(entry: Any) -> ReportSampleSelectionEntry:
     if isinstance(entry, (int, str)):
         return entry
     raise ValueError(f"Unsupported report sample selection entry {entry!r}.")
+
+
+def _requested_report_sample(entry: ReportSampleSelectionEntry) -> RequestedReportSample:
+    if isinstance(entry, int):
+        return RequestedSampleByIndex(sample_index=entry)
+    if isinstance(entry, str):
+        return RequestedSampleById(sample_id=entry)
+    raise AssertionError(f"Unexpected report sample selection entry {entry!r}.")
 
 
 def _resolve_entry(
