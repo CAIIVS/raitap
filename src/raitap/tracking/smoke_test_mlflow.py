@@ -6,6 +6,7 @@ import logging
 import os
 from pathlib import Path
 
+from raitap import raitap_log
 from raitap.configs import set_output_root
 from raitap.configs.schema import (
     AppConfig,
@@ -18,7 +19,6 @@ from raitap.configs.schema import (
 from raitap.run import run
 
 DEFAULT_TRACKING_URI = "http://127.0.0.1:5000"
-logger = logging.getLogger(__name__)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -120,9 +120,9 @@ def main() -> int:
     finally:
         pass
 
-    logger.info("Smoke test finished with status=%s", status)
-    logger.info("MLflow tracking URI: %s", tracking_uri)
-    logger.info("Local artifacts: %s", output_dir)
+    raitap_log.info("Smoke test finished with status=%s", status)
+    raitap_log.info("MLflow tracking URI: %s", tracking_uri)
+    raitap_log.info("Local artifacts: %s", output_dir)
     return 0 if status == "FINISHED" else 1
 
 

@@ -35,8 +35,9 @@ from raitap.utils.diagnostics import (
     docs_url,
     is_dev_install,
     resolve_diagnostic_from_frames,
+    subsystem_from_str,
 )
-from raitap.utils.warnings import _pop_diagnostic, _push_diagnostic, _take_diagnostic_override
+from raitap.utils.log import _pop_diagnostic, _push_diagnostic, _take_diagnostic_override
 
 _THEME = Theme(
     {
@@ -214,7 +215,7 @@ class RaitapRichHandler(RichHandler):
                 # stashed (no frame walk happened), so synthesise one from the
                 # header text to drive the same View-docs affordance.
                 synth = Diagnostic(
-                    subsystem=head.lower(),
+                    subsystem=subsystem_from_str(head.lower()),
                     file="",
                     line=0,
                     third_party_lib=None,

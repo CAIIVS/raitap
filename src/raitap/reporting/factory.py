@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from hydra.utils import instantiate
 
+from raitap import raitap_log
 from raitap.configs import cfg_to_dict, resolve_target
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 
@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     from .builder import BuiltReport
 
 
-logger = logging.getLogger(__name__)
 _REPORTING_PREFIX = "raitap.reporting."
 
 
@@ -66,7 +65,7 @@ def create_report(
         reporter_class = instantiate({"_target_": resolved_target, "_partial_": True})
         reporter = reporter_class(config)
     except Exception as error:
-        logger.exception("Reporter instantiation failed for target %r", target_path)
+        raitap_log.exception("Reporter instantiation failed for target %r", target_path)
         raise ValueError(
             f"Could not instantiate reporter {target_path!r}.\n"
             "Check that _target_ points to a valid BaseReporter implementation."
@@ -75,7 +74,7 @@ def create_report(
     report_path = reporter.generate(report.sections, report_dir=report.report_dir)
     manifest_path = report_path.parent / "report_manifest.json"
     report.manifest.write(manifest_path, report_dir=report_path.parent)
-    logger.info("Report generated: %s", report_path)
+    raitap_log.info("Report generated: %s", report_path)
 
     return ReportGeneration(
         report_path=report_path,

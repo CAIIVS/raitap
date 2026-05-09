@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
 
 import torch
 
+from raitap import raitap_log
 from raitap.configs import cfg_to_dict
 from raitap.data import Data, infer_data_input_metadata
 from raitap.metrics import (
@@ -29,8 +29,6 @@ from raitap.tracking import BaseTracker
 from raitap.transparency.contracts import InputSpec
 from raitap.transparency.factory import Explanation
 
-logger = logging.getLogger(__name__)
-
 # Conservative default for prediction/metrics forwards. Transparency methods have their own
 # per-explainer ``transparency.*.raitap.batch_size`` controls.
 _DEFAULT_FORWARD_BATCH_SIZE = 32
@@ -44,7 +42,7 @@ if TYPE_CHECKING:
 
 def _log_phase_start(phase: str, n: int) -> None:
     suffix = "s" if n > 1 else ""
-    logger.info("Performing %s%s (%d)...", phase, suffix, n)
+    raitap_log.info("Performing %s%s (%d)...", phase, suffix, n)
 
 
 def run(config: AppConfig) -> RunOutputs:
@@ -57,7 +55,7 @@ def run(config: AppConfig) -> RunOutputs:
     # Generate report if configured
     report_generation = None
     if reporting_enabled(config):
-        logger.info("Generating report...")
+        raitap_log.info("Generating report...")
         report = build_report(config, outputs)
         report_generation = create_report(config=config, report=report)
 
@@ -97,13 +95,13 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
     sample_ids = data.sample_ids
     labels = data.labels
 
-    logger.info("Running model forward pass...")
+    raitap_log.info("Running model forward pass...")
     with torch.no_grad():
         forward_output = _forward_primary_tensor(config, backend, data_tensor)
 
     metrics_eval: MetricsEvaluation | None = None
     if metrics_run_enabled(config):
-        logger.info("Computing metrics...")
+        raitap_log.info("Computing metrics...")
         if (
             getattr(config.metrics, "num_classes", None) is None
             and forward_output.ndim == 2
@@ -261,12 +259,12 @@ def _robustness_targets(
     if forward_output.ndim != 2 or forward_output.shape[1] < 2:
         return None
     predictions, _ = metrics_prediction_pair(forward_output)
-    from raitap.utils.warnings import raitap_warn
+    from raitap.utils.diagnostics import Subsystem
 
-    raitap_warn(
+    raitap_log.warn(
         "No ground-truth labels provided; using model predictions as the "
         "reference for untargeted attacks.",
-        subsystem="robustness",
+        subsystem=Subsystem.robustness,
     )
     return predictions.detach().cpu()
 

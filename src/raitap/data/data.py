@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import logging
-import warnings
 from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -11,12 +9,11 @@ import pandas as pd
 import torch
 from PIL import Image
 
+from raitap import raitap_log
 from raitap.data.utils import download_file
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 
 from .samples import SAMPLE_SOURCES, _load_sample
-
-logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
@@ -115,9 +112,7 @@ class Data(Trackable):
         labels_path = get_source_path(labels_source)
         labels_df = _load_tabular_frame(labels_path)
         if labels_df.empty:
-            warnings.warn(
-                "Labels file is empty; falling back to predictions as targets.", stacklevel=2
-            )
+            raitap_log.warn("Labels file is empty; falling back to predictions as targets.")
             return None
 
         labels_id_column = _get_optional_config_value(labels_cfg, "id_column")
@@ -144,24 +139,21 @@ class Data(Trackable):
                     strategy=strategy,
                 )
             except ValueError as error:
-                warnings.warn(
+                raitap_log.warn(
                     f"{error} Falling back to predictions as metric targets.",
-                    stacklevel=2,
                 )
                 return None
             return torch.tensor(aligned_labels, dtype=torch.long)
 
         if self.sample_ids and not id_column:
-            warnings.warn(
+            raitap_log.warn(
                 "Could not find a labels id column for filename alignment; using row-order labels.",
-                stacklevel=2,
             )
 
         if len(encoded_labels) != expected:
-            warnings.warn(
+            raitap_log.warn(
                 f"Label count ({len(encoded_labels)}) does not match sample count ({expected}); "
                 "falling back to predictions as targets.",
-                stacklevel=2,
             )
             return None
 
@@ -325,7 +317,7 @@ def get_source_path(source: str) -> Path:
         dest = _CACHE_DIR / "downloads" / filename
         dest.parent.mkdir(parents=True, exist_ok=True)
         if not dest.exists():
-            logger.info("Downloading %s...", filename)
+            raitap_log.info("Downloading %s...", filename)
             download_file(source, dest)
         return dest
 
@@ -422,9 +414,8 @@ def _get_optional_config_value(config: Any, key: str) -> Any:
 def _resolve_labels_id_column(df: pd.DataFrame, configured_column: str | None) -> str | None:
     if configured_column:
         if configured_column not in df.columns:
-            warnings.warn(
+            raitap_log.warn(
                 f"Configured data.labels.id_column {configured_column!r} not found in labels file.",
-                stacklevel=2,
             )
             return None
         return configured_column

@@ -1,6 +1,6 @@
-"""Tests for :mod:`raitap.utils.warnings`.
+"""Tests for :mod:`raitap.utils.log`.
 
-Covers warning-specific glue: :func:`suppress_warning` and the thread-local
+Covers warning-specific glue: :meth:`raitap_log.suppress` and the thread-local
 diagnostic queue. Pure :class:`Diagnostic` data plumbing is tested in
 ``test_diagnostics.py``.
 """
@@ -13,9 +13,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-import raitap.utils.warnings as warnings_module
-from raitap.utils.diagnostics import Diagnostic
-from raitap.utils.warnings import suppress_warning
+import raitap.utils.log as log_module
+from raitap import raitap_log
+from raitap.utils.diagnostics import Diagnostic, Subsystem
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -23,16 +23,16 @@ if TYPE_CHECKING:
 
 @pytest.fixture(autouse=True)
 def _clear_diagnostic_queue() -> Iterator[None]:
-    warnings_module._clear_diagnostics()
+    log_module._clear_diagnostics()
     yield
-    warnings_module._clear_diagnostics()
+    log_module._clear_diagnostics()
 
 
-class TestSuppressWarning:
+class TestSuppress:
     def test_suppresses_matching_warning(self) -> None:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            suppress_warning(message=r"silence-me", category=UserWarning)
+            raitap_log.suppress(message=r"silence-me", category=UserWarning)
             warnings.warn("silence-me please", UserWarning, stacklevel=1)
             warnings.warn("but-not-this", UserWarning, stacklevel=1)
         messages = [str(w.message) for w in caught]
@@ -42,16 +42,18 @@ class TestSuppressWarning:
     def test_default_category_is_user_warning(self) -> None:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            suppress_warning(message=r"hush")
+            raitap_log.suppress(message=r"hush")
             warnings.warn("hush now", UserWarning, stacklevel=1)
         assert all("hush now" not in str(w.message) for w in caught)
 
 
 class TestDiagnosticQueueIsThreadLocal:
     def test_pushes_in_one_thread_dont_leak_into_another(self) -> None:
-        from raitap.utils.warnings import _pop_diagnostic, _push_diagnostic
+        from raitap.utils.log import _pop_diagnostic, _push_diagnostic
 
-        sentinel = Diagnostic(subsystem="metrics", file="/x.py", line=1, third_party_lib=None)
+        sentinel = Diagnostic(
+            subsystem=Subsystem.metrics, file="/x.py", line=1, third_party_lib=None
+        )
         _push_diagnostic(sentinel)
 
         observed: list[Diagnostic | None] = []
