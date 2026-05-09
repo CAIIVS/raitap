@@ -68,4 +68,7 @@ jobs:
           sync-command: uv sync --group dev --extra torch-cpu --extra marabou
 
       - name: Run Marabou E2E tests
-        run: uv run pytest -m "e2e" -k "marabou" -v --tb=long
+        # Scope collection to the marabou file so we don't import unrelated
+        # test modules whose deps (torchmetrics, etc.) aren't installed in
+        # this minimal lane.
+        run: uv run pytest src/raitap/robustness/tests/test_e2e_marabou_acas_xu.py -m e2e -v --tb=long
