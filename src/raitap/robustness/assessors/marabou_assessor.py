@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import shutil
 import tempfile
 import time
 from pathlib import Path
@@ -109,10 +110,21 @@ class MarabouAssessor(FormalVerificationAssessor):
     def check_backend_compat(self, backend: object) -> None:
         # Reset per-assess() state. ``check_backend_compat`` is called by
         # ``FormalVerificationAssessor.assess`` exactly once before the
-        # per-sample loop, so it doubles as a per-call setup hook.
+        # per-sample loop, so it doubles as a per-call setup hook. Any temp
+        # directories created by the previous run get torn down here so we
+        # don't leak across repeated ``assess()`` invocations on long-lived
+        # assessor instances.
+        self._cleanup_export_temp_dirs()
         self._onnx_cache.clear()
         self._export_logged = False
         del backend
+
+    def _cleanup_export_temp_dirs(self) -> None:
+        """Remove temp directories created by previous torch-export passes."""
+        for path in list(self._onnx_cache.values()):
+            target_dir = path.parent
+            if str(target_dir.name).startswith("raitap-marabou-"):
+                shutil.rmtree(target_dir, ignore_errors=True)
 
     # ------------------------------------------------------------------
     # ONNX resolution

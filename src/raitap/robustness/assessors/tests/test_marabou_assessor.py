@@ -271,23 +271,19 @@ def test_onnx_export_cached_across_samples(
     fake_maraboupy: _FakeNetwork, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
 ) -> None:
     del fake_maraboupy
-    export_calls: list[Any] = []
     fake_path = tmp_path / "exported.onnx"
+    export_calls = 0
 
-    def fake_export(*args: Any, **kwargs: Any) -> None:
-        export_calls.append((args, kwargs))
-        # honour the file path passed as positional arg 2.
-        out_path = args[2] if len(args) >= 3 else kwargs.get("f")
-        if out_path is not None:
-            from pathlib import Path as _Path
-
-            _Path(str(out_path)).write_bytes(b"\x00")
+    def stub_export(model: Any, sample: Any) -> Any:
+        del model, sample
+        nonlocal export_calls
+        export_calls += 1
+        return _write_dummy_onnx(fake_path)
 
     monkeypatch.setattr(
         "raitap.robustness.assessors.marabou_assessor._export_torch_to_onnx",
-        lambda model, sample: _write_dummy_onnx(fake_path),
+        stub_export,
     )
-    del fake_export  # unused; cleaner via direct stub above
 
     assessor = MarabouAssessor(epsilon=0.01)
     model = _IdentityModel()
@@ -299,7 +295,8 @@ def test_onnx_export_cached_across_samples(
     for _ in range(3):
         assessor.verify_sample(model, sample, target, budget=budget, backend=None)
 
-    # Only the first call should populate the cache; subsequent calls reuse it.
+    # Cache populated exactly once across the three samples.
+    assert export_calls == 1
     assert len(assessor._onnx_cache) == 1
 
 

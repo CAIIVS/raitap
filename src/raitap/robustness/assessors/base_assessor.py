@@ -41,7 +41,7 @@ from ..results import (
     RobustnessResult,
     encode_verdicts,
 )
-from ..semantics import assessor_semantics
+from ..semantics import AssessorSemanticsHints, assessor_semantics  # noqa: F401
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 _VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
 
 
-class BaseAssessor(SemanticallyDescribable, register=False):
+class BaseAssessor(SemanticallyDescribable["AssessorSemanticsHints"], register=False):
     """Root base class for all robustness assessors.
 
     Concrete subclasses must declare ``algorithm_registry: ClassVar[Mapping[str,

@@ -20,12 +20,12 @@ from __future__ import annotations
 
 from abc import ABC
 from collections.abc import Mapping
-from typing import Any, ClassVar, TypeVar
+from typing import Any, ClassVar, Generic, TypeVar
 
 T = TypeVar("T")
 
 
-class SemanticallyDescribable(ABC):
+class SemanticallyDescribable(ABC, Generic[T]):
     """Adapter that publishes an algorithm-name → hints registry as a ClassVar.
 
     Subclasses must declare a non-empty ``algorithm_registry`` ClassVar at
@@ -40,6 +40,7 @@ class SemanticallyDescribable(ABC):
     """
 
     algorithm_registry: ClassVar[Mapping[str, Any]]  # type: ignore[misc]
+    """Concrete subclasses narrow the value type to ``Mapping[str, T]``."""
 
     def __init_subclass__(cls, *, register: bool = True, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
