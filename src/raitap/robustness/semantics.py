@@ -110,6 +110,17 @@ TORCHATTACKS_REGISTRY: Mapping[str, AssessorSemanticsHints] = {
     ),
 }
 
+# Mapping of Marabou formal-verification algorithm names to their semantic hints.
+MARABOU_REGISTRY: Mapping[str, AssessorSemanticsHints] = {
+    "linf-box": AssessorSemanticsHints(
+        MethodKind.FORMAL_VERIFICATION,
+        ThreatModel.WHITE_BOX,
+        Objective.UNTARGETED,
+        PerturbationNorm.LINF,
+        families=frozenset({"smt", "complete", "sound"}),
+    ),
+}
+
 # Mapping of foolbox attack class names to their semantic hints.
 FOOLBOX_REGISTRY: Mapping[str, AssessorSemanticsHints] = {
     "LinfPGD": AssessorSemanticsHints(

@@ -84,6 +84,15 @@ SAMPLE_SOURCES: dict[str, list[tuple[str, str]]] = {
             "infected_3.png",
         ),
     ],
+    # ACAS Xu net 1-1 from VNN-COMP 2021 (Stanley Bak et al., BSD-3 license).
+    # 5-input / 5-output MLP used as the canonical formal-verification fixture.
+    # See https://github.com/stanleybak/vnncomp2021 for licence + provenance.
+    "acas_xu_n1_1": [
+        (
+            "https://github.com/stanleybak/vnncomp2021/raw/main/benchmarks/acasxu/onnx/ACASXU_run2a_1_1_batch_2000.onnx",
+            "ACASXU_run2a_1_1_batch_2000.onnx",
+        ),
+    ],
     # Udacity CarND dashcam road images — from udacity/CarND-Advanced-Lane-Lines (MIT)
     "UdacitySelfDriving": [
         (

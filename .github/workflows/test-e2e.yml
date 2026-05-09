@@ -48,3 +48,24 @@ jobs:
       - name: Run transparency E2E tests
         run: uv run pytest -m e2e -v --tb=long --mpl
 
+  marabou-e2e-linux:
+    name: "Marabou formal-verification E2E (Linux)"
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MPLBACKEND: Agg
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up environment
+        uses: ./.github/actions/setup-raitap-env
+        with:
+          # Marabou wheels do not exist for Python 3.13+; pin to 3.12 here.
+          python-version: "3.12"
+          sync-command: uv sync --group dev --extra torch-cpu --extra marabou
+
+      - name: Run Marabou E2E tests
+        run: uv run pytest -m "e2e" -k "marabou" -v --tb=long

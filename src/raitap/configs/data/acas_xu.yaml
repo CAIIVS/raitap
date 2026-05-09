@@ -1,0 +1,10 @@
+name: acas_xu
+description: "ACAS Xu collision-avoidance MLP (5 inputs -> 5 outputs); VNN-COMP fixture"
+source: acas_xu_inputs
+input_metadata:
+  kind: tabular
+  feature_names: [rho, theta, psi, v_own, v_int]
+labels:
+  source: acas_xu_labels
+  column: label
+  encoding: index
