@@ -314,13 +314,16 @@ def get_source_path(source: str, *, kind: str = "data") -> Path:
     Resolution order:
 
     1. URL (``http://`` / ``https://``) → download to a cache, return file path.
-    2. Existing local path → returned as-is.
-    3. Named demo sample (key in ``SAMPLE_SOURCES``) → download bundle, return
+    2. Named demo sample (key in ``SAMPLE_SOURCES``) → download bundle, return
        cache directory for ``kind="data"`` or the bundled labels CSV for
-       ``kind="labels"``.
+       ``kind="labels"``. Sample names take precedence over local paths so the
+       resolver matches :meth:`Data._load_data`; use ``./<name>`` or an absolute
+       path to force the local-path branch when a directory shadows a sample
+       key.
+    3. Existing local path → returned as-is.
 
     Args:
-        source: URL, local path, or sample name.
+        source: URL, sample name, or local path.
         kind: ``"data"`` (default) returns sample image directories;
             ``"labels"`` returns the sample-bundled ``labels.csv``.
 
@@ -342,10 +345,6 @@ def get_source_path(source: str, *, kind: str = "data") -> Path:
             download_file(source, dest)
         return dest
 
-    path = Path(source)
-    if path.exists():
-        return path
-
     if source in SAMPLE_SOURCES:
         if kind == "labels":
             labels_path = resolve_sample_labels_path(source)
@@ -362,9 +361,13 @@ def get_source_path(source: str, *, kind: str = "data") -> Path:
         assert cache_dir is not None  # guaranteed by SAMPLE_SOURCES membership
         return cache_dir
 
+    path = Path(source)
+    if path.exists():
+        return path
+
     demo_samples = ", ".join(f'"{s}"' for s in SAMPLE_SOURCES)
     raise ValueError(
-        f"Data source {source!r} could not be resolved.\n"
+        f"{kind.capitalize()} source {source!r} could not be resolved.\n"
         f"Expected a URL, local path, or sample name. Known samples: {demo_samples}"
     )
 
