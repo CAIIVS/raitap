@@ -13,6 +13,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from raitap.semantics_base import SemanticallyDescribable
 from raitap.transparency.contracts import InputSpec, SampleSelection
 from raitap.transparency.semantics import infer_input_spec
 
@@ -60,9 +61,12 @@ def hints_for_assessor(assessor: object) -> AssessorSemanticsHints:
             f"Assessor {type(assessor).__name__!r} has no ``algorithm`` attribute. "
             "Set the YAML ``algorithm:`` field (e.g. ``algorithm: PGD``)."
         )
-    registry: Mapping[str, AssessorSemanticsHints] = getattr(
-        type(assessor), "algorithm_registry"
-    )  # noqa: B009 — adapter contract guarantees presence; getattr keeps pyright happy.
+    if not isinstance(assessor, SemanticallyDescribable):
+        raise TypeError(
+            f"Assessor {type(assessor).__name__!r} must extend SemanticallyDescribable "
+            "and declare an ``algorithm_registry`` ClassVar."
+        )
+    registry: Mapping[str, AssessorSemanticsHints] = type(assessor).algorithm_registry
     try:
         return registry[algorithm]
     except KeyError as error:

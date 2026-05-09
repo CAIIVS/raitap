@@ -63,8 +63,8 @@ jobs:
       - name: Set up environment
         uses: ./.github/actions/setup-raitap-env
         with:
-          # Marabou wheels do not exist for Python 3.13+; pin to 3.12 here.
-          python-version: "3.12"
+          # maraboupy 2.0.0 publishes cp311 wheels only — pin Python to 3.11.
+          python-version: "3.11"
           sync-command: uv sync --group dev --extra torch-cpu --extra marabou
 
       - name: Run Marabou E2E tests

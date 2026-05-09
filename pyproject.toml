@@ -109,13 +109,13 @@ transparency = ["raitap[shap,captum]"]
 # Robustness module
 torchattacks = ["torchattacks>=3.5.1"]
 foolbox = ["foolbox>=3.3.4"]
-# Marabou formal-verification adapter (Linux/macOS x86-64, Python 3.11-3.12).
-# Marabou wheels are not published for Windows or Python 3.13+; the marker
-# below keeps ``uv sync`` working on those platforms by silently skipping the
-# extra. Not bundled into the ``robustness`` umbrella because installing
-# Marabou adds a non-trivial native dep that empirical-only users don't need.
+# Marabou formal-verification adapter (Linux/macOS x86-64, Python 3.11 only).
+# maraboupy 2.0.0 publishes cp311 wheels only — no cp312/cp313, no Windows.
+# Marker below keeps ``uv sync`` working on other interpreters by silently
+# skipping the extra. Not bundled into the ``robustness`` umbrella because
+# installing Marabou adds a non-trivial native dep empirical-only users don't need.
 marabou = [
-    "maraboupy>=2.0.0,<3.0; python_full_version < '3.13' and sys_platform != 'win32'",
+    "maraboupy>=2.0.0,<3.0; python_full_version < '3.12' and sys_platform != 'win32'",
     "onnx>=1.15",
 ]
 robustness = ["raitap[torchattacks,foolbox]"]
