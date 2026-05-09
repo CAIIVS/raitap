@@ -60,20 +60,14 @@ class Data(Trackable):
                 "Use a local path or a named sample set, e.g.: data=imagenet_samples"
             )
 
+        # Demo samples need their own loader: source images have inconsistent
+        # dimensions and ``_load_sample`` resizes them to a common shape so
+        # they can be stacked. The generic dir-loader expects pre-aligned
+        # shapes and would fail on raw demo images.
         if source in SAMPLE_SOURCES:
             return _load_sample(source)
 
-        if source.startswith(("http://", "https://")):
-            path = get_source_path(source)
-        else:
-            path = Path(source)
-            if not path.exists():
-                demo_samples = ", ".join(f'"{s}"' for s in SAMPLE_SOURCES)
-                raise ValueError(
-                    f"Data source {source!r} does not exist.\n"
-                    f"Expected a URL, an existing local path, or a named demo sample.\n"
-                    f"Known demo samples: {demo_samples}"
-                )
+        path = get_source_path(source, kind="data")
 
         if path.is_dir():
             image_files = _list_images_recursive(path)
@@ -213,19 +207,8 @@ def load_tensor_from_source(source: str, n_samples: int | None = None) -> torch.
     """
     if source in SAMPLE_SOURCES:
         tensor, _ = _load_sample(source)
-    elif source.startswith(("http://", "https://")):
-        path = get_source_path(source)
-        tensor = _load_tensor_from_path(path)
     else:
-        path = Path(source)
-        if not path.exists():
-            demo_samples = ", ".join(f'"{s}"' for s in SAMPLE_SOURCES)
-            raise ValueError(
-                f"Data source {source!r} does not exist.\n"
-                f"Expected a URL, an existing local path, or a named demo sample.\n"
-                f"Known demo samples: {demo_samples}"
-            )
-        tensor = _load_tensor_from_path(path)
+        tensor = _load_tensor_from_path(get_source_path(source, kind="data"))
 
     if n_samples is not None and tensor.shape[0] > n_samples:
         indices = torch.randperm(tensor.shape[0])[:n_samples]
@@ -245,19 +228,8 @@ def load_numpy_from_source(source: str, n_samples: int | None = None) -> np.ndar
     if source in SAMPLE_SOURCES:
         sample_tensor, _ = _load_sample(source)
         arr: np.ndarray[Any, Any] = sample_tensor.numpy()
-    elif source.startswith(("http://", "https://")):
-        path = get_source_path(source)
-        arr = _load_numpy_from_path(path)
     else:
-        path = Path(source)
-        if not path.exists():
-            demo_samples = ", ".join(f'"{s}"' for s in SAMPLE_SOURCES)
-            raise ValueError(
-                f"Data source {source!r} does not exist.\n"
-                f"Expected a URL, an existing local path, or a named demo sample.\n"
-                f"Known demo samples: {demo_samples}"
-            )
-        arr = _load_numpy_from_path(path)
+        arr = _load_numpy_from_path(get_source_path(source, kind="data"))
 
     if n_samples is not None and arr.shape[0] > n_samples:
         rng = np.random.default_rng()

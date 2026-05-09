@@ -350,7 +350,7 @@ class TestLoadData:
                 },
             )(),
         )
-        with pytest.raises(ValueError, match="does not exist"):
+        with pytest.raises(ValueError, match="could not be resolved"):
             Data(cfg)
 
     def test_url_source_loads_csv_via_get_source_path(self, tmp_path: Path) -> None:
@@ -608,7 +608,7 @@ class TestLoadTensorFromSource:
         assert tensor.shape[0] == 4
 
     def test_nonexistent_path_raises_value_error(self) -> None:
-        with pytest.raises(ValueError, match="does not exist"):
+        with pytest.raises(ValueError, match="could not be resolved"):
             load_tensor_from_source("/nonexistent/path/data.csv")
 
     def test_unsupported_extension_raises_value_error(self, tmp_path: Path) -> None:
