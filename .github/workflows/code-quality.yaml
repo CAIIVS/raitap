@@ -80,10 +80,14 @@ jobs:
             core.setOutput("is_draft_pr", pulls[0].draft ? "true" : "false");
 
   quality-gate-linux-cpu:
-    name: Quality Gate (Linux CPU)
+    name: Quality Gate (Linux CPU, py${{ matrix.python-version }})
     needs: changes
     if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
 
     steps:
       - name: Checkout code
@@ -92,22 +96,26 @@ jobs:
       - name: Set up environment
         uses: ./.github/actions/setup-raitap-env
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
           sync-command: uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cpu --extra reporting
 
       - name: Ruff
+        if: matrix.python-version == '3.13'
         run: uv run ruff check .
 
       - name: Ruff Format
+        if: matrix.python-version == '3.13'
         run: uv run ruff format --check .
 
       - name: Pyright
+        if: matrix.python-version == '3.13'
         run: uv run pyright
 
       - name: Pytest
         run: uv run pytest -m "not e2e and not cuda" -v --cov=src/raitap --cov-report=term-missing --cov-report=html
 
       - name: Upload coverage report
+        if: matrix.python-version == '3.13'
         uses: actions/upload-artifact@v7
         with:
           name: coverage-report
