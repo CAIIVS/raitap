@@ -17,18 +17,20 @@
 
 :option: backend_store_uri
 :allowed: string, null
-:default: "sqlite:///mlflow/mlflow.db"
+:default: null
 :description: MLflow backend store URI used when RAITAP starts a local MLflow
-  server, or when `output_forwarding_url` is not set. SQLite URIs such as
-  `sqlite:///mlflow/mlflow.db` are supported for local tracking storage.
+  server, or when `output_forwarding_url` is not set. For `MLFlowTracker`,
+  an unset value falls back to `sqlite:///mlflow/mlflow.db`. SQLite URIs are
+  supported for local tracking storage.
 
 :option: default_artifact_root
 :allowed: string, null
-:default: "./mlflow/artifacts"
+:default: null
 :description: MLflow artifact root used when RAITAP manages the local MLflow
-  backend store or starts a local MLflow server. If `output_forwarding_url`
-  points to an explicit local file store and this option is not set, MLflow's
-  default artifact location is used.
+  backend store or starts a local MLflow server. For `MLFlowTracker`, an unset
+  value falls back to `./mlflow/artifacts` when RAITAP owns the local backend.
+  If `output_forwarding_url` points to an explicit local file store and this
+  option is not set, MLflow's default artifact location is used.
 
 :option: log_model
 :allowed: boolean
@@ -44,9 +46,7 @@
 :yaml:
 tracking:
   _target_: "MLFlowTracker"
-  output_forwarding_url: "http://127.0.0.1:5000"
-  backend_store_uri: "sqlite:///mlflow/mlflow.db"
-  default_artifact_root: "./mlflow/artifacts"
+  output_forwarding_url: "http://127.0.0.1:5001"
   log_model: true
 
 :cli: +tracking=mlflow tracking.log_model=true
