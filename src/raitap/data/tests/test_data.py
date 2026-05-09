@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 from raitap.data import Data
 from raitap.data.data import (
+    SourceKind,
     _load_images,
     _load_tabular,
     _load_tabular_dir,
@@ -86,7 +87,7 @@ class TestGetSourcePath:
                 dest.write_bytes(b"x")
 
             mock_download.side_effect = _create_file
-            result = get_source_path("imagenet_samples", kind="labels")
+            result = get_source_path("imagenet_samples", kind=SourceKind.LABELS)
 
         assert result.is_file()
         assert result.name == "labels.csv"
@@ -102,13 +103,13 @@ class TestGetSourcePath:
         ):
             mock_download.side_effect = lambda _url, dest: dest.write_bytes(b"x")
             with pytest.raises(ValueError, match="does not ship ground-truth labels"):
-                get_source_path("malaria", kind="labels")
+                get_source_path("malaria", kind=SourceKind.LABELS)
 
     def test_invalid_kind_raises(self, tmp_path: Path) -> None:
         f = tmp_path / "data.csv"
         f.write_text("a,b\n1,2")
         with pytest.raises(ValueError, match="Invalid kind"):
-            get_source_path(str(f), kind="lables")
+            get_source_path(str(f), kind=cast("Any", "lables"))
 
     def test_url_downloads_and_caches(self, tmp_path: Path) -> None:
         fake_content = b"fake file content"
