@@ -20,12 +20,10 @@ from .contracts import (
     explainer_output_kind,
 )
 from .exceptions import PayloadVisualiserIncompatibilityError, VisualiserIncompatibilityError
+from .explainers.captum_explainer import CaptumExplainer
+from .explainers.shap_explainer import ShapExplainer
 from .results import ConfiguredVisualiser
-from .semantics import (
-    CAPTUM_METHOD_FAMILIES,
-    SHAP_METHOD_FAMILIES,
-    explainer_capability,
-)
+from .semantics import explainer_capability
 
 if TYPE_CHECKING:
     import torch
@@ -502,7 +500,10 @@ def _requires_registry_semantics(explainer: object, explainer_target: str) -> bo
     if "shap" in target or "captum" in target or "shap" in class_name or "captum" in class_name:
         return True
     algorithm = str(getattr(explainer, "algorithm", ""))
-    return algorithm in SHAP_METHOD_FAMILIES or algorithm in CAPTUM_METHOD_FAMILIES
+    return (
+        algorithm in ShapExplainer.algorithm_registry
+        or algorithm in CaptumExplainer.algorithm_registry
+    )
 
 
 def _enum_frozenset(value: object, enum_type: type[Any]) -> frozenset[Any]:

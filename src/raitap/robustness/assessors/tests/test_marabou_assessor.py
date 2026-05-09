@@ -18,7 +18,6 @@ from raitap.robustness.contracts import (
     RobustnessVerdict,
 )
 from raitap.robustness.exceptions import AssessorBackendIncompatibilityError
-from raitap.robustness.semantics import MARABOU_REGISTRY
 
 # ---------------------------------------------------------------------------
 # maraboupy fake module
@@ -122,8 +121,8 @@ class _OnnxBackend:
 
 
 def test_registry_contains_linf_box() -> None:
-    assert "linf-box" in MARABOU_REGISTRY
-    hints = MARABOU_REGISTRY["linf-box"]
+    assert "linf-box" in MarabouAssessor.algorithm_registry
+    hints = MarabouAssessor.algorithm_registry["linf-box"]
     assert hints.norm == PerturbationNorm.LINF
     assert "smt" in hints.families
 

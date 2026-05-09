@@ -42,8 +42,6 @@ from .exceptions import (
     RobustnessVisualiserIncompatibilityError,
 )
 from .semantics import (
-    FOOLBOX_REGISTRY,
-    TORCHATTACKS_REGISTRY,
     AssessorSemanticsHints,
     assessor_semantics,
     hints_for_assessor,
@@ -159,8 +157,6 @@ __all__ = [  # noqa: RUF022
     "RobustnessVisualiserIncompatibilityError",
     # Semantics
     "AssessorSemanticsHints",
-    "FOOLBOX_REGISTRY",
-    "TORCHATTACKS_REGISTRY",
     "assessor_semantics",
     "hints_for_assessor",
     # Factory

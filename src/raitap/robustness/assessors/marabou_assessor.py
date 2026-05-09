@@ -24,13 +24,16 @@ import numpy as np
 import torch
 
 from ..contracts import (
+    MethodKind,
+    Objective,
     PerturbationBudget,
     PerturbationNorm,
     RobustnessVerdict,
+    ThreatModel,
     VerificationOutcome,
 )
 from ..exceptions import AssessorBackendIncompatibilityError
-from ..semantics import MARABOU_REGISTRY, AssessorSemanticsHints
+from ..semantics import AssessorSemanticsHints
 from .base_assessor import FormalVerificationAssessor
 
 if TYPE_CHECKING:
@@ -56,7 +59,15 @@ class MarabouAssessor(FormalVerificationAssessor):
     a torch traceback.
     """
 
-    algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]] = MARABOU_REGISTRY
+    algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]] = {
+        "linf-box": AssessorSemanticsHints(
+            MethodKind.FORMAL_VERIFICATION,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,
+            families=frozenset({"smt", "complete", "sound"}),
+        ),
+    }
 
     # Budget keys (epsilon, norm) live under ``constructor:`` in the YAML; the
     # adapter applies them at verify-time but they're configured at __init__.
@@ -72,8 +83,8 @@ class MarabouAssessor(FormalVerificationAssessor):
         **kwargs: Any,
     ) -> None:
         del kwargs  # tolerate forward-compat kwargs for YAML configs.
-        if algorithm not in MARABOU_REGISTRY:
-            valid = ", ".join(sorted(MARABOU_REGISTRY))
+        if algorithm not in type(self).algorithm_registry:
+            valid = ", ".join(sorted(type(self).algorithm_registry))
             raise ValueError(f"MarabouAssessor: unknown algorithm {algorithm!r}. Known: {valid}.")
         self.algorithm = algorithm
         self.timeout_s = float(timeout_s)

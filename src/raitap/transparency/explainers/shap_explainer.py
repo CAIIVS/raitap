@@ -9,13 +9,13 @@ import torch
 import torch.nn as nn
 
 from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
-from raitap.transparency.contracts import ExplanationPayloadKind
+from raitap.transparency.contracts import ExplanationPayloadKind, MethodFamily
 from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
 
 from .base_explainer import AttributionOnlyExplainer
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +73,15 @@ class ShapExplainer(AttributionOnlyExplainer):
     """
 
     output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
+
+    algorithm_registry: ClassVar[Mapping[str, frozenset[MethodFamily]]] = {
+        "GradientExplainer": frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+        "DeepExplainer": frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+        "KernelExplainer": frozenset(
+            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC}
+        ),
+        "TreeExplainer": frozenset({MethodFamily.SHAPLEY, MethodFamily.TREE}),
+    }
 
     ONNX_COMPATIBLE_ALGORITHMS: frozenset[str] = frozenset({"KernelExplainer"})
 

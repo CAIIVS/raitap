@@ -1,4 +1,11 @@
-"""Semantic registries for robustness assessors."""
+"""Semantic builders for robustness assessors.
+
+Per-algorithm registries live on each adapter as
+``algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]`` —
+see :class:`raitap.semantics_base.SemanticallyDescribable`. This module
+contains only the framework-agnostic mechanics that consume those
+registries.
+"""
 
 from __future__ import annotations
 
@@ -36,178 +43,26 @@ class AssessorSemanticsHints:
     default_epsilon: float | None = None
 
 
-# Mapping of torchattacks algorithm names to their semantic hints.
-TORCHATTACKS_REGISTRY: Mapping[str, AssessorSemanticsHints] = {
-    "FGSM": AssessorSemanticsHints(
-        MethodKind.EMPIRICAL_ATTACK,
-        ThreatModel.WHITE_BOX,
-        Objective.UNTARGETED,
-        PerturbationNorm.LINF,
-        families=frozenset({"gradient_sign"}),
-    ),
-    "BIM": AssessorSemanticsHints(
-        MethodKind.EMPIRICAL_ATTACK,
-        ThreatModel.WHITE_BOX,
-        Objective.UNTARGETED,
-        PerturbationNorm.LINF,
-        families=frozenset({"gradient_sign", "iterative"}),
-    ),
-    "PGD": AssessorSemanticsHints(
-        MethodKind.EMPIRICAL_ATTACK,
-        ThreatModel.WHITE_BOX,
-        Objective.UNTARGETED,
-        PerturbationNorm.LINF,
-        families=frozenset({"gradient_sign", "iterative"}),
-    ),
-    "PGDL2": AssessorSemanticsHints(
-        MethodKind.EMPIRICAL_ATTACK,
-        ThreatModel.WHITE_BOX,
-        Objective.UNTARGETED,
-        PerturbationNorm.L2,
-        families=frozenset({"gradient_sign", "iterative"}),
-    ),
-    "MIFGSM": AssessorSemanticsHints(
-        MethodKind.EMPIRICAL_ATTACK,
-        ThreatModel.WHITE_BOX,
-        Objective.UNTARGETED,
-        PerturbationNorm.LINF,
-        families=frozenset({"gradient_sign", "iterative", "momentum"}),
-    ),
-    "CW": AssessorSemanticsHints(
-        MethodKind.EMPIRICAL_ATTACK,
-        ThreatModel.WHITE_BOX,
-        Objective.UNTARGETED,
-        PerturbationNorm.L2,
-        families=frozenset({"optimization"}),
-    ),
-    "DeepFool": AssessorSemanticsHints(
-        MethodKind.EMPIRICAL_ATTACK,
-        ThreatModel.WHITE_BOX,
-        Objective.UNTARGETED,
-        PerturbationNorm.L2,
-        families=frozenset({"optimization"}),
-    ),
-    "AutoAttack": AssessorSemanticsHints(
-        MethodKind.EMPIRICAL_ATTACK,
-        ThreatModel.WHITE_BOX,
-        Objective.UNTARGETED,
-        PerturbationNorm.LINF,
-        families=frozenset({"ensemble", "auto"}),
-    ),
-    "Square": AssessorSemanticsHints(
-        MethodKind.EMPIRICAL_ATTACK,
-        ThreatModel.BLACK_BOX_SCORE,
-        Objective.UNTARGETED,
-        PerturbationNorm.LINF,
-        families=frozenset({"score_based"}),
-    ),
-    "OnePixel": AssessorSemanticsHints(
-        MethodKind.EMPIRICAL_ATTACK,
-        ThreatModel.BLACK_BOX_SCORE,
-        Objective.UNTARGETED,
-        PerturbationNorm.L0,
-        families=frozenset({"score_based", "evolutionary"}),
-    ),
-}
-
-# Mapping of Marabou formal-verification algorithm names to their semantic hints.
-MARABOU_REGISTRY: Mapping[str, AssessorSemanticsHints] = {
-    "linf-box": AssessorSemanticsHints(
-        MethodKind.FORMAL_VERIFICATION,
-        ThreatModel.WHITE_BOX,
-        Objective.UNTARGETED,
-        PerturbationNorm.LINF,
-        families=frozenset({"smt", "complete", "sound"}),
-    ),
-}
-
-# Mapping of foolbox attack class names to their semantic hints.
-FOOLBOX_REGISTRY: Mapping[str, AssessorSemanticsHints] = {
-    "LinfPGD": AssessorSemanticsHints(
-        MethodKind.EMPIRICAL_ATTACK,
-        ThreatModel.WHITE_BOX,
-        Objective.UNTARGETED,
-        PerturbationNorm.LINF,
-        families=frozenset({"gradient_sign", "iterative"}),
-    ),
-    "L2PGD": AssessorSemanticsHints(
-        MethodKind.EMPIRICAL_ATTACK,
-        ThreatModel.WHITE_BOX,
-        Objective.UNTARGETED,
-        PerturbationNorm.L2,
-        families=frozenset({"gradient_sign", "iterative"}),
-    ),
-    "LinfFastGradientAttack": AssessorSemanticsHints(
-        MethodKind.EMPIRICAL_ATTACK,
-        ThreatModel.WHITE_BOX,
-        Objective.UNTARGETED,
-        PerturbationNorm.LINF,
-        families=frozenset({"gradient_sign"}),
-    ),
-    "L2FastGradientAttack": AssessorSemanticsHints(
-        MethodKind.EMPIRICAL_ATTACK,
-        ThreatModel.WHITE_BOX,
-        Objective.UNTARGETED,
-        PerturbationNorm.L2,
-        families=frozenset({"gradient_sign"}),
-    ),
-    "L2CarliniWagnerAttack": AssessorSemanticsHints(
-        MethodKind.EMPIRICAL_ATTACK,
-        ThreatModel.WHITE_BOX,
-        Objective.UNTARGETED,
-        PerturbationNorm.L2,
-        families=frozenset({"optimization"}),
-    ),
-    "L2DeepFoolAttack": AssessorSemanticsHints(
-        MethodKind.EMPIRICAL_ATTACK,
-        ThreatModel.WHITE_BOX,
-        Objective.UNTARGETED,
-        PerturbationNorm.L2,
-        families=frozenset({"optimization"}),
-    ),
-    "BoundaryAttack": AssessorSemanticsHints(
-        MethodKind.EMPIRICAL_ATTACK,
-        ThreatModel.BLACK_BOX_DECISION,
-        Objective.UNTARGETED,
-        PerturbationNorm.L2,
-        families=frozenset({"decision_boundary", "query_efficient"}),
-    ),
-}
-
-
 _TARGET_KWARG_KEYS: frozenset[str] = frozenset(
     {"target_labels", "target_classes", "target_class", "target"}
 )
 
 
-def _registry_for(assessor: object) -> Mapping[str, AssessorSemanticsHints]:
-    """Read the assessor's own ``algorithm_registry`` ClassVar.
-
-    Each adapter declares its own registry on the class so semantics doesn't
-    have to branch on framework names. Adding a new framework = subclass
-    ``BaseAssessor`` and set the ClassVar; no edits here required.
-    """
-    registry = getattr(type(assessor), "algorithm_registry", None)
-    if registry is None:
-        raise ValueError(
-            f"Assessor type {type(assessor).__name__!r} does not declare an "
-            "``algorithm_registry`` ClassVar. Each assessor adapter must declare "
-            "its supported algorithms (e.g. set "
-            "``algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]] = ...`` "
-            "in the subclass)."
-        )
-    return registry
-
-
 def hints_for_assessor(assessor: object) -> AssessorSemanticsHints:
-    """Resolve the registry hints for a configured assessor."""
+    """Resolve the registry hints for a configured assessor.
+
+    Reads the adapter's ``algorithm_registry`` ClassVar (enforced by the
+    :class:`raitap.semantics_base.SemanticallyDescribable` interface).
+    """
     algorithm = str(getattr(assessor, "algorithm", ""))
     if not algorithm:
         raise ValueError(
             f"Assessor {type(assessor).__name__!r} has no ``algorithm`` attribute. "
             "Set the YAML ``algorithm:`` field (e.g. ``algorithm: PGD``)."
         )
-    registry = _registry_for(assessor)
+    registry: Mapping[str, AssessorSemanticsHints] = getattr(
+        type(assessor), "algorithm_registry"
+    )  # noqa: B009 — adapter contract guarantees presence; getattr keeps pyright happy.
     try:
         return registry[algorithm]
     except KeyError as error:
