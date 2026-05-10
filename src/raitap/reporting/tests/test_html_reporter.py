@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from collections import Counter
+from html.parser import HTMLParser
+from pathlib import Path
 
 import pytest
 
 from raitap.configs.schema import AppConfig, ReportingConfig
 from raitap.reporting.html_reporter import HTMLReporter
 from raitap.reporting.sections import ReportGroup, ReportSection
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 def test_html_reporter_generates_browser_html_with_expected_anchors(
@@ -32,6 +31,41 @@ def test_html_reporter_generates_browser_html_with_expected_anchors(
     assert 'href="#robustness-fgsm_linf_fast"' in html or ('id="robustness-fgsm_linf_fast"' in html)
     assert '<link rel="stylesheet" href="report.css">' in html
     assert (tmp_path / "report.css").exists()
+
+
+def test_html_reporter_renders_reviewed_browser_structure(
+    tmp_path: Path,
+) -> None:
+    HTMLReporter(_config()).generate(_synthetic_sections(), report_dir=tmp_path)
+
+    html = (tmp_path / "report.html").read_text(encoding="utf-8")
+    css = (tmp_path / "report.css").read_text(encoding="utf-8")
+
+    assert '<meta name="viewport" content="width=device-width, initial-scale=1">' in html
+    assert "Clean → adversarial accuracy" in html
+    assert html.index("<h3>Local</h3>") < html.index("<h3>Explainer Reference</h3>")
+    assert html.index('class="explainer-card original-card"') < html.index(
+        'alt="Grad-CAM lesion localisation"'
+    )
+    assert 'src="_assets/sample_3_original.png"' in html
+    assert ".section-heading" in css
+    assert "@media (max-width: 900px)" in css
+
+
+def test_html_reporter_generates_valid_fragment_links_and_image_alts(
+    tmp_path: Path,
+) -> None:
+    HTMLReporter(_config()).generate(_synthetic_sections(), report_dir=tmp_path)
+
+    html = (tmp_path / "report.html").read_text(encoding="utf-8")
+    parser = _ReportHTMLParser()
+    parser.feed(html)
+
+    ids = Counter(parser.ids)
+    assert [identifier for identifier, count in ids.items() if count > 1] == []
+    assert [href for href in parser.fragment_hrefs if href not in ids] == []
+    assert parser.image_count > 0
+    assert parser.missing_alt_count == 0
 
 
 @pytest.mark.parametrize(
@@ -85,6 +119,28 @@ def _config(*, filename: str = "report.pdf") -> AppConfig:
     return config
 
 
+class _ReportHTMLParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.ids: list[str] = []
+        self.fragment_hrefs: list[str] = []
+        self.image_count = 0
+        self.missing_alt_count = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+        if identifier := attributes.get("id"):
+            self.ids.append(identifier)
+        if tag == "a":
+            href = attributes.get("href")
+            if href is not None and href.startswith("#"):
+                self.fragment_hrefs.append(href[1:])
+        if tag == "img":
+            self.image_count += 1
+            if "alt" not in attributes:
+                self.missing_alt_count += 1
+
+
 def _synthetic_sections() -> tuple[ReportSection, ...]:
     return (
         ReportSection.from_groups(
@@ -112,9 +168,11 @@ def _synthetic_sections() -> tuple[ReportSection, ...]:
                         ("correct", "False"),
                     ),
                     metadata={"role": "sample_header", "bucket": "wrong", "sample_index": 3},
+                    images=(Path("reports/_assets/sample_3_original.png"),),
                 ),
                 ReportGroup(
                     heading="Explainer: gradcam_localisation - Visualiser: Grad-CAM",
+                    images=(Path("reports/_assets/sample_3_gradcam.png"),),
                     table_rows=(
                         ("explainer", "gradcam_localisation"),
                         ("algorithm", "LayerGradCam"),

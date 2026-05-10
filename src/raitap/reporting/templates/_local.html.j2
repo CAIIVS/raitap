@@ -28,8 +28,6 @@
     </section>
   {% endif %}
 
-  {% include "_explainer_reference.html.j2" %}
-
   <section class="subsection">
     <h3>Local</h3>
     {% if view.local_samples %}
@@ -41,11 +39,15 @@
               <h4>Sample {{ sample.sample_index }}</h4>
               <p>pred {{ sample.predicted_class or "n/a" }} · conf {{ sample.confidence|fmt_num }} · target {{ sample.target_class or "n/a" }}</p>
             </div>
-            {% if sample.thumbnail_srcs %}
-              <img class="sample-thumb" src="{{ sample.thumbnail_srcs[0] }}" alt="Sample {{ sample.sample_index }}">
-            {% endif %}
           </header>
           <div class="explainer-grid">
+            {% if sample.thumbnail_srcs %}
+              <article class="explainer-card original-card">
+                <img class="figure" src="{{ sample.thumbnail_srcs[0] }}" alt="Original sample {{ sample.sample_index }}">
+                <h5>Original image</h5>
+                <p class="context-line">Input sample</p>
+              </article>
+            {% endif %}
             {% for explainer in sample.explainers %}
               <article class="explainer-card">
                 {% if explainer.image_srcs %}
@@ -78,4 +80,6 @@
       <p class="placeholder">No local explanations were configured for this run.</p>
     {% endif %}
   </section>
+
+  {% include "_explainer_reference.html.j2" %}
 </section>

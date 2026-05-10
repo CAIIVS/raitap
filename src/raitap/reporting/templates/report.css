@@ -13,6 +13,9 @@
 @page {
   size: A4 landscape;
   margin: 10mm 12mm;
+  @bottom-right {
+    content: element(report-footer);
+  }
 }
 
 @page portrait {
@@ -115,6 +118,17 @@ th {
   gap: 16px;
 }
 
+.section-heading {
+  margin-top: 22px;
+  padding: 14px 0 10px;
+  border-top: 3px solid var(--accent);
+  border-bottom: 1px solid var(--line);
+}
+
+.section-heading h2 {
+  font-size: 24px;
+}
+
 .report-hero {
   margin-bottom: 18px;
   padding-bottom: 10px;
@@ -182,6 +196,12 @@ th {
 .meta-list dd {
   margin: 0;
   font-weight: 700;
+}
+
+.panel-note {
+  margin-top: 4px;
+  color: var(--ink-soft);
+  font-size: 11px;
 }
 
 .metric-grid {
@@ -270,7 +290,8 @@ th {
 .sample-preview img {
   grid-row: span 3;
   width: 80px;
-  height: 72px;
+  height: 80px;
+  aspect-ratio: 1;
   object-fit: cover;
   border-radius: 6px;
 }
@@ -289,14 +310,6 @@ th {
 
 .sample-card {
   margin-top: 10px;
-}
-
-.sample-thumb {
-  width: 96px;
-  height: 72px;
-  object-fit: cover;
-  border-radius: 6px;
-  border: 1px solid var(--line);
 }
 
 .explainer-card {
@@ -346,7 +359,7 @@ summary {
 
 .robust-images {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -367,5 +380,63 @@ figcaption {
   .report-shell {
     padding: 24px;
     background: white;
+  }
+}
+
+@media (max-width: 900px) {
+  .report-shell {
+    max-width: none;
+  }
+
+  .report-hero,
+  .section-heading,
+  .assessor-header,
+  .sample-header {
+    display: block;
+  }
+
+  .scope-pill,
+  .badge-row {
+    margin-top: 8px;
+  }
+
+  .summary-grid,
+  .preview-strip,
+  .reference-grid,
+  .explainer-grid,
+  .robust-images {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-grid--wide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  body {
+    font-size: 11px;
+  }
+
+  h1 {
+    font-size: 24px;
+  }
+
+  .section-heading h2 {
+    font-size: 20px;
+  }
+
+  .metric-grid,
+  .metric-grid--wide {
+    grid-template-columns: 1fr;
+  }
+
+  .sample-preview {
+    grid-template-columns: 64px 1fr;
+  }
+
+  .sample-preview img {
+    width: 64px;
+    height: 64px;
   }
 }

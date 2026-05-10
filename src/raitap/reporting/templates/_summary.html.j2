@@ -36,6 +36,7 @@
     {% if view.robustness_assessors %}
       <section class="card">
         <h2>Robustness Overview</h2>
+        <p class="panel-note">Clean → adversarial accuracy · ASR = attack success rate</p>
         {% for assessor in view.robustness_assessors %}
           {% set asr = assessor.metrics.get("attack_success_rate") %}
           <a class="robust-link" href="#robustness-{{ assessor.assessor_name|slug }}">
