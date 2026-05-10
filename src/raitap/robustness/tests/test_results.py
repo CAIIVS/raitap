@@ -123,6 +123,9 @@ def _result_for_visualiser_tests(tmp_path: Path) -> RobustnessResult:
 class _RecordingRobustnessVisualiser(BaseRobustnessVisualiser):
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
+        self.result_shapes: list[tuple[int, ...]] = []
+        self.targets_seen: list[list[int]] = []
+        self.context_sample_names: list[list[str] | None] = []
 
     def visualise(
         self,
@@ -131,8 +134,10 @@ class _RecordingRobustnessVisualiser(BaseRobustnessVisualiser):
         context: RobustnessVisualisationContext,
         **kwargs: Any,
     ) -> Figure:
-        del result, context
         self.calls.append(dict(kwargs))
+        self.result_shapes.append(tuple(result.clean_inputs.shape))
+        self.targets_seen.append([int(item) for item in result.targets.tolist()])
+        self.context_sample_names.append(context.sample_names)
         fig, _ax = plt.subplots(figsize=(1, 1))
         return fig
 
@@ -174,6 +179,51 @@ def test_render_visualisation_for_report_targets_one_visualiser_and_forwards_kwa
     assert result.visualiser_targets == []
     assert not result.run_dir.exists()
     plt.close(rendered.figure)
+
+
+def test_render_visualisation_for_report_slices_to_requested_sample(
+    tmp_path: Path,
+) -> None:
+    visualiser = _RecordingRobustnessVisualiser()
+    result = _result_for_visualiser_tests(tmp_path)
+    result.clean_inputs = torch.arange(2 * 3 * 4 * 4, dtype=torch.float32).reshape(2, 3, 4, 4)
+    result.perturbed_inputs = result.clean_inputs + 0.5
+    result.targets = torch.tensor([4, 7])
+    result.clean_predictions = torch.tensor([4, 5])
+    result.perturbed_predictions = torch.tensor([6, 8])
+    result.verdicts = encode_verdicts([RobustnessVerdict.NOT_ATTACKED, RobustnessVerdict.ATTACKED])
+    result.perturbation_distance = torch.tensor([0.1, 0.2])
+    result.runtime_per_sample = torch.tensor([1.5, 2.5])
+    result.output_bounds = {
+        "lower": torch.tensor([[0.1, 0.2], [0.3, 0.4]]),
+        "global": torch.tensor([9.0]),
+    }
+    result.kwargs["sample_names"] = ["sample-a", "sample-b"]
+    result.kwargs["show_sample_names"] = True
+    result.visualisers = [ConfiguredRobustnessVisualiser(visualiser=visualiser)]
+
+    rendered = result.render_visualisation_for_report(0, sample_index=1)
+
+    assert rendered is not None
+    assert visualiser.result_shapes == [(1, 3, 4, 4)]
+    assert visualiser.targets_seen == [[7]]
+    assert visualiser.context_sample_names == [["sample-b"]]
+    assert result.clean_inputs.shape == (2, 3, 4, 4)
+    assert result.visualiser_targets == []
+    assert not result.run_dir.exists()
+    plt.close(rendered.figure)
+
+
+def test_render_visualisation_for_report_sample_index_out_of_range_raises(
+    tmp_path: Path,
+) -> None:
+    result = _result_for_visualiser_tests(tmp_path)
+    result.visualisers = [
+        ConfiguredRobustnessVisualiser(visualiser=_RecordingRobustnessVisualiser())
+    ]
+
+    with pytest.raises(IndexError, match="sample_index"):
+        result.render_visualisation_for_report(0, sample_index=2)
 
 
 def test_render_visualisation_for_report_skip_has_no_side_effects(tmp_path: Path) -> None:

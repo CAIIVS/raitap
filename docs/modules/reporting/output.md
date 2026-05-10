@@ -72,30 +72,41 @@ small set of important examples so the report stays compact even when the run
 contains a full batch or test set. By default, local details include up to three
 selected samples.
 
-The section contains:
+The section is grouped by explainer and visualiser. Each group represents one
+configured local visualiser for one explainer, and contains a curated table with
+the explainer algorithm, semantic metadata, relevant explainer parameters, and
+meaningful visualiser identity/rendering settings. Display-only controls such
+as colorbar toggles and sample limits are omitted. Its images are ordered by
+selected sample:
 
-- **Sample header**: one thumbnail of the selected input plus sample facts.
-- **Explainer groups**: one attribution visual from each active local explainer.
+- selected input thumbnail for the sample, when the input modality can be
+  rendered;
+- that visualiser's attribution output for the sample.
 
 For image explainers that normally render an original-image panel next to their
-attribution, the report uses the sample header as the shared original and asks
-compatible visualisers to render attribution-only figures. Set
+attribution, the report uses the sample thumbnail as the shared original within
+the visualiser group and asks compatible visualisers to render attribution-only
+figures. If a thumbnail cannot be rendered for a selected sample, that sample's
+visualiser figure keeps its original panel. Set
 `reporting.show_original_per_explainer=true` to restore the older local layout
-where each explainer figure includes its own original input panel and no sample
-header thumbnails are emitted.
+where each explainer figure includes its own original input panel, the legacy
+overview/detail grouping is used, and no sample thumbnails are emitted.
 
 Report-local asset names for compact local explanations use
-`sample_<index>_thumbnail_<n>.png` and
-`sample_<index>_<explainer>_<visualiser>.png`. The manifest schema is unchanged,
-but tools that match asset filenames should account for this naming pattern.
+`local_<explainer>_sample_<sample_index>_thumbnail.png` and
+`local_<explainer>_sample_<sample_index>_<visualiser>.png`. The manifest schema
+is unchanged, but tools that match asset filenames should account for this
+naming pattern.
 
-Robustness report figures use `robustness_<index>_<assessor>_<visualiser>.png`.
-By default, empirical robustness reports suppress duplicated clean-input and
-perturbation-map panels across configured visualisers. This compact rendering is
-report-only: the `robustness/<assessor>/` artifacts and their `metadata.json`
-visualiser references still point at the canonical standalone PNGs. Set
-`reporting.show_redundant_robustness_panels=true` to reuse the standalone
-robustness figures in the report.
+Compact empirical robustness report figures use
+`robustness_<index>_<assessor>_sample_<sample_index>_<visualiser>.png`. The
+robustness section stays grouped by assessor, but each group contains one figure
+per selected report sample and visualiser. Duplicate clean-input and
+perturbation-map panels are suppressed across configured visualisers. This
+compact rendering is report-only: the `robustness/<assessor>/` artifacts and
+their `metadata.json` visualiser references still point at the canonical
+standalone PNGs. Set `reporting.show_redundant_robustness_panels=true` to reuse
+the standalone robustness figures in the report.
 
 For labeled classification outputs, RAITAP selects local detail samples in this
 priority order:

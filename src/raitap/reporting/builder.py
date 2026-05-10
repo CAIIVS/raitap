@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import logging
 import shutil
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
+import torch
 
 from raitap.configs import resolve_run_dir
 from raitap.robustness.contracts import MethodKind
@@ -28,6 +31,18 @@ logger = logging.getLogger(__name__)
 # Caps both the selected sample pool and, after reserving the first item for the
 # overview, the number of detail groups shown in the local section.
 _MAX_LOCAL_DETAIL_SAMPLES = 3
+_DISPLAY_ONLY_VISUALISER_KWARGS = frozenset(
+    {
+        "max_samples",
+        "sample_index",
+        "sample_names",
+        "show_sample_names",
+        "include_original_input",
+        "include_original_image",
+        "show_colorbar",
+        "colorbar",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -41,6 +56,12 @@ class BuiltReport:
     report_dir: Path
     sections: tuple[ReportSection, ...]
     manifest: ReportManifest
+
+
+@dataclass(frozen=True)
+class _StagedThumbnail:
+    path: Path
+    source_explainer_name: str
 
 
 def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
@@ -77,6 +98,7 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
     robustness_section = _build_robustness_section(
         outputs,
         assets_dir=assets_dir,
+        selected_samples=selected_samples,
         show_redundant_robustness_panels=bool(
             getattr(
                 getattr(config, "reporting", None),
@@ -211,6 +233,7 @@ def _build_robustness_section(
     outputs: RunOutputs,
     *,
     assets_dir: Path,
+    selected_samples: list[SelectedSample],
     show_redundant_robustness_panels: bool = False,
 ) -> ReportSection | None:
     """Build robustness report groups.
@@ -253,6 +276,10 @@ def _build_robustness_section(
         for metric_name, metric_value in result.metrics.as_dict().items():
             table_rows.append((metric_name, f"{metric_value:.4f}"))
 
+        robustness_sample_indices = _robustness_report_sample_indices(
+            result,
+            selected_samples=selected_samples,
+        )
         staged_images = (
             _legacy_robustness_images(
                 visualisations_by_assessor.get(assessor_name, []),
@@ -266,20 +293,25 @@ def _build_robustness_section(
                 assets_dir=assets_dir,
                 result_index=index,
                 assessor_name=assessor_name,
+                sample_indices=robustness_sample_indices,
             )
         )
+
+        metadata: dict[str, object] = {
+            "role": "robustness",
+            "assessor_name": assessor_name,
+            "algorithm": result.algorithm,
+            "method_kind": method_kind_value,
+        }
+        if not show_redundant_robustness_panels:
+            metadata["sample_indices"] = robustness_sample_indices
 
         groups.append(
             ReportGroup(
                 heading=heading,
                 images=tuple(staged_images),
                 table_rows=tuple(table_rows),
-                metadata={
-                    "role": "robustness",
-                    "assessor_name": assessor_name,
-                    "algorithm": result.algorithm,
-                    "method_kind": method_kind_value,
-                },
+                metadata=metadata,
             )
         )
 
@@ -318,33 +350,55 @@ def _compact_robustness_images(
     assets_dir: Path,
     result_index: int,
     assessor_name: str,
+    sample_indices: tuple[int, ...],
 ) -> list[Path]:
     owners = _canonical_facet_owners(result.visualisers)
     staged_images: list[Path] = []
-    for visualiser_index, configured in enumerate(result.visualisers):
-        render_kwargs = _render_kwargs_for_robustness_visualiser(
-            configured.visualiser,
-            owners=owners,
-            visualiser_index=visualiser_index,
-            omit_redundant=True,
-        )
-        visualisation = result.render_visualisation_for_report(
-            visualiser_index,
-            **render_kwargs,
-        )
-        if visualisation is None:
-            continue
-        target = assets_dir / (
-            f"robustness_{result_index}_{_safe_name(assessor_name)}_"
-            f"{visualisation.visualiser_name}.png"
-        )
-        target.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            visualisation.figure.savefig(target, bbox_inches="tight", dpi=150)
-        finally:
-            plt.close(visualisation.figure)
-        staged_images.append(target)
+    sample_indices_for_render: tuple[int | None, ...] = (
+        sample_indices if sample_indices else (None,)
+    )
+    for sample_index in sample_indices_for_render:
+        for visualiser_index, configured in enumerate(result.visualisers):
+            render_kwargs = _render_kwargs_for_robustness_visualiser(
+                configured.visualiser,
+                owners=owners,
+                visualiser_index=visualiser_index,
+                omit_redundant=True,
+            )
+            visualisation = result.render_visualisation_for_report(
+                visualiser_index,
+                sample_index=sample_index,
+                **render_kwargs,
+            )
+            if visualisation is None:
+                continue
+            sample_part = f"_sample_{sample_index}" if sample_index is not None else ""
+            target = assets_dir / (
+                f"robustness_{result_index}_{_safe_name(assessor_name)}"
+                f"{sample_part}_{visualisation.visualiser_name}.png"
+            )
+            target.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                visualisation.figure.savefig(target, bbox_inches="tight", dpi=150)
+            finally:
+                plt.close(visualisation.figure)
+            staged_images.append(target)
     return staged_images
+
+
+def _robustness_report_sample_indices(
+    result: Any,
+    *,
+    selected_samples: list[SelectedSample],
+) -> tuple[int, ...]:
+    if result.method_kind != MethodKind.EMPIRICAL_ATTACK:
+        return ()
+    batch_size = int(result.clean_inputs.shape[0])
+    return tuple(
+        selected.summary.sample_index
+        for selected in selected_samples
+        if 0 <= selected.summary.sample_index < batch_size
+    )
 
 
 def _canonical_facet_owners(visualisers: Any) -> dict[str, int]:
@@ -497,19 +551,42 @@ def _build_local_section(
         )
 
     groups: list[ReportGroup] = []
-    for selected in selected_samples:
-        header_group = _build_sample_header_group(
-            outputs,
-            selected=selected,
-            assets_dir=assets_dir,
-        )
-        omit_original = header_group is not None
+    sample_indices = tuple(selected.summary.sample_index for selected in selected_samples)
+    for explanation in outputs.explanations:
+        if not explanation.has_visualisations_for_scope(ExplanationScope.LOCAL):
+            continue
+        explainer_name = explanation.explainer_name or explanation.run_dir.name
+        thumbnails_by_sample: dict[int, _StagedThumbnail | None] = {}
 
-        sample_groups: list[ReportGroup] = []
-        for explanation in outputs.explanations:
-            explainer_name = explanation.explainer_name or explanation.run_dir.name
-            rendered = []
-            for visualiser_index, configured in enumerate(explanation.visualisers):
+        for visualiser_index, configured in enumerate(explanation.visualisers):
+            if (
+                _scope_for_report_visualiser(explanation, configured.visualiser)
+                != ExplanationScope.LOCAL
+            ):
+                continue
+            images: list[Path] = []
+            thumbnail_source_names: list[str] = []
+
+            for selected in selected_samples:
+                sample_index = selected.summary.sample_index
+                if sample_index not in thumbnails_by_sample:
+                    thumbnails_by_sample[sample_index] = _stage_sample_thumbnail(
+                        outputs,
+                        selected=selected,
+                        assets_dir=assets_dir,
+                        target_name=(
+                            f"local_{_safe_name(explainer_name)}_sample_"
+                            f"{sample_index}_thumbnail.png"
+                        ),
+                    )
+                staged_thumbnail = thumbnails_by_sample[sample_index]
+                omit_original = staged_thumbnail is not None
+                sample_images: list[Path] = []
+                if staged_thumbnail is not None:
+                    sample_images.append(staged_thumbnail.path)
+                    if staged_thumbnail.source_explainer_name not in thumbnail_source_names:
+                        thumbnail_source_names.append(staged_thumbnail.source_explainer_name)
+
                 render_kwargs = _render_kwargs_for_visualiser(
                     configured.visualiser,
                     omit_original=omit_original,
@@ -517,38 +594,50 @@ def _build_local_section(
                 visualisation = explanation.render_visualisation_for_scope(
                     visualiser_index,
                     scope="local",
-                    sample_index=selected.summary.sample_index,
+                    sample_index=sample_index,
                     **render_kwargs,
                 )
                 if visualisation is not None:
-                    rendered.append(visualisation)
+                    sample_images.extend(
+                        _stage_rendered_visualisations(
+                            [visualisation],
+                            assets_dir=assets_dir,
+                            file_stem_prefix=(
+                                f"local_{_safe_name(explainer_name)}_sample_{sample_index}"
+                            ),
+                        )
+                    )
+                    images.extend(sample_images)
 
-            images = _stage_rendered_visualisations(
-                rendered,
-                assets_dir=assets_dir,
-                file_stem_prefix=(
-                    f"sample_{selected.summary.sample_index}_"
-                    f"{_safe_name(explainer_name)}"
-                ),
-            )
             if not images:
                 continue
-            sample_groups.append(
+            visualiser_name = _visualiser_group_name(configured.visualiser, visualiser_index)
+            metadata: dict[str, object] = {
+                "role": "local_visualiser",
+                "explainer_name": explainer_name,
+                "algorithm": explanation.algorithm,
+                "visualiser_name": visualiser_name,
+                "visualiser_index": visualiser_index,
+                "visualiser_class": type(configured.visualiser).__name__,
+                "sample_indices": sample_indices,
+            }
+            visualiser_title = getattr(configured.visualiser, "title", None)
+            if visualiser_title:
+                metadata["visualiser_title"] = str(visualiser_title)
+            if thumbnail_source_names:
+                metadata["thumbnail_source_explainer_names"] = tuple(thumbnail_source_names)
+            groups.append(
                 ReportGroup(
-                    heading=f"Explainer: {explainer_name} - {_sample_label(selected)}",
-                    images=images,
-                    metadata={
-                        "role": "local_attribution",
-                        "bucket": selected.label,
-                        "sample_index": selected.summary.sample_index,
-                        "explainer_name": explainer_name,
-                    },
+                    heading=f"Explainer: {explainer_name} - Visualiser: {visualiser_name}",
+                    images=tuple(images),
+                    table_rows=_transparency_table_rows(
+                        explanation,
+                        selected_samples=selected_samples,
+                        visualiser_index=visualiser_index,
+                    ),
+                    metadata=metadata,
                 )
             )
-        if sample_groups:
-            if header_group is not None:
-                groups.append(header_group)
-            groups.extend(sample_groups)
 
     if not groups:
         return None
@@ -649,6 +738,34 @@ def _build_sample_header_group(
     selected: SelectedSample,
     assets_dir: Path,
 ) -> ReportGroup | None:
+    staged = _stage_sample_thumbnail(
+        outputs,
+        selected=selected,
+        assets_dir=assets_dir,
+        target_name=f"sample_{selected.summary.sample_index}_thumbnail_0.png",
+    )
+    if staged is None:
+        return None
+    return ReportGroup(
+        heading=f"Sample - {_sample_label(selected)}",
+        images=(staged.path,),
+        table_rows=_sample_fact_rows(selected),
+        metadata={
+            "role": "sample_header",
+            "bucket": selected.label,
+            "sample_index": selected.summary.sample_index,
+            "source_explainer_name": staged.source_explainer_name,
+        },
+    )
+
+
+def _stage_sample_thumbnail(
+    outputs: RunOutputs,
+    *,
+    selected: SelectedSample,
+    assets_dir: Path,
+    target_name: str,
+) -> _StagedThumbnail | None:
     visualiser = InputThumbnailVisualiser()
     sample_index = selected.summary.sample_index
     last_error: Exception | None = None
@@ -689,23 +806,16 @@ def _build_sample_header_group(
             )
             return None
 
-        target = assets_dir / f"sample_{sample_index}_thumbnail_0.png"
+        target = assets_dir / target_name
         target.parent.mkdir(parents=True, exist_ok=True)
         try:
             figure.savefig(target, bbox_inches="tight", dpi=150)
         finally:
             plt.close(figure)
 
-        return ReportGroup(
-            heading=f"Sample - {_sample_label(selected)}",
-            images=(target,),
-            table_rows=_sample_fact_rows(selected),
-            metadata={
-                "role": "sample_header",
-                "bucket": selected.label,
-                "sample_index": sample_index,
-                "source_explainer_name": explanation.explainer_name or explanation.run_dir.name,
-            },
+        return _StagedThumbnail(
+            path=target,
+            source_explainer_name=explanation.explainer_name or explanation.run_dir.name,
         )
 
     if last_error is not None:
@@ -715,6 +825,196 @@ def _build_sample_header_group(
             last_error,
         )
     return None
+
+
+def _transparency_table_rows(
+    explanation: Any,
+    *,
+    selected_samples: Sequence[SelectedSample],
+    visualiser_index: int,
+) -> tuple[tuple[str, str], ...]:
+    rows: list[tuple[str, str]] = []
+    explainer_name = explanation.explainer_name or explanation.run_dir.name
+    semantics = explanation.semantics
+    input_spec = semantics.input_spec
+    output_space = semantics.output_space
+
+    rows.append(("explainer", str(explainer_name)))
+    rows.append(("algorithm", str(explanation.algorithm)))
+
+    method_families = _format_collection(
+        _enum_value(method_family) for method_family in semantics.method_families
+    )
+    if method_families:
+        rows.append(("method_families", method_families))
+
+    targets = _format_selected_targets(explanation, selected_samples)
+    if targets:
+        rows.append(("targets", targets))
+
+    if input_spec is not None:
+        if input_spec.kind is not None:
+            rows.append(("input_kind", _enum_value(input_spec.kind)))
+        if input_spec.layout is not None:
+            rows.append(("input_layout", _enum_value(input_spec.layout)))
+        if input_spec.shape is not None:
+            rows.append(("input_shape", _format_shape(input_spec.shape)))
+
+    if output_space.space is not None:
+        rows.append(("output_space", _enum_value(output_space.space)))
+    if output_space.layout is not None:
+        rows.append(("output_layout", _enum_value(output_space.layout)))
+    if output_space.shape is not None:
+        rows.append(("output_shape", _format_shape(output_space.shape)))
+    if output_space.layer_path:
+        rows.append(("layer_path", str(output_space.layer_path)))
+    if output_space.requires_interpolation:
+        rows.append(("requires_interpolation", "true"))
+
+    for key, value in explanation.call_kwargs.items():
+        formatted = _format_table_value(value)
+        if formatted is not None:
+            rows.append((f"call.{key}", formatted))
+
+    configured = explanation.visualisers[visualiser_index]
+    rows.extend(_visualiser_table_rows(configured.visualiser))
+    for key, value in configured.call_kwargs.items():
+        if key in _DISPLAY_ONLY_VISUALISER_KWARGS:
+            continue
+        formatted = _format_table_value(value)
+        if formatted is not None:
+            rows.append((f"visualiser_call.{key}", formatted))
+
+    return tuple(rows)
+
+
+def _visualiser_group_name(visualiser: BaseVisualiser, visualiser_index: int) -> str:
+    title = getattr(visualiser, "title", None)
+    if title:
+        return str(title)
+    return f"{type(visualiser).__name__}_{visualiser_index}"
+
+
+def _scope_for_report_visualiser(
+    explanation: Any,
+    visualiser: BaseVisualiser,
+) -> ExplanationScope:
+    produces_scope = getattr(type(visualiser), "produces_scope", None)
+    if isinstance(produces_scope, ExplanationScope):
+        return produces_scope
+    return explanation.semantics.scope
+
+
+def _visualiser_table_rows(visualiser: BaseVisualiser) -> list[tuple[str, str]]:
+    rows: list[tuple[str, str]] = [("visualiser_class", type(visualiser).__name__)]
+    for attr, row_name in (
+        ("title", "title"),
+        ("method", "method"),
+        ("sign", "sign"),
+    ):
+        if not hasattr(visualiser, attr):
+            continue
+        formatted = _format_table_value(getattr(visualiser, attr))
+        if formatted is not None:
+            rows.append((f"visualiser_{row_name}", formatted))
+
+    return rows
+
+
+def _format_selected_targets(
+    explanation: Any,
+    selected_samples: Sequence[SelectedSample],
+) -> str | None:
+    target_spec = getattr(explanation.semantics, "target", None)
+    if target_spec is None:
+        return None
+    target_value = getattr(target_spec, "target", None)
+    if target_value is None:
+        return None
+
+    parts: list[str] = []
+    for selected in sorted(selected_samples, key=lambda item: item.summary.sample_index):
+        sample_index = selected.summary.sample_index
+        sample_target = _target_for_sample(target_value, sample_index)
+        if sample_target is None:
+            continue
+        parts.append(f"{sample_index}: {_format_scalar(sample_target)}")
+    return ", ".join(parts) if parts else None
+
+
+def _target_for_sample(value: Any, sample_index: int) -> Any:
+    if isinstance(value, torch.Tensor):
+        if value.ndim == 0:
+            return value.item()
+        if 0 <= sample_index < int(value.shape[0]):
+            item = value[sample_index]
+            return item.item() if item.ndim == 0 else item.detach().cpu().tolist()
+        return None
+    if isinstance(value, Sequence) and not isinstance(value, str):
+        if 0 <= sample_index < len(value):
+            return value[sample_index]
+        return None
+    return value
+
+
+def _format_table_value(value: Any) -> str | None:
+    if isinstance(value, torch.Tensor):
+        if value.ndim == 0:
+            return _format_scalar(value.item())
+        if value.numel() <= 8:
+            return _format_table_value(value.detach().cpu().tolist())
+        return None
+    if isinstance(value, Enum):
+        return _enum_value(value)
+    if isinstance(value, bool):
+        return _format_bool(value)
+    if isinstance(value, str):
+        return value
+    if value is None:
+        return None
+    if isinstance(value, int | float):
+        return _format_scalar(value)
+    if isinstance(value, Mapping):
+        formatted_items = []
+        for key, item in value.items():
+            formatted = _format_table_value(item)
+            if formatted is not None:
+                formatted_items.append(f"{key}: {formatted}")
+        return ", ".join(formatted_items) if formatted_items else None
+    if isinstance(value, Sequence) and not isinstance(value, str):
+        if len(value) > 8:
+            return None
+        if all(isinstance(item, int) for item in value):
+            return _format_shape(tuple(int(item) for item in value))
+        return _format_collection(_format_scalar(item) for item in value)
+    return str(value)
+
+
+def _format_collection(values: Any) -> str:
+    formatted = sorted(str(value) for value in values if value is not None)
+    return ", ".join(formatted)
+
+
+def _format_shape(shape: Sequence[int]) -> str:
+    return " x ".join(str(part) for part in shape)
+
+
+def _format_bool(value: bool) -> str:
+    return "true" if value else "false"
+
+
+def _format_scalar(value: Any) -> str:
+    if isinstance(value, Enum):
+        return _enum_value(value)
+    if isinstance(value, bool):
+        return _format_bool(value)
+    if isinstance(value, float):
+        return f"{value:g}"
+    return str(value)
+
+
+def _enum_value(value: Any) -> str:
+    return str(value.value if isinstance(value, Enum) else value)
 
 
 def _render_kwargs_for_visualiser(

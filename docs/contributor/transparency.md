@@ -46,9 +46,9 @@ interpretable attributions and produce cohort visual summaries.
 Image visualisers that set `embeds_original_input = True` must accept the
 runtime kwarg `include_original_input`. Reporting uses this library-agnostic
 contract to render one shared sample thumbnail and suppress repeated originals
-in compact local report sections. Keep constructor configuration names
-backward-compatible; the built-in image visualisers still accept
-`include_original_image` in YAML constructors.
+inside explainer/visualiser compact local report sections. Keep constructor
+configuration names backward-compatible; the built-in image visualisers still
+accept `include_original_image` in YAML constructors.
 
 ### Typed semantics contract
 

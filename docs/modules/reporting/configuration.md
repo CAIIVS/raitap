@@ -21,17 +21,19 @@
 :allowed: boolean
 :default: false
 :description: Whether local explanation figures should keep their per-explainer
-  original input panels. The default compact layout renders one shared sample
-  thumbnail per selected sample and suppresses repeated originals when a
-  visualiser supports attribution-only rendering.
+  original input panels. The default compact layout groups local explanations by
+  explainer and visualiser, renders selected-sample thumbnails inside each
+  visualiser group, and suppresses repeated originals when a visualiser supports
+  attribution-only rendering.
 
 :option: show_redundant_robustness_panels
 :allowed: boolean
 :default: false
 :description: Whether empirical robustness report figures should keep duplicate
   clean-input and perturbation-map panels across visualisers. The default
-  compact robustness layout keeps one canonical owner per facet in the report
-  only; persisted robustness PNGs stay self-contained.
+  compact robustness layout renders one figure per selected report sample and
+  keeps one canonical owner per facet in the report only; persisted robustness
+  PNGs stay self-contained.
 
 :option: include_config
 :allowed: boolean
