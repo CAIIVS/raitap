@@ -1,0 +1,81 @@
+<section class="detail-section" id="transparency-section">
+  <div class="section-heading">
+    <p class="eyebrow">Transparency</p>
+    <h2>Transparency Details</h2>
+  </div>
+
+  {% if view.global_groups %}
+    <section class="subsection">
+      <h3>Global</h3>
+      {% for group in view.global_groups %}
+        <article class="card compact-card">
+          <h4>{{ group.heading }}</h4>
+          {% for image in group.image_srcs %}<img class="figure" src="{{ image }}" alt="{{ group.heading }}">{% endfor %}
+        </article>
+      {% endfor %}
+    </section>
+  {% endif %}
+
+  {% if view.cohort_groups %}
+    <section class="subsection">
+      <h3>Cohort</h3>
+      {% for group in view.cohort_groups %}
+        <article class="card compact-card">
+          <h4>{{ group.heading }}</h4>
+          {% for image in group.image_srcs %}<img class="figure" src="{{ image }}" alt="{{ group.heading }}">{% endfor %}
+        </article>
+      {% endfor %}
+    </section>
+  {% endif %}
+
+  {% include "_explainer_reference.html.j2" %}
+
+  <section class="subsection">
+    <h3>Local</h3>
+    {% if view.local_samples %}
+      {% for sample in view.local_samples %}
+        <article class="sample-card sample-card--{{ sample.bucket|bucket_class(sample.correct) }}" id="sample-{{ sample.sample_index }}">
+          <header class="sample-header">
+            <div>
+              <span class="badge">{{ sample.bucket }}</span>
+              <h4>Sample {{ sample.sample_index }}</h4>
+              <p>pred {{ sample.predicted_class or "n/a" }} · conf {{ sample.confidence|fmt_num }} · target {{ sample.target_class or "n/a" }}</p>
+            </div>
+            {% if sample.thumbnail_srcs %}
+              <img class="sample-thumb" src="{{ sample.thumbnail_srcs[0] }}" alt="Sample {{ sample.sample_index }}">
+            {% endif %}
+          </header>
+          <div class="explainer-grid">
+            {% for explainer in sample.explainers %}
+              <article class="explainer-card">
+                {% if explainer.image_srcs %}
+                  <img class="figure" src="{{ explainer.image_srcs[0] }}" alt="{{ explainer.visualiser_name }}">
+                {% endif %}
+                <h5>{{ explainer.visualiser_name }}</h5>
+                <p class="context-line">
+                  {{ explainer.headline.get("algorithm", explainer.algorithm) }} · {{ explainer.headline.get("method_families", "n/a") }}
+                </p>
+                <p class="context-line">
+                  {{ explainer.context.get("visualiser_sign", "n/a") }} · {{ explainer.context.get("visualiser_method", "n/a") }} · {{ explainer.context.get("layer_path", "input") }}
+                </p>
+                <details>
+                  <summary>Technical details</summary>
+                  <table>
+                    <tbody>
+                      {% for key, value in explainer.technical.items() %}
+                        <tr><th>{{ key }}</th><td>{{ value }}</td></tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </details>
+                <a class="text-link" href="#explainer-{{ explainer.explainer_name|slug }}">About this explainer</a>
+              </article>
+            {% endfor %}
+          </div>
+        </article>
+      {% endfor %}
+    {% else %}
+      <p class="placeholder">No local explanations were configured for this run.</p>
+    {% endif %}
+  </section>
+</section>

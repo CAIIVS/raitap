@@ -21,8 +21,9 @@ outputs/                                      # Hydra's default output directory
         │   ├── artifacts.json
         │   ├── metadata.json
         │   └── metrics.json
-        ├── reports/                          # PDF report and report-only assets
-        │   ├── report.pdf
+        ├── reports/                          # HTML report and report-only assets
+        │   ├── report.html
+        │   ├── report.css
         │   ├── report_manifest.json
         │   └── _assets/
         ├── transparency/                     # Transparency module outputs (see below for details)

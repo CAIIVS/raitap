@@ -1,8 +1,9 @@
 # Output
 
 RAITAP reports are compact summaries of the run, not a dump of every artifact
-written by the metrics and transparency modules. The report builder first creates
-structured report content, then the PDF renderer lays that content out.
+written by the metrics, transparency, and robustness modules. The report builder
+first creates structured report content, then the default HTML renderer lays
+that content out for browser viewing.
 
 ## Files
 
@@ -10,7 +11,8 @@ A reporting-enabled single run writes:
 
 ```text
 reports/
-├── report.pdf
+├── report.html
+├── report.css
 ├── report_manifest.json
 └── _assets/
     ├── ... native global or cohort summary figures
@@ -19,24 +21,26 @@ reports/
 
 `report_manifest.json` records the semantic report structure, selected samples,
 asset paths, and metadata used for sweep-level merging. The manifest is the
-source of truth for merged reports; RAITAP does not stitch child PDFs together.
+source of truth for merged reports. `report.html` is a standalone browser view
+with linked CSS. Use `reporting=pdf_borb` when the legacy borb PDF output is
+required.
 
 The original explainer artifacts are still kept under `transparency/` for
 debugging and tracking. Report-local figures under `reports/_assets/` are the
-curated subset used in the PDF.
+curated subset used in the report.
 
-## PDF Structure
+## Report Structure
 
-Generated PDF reports use this section order:
+Generated reports use this structure:
 
-1. **Metrics**
-2. **Global Explanations**
-3. **Cohort Explanations**
-4. **Local Explanations**
+1. **Executive Summary**
+2. **Transparency Details**
+3. **Robustness Details**
+4. **Appendix**
 
-Empty sections are omitted. For example, a run without metrics will start with
-global explanations if true global content exists, cohort explanations if only
-batch summaries exist, otherwise local explanations.
+Missing metrics, global, cohort, and robustness sections are omitted. If no
+local explanations are present, the transparency details render a short
+placeholder rather than an empty card.
 
 ### Metrics
 
@@ -121,22 +125,22 @@ sample.
 
 ## Hydra Multiruns
 
-Each Hydra child run still writes its own `reports/report.pdf` and
-`reports/report_manifest.json`. At the end of a multirun, RAITAP also creates one
-merged report under the sweep directory:
+Each Hydra child run still writes its own `reports/report.html` and
+`reports/report_manifest.json`. At the end of a multirun, RAITAP also creates
+one merged report under the sweep directory:
 
 ```text
 multirun/.../
 ├── 0/
 │   └── reports/
-│       ├── report.pdf
+│       ├── report.html
 │       └── report_manifest.json
 ├── 1/
 │   └── reports/
-│       ├── report.pdf
+│       ├── report.html
 │       └── report_manifest.json
 └── reports/
-    ├── report.pdf
+    ├── report.html
     ├── report_manifest.json
     └── _assets/
 ```

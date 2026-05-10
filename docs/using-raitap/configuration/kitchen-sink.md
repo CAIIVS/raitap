@@ -100,8 +100,8 @@ tracking:
   open_when_done: true
 
 reporting:
-  _target_: "PDFReporter"
-  filename: "report.pdf"
+  _target_: "raitap.reporting.HTMLReporter"
+  filename: "report.pdf"  # HTMLReporter writes report.html; PDFReporter uses this unchanged.
   multirun_report: true
   show_original_per_explainer: false
   show_redundant_robustness_panels: false

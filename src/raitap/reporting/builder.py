@@ -119,7 +119,7 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
                 {"label": sample.label, **asdict(sample.summary)} for sample in selected_samples
             ],
         },
-        filename=getattr(getattr(config, "reporting", None), "filename", "report.pdf"),
+        filename=_manifest_filename(config),
     )
     return BuiltReport(report_dir=report_dir, sections=tuple(sections), manifest=manifest)
 
@@ -202,9 +202,18 @@ def build_merged_report(
             ],
             "skipped_children": skipped_children,
         },
-        filename=getattr(getattr(config, "reporting", None), "filename", "report.pdf"),
+        filename=_manifest_filename(config),
     )
     return BuiltReport(report_dir=report_dir, sections=ordered_sections, manifest=manifest)
+
+
+def _manifest_filename(config: AppConfig) -> str:
+    reporting = getattr(config, "reporting", None)
+    filename = str(getattr(reporting, "filename", "report.pdf"))
+    target = str(getattr(reporting, "_target_", ""))
+    if target in {"HTMLReporter", "raitap.reporting.HTMLReporter"}:
+        return Path(filename).with_suffix(".html").name
+    return filename
 
 
 def _build_metrics_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSection | None:

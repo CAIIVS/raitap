@@ -26,7 +26,7 @@ _MARGIN_FRAC = 0.1
 
 def _borb_pdf_ns() -> SimpleNamespace:
     """Load borb only when generating a PDF (optional ``reporting`` extra)."""
-    from borb.pdf import (
+    from borb.pdf import (  # type: ignore[reportMissingImports]
         PDF,
         Chart,
         Document,

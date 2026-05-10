@@ -120,7 +120,9 @@ tracking = ["raitap[mlflow]"]
 metrics = ["torchmetrics>=1.8.2", "faster-coco-eval>=1.6.3"]
 
 # Reporting module
-reporting = ["borb==3.0.7"]
+reporting = ["jinja2>=3.1"]
+# Opt-in legacy backend; produces a borb-rendered PDF instead of HTML.
+reporting-borb = ["borb==3.0.7"]
 
 [dependency-groups]
 lint = ["ruff>=0.8.0", "pyright>=1.1.390"]
@@ -236,7 +238,12 @@ explicit = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/raitap"]
-include = ["src/raitap/py.typed", "src/raitap/configs/**/*.yaml", "src/raitap/configs/**/*.yml"]
+include = [
+  "src/raitap/py.typed",
+  "src/raitap/configs/**/*.yaml",
+  "src/raitap/configs/**/*.yml",
+  "src/raitap/reporting/templates/**/*",
+]
 exclude = ["src/raitap/**/test_*.py", "src/raitap/**/conftest.py", "src/raitap/configs/zhaw/*.yaml", "src/raitap/configs/zhaw/*.yml"]
 
 [tool.ruff]

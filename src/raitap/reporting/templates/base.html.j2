@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>{{ view.experiment_name }} report</title>
+    <link rel="stylesheet" href="report.css">
+  </head>
+  <body>
+    <main class="report-shell">
+      {% block body %}{% endblock %}
+    </main>
+    <footer class="report-footer">
+      Generated {{ view.generated_at }} · raitap {{ view.version }}
+    </footer>
+  </body>
+</html>

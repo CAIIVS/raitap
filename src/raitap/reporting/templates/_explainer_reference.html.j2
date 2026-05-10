@@ -1,0 +1,25 @@
+{% set seen = [] %}
+{% if view.local_samples %}
+  <section class="subsection reference-section">
+    <h3>Explainer Reference</h3>
+    <div class="reference-grid">
+      {% for sample in view.local_samples %}
+        {% for explainer in sample.explainers %}
+          {% if explainer.explainer_name not in seen %}
+            {% set _ = seen.append(explainer.explainer_name) %}
+            <article class="card compact-card" id="explainer-{{ explainer.explainer_name|slug }}">
+              <h4>{{ explainer.explainer_name }}</h4>
+              <table>
+                <tbody>
+                  {% for key, value in explainer.rows %}
+                    <tr><th>{{ key }}</th><td>{{ value }}</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </article>
+          {% endif %}
+        {% endfor %}
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}

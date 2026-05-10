@@ -54,6 +54,17 @@ def _mock_borb() -> SimpleNamespace:
     )
 
 
+def _mock_borb_writing_pdf() -> SimpleNamespace:
+    b = _mock_borb()
+
+    def _write(*, what: object, where_to: Path) -> None:
+        del what
+        where_to.write_bytes(b"%PDF-1.4\n")
+
+    b.PDF.write = _write
+    return b
+
+
 def test_pdf_reporter_generates_file(mock_config: AppConfig, tmp_path: Path) -> None:
     """Test basic PDF generation."""
     reporter = PDFReporter(mock_config)
@@ -65,6 +76,18 @@ def test_pdf_reporter_generates_file(mock_config: AppConfig, tmp_path: Path) -> 
     assert output_path.exists() is False or output_path.parent.exists()
     assert output_path.suffix == ".pdf"
     assert "test.pdf" in str(output_path)
+
+
+def test_pdf_reporter_writes_configured_pdf_path(mock_config: AppConfig, tmp_path: Path) -> None:
+    assert mock_config.reporting is not None
+    mock_config.reporting.filename = "legacy_report.pdf"
+    reporter = PDFReporter(mock_config)
+
+    with patch("raitap.reporting.pdf_reporter._borb_pdf_ns", return_value=_mock_borb_writing_pdf()):
+        output_path = reporter.generate((), report_dir=tmp_path)
+
+    assert output_path == tmp_path / "legacy_report.pdf"
+    assert output_path.read_bytes().startswith(b"%PDF-")
 
 
 def test_pdf_reporter_creates_report_directory(mock_config: AppConfig, tmp_path: Path) -> None:

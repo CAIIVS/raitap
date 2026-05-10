@@ -1,13 +1,13 @@
 # Reporting
 
-The reporting module generates compact PDF reports from pipeline outputs. Reports
-are assembled semantically from metrics, typed transparency summaries, and
-selected local explanations instead of embedding every PNG artifact written by a
-run.
+The reporting module generates compact reports from pipeline
+outputs. Reports are assembled semantically from metrics, typed transparency
+summaries, selected local explanations, and robustness evidence instead of
+embedding every PNG artifact written by a run.
 
-Rendered visualisations are grouped by `VisualisationResult.scope`; current
-section names include Global Explanations, Cohort Explanations, and Local
-Explanations.
+The default `HTMLReporter` renders a browser-friendly HTML report and linked
+CSS. The legacy borb `PDFReporter` remains available through
+`reporting=pdf_borb` when PDF output is required.
 
 ```{toctree}
 :maxdepth: 1
