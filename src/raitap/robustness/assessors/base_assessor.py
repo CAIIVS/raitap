@@ -48,8 +48,6 @@ if TYPE_CHECKING:
 
     from torch import nn
 
-    from ..semantics import AssessorSemanticsHints  # noqa: F401  — string forward-ref only
-
 _VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
 
 

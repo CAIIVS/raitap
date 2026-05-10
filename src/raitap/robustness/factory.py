@@ -176,7 +176,7 @@ def create_assessor(assessor_config: Any) -> tuple[AssessorAdapter, str]:
             "Configured assessors must have callable assess() and check_backend_compat() methods, "
             "and a ``method_kind`` attribute."
         ),
-        instantiate_fn=lambda cfg: instantiate(cfg),
+        instantiate_fn=instantiate,
     )
 
 
@@ -187,7 +187,7 @@ def create_robustness_visualisers(
         assessor_config,
         schema=_SCHEMA,
         wrap=lambda viz, call: ConfiguredRobustnessVisualiser(visualiser=viz, call_kwargs=call),
-        instantiate_fn=lambda cfg: instantiate(cfg),
+        instantiate_fn=instantiate,
     )
 
 

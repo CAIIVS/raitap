@@ -234,7 +234,7 @@ def create_explainer(explainer_config: Any) -> tuple[ExplainerAdapter, str]:
         type_error_hint=(
             "Configured explainers must have callable explain() and check_backend_compat() methods."
         ),
-        instantiate_fn=lambda cfg: instantiate(cfg),
+        instantiate_fn=instantiate,
     )
 
 
@@ -243,7 +243,7 @@ def create_visualisers(explainer_config: Any) -> list[ConfiguredVisualiser]:
         explainer_config,
         schema=_SCHEMA,
         wrap=lambda viz, call: ConfiguredVisualiser(visualiser=viz, call_kwargs=call),
-        instantiate_fn=lambda cfg: instantiate(cfg),
+        instantiate_fn=instantiate,
     )
 
 
