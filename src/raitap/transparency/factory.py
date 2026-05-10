@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any, cast
 
 import torch
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 
+from raitap import raitap_log
 from raitap.configs import cfg_to_dict, resolve_run_dir, resolve_target
 from raitap.data import load_tensor_from_source
 from raitap.models.backend import ModelBackend
@@ -34,7 +34,6 @@ if TYPE_CHECKING:
     from .results import ExplanationResult
 
 _TRANSPARENCY_PREFIX = "raitap.transparency."
-logger = logging.getLogger(__name__)
 _PARSED_EXPLAINER_CONFIG_CACHE: dict[int, _ParsedExplainerConfig] = {}
 
 _EXPLAINER_TOP_LEVEL_KEYS = frozenset(
@@ -167,13 +166,10 @@ def _validate_raitap_keys(raitap_cfg: dict[str, Any], *, explainer_name: str) ->
 
     sorted_unknown = ", ".join(sorted(unknown))
     sorted_valid = ", ".join(sorted(_RAITAP_KEYS))
-    import warnings
 
-    warnings.warn(
+    raitap_log.warn(
         f"Unknown transparency.raitap keys for explainer {explainer_name!r}: "
         f"{sorted_unknown}. Supported RAITAP keys: {sorted_valid}.",
-        UserWarning,
-        stacklevel=2,
     )
 
 
@@ -183,14 +179,11 @@ def _warn_on_misplaced_raitap_call_keys(call_cfg: dict[str, Any], *, explainer_n
         return
 
     keys = ", ".join(misplaced)
-    import warnings
 
-    warnings.warn(
+    raitap_log.warn(
         f"Explainer {explainer_name!r} has RAITAP-owned keys under 'call:': {keys}. "
         "These keys usually belong under 'raitap:' while 'call:' is intended for "
         "library kwargs only.",
-        UserWarning,
-        stacklevel=2,
     )
 
 
@@ -258,7 +251,7 @@ def _resolve_call_data_sources(call_kwargs: dict[str, Any]) -> dict[str, Any]:
                 raise TypeError(
                     f"call.{key}.n_samples must be an int, got {type(n_samples).__name__}."
                 )
-            logger.info(
+            raitap_log.info(
                 "Resolving call kwarg %r as data source %r (n_samples=%s)",
                 key,
                 source,
@@ -282,7 +275,7 @@ def _instantiate_explainer_from_parsed(
     try:
         explainer = instantiate(instantiate_cfg)
     except Exception as error:
-        logger.exception("Explainer instantiation failed for target %r", parsed.target_path)
+        raitap_log.exception("Explainer instantiation failed for target %r", parsed.target_path)
         raise ValueError(
             f"Could not instantiate explainer {parsed.target_path!r}.\n"
             "Check that _target_ points to a valid ExplainerAdapter implementation "
@@ -406,7 +399,7 @@ class Explanation:
             raitap_cfg = dict(parsed.raitap)
             if sample_names is not None:
                 if "sample_names" in raitap_cfg and raitap_cfg["sample_names"] != sample_names:
-                    logger.debug(
+                    raitap_log.debug(
                         "Runtime sample_names for explainer %r override "
                         "raitap.sample_names from config.",
                         explainer_name,
@@ -468,7 +461,7 @@ def create_visualisers(explainer_config: Any) -> list[ConfiguredVisualiser]:
         try:
             visualiser = instantiate(instantiate_cfg)
         except Exception as error:
-            logger.exception("Visualiser instantiation failed for target %r", visualiser_target)
+            raitap_log.exception("Visualiser instantiation failed for target %r", visualiser_target)
             raise ValueError(f"Could not instantiate visualiser {visualiser_target!r}.") from error
 
         out.append(ConfiguredVisualiser(visualiser=visualiser, call_kwargs=call_plain))

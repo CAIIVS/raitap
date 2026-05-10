@@ -9,9 +9,11 @@ import pytest
 
 from raitap.utils.diagnostics import (
     Diagnostic,
+    Subsystem,
     docs_url,
     is_dev_install,
     resolve_diagnostic_from_frames,
+    subsystem_from_str,
 )
 
 if TYPE_CHECKING:
@@ -61,8 +63,6 @@ class TestResolveDiagnosticFromFrames:
         import types
         from unittest.mock import patch
 
-        from raitap.utils import diagnostics as diag_mod
-
         # Bottom-up chain: utils/console.py (filtered) → metrics/inputs.py
         # (the qualifying raitap frame) → captum/foo.py (third-party).
         captum_frame = types.SimpleNamespace(
@@ -81,7 +81,7 @@ class TestResolveDiagnosticFromFrames:
             f_back=metrics_frame,
         )
 
-        with patch.object(diag_mod.sys, "_getframe", return_value=utils_frame):
+        with patch("raitap.utils.diagnostics.sys._getframe", return_value=utils_frame):
             diag = resolve_diagnostic_from_frames("/orig.py", 1)
 
         assert diag.subsystem == "metrics"
@@ -137,19 +137,26 @@ class TestIsDevInstall:
 
 class TestDocsUrl:
     def test_raitap_subsystem_returns_module_url(self) -> None:
-        diag = Diagnostic(subsystem="metrics", file="/x.py", line=1, third_party_lib=None)
+        diag = Diagnostic(subsystem=Subsystem.metrics, file="/x.py", line=1, third_party_lib=None)
         assert docs_url(diag) == "https://caiivs.github.io/raitap/modules/metrics/"
 
     def test_third_party_returns_frameworks_page(self) -> None:
-        diag = Diagnostic(subsystem="transparency", file="/x.py", line=1, third_party_lib="captum")
+        diag = Diagnostic(
+            subsystem=Subsystem.transparency, file="/x.py", line=1, third_party_lib="captum"
+        )
         assert (
             docs_url(diag)
             == "https://caiivs.github.io/raitap/modules/transparency/frameworks-and-libraries.html"
         )
 
-    def test_unknown_subsystem_returns_none(self) -> None:
-        diag = Diagnostic(subsystem="random_thing", file="/x.py", line=1, third_party_lib=None)
+    def test_subsystem_without_docs_page_returns_none(self) -> None:
+        # ``utils`` is a real subsystem but has no dedicated docs page.
+        diag = Diagnostic(subsystem=Subsystem.utils, file="/x.py", line=1, third_party_lib=None)
         assert docs_url(diag) is None
+
+    def test_subsystem_from_str_rejects_unknown(self) -> None:
+        assert subsystem_from_str("random_thing") is None
+        assert subsystem_from_str("metrics") is Subsystem.metrics
 
     def test_no_subsystem_returns_none(self) -> None:
         diag = Diagnostic(subsystem=None, file="/x.py", line=1, third_party_lib=None)

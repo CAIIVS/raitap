@@ -9,6 +9,7 @@ This section contains documentation meant to help contributors setup the dev env
 setup
 pull-requests
 releases
+logging
 Data module <data>
 Metrics module <metrics>
 Tracking module <tracking>

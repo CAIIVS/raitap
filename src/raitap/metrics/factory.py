@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
-import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
 from hydra.utils import instantiate
 
+from raitap import raitap_log
 from raitap.configs import cfg_to_dict, resolve_run_dir, resolve_target
 from raitap.reporting.sections import Reportable, ReportGroup
 from raitap.tracking.base_tracker import BaseTracker, Trackable
@@ -23,8 +23,6 @@ if TYPE_CHECKING:
 
 from .base_metric import BaseMetricComputer, MetricResult, scalar_metrics_for_tracking
 from .visualizers import MetricsVisualizer
-
-logger = logging.getLogger(__name__)
 
 _METRICS_PREFIX = "raitap.metrics."
 
@@ -50,7 +48,7 @@ def create_metric(metrics_config: Any) -> tuple[BaseMetricComputer, str]:
     try:
         metric = instantiate(metrics_cfg)
     except Exception as e:
-        logger.exception("Metric instantiation failed for target %r", target_path)
+        raitap_log.exception("Metric instantiation failed for target %r", target_path)
         raise ValueError(
             f"Could not instantiate metric {target_path!r}.\n"
             "Check that _target_ points to a valid MetricComputer implementation."
@@ -129,9 +127,9 @@ class Metrics:
         }
         (run_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
-        logger.info("Metrics saved: %s/metrics.json", run_dir)
-        logger.info("Artifacts saved: %s/artifacts.json", run_dir)
-        logger.info("Metadata saved: %s/metadata.json", run_dir)
+        raitap_log.info("Metrics saved: %s/metrics.json", run_dir)
+        raitap_log.info("Artifacts saved: %s/artifacts.json", run_dir)
+        raitap_log.info("Metadata saved: %s/metadata.json", run_dir)
 
         try:
             figures = MetricsVisualizer.create_figures(result)
@@ -139,7 +137,7 @@ class Metrics:
                 fig.savefig(run_dir / f"{name}.png", bbox_inches="tight", dpi=150)
                 plt.close(fig)
         except Exception:
-            logger.warning("Failed to save metric charts", exc_info=True)
+            raitap_log.exception("Failed to save metric charts")
 
         return MetricsEvaluation(
             result=result,

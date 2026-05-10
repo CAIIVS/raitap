@@ -10,16 +10,15 @@ on:
 
 jobs:
   build:
+    # Single-version build: the produced wheel/sdist is identical regardless
+    # of the interpreter that ran ``uv build``. We only validate metadata
+    # once and only upload the 3.13 artifact to ``smoke-extras``.
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.11", "3.13"]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.13"
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
@@ -29,7 +28,6 @@ jobs:
       - name: Check metadata
         run: uvx twine check dist/*
       - name: Upload built dist
-        if: matrix.python-version == '3.13'
         uses: actions/upload-artifact@v7
         with:
           name: raitap-dist
@@ -43,17 +41,6 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.13"]
-        extra:
-          - torch-cpu
-          - onnx-cpu
-          - shap
-          - captum
-          - torchattacks
-          - foolbox
-          - mlflow
-          - metrics
-          - reporting
-          - launcher
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -63,7 +50,25 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
-      - name: Sync with extra
-        run: uv sync --extra ${{ matrix.extra }}
-      - name: Import smoke
-        run: uv run python -c "import raitap; print(raitap.__name__)"
+      - name: Download built dist
+        uses: actions/download-artifact@v6
+        with:
+          name: raitap-dist
+          path: dist/
+      - name: Install + import smoke per extra
+        # One job per Python version loops through every extra: install the
+        # wheel with that extra, then import raitap. Per-extra logs are
+        # grouped so the failing extra is one collapsed group away from the
+        # job log root. Collapses 10×2 matrix jobs into 2 PR checks.
+        shell: bash
+        run: |
+          set -euo pipefail
+          WHEEL=$(ls dist/raitap-*.whl | head -n1)
+          for extra in torch-cpu onnx-cpu shap captum torchattacks foolbox mlflow metrics reporting launcher; do
+            echo "::group::extra=${extra}"
+            rm -rf .venv
+            uv venv --python ${{ matrix.python-version }}
+            uv pip install "${WHEEL}[${extra}]"
+            uv run python -c "import raitap; print(raitap.__name__)"
+            echo "::endgroup::"
+          done

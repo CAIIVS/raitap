@@ -80,42 +80,47 @@ jobs:
             core.setOutput("is_draft_pr", pulls[0].draft ? "true" : "false");
 
   quality-gate-linux-cpu:
-    name: Quality Gate (Linux CPU, py${{ matrix.python-version }})
+    # Single job runs both supported Python versions sequentially. 3.11 only
+    # exercises the test suite (floor compatibility); 3.13 runs the full
+    # quality gate (lint, format, pyright, coverage). Collapsing into one
+    # GitHub check trades parallelism for a quieter PR status list.
+    name: Quality Gate (Linux CPU)
     needs: changes
     if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.11", "3.13"]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Set up environment
+      - name: Set up Python 3.11 environment
         uses: ./.github/actions/setup-raitap-env
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.11"
+          sync-command: uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cpu --extra reporting
+
+      - name: Pytest on 3.11 (floor compatibility, no coverage)
+        run: uv run pytest -m "not e2e and not cuda" -v
+
+      - name: Set up Python 3.13 environment
+        uses: ./.github/actions/setup-raitap-env
+        with:
+          python-version: "3.13"
           sync-command: uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cpu --extra reporting
 
       - name: Ruff
-        if: matrix.python-version == '3.13'
         run: uv run ruff check .
 
       - name: Ruff Format
-        if: matrix.python-version == '3.13'
         run: uv run ruff format --check .
 
       - name: Pyright
-        if: matrix.python-version == '3.13'
         run: uv run pyright
 
-      - name: Pytest
+      - name: Pytest on 3.13 (with coverage)
         run: uv run pytest -m "not e2e and not cuda" -v --cov=src/raitap --cov-report=term-missing --cov-report=html
 
       - name: Upload coverage report
-        if: matrix.python-version == '3.13'
         uses: actions/upload-artifact@v7
         with:
           name: coverage-report

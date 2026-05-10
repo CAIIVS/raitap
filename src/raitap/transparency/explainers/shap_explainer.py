@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import torch
 import torch.nn as nn
 
+from raitap import raitap_log
 from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
 from raitap.transparency.contracts import ExplanationPayloadKind, MethodFamily
 from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
@@ -16,8 +16,6 @@ from .base_explainer import AttributionOnlyExplainer
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
-
-logger = logging.getLogger(__name__)
 
 
 def _normalise_target_indices(
@@ -158,7 +156,7 @@ class ShapExplainer(AttributionOnlyExplainer):
         # GradientExplainer, DeepExplainer, KernelExplainer REQUIRE background data
         if self.algorithm in ("GradientExplainer", "DeepExplainer", "KernelExplainer"):
             if background_data is None:
-                logger.warning(
+                raitap_log.warn(
                     "%s: no background_data provided; using input batch as background "
                     "(results may be less accurate).",
                     self.algorithm,
