@@ -48,3 +48,34 @@ jobs:
       - name: Run transparency E2E tests
         run: uv run pytest -m e2e -v --tb=long --mpl
 
+  marabou-e2e-linux:
+    name: "Marabou formal-verification E2E (Linux)"
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MPLBACKEND: Agg
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up environment
+        uses: ./.github/actions/setup-raitap-env
+        with:
+          # maraboupy 2.0.0 publishes cp311 wheels only — pin Python to 3.11.
+          python-version: "3.11"
+          sync-command: uv sync --group dev --extra torch-cpu --extra marabou
+
+      - name: Install onnxruntime for ONNX inference in tests
+        # The marabou extra pulls onnx (graph format) but not onnxruntime
+        # (inference engine). The e2e tests run the original ACAS Xu
+        # forward pass via onnxruntime to pick the target class, so install
+        # it explicitly in this lane.
+        run: uv pip install "onnxruntime>=1.17"
+
+      - name: Run Marabou E2E tests
+        # Scope collection to the marabou file so we don't import unrelated
+        # test modules whose deps (torchmetrics, etc.) aren't installed in
+        # this minimal lane.
+        run: uv run pytest src/raitap/robustness/tests/test_e2e_marabou_acas_xu.py -m e2e -v --tb=long

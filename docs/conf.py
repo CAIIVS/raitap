@@ -90,6 +90,10 @@ nitpick_ignore_regex = [
     ),
     (r"py:class", r"raitap\.tracking\.base_tracker\.Trackable"),
     (r"py:class", r"raitap\.reporting\.sections\.Reportable"),
+    # SemanticallyDescribable[T] generic params + forward-string narrowings.
+    (r"py:obj", r"raitap\.semantics_base\.T"),
+    (r"py:class", r"AssessorSemanticsHints"),
+    (r"py:class", r"frozenset\[MethodFamily\]"),
 ]
 
 intersphinx_mapping = {

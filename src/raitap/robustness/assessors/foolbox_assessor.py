@@ -6,8 +6,9 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import torch
 
+from ..contracts import MethodKind, Objective, PerturbationNorm, ThreatModel
 from ..exceptions import AssessorBackendIncompatibilityError
-from ..semantics import FOOLBOX_REGISTRY, AssessorSemanticsHints
+from ..semantics import AssessorSemanticsHints
 from .base_assessor import EmpiricalAttackAssessor, _prepare_inputs_for_forward
 
 if TYPE_CHECKING:
@@ -31,7 +32,57 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
     A future ``MultiEpsilonAssessor`` will own that surface.
     """
 
-    algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]] = FOOLBOX_REGISTRY
+    algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]] = {
+        "LinfPGD": AssessorSemanticsHints(
+            MethodKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,
+            families=frozenset({"gradient_sign", "iterative"}),
+        ),
+        "L2PGD": AssessorSemanticsHints(
+            MethodKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.L2,
+            families=frozenset({"gradient_sign", "iterative"}),
+        ),
+        "LinfFastGradientAttack": AssessorSemanticsHints(
+            MethodKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,
+            families=frozenset({"gradient_sign"}),
+        ),
+        "L2FastGradientAttack": AssessorSemanticsHints(
+            MethodKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.L2,
+            families=frozenset({"gradient_sign"}),
+        ),
+        "L2CarliniWagnerAttack": AssessorSemanticsHints(
+            MethodKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.L2,
+            families=frozenset({"optimization"}),
+        ),
+        "L2DeepFoolAttack": AssessorSemanticsHints(
+            MethodKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.L2,
+            families=frozenset({"optimization"}),
+        ),
+        "BoundaryAttack": AssessorSemanticsHints(
+            MethodKind.EMPIRICAL_ATTACK,
+            ThreatModel.BLACK_BOX_DECISION,
+            Objective.UNTARGETED,
+            PerturbationNorm.L2,
+            families=frozenset({"decision_boundary", "query_efficient"}),
+        ),
+    }
     budget_kwarg_source = "call_kwargs"
 
     def __init__(

@@ -11,23 +11,21 @@ from raitap.robustness.contracts import (
     ThreatModel,
 )
 from raitap.robustness.semantics import (
-    FOOLBOX_REGISTRY,
-    TORCHATTACKS_REGISTRY,
     assessor_semantics,
     hints_for_assessor,
 )
 
 
 def test_torchattacks_registry_covers_pgd() -> None:
-    hints = TORCHATTACKS_REGISTRY["PGD"]
+    hints = TorchattacksAssessor.algorithm_registry["PGD"]
     assert hints.method_kind == MethodKind.EMPIRICAL_ATTACK
     assert hints.norm == PerturbationNorm.LINF
     assert "iterative" in hints.families
 
 
 def test_foolbox_registry_distinguishes_l2_from_linf() -> None:
-    assert FOOLBOX_REGISTRY["LinfPGD"].norm == PerturbationNorm.LINF
-    assert FOOLBOX_REGISTRY["L2PGD"].norm == PerturbationNorm.L2
+    assert FoolboxAssessor.algorithm_registry["LinfPGD"].norm == PerturbationNorm.LINF
+    assert FoolboxAssessor.algorithm_registry["L2PGD"].norm == PerturbationNorm.L2
 
 
 def test_hints_for_assessor_routes_to_torchattacks() -> None:
