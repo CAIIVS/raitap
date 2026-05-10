@@ -578,6 +578,7 @@ def _build_local_section(
                             f"local_{_safe_name(explainer_name)}_sample_"
                             f"{sample_index}_thumbnail.png"
                         ),
+                        strip_titles=True,
                     )
                 staged_thumbnail = thumbnails_by_sample[sample_index]
                 omit_original = staged_thumbnail is not None
@@ -605,6 +606,7 @@ def _build_local_section(
                             file_stem_prefix=(
                                 f"local_{_safe_name(explainer_name)}_sample_{sample_index}"
                             ),
+                            strip_titles=True,
                         )
                     )
                     images.extend(sample_images)
@@ -765,6 +767,7 @@ def _stage_sample_thumbnail(
     selected: SelectedSample,
     assets_dir: Path,
     target_name: str,
+    strip_titles: bool = False,
 ) -> _StagedThumbnail | None:
     visualiser = InputThumbnailVisualiser()
     sample_index = selected.summary.sample_index
@@ -808,6 +811,8 @@ def _stage_sample_thumbnail(
 
         target = assets_dir / target_name
         target.parent.mkdir(parents=True, exist_ok=True)
+        if strip_titles:
+            _strip_report_figure_titles(figure)
         try:
             figure.savefig(target, bbox_inches="tight", dpi=150)
         finally:
@@ -1099,17 +1104,27 @@ def _stage_rendered_visualisations(
     *,
     assets_dir: Path,
     file_stem_prefix: str,
+    strip_titles: bool = False,
 ) -> tuple[Path, ...]:
     staged: list[Path] = []
     for visualisation in visualisations:
         target = assets_dir / f"{file_stem_prefix}_{visualisation.visualiser_name}.png"
         target.parent.mkdir(parents=True, exist_ok=True)
+        if strip_titles:
+            _strip_report_figure_titles(visualisation.figure)
         try:
             visualisation.figure.savefig(target, bbox_inches="tight", dpi=150)
         finally:
             plt.close(visualisation.figure)
         staged.append(target)
     return tuple(staged)
+
+
+def _strip_report_figure_titles(figure: Any) -> None:
+    if hasattr(figure, "suptitle"):
+        figure.suptitle("")
+    for ax in getattr(figure, "axes", []):
+        ax.set_title("")
 
 
 def _sample_names_for_explanation(explanation: object, sample_index: int) -> list[str]:

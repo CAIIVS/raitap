@@ -483,7 +483,63 @@ def test_build_report_local_assets_are_staged_and_closed(tmp_path: Path) -> None
         "local_captum_ig_sample_2_thumbnail.png",
         "local_captum_ig_sample_2__LocalImageVisualiser_0.png",
     ]
+    assert all(
+        ax.get_title() == "" for fig in visualiser.figures for ax in fig.axes
+    )
     assert all(not plt.fignum_exists(fig.number) for fig in visualiser.figures)
+
+
+def test_build_report_compact_local_thumbnail_titles_are_stripped(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    config = AppConfig(experiment_name="compact_thumbnail_titles")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    thumbnail_figures: list[Figure] = []
+
+    def _titled_thumbnail(*_args: Any, **_kwargs: Any) -> Figure:
+        fig, ax = plt.subplots(figsize=(1, 1))
+        ax.imshow([[0.0, 1.0], [1.0, 0.0]])
+        ax.set_title("Input: ISIC_0001")
+        fig.suptitle("Input thumbnail")
+        thumbnail_figures.append(fig)
+        return fig
+
+    monkeypatch.setattr(
+        "raitap.reporting.builder.InputThumbnailVisualiser.visualise",
+        _titled_thumbnail,
+    )
+
+    explanation = ExplanationResult(
+        attributions=torch.rand(1, 1, 4, 4),
+        inputs=torch.rand(1, 1, 4, 4),
+        run_dir=tmp_path / "transparency" / "exp",
+        experiment_name="compact_thumbnail_titles",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((1, 1, 4, 4)),
+        explainer_name="captum_ig",
+        visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
+    )
+    outputs = RunOutputs(
+        explanations=[explanation],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.tensor([[0.1, 0.9]]),
+        prediction_summaries=(
+            PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
+        ),
+    )
+
+    build_report(config, outputs)
+
+    assert thumbnail_figures
+    assert all(text.get_text() == "" for fig in thumbnail_figures for text in fig.texts)
+    assert all(
+        ax.get_title() == "" for fig in thumbnail_figures for ax in fig.axes
+    )
 
 
 def test_build_report_compact_mode_omits_repeated_original_for_capable_visualisers(
@@ -651,6 +707,7 @@ def test_build_report_show_original_per_explainer_uses_legacy_local_layout(
         algorithm="IntegratedGradients",
         semantics=_local_image_semantics((2, 1, 4, 4)),
         explainer_name="captum_ig",
+        kwargs={"sample_names": ["legacy-a", "legacy-b"], "show_sample_names": True},
         visualisers=[ConfiguredVisualiser(visualiser=visualiser)],
     )
     outputs = RunOutputs(
@@ -670,6 +727,9 @@ def test_build_report_show_original_per_explainer_uses_legacy_local_layout(
     assert len(local_groups) == 2
     assert all(group.metadata["role"] != "sample_header" for group in local_groups)
     assert all("include_original_input" not in call for call in visualiser.calls)
+    assert any(
+        ax.get_title() for fig in visualiser.figures for ax in fig.axes
+    )
 
 
 def test_build_report_thumbnail_uses_first_compatible_explanation_in_order(
