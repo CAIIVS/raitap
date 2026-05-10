@@ -32,6 +32,7 @@ import sys
 import threading
 import warnings
 from collections import deque
+from typing import Any
 
 from raitap.utils.diagnostics import Diagnostic, Subsystem
 
@@ -112,15 +113,15 @@ class _RaitapLog:
         finally:
             _diagnostic_override.value = None
 
-    def info(self, message: object, *args: object, stacklevel: int = 2, **kwargs: object) -> None:
+    def info(self, message: object, *args: object, stacklevel: int = 2, **kwargs: Any) -> None:
         """Log at INFO level on the caller's module logger."""
         _caller_logger(stacklevel).info(message, *args, stacklevel=stacklevel + 1, **kwargs)
 
-    def debug(self, message: object, *args: object, stacklevel: int = 2, **kwargs: object) -> None:
+    def debug(self, message: object, *args: object, stacklevel: int = 2, **kwargs: Any) -> None:
         """Log at DEBUG level on the caller's module logger."""
         _caller_logger(stacklevel).debug(message, *args, stacklevel=stacklevel + 1, **kwargs)
 
-    def error(self, message: object, *args: object, stacklevel: int = 2, **kwargs: object) -> None:
+    def error(self, message: object, *args: object, stacklevel: int = 2, **kwargs: Any) -> None:
         """Log at ERROR level on the caller's module logger.
 
         Does **not** raise — for raising, use ``raise SomeException(...)``.
@@ -128,15 +129,11 @@ class _RaitapLog:
         """
         _caller_logger(stacklevel).error(message, *args, stacklevel=stacklevel + 1, **kwargs)
 
-    def critical(
-        self, message: object, *args: object, stacklevel: int = 2, **kwargs: object
-    ) -> None:
+    def critical(self, message: object, *args: object, stacklevel: int = 2, **kwargs: Any) -> None:
         """Log at CRITICAL level on the caller's module logger."""
         _caller_logger(stacklevel).critical(message, *args, stacklevel=stacklevel + 1, **kwargs)
 
-    def exception(
-        self, message: object, *args: object, stacklevel: int = 2, **kwargs: object
-    ) -> None:
+    def exception(self, message: object, *args: object, stacklevel: int = 2, **kwargs: Any) -> None:
         """Log at ERROR level with traceback. Use inside an ``except`` block."""
         _caller_logger(stacklevel).exception(message, *args, stacklevel=stacklevel + 1, **kwargs)
 

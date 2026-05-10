@@ -63,8 +63,6 @@ class TestResolveDiagnosticFromFrames:
         import types
         from unittest.mock import patch
 
-        from raitap.utils import diagnostics as diag_mod
-
         # Bottom-up chain: utils/console.py (filtered) → metrics/inputs.py
         # (the qualifying raitap frame) → captum/foo.py (third-party).
         captum_frame = types.SimpleNamespace(
@@ -83,7 +81,7 @@ class TestResolveDiagnosticFromFrames:
             f_back=metrics_frame,
         )
 
-        with patch.object(diag_mod.sys, "_getframe", return_value=utils_frame):
+        with patch("raitap.utils.diagnostics.sys._getframe", return_value=utils_frame):
             diag = resolve_diagnostic_from_frames("/orig.py", 1)
 
         assert diag.subsystem == "metrics"
@@ -139,11 +137,13 @@ class TestIsDevInstall:
 
 class TestDocsUrl:
     def test_raitap_subsystem_returns_module_url(self) -> None:
-        diag = Diagnostic(subsystem="metrics", file="/x.py", line=1, third_party_lib=None)
+        diag = Diagnostic(subsystem=Subsystem.metrics, file="/x.py", line=1, third_party_lib=None)
         assert docs_url(diag) == "https://caiivs.github.io/raitap/modules/metrics/"
 
     def test_third_party_returns_frameworks_page(self) -> None:
-        diag = Diagnostic(subsystem="transparency", file="/x.py", line=1, third_party_lib="captum")
+        diag = Diagnostic(
+            subsystem=Subsystem.transparency, file="/x.py", line=1, third_party_lib="captum"
+        )
         assert (
             docs_url(diag)
             == "https://caiivs.github.io/raitap/modules/transparency/frameworks-and-libraries.html"
