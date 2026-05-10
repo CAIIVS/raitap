@@ -327,20 +327,25 @@ def test_build_report_orders_sections_and_ranks_samples(tmp_path: Path) -> None:
         "Local Explanations",
     ]
     local_groups = report.sections[2].groups
-    assert len(local_groups) == 1
-    assert local_groups[0].metadata["role"] == "local_visualiser"
-    assert local_groups[0].metadata["sample_indices"] == (0, 1, 2)
-    assert local_groups[0].metadata["explainer_name"] == "captum_ig"
-    assert local_groups[0].metadata["visualiser_index"] == 0
-    assert local_groups[0].heading == "Explainer: captum_ig - Visualiser: _LocalImageVisualiser_0"
-    assert len(local_groups[0].images) == 6
-    assert [image.name for image in local_groups[0].images] == [
-        "local_captum_ig_sample_0_thumbnail.png",
-        "local_captum_ig_sample_0__LocalImageVisualiser_0.png",
-        "local_captum_ig_sample_1_thumbnail.png",
-        "local_captum_ig_sample_1__LocalImageVisualiser_0.png",
-        "local_captum_ig_sample_2_thumbnail.png",
-        "local_captum_ig_sample_2__LocalImageVisualiser_0.png",
+    assert [group.metadata["role"] for group in local_groups] == [
+        "sample_header",
+        "local_visualiser",
+        "sample_header",
+        "local_visualiser",
+        "sample_header",
+        "local_visualiser",
+    ]
+    assert [group.metadata["sample_index"] for group in local_groups[::2]] == [0, 1, 2]
+    assert [group.metadata["sample_index"] for group in local_groups[1::2]] == [0, 1, 2]
+    assert local_groups[1].metadata["explainer_name"] == "captum_ig"
+    assert local_groups[1].metadata["visualiser_index"] == 0
+    assert [group.images[0].name for group in local_groups] == [
+        "sample_0_thumbnail_0.png",
+        "sample_0_captum_ig__LocalImageVisualiser_0.png",
+        "sample_1_thumbnail_0.png",
+        "sample_1_captum_ig__LocalImageVisualiser_0.png",
+        "sample_2_thumbnail_0.png",
+        "sample_2_captum_ig__LocalImageVisualiser_0.png",
     ]
     assert all(
         path.parent.name == "_assets"
@@ -474,14 +479,19 @@ def test_build_report_local_assets_are_staged_and_closed(tmp_path: Path) -> None
     report = build_report(config, outputs)
 
     local_groups = report.sections[0].groups
-    assert len(local_groups) == 1
-    assert local_groups[0].metadata["role"] == "local_visualiser"
-    assert local_groups[0].metadata["sample_indices"] == (1, 2)
-    assert [image.name for image in local_groups[0].images] == [
-        "local_captum_ig_sample_1_thumbnail.png",
-        "local_captum_ig_sample_1__LocalImageVisualiser_0.png",
-        "local_captum_ig_sample_2_thumbnail.png",
-        "local_captum_ig_sample_2__LocalImageVisualiser_0.png",
+    assert len(local_groups) == 4
+    assert [group.metadata["role"] for group in local_groups] == [
+        "sample_header",
+        "local_visualiser",
+        "sample_header",
+        "local_visualiser",
+    ]
+    assert [group.metadata["sample_index"] for group in local_groups] == [1, 1, 2, 2]
+    assert [group.images[0].name for group in local_groups] == [
+        "sample_1_thumbnail_0.png",
+        "sample_1_captum_ig__LocalImageVisualiser_0.png",
+        "sample_2_thumbnail_0.png",
+        "sample_2_captum_ig__LocalImageVisualiser_0.png",
     ]
     assert all(
         ax.get_title() == "" for fig in visualiser.figures for ax in fig.axes
@@ -579,11 +589,12 @@ def test_build_report_compact_mode_omits_repeated_original_for_capable_visualise
 
     local_groups = report.sections[0].groups
     assert [group.metadata["role"] for group in local_groups] == [
+        "sample_header",
         "local_visualiser",
         "local_visualiser",
     ]
-    assert [group.metadata["visualiser_index"] for group in local_groups] == [0, 1]
-    assert [len(group.images) for group in local_groups] == [2, 2]
+    assert [group.metadata["visualiser_index"] for group in local_groups[1:]] == [0, 1]
+    assert [len(group.images) for group in local_groups] == [1, 1, 1]
     assert compact_visualiser.calls == [{"include_original_input": False}]
     assert masked_visualiser.calls == [{}]
 
@@ -650,19 +661,22 @@ def test_build_report_local_explainer_group_includes_curated_transparency_rows(
     report = build_report(config, outputs)
 
     local_groups = report.sections[0].groups
-    assert len(local_groups) == 2
-    assert local_groups[0].heading == (
+    visualiser_groups = [
+        group for group in local_groups if group.metadata["role"] == "local_visualiser"
+    ]
+    assert len(visualiser_groups) == 4
+    assert visualiser_groups[0].heading == (
         "Explainer: gradcam_localisation - Visualiser: Grad-CAM lesion localisation"
     )
-    assert local_groups[1].heading == (
+    assert visualiser_groups[1].heading == (
         "Explainer: gradcam_localisation - Visualiser: Evidence-masked dermoscopy view"
     )
 
-    rows = dict(local_groups[0].table_rows)
+    rows = dict(visualiser_groups[2].table_rows)
     assert rows["explainer"] == "gradcam_localisation"
     assert rows["algorithm"] == "LayerGradCam"
     assert rows["method_families"] == "cam, gradient"
-    assert rows["targets"] == "0: 5, 1: 6"
+    assert rows["targets"] == "0: 5"
     assert rows["output_space"] == "image_spatial_map"
     assert rows["output_shape"] == "2 x 1 x 2 x 2"
     assert rows["layer_path"] == "1.layer4.2.conv3"
@@ -679,7 +693,7 @@ def test_build_report_local_explainer_group_includes_curated_transparency_rows(
     assert "visualiser_call.max_samples" not in rows
     assert "visualiser_1_title" not in rows
 
-    second_rows = dict(local_groups[1].table_rows)
+    second_rows = dict(visualiser_groups[3].table_rows)
     assert second_rows["visualiser_title"] == "Evidence-masked dermoscopy view"
     assert second_rows["visualiser_method"] == "masked_image"
     assert "visualiser_show_colorbar" not in second_rows
@@ -777,13 +791,15 @@ def test_build_report_thumbnail_uses_first_compatible_explanation_in_order(
 
     local_groups = report.sections[0].groups
     assert [group.metadata["role"] for group in local_groups] == [
+        "sample_header",
         "local_visualiser",
         "local_visualiser",
     ]
-    assert local_groups[0].metadata["explainer_name"] == "tabular_exp"
-    assert local_groups[0].metadata["thumbnail_source_explainer_names"] == ("image_exp",)
-    assert local_groups[1].metadata["explainer_name"] == "image_exp"
+    assert local_groups[0].metadata["source_explainer_name"] == "image_exp"
+    assert local_groups[1].metadata["explainer_name"] == "tabular_exp"
     assert local_groups[1].metadata["thumbnail_source_explainer_names"] == ("image_exp",)
+    assert local_groups[2].metadata["explainer_name"] == "image_exp"
+    assert local_groups[2].metadata["thumbnail_source_explainer_names"] == ("image_exp",)
     assert tabular_visualiser.calls == [{"include_original_input": False}]
     assert image_visualiser.calls == [{"include_original_input": False}]
 

@@ -551,42 +551,32 @@ def _build_local_section(
         )
 
     groups: list[ReportGroup] = []
-    sample_indices = tuple(selected.summary.sample_index for selected in selected_samples)
-    for explanation in outputs.explanations:
-        if not explanation.has_visualisations_for_scope(ExplanationScope.LOCAL):
-            continue
-        explainer_name = explanation.explainer_name or explanation.run_dir.name
-        thumbnails_by_sample: dict[int, _StagedThumbnail | None] = {}
+    for selected in selected_samples:
+        header_group = _build_sample_header_group(
+            outputs,
+            selected=selected,
+            assets_dir=assets_dir,
+            strip_titles=True,
+        )
+        omit_original = header_group is not None
+        thumbnail_source_names = (
+            (str(header_group.metadata["source_explainer_name"]),)
+            if header_group is not None
+            else ()
+        )
+        sample_groups: list[ReportGroup] = []
 
-        for visualiser_index, configured in enumerate(explanation.visualisers):
-            if (
-                _scope_for_report_visualiser(explanation, configured.visualiser)
-                != ExplanationScope.LOCAL
-            ):
+        for explanation in outputs.explanations:
+            if not explanation.has_visualisations_for_scope(ExplanationScope.LOCAL):
                 continue
-            images: list[Path] = []
-            thumbnail_source_names: list[str] = []
+            explainer_name = explanation.explainer_name or explanation.run_dir.name
 
-            for selected in selected_samples:
-                sample_index = selected.summary.sample_index
-                if sample_index not in thumbnails_by_sample:
-                    thumbnails_by_sample[sample_index] = _stage_sample_thumbnail(
-                        outputs,
-                        selected=selected,
-                        assets_dir=assets_dir,
-                        target_name=(
-                            f"local_{_safe_name(explainer_name)}_sample_"
-                            f"{sample_index}_thumbnail.png"
-                        ),
-                        strip_titles=True,
-                    )
-                staged_thumbnail = thumbnails_by_sample[sample_index]
-                omit_original = staged_thumbnail is not None
-                sample_images: list[Path] = []
-                if staged_thumbnail is not None:
-                    sample_images.append(staged_thumbnail.path)
-                    if staged_thumbnail.source_explainer_name not in thumbnail_source_names:
-                        thumbnail_source_names.append(staged_thumbnail.source_explainer_name)
+            for visualiser_index, configured in enumerate(explanation.visualisers):
+                if (
+                    _scope_for_report_visualiser(explanation, configured.visualiser)
+                    != ExplanationScope.LOCAL
+                ):
+                    continue
 
                 render_kwargs = _render_kwargs_for_visualiser(
                     configured.visualiser,
@@ -595,51 +585,59 @@ def _build_local_section(
                 visualisation = explanation.render_visualisation_for_scope(
                     visualiser_index,
                     scope="local",
-                    sample_index=sample_index,
+                    sample_index=selected.summary.sample_index,
                     **render_kwargs,
                 )
-                if visualisation is not None:
-                    sample_images.extend(
-                        _stage_rendered_visualisations(
-                            [visualisation],
-                            assets_dir=assets_dir,
-                            file_stem_prefix=(
-                                f"local_{_safe_name(explainer_name)}_sample_{sample_index}"
-                            ),
-                            strip_titles=True,
-                        )
-                    )
-                    images.extend(sample_images)
+                if visualisation is None:
+                    continue
 
-            if not images:
-                continue
-            visualiser_name = _visualiser_group_name(configured.visualiser, visualiser_index)
-            metadata: dict[str, object] = {
-                "role": "local_visualiser",
-                "explainer_name": explainer_name,
-                "algorithm": explanation.algorithm,
-                "visualiser_name": visualiser_name,
-                "visualiser_index": visualiser_index,
-                "visualiser_class": type(configured.visualiser).__name__,
-                "sample_indices": sample_indices,
-            }
-            visualiser_title = getattr(configured.visualiser, "title", None)
-            if visualiser_title:
-                metadata["visualiser_title"] = str(visualiser_title)
-            if thumbnail_source_names:
-                metadata["thumbnail_source_explainer_names"] = tuple(thumbnail_source_names)
-            groups.append(
-                ReportGroup(
-                    heading=f"Explainer: {explainer_name} - Visualiser: {visualiser_name}",
-                    images=tuple(images),
-                    table_rows=_transparency_table_rows(
-                        explanation,
-                        selected_samples=selected_samples,
-                        visualiser_index=visualiser_index,
+                images = _stage_rendered_visualisations(
+                    [visualisation],
+                    assets_dir=assets_dir,
+                    file_stem_prefix=(
+                        f"sample_{selected.summary.sample_index}_{_safe_name(explainer_name)}"
                     ),
-                    metadata=metadata,
+                    strip_titles=True,
                 )
-            )
+                if not images:
+                    continue
+
+                visualiser_name = _visualiser_group_name(
+                    configured.visualiser,
+                    visualiser_index,
+                )
+                metadata: dict[str, object] = {
+                    "role": "local_visualiser",
+                    "bucket": selected.label,
+                    "sample_index": selected.summary.sample_index,
+                    "explainer_name": explainer_name,
+                    "algorithm": explanation.algorithm,
+                    "visualiser_name": visualiser_name,
+                    "visualiser_index": visualiser_index,
+                    "visualiser_class": type(configured.visualiser).__name__,
+                }
+                visualiser_title = getattr(configured.visualiser, "title", None)
+                if visualiser_title:
+                    metadata["visualiser_title"] = str(visualiser_title)
+                if thumbnail_source_names:
+                    metadata["thumbnail_source_explainer_names"] = thumbnail_source_names
+                sample_groups.append(
+                    ReportGroup(
+                        heading=f"Explainer: {explainer_name} - Visualiser: {visualiser_name}",
+                        images=images,
+                        table_rows=_transparency_table_rows(
+                            explanation,
+                            selected_samples=[selected],
+                            visualiser_index=visualiser_index,
+                        ),
+                        metadata=metadata,
+                    )
+                )
+
+        if sample_groups:
+            if header_group is not None:
+                groups.append(header_group)
+            groups.extend(sample_groups)
 
     if not groups:
         return None
@@ -739,12 +737,14 @@ def _build_sample_header_group(
     *,
     selected: SelectedSample,
     assets_dir: Path,
+    strip_titles: bool = False,
 ) -> ReportGroup | None:
     staged = _stage_sample_thumbnail(
         outputs,
         selected=selected,
         assets_dir=assets_dir,
         target_name=f"sample_{selected.summary.sample_index}_thumbnail_0.png",
+        strip_titles=strip_titles,
     )
     if staged is None:
         return None

@@ -4,7 +4,7 @@
 
 ### Features
 
-* **reporting:** render compact local explanation sections as explainer/visualiser groups with selected-sample thumbnails, curated tables, and attribution-only panels when supported
+* **reporting:** render compact local explanation sections as sample-major groups with selected-sample thumbnails, curated visualiser tables, and attribution-only panels when supported
 * **reporting:** render compact empirical robustness panels per selected report sample without duplicated clean-input and perturbation-map facets
 
 ### Documentation

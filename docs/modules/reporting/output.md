@@ -72,31 +72,29 @@ small set of important examples so the report stays compact even when the run
 contains a full batch or test set. By default, local details include up to three
 selected samples.
 
-The section is grouped by explainer and visualiser. Each group represents one
-configured local visualiser for one explainer, and contains a curated table with
-the explainer algorithm, semantic metadata, relevant explainer parameters, and
-meaningful visualiser identity/rendering settings. Display-only controls such
-as colorbar toggles and sample limits are omitted. Its images are ordered by
-selected sample:
+The section is grouped by selected sample. Each sample starts with a sample
+header group containing the input thumbnail and sample facts, followed by one
+group per configured explainer visualiser. Those visualiser groups contain a
+curated table with the explainer algorithm, semantic metadata, relevant
+explainer parameters, and meaningful visualiser identity/rendering settings.
+Display-only controls such as colorbar toggles and sample limits are omitted.
 
-- selected input thumbnail for the sample, when the input modality can be
-  rendered;
-- that visualiser's attribution output for the sample.
+When the selected input modality can be rendered, the sample header thumbnail is
+used as the shared original for that sample. Image explainers that normally
+render an original-image panel next to their attribution are asked to render
+attribution-only figures. If a thumbnail cannot be rendered for a selected
+sample, that sample's visualiser figures keep their original panels.
 
-For image explainers that normally render an original-image panel next to their
-attribution, the report uses the sample thumbnail as the shared original within
-the visualiser group and asks compatible visualisers to render attribution-only
-figures. If a thumbnail cannot be rendered for a selected sample, that sample's
-visualiser figure keeps its original panel. Set
+Set
 `reporting.show_original_per_explainer=true` to restore the older local layout
 where each explainer figure includes its own original input panel, the legacy
 overview/detail grouping is used, and no sample thumbnails are emitted.
 
 Report-local asset names for compact local explanations use
-`local_<explainer>_sample_<sample_index>_thumbnail.png` and
-`local_<explainer>_sample_<sample_index>_<visualiser>.png`. The manifest schema
-is unchanged, but tools that match asset filenames should account for this
-naming pattern.
+`sample_<sample_index>_thumbnail_<n>.png` and
+`sample_<sample_index>_<explainer>_<visualiser>.png`. The manifest schema is
+unchanged, but tools that match asset filenames should account for this naming
+pattern.
 
 Compact empirical robustness report figures use
 `robustness_<index>_<assessor>_sample_<sample_index>_<visualiser>.png`. The

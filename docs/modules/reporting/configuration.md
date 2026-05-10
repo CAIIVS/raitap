@@ -22,9 +22,8 @@
 :default: false
 :description: Whether local explanation figures should keep their per-explainer
   original input panels. The default compact layout groups local explanations by
-  explainer and visualiser, renders selected-sample thumbnails inside each
-  visualiser group, and suppresses repeated originals when a visualiser supports
-  attribution-only rendering.
+  selected sample, renders one sample thumbnail when possible, and suppresses
+  repeated originals when a visualiser supports attribution-only rendering.
 
 :option: show_redundant_robustness_panels
 :allowed: boolean
