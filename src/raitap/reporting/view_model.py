@@ -372,9 +372,7 @@ def _build_robustness_assessors(section: ReportSection) -> tuple[RobustnessAsses
 def _robustness_sample_order(group: ReportGroup) -> tuple[int, ...]:
     raw = group.metadata.get("sample_indices")
     if isinstance(raw, list | tuple):
-        ordered = tuple(
-            converted for value in raw if (converted := _to_int(value)) is not None
-        )
+        ordered = tuple(converted for value in raw if (converted := _to_int(value)) is not None)
         if ordered:
             return ordered
     return tuple(_robustness_evidence_by_index(group))

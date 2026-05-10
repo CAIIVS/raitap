@@ -8,12 +8,12 @@ titles, sample names, and colorbar handling.
 
 from __future__ import annotations
 
-import warnings
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import matplotlib.pyplot as plt
 import numpy as np
 
+from raitap import raitap_log
 from raitap.transparency.contracts import (
     ExplanationOutputSpace,
     ExplanationScope,
@@ -569,11 +569,11 @@ class ShapImageVisualiser(BaseVisualiser):
             include_original_image = bool(kwargs.pop("include_original_input"))
             kwargs.pop("include_original_image", None)
         elif "include_original_image" in kwargs:
-            warnings.warn(
+            raitap_log.warn(
                 "`include_original_image` as a render-time kwarg is deprecated; "
                 "use `include_original_input` instead.",
-                DeprecationWarning,
-                stacklevel=2,
+                category=DeprecationWarning,
+                stacklevel=3,
             )
             include_original_image = bool(kwargs.pop("include_original_image"))
         else:

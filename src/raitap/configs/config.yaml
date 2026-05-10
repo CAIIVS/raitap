@@ -5,7 +5,7 @@ defaults:
   - model: vit_b32
   - data: imagenet_samples
   - metrics: classification
-  - reporting: pdf
+  - reporting: html
 
 hardware: gpu
 experiment_name: demo

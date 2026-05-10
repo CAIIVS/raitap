@@ -22,8 +22,7 @@ reports/
 `report_manifest.json` records the semantic report structure, selected samples,
 asset paths, and metadata used for sweep-level merging. The manifest is the
 source of truth for merged reports. `report.html` is a standalone browser view
-with linked CSS. Use `reporting=pdf_borb` when the legacy borb PDF output is
-required.
+with linked CSS. Use `reporting=pdf` for the legacy borb PDF output.
 
 The original explainer artifacts are still kept under `transparency/` for
 debugging and tracking. Report-local figures under `reports/_assets/` are the

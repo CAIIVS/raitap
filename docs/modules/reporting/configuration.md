@@ -5,8 +5,8 @@
 :allowed: "raitap.reporting.HTMLReporter", "raitap.reporting.PDFReporter", null
 :default: null
 :description: Hydra target for the reporting backend implementation. Set to null to disable reporting.
-  The default `reporting=pdf` config keeps its compatibility name but now selects
-  `raitap.reporting.HTMLReporter`; use `reporting=pdf_borb` for the legacy borb renderer.
+  The default `reporting=html` config selects `raitap.reporting.HTMLReporter`;
+  use `reporting=pdf` for the legacy borb PDF renderer.
 
 :option: filename
 :allowed: string

@@ -152,10 +152,7 @@ def _local_visualiser(sample_index: int) -> ReportGroup:
     return ReportGroup(
         heading=f"Sample {sample_index} - Explainer: gradcam_localisation",
         images=(
-            Path(
-                f"_assets/sample_{sample_index}_gradcam_localisation_"
-                "CaptumImageVisualiser_0.png"
-            ),
+            Path(f"_assets/sample_{sample_index}_gradcam_localisation_CaptumImageVisualiser_0.png"),
         ),
         table_rows=(
             ("explainer", "gradcam_localisation"),

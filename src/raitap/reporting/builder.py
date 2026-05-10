@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import shutil
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
@@ -11,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 import matplotlib.pyplot as plt
 import torch
 
+from raitap import raitap_log
 from raitap.configs import resolve_run_dir
 from raitap.robustness.contracts import MethodKind
 from raitap.run.outputs import PredictionSummary, RunOutputs
@@ -25,8 +25,6 @@ if TYPE_CHECKING:
     from raitap.robustness.results import RobustnessVisualisationResult
     from raitap.robustness.visualisers.base_visualiser import BaseRobustnessVisualiser
     from raitap.transparency.results import VisualisationResult
-
-logger = logging.getLogger(__name__)
 
 # Caps both the selected sample pool and, after reserving the first item for the
 # overview, the number of detail groups shown in the local section.
@@ -411,23 +409,37 @@ def _robustness_report_sample_indices(
 
 
 def _canonical_facet_owners(visualisers: Any) -> dict[str, int]:
-    """Choose facet owners within one robustness result's visualiser list."""
+    """Choose facet owners within one robustness result's visualiser list.
+
+    When multiple visualisers embed the same facet, the owner is the first one
+    that embeds *only* that facet. If none qualify, ownership prefers a
+    candidate not already chosen for another facet so that visualisers embedding
+    both facets don't all get told to omit both panels.
+    """
     configured_visualisers = list(visualisers)
     owners: dict[str, int] = {}
     for facet in ("clean_input", "perturbation_map"):
-        first_embedder: int | None = None
+        candidates: list[int] = []
+        single_facet_owner: int | None = None
         for index, configured in enumerate(configured_visualisers):
             facets = _declared_robustness_facets(configured.visualiser)
             if facet not in facets:
                 continue
-            if first_embedder is None:
-                first_embedder = index
-            if len(facets) == 1:
-                owners[facet] = index
+            candidates.append(index)
+            if len(facets) == 1 and single_facet_owner is None:
+                single_facet_owner = index
+        if not candidates:
+            continue
+        if single_facet_owner is not None:
+            owners[facet] = single_facet_owner
+            continue
+        used = set(owners.values())
+        for idx in candidates:
+            if idx not in used:
+                owners[facet] = idx
                 break
         else:
-            if first_embedder is not None:
-                owners[facet] = first_embedder
+            owners[facet] = candidates[0]
     return owners
 
 
@@ -810,11 +822,10 @@ def _stage_sample_thumbnail(
                 max_samples=1,
             )
         except (ValueError, RuntimeError, OSError) as exc:
-            logger.warning(
+            raitap_log.exception(
                 "Skipping sample thumbnail for sample %s: %s",
                 sample_index,
                 exc,
-                exc_info=True,
             )
             return None
 
@@ -833,7 +844,7 @@ def _stage_sample_thumbnail(
         )
 
     if last_error is not None:
-        logger.warning(
+        raitap_log.warn(
             "Skipping sample thumbnail for sample %s: no compatible input visualiser (%s)",
             sample_index,
             last_error,

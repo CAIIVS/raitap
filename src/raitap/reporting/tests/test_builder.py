@@ -493,9 +493,7 @@ def test_build_report_local_assets_are_staged_and_closed(tmp_path: Path) -> None
         "sample_2_thumbnail_0.png",
         "sample_2_captum_ig__LocalImageVisualiser_0.png",
     ]
-    assert all(
-        ax.get_title() == "" for fig in visualiser.figures for ax in fig.axes
-    )
+    assert all(ax.get_title() == "" for fig in visualiser.figures for ax in fig.axes)
     assert all(not plt.fignum_exists(fig.number) for fig in visualiser.figures)
 
 
@@ -547,9 +545,7 @@ def test_build_report_compact_local_thumbnail_titles_are_stripped(
 
     assert thumbnail_figures
     assert all(text.get_text() == "" for fig in thumbnail_figures for text in fig.texts)
-    assert all(
-        ax.get_title() == "" for fig in thumbnail_figures for ax in fig.axes
-    )
+    assert all(ax.get_title() == "" for fig in thumbnail_figures for ax in fig.axes)
 
 
 def test_build_report_compact_mode_omits_repeated_original_for_capable_visualisers(
@@ -741,9 +737,7 @@ def test_build_report_show_original_per_explainer_uses_legacy_local_layout(
     assert len(local_groups) == 2
     assert all(group.metadata["role"] != "sample_header" for group in local_groups)
     assert all("include_original_input" not in call for call in visualiser.calls)
-    assert any(
-        ax.get_title() for fig in visualiser.figures for ax in fig.axes
-    )
+    assert any(ax.get_title() for fig in visualiser.figures for ax in fig.axes)
 
 
 def test_build_report_thumbnail_uses_first_compatible_explanation_in_order(
@@ -993,9 +987,7 @@ def test_robustness_render_kwargs_raise_if_both_facets_would_be_omitted() -> Non
 
 def test_robustness_no_embedder_receives_no_compact_kwargs() -> None:
     visualiser = _RobustnessRecordingVisualiser()
-    owners = _canonical_facet_owners(
-        [ConfiguredRobustnessVisualiser(visualiser=visualiser)]
-    )
+    owners = _canonical_facet_owners([ConfiguredRobustnessVisualiser(visualiser=visualiser)])
 
     assert owners == {}
     assert (
@@ -1020,9 +1012,7 @@ def test_build_report_compact_robustness_omits_non_owner_perturbation_panel(
         tmp_path,
         visualisers=[
             ConfiguredRobustnessVisualiser(visualiser=ImagePairVisualiser(max_samples=1)),
-            ConfiguredRobustnessVisualiser(
-                visualiser=PerturbationHeatmapVisualiser(max_samples=1)
-            ),
+            ConfiguredRobustnessVisualiser(visualiser=PerturbationHeatmapVisualiser(max_samples=1)),
         ],
     )
     outputs = RunOutputs(
@@ -1060,9 +1050,7 @@ def test_build_report_compact_robustness_renders_selected_samples_per_assessor(
         batch_size=20,
         visualisers=[
             ConfiguredRobustnessVisualiser(visualiser=ImagePairVisualiser(max_samples=4)),
-            ConfiguredRobustnessVisualiser(
-                visualiser=PerturbationHeatmapVisualiser(max_samples=4)
-            ),
+            ConfiguredRobustnessVisualiser(visualiser=PerturbationHeatmapVisualiser(max_samples=4)),
         ],
     )
     outputs = RunOutputs(
@@ -1122,9 +1110,7 @@ def test_build_report_robustness_single_pair_keeps_all_panels(tmp_path: Path) ->
 
     result = _make_robustness_result(
         tmp_path,
-        visualisers=[
-            ConfiguredRobustnessVisualiser(visualiser=ImagePairVisualiser(max_samples=1))
-        ],
+        visualisers=[ConfiguredRobustnessVisualiser(visualiser=ImagePairVisualiser(max_samples=1))],
     )
     outputs = RunOutputs(
         explanations=[],
@@ -1500,18 +1486,18 @@ def test_reporting_configs_compose_multirun_report_controls() -> None:
     assert disabled_cfg.hydra.get("callbacks") == {}
 
     pdf_cfg = _compose_raitap_config(["reporting=pdf"])
-    assert pdf_cfg.reporting._target_ == "HTMLReporter"
+    assert pdf_cfg.reporting._target_ == "PDFReporter"
     assert pdf_cfg.reporting.multirun_report is True
     assert pdf_cfg.reporting.show_original_per_explainer is False
     assert pdf_cfg.reporting.show_redundant_robustness_panels is False
     assert pdf_cfg.hydra.callbacks.reporting_sweep._target_.endswith("ReportingSweepCallback")
 
-    pdf_borb_cfg = _compose_raitap_config(["reporting=pdf_borb"])
-    assert pdf_borb_cfg.reporting._target_ == "PDFReporter"
-    assert pdf_borb_cfg.reporting.multirun_report is True
+    html_cfg = _compose_raitap_config(["reporting=html"])
+    assert html_cfg.reporting._target_ == "HTMLReporter"
+    assert html_cfg.reporting.multirun_report is True
 
     opt_out_cfg = _compose_raitap_config(["reporting=pdf", "reporting.multirun_report=false"])
-    assert opt_out_cfg.reporting._target_ == "HTMLReporter"
+    assert opt_out_cfg.reporting._target_ == "PDFReporter"
     assert opt_out_cfg.reporting.multirun_report is False
 
     originals_cfg = _compose_raitap_config(

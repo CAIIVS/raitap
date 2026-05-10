@@ -29,9 +29,7 @@ def test_html_reporter_generates_browser_html_with_expected_anchors(
     assert 'href="#explainer-gradcam_localisation"' in html or (
         'id="explainer-gradcam_localisation"' in html
     )
-    assert 'href="#robustness-fgsm_linf_fast"' in html or (
-        'id="robustness-fgsm_linf_fast"' in html
-    )
+    assert 'href="#robustness-fgsm_linf_fast"' in html or ('id="robustness-fgsm_linf_fast"' in html)
     assert '<link rel="stylesheet" href="report.css">' in html
     assert (tmp_path / "report.css").exists()
 

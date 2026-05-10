@@ -76,8 +76,4 @@ def _html_filename(filename: str) -> str:
 
 
 def _template_text(name: str) -> str:
-    return (
-        resources.files("raitap.reporting.templates")
-        .joinpath(name)
-        .read_text(encoding="utf-8")
-    )
+    return resources.files("raitap.reporting.templates").joinpath(name).read_text(encoding="utf-8")

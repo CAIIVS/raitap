@@ -107,9 +107,7 @@ class ImagePairVisualiser(BaseRobustnessVisualiser):
                         perturbed_image,
                         cmap="gray" if perturbed_image.ndim == 2 else None,
                     )
-                    axis.set_title(
-                        _format_title("perturbed", adv_pred, target_label, sample_title)
-                    )
+                    axis.set_title(_format_title("perturbed", adv_pred, target_label, sample_title))
                 else:
                     axis.imshow(diff, cmap=self.cmap, vmin=-diff_extreme, vmax=diff_extreme)
                     axis.set_title("perturbation")

@@ -339,8 +339,9 @@ class RobustnessResult(Trackable):
     ) -> RobustnessVisualisationResult | None:
         """Render one visualiser for report staging without persistence side effects.
 
-        Unlike :meth:`RobustnessResult.visualise`, this hook never writes PNGs, updates
-        ``metadata.json``, mutates ``visualiser_targets``, or touches ``run_dir``.
+        Unlike ``RobustnessResult.visualise``, this hook never writes PNGs,
+        updates ``metadata.json``, mutates ``visualiser_targets``, or touches
+        ``run_dir``.
         It catches the private report-only skip signal; the persistence path
         intentionally does not catch that exception.
         """
