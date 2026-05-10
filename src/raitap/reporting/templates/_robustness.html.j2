@@ -30,7 +30,7 @@
             <h4>Sample {{ sample.sample_index }}</h4>
             <div class="robust-images">
               {% if sample.image_pair_src %}
-                <figure><img class="figure" src="{{ sample.image_pair_src }}" alt="Clean and adversarial sample {{ sample.sample_index }}"><figcaption>Clean vs adversarial</figcaption></figure>
+                <figure><img class="figure" src="{{ sample.image_pair_src }}" alt="Original, perturbed, and perturbation sample {{ sample.sample_index }}"><figcaption>Original, perturbed, perturbation</figcaption></figure>
               {% endif %}
               {% if sample.perturbation_heatmap_src %}
                 <figure><img class="figure" src="{{ sample.perturbation_heatmap_src }}" alt="Perturbation heatmap sample {{ sample.sample_index }}"><figcaption>Perturbation</figcaption></figure>

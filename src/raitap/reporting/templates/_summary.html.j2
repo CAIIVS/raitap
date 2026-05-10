@@ -58,7 +58,7 @@
           {% endif %}
           <span class="badge">{{ sample.bucket }}</span>
           <strong>Sample {{ sample.sample_index }}</strong>
-          <small>pred {{ sample.predicted_class or "n/a" }} · conf {{ sample.confidence|fmt_num }} · target {{ sample.target_class or "n/a" }}</small>
+          <small>Model Prediction: {{ sample.predicted_class if sample.predicted_class is not none else "n/a" }} · Ground Truth: {{ sample.target_class if sample.target_class is not none else "n/a" }} · Confidence: {{ sample.confidence|fmt_num }}</small>
         </a>
       {% endfor %}
     </section>

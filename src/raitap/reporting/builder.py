@@ -359,19 +359,36 @@ def _compact_robustness_images(
     assessor_name: str,
     sample_indices: tuple[int, ...],
 ) -> list[Path]:
-    owners = _canonical_facet_owners(result.visualisers)
+    configured_visualisers = list(result.visualisers)
+    combined_visualiser_index = _combined_robustness_visualiser_index(configured_visualisers)
+    owners = (
+        {}
+        if combined_visualiser_index is not None
+        else _canonical_facet_owners(configured_visualisers)
+    )
     staged_images: list[Path] = []
     sample_indices_for_render: tuple[int | None, ...] = (
         sample_indices if sample_indices else (None,)
     )
     for sample_index in sample_indices_for_render:
-        for visualiser_index, configured in enumerate(result.visualisers):
-            render_kwargs = _render_kwargs_for_robustness_visualiser(
-                configured.visualiser,
-                owners=owners,
-                visualiser_index=visualiser_index,
-                omit_redundant=True,
-            )
+        for visualiser_index, configured in enumerate(configured_visualisers):
+            if (
+                combined_visualiser_index is not None
+                and visualiser_index != combined_visualiser_index
+            ):
+                continue
+            if combined_visualiser_index is not None:
+                render_kwargs = {
+                    "include_clean_input": True,
+                    "include_perturbation_map": True,
+                }
+            else:
+                render_kwargs = _render_kwargs_for_robustness_visualiser(
+                    configured.visualiser,
+                    owners=owners,
+                    visualiser_index=visualiser_index,
+                    omit_redundant=True,
+                )
             visualisation = result.render_visualisation_for_report(
                 visualiser_index,
                 sample_index=sample_index,
@@ -385,12 +402,21 @@ def _compact_robustness_images(
                 f"{sample_part}_{visualisation.visualiser_name}.png"
             )
             target.parent.mkdir(parents=True, exist_ok=True)
+            _strip_report_figure_titles(visualisation.figure)
             try:
                 visualisation.figure.savefig(target, bbox_inches="tight", dpi=150)
             finally:
                 plt.close(visualisation.figure)
             staged_images.append(target)
     return staged_images
+
+
+def _combined_robustness_visualiser_index(visualisers: Any) -> int | None:
+    for index, configured in enumerate(visualisers):
+        facets = set(_declared_robustness_facets(configured.visualiser))
+        if {"clean_input", "perturbation_map"}.issubset(facets):
+            return index
+    return None
 
 
 def _robustness_report_sample_indices(

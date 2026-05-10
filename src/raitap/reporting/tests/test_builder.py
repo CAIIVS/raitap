@@ -10,6 +10,7 @@ import torch
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
+import raitap.reporting.builder as reporting_builder
 from raitap.configs import set_output_root
 from raitap.configs.schema import AppConfig, ReportingConfig
 from raitap.reporting.builder import (
@@ -1027,19 +1028,20 @@ def test_build_report_compact_robustness_omits_non_owner_perturbation_panel(
 
     robustness_group = report.sections[0].groups[0]
     assert robustness_group.metadata["role"] == "robustness"
-    assert len(robustness_group.images) == 2
+    assert len(robustness_group.images) == 1
     pair_image = plt.imread(robustness_group.images[0])
-    heatmap_image = plt.imread(robustness_group.images[1])
-    width_ratio = pair_image.shape[1] / heatmap_image.shape[1]
-    assert 1.2 < width_ratio < 2.5
+    width_ratio = pair_image.shape[1] / pair_image.shape[0]
+    assert width_ratio > 2.0
     assert dict(robustness_group.table_rows)["attack_success_rate"] == "1.0000"
     assert robustness_group.images[0].name.startswith(
         "robustness_0_fgsm_sample_0_ImagePairVisualiser_0"
     )
+    assert "PerturbationHeatmapVisualiser" not in robustness_group.images[0].name
 
 
 def test_build_report_compact_robustness_renders_selected_samples_per_assessor(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config = AppConfig(experiment_name="robustness_compact_samples")
     set_output_root(config, tmp_path)
@@ -1080,6 +1082,15 @@ def test_build_report_compact_robustness_renders_selected_samples_per_assessor(
         ),
         robustness_results=[result],
     )
+    stripped_figures: list[tuple[str, tuple[str, ...]]] = []
+    original_strip = reporting_builder._strip_report_figure_titles
+
+    def _record_stripped_titles(figure: Figure) -> None:
+        original_strip(figure)
+        suptitle = figure._suptitle.get_text() if figure._suptitle is not None else ""
+        stripped_figures.append((suptitle, tuple(ax.get_title() for ax in figure.axes)))
+
+    monkeypatch.setattr(reporting_builder, "_strip_report_figure_titles", _record_stripped_titles)
 
     report = build_report(config, outputs)
 
@@ -1087,20 +1098,22 @@ def test_build_report_compact_robustness_renders_selected_samples_per_assessor(
     assert robustness_group.metadata["role"] == "robustness"
     assert robustness_group.metadata["sample_indices"] == (3, 8, 19)
     assert len(report.sections[0].groups) == 1
-    assert len(robustness_group.images) == 6
+    assert len(robustness_group.images) == 3
     image_names = [image.name for image in robustness_group.images]
     assert all("_sample_" in name for name in image_names)
     assert [name.split("_sample_", 1)[1].split("_", 1)[0] for name in image_names] == [
         "3",
-        "3",
         "8",
-        "8",
-        "19",
         "19",
     ]
+    assert all("ImagePairVisualiser_0" in name for name in image_names)
+    assert all("PerturbationHeatmapVisualiser" not in name for name in image_names)
     assert any("sample_3_ImagePairVisualiser_0" in name for name in image_names)
-    assert any("sample_8_PerturbationHeatmapVisualiser_1" in name for name in image_names)
+    assert any("sample_8_ImagePairVisualiser_0" in name for name in image_names)
     assert any("sample_19_ImagePairVisualiser_0" in name for name in image_names)
+    assert len(stripped_figures) == 3
+    assert all(suptitle == "" for suptitle, _titles in stripped_figures)
+    assert all(all(title == "" for title in titles) for _suptitle, titles in stripped_figures)
 
 
 def test_build_report_robustness_single_pair_keeps_all_panels(tmp_path: Path) -> None:

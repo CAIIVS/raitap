@@ -37,7 +37,8 @@
             <div>
               <span class="badge">{{ sample.bucket }}</span>
               <h4>Sample {{ sample.sample_index }}</h4>
-              <p>pred {{ sample.predicted_class or "n/a" }} · conf {{ sample.confidence|fmt_num }} · target {{ sample.target_class or "n/a" }}</p>
+              <p class="context-line">File: {{ sample.sample_id or "n/a" }}</p>
+              <p>Model Prediction: {{ sample.predicted_class if sample.predicted_class is not none else "n/a" }} · Ground Truth: {{ sample.target_class if sample.target_class is not none else "n/a" }} · Confidence: {{ sample.confidence|fmt_num }}</p>
             </div>
           </header>
           <div class="explainer-grid">

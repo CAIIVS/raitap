@@ -363,6 +363,10 @@ summary {
   gap: 10px;
 }
 
+.robust-images figure:only-child {
+  grid-column: 1 / -1;
+}
+
 figcaption {
   color: var(--ink-soft);
   font-size: 10px;

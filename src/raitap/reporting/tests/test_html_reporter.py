@@ -43,6 +43,10 @@ def test_html_reporter_renders_reviewed_browser_structure(
 
     assert '<meta name="viewport" content="width=device-width, initial-scale=1">' in html
     assert "Clean → adversarial accuracy" in html
+    assert "Model Prediction: 5" in html
+    assert "Ground Truth: 4" in html
+    assert "Confidence: 0.897" in html
+    assert "File: ISIC_0025964.jpg" in html
     assert html.index("<h3>Local</h3>") < html.index("<h3>Explainer Reference</h3>")
     assert html.index('class="explainer-card original-card"') < html.index(
         'alt="Grad-CAM lesion localisation"'
@@ -162,6 +166,7 @@ def _synthetic_sections() -> tuple[ReportSection, ...]:
                     table_rows=(
                         ("bucket", "wrong"),
                         ("sample_index", "3"),
+                        ("sample_id", "ISIC_0025964.jpg"),
                         ("predicted_class", "5"),
                         ("confidence", "0.8968"),
                         ("target_class", "4"),
