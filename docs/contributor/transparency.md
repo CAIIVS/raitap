@@ -191,6 +191,12 @@ To integrate a new explainability framework:
     __all__ = [..., "NewFrameworkExplainer"]
     ```
 
+    Also append the library's import name to `THIRD_PARTY_LIBS` in
+    `src/raitap/transparency/__init__.py`. `raitap.utils.diagnostics`
+    consumes that set to attribute warnings/errors emitted from inside
+    the library to a "via &lt;lib&gt;" chip and the frameworks-and-libraries
+    docs page.
+
 3. **Create a config preset**
 
     Add a config file under `src/raitap/configs/transparency/`:

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
+from raitap import raitap_log
 from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
 from raitap.transparency.contracts import ExplanationPayloadKind
 from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
-from raitap.utils.warnings import suppress_warning
 
 from .base_explainer import AttributionOnlyExplainer
 
@@ -15,7 +15,7 @@ from .base_explainer import AttributionOnlyExplainer
 # It auto-fixes the issue, so the warning is pure noise — silence it at import.
 # Scope ``module=`` to captum so unrelated UserWarnings whose messages happen
 # to match the same pattern aren't accidentally hidden.
-suppress_warning(
+raitap_log.suppress(
     message=r"Input Tensor.*required_grads",
     category=UserWarning,
     module=r"captum.*",
