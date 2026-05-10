@@ -41,17 +41,6 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.13"]
-        extra:
-          - torch-cpu
-          - onnx-cpu
-          - shap
-          - captum
-          - torchattacks
-          - foolbox
-          - mlflow
-          - metrics
-          - reporting
-          - launcher
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -66,12 +55,20 @@ jobs:
         with:
           name: raitap-dist
           path: dist/
-      - name: Install built wheel with extra
-        # Validates the actual published artifact instead of the source tree —
-        # picks the wheel up from the ``build`` job's upload.
+      - name: Install + import smoke per extra
+        # One job per Python version loops through every extra: install the
+        # wheel with that extra, then import raitap. Per-extra logs are
+        # grouped so the failing extra is one collapsed group away from the
+        # job log root. Collapses 10×2 matrix jobs into 2 PR checks.
+        shell: bash
         run: |
+          set -euo pipefail
           WHEEL=$(ls dist/raitap-*.whl | head -n1)
-          uv venv --python ${{ matrix.python-version }}
-          uv pip install "${WHEEL}[${{ matrix.extra }}]"
-      - name: Import smoke
-        run: uv run python -c "import raitap; print(raitap.__name__)"
+          for extra in torch-cpu onnx-cpu shap captum torchattacks foolbox mlflow metrics reporting launcher; do
+            echo "::group::extra=${extra}"
+            rm -rf .venv
+            uv venv --python ${{ matrix.python-version }}
+            uv pip install "${WHEEL}[${extra}]"
+            uv run python -c "import raitap; print(raitap.__name__)"
+            echo "::endgroup::"
+          done
