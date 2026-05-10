@@ -145,6 +145,7 @@ class ReportingConfig:
 
     _target_: str = "PDFReporter"
     filename: str = "report.pdf"
+    sample_selection: list[int | str] | None = None
     include_config: bool = True
     include_metadata: bool = True
     multirun_report: bool = True

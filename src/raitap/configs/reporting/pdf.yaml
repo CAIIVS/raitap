@@ -3,6 +3,7 @@
 reporting:
   _target_: PDFReporter
   filename: report.pdf
+  sample_selection: null
   multirun_report: true
 
 hydra:

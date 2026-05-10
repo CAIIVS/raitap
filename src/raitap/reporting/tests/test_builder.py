@@ -16,6 +16,7 @@ from raitap.reporting.builder import BuiltReport, _copy_asset, build_merged_repo
 from raitap.reporting.factory import create_report
 from raitap.reporting.hydra_callback import ReportingSweepCallback
 from raitap.reporting.manifest import ReportManifest
+from raitap.reporting.sample_selection import ReportSampleSelectionEntry
 from raitap.reporting.sections import ReportGroup, ReportSection
 from raitap.run.outputs import PredictionSummary, RunOutputs
 from raitap.transparency.contracts import (
@@ -301,6 +302,136 @@ def test_build_report_local_assets_are_staged_and_closed(tmp_path: Path) -> None
     assert local_groups[0].images[0].name.startswith("overview_captum_ig_1_")
     assert local_groups[1].images[0].name.startswith("detail_high_confidence_captum_ig_2_")
     assert all(not plt.fignum_exists(fig.number) for fig in visualiser.figures)
+
+
+def test_build_report_explicit_filenames_render_in_user_order(tmp_path: Path) -> None:
+    config, outputs = _explicit_selection_case(tmp_path)
+    config.reporting.sample_selection = [  # type: ignore[union-attr]
+        "case_gamma.png",
+        "case_alpha.png",
+        "case_delta.png",
+        "case_beta.png",
+    ]
+
+    report = build_report(config, outputs)
+
+    local_groups = report.sections[0].groups
+    assert [group.metadata["sample_index"] for group in local_groups] == [2, 0, 3, 1]
+    assert [group.metadata["requested_sample"] for group in local_groups] == [
+        "case_gamma.png",
+        "case_alpha.png",
+        "case_delta.png",
+        "case_beta.png",
+    ]
+    assert all(group.metadata["selection_source"] == "user" for group in local_groups)
+    assert all(group.heading.startswith("Detail - user_selected") for group in local_groups)
+    assert [sample["sample_index"] for sample in report.manifest.metadata["selected_samples"]] == [
+        2,
+        0,
+        3,
+        1,
+    ]
+
+
+def test_build_report_explicit_filename_extension_normalisation(tmp_path: Path) -> None:
+    config, outputs = _explicit_selection_case(tmp_path)
+    config.reporting.sample_selection = ["case_beta.jpg"]  # type: ignore[union-attr]
+
+    report = build_report(config, outputs)
+
+    assert report.sections[0].groups[0].metadata["sample_index"] == 1
+
+
+def test_build_report_explicit_integer_index_selection(tmp_path: Path) -> None:
+    config, outputs = _explicit_selection_case(tmp_path)
+    config.reporting.sample_selection = [3, 0]  # type: ignore[union-attr]
+
+    report = build_report(config, outputs)
+
+    assert [group.metadata["sample_index"] for group in report.sections[0].groups] == [3, 0]
+
+
+def test_build_report_explicit_mixed_string_and_index_selection(tmp_path: Path) -> None:
+    config, outputs = _explicit_selection_case(tmp_path)
+    config.reporting.sample_selection = ["case_alpha.png", 2]  # type: ignore[union-attr]
+
+    report = build_report(config, outputs)
+
+    assert [group.metadata["sample_index"] for group in report.sections[0].groups] == [0, 2]
+
+
+def test_build_report_explicit_invalid_filename_fails(tmp_path: Path) -> None:
+    config, outputs = _explicit_selection_case(tmp_path)
+    config.reporting.sample_selection = ["missing.png"]  # type: ignore[union-attr]
+
+    with pytest.raises(ValueError, match=r"missing[.]png"):
+        build_report(config, outputs)
+
+
+def test_build_report_explicit_ambiguous_filename_fails(tmp_path: Path) -> None:
+    config, outputs = _explicit_selection_case(
+        tmp_path,
+        sample_ids=["set_a/case_alpha.png", "set_b/case_alpha.png"],
+    )
+    config.reporting.sample_selection = ["case_alpha.png"]  # type: ignore[union-attr]
+
+    with pytest.raises(ValueError, match="ambiguous"):
+        build_report(config, outputs)
+
+
+def test_build_report_explicit_out_of_range_index_fails(tmp_path: Path) -> None:
+    config, outputs = _explicit_selection_case(tmp_path)
+    config.reporting.sample_selection = [4]  # type: ignore[union-attr]
+
+    with pytest.raises(ValueError, match=r"valid range is 0\.\.3"):
+        build_report(config, outputs)
+
+
+def test_build_report_explicit_duplicate_selection_fails(tmp_path: Path) -> None:
+    config, outputs = _explicit_selection_case(tmp_path)
+    config.reporting.sample_selection = ["case_alpha.png", "case_alpha"]  # type: ignore[union-attr]
+
+    with pytest.raises(ValueError, match="Duplicate"):
+        build_report(config, outputs)
+
+
+@pytest.mark.parametrize(
+    "sample_selection",
+    ["case_alpha.png", 1, {"samples": ["case_alpha.png"]}],
+)
+def test_build_report_explicit_selection_rejects_non_list_config_shapes(
+    tmp_path: Path,
+    sample_selection: Any,
+) -> None:
+    config, outputs = _explicit_selection_case(tmp_path)
+    config.reporting.sample_selection = sample_selection  # type: ignore[union-attr,assignment]
+
+    with pytest.raises(ValueError, match=r"reporting[.]sample_selection must be a list"):
+        build_report(config, outputs)
+
+
+def test_build_report_explicit_selection_rejects_empty_list(tmp_path: Path) -> None:
+    config, outputs = _explicit_selection_case(tmp_path)
+    config.reporting.sample_selection = []  # type: ignore[union-attr]
+
+    with pytest.raises(ValueError, match=r"must contain at least one sample"):
+        build_report(config, outputs)
+
+
+@pytest.mark.parametrize("sample_selection", [[True], [{"sample": "case_alpha.png"}], [[0]]])
+def test_build_report_explicit_selection_rejects_unsupported_entries(
+    tmp_path: Path,
+    sample_selection: Any,
+) -> None:
+    config, outputs = _explicit_selection_case(tmp_path)
+    config.reporting.sample_selection = sample_selection  # type: ignore[union-attr,assignment]
+
+    with pytest.raises(ValueError, match="Unsupported report sample selection entry"):
+        build_report(config, outputs)
+
+
+def test_report_sample_selection_entry_type_documents_supported_values() -> None:
+    assert ReportSampleSelectionEntry == int | str
 
 
 def test_build_report_skips_local_groups_when_no_local_visualisations(tmp_path: Path) -> None:
@@ -612,6 +743,11 @@ def test_reporting_configs_compose_multirun_report_controls() -> None:
     assert opt_out_cfg.reporting._target_ == "PDFReporter"
     assert opt_out_cfg.reporting.multirun_report is False
 
+    explicit_cfg = _compose_raitap_config(
+        ["reporting=pdf", "reporting.sample_selection=[case_alpha.png,2]"]
+    )
+    assert list(explicit_cfg.reporting.sample_selection) == ["case_alpha.png", 2]
+
 
 def test_reporting_sweep_callback_skips_when_multirun_report_disabled(
     tmp_path: Path,
@@ -684,6 +820,51 @@ def _compose_raitap_config(overrides: list[str] | None = None) -> Any:
 
 def _configs_dir() -> Path:
     return (Path(__file__).resolve().parents[2] / "configs").resolve()
+
+
+def _explicit_selection_case(
+    tmp_path: Path,
+    *,
+    sample_ids: list[str] | None = None,
+) -> tuple[AppConfig, RunOutputs]:
+    ids = sample_ids or [
+        "case_alpha.png",
+        "case_beta.png",
+        "case_gamma.png",
+        "case_delta.png",
+    ]
+    config = AppConfig(experiment_name="explicit_selection")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    explanation = ExplanationResult(
+        attributions=torch.rand(len(ids), 1, 4, 4),
+        inputs=torch.rand(len(ids), 1, 4, 4),
+        run_dir=tmp_path / "transparency" / "exp",
+        experiment_name="explicit_selection",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((len(ids), 1, 4, 4)),
+        explainer_name="captum_ig",
+        kwargs={"sample_names": ids, "show_sample_names": True},
+        visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
+    )
+    outputs = RunOutputs(
+        explanations=[explanation],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.rand(len(ids), 2),
+        sample_ids=ids,
+        prediction_summaries=tuple(
+            PredictionSummary(
+                sample_index=index,
+                sample_id=sample_id,
+                predicted_class=1,
+                confidence=0.5 + index * 0.01,
+            )
+            for index, sample_id in enumerate(ids)
+        ),
+    )
+    return config, outputs
 
 
 def _write_child_manifest(
