@@ -118,7 +118,7 @@ marabou = [
     "maraboupy>=2.0.0,<3.0; python_full_version < '3.12' and sys_platform != 'win32'",
     "onnx>=1.15",
 ]
-robustness = ["raitap[torchattacks,foolbox]"]
+robustness = ["raitap[torchattacks,foolbox,marabou]"]
 
 # Job launcher / batch scheduler support
 launcher = ["hydra-submitit-launcher>=1.2.0"]
@@ -131,9 +131,9 @@ tracking = ["raitap[mlflow]"]
 metrics = ["torchmetrics>=1.8.2", "faster-coco-eval>=1.6.3"]
 
 # Reporting module
-reporting = ["jinja2>=3.1"]
-# Opt-in legacy backend; produces a borb-rendered PDF instead of HTML.
-reporting-borb = ["borb==3.0.7"]
+borb = ["borb==3.0.7"]
+jinja = ["jinja2>=3.1"]
+reporting = ["raitap[borb,jinja]"]
 
 [dependency-groups]
 lint = ["ruff>=0.8.0", "pyright>=1.1.390"]
