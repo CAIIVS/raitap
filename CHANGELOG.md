@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.5.0](https://github.com/CAIIVS/raitap/compare/v0.4.2...v0.5.0) (2026-05-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* **tracking:** switch mlflow from deprecated mlruns to sqllite db ([#122](https://github.com/CAIIVS/raitap/issues/122))
+* **deps:** lower Python floor to 3.11 ([#133](https://github.com/CAIIVS/raitap/issues/133))
+* **data:** unify data.source and data.labels.source resolvers ([#128](https://github.com/CAIIVS/raitap/issues/128))
+
+### Features
+
+* **data:** unify data.source and data.labels.source resolvers ([#128](https://github.com/CAIIVS/raitap/issues/128)) ([7fccefe](https://github.com/CAIIVS/raitap/commit/7fccefea8a96da3e4236c7f6fa728a21a776d362))
+* **infra:** diagnostics utils, better terminal warnings ([#124](https://github.com/CAIIVS/raitap/issues/124)) ([11ef2f5](https://github.com/CAIIVS/raitap/commit/11ef2f5f31f1016986d860e1bf5d3d69cbf6b2ae))
+* **misc:** prettify terminal output with rich panels and themed progress ([#121](https://github.com/CAIIVS/raitap/issues/121)) ([6a9fb61](https://github.com/CAIIVS/raitap/commit/6a9fb61551337da384569670f436990b1e935cc5))
+* **reporting:** allow users to pin report samples for explainer visualisations ([#118](https://github.com/CAIIVS/raitap/issues/118)) ([58deebe](https://github.com/CAIIVS/raitap/commit/58deebee1c2ed205b0cc4e4fb3c05a3dc2f47a44))
+* **robustness:** Marabou formal-verification adapter + SemanticallyDescribable refactor ([#134](https://github.com/CAIIVS/raitap/issues/134)) ([99968f2](https://github.com/CAIIVS/raitap/commit/99968f2ac1e5ca15c609526504a813c39044a145))
+* **robustness:** rebuild module with typed contracts and attack adapters ([#119](https://github.com/CAIIVS/raitap/issues/119)) ([ed3f845](https://github.com/CAIIVS/raitap/commit/ed3f84582448d6688c5c50a021a9bc89f19b03d8))
+
+
+### Bug fixes
+
+* **tracking:** switch mlflow from deprecated mlruns to sqllite db ([#122](https://github.com/CAIIVS/raitap/issues/122)) ([73b1a64](https://github.com/CAIIVS/raitap/commit/73b1a64e7ecac19c18aa62fecb1f961ae523dca3))
+
+
+### Documentation
+
+* add Context7 widget script to Sphinx docs ([deea214](https://github.com/CAIIVS/raitap/commit/deea214a406fa4c11a6151a485186c6135a3164c))
+* context7.json with URL and public key ([73c30c3](https://github.com/CAIIVS/raitap/commit/73c30c35b0338d9e0ba8fad00ad7ffa9926bc496))
+* update README with logo and project details ([a4da263](https://github.com/CAIIVS/raitap/commit/a4da263eb4c0bbef1bb64a152012ad11a6f46986))
+
+
+### Build system
+
+* **deps:** lower Python floor to 3.11 ([#133](https://github.com/CAIIVS/raitap/issues/133)) ([da5ad39](https://github.com/CAIIVS/raitap/commit/da5ad3914cf3ed623acf08ba8692aab7cee101f9))
+
 ## [0.4.2](https://github.com/CAIIVS/raitap/compare/v0.4.1...v0.4.2) (2026-05-06)
 
 
