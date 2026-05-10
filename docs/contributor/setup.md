@@ -5,11 +5,11 @@
 ### 0. Prerequisites
 
 - The repository cloned.
-- Python 3.13.x
+- Python 3.11+ (3.11–3.13 tested; 3.13 recommended for contributors since the `docs` group requires 3.13)
 - [uv](https://docs.astral.sh/uv/) package manager
 
 :::{note}
-Python 3.14 is not supported yet due to Hydra's own requirements. The project already enforces Python 3.13 usage, you do not need to run any command.
+Python 3.14 is not supported yet due to Hydra's own requirements. uv will pick a compatible interpreter automatically; pass `--python 3.13` to `uv sync` if you want to pin one explicitly.
 :::
 
 ### 1. Install dependencies
