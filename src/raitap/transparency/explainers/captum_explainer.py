@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from raitap import raitap_log
 from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
-from raitap.transparency.contracts import ExplanationPayloadKind
+from raitap.transparency.contracts import ExplanationPayloadKind, MethodFamily
 from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
 
 from .base_explainer import AttributionOnlyExplainer
@@ -22,6 +22,8 @@ raitap_log.suppress(
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     import torch
     import torch.nn as nn
 
@@ -34,6 +36,24 @@ class CaptumExplainer(AttributionOnlyExplainer):
     """
 
     output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
+
+    algorithm_registry: ClassVar[Mapping[str, frozenset[MethodFamily]]] = {
+        "IntegratedGradients": frozenset({MethodFamily.GRADIENT}),
+        "Saliency": frozenset({MethodFamily.GRADIENT}),
+        "FeatureAblation": frozenset({MethodFamily.PERTURBATION}),
+        "FeaturePermutation": frozenset({MethodFamily.PERTURBATION}),
+        "Occlusion": frozenset({MethodFamily.PERTURBATION}),
+        "ShapleyValueSampling": frozenset({MethodFamily.SHAPLEY, MethodFamily.PERTURBATION}),
+        "ShapleyValues": frozenset({MethodFamily.SHAPLEY, MethodFamily.PERTURBATION}),
+        "KernelShap": frozenset(
+            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC}
+        ),
+        "Lime": frozenset(
+            {MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC, MethodFamily.SURROGATE}
+        ),
+        "LayerGradCam": frozenset({MethodFamily.GRADIENT, MethodFamily.CAM}),
+        "GuidedGradCam": frozenset({MethodFamily.GRADIENT, MethodFamily.CAM}),
+    }
 
     ONNX_COMPATIBLE_ALGORITHMS: frozenset[str] = frozenset(
         {

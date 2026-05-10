@@ -47,8 +47,11 @@ InputSpec = contracts.InputSpec
 MethodFamily = contracts.MethodFamily
 ScopeDefinitionStep = contracts.ScopeDefinitionStep
 TensorLayout = contracts.TensorLayout
-CAPTUM_METHOD_FAMILIES = semantics.CAPTUM_METHOD_FAMILIES
-SHAP_METHOD_FAMILIES = semantics.SHAP_METHOD_FAMILIES
+from raitap.transparency.explainers.captum_explainer import CaptumExplainer  # noqa: E402
+from raitap.transparency.explainers.shap_explainer import ShapExplainer  # noqa: E402
+
+CAPTUM_METHOD_FAMILIES = CaptumExplainer.algorithm_registry
+SHAP_METHOD_FAMILIES = ShapExplainer.algorithm_registry
 explainer_capability = semantics.explainer_capability
 infer_input_spec = semantics.infer_input_spec
 infer_output_space = semantics.infer_output_space
