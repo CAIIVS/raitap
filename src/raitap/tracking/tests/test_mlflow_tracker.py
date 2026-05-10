@@ -429,7 +429,6 @@ def test_mlflow_tracker_opens_current_sqlite_run(
 def test_mlflow_tracker_warns_when_reusing_existing_sqlite_ui_port(
     mock_mlflow: MagicMock,
     mock_subprocess: MagicMock,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
     config = _make_config(url="sqlite:///mlflow/mlflow.db")
     with patch("raitap.tracking.mlflow_tracker.MLFlowTracker._ensure_server_running"):
@@ -438,15 +437,16 @@ def test_mlflow_tracker_warns_when_reusing_existing_sqlite_ui_port(
     with (
         patch("raitap.tracking.mlflow_tracker.MLFlowTracker._is_port_open", return_value=True),
         patch("webbrowser.open") as mock_open,
-        caplog.at_level("WARNING", logger="raitap.tracking.mlflow_tracker"),
+        pytest.warns(UserWarning) as warnings,
     ):
         tracker._open_mlflow_ui()
 
     mock_subprocess.assert_not_called()
     mock_open.assert_called_once_with("http://127.0.0.1:5000")
-    assert "Reusing existing MLflow UI at http://127.0.0.1:5000" in caplog.text
-    assert "sqlite:///mlflow/mlflow.db" in caplog.text
-    assert "may use a different backend store" in caplog.text
+    warning_text = "\n".join(str(record.message) for record in warnings)
+    assert "Reusing existing MLflow UI at http://127.0.0.1:5000" in warning_text
+    assert "sqlite:///mlflow/mlflow.db" in warning_text
+    assert "may use a different backend store" in warning_text
 
 
 def test_mlflow_tracker_terminate_keeps_opened_ui_running(
