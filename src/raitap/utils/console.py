@@ -407,10 +407,10 @@ def print_summary_panel(config: AppConfig, model: Model) -> None:
         hw_color = "yellow" if is_cpu else "green"
         hw_symbol = "⚠︎  " if is_cpu else "✓ "
         if is_cpu:
-            docs_url = "https://caiivs.github.io/raitap/using-raitap/installation.html#execution-dependencies"
+            cpu_install_docs = "https://caiivs.github.io/raitap/using-raitap/installation.html#execution-dependencies"
             hw_text = Text.from_markup(
                 f"[{hw_color}]{hw_symbol}{hw_label}[/]  "
-                f"[{hw_color} underline link={docs_url}]Use GPU[/]"
+                f"[{hw_color} underline link={cpu_install_docs}]Use GPU[/]"
             )
         else:
             hw_text = Text.assemble((hw_symbol, hw_color), (hw_label, hw_color))

@@ -47,6 +47,26 @@ class TestSuppress:
         assert all("hush now" not in str(w.message) for w in caught)
 
 
+class TestStacklevelAttribution:
+    def test_warn_blames_immediate_caller(self) -> None:
+        """``raitap_log.warn`` default stacklevel must point ``filename`` at the
+        caller, not at the facade body inside ``log.py``."""
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            raitap_log.warn("stacklevel-probe")
+        assert len(caught) == 1
+        assert caught[0].filename == __file__
+
+    def test_info_blames_immediate_caller(self, caplog: pytest.LogCaptureFixture) -> None:
+        """``raitap_log.info`` default stacklevel must point ``pathname`` at the
+        caller, not at the facade body inside ``log.py``."""
+        caplog.set_level("INFO")
+        raitap_log.info("stacklevel-probe")
+        records = [r for r in caplog.records if r.message == "stacklevel-probe"]
+        assert len(records) == 1
+        assert records[0].pathname == __file__
+
+
 class TestDiagnosticQueueIsThreadLocal:
     def test_pushes_in_one_thread_dont_leak_into_another(self) -> None:
         from raitap.utils.log import _pop_diagnostic, _push_diagnostic
