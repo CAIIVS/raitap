@@ -49,6 +49,10 @@ class DataConfig:
     source: str | None = None
     # Optional model-forward batch size for predictions/metrics. None uses the pipeline default.
     forward_batch_size: int | None = None
+    # Optional input-modality metadata (``kind``, ``feature_names``, ``layout``, ...).
+    # Forwarded to ``infer_input_spec`` so semantics and visualisers see the correct
+    # modality for non-image data such as ACAS Xu's 5-feature tabular vector.
+    input_metadata: dict[str, Any] | None = None
     labels: LabelsConfig = field(default_factory=LabelsConfig)
 
 

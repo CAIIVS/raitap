@@ -166,7 +166,7 @@ export UV_PATH="/cluster/home/$USER/.uv"
 **2. Load required modules:**
 
 ```bash
-# Load Python (adjust version to what's available)
+# Load Python (adjust version to what's available; raitap supports 3.11+)
 module load python/3.13.2
 
 # Load uv if provided as a module

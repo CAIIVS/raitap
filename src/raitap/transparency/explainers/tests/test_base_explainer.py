@@ -16,7 +16,7 @@ from raitap.transparency.contracts import (
 from raitap.transparency.explainers.base_explainer import AttributionOnlyExplainer
 
 
-class _StrictExplainer(AttributionOnlyExplainer):
+class _StrictExplainer(AttributionOnlyExplainer, register=False):
     algorithm = "Saliency"
 
     def __init__(self) -> None:
@@ -35,11 +35,11 @@ class _StrictExplainer(AttributionOnlyExplainer):
         return inputs
 
 
-class _GlobalScopeExplainer(_StrictExplainer):
+class _GlobalScopeExplainer(_StrictExplainer, register=False):
     output_scope = ExplanationScope.GLOBAL
 
 
-class _UnknownAlgorithmExplainer(AttributionOnlyExplainer):
+class _UnknownAlgorithmExplainer(AttributionOnlyExplainer, register=False):
     algorithm = "UnregisteredAlgorithm"
 
     def __init__(self) -> None:
@@ -57,7 +57,7 @@ class _UnknownAlgorithmExplainer(AttributionOnlyExplainer):
         return inputs
 
 
-class _BatchRecordingExplainer(AttributionOnlyExplainer):
+class _BatchRecordingExplainer(AttributionOnlyExplainer, register=False):
     algorithm = "IntegratedGradients"
 
     def __init__(self) -> None:
@@ -86,7 +86,7 @@ class _BatchRecordingExplainer(AttributionOnlyExplainer):
         return inputs
 
 
-class _GradTrackingExplainer(AttributionOnlyExplainer):
+class _GradTrackingExplainer(AttributionOnlyExplainer, register=False):
     algorithm = "Saliency"
 
     def compute_attributions(
@@ -100,7 +100,7 @@ class _GradTrackingExplainer(AttributionOnlyExplainer):
         return source * 2
 
 
-class _TupleExplainer(AttributionOnlyExplainer):
+class _TupleExplainer(AttributionOnlyExplainer, register=False):
     algorithm = "Saliency"
 
     def compute_attributions(
@@ -113,7 +113,7 @@ class _TupleExplainer(AttributionOnlyExplainer):
         return inputs, torch.zeros(inputs.shape[0])
 
 
-class _ListExplainer(AttributionOnlyExplainer):
+class _ListExplainer(AttributionOnlyExplainer, register=False):
     algorithm = "Saliency"
 
     def compute_attributions(
