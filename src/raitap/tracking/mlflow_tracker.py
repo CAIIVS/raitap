@@ -4,15 +4,13 @@ MLFlow tracking implementation for RAITAP
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
 
+from raitap import raitap_log
 from raitap.configs import cfg_to_dict, resolve_run_dir
 from raitap.models.backend import OnnxBackend, TorchBackend
 
 from .base_tracker import BaseTracker
-
-logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -194,7 +192,9 @@ class MLFlowTracker(BaseTracker):
         port = parsed.port or 5000
 
         if self._is_localhost(host) and not self._is_port_open(host, port):
-            logger.info("MLflow server not running. Starting server at %s...", self.tracking_uri)
+            raitap_log.info(
+                "MLflow server not running. Starting server at %s...", self.tracking_uri
+            )
             self._server_process = subprocess.Popen(
                 ["mlflow", "server", "--host", host, "--port", str(port)],
                 stdout=subprocess.DEVNULL,
@@ -203,26 +203,26 @@ class MLFlowTracker(BaseTracker):
             )
 
             if not self._wait_for_port_ready(host, port, timeout=10):
-                logger.warning(
+                raitap_log.warn(
                     "MLflow server may not be ready at %s:%d after 10 seconds", host, port
                 )
             else:
-                logger.info("MLflow server is ready at %s:%d", host, port)
+                raitap_log.info("MLflow server is ready at %s:%d", host, port)
 
     def _open_mlflow_ui(self) -> None:
         import subprocess
         import webbrowser
 
         if self.tracking_uri.startswith("http"):
-            logger.info("Opening MLflow UI at %s", self.tracking_uri)
+            raitap_log.info("Opening MLflow UI at %s", self.tracking_uri)
             webbrowser.open(self.tracking_uri)
         else:
             port = 5000
             url = f"http://127.0.0.1:{port}"
 
             if not self._is_port_open("127.0.0.1", port):
-                logger.info("Starting MLflow UI at %s", url)
-                logger.info("Backend store: %s", self.tracking_uri)
+                raitap_log.info("Starting MLflow UI at %s", url)
+                raitap_log.info("Backend store: %s", self.tracking_uri)
 
                 self._ui_process = subprocess.Popen(
                     ["mlflow", "ui", "--backend-store-uri", self.tracking_uri, "--port", str(port)],
@@ -232,9 +232,9 @@ class MLFlowTracker(BaseTracker):
                 )
 
                 if not self._wait_for_port_ready("127.0.0.1", port, timeout=10):
-                    logger.warning("MLflow UI may not be ready at %s after 10 seconds", url)
+                    raitap_log.warn("MLflow UI may not be ready at %s after 10 seconds", url)
                 else:
-                    logger.info("MLflow UI is ready at %s", url)
+                    raitap_log.info("MLflow UI is ready at %s", url)
 
             webbrowser.open(url)
 
@@ -272,7 +272,7 @@ class MLFlowTracker(BaseTracker):
                 try:
                     # Check if process is still running
                     if process.poll() is None:
-                        logger.debug("Terminating %s (PID: %d)", process_name, process.pid)
+                        raitap_log.debug("Terminating %s (PID: %d)", process_name, process.pid)
                         process.terminate()
 
                         # Give it a moment to terminate gracefully
@@ -280,11 +280,13 @@ class MLFlowTracker(BaseTracker):
                             process.wait(timeout=2)
                         except Exception:
                             # Force kill if it doesn't terminate
-                            logger.debug("Force killing %s (PID: %d)", process_name, process.pid)
+                            raitap_log.debug(
+                                "Force killing %s (PID: %d)", process_name, process.pid
+                            )
                             process.kill()
                             process.wait()
                 except Exception as e:
-                    logger.debug("Error cleaning up %s: %s", process_name, e)
+                    raitap_log.debug("Error cleaning up %s: %s", process_name, e)
 
     @staticmethod
     def _is_localhost(host: str) -> bool:

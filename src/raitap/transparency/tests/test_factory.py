@@ -632,7 +632,6 @@ def test_create_explainer_rejects_unknown_top_level_keys() -> None:
 
 def test_create_explainer_warns_on_unknown_raitap_keys(
     monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
     class _StubExplainer:
         def check_backend_compat(self, backend: object) -> None:
@@ -654,15 +653,12 @@ def test_create_explainer_warns_on_unknown_raitap_keys(
         }
     )
 
-    with caplog.at_level("WARNING"):
+    with pytest.warns(UserWarning, match="bacth_size"):
         create_explainer(config)
-
-    assert "bacth_size" in caplog.text
 
 
 def test_create_explainer_warns_on_misplaced_raitap_call_keys(
     monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
     class _StubExplainer:
         def check_backend_compat(self, backend: object) -> None:
@@ -689,19 +685,18 @@ def test_create_explainer_warns_on_misplaced_raitap_call_keys(
         }
     )
 
-    with caplog.at_level("WARNING"):
+    with pytest.warns(UserWarning) as caught:
         create_explainer(config)
-
-    assert "RAITAP-owned keys under 'call:'" in caplog.text
-    assert "batch_size" in caplog.text
-    assert "progress_desc" in caplog.text
-    assert "sample_names" in caplog.text
-    assert "show_sample_names" in caplog.text
+    text = " ".join(str(w.message) for w in caught)
+    assert "RAITAP-owned keys under 'call:'" in text
+    assert "batch_size" in text
+    assert "progress_desc" in text
+    assert "sample_names" in text
+    assert "show_sample_names" in text
 
 
 def test_create_explainer_warns_on_call_show_progress(
     monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
     class _StubExplainer:
         def check_backend_compat(self, backend: object) -> None:
@@ -723,11 +718,11 @@ def test_create_explainer_warns_on_call_show_progress(
         }
     )
 
-    with caplog.at_level("WARNING"):
+    with pytest.warns(UserWarning) as caught:
         create_explainer(config)
-
-    assert "RAITAP-owned keys under 'call:'" in caplog.text
-    assert "show_progress" in caplog.text
+    text = " ".join(str(w.message) for w in caught)
+    assert "RAITAP-owned keys under 'call:'" in text
+    assert "show_progress" in text
 
 
 def test_create_explainer_rejects_removed_max_batch_size_raitap_key() -> None:
@@ -1070,7 +1065,7 @@ def test_explanation_warns_on_unknown_raitap_keys(
     monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-    with caplog.at_level("WARNING"):
+    with pytest.warns(UserWarning, match="bacth_size"):
         Explanation(
             config,
             "test_explainer",
@@ -1078,14 +1073,11 @@ def test_explanation_warns_on_unknown_raitap_keys(
             inputs=sample_images,
         )
 
-    assert "bacth_size" in caplog.text
-
 
 def test_explanation_warns_once_on_misplaced_raitap_call_keys(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     sample_images: torch.Tensor,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
     class _StubExplainer:
         algorithm = "Saliency"
@@ -1116,7 +1108,7 @@ def test_explanation_warns_once_on_misplaced_raitap_call_keys(
     monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-    with caplog.at_level("WARNING"):
+    with pytest.warns(UserWarning) as caught:
         Explanation(
             config,
             "test_explainer",
@@ -1125,9 +1117,7 @@ def test_explanation_warns_once_on_misplaced_raitap_call_keys(
         )
 
     messages = [
-        record.message
-        for record in caplog.records
-        if "RAITAP-owned keys under 'call:'" in record.message
+        str(w.message) for w in caught if "RAITAP-owned keys under 'call:'" in str(w.message)
     ]
     assert len(messages) == 1
     assert "sample_names" in messages[0]
@@ -1137,7 +1127,6 @@ def test_explanation_migrates_misplaced_raitap_call_keys_into_raitap_kwargs(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     sample_images: torch.Tensor,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
     class RecordingExplainer:
         algorithm = "Saliency"
@@ -1177,7 +1166,7 @@ def test_explanation_migrates_misplaced_raitap_call_keys_into_raitap_kwargs(
     monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-    with caplog.at_level("WARNING"):
+    with pytest.warns(UserWarning, match="RAITAP-owned keys under 'call:'"):
         Explanation(
             config,
             "test_explainer",
@@ -1192,7 +1181,6 @@ def test_explanation_migrates_misplaced_raitap_call_keys_into_raitap_kwargs(
         "show_progress": True,
         "batch_size": 2,
     }
-    assert "RAITAP-owned keys under 'call:'" in caplog.text
 
 
 def test_explanation_clears_parsed_config_cache_on_visualiser_compat_failure(

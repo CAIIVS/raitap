@@ -4,11 +4,22 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
+from raitap import raitap_log
 from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
 from raitap.transparency.contracts import ExplanationPayloadKind
 from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
 
 from .base_explainer import AttributionOnlyExplainer
+
+# Captum emits this on every run when inputs don't already require gradients.
+# It auto-fixes the issue, so the warning is pure noise — silence it at import.
+# Scope ``module=`` to captum so unrelated UserWarnings whose messages happen
+# to match the same pattern aren't accidentally hidden.
+raitap_log.suppress(
+    message=r"Input Tensor.*required_grads",
+    category=UserWarning,
+    module=r"captum.*",
+)
 
 if TYPE_CHECKING:
     import torch
