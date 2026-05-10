@@ -588,6 +588,9 @@ class MLFlowTracker(BaseTracker):
                 if 200 <= e.code < 500:
                     return True
             except (URLError, ConnectionError, TimeoutError, OSError):
+                # Expected during startup: server has bound the port but the
+                # Flask app isn't accepting connections yet. Retry until the
+                # outer timeout expires.
                 pass
             time.sleep(0.25)
         return False
