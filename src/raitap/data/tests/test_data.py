@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 from raitap.data import Data
 from raitap.data.data import (
+    SourceKind,
     _load_images,
     _load_tabular,
     _load_tabular_dir,
@@ -60,6 +61,55 @@ class TestGetSourcePath:
     def test_unknown_source_raises(self) -> None:
         with pytest.raises(ValueError, match="could not be resolved"):
             get_source_path("/totally/nonexistent/path/data.csv")
+
+    def test_sample_name_resolves_to_cache_dir(self, tmp_path: Path) -> None:
+        with (
+            patch("raitap.data.samples._CACHE_DIR", tmp_path),
+            patch("raitap.data.samples.download_file") as mock_download,
+        ):
+
+            def _create_file(_url: str, dest: Path) -> None:
+                dest.write_bytes(b"x")
+
+            mock_download.side_effect = _create_file
+            result = get_source_path("imagenet_samples")
+
+        assert result.is_dir()
+        assert result == tmp_path / "imagenet_samples"
+
+    def test_sample_name_labels_resolves_to_csv(self, tmp_path: Path) -> None:
+        with (
+            patch("raitap.data.samples._CACHE_DIR", tmp_path),
+            patch("raitap.data.samples.download_file") as mock_download,
+        ):
+
+            def _create_file(_url: str, dest: Path) -> None:
+                dest.write_bytes(b"x")
+
+            mock_download.side_effect = _create_file
+            result = get_source_path("imagenet_samples", kind=SourceKind.LABELS)
+
+        assert result.is_file()
+        assert result.name == "labels.csv"
+        content = result.read_text(encoding="utf-8")
+        assert "image,label" in content
+        assert "tench.jpg,0" in content
+        assert "golden_retriever.jpg,207" in content
+
+    def test_sample_name_without_labels_raises(self, tmp_path: Path) -> None:
+        with (
+            patch("raitap.data.samples._CACHE_DIR", tmp_path),
+            patch("raitap.data.samples.download_file") as mock_download,
+        ):
+            mock_download.side_effect = lambda _url, dest: dest.write_bytes(b"x")
+            with pytest.raises(ValueError, match="does not ship ground-truth labels"):
+                get_source_path("malaria", kind=SourceKind.LABELS)
+
+    def test_invalid_kind_raises(self, tmp_path: Path) -> None:
+        f = tmp_path / "data.csv"
+        f.write_text("a,b\n1,2")
+        with pytest.raises(ValueError, match="Invalid kind"):
+            get_source_path(str(f), kind=cast("Any", "lables"))
 
     def test_url_downloads_and_caches(self, tmp_path: Path) -> None:
         fake_content = b"fake file content"
@@ -301,7 +351,7 @@ class TestLoadData:
                 },
             )(),
         )
-        with pytest.raises(ValueError, match="does not exist"):
+        with pytest.raises(ValueError, match="could not be resolved"):
             Data(cfg)
 
     def test_url_source_loads_csv_via_get_source_path(self, tmp_path: Path) -> None:
@@ -345,6 +395,50 @@ class TestLoadData:
         with patch("raitap.data.data.get_source_path", return_value=p):
             data = Data(cfg)
         assert data.tensor.shape == (1, 3, 32, 32)
+
+    def test_sample_labels_align_with_sample_images(self, tmp_path: Path) -> None:
+        from raitap.data.samples import SAMPLE_LABELS
+
+        with (
+            patch("raitap.data.samples._CACHE_DIR", tmp_path),
+            patch("raitap.data.samples.download_file") as mock_download,
+            patch("raitap.data.samples._DEMO_SIZE", 32),
+        ):
+            mock_download.side_effect = lambda _url, dest: _write_image(dest, 32, 32)
+            cfg = cast(
+                "AppConfig",
+                type(
+                    "AppConfig",
+                    (),
+                    {
+                        "data": type(
+                            "DataConfig",
+                            (),
+                            {
+                                "source": "imagenet_samples",
+                                "name": "imagenet_samples",
+                                "labels": type(
+                                    "LabelsConfig",
+                                    (),
+                                    {
+                                        "source": "imagenet_samples",
+                                        "id_column": "image",
+                                        "column": "label",
+                                        "encoding": "index",
+                                    },
+                                )(),
+                            },
+                        )()
+                    },
+                )(),
+            )
+            data = Data(cfg)
+
+        expected_ids = sorted(SAMPLE_LABELS["imagenet_samples"].keys())
+        assert data.sample_ids == expected_ids
+        expected_labels = [SAMPLE_LABELS["imagenet_samples"][fn] for fn in expected_ids]
+        assert data.labels is not None
+        assert data.labels.tolist() == expected_labels
 
 
 class TestDescribeData:
@@ -458,11 +552,13 @@ class TestSampleSources:
             _write_image(cache_dir / filename, 64, 64)
 
         with patch("raitap.data.samples._CACHE_DIR", tmp_path):
-            tensor = _load_sample(name, size=32)
+            tensor, sample_ids = _load_sample(name, size=32)
 
         n = len(SAMPLE_SOURCES[name])
         assert tensor.shape == (n, 3, 32, 32)
         assert tensor.dtype == torch.float32
+        assert len(sample_ids) == n
+        assert sample_ids == sorted(sample_ids)
 
     def test_load_sample_unknown_raises(self) -> None:
         with pytest.raises(ValueError, match="not a known demo sample"):
@@ -513,7 +609,7 @@ class TestLoadTensorFromSource:
         assert tensor.shape[0] == 4
 
     def test_nonexistent_path_raises_value_error(self) -> None:
-        with pytest.raises(ValueError, match="does not exist"):
+        with pytest.raises(ValueError, match="could not be resolved"):
             load_tensor_from_source("/nonexistent/path/data.csv")
 
     def test_unsupported_extension_raises_value_error(self, tmp_path: Path) -> None:

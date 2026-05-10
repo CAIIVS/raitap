@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -8,6 +7,7 @@ import torch
 from torch import nn
 from torchvision import models
 
+from raitap import raitap_log
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 
 from .backend import ModelBackend, OnnxBackend, TorchBackend
@@ -151,14 +151,13 @@ def _load_torch_module_from_path(path: Path, *, model_cfg: Any, device: torch.de
 
     if isinstance(obj, nn.Module):
         if pickled_module:
-            warnings.warn(
+            raitap_log.warn(
                 f"Loading pickled nn.Module from {path}: this format is fragile across "
                 "environments and torchvision versions, and requires unsafe pickle "
                 "deserialisation. Prefer `torch.save(model.state_dict(), path)` with "
                 "model.arch + model.num_classes set in the config, or "
                 "`torch.jit.save(scripted, path)`.",
-                DeprecationWarning,
-                stacklevel=2,
+                category=DeprecationWarning,
             )
         obj.to(device)
         obj.eval()

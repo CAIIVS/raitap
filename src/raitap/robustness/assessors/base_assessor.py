@@ -15,7 +15,6 @@ adapter-owned pipelines:
 from __future__ import annotations
 
 import gc
-import logging
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -23,6 +22,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import torch
 
+from raitap import raitap_log
 from raitap.configs import resolve_run_dir
 
 from ..contracts import (
@@ -46,8 +46,6 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from torch import nn
-
-logger = logging.getLogger(__name__)
 
 _VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
 
@@ -364,7 +362,7 @@ class FormalVerificationAssessor(BaseAssessor, ABC):
                     **verify_kwargs,
                 )
             except Exception:  # pragma: no cover — per-sample isolation
-                logger.exception("verify_sample crashed for index %d", index)
+                raitap_log.exception("verify_sample crashed for index %d", index)
                 outcome = VerificationOutcome(
                     verdict=RobustnessVerdict.ERROR,
                     runtime_seconds=time.perf_counter() - started,

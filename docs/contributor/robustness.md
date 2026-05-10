@@ -151,7 +151,11 @@ To integrate a new robustness framework:
    constraints (e.g. white-box attacks require `supports_torch_autograd`).
 5. **Add an extras group** in `pyproject.toml` and a YAML preset under
    `src/raitap/configs/robustness/`.
-6. **Add adapter tests** under `assessors/tests/`.
+6. **Append the library's import name to `THIRD_PARTY_LIBS`** in
+   `src/raitap/robustness/__init__.py`. `raitap.utils.diagnostics` consumes
+   that set to attribute warnings/errors emitted from inside the library to
+   a "via &lt;lib&gt;" chip and the frameworks-and-libraries docs page.
+7. **Add adapter tests** under `assessors/tests/`.
 
 The framework-owned base classes do the rest. No core change to
 `RobustnessResult`, the factory, the pipeline, or reporting is required.

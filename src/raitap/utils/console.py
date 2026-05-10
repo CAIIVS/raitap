@@ -30,6 +30,15 @@ from rich.text import Text
 from rich.theme import Theme
 from rich.traceback import install as install_rich_traceback
 
+from raitap.utils.diagnostics import (
+    Diagnostic,
+    docs_url,
+    is_dev_install,
+    resolve_diagnostic_from_frames,
+    subsystem_from_str,
+)
+from raitap.utils.log import _pop_diagnostic, _push_diagnostic, _take_diagnostic_override
+
 _THEME = Theme(
     {
         "log.time": "cyan",
@@ -54,9 +63,6 @@ _WARNING_PREFIX_RE = re.compile(
     r"^(?P<src>.+?:\d+):\s*(?P<cat>\w+Warning):\s*(?P<msg>.*)$",
     re.DOTALL,
 )
-
-# Pull subsystem from a raitap path: ".../raitap/<subsystem>/...".
-_SUBSYSTEM_RE = re.compile(r"raitap[\\/](?!src[\\/])(?P<sub>\w+)[\\/]")
 
 # Detect Windows-drive or POSIX absolute paths inside arbitrary log messages.
 _PATH_RE = re.compile(r"(?:[A-Za-z]:[\\/]|(?<![\w/])/)[^\s]+")
@@ -134,7 +140,7 @@ def get_stderr_console() -> Console:
 _LEVEL_ICONS: dict[int, tuple[str, str]] = {
     logging.DEBUG: ("·", "dim"),
     logging.INFO: ("▸", "cyan"),
-    logging.WARNING: ("▲", "bright_yellow"),
+    logging.WARNING: ("⚠︎ ", "bright_yellow"),
     logging.ERROR: ("✗", "red"),
     logging.CRITICAL: ("✗", "bold red"),
 }
@@ -168,37 +174,69 @@ class RaitapRichHandler(RichHandler):
 
     def _emit_panel(self, record: logging.LogRecord, message: str) -> None:
         if record.levelno >= logging.ERROR:
-            border, main_style, sub_style, icon, label = "red", "red", "yellow", "✗", "Error"
+            border, main_style, sub_style, icon, label = "red", "red", "yellow", "✗ ", "Error"
         else:
             border, main_style, sub_style, icon, label = (
                 "yellow",
                 "yellow",
                 "bright_yellow",
-                "▲",
+                "⚠︎  ",
                 "Warning",
             )
 
         body = message
-        header_parts = [f"[{main_style}]{icon} {label}[/]"]
-        warn_match = _WARNING_PREFIX_RE.match(message.strip())
+        header_parts = [f"[{main_style}]{icon}{label}[/]"]
+        # Only treat the "<path>:<line>: <Category>: msg" shape as a warnings.warn
+        # payload when it actually came from logging.captureWarnings (logger name
+        # ``py.warnings``). Otherwise an unrelated WARNING that happens to match
+        # the pattern would desync the per-thread origin queue and mislabel the
+        # next real warning.
+        is_py_warning = record.name == "py.warnings"
+        warn_match = _WARNING_PREFIX_RE.match(message.strip()) if is_py_warning else None
         if warn_match:
             cat = warn_match.group("cat")
             src = warn_match.group("src")
-            sub_match = _SUBSYSTEM_RE.search(src)
-            scope = sub_match.group("sub").capitalize() if sub_match else cat
-            header_parts.append(f"[{sub_style}]· {scope}[/]")
-            header_parts.append(f"[{main_style} link={_src_to_uri(src)}]· {src}[/]")
+            diagnostic = _pop_diagnostic()
+            self._render_warning_header(
+                header_parts,
+                src=src,
+                category=cat,
+                diagnostic=diagnostic,
+                main_style=main_style,
+                sub_style=sub_style,
+            )
             body = warn_match.group("msg").strip()
         else:
             head_match = _LOGGER_HEADER_RE.match(message.strip())
             if head_match:
-                header_parts.append(f"[{sub_style}]· {head_match.group('head')}[/]")
+                head = head_match.group("head")
+                header_parts.append(f"[{sub_style}]· {head}[/]")
+                # logger.warning("Subsystem: …") records have no Diagnostic
+                # stashed (no frame walk happened), so synthesise one from the
+                # header text to drive the same View-docs affordance.
+                synth = Diagnostic(
+                    subsystem=subsystem_from_str(head.lower()),
+                    file="",
+                    line=0,
+                    third_party_lib=None,
+                )
+                if not is_dev_install():
+                    url = docs_url(synth)
+                    if url is not None:
+                        header_parts.append(
+                            f"[{sub_style}]· [/][{sub_style} underline link={url}]View docs[/]"
+                        )
                 stripped = head_match.group("msg").strip()
                 body = stripped[:1].upper() + stripped[1:] if stripped else stripped
 
+        # Build a non-wrapping ``Text`` with overflow="ellipsis" so a narrow
+        # terminal trims chips with ``…`` instead of hard-cutting mid-word.
+        title_text = Text.from_markup(" ".join(header_parts))
+        title_text.overflow = "ellipsis"
+        title_text.no_wrap = True
         panel = Panel(
             _linkify_message(body),
-            title=" ".join(header_parts),
+            title=title_text,
             title_align="left",
             border_style=border,
             padding=(0, 1),
@@ -212,6 +250,55 @@ class RaitapRichHandler(RichHandler):
         except Exception:
             # Never let logging crash the run — fall back to plain RichHandler.
             super().emit(record)
+
+    def _render_warning_header(
+        self,
+        header_parts: list[str],
+        *,
+        src: str,
+        category: str,
+        diagnostic: Diagnostic | None,
+        main_style: str,
+        sub_style: str,
+    ) -> None:
+        """Append subsystem / path / docs-link chips to the warning panel header.
+
+        Layout depends on the audience:
+
+        - **Dev install** (cloned repo): ``· <Subsystem> · <path:line>``,
+          ``path`` clickable. Falls back to category if no subsystem matched.
+        - **Installed wheel, raitap-emitted**: ``· <Subsystem>`` only,
+          subsystem text linked to the docs page.
+        - **Installed wheel, third-party**: ``· <Subsystem> · via <lib>``,
+          subsystem linked to the frameworks-and-libraries doc page.
+        - **Installed wheel, unclassified**: no subheader at all.
+        """
+        sub = diagnostic.subsystem if diagnostic else None
+        third_party = diagnostic.third_party_lib if diagnostic else None
+        scope = sub.capitalize() if sub else category
+
+        if is_dev_install():
+            header_parts.append(f"[{sub_style}]· {scope}[/]")
+            header_parts.append(
+                f"[{main_style}]· [/][{main_style} link={_src_to_uri(src)}]{src}[/]"
+            )
+            if third_party is not None:
+                header_parts.append(f"[{sub_style}]· via {third_party.capitalize()}[/]")
+            return
+
+        # Installed: hide raw paths the user can't act on. Surface docs links instead.
+        if sub is None:
+            return
+        header_parts.append(f"[{sub_style}]· {scope}[/]")
+        if third_party is not None:
+            header_parts.append(f"[{sub_style}]· via {third_party.capitalize()}[/]")
+        url = docs_url(diagnostic) if diagnostic is not None else None
+        if url is not None:
+            # Explicit ``View docs`` chip — clearer affordance than relying on
+            # OSC 8 styling on the subsystem text alone (Windows Terminal /
+            # other terminals don't visually mark hyperlinks by default).
+            # Link wraps only the label so the leading separator stays plain.
+            header_parts.append(f"[{sub_style}]· [/][{sub_style} underline link={url}]View docs[/]")
 
 
 def setup_logging(level: int = logging.INFO) -> None:
@@ -248,26 +335,19 @@ def _format_warning_compact(
     lineno: int,
     line: str | None = None,
 ) -> str:
-    """Override `filename:lineno` with the actual `warnings.warn()` callsite
-    in raitap so subsystem inference works regardless of ``stacklevel=``."""
-    actual_file, actual_line = _resolve_warn_origin(filename, lineno)
-    return f"{actual_file}:{actual_line}: {category.__name__}: {message}"
+    """Resolve the warn origin to the first raitap subsystem frame and stash it
+    for :class:`RaitapRichHandler`.
 
-
-def _resolve_warn_origin(default_file: str, default_line: int) -> tuple[str, int]:
-    frame: Any = sys._getframe()
-    while frame is not None:
-        path = frame.f_code.co_filename
-        # Stop at the first raitap/<subsystem>/ frame, ignoring stdlib warnings.
-        normalized = path.replace("\\", "/")
-        if (
-            "/raitap/" in normalized
-            and "/raitap/utils/console.py" not in normalized
-            and _SUBSYSTEM_RE.search(path)
-        ):
-            return path, frame.f_lineno
-        frame = frame.f_back
-    return default_file, default_line
+    The returned canonical string ``path:line: Category: msg`` is what the
+    standard ``logging.captureWarnings`` pipeline forwards to the handler. The
+    structured :class:`~raitap.utils.diagnostics.Diagnostic` (subsystem +
+    third-party detection) is stashed on a thread-local queue so the handler
+    can render an audience-appropriate header without re-walking frames at
+    emit time (frames are unwound by then).
+    """
+    diagnostic = _take_diagnostic_override() or resolve_diagnostic_from_frames(filename, lineno)
+    _push_diagnostic(diagnostic)
+    return f"{diagnostic.file}:{diagnostic.line}: {category.__name__}: {message}"
 
 
 def _format_value(value: Any, *, dot: bool = False, dot_style: str = "green") -> Text:
@@ -320,13 +400,26 @@ def print_summary_panel(config: AppConfig, model: Model) -> None:
     table.add_row("dataset", _format_value(_safe_attr(config, "data", "name")))
     hardware = _safe_attr(model, "backend", "hardware_label")
     if hardware:
-        hw_text = Text.assemble(("● ", "green"), (str(hardware), "green"))
+        # CPU runs are slow enough to be a footgun for transparency/robustness;
+        # surface that with the same yellow used for warnings.
+        hw_label = str(hardware)
+        is_cpu = "cpu" in hw_label.lower()
+        hw_color = "yellow" if is_cpu else "green"
+        hw_symbol = "⚠︎  " if is_cpu else "✓ "
+        if is_cpu:
+            cpu_install_docs = "https://caiivs.github.io/raitap/using-raitap/installation.html#execution-dependencies"
+            hw_text = Text.from_markup(
+                f"[{hw_color}]{hw_symbol}{hw_label}[/]  "
+                f"[{hw_color} underline link={cpu_install_docs}]Use GPU[/]"
+            )
+        else:
+            hw_text = Text.assemble((hw_symbol, hw_color), (hw_label, hw_color))
     else:
         hw_text = Text("—", style="dim")
     table.add_row("hardware", hw_text)
     table.add_row("explainers", _format_value(list(transparency.keys())))
     table.add_row("robustness", _format_value(list(robustness.keys())))
-    table.add_row("metrics", _format_value(metrics_on, dot=True))
+    table.add_row("metrics", Text("on" if metrics_on else "off"))
 
     try:
         from pathlib import Path

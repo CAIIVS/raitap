@@ -81,7 +81,7 @@ class TestDataConstructor:
     def test_data_raises_if_source_does_not_exist(self) -> None:
         config = _make_config("/nonexistent/path/data.csv")
 
-        with pytest.raises(ValueError, match="does not exist"):
+        with pytest.raises(ValueError, match="could not be resolved"):
             Data(config)
 
     def test_data_loads_filename_aligned_labels(self, tmp_path: Path) -> None:

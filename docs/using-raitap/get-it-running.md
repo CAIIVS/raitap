@@ -26,7 +26,8 @@ The example is light enough to run on a CPU, hence we used `torch-cpu`. Feel fre
 
 ## 2. Run the example
 
-Our pre-defined example is the default config shipped with RAITAP. This means you do not need to specify any options to run it.
+Our pre-defined example is the default config shipped with RAITAP. This means you do not need to specify any options to run it. It uses the
+`imagenet_samples` demo dataset (four ImageNet images bundled with ground-truth labels) so metrics and robustness run with real targets out of the box.
 
 ```{install-tabs}
 :uv:

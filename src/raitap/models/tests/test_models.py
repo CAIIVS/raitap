@@ -267,17 +267,15 @@ class TestLoadModelFromPath:
     def test_torch_gpu_falls_back_to_cpu_with_warning(
         self,
         monkeypatch: pytest.MonkeyPatch,
-        caplog: pytest.LogCaptureFixture,
     ) -> None:
         monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
         monkeypatch.setattr(runtime, "_torch_mps_is_available", lambda: False)
         monkeypatch.setattr(runtime, "_torch_xpu_is_available", lambda: False)
 
-        with caplog.at_level("WARNING"):
+        with pytest.warns(UserWarning, match="neither CUDA nor Intel XPU is available"):
             device = resolve_torch_device("gpu")
 
         assert device == torch.device("cpu")
-        assert "neither CUDA nor Intel XPU is available" in caplog.text
 
     @pytest.mark.runtime
     def test_torch_gpu_selects_cuda_when_available(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -293,17 +291,15 @@ class TestLoadModelFromPath:
     def test_torch_gpu_falls_back_to_cpu_when_mps_is_available(
         self,
         monkeypatch: pytest.MonkeyPatch,
-        caplog: pytest.LogCaptureFixture,
     ) -> None:
         monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
         monkeypatch.setattr(runtime, "_torch_mps_is_available", lambda: True)
         monkeypatch.setattr(runtime, "_torch_xpu_is_available", lambda: False)
 
-        with caplog.at_level("WARNING"):
+        with pytest.warns(UserWarning, match="Apple MPS support is temporarily disabled"):
             device = resolve_torch_device("gpu")
 
         assert device == torch.device("cpu")
-        assert "Apple MPS support is temporarily disabled" in caplog.text
 
     @pytest.mark.runtime
     def test_torch_gpu_prefers_cuda_over_mps(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -372,7 +368,6 @@ class TestLoadModelFromPath:
     def test_onnx_provider_resolution_falls_back_to_cpu_when_coreml_is_available(
         self,
         monkeypatch: pytest.MonkeyPatch,
-        caplog: pytest.LogCaptureFixture,
     ) -> None:
         pytest.importorskip("onnxruntime")
         import onnxruntime as ort
@@ -383,11 +378,10 @@ class TestLoadModelFromPath:
             lambda: ["CoreMLExecutionProvider", "CPUExecutionProvider"],
         )
 
-        with caplog.at_level("WARNING"):
+        with pytest.warns(UserWarning, match="Apple CoreML support is temporarily disabled"):
             providers = resolve_onnx_providers("gpu")
 
         assert providers == ["CPUExecutionProvider"]
-        assert "Apple CoreML support is temporarily disabled" in caplog.text
 
     @pytest.mark.runtime
     def test_onnx_provider_resolution_prefers_cuda_over_disabled_apple_coreml(
@@ -437,21 +431,19 @@ class TestLoadModelFromPath:
     def test_onnx_provider_resolution_falls_back_to_cpu_with_warning(
         self,
         monkeypatch: pytest.MonkeyPatch,
-        caplog: pytest.LogCaptureFixture,
     ) -> None:
         pytest.importorskip("onnxruntime")
         import onnxruntime as ort
 
         monkeypatch.setattr(ort, "get_available_providers", lambda: ["CPUExecutionProvider"])
 
-        with caplog.at_level("WARNING"):
+        with pytest.warns(
+            UserWarning,
+            match="neither CUDAExecutionProvider nor OpenVINOExecutionProvider is available",
+        ):
             providers = resolve_onnx_providers("gpu")
 
         assert providers == ["CPUExecutionProvider"]
-        assert (
-            "neither CUDAExecutionProvider nor OpenVINOExecutionProvider is available"
-            in caplog.text
-        )
 
     @pytest.mark.runtime
     def test_onnx_provider_resolution_uses_cpu_in_cpu_mode(

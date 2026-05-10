@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 import torch
 
+from raitap import raitap_log
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-logger = logging.getLogger(__name__)
 
 _VALID_HARDWARE = frozenset({"cpu", "gpu"})
 _ONNX_RUNTIME_INSTALL_HINT = (
@@ -34,7 +33,7 @@ def resolve_torch_device(hardware: str) -> torch.device:
         return torch.device("cuda")
 
     if _torch_mps_is_available():
-        logger.warning(
+        raitap_log.warn(
             "GPU was requested for PyTorch, but Apple MPS support is temporarily disabled. "
             "Transparency libraries on MPS remain immature, some explainer paths are "
             "unsupported, and users have reported Apple GPU lockups / sustained 100%% "
@@ -45,7 +44,7 @@ def resolve_torch_device(hardware: str) -> torch.device:
     if _torch_xpu_is_available():
         return torch.device("xpu")
 
-    logger.warning(
+    raitap_log.warn(
         "GPU was requested for PyTorch, but neither CUDA nor Intel XPU is available. "
         "Falling back to CPU."
     )
@@ -76,7 +75,7 @@ def resolve_onnx_providers(
         return ["OpenVINOExecutionProvider", "CPUExecutionProvider"]
 
     if "CoreMLExecutionProvider" in provider_names:
-        logger.warning(
+        raitap_log.warn(
             "GPU was requested for ONNX Runtime, but Apple CoreML support is temporarily "
             "disabled. Transparency libraries on Apple GPU paths remain immature, some "
             "explainer libraries are unsupported, and users have reported Apple GPU "
@@ -85,7 +84,7 @@ def resolve_onnx_providers(
         )
         return ["CPUExecutionProvider"]
 
-    logger.warning(
+    raitap_log.warn(
         "GPU was requested for ONNX Runtime, but neither CUDAExecutionProvider nor "
         "OpenVINOExecutionProvider is available. Falling back to CPUExecutionProvider."
     )

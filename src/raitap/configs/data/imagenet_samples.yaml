@@ -1,3 +1,8 @@
 name: imagenet_samples
 description: "Sample ImageNet images (golden retriever, tiger cat, tench, shih tzu)"
 source: imagenet_samples
+labels:
+  source: imagenet_samples
+  id_column: image
+  column: label
+  encoding: index

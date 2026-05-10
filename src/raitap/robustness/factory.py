@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any, cast
 
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 
+from raitap import raitap_log
 from raitap.configs import cfg_to_dict, resolve_run_dir, resolve_target
 from raitap.data import load_tensor_from_source
 from raitap.models.backend import ModelBackend
@@ -23,8 +23,6 @@ if TYPE_CHECKING:
     from raitap.models import Model
 
     from .results import RobustnessResult
-
-logger = logging.getLogger(__name__)
 
 _ROBUSTNESS_PREFIX = "raitap.robustness.assessors."
 _VISUALISER_PREFIX = "raitap.robustness.visualisers."
@@ -140,11 +138,9 @@ def _validate_raitap_keys(raitap_cfg: dict[str, Any], *, assessor_name: str) -> 
         return
     sorted_unknown = ", ".join(sorted(unknown))
     sorted_valid = ", ".join(sorted(_RAITAP_KEYS))
-    logger.warning(
-        "Unknown robustness.raitap keys for assessor %r: %s. Supported RAITAP keys: %s.",
-        assessor_name,
-        sorted_unknown,
-        sorted_valid,
+    raitap_log.warn(
+        f"Unknown robustness.raitap keys for assessor {assessor_name!r}: "
+        f"{sorted_unknown}. Supported RAITAP keys: {sorted_valid}.",
     )
 
 
@@ -153,11 +149,10 @@ def _warn_on_misplaced_raitap_call_keys(call_cfg: dict[str, Any], *, assessor_na
     if not misplaced:
         return
     keys = ", ".join(misplaced)
-    logger.warning(
-        "Assessor %r has RAITAP-owned keys under 'call:': %s. These keys belong under "
-        "'raitap:' while 'call:' is intended for library kwargs only.",
-        assessor_name,
-        keys,
+    raitap_log.warn(
+        f"Assessor {assessor_name!r} has RAITAP-owned keys under 'call:': {keys}. "
+        "These keys belong under 'raitap:' while 'call:' is intended for library "
+        "kwargs only.",
     )
 
 
@@ -207,7 +202,7 @@ def _resolve_call_data_sources(call_kwargs: dict[str, Any]) -> dict[str, Any]:
                 raise TypeError(
                     f"call.{key}.n_samples must be an int, got {type(n_samples).__name__}."
                 )
-            logger.info(
+            raitap_log.info(
                 "Resolving robustness call kwarg %r as data source %r (n_samples=%s)",
                 key,
                 source,
@@ -230,7 +225,7 @@ def _instantiate_assessor_from_parsed(
     try:
         assessor = instantiate(instantiate_cfg)
     except Exception as error:
-        logger.exception("Assessor instantiation failed for target %r", parsed.target_path)
+        raitap_log.exception("Assessor instantiation failed for target %r", parsed.target_path)
         raise ValueError(
             f"Could not instantiate assessor {parsed.target_path!r}.\n"
             "Check that _target_ points to a valid AssessorAdapter implementation "
@@ -372,7 +367,7 @@ def create_robustness_visualisers(
         try:
             visualiser = instantiate(instantiate_cfg)
         except Exception as error:
-            logger.exception("Visualiser instantiation failed for target %r", visualiser_target)
+            raitap_log.exception("Visualiser instantiation failed for target %r", visualiser_target)
             raise ValueError(f"Could not instantiate visualiser {visualiser_target!r}.") from error
 
         out.append(ConfiguredRobustnessVisualiser(visualiser=visualiser, call_kwargs=call_plain))

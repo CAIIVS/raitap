@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
 
 import torch
 
+from raitap import raitap_log
 from raitap.configs import cfg_to_dict
 from raitap.data import Data, infer_data_input_metadata
 from raitap.metrics import (
@@ -30,8 +30,6 @@ from raitap.tracking import BaseTracker
 from raitap.transparency.contracts import InputSpec
 from raitap.transparency.factory import Explanation
 
-logger = logging.getLogger(__name__)
-
 # Conservative default for prediction/metrics forwards. Transparency methods have their own
 # per-explainer ``transparency.*.raitap.batch_size`` controls.
 _DEFAULT_FORWARD_BATCH_SIZE = 32
@@ -41,6 +39,11 @@ if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
     from raitap.robustness.results import RobustnessResult, RobustnessVisualisationResult
     from raitap.transparency.results import ExplanationResult, VisualisationResult
+
+
+def _log_phase_start(phase: str, n: int) -> None:
+    suffix = "s" if n > 1 else ""
+    raitap_log.info("Performing %s%s (%d)...", phase, suffix, n)
 
 
 def run(config: AppConfig) -> RunOutputs:
@@ -54,7 +57,7 @@ def run(config: AppConfig) -> RunOutputs:
     # Generate report if configured
     report_generation = None
     if reporting_enabled(config):
-        logger.info("Generating report...")
+        raitap_log.info("Generating report...")
         report = build_report(config, outputs)
         report_generation = create_report(config=config, report=report)
 
@@ -106,11 +109,13 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
     sample_ids = data.sample_ids
     labels = data.labels
 
+    raitap_log.info("Running model forward pass...")
     with torch.no_grad():
         forward_output = _forward_primary_tensor(config, backend, data_tensor)
 
     metrics_eval: MetricsEvaluation | None = None
     if metrics_run_enabled(config):
+        raitap_log.info("Computing metrics...")
         if (
             getattr(config.metrics, "num_classes", None) is None
             and forward_output.ndim == 2
@@ -130,6 +135,8 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
     if not explainers and not robustness_assessors:
         raise ValueError("No explainers or robustness assessors configured")
 
+    if explainers:
+        _log_phase_start("transparency assessment", len(explainers))
     for name, _explainer_cfg in explainers:
         runtime_kwargs = _resolve_explainer_runtime_kwargs(
             config.transparency[name],
@@ -151,6 +158,8 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
 
     robustness_results: list[RobustnessResult] = []
     robustness_visualisations: list[RobustnessVisualisationResult] = []
+    if robustness_assessors:
+        _log_phase_start("robustness assessment", len(robustness_assessors))
     robustness_targets = _robustness_targets(labels=labels, forward_output=forward_output)
     for name in robustness_assessors:
         result = RobustnessAssessment(
@@ -264,9 +273,13 @@ def _robustness_targets(
     if forward_output.ndim != 2 or forward_output.shape[1] < 2:
         return None
     predictions, _ = metrics_prediction_pair(forward_output)
-    logger.warning(
-        "Robustness: no ground-truth labels provided; using model predictions "
-        "as the reference for untargeted attacks."
+
+    from raitap.utils.diagnostics import Subsystem
+
+    raitap_log.warn(
+        "No ground-truth labels provided; using model predictions as the "
+        "reference for untargeted attacks.",
+        subsystem=Subsystem.robustness,
     )
     return predictions.detach().cpu()
 
