@@ -6,6 +6,7 @@ defaults:
   - data: imagenet_samples
   - metrics: classification
   - reporting: pdf
+  - tracking: null
 
 hardware: gpu
 experiment_name: demo

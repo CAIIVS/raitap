@@ -95,7 +95,7 @@ metrics:
 
 tracking:
   _target_: "MLFlowTracker"
-  output_forwarding_url: "http://127.0.0.1:5000"
+  output_forwarding_url: "http://127.0.0.1:5001"
   log_model: false
   open_when_done: true
 

@@ -120,6 +120,8 @@ class MetricsConfig:
 class TrackingConfig:
     _target_: str = "MLFlowTracker"
     output_forwarding_url: str | None = None
+    backend_store_uri: str | None = None
+    default_artifact_root: str | None = None
     log_model: bool = False
     open_when_done: bool = True
 
