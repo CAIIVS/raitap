@@ -27,19 +27,19 @@ Design rules:
 
 from __future__ import annotations
 
+from collections.abc import (  # noqa: TC003 — runtime import: typing.get_type_hints() resolves these
+    Callable,
+    Mapping,
+)
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import Any, TypeVar, cast
 
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 
 from raitap import raitap_log
-from raitap.configs import cfg_to_dict, resolve_target
+from raitap.configs.utils import cfg_to_dict, resolve_target
 from raitap.data import load_tensor_from_source
-
-if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
-
 
 __all__ = [
     "AdapterSchema",

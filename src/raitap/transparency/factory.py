@@ -6,7 +6,8 @@ import torch
 from hydra.utils import instantiate
 
 from raitap import raitap_log
-from raitap._adapter_factory import (
+from raitap.configs import resolve_run_dir
+from raitap.configs.adapter_factory import (
     AdapterSchema,
     ParsedAdapterConfig,
     instantiate_adapter,
@@ -15,7 +16,6 @@ from raitap._adapter_factory import (
     raw_config_dict,
     resolve_call_data_sources,
 )
-from raitap.configs import resolve_run_dir
 from raitap.models.backend import ModelBackend
 
 from .algorithm_allowlist import ensure_algorithm_in_allowlist
