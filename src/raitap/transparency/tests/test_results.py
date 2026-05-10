@@ -563,6 +563,95 @@ def test_report_visualisation_resets_visualiser_sample_index_for_sliced_batch(
     assert torch.equal(vis.seen_attribution, attributions[1])
 
 
+def test_render_visualisation_for_scope_targets_one_visualiser_and_forwards_kwargs(
+    tmp_path: Path,
+) -> None:
+    class _KwargVisualiser(BaseVisualiser):
+        def __init__(self) -> None:
+            self.received_kwargs: dict[str, Any] = {}
+            self.received_names: list[str] = []
+            self.seen_attribution: torch.Tensor | None = None
+
+        def visualise(
+            self,
+            attributions: torch.Tensor,
+            inputs: torch.Tensor | None = None,
+            *,
+            context: VisualisationContext | None = None,
+            **kw: Any,
+        ) -> Figure:
+            del inputs
+            self.received_kwargs = dict(kw)
+            self.received_names = [] if context is None else list(context.sample_names or [])
+            self.seen_attribution = attributions.clone()
+            fig, _ax = plt.subplots(figsize=(1, 1))
+            return fig
+
+    first = _KwargVisualiser()
+    second = _KwargVisualiser()
+    attributions = torch.tensor([[1.0], [2.0], [3.0]])
+    explanation = ExplanationResult(
+        attributions=attributions,
+        inputs=torch.zeros(3, 1),
+        run_dir=tmp_path / "exp_single_visualiser",
+        experiment_name="e",
+        explainer_target="t",
+        algorithm="a",
+        semantics=_semantics(),
+        kwargs={"sample_names": ["a", "b", "c"], "show_sample_names": True},
+        visualisers=[
+            ConfiguredVisualiser(visualiser=first, call_kwargs={"alpha": 0.1}),
+            ConfiguredVisualiser(visualiser=second, call_kwargs={"alpha": 0.2}),
+        ],
+    )
+
+    rendered = explanation.render_visualisation_for_scope(
+        1,
+        scope="local",
+        sample_index=2,
+        alpha=0.9,
+        include_original_input=False,
+    )
+
+    assert rendered is not None
+    assert rendered.visualiser_name == "_KwargVisualiser_1"
+    assert first.received_kwargs == {}
+    assert second.received_kwargs == {"alpha": 0.9, "include_original_input": False}
+    assert second.received_names == ["c"]
+    assert second.seen_attribution is not None
+    assert torch.equal(second.seen_attribution, attributions[2:3])
+
+
+def test_render_visualisation_for_scope_returns_none_for_scope_mismatch(tmp_path: Path) -> None:
+    class _CohortVisualiser(BaseVisualiser):
+        produces_scope = ExplanationScope.COHORT
+
+        def visualise(
+            self,
+            attributions: torch.Tensor,
+            inputs: torch.Tensor | None = None,
+            *,
+            context: VisualisationContext | None = None,
+            **kw: Any,
+        ) -> Figure:
+            del attributions, inputs, context, kw
+            fig, _ax = plt.subplots(figsize=(1, 1))
+            return fig
+
+    explanation = ExplanationResult(
+        attributions=torch.zeros(1, 1),
+        inputs=torch.zeros(1, 1),
+        run_dir=tmp_path / "exp_scope_mismatch",
+        experiment_name="e",
+        explainer_target="t",
+        algorithm="a",
+        semantics=_semantics(),
+        visualisers=[ConfiguredVisualiser(visualiser=_CohortVisualiser())],
+    )
+
+    assert explanation.render_visualisation_for_scope(0, scope="local") is None
+
+
 def test_explanation_visualise_forwards_algorithm_when_supported(tmp_path: Path) -> None:
     class _AlgorithmVisualiser(BaseVisualiser):
         def __init__(self) -> None:

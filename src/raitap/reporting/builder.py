@@ -11,7 +11,8 @@ import matplotlib.pyplot as plt
 from raitap.configs import resolve_run_dir
 from raitap.robustness.contracts import MethodKind
 from raitap.run.outputs import PredictionSummary, RunOutputs
-from raitap.transparency.contracts import ExplanationScope
+from raitap.transparency.contracts import ExplanationScope, VisualisationContext
+from raitap.transparency.visualisers import BaseVisualiser, InputThumbnailVisualiser
 
 from .manifest import ReportManifest
 from .sections import ReportGroup, ReportSection
@@ -65,6 +66,9 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
         outputs,
         selected_samples=selected_samples,
         assets_dir=assets_dir,
+        show_original_per_explainer=bool(
+            getattr(getattr(config, "reporting", None), "show_original_per_explainer", False)
+        ),
     )
     if local_section is not None:
         sections.append(local_section)
@@ -335,10 +339,87 @@ def _build_local_section(
     *,
     selected_samples: list[SelectedSample],
     assets_dir: Path,
+    show_original_per_explainer: bool = False,
 ) -> ReportSection | None:
     if not outputs.explanations:
         return None
 
+    if show_original_per_explainer:
+        return _build_legacy_local_section(
+            outputs,
+            selected_samples=selected_samples,
+            assets_dir=assets_dir,
+        )
+
+    groups: list[ReportGroup] = []
+    for selected in selected_samples:
+        header_group = _build_sample_header_group(
+            outputs,
+            selected=selected,
+            assets_dir=assets_dir,
+        )
+        omit_original = header_group is not None
+
+        sample_groups: list[ReportGroup] = []
+        for explanation in outputs.explanations:
+            explainer_name = explanation.explainer_name or explanation.run_dir.name
+            rendered = []
+            for visualiser_index, configured in enumerate(explanation.visualisers):
+                render_kwargs = _render_kwargs_for_visualiser(
+                    configured.visualiser,
+                    omit_original=omit_original,
+                )
+                visualisation = explanation.render_visualisation_for_scope(
+                    visualiser_index,
+                    scope="local",
+                    sample_index=selected.summary.sample_index,
+                    **render_kwargs,
+                )
+                if visualisation is not None:
+                    rendered.append(visualisation)
+
+            images = _stage_rendered_visualisations(
+                rendered,
+                assets_dir=assets_dir,
+                file_stem_prefix=(
+                    f"sample_{selected.summary.sample_index}_"
+                    f"{_safe_name(explainer_name)}"
+                ),
+            )
+            if not images:
+                continue
+            sample_groups.append(
+                ReportGroup(
+                    heading=f"Explainer: {explainer_name} - {_sample_label(selected)}",
+                    images=images,
+                    metadata={
+                        "role": "local_attribution",
+                        "bucket": selected.label,
+                        "sample_index": selected.summary.sample_index,
+                        "explainer_name": explainer_name,
+                    },
+                )
+            )
+        if sample_groups:
+            if header_group is not None:
+                groups.append(header_group)
+            groups.extend(sample_groups)
+
+    if not groups:
+        return None
+    return ReportSection.from_groups(
+        "Local Explanations",
+        groups,
+        metadata={"section_role": "local"},
+    )
+
+
+def _build_legacy_local_section(
+    outputs: RunOutputs,
+    *,
+    selected_samples: list[SelectedSample],
+    assets_dir: Path,
+) -> ReportSection | None:
     groups: list[ReportGroup] = []
     overview_sample = selected_samples[0] if selected_samples else None
     if overview_sample is not None:
@@ -415,6 +496,94 @@ def _build_local_section(
         groups,
         metadata={"section_role": "local"},
     )
+
+
+def _build_sample_header_group(
+    outputs: RunOutputs,
+    *,
+    selected: SelectedSample,
+    assets_dir: Path,
+) -> ReportGroup | None:
+    visualiser = InputThumbnailVisualiser()
+    sample_index = selected.summary.sample_index
+    last_error: Exception | None = None
+
+    for explanation in outputs.explanations:
+        attributions = explanation.attributions[sample_index : sample_index + 1]
+        inputs = (
+            None
+            if explanation.inputs is None
+            else explanation.inputs[sample_index : sample_index + 1]
+        )
+        try:
+            visualiser.validate_explanation(explanation, attributions, inputs)
+        except ValueError as exc:
+            last_error = exc
+            continue
+
+        sample_names = _sample_names_for_explanation(explanation, sample_index)
+        show_sample_names = bool(explanation.kwargs.get("show_sample_names", False))
+        context = VisualisationContext(
+            algorithm=explanation.algorithm,
+            sample_names=sample_names,
+            show_sample_names=show_sample_names,
+        )
+        try:
+            figure = visualiser.visualise(
+                attributions,
+                inputs=inputs,
+                context=context,
+                max_samples=1,
+            )
+        except (ValueError, RuntimeError, OSError) as exc:
+            logger.warning(
+                "Skipping sample thumbnail for sample %s: %s",
+                sample_index,
+                exc,
+                exc_info=True,
+            )
+            return None
+
+        target = assets_dir / f"sample_{sample_index}_thumbnail_0.png"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            figure.savefig(target, bbox_inches="tight", dpi=150)
+        finally:
+            plt.close(figure)
+
+        return ReportGroup(
+            heading=f"Sample - {_sample_label(selected)}",
+            images=(target,),
+            table_rows=_sample_fact_rows(selected),
+            metadata={
+                "role": "sample_header",
+                "bucket": selected.label,
+                "sample_index": sample_index,
+                "source_explainer_name": explanation.explainer_name or explanation.run_dir.name,
+            },
+        )
+
+    if last_error is not None:
+        logger.warning(
+            "Skipping sample thumbnail for sample %s: no compatible input visualiser (%s)",
+            sample_index,
+            last_error,
+        )
+    return None
+
+
+def _render_kwargs_for_visualiser(
+    visualiser: BaseVisualiser,
+    *,
+    omit_original: bool,
+) -> dict[str, object]:
+    if not omit_original:
+        return {}
+    if not getattr(type(visualiser), "embeds_original_input", False):
+        return {}
+    if not visualiser.renders_attribution_only_when_original_hidden():
+        return {}
+    return {"include_original_input": False}
 
 
 def _select_samples(outputs: RunOutputs) -> list[SelectedSample]:
@@ -496,6 +665,38 @@ def _stage_rendered_visualisations(
             plt.close(visualisation.figure)
         staged.append(target)
     return tuple(staged)
+
+
+def _sample_names_for_explanation(explanation: object, sample_index: int) -> list[str]:
+    kwargs = getattr(explanation, "kwargs", {})
+    value = kwargs.get("sample_names") if isinstance(kwargs, dict) else None
+    if value is None:
+        return []
+    try:
+        names = [str(name) for name in value]
+    except TypeError:
+        return [str(value)]
+    if sample_index < len(names):
+        return [names[sample_index]]
+    return []
+
+
+def _sample_fact_rows(selected: SelectedSample) -> tuple[tuple[str, str], ...]:
+    summary = selected.summary
+    rows: list[tuple[str, str]] = [
+        ("bucket", selected.label),
+        ("sample_index", str(summary.sample_index)),
+    ]
+    if summary.sample_id:
+        rows.append(("sample_id", summary.sample_id))
+    if summary.predicted_class >= 0:
+        rows.append(("predicted_class", str(summary.predicted_class)))
+        rows.append(("confidence", f"{summary.confidence:.4f}"))
+    if summary.target_class is not None:
+        rows.append(("target_class", str(summary.target_class)))
+    if summary.correct is not None:
+        rows.append(("correct", str(summary.correct)))
+    return tuple(rows)
 
 
 def _sample_label(selected: SelectedSample) -> str:

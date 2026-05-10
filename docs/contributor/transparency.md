@@ -34,12 +34,21 @@ All visualisers implement `BaseVisualiser`, which defines:
 - `produces_scope: ClassVar[ExplanationScope | None]` — optional produced scope when the visualiser summarizes or otherwise changes the result scope.
 - `scope_definition_step: ClassVar[ScopeDefinitionStep | None]` — where the produced scope was defined when `produces_scope` is set.
 - `visual_summary: ClassVar[VisualSummarySpec | None]` — optional metadata for summary visualisations.
+- `embeds_original_input: ClassVar[bool]` — whether the visualiser's normal layout includes an original input panel alongside the rendered explanation.
+- `renders_attribution_only_when_original_hidden() -> bool` — instance-level hook for whether `include_original_input=False` still leaves a meaningful attribution figure.
 - `validate_explanation(explanation, attributions, inputs) -> None` — render-time compatibility validation.
 
 Visualisers that preserve the explanation scope leave `produces_scope` unset.
 Visualisers that summarize local collections set it explicitly. For example,
 SHAP bar, SHAP beeswarm, and tabular bar visualisers consume local tabular or
 interpretable attributions and produce cohort visual summaries.
+
+Image visualisers that set `embeds_original_input = True` must accept the
+runtime kwarg `include_original_input`. Reporting uses this library-agnostic
+contract to render one shared sample thumbnail and suppress repeated originals
+in compact local report sections. Keep constructor configuration names
+backward-compatible; the built-in image visualisers still accept
+`include_original_image` in YAML constructors.
 
 ### Typed semantics contract
 

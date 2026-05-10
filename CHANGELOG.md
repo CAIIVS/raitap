@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+* **reporting:** render compact local explanation sections with one sample thumbnail and attribution-only explainer panels when supported
+
+### Documentation
+
+* **transparency:** document the original-input visualiser contract and compact local report toggle
+
 ## [0.4.2](https://github.com/CAIIVS/raitap/compare/v0.4.1...v0.4.2) (2026-05-06)
 
 

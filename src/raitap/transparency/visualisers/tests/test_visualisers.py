@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
@@ -25,6 +26,7 @@ from raitap.transparency.visualisers import (
     CaptumImageVisualiser,
     CaptumTextVisualiser,
     CaptumTimeSeriesVisualiser,
+    InputThumbnailVisualiser,
     ShapBarVisualiser,
     ShapBeeswarmVisualiser,
     ShapForceVisualiser,
@@ -101,6 +103,12 @@ class TestBaseVisualiserContract:
             torch.zeros(4, 10),
             None,
         )
+
+    def test_original_input_contract_defaults_to_no_embedded_original(self) -> None:
+        visualiser = _ContractVisualiser()
+
+        assert type(visualiser).embeds_original_input is False
+        assert visualiser.renders_attribution_only_when_original_hidden() is True
 
     @pytest.mark.parametrize(
         ("explanation", "dimension"),
@@ -256,6 +264,69 @@ class TestCaptumImageVisualiser:
 
         assert len(fig.axes) >= 2
         assert fig.axes[0].get_title() == ""
+
+    @pytest.mark.usefixtures("needs_captum")
+    def test_can_disable_original_image_panel_with_neutral_runtime_kwarg(
+        self,
+        sample_images: torch.Tensor,
+    ) -> None:
+        visualiser = CaptumImageVisualiser(method="heat_map")
+        attributions = torch.randn_like(sample_images)
+
+        fig = visualiser.visualise(
+            attributions,
+            inputs=sample_images,
+            max_samples=1,
+            include_original_input=False,
+        )
+
+        assert "Original Image" not in [ax.get_title() for ax in fig.axes]
+
+    @pytest.mark.usefixtures("needs_captum")
+    def test_runtime_include_original_image_alias_warns(
+        self,
+        sample_images: torch.Tensor,
+    ) -> None:
+        visualiser = CaptumImageVisualiser(method="heat_map")
+        attributions = torch.randn_like(sample_images)
+
+        with pytest.warns(DeprecationWarning, match="include_original_input"):
+            fig = visualiser.visualise(
+                attributions,
+                inputs=sample_images,
+                max_samples=1,
+                include_original_image=False,
+            )
+
+        assert "Original Image" not in [ax.get_title() for ax in fig.axes]
+
+    @pytest.mark.usefixtures("needs_captum")
+    def test_neutral_runtime_kwarg_wins_over_deprecated_alias_without_warning(
+        self,
+        sample_images: torch.Tensor,
+    ) -> None:
+        visualiser = CaptumImageVisualiser(method="heat_map")
+        attributions = torch.randn_like(sample_images)
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            fig = visualiser.visualise(
+                attributions,
+                inputs=sample_images,
+                max_samples=1,
+                include_original_input=False,
+                include_original_image=True,
+            )
+
+        assert caught == []
+        assert "Original Image" not in [ax.get_title() for ax in fig.axes]
+
+    def test_masked_image_keeps_original_when_original_hidden_would_remove_attribution(
+        self,
+    ) -> None:
+        visualiser = CaptumImageVisualiser(method="masked_image")
+
+        assert visualiser.renders_attribution_only_when_original_hidden() is False
 
     @pytest.mark.usefixtures("needs_captum")
     def test_original_image_method_avoids_duplicate_panels(
@@ -994,6 +1065,102 @@ class TestShapImageVisualiser:
         titles = [ax.get_title() for ax in fig.axes[:2]]
         assert titles == ["Original Image", "SHAP Image"]
         plt.close(fig)
+
+    @pytest.mark.usefixtures("needs_shap")
+    def test_can_disable_original_image_panel_with_neutral_runtime_kwarg(
+        self,
+        sample_images: torch.Tensor,
+    ) -> None:
+        visualiser = ShapImageVisualiser()
+        attributions = torch.randn_like(sample_images)
+
+        fig = visualiser.visualise(
+            attributions,
+            inputs=sample_images,
+            max_samples=1,
+            include_original_input=False,
+        )
+
+        assert "Original Image" not in [ax.get_title() for ax in fig.axes]
+        plt.close(fig)
+
+    @pytest.mark.usefixtures("needs_shap")
+    def test_runtime_include_original_image_alias_warns(
+        self,
+        sample_images: torch.Tensor,
+    ) -> None:
+        visualiser = ShapImageVisualiser()
+        attributions = torch.randn_like(sample_images)
+
+        with pytest.warns(DeprecationWarning, match="include_original_input"):
+            fig = visualiser.visualise(
+                attributions,
+                inputs=sample_images,
+                max_samples=1,
+                include_original_image=False,
+            )
+
+        assert "Original Image" not in [ax.get_title() for ax in fig.axes]
+        plt.close(fig)
+
+    @pytest.mark.usefixtures("needs_shap")
+    def test_neutral_runtime_kwarg_wins_over_deprecated_alias_without_warning(
+        self,
+        sample_images: torch.Tensor,
+    ) -> None:
+        visualiser = ShapImageVisualiser()
+        attributions = torch.randn_like(sample_images)
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            fig = visualiser.visualise(
+                attributions,
+                inputs=sample_images,
+                max_samples=1,
+                include_original_input=False,
+                include_original_image=True,
+            )
+
+        assert caught == []
+        assert "Original Image" not in [ax.get_title() for ax in fig.axes]
+        plt.close(fig)
+
+
+class TestInputThumbnailVisualiser:
+    def test_renders_single_image_input_without_original_embedding_contract(self) -> None:
+        visualiser = InputThumbnailVisualiser()
+        explanation = _explanation(
+            input_kind="image",
+            input_layout="NCHW",
+            output_layout="NCHW",
+            shape=(1, 3, 8, 8),
+        )
+
+        visualiser.validate_explanation(
+            explanation,
+            torch.zeros(1, 3, 8, 8),
+            torch.rand(1, 3, 8, 8),
+        )
+        fig = visualiser.visualise(
+            torch.zeros(1, 3, 8, 8),
+            inputs=torch.rand(1, 3, 8, 8),
+            max_samples=1,
+        )
+
+        assert type(visualiser).embeds_original_input is False
+        assert len(fig.axes) == 1
+        assert fig.axes[0].get_title() == "Input"
+        plt.close(fig)
+
+    def test_rejects_unsupported_input_kind(self) -> None:
+        visualiser = InputThumbnailVisualiser()
+
+        with pytest.raises(ValueError, match=r"InputThumbnailVisualiser.*input metadata"):
+            visualiser.validate_explanation(
+                _explanation(input_kind="tabular", shape=(1, 4)),
+                torch.zeros(1, 4),
+                torch.zeros(1, 4),
+            )
 
     @pytest.mark.usefixtures("needs_shap")
     def test_show_sample_names_sets_axis_titles(self, sample_images: torch.Tensor) -> None:

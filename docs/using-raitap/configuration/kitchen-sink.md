@@ -103,6 +103,7 @@ reporting:
   _target_: "PDFReporter"
   filename: "report.pdf"
   multirun_report: true
+  show_original_per_explainer: false
   formatting:
     figures_max_pages: 12
 ```

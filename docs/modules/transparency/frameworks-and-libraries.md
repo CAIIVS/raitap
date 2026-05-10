@@ -181,6 +181,14 @@ Configure these via the `constructor` key when defining the visualiser:
 | `cmap`                   | `str`         | `"coolwarm"` | Matplotlib colormap for the SHAP heatmap overlay                |
 | `overlay_alpha`          | `float`       | `0.65`       | Alpha value for the SHAP heatmap overlay                        |
 
+Image visualisers that render an original input next to an attribution declare
+`embeds_original_input = True` and accept the runtime kwarg
+`include_original_input`. Reporting uses that contract to suppress repeated
+original panels in the compact local layout. The older runtime kwarg
+`include_original_image` is still accepted for one release with a deprecation
+warning; constructor configuration keeps the existing `include_original_image`
+name for YAML compatibility.
+
 ##### Call parameters
 
 Override these via the visualiser `call` key or at runtime:

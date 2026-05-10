@@ -17,6 +17,14 @@
 :description: Whether Hydra multiruns should create one merged parent report at
   the sweep directory level. Set to false to keep per-run reports only.
 
+:option: show_original_per_explainer
+:allowed: boolean
+:default: false
+:description: Whether local explanation figures should keep their per-explainer
+  original input panels. The default compact layout renders one shared sample
+  thumbnail per selected sample and suppresses repeated originals when a
+  visualiser supports attribution-only rendering.
+
 :option: include_config
 :allowed: boolean
 :default: true
@@ -63,8 +71,9 @@ reporting:
   _target_: "PDFReporter"
   filename: "experiment_report.pdf"
   multirun_report: true
+  show_original_per_explainer: false
   formatting:
     figures_max_pages: 10
 
-:cli: reporting=pdf reporting.filename="my_report.pdf" reporting.multirun_report=false reporting.formatting.figures_max_pages=10
+:cli: reporting=pdf reporting.filename="my_report.pdf" reporting.multirun_report=false reporting.show_original_per_explainer=true reporting.formatting.figures_max_pages=10
 ```

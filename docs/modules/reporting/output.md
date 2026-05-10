@@ -74,10 +74,20 @@ selected samples.
 
 The section contains:
 
-- **Overview**: one shared most-relevant sample, rendered once per active local
-  explainer so the visual comparison is meaningful.
-- **Details**: selected important samples, grouped sample by sample, with one
-  local visual from each active explainer.
+- **Sample header**: one thumbnail of the selected input plus sample facts.
+- **Explainer groups**: one attribution visual from each active local explainer.
+
+For image explainers that normally render an original-image panel next to their
+attribution, the report uses the sample header as the shared original and asks
+compatible visualisers to render attribution-only figures. Set
+`reporting.show_original_per_explainer=true` to restore the older local layout
+where each explainer figure includes its own original input panel and no sample
+header thumbnails are emitted.
+
+Report-local asset names for compact local explanations use
+`sample_<index>_thumbnail_<n>.png` and
+`sample_<index>_<explainer>_<visualiser>.png`. The manifest schema is unchanged,
+but tools that match asset filenames should account for this naming pattern.
 
 For labeled classification outputs, RAITAP selects local detail samples in this
 priority order:
