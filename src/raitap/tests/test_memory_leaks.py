@@ -193,7 +193,7 @@ def test_mlflow_tracker_terminate_cleans_up_subprocesses() -> None:
         patch.dict("sys.modules", {"mlflow": mlflow_mock, "mlflow.entities": mlflow_mock.entities}),
         patch("raitap.tracking.mlflow_tracker.MLFlowTracker._is_port_open", return_value=False),
         patch(
-            "raitap.tracking.mlflow_tracker.MLFlowTracker._wait_for_port_ready",
+            "raitap.tracking.mlflow_tracker.MLFlowTracker._wait_for_http_ready",
             return_value=True,
         ),
         patch("subprocess.Popen") as mock_popen,

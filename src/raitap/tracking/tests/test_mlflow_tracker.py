@@ -64,7 +64,15 @@ def mock_mlflow() -> Generator[MagicMock]:
 @pytest.fixture
 def mock_subprocess() -> Generator[MagicMock]:
     with patch("subprocess.Popen") as mock:
+        mock.return_value.pid = 12345
         yield mock
+
+
+@pytest.fixture(autouse=True)
+def _isolate_process_registry(tmp_path_factory: pytest.TempPathFactory) -> Generator[None]:
+    registry = tmp_path_factory.mktemp("tracking_registry") / "registry.json"
+    with patch("raitap.tracking.process_registry.REGISTRY_PATH", registry):
+        yield
 
 
 @pytest.fixture
@@ -317,7 +325,7 @@ def test_mlflow_tracker_starts_local_server_with_sqlite_backend(
     with (
         patch("raitap.tracking.mlflow_tracker.MLFlowTracker._is_port_open", return_value=False),
         patch(
-            "raitap.tracking.mlflow_tracker.MLFlowTracker._wait_for_port_ready",
+            "raitap.tracking.mlflow_tracker.MLFlowTracker._wait_for_http_ready",
             return_value=True,
         ),
     ):
@@ -355,7 +363,7 @@ def test_mlflow_tracker_opens_sqlite_ui(
     with (
         patch("raitap.tracking.mlflow_tracker.MLFlowTracker._is_port_open", return_value=False),
         patch(
-            "raitap.tracking.mlflow_tracker.MLFlowTracker._wait_for_port_ready",
+            "raitap.tracking.mlflow_tracker.MLFlowTracker._wait_for_http_ready",
             return_value=True,
         ),
         patch("webbrowser.open") as mock_open,
@@ -415,7 +423,7 @@ def test_mlflow_tracker_opens_current_sqlite_run(
     with (
         patch("raitap.tracking.mlflow_tracker.MLFlowTracker._is_port_open", return_value=False),
         patch(
-            "raitap.tracking.mlflow_tracker.MLFlowTracker._wait_for_port_ready",
+            "raitap.tracking.mlflow_tracker.MLFlowTracker._wait_for_http_ready",
             return_value=True,
         ),
         patch("webbrowser.open") as mock_open,
@@ -464,7 +472,7 @@ def test_mlflow_tracker_terminate_keeps_opened_ui_running(
     with (
         patch("raitap.tracking.mlflow_tracker.MLFlowTracker._is_port_open", return_value=False),
         patch(
-            "raitap.tracking.mlflow_tracker.MLFlowTracker._wait_for_port_ready",
+            "raitap.tracking.mlflow_tracker.MLFlowTracker._wait_for_http_ready",
             return_value=True,
         ),
         patch("webbrowser.open"),

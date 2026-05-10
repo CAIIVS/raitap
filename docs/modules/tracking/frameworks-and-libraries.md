@@ -6,6 +6,15 @@ The tracking module logs experiment metadata, metrics, and artifacts to external
 
 RAITAP writes outputs to the local directory first, then forwards them to the tracking backend. The local output directory remains intact regardless of the tracking configuration.
 
+## Stopping detached tracker processes
+
+Some trackers start background servers or UIs that outlive a single run. Shut
+them down with:
+
+```bash
+uv run raitap tracking stop
+```
+
 ## MLflow
 
 ### Docs
