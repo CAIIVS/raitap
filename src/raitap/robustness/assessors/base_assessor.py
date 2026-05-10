@@ -41,12 +41,14 @@ from ..results import (
     RobustnessResult,
     encode_verdicts,
 )
-from ..semantics import AssessorSemanticsHints, assessor_semantics  # noqa: F401
+from ..semantics import assessor_semantics
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from torch import nn
+
+    from ..semantics import AssessorSemanticsHints  # noqa: F401  — string forward-ref only
 
 _VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
 

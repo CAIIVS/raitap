@@ -13,7 +13,6 @@ Only static-shape MLPs are in scope. Export failures propagate as
 
 from __future__ import annotations
 
-import contextlib
 import logging
 import shutil
 import tempfile
@@ -293,10 +292,11 @@ def _export_torch_to_onnx(model: nn.Module, sample: torch.Tensor) -> Path:
     """
     target_dir = Path(tempfile.mkdtemp(prefix="raitap-marabou-"))
     target_path = target_dir / "model.onnx"
-    eval_model = model
-    with contextlib.suppress(AttributeError):
-        # Bare callable (e.g. mock) lacks ``.eval()`` — ignore.
+    try:
+        # Bare callable (e.g. mock) lacks ``.eval()`` — fall back to model.
         eval_model = model.eval()  # type: ignore[assignment]
+    except AttributeError:
+        eval_model = model
     try:
         torch.onnx.export(  # type: ignore[attr-defined]
             eval_model,
