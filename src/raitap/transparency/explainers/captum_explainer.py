@@ -8,7 +8,6 @@ from raitap import raitap_log
 from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
 from raitap.transparency.contracts import ExplanationPayloadKind
 from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
-from raitap.utils.warnings import suppress_warning
 
 from .base_explainer import AttributionOnlyExplainer
 

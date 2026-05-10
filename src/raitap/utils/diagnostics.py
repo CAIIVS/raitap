@@ -44,6 +44,7 @@ _THIRD_PARTY_LIB_PROVIDERS: Final[tuple[str, ...]] = (
 
 _DOCS_BASE: Final[str] = "https://caiivs.github.io/raitap"
 
+
 class Subsystem(StrEnum):
     """Type-safe enum of legitimate raitap subsystem directory names.
 
@@ -87,6 +88,7 @@ class Diagnostic:
 
     ``subsystem`` and ``third_party_lib`` are ``None`` when not classifiable.
     """
+
     subsystem: Subsystem | None
     file: str
     line: int

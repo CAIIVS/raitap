@@ -168,7 +168,7 @@ def _validate_raitap_keys(raitap_cfg: dict[str, Any], *, explainer_name: str) ->
 
     sorted_unknown = ", ".join(sorted(unknown))
     sorted_valid = ", ".join(sorted(_RAITAP_KEYS))
-    
+
     raitap_log.warn(
         f"Unknown transparency.raitap keys for explainer {explainer_name!r}: "
         f"{sorted_unknown}. Supported RAITAP keys: {sorted_valid}.",
