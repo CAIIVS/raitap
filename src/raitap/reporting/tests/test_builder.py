@@ -1087,7 +1087,8 @@ def test_build_report_compact_robustness_renders_selected_samples_per_assessor(
 
     def _record_stripped_titles(figure: Figure) -> None:
         original_strip(figure)
-        suptitle = figure._suptitle.get_text() if figure._suptitle is not None else ""
+        suptitle_artist = getattr(figure, "_suptitle", None)
+        suptitle = suptitle_artist.get_text() if suptitle_artist is not None else ""
         stripped_figures.append((suptitle, tuple(ax.get_title() for ax in figure.axes)))
 
     monkeypatch.setattr(reporting_builder, "_strip_report_figure_titles", _record_stripped_titles)
