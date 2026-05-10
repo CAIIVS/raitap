@@ -9,7 +9,7 @@ import numpy as np
 import torch
 
 from ...contracts import MethodKind
-from ..base_visualiser import BaseRobustnessVisualiser
+from ..base_visualiser import BaseRobustnessVisualiser, _RobustnessVisualisationSkipped
 from .image_pair_visualiser import _require_image_modality, _signed_perturbation_heatmap
 
 if TYPE_CHECKING:
@@ -35,6 +35,7 @@ class PerturbationHeatmapVisualiser(BaseRobustnessVisualiser):
     supported_method_kinds: ClassVar[frozenset[MethodKind]] = frozenset(
         {MethodKind.EMPIRICAL_ATTACK}
     )
+    embeds_perturbation_map: ClassVar[bool] = True
 
     def __init__(
         self,
@@ -59,7 +60,13 @@ class PerturbationHeatmapVisualiser(BaseRobustnessVisualiser):
         context: RobustnessVisualisationContext,
         **kwargs: Any,
     ) -> Figure:
+        kwargs.pop("include_clean_input", None)
+        include_perturbation_map = bool(kwargs.pop("include_perturbation_map", True))
         del kwargs
+        if not include_perturbation_map:
+            raise _RobustnessVisualisationSkipped(
+                "PerturbationHeatmapVisualiser was asked to omit its perturbation map."
+            )
         if result.perturbed_inputs is None:
             raise ValueError(
                 "PerturbationHeatmapVisualiser requires perturbed_inputs on the result."

@@ -5,10 +5,12 @@
 ### Features
 
 * **reporting:** render compact local explanation sections with one sample thumbnail and attribution-only explainer panels when supported
+* **reporting:** render compact empirical robustness panels without duplicated clean-input and perturbation-map facets
 
 ### Documentation
 
 * **transparency:** document the original-input visualiser contract and compact local report toggle
+* **robustness:** document empirical visualiser facet hints and the compact robustness report toggle
 
 ## [0.4.2](https://github.com/CAIIVS/raitap/compare/v0.4.1...v0.4.2) (2026-05-06)
 

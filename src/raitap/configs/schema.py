@@ -143,6 +143,7 @@ class ReportingConfig:
     include_metadata: bool = True
     multirun_report: bool = True
     show_original_per_explainer: bool = False
+    show_redundant_robustness_panels: bool = False
     formatting: ReportingFormattingConfig = field(default_factory=ReportingFormattingConfig)
 
 

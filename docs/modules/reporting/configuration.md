@@ -25,6 +25,14 @@
   thumbnail per selected sample and suppresses repeated originals when a
   visualiser supports attribution-only rendering.
 
+:option: show_redundant_robustness_panels
+:allowed: boolean
+:default: false
+:description: Whether empirical robustness report figures should keep duplicate
+  clean-input and perturbation-map panels across visualisers. The default
+  compact robustness layout keeps one canonical owner per facet in the report
+  only; persisted robustness PNGs stay self-contained.
+
 :option: include_config
 :allowed: boolean
 :default: true
@@ -72,8 +80,9 @@ reporting:
   filename: "experiment_report.pdf"
   multirun_report: true
   show_original_per_explainer: false
+  show_redundant_robustness_panels: false
   formatting:
     figures_max_pages: 10
 
-:cli: reporting=pdf reporting.filename="my_report.pdf" reporting.multirun_report=false reporting.show_original_per_explainer=true reporting.formatting.figures_max_pages=10
+:cli: reporting=pdf reporting.filename="my_report.pdf" reporting.multirun_report=false reporting.show_original_per_explainer=true reporting.show_redundant_robustness_panels=true reporting.formatting.figures_max_pages=10
 ```

@@ -14,15 +14,30 @@ if TYPE_CHECKING:
     from ..results import RobustnessResult
 
 
+class _RobustnessVisualisationSkipped(Exception):  # noqa: N818
+    """Internal signal for report-only renders that intentionally produce no figure."""
+
+
 class BaseRobustnessVisualiser(ABC):
     """All robustness visualisers extend this class.
 
     Subclasses declare which method kinds they support via the
     ``supported_method_kinds`` ClassVar; the factory enforces compatibility at
     YAML parse time so configuration errors fail fast.
+
+    Empirical visualisers may also declare class-level facet hints used by
+    compact report rendering. Setting ``embeds_clean_input`` or
+    ``embeds_perturbation_map`` to ``True`` means the visualiser must accept the
+    matching runtime kwarg (``include_clean_input`` /
+    ``include_perturbation_map``) and hide that facet when it is ``False``.
+    The flags default to ``False``, so formal verifier visualisers are
+    unaffected unless they explicitly opt into the contract.
     """
 
     supported_method_kinds: ClassVar[frozenset[MethodKind]] = frozenset()
+    # Class-level because embedding robustness facets is a visual layout property.
+    embeds_clean_input: ClassVar[bool] = False
+    embeds_perturbation_map: ClassVar[bool] = False
 
     def validate_result(self, result: RobustnessResult) -> None:
         if not self.supported_method_kinds:

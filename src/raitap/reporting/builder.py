@@ -4,7 +4,7 @@ import logging
 import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
 
@@ -20,6 +20,7 @@ from .sections import ReportGroup, ReportSection
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
     from raitap.robustness.results import RobustnessVisualisationResult
+    from raitap.robustness.visualisers.base_visualiser import BaseRobustnessVisualiser
     from raitap.transparency.results import VisualisationResult
 
 logger = logging.getLogger(__name__)
@@ -73,7 +74,17 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
     if local_section is not None:
         sections.append(local_section)
 
-    robustness_section = _build_robustness_section(outputs, assets_dir=assets_dir)
+    robustness_section = _build_robustness_section(
+        outputs,
+        assets_dir=assets_dir,
+        show_redundant_robustness_panels=bool(
+            getattr(
+                getattr(config, "reporting", None),
+                "show_redundant_robustness_panels",
+                False,
+            )
+        ),
+    )
     if robustness_section is not None:
         sections.append(robustness_section)
 
@@ -196,14 +207,28 @@ def _build_metrics_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSe
     return ReportSection.from_groups("Metrics", [group], metadata={"section_role": "metrics"})
 
 
-def _build_robustness_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSection | None:
+def _build_robustness_section(
+    outputs: RunOutputs,
+    *,
+    assets_dir: Path,
+    show_redundant_robustness_panels: bool = False,
+) -> ReportSection | None:
+    """Build robustness report groups.
+
+    Compact mode re-renders report-only variants through
+    ``RobustnessResult.render_visualisation_for_report`` so duplicate empirical
+    facets can be suppressed without changing persisted robustness artifacts or
+    ``metadata.json``. This adds extra report-only renders only where compact
+    layout kwargs are needed; legacy mode reuses pre-rendered artifacts.
+    """
     if not outputs.robustness_results:
         return None
 
     visualisations_by_assessor: dict[str, list[RobustnessVisualisationResult]] = {}
-    for visualisation in outputs.robustness_visualisations:
-        assessor_name = visualisation.result.assessor_name or visualisation.result.run_dir.name
-        visualisations_by_assessor.setdefault(assessor_name, []).append(visualisation)
+    if show_redundant_robustness_panels:
+        for visualisation in outputs.robustness_visualisations:
+            assessor_name = visualisation.result.assessor_name or visualisation.result.run_dir.name
+            visualisations_by_assessor.setdefault(assessor_name, []).append(visualisation)
 
     groups: list[ReportGroup] = []
     for index, result in enumerate(outputs.robustness_results):
@@ -228,20 +253,21 @@ def _build_robustness_section(outputs: RunOutputs, *, assets_dir: Path) -> Repor
         for metric_name, metric_value in result.metrics.as_dict().items():
             table_rows.append((metric_name, f"{metric_value:.4f}"))
 
-        staged_images: list[Path] = []
-        for vis_index, visualisation in enumerate(
-            visualisations_by_assessor.get(assessor_name, [])
-        ):
-            staged_images.append(
-                _copy_asset(
-                    visualisation.output_path,
-                    assets_dir=assets_dir,
-                    target_name=(
-                        f"robustness_{index}_{_safe_name(assessor_name)}_"
-                        f"{vis_index}{visualisation.output_path.suffix}"
-                    ),
-                )
+        staged_images = (
+            _legacy_robustness_images(
+                visualisations_by_assessor.get(assessor_name, []),
+                assets_dir=assets_dir,
+                result_index=index,
+                assessor_name=assessor_name,
             )
+            if show_redundant_robustness_panels
+            else _compact_robustness_images(
+                result,
+                assets_dir=assets_dir,
+                result_index=index,
+                assessor_name=assessor_name,
+            )
+        )
 
         groups.append(
             ReportGroup(
@@ -262,6 +288,125 @@ def _build_robustness_section(outputs: RunOutputs, *, assets_dir: Path) -> Repor
         groups,
         metadata={"section_role": "robustness"},
     )
+
+
+def _legacy_robustness_images(
+    visualisations: list[RobustnessVisualisationResult],
+    *,
+    assets_dir: Path,
+    result_index: int,
+    assessor_name: str,
+) -> list[Path]:
+    staged_images: list[Path] = []
+    for visualisation in visualisations:
+        staged_images.append(
+            _copy_asset(
+                visualisation.output_path,
+                assets_dir=assets_dir,
+                target_name=(
+                    f"robustness_{result_index}_{_safe_name(assessor_name)}_"
+                    f"{visualisation.visualiser_name}{visualisation.output_path.suffix}"
+                ),
+            )
+        )
+    return staged_images
+
+
+def _compact_robustness_images(
+    result: Any,
+    *,
+    assets_dir: Path,
+    result_index: int,
+    assessor_name: str,
+) -> list[Path]:
+    owners = _canonical_facet_owners(result.visualisers)
+    staged_images: list[Path] = []
+    for visualiser_index, configured in enumerate(result.visualisers):
+        render_kwargs = _render_kwargs_for_robustness_visualiser(
+            configured.visualiser,
+            owners=owners,
+            visualiser_index=visualiser_index,
+            omit_redundant=True,
+        )
+        visualisation = result.render_visualisation_for_report(
+            visualiser_index,
+            **render_kwargs,
+        )
+        if visualisation is None:
+            continue
+        target = assets_dir / (
+            f"robustness_{result_index}_{_safe_name(assessor_name)}_"
+            f"{visualisation.visualiser_name}.png"
+        )
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            visualisation.figure.savefig(target, bbox_inches="tight", dpi=150)
+        finally:
+            plt.close(visualisation.figure)
+        staged_images.append(target)
+    return staged_images
+
+
+def _canonical_facet_owners(visualisers: Any) -> dict[str, int]:
+    """Choose facet owners within one robustness result's visualiser list."""
+    configured_visualisers = list(visualisers)
+    owners: dict[str, int] = {}
+    for facet in ("clean_input", "perturbation_map"):
+        first_embedder: int | None = None
+        for index, configured in enumerate(configured_visualisers):
+            facets = _declared_robustness_facets(configured.visualiser)
+            if facet not in facets:
+                continue
+            if first_embedder is None:
+                first_embedder = index
+            if len(facets) == 1:
+                owners[facet] = index
+                break
+        else:
+            if first_embedder is not None:
+                owners[facet] = first_embedder
+    return owners
+
+
+def _declared_robustness_facets(visualiser: BaseRobustnessVisualiser) -> tuple[str, ...]:
+    facets: list[str] = []
+    cls = type(visualiser)
+    if getattr(cls, "embeds_clean_input", False):
+        facets.append("clean_input")
+    if getattr(cls, "embeds_perturbation_map", False):
+        facets.append("perturbation_map")
+    return tuple(facets)
+
+
+def _render_kwargs_for_robustness_visualiser(
+    visualiser: BaseRobustnessVisualiser,
+    *,
+    owners: dict[str, int],
+    visualiser_index: int,
+    omit_redundant: bool,
+) -> dict[str, object]:
+    if not omit_redundant:
+        return {}
+    kwargs: dict[str, object] = {}
+    cls = type(visualiser)
+    if (
+        getattr(cls, "embeds_clean_input", False)
+        and owners.get("clean_input", visualiser_index) != visualiser_index
+    ):
+        kwargs["include_clean_input"] = False
+    if (
+        getattr(cls, "embeds_perturbation_map", False)
+        and owners.get("perturbation_map", visualiser_index) != visualiser_index
+    ):
+        kwargs["include_perturbation_map"] = False
+    if (
+        kwargs.get("include_clean_input") is False
+        and kwargs.get("include_perturbation_map") is False
+    ):
+        raise AssertionError(
+            "Refusing to ask a robustness visualiser to omit both clean and perturbation panels."
+        )
+    return kwargs
 
 
 def _build_global_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSection | None:

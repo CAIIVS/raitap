@@ -45,6 +45,14 @@ they receive. In short:
 | `ImagePairVisualiser` | `EMPIRICAL_ATTACK` | Renders N rows by 3 columns: clean, perturbed, signed perturbation heatmap. Rejects tabular / time-series / token results. |
 | `PerturbationHeatmapVisualiser` | `EMPIRICAL_ATTACK` | Per-sample diverging heatmap of the perturbation. Default channel reduction is `signed_dominant` (preserves sign without cancelling opposing channels). Other modes: `mean`, `mean_abs`, `max_abs`. |
 
+Empirical image visualisers declare whether they embed a clean-input panel or a
+perturbation-map panel by default. Compact reporting uses those declarations to
+choose one canonical owner per facet and ask non-owners to omit repeated panels.
+The runtime kwargs are `include_clean_input` and `include_perturbation_map`.
+They affect report-only renders; persisted visualiser PNGs remain self-contained.
+Verifier visualisers keep the default facet flags (`False`) and do not need to
+accept these kwargs unless they explicitly opt into the contract.
+
 Contributor-facing details about the assessor / visualiser internals are in
 {doc}`../../contributor/robustness`.
 

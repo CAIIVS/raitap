@@ -89,6 +89,14 @@ Report-local asset names for compact local explanations use
 `sample_<index>_<explainer>_<visualiser>.png`. The manifest schema is unchanged,
 but tools that match asset filenames should account for this naming pattern.
 
+Robustness report figures use `robustness_<index>_<assessor>_<visualiser>.png`.
+By default, empirical robustness reports suppress duplicated clean-input and
+perturbation-map panels across configured visualisers. This compact rendering is
+report-only: the `robustness/<assessor>/` artifacts and their `metadata.json`
+visualiser references still point at the canonical standalone PNGs. Set
+`reporting.show_redundant_robustness_panels=true` to reuse the standalone
+robustness figures in the report.
+
 For labeled classification outputs, RAITAP selects local detail samples in this
 priority order:
 

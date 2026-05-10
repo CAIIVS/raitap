@@ -26,6 +26,8 @@ class ImagePairVisualiser(BaseRobustnessVisualiser):
     supported_method_kinds: ClassVar[frozenset[MethodKind]] = frozenset(
         {MethodKind.EMPIRICAL_ATTACK}
     )
+    embeds_clean_input: ClassVar[bool] = True
+    embeds_perturbation_map: ClassVar[bool] = True
 
     def __init__(
         self,
@@ -45,6 +47,8 @@ class ImagePairVisualiser(BaseRobustnessVisualiser):
         context: RobustnessVisualisationContext,
         **kwargs: Any,
     ) -> Figure:
+        include_clean_input = bool(kwargs.pop("include_clean_input", True))
+        include_perturbation_map = bool(kwargs.pop("include_perturbation_map", True))
         del kwargs
         if result.perturbed_inputs is None:
             raise ValueError(
@@ -54,7 +58,13 @@ class ImagePairVisualiser(BaseRobustnessVisualiser):
         clean = _to_image_batch(result.clean_inputs)
         perturbed = _to_image_batch(result.perturbed_inputs)
         n = min(int(clean.shape[0]), self.max_samples)
-        fig, axes = plt.subplots(n, 3, figsize=(9, 3 * n), squeeze=False)
+        columns = []
+        if include_clean_input:
+            columns.append("clean")
+        columns.append("perturbed")
+        if include_perturbation_map:
+            columns.append("perturbation")
+        fig, axes = plt.subplots(n, len(columns), figsize=(3 * len(columns), 3 * n), squeeze=False)
 
         scale = self.diff_scale
         diff_extreme = float(
@@ -76,13 +86,6 @@ class ImagePairVisualiser(BaseRobustnessVisualiser):
             # reduce to a 2D scalar map so the diverging cmap actually applies.
             diff = _signed_perturbation_heatmap(perturbed[row] - clean[row])
 
-            axes[row][0].imshow(clean_image, cmap="gray" if clean_image.ndim == 2 else None)
-            axes[row][0].set_axis_off()
-            axes[row][1].imshow(perturbed_image, cmap="gray" if perturbed_image.ndim == 2 else None)
-            axes[row][1].set_axis_off()
-            axes[row][2].imshow(diff, cmap=self.cmap, vmin=-diff_extreme, vmax=diff_extreme)
-            axes[row][2].set_axis_off()
-
             target_label = int(result.targets[row].item())
             clean_pred = int(result.clean_predictions[row].item())
             adv_pred = (
@@ -94,10 +97,23 @@ class ImagePairVisualiser(BaseRobustnessVisualiser):
                 sample_names[row] if context.show_sample_names and row < len(sample_names) else ""
             )
 
-            axes[row][0].set_title(_format_title("clean", clean_pred, target_label, sample_title))
-            axes[row][1].set_title(_format_title("perturbed", adv_pred, target_label, sample_title))
-            axes[row][2].set_title("perturbation")
-
+            for col, column in enumerate(columns):
+                axis = axes[row][col]
+                if column == "clean":
+                    axis.imshow(clean_image, cmap="gray" if clean_image.ndim == 2 else None)
+                    axis.set_title(_format_title("clean", clean_pred, target_label, sample_title))
+                elif column == "perturbed":
+                    axis.imshow(
+                        perturbed_image,
+                        cmap="gray" if perturbed_image.ndim == 2 else None,
+                    )
+                    axis.set_title(
+                        _format_title("perturbed", adv_pred, target_label, sample_title)
+                    )
+                else:
+                    axis.imshow(diff, cmap=self.cmap, vmin=-diff_extreme, vmax=diff_extreme)
+                    axis.set_title("perturbation")
+                axis.set_axis_off()
         fig.suptitle(f"{context.algorithm} — clean vs perturbed", fontsize=12)
         fig.tight_layout()
         return fig

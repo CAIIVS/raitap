@@ -22,6 +22,7 @@ from .contracts import (
     RobustnessVisualisationContext,
     decode_verdict,
 )
+from .visualisers.base_visualiser import _RobustnessVisualisationSkipped
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -298,6 +299,54 @@ class RobustnessResult(Trackable):
             self._write_metadata()
 
         return results
+
+    def render_visualisation_for_report(
+        self,
+        visualiser_index: int,
+        **render_kwargs: Any,
+    ) -> RobustnessVisualisationResult | None:
+        """Render one visualiser for report staging without persistence side effects.
+
+        Unlike :meth:`visualise`, this hook never writes PNGs, updates
+        ``metadata.json``, mutates ``visualiser_targets``, or touches ``run_dir``.
+        It catches the private report-only skip signal; the persistence path
+        intentionally does not catch that exception.
+        """
+        configured = self.visualisers[visualiser_index]
+        vis = configured.visualiser
+        merged_call = {**configured.call_kwargs, **render_kwargs}
+        show_sample_names = bool(
+            merged_call.pop("show_sample_names", self.kwargs.get("show_sample_names", False))
+        )
+        sample_names_value = merged_call.pop("sample_names", self.kwargs.get("sample_names"))
+        sample_names = _normalise_sample_names(sample_names_value)
+
+        limit = int(self.clean_inputs.shape[0])
+        sample_names = sample_names[:limit]
+
+        context = RobustnessVisualisationContext(
+            algorithm=self.algorithm,
+            method_kind=self.method_kind,
+            sample_names=sample_names,
+            show_sample_names=show_sample_names,
+        )
+
+        vis.validate_result(self)
+        try:
+            figure = vis.visualise(self, context=context, **merged_call)
+        except _RobustnessVisualisationSkipped:
+            return None
+
+        cls = type(vis)
+        visualiser_name = f"{cls.__name__}_{visualiser_index}"
+        visualiser_target = f"{cls.__module__}.{visualiser_name}"
+        return RobustnessVisualisationResult(
+            result=self,
+            figure=figure,
+            visualiser_name=visualiser_name,
+            visualiser_target=visualiser_target,
+            output_path=Path(visualiser_name).with_suffix(".png"),
+        )
 
     def log(
         self,

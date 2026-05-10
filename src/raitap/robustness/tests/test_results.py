@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import TYPE_CHECKING
 
+import matplotlib.pyplot as plt
+import pytest
 import torch
 
 from raitap.robustness.contracts import (
@@ -12,16 +15,24 @@ from raitap.robustness.contracts import (
     PerturbationNorm,
     RobustnessSemantics,
     RobustnessVerdict,
+    RobustnessVisualisationContext,
     ThreatModel,
 )
 from raitap.robustness.results import (
+    ConfiguredRobustnessVisualiser,
     RobustnessMetrics,
     RobustnessResult,
     encode_verdicts,
 )
+from raitap.robustness.visualisers.base_visualiser import (
+    BaseRobustnessVisualiser,
+    _RobustnessVisualisationSkipped,
+)
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    from typing import Any
+
+    from matplotlib.figure import Figure
 
 
 def _semantics_for_test() -> RobustnessSemantics:
@@ -87,3 +98,115 @@ def test_robustness_result_writes_pt_and_metadata(tmp_path: Path) -> None:
     assert metadata["semantics"]["budget"]["norm"] == "Linf"
     assert metadata["metrics"]["attack_success_rate"] == 0.75
     assert metadata["verdict_codes"]["attacked"] == 1
+
+
+def _result_for_visualiser_tests(tmp_path: Path) -> RobustnessResult:
+    inputs = torch.randn(2, 3, 4, 4)
+    return RobustnessResult(
+        clean_inputs=inputs,
+        targets=torch.tensor([0, 1]),
+        clean_predictions=torch.tensor([0, 1]),
+        verdicts=encode_verdicts([RobustnessVerdict.ATTACKED, RobustnessVerdict.NOT_ATTACKED]),
+        metrics=_empirical_metrics(),
+        run_dir=tmp_path / "robustness/pgd",
+        experiment_name="unit-test",
+        assessor_target="raitap.robustness.assessors.TorchattacksAssessor",
+        algorithm="PGD",
+        assessor_name="pgd",
+        perturbed_inputs=inputs + 0.01,
+        perturbed_predictions=torch.tensor([1, 1]),
+        perturbation_distance=torch.tensor([0.02, 0.02]),
+        semantics=_semantics_for_test(),
+    )
+
+
+class _RecordingRobustnessVisualiser(BaseRobustnessVisualiser):
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    def visualise(
+        self,
+        result: RobustnessResult,
+        *,
+        context: RobustnessVisualisationContext,
+        **kwargs: Any,
+    ) -> Figure:
+        del result, context
+        self.calls.append(dict(kwargs))
+        fig, _ax = plt.subplots(figsize=(1, 1))
+        return fig
+
+
+class _SkippingRobustnessVisualiser(BaseRobustnessVisualiser):
+    def visualise(
+        self,
+        result: RobustnessResult,
+        *,
+        context: RobustnessVisualisationContext,
+        **kwargs: Any,
+    ) -> Figure:
+        del result, context, kwargs
+        raise _RobustnessVisualisationSkipped("skip this report-only render")
+
+
+def test_render_visualisation_for_report_targets_one_visualiser_and_forwards_kwargs(
+    tmp_path: Path,
+) -> None:
+    first = _RecordingRobustnessVisualiser()
+    second = _RecordingRobustnessVisualiser()
+    result = _result_for_visualiser_tests(tmp_path)
+    result.visualisers = [
+        ConfiguredRobustnessVisualiser(visualiser=first, call_kwargs={"alpha": 0.1}),
+        ConfiguredRobustnessVisualiser(visualiser=second, call_kwargs={"alpha": 0.2}),
+    ]
+
+    rendered = result.render_visualisation_for_report(
+        1,
+        alpha=0.9,
+        include_perturbation_map=False,
+    )
+
+    assert rendered is not None
+    assert rendered.visualiser_name == "_RecordingRobustnessVisualiser_1"
+    assert rendered.output_path == Path("_RecordingRobustnessVisualiser_1.png")
+    assert first.calls == []
+    assert second.calls == [{"alpha": 0.9, "include_perturbation_map": False}]
+    assert result.visualiser_targets == []
+    assert not result.run_dir.exists()
+    plt.close(rendered.figure)
+
+
+def test_render_visualisation_for_report_skip_has_no_side_effects(tmp_path: Path) -> None:
+    result = _result_for_visualiser_tests(tmp_path)
+    result.visualiser_targets.append("existing.Visualiser_0")
+    result.visualisers = [
+        ConfiguredRobustnessVisualiser(visualiser=_SkippingRobustnessVisualiser())
+    ]
+
+    rendered = result.render_visualisation_for_report(0)
+
+    assert rendered is None
+    assert result.visualiser_targets == ["existing.Visualiser_0"]
+    assert not result.run_dir.exists()
+
+
+def test_render_visualisation_for_report_out_of_range_raises_index_error(
+    tmp_path: Path,
+) -> None:
+    result = _result_for_visualiser_tests(tmp_path)
+
+    with pytest.raises(IndexError):
+        result.render_visualisation_for_report(0)
+
+
+def test_visualise_persists_pngs_and_does_not_swallow_skip_exception(tmp_path: Path) -> None:
+    result = _result_for_visualiser_tests(tmp_path)
+    result.visualisers = [
+        ConfiguredRobustnessVisualiser(visualiser=_SkippingRobustnessVisualiser())
+    ]
+
+    with pytest.raises(_RobustnessVisualisationSkipped):
+        result.visualise()
+
+    assert result.visualiser_targets == []
+    assert not any(result.run_dir.glob("*.png"))

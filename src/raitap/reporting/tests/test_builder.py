@@ -12,11 +12,37 @@ from omegaconf import OmegaConf
 
 from raitap.configs import set_output_root
 from raitap.configs.schema import AppConfig, ReportingConfig
-from raitap.reporting.builder import BuiltReport, _copy_asset, build_merged_report, build_report
+from raitap.reporting.builder import (
+    BuiltReport,
+    _canonical_facet_owners,
+    _copy_asset,
+    _render_kwargs_for_robustness_visualiser,
+    build_merged_report,
+    build_report,
+)
 from raitap.reporting.factory import create_report
 from raitap.reporting.hydra_callback import ReportingSweepCallback
 from raitap.reporting.manifest import ReportManifest
 from raitap.reporting.sections import ReportGroup, ReportSection
+from raitap.robustness.contracts import (
+    MethodKind,
+    Objective,
+    PerturbationBudget,
+    PerturbationNorm,
+    RobustnessSemantics,
+    RobustnessVerdict,
+    RobustnessVisualisationContext,
+    ThreatModel,
+)
+from raitap.robustness.results import (
+    ConfiguredRobustnessVisualiser,
+    RobustnessMetrics,
+    RobustnessResult,
+    RobustnessVisualisationResult,
+    encode_verdicts,
+)
+from raitap.robustness.visualisers import ImagePairVisualiser, PerturbationHeatmapVisualiser
+from raitap.robustness.visualisers.base_visualiser import BaseRobustnessVisualiser
 from raitap.run.outputs import PredictionSummary, RunOutputs
 from raitap.transparency.contracts import (
     ExplanationOutputSpace,
@@ -82,6 +108,41 @@ class _MaskedLikeVisualiser(_LocalImageVisualiser):
         return False
 
 
+class _RobustnessRecordingVisualiser(BaseRobustnessVisualiser):
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    def visualise(
+        self,
+        result: RobustnessResult,
+        *,
+        context: RobustnessVisualisationContext,
+        **kwargs: Any,
+    ) -> Figure:
+        del result, context
+        self.calls.append(dict(kwargs))
+        fig, _ax = plt.subplots(figsize=(1, 1))
+        return fig
+
+
+class _PerturbationRecordingVisualiser(_RobustnessRecordingVisualiser):
+    embeds_perturbation_map = True
+
+
+class _StrictPerturbationVisualiser(BaseRobustnessVisualiser):
+    embeds_perturbation_map = True
+
+    def visualise(  # type: ignore[reportIncompatibleMethodOverride]
+        self,
+        result: RobustnessResult,
+        *,
+        context: RobustnessVisualisationContext,
+    ) -> Figure:
+        del result, context
+        fig, _ax = plt.subplots(figsize=(1, 1))
+        return fig
+
+
 def _local_image_semantics(shape: tuple[int, ...]) -> ExplanationSemantics:
     return ExplanationSemantics(
         scope=ExplanationScope.LOCAL,
@@ -123,6 +184,52 @@ def _local_tabular_semantics(shape: tuple[int, ...]) -> ExplanationSemantics:
             shape=shape,
             layout="(B,F)",
         ),
+    )
+
+
+def _robustness_semantics() -> RobustnessSemantics:
+    return RobustnessSemantics(
+        method_kind=MethodKind.EMPIRICAL_ATTACK,
+        threat_model=ThreatModel.WHITE_BOX,
+        objective=Objective.UNTARGETED,
+        families=frozenset({"gradient_sign"}),
+        budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.03),
+        input_spec=InputSpec(
+            kind="image",
+            shape=(1, 3, 4, 4),
+            layout="NCHW",
+            metadata={"kind": "image", "layout": "NCHW"},
+        ),
+    )
+
+
+def _make_robustness_result(
+    tmp_path: Path,
+    *,
+    assessor_name: str = "fgsm",
+    visualisers: list[ConfiguredRobustnessVisualiser] | None = None,
+) -> RobustnessResult:
+    clean = torch.rand(1, 3, 4, 4)
+    return RobustnessResult(
+        clean_inputs=clean,
+        targets=torch.tensor([0]),
+        clean_predictions=torch.tensor([0]),
+        verdicts=encode_verdicts([RobustnessVerdict.ATTACKED]),
+        metrics=RobustnessMetrics(
+            clean_accuracy=1.0,
+            adversarial_accuracy=0.0,
+            attack_success_rate=1.0,
+        ),
+        run_dir=tmp_path / "robustness" / assessor_name,
+        experiment_name="robustness",
+        assessor_target="t",
+        algorithm="FGSM",
+        assessor_name=assessor_name,
+        perturbed_inputs=(clean + 0.03).clamp(0.0, 1.0),
+        perturbed_predictions=torch.tensor([1]),
+        perturbation_distance=torch.tensor([0.03]),
+        semantics=_robustness_semantics(),
+        visualisers=[] if visualisers is None else visualisers,
     )
 
 
@@ -651,6 +758,173 @@ def test_build_report_skips_local_groups_when_no_local_visualisations(tmp_path: 
     assert report.sections == ()
 
 
+def test_canonical_facet_owners_prefers_dedicated_visualiser_in_any_order() -> None:
+    pair = ConfiguredRobustnessVisualiser(visualiser=ImagePairVisualiser(max_samples=1))
+    heatmap = ConfiguredRobustnessVisualiser(
+        visualiser=PerturbationHeatmapVisualiser(max_samples=1)
+    )
+
+    assert _canonical_facet_owners([pair, heatmap])["perturbation_map"] == 1
+    assert _canonical_facet_owners([heatmap, pair])["perturbation_map"] == 0
+    assert _canonical_facet_owners([pair, heatmap])["clean_input"] == 0
+
+
+def test_robustness_render_kwargs_raise_if_both_facets_would_be_omitted() -> None:
+    visualiser = ImagePairVisualiser(max_samples=1)
+
+    with pytest.raises(AssertionError, match="omit both"):
+        _render_kwargs_for_robustness_visualiser(
+            visualiser,
+            owners={"clean_input": 1, "perturbation_map": 2},
+            visualiser_index=0,
+            omit_redundant=True,
+        )
+
+
+def test_robustness_no_embedder_receives_no_compact_kwargs() -> None:
+    visualiser = _RobustnessRecordingVisualiser()
+    owners = _canonical_facet_owners(
+        [ConfiguredRobustnessVisualiser(visualiser=visualiser)]
+    )
+
+    assert owners == {}
+    assert (
+        _render_kwargs_for_robustness_visualiser(
+            visualiser,
+            owners=owners,
+            visualiser_index=0,
+            omit_redundant=True,
+        )
+        == {}
+    )
+
+
+def test_build_report_compact_robustness_omits_non_owner_perturbation_panel(
+    tmp_path: Path,
+) -> None:
+    config = AppConfig(experiment_name="robustness_compact")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    result = _make_robustness_result(
+        tmp_path,
+        visualisers=[
+            ConfiguredRobustnessVisualiser(visualiser=ImagePairVisualiser(max_samples=1)),
+            ConfiguredRobustnessVisualiser(
+                visualiser=PerturbationHeatmapVisualiser(max_samples=1)
+            ),
+        ],
+    )
+    outputs = RunOutputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.zeros(1, 2),
+        robustness_results=[result],
+    )
+
+    report = build_report(config, outputs)
+
+    robustness_group = report.sections[0].groups[0]
+    assert robustness_group.metadata["role"] == "robustness"
+    assert len(robustness_group.images) == 2
+    pair_image = plt.imread(robustness_group.images[0])
+    heatmap_image = plt.imread(robustness_group.images[1])
+    width_ratio = pair_image.shape[1] / heatmap_image.shape[1]
+    assert 1.2 < width_ratio < 2.5
+    assert dict(robustness_group.table_rows)["attack_success_rate"] == "1.0000"
+    assert robustness_group.images[0].name.startswith("robustness_0_fgsm_ImagePairVisualiser_0")
+
+
+def test_build_report_robustness_single_pair_keeps_all_panels(tmp_path: Path) -> None:
+    config = AppConfig(experiment_name="robustness_single_pair")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    result = _make_robustness_result(
+        tmp_path,
+        visualisers=[
+            ConfiguredRobustnessVisualiser(visualiser=ImagePairVisualiser(max_samples=1))
+        ],
+    )
+    outputs = RunOutputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.zeros(1, 2),
+        robustness_results=[result],
+    )
+
+    report = build_report(config, outputs)
+
+    assert len(report.sections[0].groups[0].images) == 1
+
+
+def test_build_report_legacy_robustness_reuses_existing_visualisations_without_kwargs(
+    tmp_path: Path,
+) -> None:
+    config = AppConfig(experiment_name="robustness_legacy")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(
+        _target_="PDFReporter",
+        filename="report.pdf",
+        show_redundant_robustness_panels=True,
+    )
+
+    recording = _PerturbationRecordingVisualiser()
+    result = _make_robustness_result(
+        tmp_path,
+        visualisers=[ConfiguredRobustnessVisualiser(visualiser=recording)],
+    )
+    existing_image = _write_test_image(tmp_path / "robustness_existing.png")
+    existing_visualisation = RobustnessVisualisationResult(
+        result=result,
+        figure=plt.figure(),
+        visualiser_name="_RobustnessRecordingVisualiser_0",
+        visualiser_target="test._RobustnessRecordingVisualiser_0",
+        output_path=existing_image,
+    )
+    outputs = RunOutputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.zeros(1, 2),
+        robustness_results=[result],
+        robustness_visualisations=[existing_visualisation],
+    )
+
+    report = build_report(config, outputs)
+
+    assert len(report.sections[0].groups[0].images) == 1
+    assert recording.calls == []
+
+
+def test_build_report_robustness_declared_facet_without_kwarg_support_surfaces_error(
+    tmp_path: Path,
+) -> None:
+    config = AppConfig(experiment_name="robustness_contract_error")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    result = _make_robustness_result(
+        tmp_path,
+        visualisers=[
+            ConfiguredRobustnessVisualiser(visualiser=PerturbationHeatmapVisualiser(max_samples=1)),
+            ConfiguredRobustnessVisualiser(visualiser=_StrictPerturbationVisualiser()),
+        ],
+    )
+    outputs = RunOutputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.zeros(1, 2),
+        robustness_results=[result],
+    )
+
+    with pytest.raises(TypeError, match="include_perturbation_map"):
+        build_report(config, outputs)
+
+
 def test_report_manifest_round_trip_preserves_relative_images(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="demo")
     set_output_root(config, tmp_path)
@@ -921,6 +1195,7 @@ def test_reporting_configs_compose_multirun_report_controls() -> None:
     assert pdf_cfg.reporting._target_ == "PDFReporter"
     assert pdf_cfg.reporting.multirun_report is True
     assert pdf_cfg.reporting.show_original_per_explainer is False
+    assert pdf_cfg.reporting.show_redundant_robustness_panels is False
     assert pdf_cfg.hydra.callbacks.reporting_sweep._target_.endswith("ReportingSweepCallback")
 
     opt_out_cfg = _compose_raitap_config(["reporting=pdf", "reporting.multirun_report=false"])
@@ -931,6 +1206,11 @@ def test_reporting_configs_compose_multirun_report_controls() -> None:
         ["reporting=pdf", "reporting.show_original_per_explainer=true"]
     )
     assert originals_cfg.reporting.show_original_per_explainer is True
+
+    redundant_robustness_cfg = _compose_raitap_config(
+        ["reporting=pdf", "reporting.show_redundant_robustness_panels=true"]
+    )
+    assert redundant_robustness_cfg.reporting.show_redundant_robustness_panels is True
 
 
 def test_reporting_sweep_callback_skips_when_multirun_report_disabled(
