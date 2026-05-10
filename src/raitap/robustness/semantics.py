@@ -277,15 +277,14 @@ def _warn_misplaced_budget_keys(
     other_label = "call_kwargs" if authoritative == "init_kwargs" else "init_kwargs"
     other_yaml = "call:" if other_label == "call_kwargs" else "constructor:"
     auth_yaml = "constructor:" if authoritative == "init_kwargs" else "call:"
-    import warnings
+    
+    from raitap import raitap_log
 
-    warnings.warn(
+    raitap_log.warn(
         f"Assessor {type(assessor).__name__} reads budget kwargs from "
         f"{authoritative} (YAML {auth_yaml}) but found {misplaced} under "
         f"{other_label} (YAML {other_yaml}). Those values are ignored by the "
         f"adapter; move them to {auth_yaml} for the configured budget to take effect.",
-        UserWarning,
-        stacklevel=2,
     )
 
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import math
 from datetime import datetime
 from pathlib import Path
@@ -14,11 +13,10 @@ if TYPE_CHECKING:
 
     from .sections import ReportGroup, ReportSection
 
+from raitap import raitap_log
 from raitap.configs import resolve_run_dir
 
 from .base_reporter import BaseReporter
-
-logger = logging.getLogger(__name__)
 
 # A4 default in borb (points). SingleColumnLayout uses ~10% side margins.
 _A4_WIDTH_PT = 595
@@ -322,8 +320,8 @@ class PDFReporter(BaseReporter):
                             image_path, max_w, max_h, reporting=reporting
                         )
                         layout.append_layout_element(b.Image(pil_image, size=display_pt))
-                    except Exception as e:
-                        logger.warning("Failed to add image %s: %s", image_path, e)
+                    except Exception:
+                        raitap_log.exception("Failed to add image %s", image_path)
                         layout.append_layout_element(
                             b.Paragraph(_pdf_display_text(f"(Failed to load: {image_path.name})"))
                         )

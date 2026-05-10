@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from raitap.utils.warnings import raitap_warn
+from raitap import raitap_log
 
 if TYPE_CHECKING:
     import torch
@@ -33,17 +33,15 @@ def resolve_metric_targets(
 ) -> torch.Tensor:
     """Use ground truth labels when available, else warn and fall back to predictions."""
     if labels is None:
-        raitap_warn(
+        raitap_log.warn(
             "No ground-truth labels provided; falling back to predictions as metric targets.",
-            subsystem="metrics",
         )
         return predictions
 
     if labels.shape[0] != predictions.shape[0]:
-        raitap_warn(
+        raitap_log.warn(
             "Ground-truth labels do not match prediction count; "
             "falling back to predictions as metric targets.",
-            subsystem="metrics",
         )
         return predictions
 
