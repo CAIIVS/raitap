@@ -259,6 +259,7 @@ def _robustness_targets(
     if forward_output.ndim != 2 or forward_output.shape[1] < 2:
         return None
     predictions, _ = metrics_prediction_pair(forward_output)
+
     from raitap.utils.diagnostics import Subsystem
 
     raitap_log.warn(

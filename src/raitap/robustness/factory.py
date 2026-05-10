@@ -138,7 +138,6 @@ def _validate_raitap_keys(raitap_cfg: dict[str, Any], *, assessor_name: str) -> 
         return
     sorted_unknown = ", ".join(sorted(unknown))
     sorted_valid = ", ".join(sorted(_RAITAP_KEYS))
-
     raitap_log.warn(
         f"Unknown robustness.raitap keys for assessor {assessor_name!r}: "
         f"{sorted_unknown}. Supported RAITAP keys: {sorted_valid}.",
@@ -150,7 +149,6 @@ def _warn_on_misplaced_raitap_call_keys(call_cfg: dict[str, Any], *, assessor_na
     if not misplaced:
         return
     keys = ", ".join(misplaced)
-
     raitap_log.warn(
         f"Assessor {assessor_name!r} has RAITAP-owned keys under 'call:': {keys}. "
         "These keys belong under 'raitap:' while 'call:' is intended for library "

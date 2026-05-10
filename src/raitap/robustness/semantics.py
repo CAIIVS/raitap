@@ -277,6 +277,7 @@ def _warn_misplaced_budget_keys(
     other_label = "call_kwargs" if authoritative == "init_kwargs" else "init_kwargs"
     other_yaml = "call:" if other_label == "call_kwargs" else "constructor:"
     auth_yaml = "constructor:" if authoritative == "init_kwargs" else "call:"
+
     from raitap import raitap_log
 
     raitap_log.warn(

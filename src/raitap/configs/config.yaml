@@ -3,7 +3,7 @@ defaults:
   - transparency: demo
   - robustness: demo
   - model: vit_b32
-  - data: isic2018
+  - data: imagenet_samples
   - metrics: classification
   - reporting: pdf
 

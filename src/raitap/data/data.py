@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -13,7 +14,7 @@ from raitap import raitap_log
 from raitap.data.utils import download_file
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 
-from .samples import SAMPLE_SOURCES, _load_sample
+from .samples import SAMPLE_SOURCES, _load_sample, resolve_sample_labels_path
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
@@ -22,6 +23,13 @@ if TYPE_CHECKING:
 _CACHE_DIR = Path.home() / ".cache" / "raitap"
 _IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 _TABULAR_EXTENSIONS = {".csv", ".tsv", ".parquet"}
+
+
+class SourceKind(StrEnum):
+    """What :func:`get_source_path` should resolve for a demo sample or parallel config field."""
+
+    DATA = "data"
+    LABELS = "labels"
 
 
 class Data(Trackable):
@@ -57,20 +65,14 @@ class Data(Trackable):
                 "Use a local path or a named sample set, e.g.: data=imagenet_samples"
             )
 
+        # Demo samples need their own loader: source images have inconsistent
+        # dimensions and ``_load_sample`` resizes them to a common shape so
+        # they can be stacked. The generic dir-loader expects pre-aligned
+        # shapes and would fail on raw demo images.
         if source in SAMPLE_SOURCES:
-            return _load_sample(source), None
+            return _load_sample(source)
 
-        if source.startswith(("http://", "https://")):
-            path = get_source_path(source)
-        else:
-            path = Path(source)
-            if not path.exists():
-                demo_samples = ", ".join(f'"{s}"' for s in SAMPLE_SOURCES)
-                raise ValueError(
-                    f"Data source {source!r} does not exist.\n"
-                    f"Expected a URL, an existing local path, or a named demo sample.\n"
-                    f"Known demo samples: {demo_samples}"
-                )
+        path = get_source_path(source, kind=SourceKind.DATA)
 
         if path.is_dir():
             image_files = _list_images_recursive(path)
@@ -109,7 +111,7 @@ class Data(Trackable):
         if not labels_source:
             return None
 
-        labels_path = get_source_path(labels_source)
+        labels_path = get_source_path(labels_source, kind=SourceKind.LABELS)
         labels_df = _load_tabular_frame(labels_path)
         if labels_df.empty:
             raitap_log.warn("Labels file is empty; falling back to predictions as targets.")
@@ -204,20 +206,9 @@ def load_tensor_from_source(source: str, n_samples: int | None = None) -> torch.
             or the file type is not supported.
     """
     if source in SAMPLE_SOURCES:
-        tensor = _load_sample(source)
-    elif source.startswith(("http://", "https://")):
-        path = get_source_path(source)
-        tensor = _load_tensor_from_path(path)
+        tensor, _ = _load_sample(source)
     else:
-        path = Path(source)
-        if not path.exists():
-            demo_samples = ", ".join(f'"{s}"' for s in SAMPLE_SOURCES)
-            raise ValueError(
-                f"Data source {source!r} does not exist.\n"
-                f"Expected a URL, an existing local path, or a named demo sample.\n"
-                f"Known demo samples: {demo_samples}"
-            )
-        tensor = _load_tensor_from_path(path)
+        tensor = _load_tensor_from_path(get_source_path(source, kind=SourceKind.DATA))
 
     if n_samples is not None and tensor.shape[0] > n_samples:
         indices = torch.randperm(tensor.shape[0])[:n_samples]
@@ -235,20 +226,10 @@ def load_numpy_from_source(source: str, n_samples: int | None = None) -> np.ndar
     all other paths are torch-free.
     """
     if source in SAMPLE_SOURCES:
-        arr: np.ndarray[Any, Any] = _load_sample(source).numpy()
-    elif source.startswith(("http://", "https://")):
-        path = get_source_path(source)
-        arr = _load_numpy_from_path(path)
+        sample_tensor, _ = _load_sample(source)
+        arr: np.ndarray[Any, Any] = sample_tensor.numpy()
     else:
-        path = Path(source)
-        if not path.exists():
-            demo_samples = ", ".join(f'"{s}"' for s in SAMPLE_SOURCES)
-            raise ValueError(
-                f"Data source {source!r} does not exist.\n"
-                f"Expected a URL, an existing local path, or a named demo sample.\n"
-                f"Known demo samples: {demo_samples}"
-            )
-        arr = _load_numpy_from_path(path)
+        arr = _load_numpy_from_path(get_source_path(source, kind=SourceKind.DATA))
 
     if n_samples is not None and arr.shape[0] > n_samples:
         rng = np.random.default_rng()
@@ -295,23 +276,36 @@ def _load_tensor_from_path(path: Path) -> torch.Tensor:
     return torch.from_numpy(_load_numpy_from_path(path))
 
 
-def get_source_path(source: str) -> Path:
+def get_source_path(source: str, *, kind: SourceKind = SourceKind.DATA) -> Path:
     """
     Obtain the local path to the specified source.
-    There are two possible cases:
-    1. URL (``http://`` / ``https://``) → download to a cache, of which the path is returned.
-    2. Existing local path → returned as-is.
 
+    Resolution order:
+
+    1. URL (``http://`` / ``https://``) → download to a cache, return file path.
+    2. Named demo sample (key in ``SAMPLE_SOURCES``) → download bundle, return
+       cache directory for :attr:`SourceKind.DATA` or the bundled labels CSV for
+       :attr:`SourceKind.LABELS`. Sample names take precedence over local paths so the
+       resolver matches :meth:`Data._load_data`; use ``./<name>`` or an absolute
+       path to force the local-path branch when a directory shadows a sample
+       key.
+    3. Existing local path → returned as-is.
 
     Args:
-        source: URL or local path.
+        source: URL, sample name, or local path.
+        kind: :attr:`SourceKind.DATA` (default) returns sample image directories;
+            :attr:`SourceKind.LABELS` returns the sample-bundled ``labels.csv``.
 
     Returns:
         Local :class:`~pathlib.Path` (file or directory).
 
     Raises:
-        ValueError: If *source* cannot be resolved.
+        ValueError: If *source* cannot be resolved or *kind* is not a
+            :class:`SourceKind` member.
     """
+    if not isinstance(kind, SourceKind):
+        allowed = ", ".join(repr(m.value) for m in SourceKind)
+        raise ValueError(f"Invalid kind {kind!r}; expected one of: {allowed}.")
     if source.startswith(("http://", "https://")):
         filename = source.rstrip("/").split("/")[-1] or "download"
         dest = _CACHE_DIR / "downloads" / filename
@@ -321,15 +315,30 @@ def get_source_path(source: str) -> Path:
             download_file(source, dest)
         return dest
 
+    if source in SAMPLE_SOURCES:
+        if kind is SourceKind.LABELS:
+            labels_path = resolve_sample_labels_path(source)
+            if labels_path is None:
+                raise ValueError(
+                    f"Sample {source!r} does not ship ground-truth labels.\n"
+                    "Set ``data.labels.source`` to a labels file (CSV/TSV/Parquet) instead."
+                )
+            return labels_path
+        # ``SourceKind.DATA`` — materialise the image bundle and return its directory.
+        from .samples import _resolve_sample
+
+        cache_dir = _resolve_sample(source)
+        assert cache_dir is not None  # guaranteed by SAMPLE_SOURCES membership
+        return cache_dir
+
     path = Path(source)
     if path.exists():
         return path
 
     demo_samples = ", ".join(f'"{s}"' for s in SAMPLE_SOURCES)
     raise ValueError(
-        f"Data source {source!r} could not be resolved.\n"
-        f"Expected a URL or a local path.\n"
-        f"For named demo samples use load_data directly. Known demo samples: {demo_samples}"
+        f"{kind.capitalize()} source {source!r} could not be resolved.\n"
+        f"Expected a URL, local path, or sample name. Known samples: {demo_samples}"
     )
 
 
