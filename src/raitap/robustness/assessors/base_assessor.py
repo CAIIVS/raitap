@@ -48,6 +48,12 @@ if TYPE_CHECKING:
 
     from torch import nn
 
+    # AssessorSemanticsHints is referenced as a string forward-ref in
+    # ``SemanticallyDescribable["AssessorSemanticsHints"]`` below. Pyright
+    # resolves string generics, so the symbol must be importable in this
+    # scope even though it is never used at runtime.
+    from ..semantics import AssessorSemanticsHints  # noqa: F401
+
 _VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
 
 
