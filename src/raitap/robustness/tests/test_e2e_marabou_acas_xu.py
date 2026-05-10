@@ -7,8 +7,8 @@ Skips when:
 
 Two cases:
 
-* Tiny eps (``1e-5``) → VERIFIED. Solver returns UNSAT inside 30s.
-* Huge eps (``10.0``) → FALSIFIED. Solver returns SAT with a counter-example
+* Tiny eps (``1e-5``) → VERIFIED. Solver returns UNSAT inside the 120s timeout.
+* Huge eps (``1e6``) → FALSIFIED. Solver returns SAT with a counter-example
   whose argmax differs from the original prediction.
 """
 

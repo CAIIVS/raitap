@@ -194,7 +194,7 @@ class MarabouAssessor(FormalVerificationAssessor):
             raise ImportError(
                 "MarabouAssessor requires the optional dependency 'maraboupy'. "
                 "Install it with `uv sync --extra marabou` "
-                "(Linux/macOS x86-64, Python 3.11-3.12 only)."
+                "(Linux/macOS x86-64, Python 3.11 only — maraboupy 2.0 ships cp311 wheels only)."
             ) from error
 
         network = Marabou.read_onnx(str(onnx_path))
@@ -350,7 +350,11 @@ def _interpret_solver_result(
     if code in {"sat", "invalid"}:
         counter_example = _reconstruct_counter_example(values, input_vars, sample_shape)
         return RobustnessVerdict.FALSIFIED, counter_example
-    # "TIMEOUT", "UNKNOWN", "ERROR", or any other code → UNKNOWN.
+    if code in {"error", "quit_requested"}:
+        # Solver-level failure: distinct from "ran out of time" (TIMEOUT) so
+        # downstream metrics (error_rate) can separate them.
+        return RobustnessVerdict.ERROR, None
+    # "timeout", "unknown", or any other code → UNKNOWN.
     return RobustnessVerdict.UNKNOWN, None
 
 

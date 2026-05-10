@@ -67,6 +67,13 @@ jobs:
           python-version: "3.11"
           sync-command: uv sync --group dev --extra torch-cpu --extra marabou
 
+      - name: Install onnxruntime for ONNX inference in tests
+        # The marabou extra pulls onnx (graph format) but not onnxruntime
+        # (inference engine). The e2e tests run the original ACAS Xu
+        # forward pass via onnxruntime to pick the target class, so install
+        # it explicitly in this lane.
+        run: uv pip install "onnxruntime>=1.17"
+
       - name: Run Marabou E2E tests
         # Scope collection to the marabou file so we don't import unrelated
         # test modules whose deps (torchmetrics, etc.) aren't installed in

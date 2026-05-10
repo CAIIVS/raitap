@@ -248,6 +248,20 @@ def test_verify_sample_timeout_maps_to_unknown(tmp_path: Any, fake_maraboupy: _F
     assert outcome.verdict == RobustnessVerdict.UNKNOWN
 
 
+def test_verify_sample_error_maps_to_error(tmp_path: Any, fake_maraboupy: _FakeNetwork) -> None:
+    fake_maraboupy.solve_result = ("ERROR", {}, _FakeStats(0.1))
+    assessor = MarabouAssessor(epsilon=0.01)
+    backend = _OnnxBackend(_onnx_path(tmp_path))
+    outcome = assessor.verify_sample(
+        _IdentityModel(),
+        torch.zeros(1, 5),
+        torch.tensor([0]),
+        budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.01),
+        backend=backend,
+    )
+    assert outcome.verdict == RobustnessVerdict.ERROR
+
+
 def test_verify_sample_rejects_non_linf_norm(tmp_path: Any, fake_maraboupy: _FakeNetwork) -> None:
     del fake_maraboupy
     assessor = MarabouAssessor(epsilon=0.01)
