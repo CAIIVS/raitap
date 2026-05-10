@@ -7,18 +7,9 @@ from raitap.reporting.manifest import ReportManifest
 from raitap.reporting.sections import ReportGroup, ReportSection
 from raitap.reporting.view_model import build_view
 
-_SNAPSHOT_MANIFEST = (
-    Path(__file__).resolve().parents[4]
-    / "outputs"
-    / "2026-05-10"
-    / "17-34-22"
-    / "reports"
-    / "report_manifest.json"
-)
-
 
 def test_build_view_groups_local_explainers_and_splits_metadata_tiers() -> None:
-    manifest = ReportManifest.load(_SNAPSHOT_MANIFEST)
+    manifest = _snapshot_manifest()
 
     view = build_view(manifest.sections, manifest.metadata)
 
@@ -48,7 +39,7 @@ def test_build_view_groups_local_explainers_and_splits_metadata_tiers() -> None:
 
 
 def test_build_view_groups_robustness_evidence_by_metadata_order() -> None:
-    manifest = ReportManifest.load(_SNAPSHOT_MANIFEST)
+    manifest = _snapshot_manifest()
 
     view = build_view(manifest.sections, manifest.metadata)
 
@@ -117,6 +108,98 @@ def _local_visualiser_counts(manifest: ReportManifest) -> dict[int, int]:
                 assert isinstance(sample_index, int | str)
                 counter[int(sample_index)] += 1
     return dict(counter)
+
+
+def _snapshot_manifest() -> ReportManifest:
+    return ReportManifest(
+        kind="run",
+        metadata={
+            "selected_samples": [
+                {"sample_index": 3},
+                {"sample_index": 8},
+                {"sample_index": 19},
+            ]
+        },
+        sections=(
+            ReportSection.from_groups(
+                "Local Explanations",
+                [_sample_header(sample_index) for sample_index in (3, 8, 19)]
+                + [_local_visualiser(sample_index) for sample_index in (3, 8, 19)],
+                metadata={"section_role": "local"},
+            ),
+            ReportSection.from_groups(
+                "Robustness",
+                [
+                    _robustness_assessor("fgsm_linf_fast", 0),
+                    _robustness_assessor("pgd_linf_small", 1),
+                ],
+                metadata={"section_role": "robustness"},
+            ),
+        ),
+    )
+
+
+def _sample_header(sample_index: int) -> ReportGroup:
+    return ReportGroup(
+        heading=f"Sample {sample_index}",
+        images=(Path(f"_assets/sample_{sample_index}_thumbnail_0.png"),),
+        table_rows=(("sample_index", str(sample_index)),),
+        metadata={"role": "sample_header", "sample_index": sample_index},
+    )
+
+
+def _local_visualiser(sample_index: int) -> ReportGroup:
+    return ReportGroup(
+        heading=f"Sample {sample_index} - Explainer: gradcam_localisation",
+        images=(
+            Path(
+                f"_assets/sample_{sample_index}_gradcam_localisation_"
+                "CaptumImageVisualiser_0.png"
+            ),
+        ),
+        table_rows=(
+            ("explainer", "gradcam_localisation"),
+            ("algorithm", "LayerGradCam"),
+            ("layer_path", "1.layer4.2.conv3"),
+            ("visualiser_sign", "positive"),
+            ("call.target", "1"),
+            ("input_shape", "(1, 3, 224, 224)"),
+        ),
+        metadata={
+            "role": "local_visualiser",
+            "sample_index": sample_index,
+            "explainer_name": "gradcam_localisation",
+            "algorithm": "LayerGradCam",
+        },
+    )
+
+
+def _robustness_assessor(assessor_name: str, result_index: int) -> ReportGroup:
+    return ReportGroup(
+        heading=f"Robustness: {assessor_name}",
+        images=tuple(
+            Path(
+                f"_assets/robustness_{result_index}_{assessor_name}_sample_{sample_index}_"
+                f"{visualiser}_0.png"
+            )
+            for sample_index in (3, 8, 19)
+            for visualiser in ("ImagePairVisualiser", "PerturbationHeatmapVisualiser")
+        ),
+        table_rows=(
+            ("assessor", assessor_name),
+            ("algorithm", assessor_name),
+            ("method_kind", "empirical"),
+            ("clean_accuracy", "0.9000"),
+            ("adversarial_accuracy", "0.8000"),
+        ),
+        metadata={
+            "role": "robustness",
+            "assessor_name": assessor_name,
+            "algorithm": assessor_name,
+            "method_kind": "empirical",
+            "sample_indices": [3, 8, 19],
+        },
+    )
 
 
 def _keys_with_prefix(rows: tuple[tuple[str, str], ...], prefix: str) -> list[str]:

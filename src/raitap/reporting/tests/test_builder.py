@@ -1490,7 +1490,7 @@ def test_build_merged_report_keeps_empty_metrics_groups(tmp_path: Path) -> None:
 
 def test_reporting_configs_compose_multirun_report_controls() -> None:
     cfg = _compose_raitap_config()
-    assert cfg.reporting._target_ == "raitap.reporting.HTMLReporter"
+    assert cfg.reporting._target_ == "HTMLReporter"
     assert cfg.reporting.multirun_report is True
     assert cfg.hydra.callbacks.reporting_sweep._target_.endswith("ReportingSweepCallback")
 
@@ -1500,18 +1500,18 @@ def test_reporting_configs_compose_multirun_report_controls() -> None:
     assert disabled_cfg.hydra.get("callbacks") == {}
 
     pdf_cfg = _compose_raitap_config(["reporting=pdf"])
-    assert pdf_cfg.reporting._target_ == "raitap.reporting.HTMLReporter"
+    assert pdf_cfg.reporting._target_ == "HTMLReporter"
     assert pdf_cfg.reporting.multirun_report is True
     assert pdf_cfg.reporting.show_original_per_explainer is False
     assert pdf_cfg.reporting.show_redundant_robustness_panels is False
     assert pdf_cfg.hydra.callbacks.reporting_sweep._target_.endswith("ReportingSweepCallback")
 
     pdf_borb_cfg = _compose_raitap_config(["reporting=pdf_borb"])
-    assert pdf_borb_cfg.reporting._target_ == "raitap.reporting.PDFReporter"
+    assert pdf_borb_cfg.reporting._target_ == "PDFReporter"
     assert pdf_borb_cfg.reporting.multirun_report is True
 
     opt_out_cfg = _compose_raitap_config(["reporting=pdf", "reporting.multirun_report=false"])
-    assert opt_out_cfg.reporting._target_ == "raitap.reporting.HTMLReporter"
+    assert opt_out_cfg.reporting._target_ == "HTMLReporter"
     assert opt_out_cfg.reporting.multirun_report is False
 
     originals_cfg = _compose_raitap_config(
