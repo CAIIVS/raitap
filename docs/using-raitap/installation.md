@@ -15,7 +15,7 @@ pip install raitap
 ```
 
 :::{note}
-RAITAP was currently tested with Python 3.13.x. Ensure your project matches this requirement, or expect possible issues.
+RAITAP supports Python 3.11+ (3.11–3.13 tested). Python 3.14 is not yet supported (Hydra 1.3.2 limitation).
 :::
 
 ## 2. Install optional dependencies

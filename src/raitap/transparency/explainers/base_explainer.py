@@ -10,6 +10,7 @@ from typing import Any, ClassVar, cast
 import torch
 
 from raitap.configs import resolve_run_dir
+from raitap.semantics_base import SemanticallyDescribable
 
 from ..contracts import (
     ExplanationOutputSpace,
@@ -18,6 +19,7 @@ from ..contracts import (
     ExplanationSemantics,
     ExplanationTarget,
     InputSpec,
+    MethodFamily,  # noqa: F401 — referenced via ``SemanticallyDescribable[...]`` string form.
     SampleSelection,
     ScopeDefinitionStep,
     explainer_output_scope,
@@ -28,7 +30,7 @@ from ..semantics import infer_input_spec, infer_output_space, method_families_fo
 _NON_BATCHABLE_KWARGS = frozenset({"background_data"})
 
 
-class AbstractExplainer:
+class AbstractExplainer(SemanticallyDescribable["frozenset[MethodFamily]"], register=False):
     """
     Root base class for all explainer adapters.
 
@@ -48,7 +50,7 @@ class AbstractExplainer:
         return None
 
 
-class AttributionOnlyExplainer(AbstractExplainer, ABC):
+class AttributionOnlyExplainer(AbstractExplainer, ABC, register=False):
     """
     Explainer where you implement one step and the framework handles the rest.
 
