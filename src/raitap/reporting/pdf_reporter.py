@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -99,8 +100,15 @@ def _pdf_display_text(value: Any) -> str:
 
 
 def _reporting_formatting(reporting: Any) -> Any:
-    """Nested ``formatting`` block, or an empty namespace if absent."""
-    fmt = getattr(reporting, "formatting", None)
+    """PDFReporter ``call.formatting`` block, or an empty namespace if absent."""
+    call = (
+        reporting.get("call")
+        if isinstance(reporting, Mapping)
+        else getattr(reporting, "call", None)
+    )
+    if call is None:
+        return SimpleNamespace()
+    fmt = call.get("formatting") if isinstance(call, Mapping) else getattr(call, "formatting", None)
     if fmt is None:
         return SimpleNamespace()
     return fmt

@@ -105,6 +105,4 @@ reporting:
   multirun_report: true
   show_original_per_explainer: false
   show_redundant_robustness_panels: false
-  formatting:
-    figures_max_pages: 12
 ```

@@ -1802,11 +1802,14 @@ def test_reporting_configs_compose_multirun_report_controls() -> None:
     assert pdf_cfg.reporting.multirun_report is True
     assert pdf_cfg.reporting.show_original_per_explainer is False
     assert pdf_cfg.reporting.show_redundant_robustness_panels is False
+    assert pdf_cfg.reporting.call.formatting.figures_max_pages is None
+    assert pdf_cfg.reporting.call.formatting.image_raster_multiplier is None
     assert pdf_cfg.hydra.callbacks.reporting_sweep._target_.endswith("ReportingSweepCallback")
 
     html_cfg = _compose_raitap_config(["reporting=html"])
     assert html_cfg.reporting._target_ == "HTMLReporter"
     assert html_cfg.reporting.multirun_report is True
+    assert "call" not in html_cfg.reporting
 
     opt_out_cfg = _compose_raitap_config(["reporting=pdf", "reporting.multirun_report=false"])
     assert opt_out_cfg.reporting._target_ == "PDFReporter"
@@ -1825,6 +1828,11 @@ def test_reporting_configs_compose_multirun_report_controls() -> None:
         ["reporting=pdf", "reporting.sample_selection=[case_alpha.png,2]"]
     )
     assert list(explicit_cfg.reporting.sample_selection) == ["case_alpha.png", 2]
+
+    pdf_formatting_cfg = _compose_raitap_config(
+        ["reporting=pdf", "reporting.call.formatting.figures_max_pages=12"]
+    )
+    assert pdf_formatting_cfg.reporting.call.formatting.figures_max_pages == 12
 
 
 def test_reporting_sweep_callback_skips_when_multirun_report_disabled(

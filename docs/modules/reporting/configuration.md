@@ -57,35 +57,35 @@
 :default: true
 :description: Whether to include metadata (timestamps, versions) in the report.
 
-:option: formatting.max_image_width_pt
+:option: call.formatting.max_image_width_pt
 :allowed: integer, null
 :default: null
-:description: PDFReporter maximum layout width in PDF points for embedded raster figures.
+:description: PDFReporter-only maximum layout width in PDF points for embedded raster figures.
   When null, the usable single-column width on A4 (after margins) is used.
 
-:option: formatting.max_image_height_pt
+:option: call.formatting.max_image_height_pt
 :allowed: integer, null
 :default: null
-:description: PDFReporter maximum layout height in PDF points for embedded raster figures.
+:description: PDFReporter-only maximum layout height in PDF points for embedded raster figures.
   When null, roughly 82% of the inner column height is used to leave room for headings.
 
-:option: formatting.figures_max_pages
+:option: call.formatting.figures_max_pages
 :allowed: integer, null
 :default: null
-:description: PDFReporter soft cap on how many pages embedded figure sections are allowed to need.
+:description: PDFReporter-only soft cap on how many pages embedded figure sections are allowed to need.
   When set to a positive integer, if a simple estimate exceeds it, width and height limits
   are scaled down so figures take less space per page.
 
-:option: formatting.image_raster_multiplier
+:option: call.formatting.image_raster_multiplier
 :allowed: float, null
 :default: null (effective default 3.0)
-:description: PDFReporter pixels per layout point when rasterizing figures (higher = sharper
+:description: PDFReporter-only pixels per layout point when rasterizing figures (higher = sharper
   in viewers). If set, values below 1.0 are clamped to 1.0.
 
-:option: formatting.image_raster_max_edge_px
+:option: call.formatting.image_raster_max_edge_px
 :allowed: integer, null
 :default: null (effective default 2400)
-:description: PDFReporter maximum longest edge in pixels of the rasterized bitmap after scaling.
+:description: PDFReporter-only maximum longest edge in pixels of the rasterized bitmap after scaling.
   If set, values below 400 are clamped to 400.
 
 :yaml:
@@ -100,5 +100,5 @@ reporting:
   show_original_per_explainer: false
   show_redundant_robustness_panels: false
 
-:cli: reporting=pdf reporting.filename="my_report" reporting.multirun_report=false reporting.show_original_per_explainer=true reporting.show_redundant_robustness_panels=true
+:cli: reporting=pdf reporting.filename="my_report" reporting.multirun_report=false reporting.show_original_per_explainer=true reporting.show_redundant_robustness_panels=true reporting.call.formatting.figures_max_pages=12
 ```
