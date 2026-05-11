@@ -59,15 +59,22 @@ per-class logit ranges for each VERIFIED sample. Enable via the constructor:
 
 **Runtime cost.** Marabou exposes no native min/max objective; bounds are
 extracted by binary search on `setUpperBound` / `setLowerBound` of each output
-variable. Per verified sample, the assessor runs
-`2 × K × ⌈log₂(bound_search_range / bound_tolerance)⌉` extra Marabou solves —
-for example, `K=10` classes with default settings ≈ 340 additional solves per
-sample. FALSIFIED / UNKNOWN / ERROR samples are skipped (their rows in the
-stacked bounds tensor are NaN-padded).
+variable. Per verified sample, the assessor runs up to
+
+`2 × K × (⌈log₂(2 × bound_search_range / bound_tolerance)⌉ + 2)`
+
+extra Marabou solves. With `K=10` classes and defaults
+(`bound_search_range=1e3`, `bound_tolerance=1e-2`) that is up to ~400
+additional solves per sample. FALSIFIED / UNKNOWN / ERROR samples are
+skipped entirely (their rows in the stacked bounds tensor are NaN-padded);
+if a bisection probe itself times out the loop breaks early with a
+conservative bound, so real-world solve counts are typically lower.
 
 Inconclusive verdicts during bisection (TIMEOUT / UNKNOWN) break the search
 conservatively: the returned bound is the loosest still-certified value, never
-a falsely tight one.
+a falsely tight one. If *every* probe for a given class/mode is inconclusive
+the assessor emits a `WARNING` log so users can spot vacuous bounds (the
+returned value is then just `±bound_search_range`).
 
 The PDF report's Robustness section gains rows `logit_{k}_lower_mean`,
 `logit_{k}_upper_mean` (averaged across samples that have bounds) and
