@@ -247,7 +247,10 @@ def _build_robustness_section(outputs: RunOutputs, *, assets_dir: Path) -> Repor
         for metric_name, metric_value in result.metrics.as_dict().items():
             table_rows.append((metric_name, f"{metric_value:.4f}"))
 
-        if result.output_bounds is not None:
+        if (
+            result.method_kind == MethodKind.FORMAL_VERIFICATION
+            and result.output_bounds is not None
+        ):
             lower = result.output_bounds.get("lower")
             upper = result.output_bounds.get("upper")
             if lower is not None and upper is not None and lower.ndim == 2:
