@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import matplotlib.pyplot as plt
 import pytest
@@ -30,7 +31,7 @@ def _formal_result(
     *,
     n: int = 5,
     k: int = 4,
-    output_bounds: dict[str, torch.Tensor] | None = "default",
+    output_bounds: Any = "default",
 ) -> RobustnessResult:
     inputs = torch.zeros(n, 3)
     targets = torch.arange(n) % k
@@ -200,7 +201,10 @@ def test_pinned_visualiser_highlights_target_class() -> None:
         # The hlines collections store their colors as RGBA arrays.
         colors_seen: set[tuple[float, float, float, float]] = set()
         for coll in ax.collections:
-            for rgba in coll.get_colors():
+            get_colors = getattr(coll, "get_colors", None)
+            if get_colors is None:
+                continue
+            for rgba in get_colors():
                 colors_seen.add(tuple(rgba))
         from matplotlib.colors import to_rgba
 
