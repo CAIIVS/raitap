@@ -37,4 +37,5 @@ clearly flagged.
 configuration
 frameworks-and-libraries
 output
+visualisers
 ```
