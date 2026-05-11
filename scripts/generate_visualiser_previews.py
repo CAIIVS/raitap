@@ -1,11 +1,11 @@
-"""Regenerate documentation preview PNGs for every robustness visualiser.
+"""Regenerate documentation preview PNGs for every robustness + transparency visualiser.
 
 Run this whenever a visualiser's appearance changes:
 
     MPLBACKEND=Agg uv run python scripts/generate_visualiser_previews.py
 
 Outputs land in ``docs/_static/visualisers/`` and are committed alongside the
-docs page that references them.
+docs pages that reference them.
 """
 
 from __future__ import annotations
@@ -44,7 +44,24 @@ from raitap.robustness.visualisers import (
     PerturbationHeatmapVisualiser,
     VerdictSummaryVisualiser,
 )
-from raitap.transparency.contracts import InputKind, InputSpec
+from raitap.transparency.contracts import (
+    InputKind,
+    InputSpec,
+)
+from raitap.transparency.contracts import (
+    VisualisationContext as TransparencyVisualisationContext,
+)
+from raitap.transparency.visualisers import (
+    CaptumImageVisualiser,
+    CaptumTextVisualiser,
+    CaptumTimeSeriesVisualiser,
+    ShapBarVisualiser,
+    ShapBeeswarmVisualiser,
+    ShapForceVisualiser,
+    ShapImageVisualiser,
+    ShapWaterfallVisualiser,
+    TabularBarChartVisualiser,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = REPO_ROOT / "docs" / "_static" / "visualisers"
@@ -180,6 +197,187 @@ def _save(name: str, fig: Figure) -> Path:
     return path
 
 
+def _transparency_image_fixture() -> tuple[torch.Tensor, torch.Tensor]:
+    """RGB image batch + attribution tensor with a centred salient patch."""
+    rng = np.random.default_rng(2)
+    n, c, h, w = 2, 3, 32, 32
+    image = torch.tensor(rng.uniform(0.1, 0.9, size=(n, c, h, w)), dtype=torch.float32)
+    attributions = torch.tensor(rng.normal(0.0, 0.05, size=(n, c, h, w)), dtype=torch.float32)
+    # Add a strong salient blob in the centre so the heatmap has structure.
+    yy, xx = np.meshgrid(np.arange(h), np.arange(w), indexing="ij")
+    blob = np.exp(-(((yy - h / 2) ** 2 + (xx - w / 2) ** 2) / (2 * 5.0**2)))
+    for i in range(n):
+        attributions[i, 0] += torch.tensor(blob, dtype=torch.float32) * (0.8 if i == 0 else -0.6)
+    return image, attributions
+
+
+def _transparency_time_series_fixture() -> tuple[torch.Tensor, torch.Tensor]:
+    """(T, C) signal + attribution overlay — Captum convention is channels-last."""
+    t, c = 50, 2
+    t_axis = np.linspace(0, 4 * np.pi, t)
+    signal = np.stack([np.sin(t_axis), 0.5 * np.cos(2 * t_axis)], axis=-1)
+    rng = np.random.default_rng(3)
+    attributions = rng.normal(0.0, 0.05, size=(t, c))
+    # Mark the second half of channel 0 as "important".
+    attributions[t // 2 :, 0] += np.linspace(0.0, 0.4, t - t // 2)
+    return (
+        torch.tensor(signal, dtype=torch.float32),
+        torch.tensor(attributions, dtype=torch.float32),
+    )
+
+
+def _transparency_text_fixture() -> tuple[list[str], torch.Tensor]:
+    """Short tokenised sentence + per-token attributions."""
+    tokens = ["The", "model", "really", "disliked", "the", "predicted", "outcome", "."]
+    rng = np.random.default_rng(4)
+    attributions = torch.tensor(rng.uniform(-0.4, 0.6, size=len(tokens)), dtype=torch.float32)
+    # Make the "disliked" token strongly negative for an interpretable picture.
+    attributions[3] = -0.85
+    attributions[2] = 0.7
+    return tokens, attributions
+
+
+def _transparency_tabular_fixture() -> tuple[torch.Tensor, torch.Tensor, list[str]]:
+    """(N, F) feature matrix + SHAP-shaped (N, F) attributions + feature names."""
+    rng = np.random.default_rng(5)
+    n, f = 100, 5
+    feature_names = ["age", "income", "credit_score", "tenure", "balance"]
+    features = torch.tensor(rng.normal(0.0, 1.0, size=(n, f)), dtype=torch.float32)
+    # SHAP-style attributions correlated with feature value for visual interest.
+    attributions_np = rng.normal(0.0, 0.3, size=(n, f))
+    attributions_np[:, 0] += 0.5 * features[:, 0].numpy()
+    attributions_np[:, 1] -= 0.4 * features[:, 1].numpy()
+    attributions_np[:, 2] += 0.6 * features[:, 2].numpy()
+    return features, torch.tensor(attributions_np, dtype=torch.float32), feature_names
+
+
+def _shap_unavailable_placeholder(name: str, error: Exception) -> Figure:
+    """Render a tombstone PNG so the docs link still resolves when SHAP fails."""
+    fig, ax = plt.subplots(figsize=(8, 3))
+    ax.axis("off")
+    ax.text(
+        0.5,
+        0.6,
+        f"{name} preview unavailable in this environment",
+        ha="center",
+        va="center",
+        fontsize=11,
+        weight="bold",
+    )
+    ax.text(
+        0.5,
+        0.35,
+        "Regenerate on a host with `shap` installed.",
+        ha="center",
+        va="center",
+        fontsize=9,
+        style="italic",
+    )
+    ax.text(
+        0.5,
+        0.15,
+        f"({type(error).__name__}: {error})",
+        ha="center",
+        va="center",
+        fontsize=7,
+        color="grey",
+    )
+    return fig
+
+
+def _render_transparency_previews() -> list[Path]:
+    saved: list[Path] = []
+    image_inputs, image_attrs = _transparency_image_fixture()
+    ts_inputs, ts_attrs = _transparency_time_series_fixture()
+    tokens, text_attrs = _transparency_text_fixture()
+    tabular_inputs, tabular_attrs, feature_names = _transparency_tabular_fixture()
+
+    captum_ctx = TransparencyVisualisationContext(
+        algorithm="IntegratedGradients",
+        sample_names=None,
+        show_sample_names=False,
+    )
+    shap_ctx = TransparencyVisualisationContext(
+        algorithm="GradientExplainer",
+        sample_names=None,
+        show_sample_names=False,
+    )
+
+    # Captum
+    saved.append(
+        _save(
+            "captum_image_visualiser",
+            CaptumImageVisualiser(method="blended_heat_map", sign="all").visualise(
+                image_attrs, inputs=image_inputs, context=captum_ctx, max_samples=2
+            ),
+        )
+    )
+    ts_viz = CaptumTimeSeriesVisualiser(method="overlay_individual", sign="absolute_value")
+    saved.append(
+        _save(
+            "captum_time_series_visualiser",
+            ts_viz.visualise(ts_attrs, inputs=ts_inputs, context=captum_ctx),
+        )
+    )
+    saved.append(
+        _save(
+            "captum_text_visualiser",
+            CaptumTextVisualiser().visualise(text_attrs, token_labels=tokens),
+        )
+    )
+
+    # SHAP — each call gated so a runtime breakage still emits a usable PNG.
+    def _shap_save(name: str, builder: callable) -> None:  # type: ignore[valid-type]
+        try:
+            fig = builder()
+        except Exception as exc:
+            print(f"warning: {name} failed ({exc!r}); writing placeholder")
+            fig = _shap_unavailable_placeholder(name, exc)
+        saved.append(_save(name, fig))
+
+    _shap_save(
+        "shap_bar_visualiser",
+        lambda: ShapBarVisualiser(feature_names=feature_names).visualise(
+            tabular_attrs, inputs=tabular_inputs, context=shap_ctx
+        ),
+    )
+    _shap_save(
+        "shap_beeswarm_visualiser",
+        lambda: ShapBeeswarmVisualiser(feature_names=feature_names).visualise(
+            tabular_attrs, inputs=tabular_inputs, context=shap_ctx
+        ),
+    )
+    _shap_save(
+        "shap_waterfall_visualiser",
+        lambda: ShapWaterfallVisualiser(
+            feature_names=feature_names, expected_value=0.0, sample_index=0
+        ).visualise(tabular_attrs, inputs=tabular_inputs, context=shap_ctx),
+    )
+    _shap_save(
+        "shap_force_visualiser",
+        lambda: ShapForceVisualiser(
+            feature_names=feature_names, expected_value=0.0, sample_index=0
+        ).visualise(tabular_attrs, inputs=tabular_inputs, context=shap_ctx),
+    )
+    _shap_save(
+        "shap_image_visualiser",
+        lambda: ShapImageVisualiser(max_samples=2).visualise(
+            image_attrs, inputs=image_inputs, context=shap_ctx
+        ),
+    )
+
+    # Generic
+    saved.append(
+        _save(
+            "tabular_bar_chart_visualiser",
+            TabularBarChartVisualiser(feature_names=feature_names).visualise(
+                tabular_attrs, context=captum_ctx
+            ),
+        )
+    )
+    return saved
+
+
 def main() -> None:
     empirical = _empirical_fixture()
     formal = _formal_fixture()
@@ -232,6 +430,8 @@ def main() -> None:
             OutputBoundsMarginHeatmapVisualiser().visualise(formal, context=formal_ctx),
         )
     )
+
+    saved.extend(_render_transparency_previews())
 
     for p in saved:
         print(f"wrote {p.relative_to(REPO_ROOT)}")
