@@ -80,6 +80,9 @@ class MarabouAssessor(FormalVerificationAssessor):
         timeout_s: float = 300.0,
         epsilon: float = 0.05,
         norm: str = "Linf",
+        compute_output_bounds: bool = False,
+        bound_search_range: float = 1e3,
+        bound_tolerance: float = 1e-2,
         **kwargs: Any,
     ) -> None:
         del kwargs  # tolerate forward-compat kwargs for YAML configs.
@@ -90,12 +93,20 @@ class MarabouAssessor(FormalVerificationAssessor):
         self.timeout_s = float(timeout_s)
         self.epsilon = float(epsilon)
         self._norm = str(norm)
+        self.compute_output_bounds = bool(compute_output_bounds)
+        self.bound_search_range = float(bound_search_range)
+        self.bound_tolerance = float(bound_tolerance)
+        if self.bound_tolerance <= 0:
+            raise ValueError("MarabouAssessor: bound_tolerance must be > 0.")
+        if self.bound_search_range <= 0:
+            raise ValueError("MarabouAssessor: bound_search_range must be > 0.")
         # Record kwargs the way the framework expects (matches torchattacks /
         # foolbox adapters: ``init_kwargs`` carries the budget for semantics).
         self.init_kwargs: dict[str, Any] = {
             "epsilon": float(epsilon),
             "norm": str(norm),
             "timeout_s": float(timeout_s),
+            "compute_output_bounds": bool(compute_output_bounds),
         }
         # Per-(model, sample-shape) cache so we only export once per assess().
         self._onnx_cache: dict[tuple[int, tuple[int, ...]], Path] = {}

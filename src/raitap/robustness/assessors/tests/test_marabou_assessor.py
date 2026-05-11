@@ -350,3 +350,21 @@ def test_check_backend_compat_accepts_torch_and_onnx(tmp_path: Any) -> None:
     assessor.check_backend_compat(_OnnxBackend(_onnx_path(tmp_path)))
     assessor.check_backend_compat(object())
     assessor.check_backend_compat(None)
+
+
+def test_compute_output_bounds_defaults_to_disabled() -> None:
+    assessor = MarabouAssessor()
+    assert assessor.compute_output_bounds is False
+    assert assessor.bound_search_range == 1e3
+    assert assessor.bound_tolerance == 1e-2
+
+
+def test_compute_output_bounds_kwargs_round_trip() -> None:
+    assessor = MarabouAssessor(
+        compute_output_bounds=True,
+        bound_search_range=50.0,
+        bound_tolerance=0.05,
+    )
+    assert assessor.compute_output_bounds is True
+    assert assessor.bound_search_range == 50.0
+    assert assessor.bound_tolerance == 0.05
