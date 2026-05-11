@@ -49,6 +49,9 @@ class _FakeNetwork:
         self.lower_bounds: dict[int, float] = {}
         self.upper_bounds: dict[int, float] = {}
         self.disjunctions: list[Any] = []
+        self.solve_results: list[tuple[str, dict[int, float], object]] = []
+        self.solve_calls: list[dict[str, Any]] = []
+        # Back-compat default still used by existing tests:
         self.solve_result: tuple[str, dict[int, float], object] = (
             "unsat",
             {},
@@ -66,6 +69,14 @@ class _FakeNetwork:
 
     def solve(self, options: object | None = None) -> tuple[str, dict[int, float], object]:
         del options
+        self.solve_calls.append(
+            {
+                "lower_bounds": dict(self.lower_bounds),
+                "upper_bounds": dict(self.upper_bounds),
+            }
+        )
+        if self.solve_results:
+            return self.solve_results.pop(0)
         return self.solve_result
 
 
