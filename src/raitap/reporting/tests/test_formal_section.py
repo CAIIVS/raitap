@@ -91,3 +91,50 @@ def test_build_report_renders_robustness_certification_section(tmp_path: Path) -
     assert group.heading.startswith("Robustness certification - linf-box")
     row_keys = {key for key, _ in group.table_rows}
     assert {"verified_rate", "falsified_rate", "unknown_rate"}.issubset(row_keys)
+
+
+def test_build_report_includes_per_class_bound_rows_for_formal_results(
+    tmp_path: Path,
+) -> None:
+    config = AppConfig(experiment_name="marabou_test")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    run_dir = tmp_path / "robustness" / "marabou_linf"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    result = _formal_result(run_dir)
+    # Two verified samples + one NaN row → 3 samples, 5 classes.
+    result.output_bounds = {
+        "lower": torch.tensor(
+            [
+                [-1.0, -0.5, -0.3, -0.2, -0.1],
+                [-2.0, -1.0, -0.6, -0.4, -0.2],
+                [float("nan")] * 5,
+            ]
+        ),
+        "upper": torch.tensor(
+            [
+                [1.0, 0.5, 0.3, 0.2, 0.1],
+                [2.0, 1.0, 0.6, 0.4, 0.2],
+                [float("nan")] * 5,
+            ]
+        ),
+    }
+
+    outputs = RunOutputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.zeros(3, 5),
+        sample_ids=None,
+        robustness_results=[result],
+        robustness_visualisations=[],
+    )
+
+    report = build_report(config, outputs)
+    section = next(s for s in report.sections if s.title == "Robustness")
+    rows = dict(section.groups[0].table_rows)
+    assert rows["logit_0_lower_mean"] == f"{(-1.0 + -2.0) / 2:.4f}"
+    assert rows["logit_0_upper_mean"] == f"{(1.0 + 2.0) / 2:.4f}"
+    assert rows["logit_4_lower_mean"] == f"{(-0.1 + -0.2) / 2:.4f}"
+    assert rows["output_bounds_samples"] == "2/3"
