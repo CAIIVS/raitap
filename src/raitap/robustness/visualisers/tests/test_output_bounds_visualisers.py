@@ -23,6 +23,7 @@ from raitap.robustness.exceptions import MethodKindVisualiserIncompatibilityErro
 from raitap.robustness.results import RobustnessMetrics, RobustnessResult, encode_verdicts
 from raitap.robustness.visualisers import (
     OutputBoundsCohortVisualiser,
+    OutputBoundsMarginHeatmapVisualiser,
     OutputBoundsPinnedVisualiser,
     OutputBoundsWidthHeatmapVisualiser,
 )
@@ -292,3 +293,79 @@ def test_width_heatmap_handles_none_bounds_gracefully() -> None:
 def test_width_heatmap_method_kind_rejection_for_empirical_results() -> None:
     with pytest.raises(MethodKindVisualiserIncompatibilityError):
         OutputBoundsWidthHeatmapVisualiser().validate_result(_empirical_result())
+
+
+# ---------------------------- margin heatmap (C2) --------------------------
+
+
+def test_margin_heatmap_centers_on_zero() -> None:
+    # Construct bounds where margin spans both signs:
+    # target column lower is moderate; some non-target uppers above it (negative margin)
+    # and some below (positive margin).
+    n, k = 3, 4
+    lower = torch.zeros(n, k)
+    upper = torch.zeros(n, k)
+    # targets are 0,1,2 (n % k)
+    # sample 0, target=0: lower[0,0]=2.0; upper[0,1]=1.0 (margin=+1), upper[0,2]=3.0 (margin=-1)
+    lower[0, 0] = 2.0
+    upper[0, 0] = 5.0
+    upper[0, 1] = 1.0
+    upper[0, 2] = 3.0
+    upper[0, 3] = 0.0
+    lower[1, 1] = 0.0
+    upper[1, 1] = 5.0
+    upper[1, 0] = -1.0
+    upper[1, 2] = 2.0
+    upper[1, 3] = 4.0
+    lower[2, 2] = 1.0
+    upper[2, 2] = 5.0
+    upper[2, 0] = 0.5
+    upper[2, 1] = 3.0
+    upper[2, 3] = 2.5
+    result = _formal_result(n=n, k=k, output_bounds={"lower": lower, "upper": upper})
+    figure = OutputBoundsMarginHeatmapVisualiser().visualise(result, context=_ctx())
+    try:
+        from matplotlib.colors import TwoSlopeNorm
+
+        images = [im for ax in figure.axes for im in ax.get_images()]
+        assert len(images) == 1
+        norm = images[0].norm
+        assert isinstance(norm, TwoSlopeNorm)
+        assert norm.vcenter == 0.0
+    finally:
+        plt.close(figure)
+
+
+def test_margin_heatmap_masks_target_column() -> None:
+    n, k = 5, 4
+    lower = torch.zeros(n, k)
+    upper = torch.ones(n, k)
+    result = _formal_result(n=n, k=k, output_bounds={"lower": lower, "upper": upper})
+    figure = OutputBoundsMarginHeatmapVisualiser().visualise(result, context=_ctx())
+    try:
+        import numpy as np
+
+        images = [im for ax in figure.axes for im in ax.get_images()]
+        arr = images[0].get_array()
+        mask = np.asarray(arr.mask)
+        targets = result.targets.numpy()
+        for i in range(n):
+            assert mask[i, int(targets[i])], f"target cell at row {i} not masked"
+    finally:
+        plt.close(figure)
+
+
+def test_margin_heatmap_falls_back_when_targets_missing() -> None:
+    result = _formal_result(n=3, k=4)
+    object.__setattr__(result, "targets", None)
+    figure = OutputBoundsMarginHeatmapVisualiser().visualise(result, context=_ctx())
+    try:
+        texts = [t.get_text() for t in figure.axes[0].texts]
+        assert any("requires per-sample targets" in t for t in texts)
+    finally:
+        plt.close(figure)
+
+
+def test_margin_heatmap_method_kind_rejection_for_empirical_results() -> None:
+    with pytest.raises(MethodKindVisualiserIncompatibilityError):
+        OutputBoundsMarginHeatmapVisualiser().validate_result(_empirical_result())
