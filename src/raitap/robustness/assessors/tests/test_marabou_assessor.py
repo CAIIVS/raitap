@@ -578,6 +578,43 @@ def test_verify_sample_skips_bounds_for_falsified_verdict(
     assert outcome.upper_bounds is None
 
 
+def test_assess_propagates_output_bounds_to_result(
+    fake_maraboupy: _FakeNetwork, tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two samples: first VERIFIED with bounds, second FALSIFIED → NaN row."""
+    onnx_path = tmp_path / "model.onnx"
+    onnx_path.write_bytes(b"\x00")
+    fake_maraboupy.solve_results = [
+        ("unsat", {}, _FakeStats(0.0)),  # sample 0 → VERIFIED
+        ("sat", dict.fromkeys(range(5), 0.0), _FakeStats(0.0)),  # sample 1 → FALSIFIED
+    ]
+
+    monkeypatch.setattr(
+        "raitap.robustness.assessors.marabou_assessor._bisect_output_bound",
+        lambda **kw: -1.0 if kw["mode"] == "lower" else 1.0,
+    )
+
+    class _Backend:
+        def __init__(self, p: Any) -> None:
+            self.onnx_path = p
+
+    assessor = MarabouAssessor(compute_output_bounds=True)
+    result = assessor.assess(
+        model=_IdentityModel(),
+        inputs=torch.zeros(2, 5),
+        targets=torch.tensor([0, 0]),
+        backend=_Backend(onnx_path),
+    )
+    assert result.output_bounds is not None
+    lower = result.output_bounds["lower"]
+    upper = result.output_bounds["upper"]
+    assert lower.shape == (2, 5)
+    assert torch.allclose(lower[0], torch.full((5,), -1.0))
+    assert torch.allclose(upper[0], torch.full((5,), 1.0))
+    assert torch.isnan(lower[1]).all()
+    assert torch.isnan(upper[1]).all()
+
+
 def test_bisect_output_bound_rejects_non_positive_tolerance(tmp_path: Path) -> None:
     flat_sample = np.zeros(5, dtype=np.float32)
     onnx_path = tmp_path / "model.onnx"
