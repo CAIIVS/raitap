@@ -1449,7 +1449,20 @@ def test_create_report_writes_manifest_next_to_generated_report(
     assert generated.manifest_path.exists()
 
 
-def test_build_report_manifest_filename_matches_selected_reporter(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("configured_filename", "expected_html_name", "expected_pdf_name"),
+    [
+        ("custom_report", "custom_report.html", "custom_report.pdf"),
+        ("custom_report.pdf", "custom_report.html", "custom_report.pdf"),
+        ("custom_report.html", "custom_report.html", "custom_report.pdf"),
+    ],
+)
+def test_build_report_manifest_filename_matches_selected_reporter(
+    tmp_path: Path,
+    configured_filename: str,
+    expected_html_name: str,
+    expected_pdf_name: str,
+) -> None:
     outputs = RunOutputs(
         explanations=[],
         visualisations=[],
@@ -1461,21 +1474,21 @@ def test_build_report_manifest_filename_matches_selected_reporter(tmp_path: Path
     set_output_root(html_config, tmp_path / "html")
     html_config.reporting = ReportingConfig(
         _target_="raitap.reporting.HTMLReporter",
-        filename="custom_report.pdf",
+        filename=configured_filename,
     )
     html_report = build_report(html_config, outputs)
 
-    assert html_report.manifest.filename == "custom_report.html"
+    assert html_report.manifest.filename == expected_html_name
 
     pdf_config = AppConfig(experiment_name="demo")
     set_output_root(pdf_config, tmp_path / "pdf")
     pdf_config.reporting = ReportingConfig(
         _target_="raitap.reporting.PDFReporter",
-        filename="custom_report.pdf",
+        filename=configured_filename,
     )
     pdf_report = build_report(pdf_config, outputs)
 
-    assert pdf_report.manifest.filename == "custom_report.pdf"
+    assert pdf_report.manifest.filename == expected_pdf_name
 
 
 def test_reporting_sweep_callback_builds_merged_report_from_child_manifests(

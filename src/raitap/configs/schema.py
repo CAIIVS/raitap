@@ -134,7 +134,7 @@ class ReportingFormattingConfig:
     max_image_width_pt: int | None = None
     max_image_height_pt: int | None = None
     figures_max_pages: int | None = None
-    # borb-only PDF rasterisation controls. None ≈ 3 (~216 DPI).
+    # PDF rasterisation controls. None ≈ 3 (~216 DPI).
     image_raster_multiplier: float | None = None
     image_raster_max_edge_px: int | None = None
 
@@ -144,8 +144,7 @@ class ReportingConfig:
     """Configuration for report generation."""
 
     _target_: str = "HTMLReporter"
-    # HTMLReporter uses this basename with a .html suffix; PDFReporter uses it unchanged.
-    filename: str = "report.pdf"
+    filename: str = "report"
     sample_selection: list[int | str] | None = None
     include_config: bool = True
     include_metadata: bool = True

@@ -78,16 +78,43 @@ def test_pdf_reporter_generates_file(mock_config: AppConfig, tmp_path: Path) -> 
     assert "test.pdf" in str(output_path)
 
 
-def test_pdf_reporter_writes_configured_pdf_path(mock_config: AppConfig, tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("configured_filename", "expected_pdf_name"),
+    [
+        ("Assessment_Report", "Assessment_Report.pdf"),
+        ("Assessment_Report.html", "Assessment_Report.pdf"),
+        ("Assessment_Report.pdf", "Assessment_Report.pdf"),
+    ],
+)
+def test_pdf_reporter_uses_configured_basename_with_pdf_suffix(
+    mock_config: AppConfig,
+    tmp_path: Path,
+    configured_filename: str,
+    expected_pdf_name: str,
+) -> None:
     assert mock_config.reporting is not None
-    mock_config.reporting.filename = "legacy_report.pdf"
+    mock_config.reporting.filename = configured_filename
     reporter = PDFReporter(mock_config)
 
     with patch("raitap.reporting.pdf_reporter._borb_pdf_ns", return_value=_mock_borb_writing_pdf()):
         output_path = reporter.generate((), report_dir=tmp_path)
 
-    assert output_path == tmp_path / "legacy_report.pdf"
+    assert output_path == tmp_path / expected_pdf_name
     assert output_path.read_bytes().startswith(b"%PDF-")
+
+
+def test_pdf_reporter_rejects_path_like_filename(
+    mock_config: AppConfig,
+    tmp_path: Path,
+) -> None:
+    assert mock_config.reporting is not None
+    mock_config.reporting.filename = "nested/report"
+
+    with (
+        patch("raitap.reporting.pdf_reporter._borb_pdf_ns", return_value=_mock_borb()),
+        pytest.raises(ValueError, match="simple filename"),
+    ):
+        PDFReporter(mock_config).generate((), report_dir=tmp_path)
 
 
 def test_pdf_reporter_creates_report_directory(mock_config: AppConfig, tmp_path: Path) -> None:

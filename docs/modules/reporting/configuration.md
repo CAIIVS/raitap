@@ -6,13 +6,13 @@
 :default: null
 :description: Hydra target for the reporting backend implementation. Set to null to disable reporting.
   The default `reporting=html` config selects `HTMLReporter`;
-  use `reporting=pdf` for the borb PDF renderer.
+  use `reporting=pdf` for the PDF renderer.
 
 :option: filename
 :allowed: string
-:default: "report.pdf"
-:description: Configured report filename. `HTMLReporter` uses the configured basename with
-  a `.html` suffix, while the borb `PDFReporter` uses this value unchanged.
+:default: "report"
+:description: Configured report basename. RAITAP adds the extension for the
+  selected reporter, so `HTMLReporter` writes `.html` and `PDFReporter` writes `.pdf`.
 
 :option: sample_selection
 :allowed: list of sample IDs, filenames, or zero-based indices; null
@@ -66,7 +66,7 @@
 :option: formatting.max_image_height_pt
 :allowed: integer, null
 :default: null
-:description: PDFReoirter borb-only maximum layout height in PDF points for embedded raster figures.
+:description: PDFReporter maximum layout height in PDF points for embedded raster figures.
   When null, roughly 82% of the inner column height is used to leave room for headings.
 
 :option: formatting.figures_max_pages
@@ -91,7 +91,7 @@
 :yaml:
 reporting:
   _target_: "HTMLReporter"
-  filename: "experiment_report.pdf"
+  filename: "experiment_report"
   sample_selection:
     - "ISIC_0024306.jpg"
     - "ISIC_0024372.jpg"
@@ -100,5 +100,5 @@ reporting:
   show_original_per_explainer: false
   show_redundant_robustness_panels: false
 
-:cli: reporting=pdf reporting.filename="my_report.pdf" reporting.multirun_report=false reporting.show_original_per_explainer=true reporting.show_redundant_robustness_panels=true
+:cli: reporting=pdf reporting.filename="my_report" reporting.multirun_report=false reporting.show_original_per_explainer=true reporting.show_redundant_robustness_panels=true
 ```

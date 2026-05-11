@@ -17,6 +17,7 @@ from raitap.run.outputs import PredictionSummary, RunOutputs
 from raitap.transparency.contracts import ExplanationScope, VisualisationContext
 from raitap.transparency.visualisers import BaseVisualiser, InputThumbnailVisualiser
 
+from .filenames import report_output_filename
 from .manifest import ReportManifest
 from .sample_selection import ResolvedReportSample, resolve_report_sample_selection
 from .sections import ReportGroup, ReportSection
@@ -227,11 +228,11 @@ def build_merged_report(
 
 def _manifest_filename(config: AppConfig) -> str:
     reporting = getattr(config, "reporting", None)
-    filename = str(getattr(reporting, "filename", "report.pdf"))
+    filename = str(getattr(reporting, "filename", "report"))
     target = str(getattr(reporting, "_target_", ""))
     if target in {"HTMLReporter", "raitap.reporting.HTMLReporter"}:
-        return Path(filename).with_suffix(".html").name
-    return filename
+        return report_output_filename(filename, ".html")
+    return report_output_filename(filename, ".pdf")
 
 
 def _build_metrics_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSection | None:

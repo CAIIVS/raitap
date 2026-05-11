@@ -1,18 +1,19 @@
 from __future__ import annotations
 
 from importlib import resources
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from raitap import __about__
 from raitap.configs import resolve_run_dir
 
 from .base_reporter import BaseReporter
+from .filenames import report_output_filename
 from .template_filters import as_dict, asr_band, bucket_class, fmt_num, fmt_pct, slug
 from .view_model import build_view
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from pathlib import Path
 
     from .sections import ReportSection
 
@@ -31,8 +32,9 @@ class HTMLReporter(BaseReporter):
         )
         run_dir.mkdir(parents=True, exist_ok=True)
 
-        html_path = run_dir / _html_filename(
-            getattr(self.config.reporting, "filename", "report.pdf")
+        html_path = run_dir / report_output_filename(
+            getattr(self.config.reporting, "filename", "report"),
+            ".html",
         )
         css_path = run_dir / "report.css"
 
@@ -68,11 +70,6 @@ def _jinja_environment() -> Any:
         }
     )
     return env
-
-
-def _html_filename(filename: str) -> str:
-    path = Path(filename)
-    return path.with_suffix(".html").name
 
 
 def _template_text(name: str) -> str:

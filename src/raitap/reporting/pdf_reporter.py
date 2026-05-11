@@ -17,6 +17,7 @@ from raitap import raitap_log
 from raitap.configs import resolve_run_dir
 
 from .base_reporter import BaseReporter
+from .filenames import report_output_filename
 
 # A4 default in borb (points). SingleColumnLayout uses ~10% side margins.
 _A4_WIDTH_PT = 595
@@ -219,7 +220,10 @@ class PDFReporter(BaseReporter):
         )
         run_dir.mkdir(parents=True, exist_ok=True)
 
-        filename = getattr(self.config.reporting, "filename", "report.pdf")
+        filename = report_output_filename(
+            getattr(self.config.reporting, "filename", "report"),
+            ".pdf",
+        )
         output_path = run_dir / filename
 
         doc = b.Document()

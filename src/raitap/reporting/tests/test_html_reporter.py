@@ -75,9 +75,9 @@ def test_html_reporter_generates_valid_fragment_links_and_image_alts(
 @pytest.mark.parametrize(
     ("configured_filename", "expected_html_name"),
     [
-        ("report.pdf", "report.html"),
-        ("lwise_ham10000_report.pdf", "lwise_ham10000_report.html"),
         ("custom", "custom.html"),
+        ("custom.pdf", "custom.html"),
+        ("custom.html", "custom.html"),
     ],
 )
 def test_html_reporter_uses_configured_basename_with_html_suffix(
@@ -91,7 +91,15 @@ def test_html_reporter_uses_configured_basename_with_html_suffix(
 
     assert output_path == tmp_path / expected_html_name
     assert output_path.exists()
-    assert not (tmp_path / configured_filename).exists()
+    if configured_filename != expected_html_name:
+        assert not (tmp_path / configured_filename).exists()
+
+
+def test_html_reporter_rejects_path_like_filename(tmp_path: Path) -> None:
+    config = _config(filename="nested/report")
+
+    with pytest.raises(ValueError, match="simple filename"):
+        HTMLReporter(config).generate(_synthetic_sections(), report_dir=tmp_path)
 
 
 def test_html_reporter_omits_missing_sections(
