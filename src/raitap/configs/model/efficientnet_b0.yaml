@@ -1,0 +1,4 @@
+# EfficientNet-B0 — uses SiLU activations, which trigger the
+# DeepExplainer ``BackwardHookFunctionBackward`` view+inplace error.
+# Pair with ``transparency: shap_deep_silu_bug`` to exercise the rethrow.
+source: efficientnet_b0

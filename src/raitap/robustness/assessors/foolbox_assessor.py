@@ -6,12 +6,16 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import torch
 
+from raitap.utils.diagnostics import Subsystem
+from raitap.utils.errors import rethrow
+
 from ..contracts import MethodKind, Objective, PerturbationNorm, ThreatModel
 from ..exceptions import AssessorBackendIncompatibilityError
 from ..semantics import AssessorSemanticsHints
 from .base_assessor import EmpiricalAttackAssessor, _prepare_inputs_for_forward
 
 if TYPE_CHECKING:
+    import re
     from collections.abc import Mapping
 
     from torch import nn
@@ -84,6 +88,10 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
         ),
     }
     budget_kwarg_source = "call_kwargs"
+
+    # Curated patterns for confusing foolbox errors. Seed empty; extend as we
+    # observe confusing errors in practice. See :func:`raitap.utils.errors.rethrow`.
+    error_messages: ClassVar[Mapping[re.Pattern[str], str]] = {}
 
     def __init__(
         self,
@@ -158,7 +166,12 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
             preprocessing=self.preprocessing,
         )
 
-        raw, clipped, success = attack(fmodel, inputs_dev, targets_dev, epsilons=eps)
+        with rethrow(
+            subsystem=Subsystem.robustness,
+            third_party_lib="foolbox",
+            message_map=type(self).error_messages,
+        ):
+            raw, clipped, success = attack(fmodel, inputs_dev, targets_dev, epsilons=eps)
         del raw  # unclipped — we keep the clipped tensor only
         if isinstance(clipped, list):
             raise TypeError(

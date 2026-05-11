@@ -102,10 +102,38 @@ are intentionally out of scope for the current adapter.
 | `L2DeepFoolAttack` | white-box | L2 |
 | `BoundaryAttack` | black-box (decision) | L2 |
 
-### Formal verification
+### Marabou
 
-`FormalVerificationAssessor` provides the framework-owned per-sample loop for
-auto_LiRPA / alpha-beta-CROWN style verifiers. Concrete adapters arrive in a
-follow-up release; the result shape, factory, pipeline, and reporting already
-accommodate the verifier outputs (`VERIFIED` / `FALSIFIED` / `UNKNOWN` verdicts,
-counter-examples, per-class output bounds, per-sample runtime).
+`MarabouAssessor` wraps `maraboupy>=2.0` to provide SAT/UNSAT-based formal
+verification for L∞ box perturbations over static-shape ONNX MLPs. Verdicts
+land in `RobustnessResult.verdicts` (`VERIFIED` / `FALSIFIED` / `UNKNOWN` /
+`ERROR`) and counter-examples in `perturbed_inputs`.
+
+#### Algorithms
+
+| `algorithm` | Property |
+| --- | --- |
+| `linf-box` | Per-input box `[x_i - eps, x_i + eps]` plus an output disjunction asserting "any non-target class dominates the target". UNSAT → VERIFIED, SAT → FALSIFIED with reconstructed counter-example. |
+
+#### Per-logit output bounds (opt-in)
+
+`MarabouAssessor` can additionally certify per-class logit ranges for each
+VERIFIED sample, populating `RobustnessResult.output_bounds`.
+
+| Kwarg | Default | Meaning |
+| --- | --- | --- |
+| `compute_output_bounds` | `False` | Enable bisection-via-SAT bound extraction after each VERIFIED verdict. |
+| `bound_search_range` | `1e3` | Initial probe window `[-range, +range]` per output variable. |
+| `bound_tolerance` | `1e-2` | Stop bisection when the certified interval narrows below this. |
+
+Marabou exposes no native min/max objective, so bounds are extracted by
+binary search on `setUpperBound` / `setLowerBound` of each output variable.
+Per verified sample, the assessor runs up to
+`2 × K × (⌈log₂(2 × bound_search_range / bound_tolerance)⌉ + 2)` extra
+Marabou solves — for `K=10` classes with defaults that is up to ~400 extra
+solves per sample. FALSIFIED / UNKNOWN / ERROR samples are skipped (their
+rows in the stacked bounds tensor are NaN-padded). Inconclusive verdicts
+during bisection (TIMEOUT / UNKNOWN) break the search conservatively; the
+returned bound is the loosest still-certified value, never a falsely tight
+one. If every probe for a given class/mode is inconclusive the assessor
+emits a `WARNING` log so vacuous bounds are obvious.

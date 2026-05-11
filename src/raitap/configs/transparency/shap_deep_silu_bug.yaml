@@ -1,0 +1,17 @@
+# Reproducer for issue #22: SHAP DeepExplainer + SiLU activations.
+# Combined with ``model: efficientnet_b0`` this triggers the
+# ``BackwardHookFunctionBackward view+inplace`` RuntimeError, which the
+# rethrow layer rewraps into a user-actionable message pointing at
+# GradientExplainer.
+shap_deep_silu:
+  _target_: ShapExplainer
+  algorithm: DeepExplainer
+  call:
+    target: 0
+  raitap:
+    batch_size: 1
+    progress_desc: "SHAP batches"
+  visualisers:
+    - _target_: ShapImageVisualiser
+      constructor:
+        max_samples: 1

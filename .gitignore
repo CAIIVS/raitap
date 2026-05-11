@@ -74,3 +74,6 @@ mlruns/
 .claude/
 conductor/
 .gitnexus
+
+# Git worktrees
+.worktrees/

@@ -8,6 +8,8 @@ from raitap import raitap_log
 from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
 from raitap.transparency.contracts import ExplanationPayloadKind, MethodFamily
 from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
+from raitap.utils.diagnostics import Subsystem
+from raitap.utils.errors import rethrow
 
 from .base_explainer import AttributionOnlyExplainer
 
@@ -22,6 +24,7 @@ raitap_log.suppress(
 )
 
 if TYPE_CHECKING:
+    import re
     from collections.abc import Mapping
 
     import torch
@@ -66,6 +69,10 @@ class CaptumExplainer(AttributionOnlyExplainer):
             "Lime",
         }
     )
+
+    # Curated patterns for confusing Captum errors. Seed empty; extend as we
+    # observe confusing errors in practice. See :func:`raitap.utils.errors.rethrow`.
+    error_messages: ClassVar[Mapping[re.Pattern[str], str]] = {}
 
     def __init__(self, algorithm: str, **init_kwargs):
         """
@@ -145,17 +152,22 @@ class CaptumExplainer(AttributionOnlyExplainer):
         if self.algorithm == "Occlusion":
             attr_kwargs = _normalise_occlusion_kwargs(attr_kwargs)
 
-        # Instantiate method with model and constructor args
-        method = method_class(model, **init_kwargs)
+        with rethrow(
+            subsystem=Subsystem.transparency,
+            third_party_lib="captum",
+            message_map=type(self).error_messages,
+        ):
+            # Instantiate method with model and constructor args
+            method = method_class(model, **init_kwargs)
 
-        # Compute attributions using unified Captum API
-        # Only pass baselines if provided (some methods don't support it)
-        if baselines is not None:
-            attributions = method.attribute(
-                inputs, target=target, baselines=baselines, **attr_kwargs
-            )
-        else:
-            attributions = method.attribute(inputs, target=target, **attr_kwargs)
+            # Compute attributions using unified Captum API
+            # Only pass baselines if provided (some methods don't support it)
+            if baselines is not None:
+                attributions = method.attribute(
+                    inputs, target=target, baselines=baselines, **attr_kwargs
+                )
+            else:
+                attributions = method.attribute(inputs, target=target, **attr_kwargs)
 
         # Captum already returns torch.Tensor, so just return
         return attributions

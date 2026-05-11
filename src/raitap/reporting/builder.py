@@ -302,6 +302,7 @@ def _build_robustness_section(
             table_rows.append(("epsilon", f"{budget.epsilon:g}"))
         for metric_name, metric_value in result.metrics.as_dict().items():
             table_rows.append((metric_name, f"{metric_value:.4f}"))
+        table_rows.extend(_output_bounds_table_rows(result))
 
         robustness_sample_indices = _robustness_report_sample_indices(
             result,
@@ -347,6 +348,50 @@ def _build_robustness_section(
         groups,
         metadata={"section_role": "robustness"},
     )
+
+
+def _output_bounds_table_rows(result: Any) -> list[tuple[str, str]]:
+    if result.method_kind != MethodKind.FORMAL_VERIFICATION:
+        return []
+
+    output_bounds = getattr(result, "output_bounds", None)
+    if not isinstance(output_bounds, Mapping):
+        return []
+
+    lower = output_bounds.get("lower")
+    upper = output_bounds.get("upper")
+    if not isinstance(lower, torch.Tensor) or not isinstance(upper, torch.Tensor):
+        return []
+    if lower.ndim != 2 or upper.ndim != 2 or upper.shape != lower.shape:
+        return []
+
+    lower_values = lower.detach().cpu().to(torch.float32)
+    upper_values = upper.detach().cpu().to(torch.float32)
+    n_samples = int(lower_values.shape[0])
+    lower_has_bounds = ~torch.isnan(lower_values).all(dim=1)
+    upper_has_bounds = ~torch.isnan(upper_values).all(dim=1)
+    per_sample_has_bounds = int((lower_has_bounds & upper_has_bounds).sum().item())
+    rows = [("output_bounds_samples", f"{per_sample_has_bounds}/{n_samples}")]
+
+    for logit_index in range(int(lower_values.shape[1])):
+        lower_column = lower_values[:, logit_index]
+        upper_column = upper_values[:, logit_index]
+        if torch.isnan(lower_column).all() or torch.isnan(upper_column).all():
+            continue
+        rows.append(
+            (
+                f"logit_{logit_index}_lower_mean",
+                f"{float(torch.nanmean(lower_column).item()):.4f}",
+            )
+        )
+        rows.append(
+            (
+                f"logit_{logit_index}_upper_mean",
+                f"{float(torch.nanmean(upper_column).item()):.4f}",
+            )
+        )
+
+    return rows
 
 
 def _legacy_robustness_images(
