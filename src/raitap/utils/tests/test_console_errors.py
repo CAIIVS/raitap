@@ -16,11 +16,10 @@ import pytest
 from rich.console import Console
 
 import raitap.utils.console as console_module
-from raitap.utils.colour import THEME
+from raitap.utils.colour import THEME, Status
 from raitap.utils.console import (
-    _FAILURE_KIND,
     RaitapRichHandler,
-    _append_chips,
+    diagnostic_chips,
     print_failure_panel,
 )
 from raitap.utils.diagnostics import Diagnostic, Subsystem
@@ -39,7 +38,7 @@ def _reset_dev_install_cache() -> Iterator[None]:
     is_dev_install.cache_clear()
 
 
-class TestAppendFailureChips:
+class TestDiagnosticChips:
     def test_dev_install_includes_path_and_third_party(self) -> None:
         diag = Diagnostic(
             subsystem=Subsystem.transparency,
@@ -47,16 +46,14 @@ class TestAppendFailureChips:
             line=196,
             third_party_lib="shap",
         )
-        parts: list[str] = ["[red]✗ Failure[/]"]
         with patch.object(console_module, "is_dev_install", return_value=True):
-            _append_chips(
-                parts,
+            chips = diagnostic_chips(
+                Status.ERROR,
                 scope="Transparency",
                 src=f"{diag.file}:{diag.line}",
                 diagnostic=diag,
-                kind=_FAILURE_KIND,
             )
-        joined = " ".join(parts)
+        joined = " ".join(c.plain for c in chips)
         assert "Transparency" in joined
         assert "shap_explainer.py:196" in joined
         assert "via Shap" in joined
@@ -68,32 +65,27 @@ class TestAppendFailureChips:
             line=0,
             third_party_lib="shap",
         )
-        parts: list[str] = ["[red]✗ Failure[/]"]
         with patch.object(console_module, "is_dev_install", return_value=False):
-            _append_chips(
-                parts,
+            chips = diagnostic_chips(
+                Status.ERROR,
                 scope="Transparency",
                 src="",
                 diagnostic=diag,
-                kind=_FAILURE_KIND,
             )
-        joined = " ".join(parts)
+        joined = " ".join(c.plain for c in chips)
         assert "View docs" in joined
-        # No raw path chip in installed mode.
         assert "<frozen>" not in joined
 
     def test_unclassified_in_installed_mode_yields_no_chips(self) -> None:
         diag = Diagnostic(subsystem=None, file="", line=0, third_party_lib=None)
-        parts: list[str] = ["[red]✗ Failure[/]"]
         with patch.object(console_module, "is_dev_install", return_value=False):
-            _append_chips(
-                parts,
+            chips = diagnostic_chips(
+                Status.ERROR,
                 scope="RaitapError",
                 src="",
                 diagnostic=diag,
-                kind=_FAILURE_KIND,
             )
-        assert parts == ["[red]✗ Failure[/]"]
+        assert chips == []
 
 
 class TestPrintFailurePanel:

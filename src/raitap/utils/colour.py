@@ -1,69 +1,87 @@
-"""Raitap colour palette + Rich theme.
+"""Raitap colour palette.
 
 Two layers:
 
-- :data:`BASE_TOKENS` — the raw palette. Each hue exposes a ``_base`` shade
-  (used for borders / primary text) and a ``_light`` shade (used for
-  secondary chips and dimmed accents). Adding or rebalancing a colour means
-  editing one row here; nothing downstream hard-codes ANSI names.
-- :data:`SEMANTIC_TOKENS` — semantic names (``logging.level.warning``,
-  ``log.time``, …) that reference base tokens. Renderers should refer to
-  these where the *meaning* is what matters; base tokens are for places where
-  a hue choice is intentional (a warning panel using ``yellow_base``).
+- :class:`Status` — the semantic axis. ``WARNING``, ``ERROR``, ``SUCCESS``,
+  ``INFO``. Each carries a hue plus the conventional icon/label used in
+  framed status output. Renderers should talk in terms of ``Status``, not
+  ANSI colour names.
+- :func:`colour` — resolves a :class:`Status` to a :class:`Shades` pair of
+  Rich :class:`~rich.style.Style` instances (``base`` for the dominant
+  region, ``light`` for secondary chips). :class:`Style` composes via ``+``,
+  which is what makes ``colour(Status.ERROR).light + Style(link=url)``
+  build cleanly without string concatenation.
 
-:data:`THEME` is the Rich :class:`~rich.theme.Theme` consumed by the console
-factories — it merges both layers (with semantic tokens dereferenced to raw
-ANSI colours, since Rich can't chase references inside theme values).
-
-Naming convention: ``<hue>_<shade>``. Underscores rather than dots because
-Rich's style parser can't carry dots through ``[name]`` markup lookups.
+:data:`THEME` keeps a tiny set of ``logging.level.*`` aliases so the Rich
+log formatter colours the level prefix consistently with the Status axis.
+Most rendering should hold :class:`Style` instances directly rather than
+referencing theme names.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from enum import Enum
 from typing import Final
 
+from rich.style import Style
 from rich.theme import Theme
 
-# Raw palette. Two shades per hue keeps the visual hierarchy explicit:
-# ``_base`` for the dominant element of a region (border, headline),
-# ``_light`` for chips / metadata that should recede slightly.
-BASE_TOKENS: Final[dict[str, str]] = {
-    "red_base": "red",
-    "red_light": "bright_red",
-    "yellow_base": "yellow",
-    "yellow_light": "bright_yellow",
-    "green_base": "green",
-    "green_light": "bright_green",
-    "cyan_base": "cyan",
-    "cyan_light": "bright_cyan",
-}
 
-# Semantic aliases. Values are base-token *names*; the resolver below maps
-# them to raw ANSI colours when constructing the Rich theme. Renderers can
-# still reference base tokens directly when the hue choice is intentional.
-SEMANTIC_TOKENS: Final[dict[str, str]] = {
-    "log.time": "cyan_base",
-    "log.message": "default",  # passthrough: keep the terminal's foreground.
-    "logging.level.info": "cyan_base",
-    "logging.level.warning": "yellow_light",
-    "logging.level.error": "red_base",
-}
+class Status(Enum):
+    """Semantic axis for status output.
+
+    Each member binds a hue, a leading glyph, and the canonical label that
+    appears in framed status output. Callers override ``default_label`` per
+    site when the wording needs to differ (e.g. ``"Failure"`` for the
+    top-level crash panel even though it's an :attr:`ERROR` underneath).
+    """
+
+    WARNING = ("yellow", "⚠︎  ", "Warning")
+    ERROR = ("red", "✗ ", "Error")
+    SUCCESS = ("green", "✓ ", "Complete")
+    INFO = ("cyan", "▸ ", "Info")
+
+    def __init__(self, hue: str, icon: str, default_label: str) -> None:
+        self.hue: str = hue
+        self.icon: str = icon
+        self.default_label: str = default_label
 
 
-def _resolve(token: str) -> str:
-    """Return the raw ANSI colour for a token (base token or ``default``)."""
-    if token == "default":
-        return token
-    return BASE_TOKENS[token]
+@dataclass(frozen=True)
+class Shades:
+    """Two Rich :class:`~rich.style.Style` shades for a :class:`Status`.
+
+    ``base`` for borders / headlines / dominant text, ``light`` for
+    secondary chips and metadata that should recede slightly.
+    """
+
+    base: Style
+    light: Style
 
 
+def colour(status: Status) -> Shades:
+    """Resolve a :class:`Status` to a :class:`Shades` pair."""
+    return Shades(
+        base=Style.parse(status.hue),
+        light=Style.parse(f"bright_{status.hue}"),
+    )
+
+
+# Rich theme: only ``logging.level.*`` aliases so the default level prefix
+# rendering matches the Status axis. Inline styling goes through
+# :func:`colour` (Style objects), not theme names — Rich's parser doesn't
+# resolve theme names inside compound style strings, so keeping the theme
+# small avoids a class of bugs.
 THEME: Final[Theme] = Theme(
     {
-        **BASE_TOKENS,
-        **{name: _resolve(ref) for name, ref in SEMANTIC_TOKENS.items()},
+        "log.time": Status.INFO.hue,
+        "log.message": "default",
+        "logging.level.info": Status.INFO.hue,
+        "logging.level.warning": f"bright_{Status.WARNING.hue}",
+        "logging.level.error": Status.ERROR.hue,
     }
 )
 
 
-__all__ = ["BASE_TOKENS", "SEMANTIC_TOKENS", "THEME"]
+__all__ = ["THEME", "Shades", "Status", "colour"]
