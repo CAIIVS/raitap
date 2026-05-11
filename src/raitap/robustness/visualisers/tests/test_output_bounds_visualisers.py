@@ -264,12 +264,12 @@ def test_width_heatmap_masks_all_nan_row() -> None:
     result = _formal_result(n=n, k=k, output_bounds={"lower": lower, "upper": upper})
     figure = OutputBoundsWidthHeatmapVisualiser().visualise(result, context=_ctx())
     try:
-        import numpy as np
+        import numpy.ma as ma
 
         images = [im for ax in figure.axes for im in ax.get_images()]
         arr = images[0].get_array()
-        assert hasattr(arr, "mask")
-        mask = np.asarray(arr.mask)
+        assert arr is not None
+        mask = ma.getmaskarray(ma.asarray(arr))
         # Row 2 must be fully masked.
         assert mask[2].all()
         # Rows 0,1,3 must be fully unmasked.
@@ -343,11 +343,12 @@ def test_margin_heatmap_masks_target_column() -> None:
     result = _formal_result(n=n, k=k, output_bounds={"lower": lower, "upper": upper})
     figure = OutputBoundsMarginHeatmapVisualiser().visualise(result, context=_ctx())
     try:
-        import numpy as np
+        import numpy.ma as ma
 
         images = [im for ax in figure.axes for im in ax.get_images()]
         arr = images[0].get_array()
-        mask = np.asarray(arr.mask)
+        assert arr is not None
+        mask = ma.getmaskarray(ma.asarray(arr))
         targets = result.targets.numpy()
         for i in range(n):
             assert mask[i, int(targets[i])], f"target cell at row {i} not masked"
