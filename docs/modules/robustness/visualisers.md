@@ -1,4 +1,4 @@
-# Robustness Visualisers
+# Visualisers
 
 Each visualiser renders one figure per call. All of them are declared per-assessor in YAML:
 
