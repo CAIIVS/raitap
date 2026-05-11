@@ -74,7 +74,9 @@ warning anyway.
 
 ## Raising errors
 
-Don't do it through `raitap_log`. Use plain `raise`:
+Don't do it through `raitap_log`. Use plain `raise` for raitap-originated
+errors, and use the `rethrow` context manager when wrapping a third-party
+library that throws confusing messages:
 
 ```python
 raise ValueError(
@@ -83,10 +85,44 @@ raise ValueError(
 )
 ```
 
-Issue #22 introduces raitap exception classes that carry a
-`Diagnostic` payload (subsystem, file, line, third-party lib) so the rich
-handler can frame raised exceptions the same way it frames warnings. Until
-then, plain `raise` with a helpful message is the right tool.
+For wrapped third-party calls (captum / shap / foolbox / torchattacks), use
+`raitap.utils.errors.rethrow` to rewrap matched error messages into a
+user-actionable `AdapterError` carrying a `Diagnostic`. The rich handler
+renders raised `RaitapError` subclasses with the same `Subsystem · via <lib>
+· View docs` chips as warnings, and the top-level `print_failure_panel`
+suppresses the raw traceback so the user sees the actionable copy first.
+
+```python
+# src/raitap/transparency/explainers/shap_explainer.py
+import re
+from raitap.utils.diagnostics import Subsystem
+from raitap.utils.errors import rethrow
+
+class ShapExplainer:
+    # Curated patterns: original message regex → replacement copy.
+    # Matched against ``str(exc)``; first hit wins. Unmatched errors propagate
+    # unchanged so real bugs don't get masked.
+    error_messages = {
+        re.compile(r"BackwardHookFunctionBackward is a view"): (
+            "DeepExplainer can fail on PyTorch models that use SiLU "
+            "activations (for example EfficientNet variants). Use "
+            "alternatives like GradientExplainer."
+        ),
+    }
+
+    def compute_attributions(self, model, inputs, ...):
+        ...
+        with rethrow(
+            subsystem=Subsystem.transparency,
+            third_party_lib="shap",
+            message_map=type(self).error_messages,
+        ):
+            shap_values = explainer.shap_values(inputs)
+```
+
+The original exception is preserved on `__cause__`, so the raw library
+traceback stays available for debugging — only the user-facing top is
+rewritten.
 
 ## Subsystem attribution
 
@@ -161,11 +197,20 @@ mental models. Use `raitap_log`.
 - `src/raitap/utils/diagnostics.py` — `Subsystem` enum, frame-walking
   classifier, third-party library detection (libs declared in each
   subsystem's `__init__.py` as `THIRD_PARTY_LIBS`).
+- `src/raitap/utils/errors.py` — `RaitapError`, `AdapterError`,
+  traceback-walking diagnostic resolver, and the `rethrow` context manager
+  that adapters use to rewrap confusing third-party errors.
+- `src/raitap/utils/colour.py` — two-shade colour palette (`<hue>_base` /
+  `<hue>_light`) plus the Rich `Theme`. Edit here when adding or
+  rebalancing colours; renderers reference tokens, not raw ANSI names.
 - `src/raitap/utils/console.py` — the rich `RichHandler` subclass that
-  formats warning records into panels with subsystem chips. Calls
-  `logging.captureWarnings(True)` so external log sinks (MLflow, Airflow)
-  see warnings too.
+  formats WARNING+ records into panels with subsystem / via-lib / docs
+  chips. Calls `logging.captureWarnings(True)` so external log sinks
+  (MLflow, Airflow) see warnings too. `print_failure_panel` mirrors the
+  same chip composition for top-level crashes.
 
 If you're touching that code, expect to also update
-`src/raitap/utils/tests/test_log.py` and
-`src/raitap/utils/tests/test_diagnostics.py`.
+`src/raitap/utils/tests/test_log.py`,
+`src/raitap/utils/tests/test_diagnostics.py`,
+`src/raitap/utils/tests/test_errors.py`, and
+`src/raitap/utils/tests/test_console_errors.py`.
