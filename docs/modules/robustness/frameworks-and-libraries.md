@@ -44,6 +44,9 @@ they receive. In short:
 | --- | --- | --- |
 | `ImagePairVisualiser` | `EMPIRICAL_ATTACK` | Renders N rows by 3 columns: clean, perturbed, signed perturbation heatmap. Rejects tabular / time-series / token results. |
 | `PerturbationHeatmapVisualiser` | `EMPIRICAL_ATTACK` | Per-sample diverging heatmap of the perturbation. Default channel reduction is `signed_dominant` (preserves sign without cancelling opposing channels). Other modes: `mean`, `mean_abs`, `max_abs`. |
+| `VerdictSummaryVisualiser` | `FORMAL_VERIFICATION` | Two-panel summary: verdict-count bar chart plus a runtime histogram per verified sample. |
+| `OutputBoundsCohortVisualiser` | `FORMAL_VERIFICATION` | Boxplot of certified per-class output-bound widths (`upper - lower`) across the verified batch. Constructor kwargs: `whis`, `show_outliers`. Renders a placeholder figure when `result.output_bounds is None` or all rows are NaN. |
+| `OutputBoundsPinnedVisualiser` | `FORMAL_VERIFICATION` | Per-sample plot of `[lower_k, upper_k]` certified intervals for each output class with the target class highlighted. Constructor kwargs: `max_samples`, `target_color`, `bar_color`, `sample_indices`. Falls back to a placeholder when bounds are absent. |
 
 Contributor-facing details about the assessor / visualiser internals are in
 {doc}`../../contributor/robustness`.
