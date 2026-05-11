@@ -383,6 +383,8 @@ def test_compute_output_bounds_kwargs_round_trip() -> None:
     assert assessor.compute_output_bounds is True
     assert assessor.bound_search_range == 50.0
     assert assessor.bound_tolerance == 0.05
+    assert assessor.init_kwargs["bound_search_range"] == 50.0
+    assert assessor.init_kwargs["bound_tolerance"] == 0.05
 
 
 def test_bisect_output_bound_lower_converges_to_true_minimum(

@@ -108,6 +108,8 @@ class MarabouAssessor(FormalVerificationAssessor):
             "norm": str(norm),
             "timeout_s": float(timeout_s),
             "compute_output_bounds": bool(compute_output_bounds),
+            "bound_search_range": float(bound_search_range),
+            "bound_tolerance": float(bound_tolerance),
         }
         # Per-(model, sample-shape) cache so we only export once per assess().
         self._onnx_cache: dict[tuple[int, tuple[int, ...]], Path] = {}
