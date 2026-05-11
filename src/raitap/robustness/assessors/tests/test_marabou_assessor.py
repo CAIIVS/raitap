@@ -12,6 +12,7 @@ import pytest
 import torch
 
 from raitap.robustness.assessors import MarabouAssessor
+from raitap.robustness.assessors.marabou_assessor import _bisect_output_bound
 from raitap.robustness.contracts import (
     PerturbationBudget,
     PerturbationNorm,
@@ -379,3 +380,67 @@ def test_compute_output_bounds_kwargs_round_trip() -> None:
     assert assessor.compute_output_bounds is True
     assert assessor.bound_search_range == 50.0
     assert assessor.bound_tolerance == 0.05
+
+
+def test_bisect_output_bound_lower_converges_to_true_minimum(
+    fake_maraboupy: _FakeNetwork, tmp_path: Any
+) -> None:
+    """Mock returns UNSAT iff probe `c` is below the true min (0.3)."""
+    from maraboupy import Marabou
+
+    onnx_path = tmp_path / "model.onnx"
+    onnx_path.write_bytes(b"\x00")
+    true_min = 0.3
+    flat_sample = np.zeros(5, dtype=np.float32)
+
+    def scripted_solve(options: object | None = None) -> tuple[str, dict[int, float], object]:
+        del options
+        mid = fake_maraboupy.upper_bounds[5]
+        if mid < true_min:
+            return ("unsat", {}, _FakeStats(0.0))
+        return ("sat", {}, _FakeStats(0.0))
+
+    fake_maraboupy.solve = scripted_solve  # type: ignore[method-assign]
+
+    bound = _bisect_output_bound(
+        onnx_path=onnx_path,
+        flat_sample=flat_sample,
+        eps=0.05,
+        output_index=0,
+        mode="lower",
+        search_range=1.0,
+        tolerance=1e-3,
+        timeout_s=1.0,
+    )
+    assert abs(bound - true_min) <= 1e-3
+    assert Marabou.read_onnx.call_count >= 1
+
+
+def test_bisect_output_bound_upper_converges_to_true_maximum(
+    fake_maraboupy: _FakeNetwork, tmp_path: Any
+) -> None:
+    onnx_path = tmp_path / "model.onnx"
+    onnx_path.write_bytes(b"\x00")
+    true_max = -0.2
+    flat_sample = np.zeros(5, dtype=np.float32)
+
+    def scripted_solve(options: object | None = None) -> tuple[str, dict[int, float], object]:
+        del options
+        mid = fake_maraboupy.lower_bounds[5]
+        if mid > true_max:
+            return ("unsat", {}, _FakeStats(0.0))
+        return ("sat", {}, _FakeStats(0.0))
+
+    fake_maraboupy.solve = scripted_solve  # type: ignore[method-assign]
+
+    bound = _bisect_output_bound(
+        onnx_path=onnx_path,
+        flat_sample=flat_sample,
+        eps=0.05,
+        output_index=0,
+        mode="upper",
+        search_range=1.0,
+        tolerance=1e-3,
+        timeout_s=1.0,
+    )
+    assert abs(bound - true_max) <= 1e-3

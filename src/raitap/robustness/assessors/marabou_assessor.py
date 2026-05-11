@@ -369,6 +369,59 @@ def _interpret_solver_result(
     return RobustnessVerdict.UNKNOWN, None
 
 
+def _bisect_output_bound(
+    *,
+    onnx_path: Path,
+    flat_sample: np.ndarray,
+    eps: float,
+    output_index: int,
+    mode: str,
+    search_range: float,
+    tolerance: float,
+    timeout_s: float,
+) -> float:
+    """Return certified per-logit bound via bisection-via-SAT.
+
+    ``mode='lower'``: largest c such that out[k] >= c is provable.
+    ``mode='upper'``: smallest c such that out[k] <= c is provable.
+
+    Per spec, a fresh ``MarabouNetwork`` is built for every probe.
+    """
+    if mode not in {"lower", "upper"}:
+        raise ValueError(f"_bisect_output_bound: mode must be 'lower'|'upper', got {mode!r}")
+
+    from maraboupy import Marabou  # type: ignore[import-not-found]
+
+    lo, hi = -float(search_range), float(search_range)
+    options = Marabou.createOptions(timeoutInSeconds=int(timeout_s), verbosity=0)
+    while (hi - lo) > tolerance:
+        mid = (lo + hi) / 2.0
+        network = Marabou.read_onnx(str(onnx_path))
+        input_vars = np.asarray(network.inputVars[0]).reshape(-1)
+        output_vars = np.asarray(network.outputVars[0]).reshape(-1)
+        for var_id, value in zip(input_vars, flat_sample, strict=True):
+            network.setLowerBound(int(var_id), float(value) - eps)
+            network.setUpperBound(int(var_id), float(value) + eps)
+        out_var = int(output_vars[output_index])
+        if mode == "lower":
+            network.setUpperBound(out_var, mid)
+        else:
+            network.setLowerBound(out_var, mid)
+        exit_code, _, _ = network.solve(options=options)
+        is_unsat = str(exit_code).strip().lower() in {"unsat", "valid"}
+        if mode == "lower":
+            if is_unsat:
+                lo = mid
+            else:
+                hi = mid
+        else:
+            if is_unsat:
+                hi = mid
+            else:
+                lo = mid
+    return lo if mode == "lower" else hi
+
+
 def _reconstruct_counter_example(
     values: object,
     input_vars: np.ndarray,
