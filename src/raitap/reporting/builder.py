@@ -455,6 +455,8 @@ def _compact_robustness_images(
                     visualiser_index=visualiser_index,
                     omit_redundant=True,
                 )
+                if render_kwargs is None:
+                    continue
             visualisation = result.render_visualisation_for_report(
                 visualiser_index,
                 sample_index=sample_index,
@@ -551,28 +553,27 @@ def _render_kwargs_for_robustness_visualiser(
     owners: dict[str, int],
     visualiser_index: int,
     omit_redundant: bool,
-) -> dict[str, object]:
+) -> dict[str, object] | None:
     if not omit_redundant:
         return {}
     kwargs: dict[str, object] = {}
+    declared_facets = set(_declared_robustness_facets(visualiser))
+    disabled_facets: set[str] = set()
     cls = type(visualiser)
     if (
         getattr(cls, "embeds_clean_input", False)
         and owners.get("clean_input", visualiser_index) != visualiser_index
     ):
         kwargs["include_clean_input"] = False
+        disabled_facets.add("clean_input")
     if (
         getattr(cls, "embeds_perturbation_map", False)
         and owners.get("perturbation_map", visualiser_index) != visualiser_index
     ):
         kwargs["include_perturbation_map"] = False
-    if (
-        kwargs.get("include_clean_input") is False
-        and kwargs.get("include_perturbation_map") is False
-    ):
-        raise AssertionError(
-            "Refusing to ask a robustness visualiser to omit both clean and perturbation panels."
-        )
+        disabled_facets.add("perturbation_map")
+    if declared_facets and disabled_facets >= declared_facets:
+        return None
     return kwargs
 
 

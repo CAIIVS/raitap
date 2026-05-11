@@ -14,10 +14,6 @@ if TYPE_CHECKING:
     from ..results import RobustnessResult
 
 
-class _RobustnessVisualisationSkipped(Exception):  # noqa: N818
-    """Internal signal for report-only renders that intentionally produce no figure."""
-
-
 class BaseRobustnessVisualiser(ABC):
     """All robustness visualisers extend this class.
 

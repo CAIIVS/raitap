@@ -9,7 +9,7 @@ import numpy as np
 import torch
 
 from ...contracts import MethodKind
-from ..base_visualiser import BaseRobustnessVisualiser, _RobustnessVisualisationSkipped
+from ..base_visualiser import BaseRobustnessVisualiser
 from .image_pair_visualiser import _require_image_modality, _signed_perturbation_heatmap
 
 if TYPE_CHECKING:
@@ -64,8 +64,8 @@ class PerturbationHeatmapVisualiser(BaseRobustnessVisualiser):
         include_perturbation_map = bool(kwargs.pop("include_perturbation_map", True))
         del kwargs
         if not include_perturbation_map:
-            raise _RobustnessVisualisationSkipped(
-                "PerturbationHeatmapVisualiser was asked to omit its perturbation map."
+            raise ValueError(
+                "PerturbationHeatmapVisualiser requires include_perturbation_map=True."
             )
         if result.perturbed_inputs is None:
             raise ValueError(

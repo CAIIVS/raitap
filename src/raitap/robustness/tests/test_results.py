@@ -24,10 +24,7 @@ from raitap.robustness.results import (
     RobustnessResult,
     encode_verdicts,
 )
-from raitap.robustness.visualisers.base_visualiser import (
-    BaseRobustnessVisualiser,
-    _RobustnessVisualisationSkipped,
-)
+from raitap.robustness.visualisers.base_visualiser import BaseRobustnessVisualiser
 
 if TYPE_CHECKING:
     from typing import Any
@@ -142,7 +139,7 @@ class _RecordingRobustnessVisualiser(BaseRobustnessVisualiser):
         return fig
 
 
-class _SkippingRobustnessVisualiser(BaseRobustnessVisualiser):
+class _ErrorRobustnessVisualiser(BaseRobustnessVisualiser):
     def visualise(
         self,
         result: RobustnessResult,
@@ -151,7 +148,7 @@ class _SkippingRobustnessVisualiser(BaseRobustnessVisualiser):
         **kwargs: Any,
     ) -> Figure:
         del result, context, kwargs
-        raise _RobustnessVisualisationSkipped("skip this report-only render")
+        raise ValueError("visualiser failed")
 
 
 def test_render_visualisation_for_report_targets_one_visualiser_and_forwards_kwargs(
@@ -226,20 +223,6 @@ def test_render_visualisation_for_report_sample_index_out_of_range_raises(
         result.render_visualisation_for_report(0, sample_index=2)
 
 
-def test_render_visualisation_for_report_skip_has_no_side_effects(tmp_path: Path) -> None:
-    result = _result_for_visualiser_tests(tmp_path)
-    result.visualiser_targets.append("existing.Visualiser_0")
-    result.visualisers = [
-        ConfiguredRobustnessVisualiser(visualiser=_SkippingRobustnessVisualiser())
-    ]
-
-    rendered = result.render_visualisation_for_report(0)
-
-    assert rendered is None
-    assert result.visualiser_targets == ["existing.Visualiser_0"]
-    assert not result.run_dir.exists()
-
-
 def test_render_visualisation_for_report_out_of_range_raises_index_error(
     tmp_path: Path,
 ) -> None:
@@ -249,13 +232,11 @@ def test_render_visualisation_for_report_out_of_range_raises_index_error(
         result.render_visualisation_for_report(0)
 
 
-def test_visualise_persists_pngs_and_does_not_swallow_skip_exception(tmp_path: Path) -> None:
+def test_visualise_does_not_swallow_visualiser_errors(tmp_path: Path) -> None:
     result = _result_for_visualiser_tests(tmp_path)
-    result.visualisers = [
-        ConfiguredRobustnessVisualiser(visualiser=_SkippingRobustnessVisualiser())
-    ]
+    result.visualisers = [ConfiguredRobustnessVisualiser(visualiser=_ErrorRobustnessVisualiser())]
 
-    with pytest.raises(_RobustnessVisualisationSkipped):
+    with pytest.raises(ValueError, match="visualiser failed"):
         result.visualise()
 
     assert result.visualiser_targets == []

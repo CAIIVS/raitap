@@ -22,7 +22,6 @@ from raitap.robustness.visualisers import (
     ImagePairVisualiser,
     PerturbationHeatmapVisualiser,
 )
-from raitap.robustness.visualisers.base_visualiser import _RobustnessVisualisationSkipped
 
 
 def _make_result() -> RobustnessResult:
@@ -126,11 +125,11 @@ def test_perturbation_heatmap_visualiser_renders_figure() -> None:
         plt.close(figure)
 
 
-def test_perturbation_heatmap_visualiser_skips_when_its_facet_is_disabled() -> None:
+def test_perturbation_heatmap_visualiser_rejects_render_without_its_facet() -> None:
     result = _make_result()
     visualiser = PerturbationHeatmapVisualiser(max_samples=1)
 
-    with pytest.raises(_RobustnessVisualisationSkipped):
+    with pytest.raises(ValueError, match="requires include_perturbation_map=True"):
         visualiser.visualise(
             result,
             context=_empirical_context(),

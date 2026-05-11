@@ -143,6 +143,18 @@ class _PerturbationRecordingVisualiser(_RobustnessRecordingVisualiser):
     embeds_perturbation_map = True
 
 
+class _ErroringRobustnessVisualiser(BaseRobustnessVisualiser):
+    def visualise(
+        self,
+        result: RobustnessResult,
+        *,
+        context: RobustnessVisualisationContext,
+        **kwargs: Any,
+    ) -> Figure:
+        del result, context, kwargs
+        raise ValueError("builder visualiser failed")
+
+
 class _StrictPerturbationVisualiser(BaseRobustnessVisualiser):
     embeds_perturbation_map = True
 
@@ -1105,16 +1117,18 @@ def test_canonical_facet_owners_prefers_dedicated_visualiser_in_any_order() -> N
     assert _canonical_facet_owners([pair, heatmap])["clean_input"] == 0
 
 
-def test_robustness_render_kwargs_raise_if_both_facets_would_be_omitted() -> None:
+def test_robustness_render_kwargs_skip_if_all_declared_facets_would_be_omitted() -> None:
     visualiser = ImagePairVisualiser(max_samples=1)
 
-    with pytest.raises(AssertionError, match="omit both"):
+    assert (
         _render_kwargs_for_robustness_visualiser(
             visualiser,
             owners={"clean_input": 1, "perturbation_map": 2},
             visualiser_index=0,
             omit_redundant=True,
         )
+        is None
+    )
 
 
 def test_robustness_no_embedder_receives_no_compact_kwargs() -> None:
@@ -1168,6 +1182,66 @@ def test_build_report_compact_robustness_omits_non_owner_perturbation_panel(
         "robustness_0_fgsm_sample_0_ImagePairVisualiser_0"
     )
     assert "PerturbationHeatmapVisualiser" not in robustness_group.images[0].name
+
+
+def test_build_report_compact_robustness_skips_redundant_single_facet_visualiser(
+    tmp_path: Path,
+) -> None:
+    config = AppConfig(experiment_name="robustness_compact_skip")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    owner = _PerturbationRecordingVisualiser()
+    redundant = _PerturbationRecordingVisualiser()
+    result = _make_robustness_result(
+        tmp_path,
+        visualisers=[
+            ConfiguredRobustnessVisualiser(visualiser=owner),
+            ConfiguredRobustnessVisualiser(visualiser=redundant),
+        ],
+    )
+    outputs = RunOutputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.zeros(1, 2),
+        robustness_results=[result],
+    )
+
+    report = build_report(config, outputs)
+
+    robustness_group = report.sections[0].groups[0]
+    assert len(robustness_group.images) == 1
+    assert owner.calls == [{}]
+    assert redundant.calls == []
+    assert robustness_group.images[0].name.startswith(
+        "robustness_0_fgsm_sample_0__PerturbationRecordingVisualiser_0"
+    )
+
+
+def test_build_report_compact_robustness_propagates_visualiser_errors(
+    tmp_path: Path,
+) -> None:
+    config = AppConfig(experiment_name="robustness_compact_error")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    result = _make_robustness_result(
+        tmp_path,
+        visualisers=[
+            ConfiguredRobustnessVisualiser(visualiser=_ErroringRobustnessVisualiser()),
+        ],
+    )
+    outputs = RunOutputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.zeros(1, 2),
+        robustness_results=[result],
+    )
+
+    with pytest.raises(ValueError, match="builder visualiser failed"):
+        build_report(config, outputs)
 
 
 def test_build_report_compact_robustness_renders_selected_samples_per_assessor(
@@ -1309,10 +1383,10 @@ def test_build_report_legacy_robustness_reuses_existing_visualisations_without_k
     assert recording.calls == []
 
 
-def test_build_report_robustness_declared_facet_without_kwarg_support_surfaces_error(
+def test_build_report_robustness_redundant_single_facet_without_kwarg_support_is_skipped(
     tmp_path: Path,
 ) -> None:
-    config = AppConfig(experiment_name="robustness_contract_error")
+    config = AppConfig(experiment_name="robustness_redundant_strict_visualiser")
     set_output_root(config, tmp_path)
     config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
 
@@ -1331,8 +1405,9 @@ def test_build_report_robustness_declared_facet_without_kwarg_support_surfaces_e
         robustness_results=[result],
     )
 
-    with pytest.raises(TypeError, match="include_perturbation_map"):
-        build_report(config, outputs)
+    report = build_report(config, outputs)
+
+    assert len(report.sections[0].groups[0].images) == 1
 
 
 def test_report_manifest_round_trip_preserves_relative_images(tmp_path: Path) -> None:

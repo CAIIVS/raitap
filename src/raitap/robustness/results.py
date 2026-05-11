@@ -22,7 +22,6 @@ from .contracts import (
     RobustnessVisualisationContext,
     decode_verdict,
 )
-from .visualisers.base_visualiser import _RobustnessVisualisationSkipped
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -341,9 +340,8 @@ class RobustnessResult(Trackable):
 
         Unlike ``RobustnessResult.visualise``, this hook never writes PNGs,
         updates ``metadata.json``, mutates ``visualiser_targets``, or touches
-        ``run_dir``.
-        It catches the private report-only skip signal; the persistence path
-        intentionally does not catch that exception.
+        ``run_dir``. Visualiser errors propagate to the caller; callers are
+        expected to pre-filter redundant visualisers before invoking this method.
         """
         batch_size = int(self.clean_inputs.shape[0])
         if sample_index is not None and not 0 <= sample_index < batch_size:
@@ -412,10 +410,7 @@ class RobustnessResult(Trackable):
         )
 
         vis.validate_result(result_for_render)
-        try:
-            figure = vis.visualise(result_for_render, context=context, **merged_call)
-        except _RobustnessVisualisationSkipped:
-            return None
+        figure = vis.visualise(result_for_render, context=context, **merged_call)
 
         cls = type(vis)
         visualiser_name = f"{cls.__name__}_{visualiser_index}"
