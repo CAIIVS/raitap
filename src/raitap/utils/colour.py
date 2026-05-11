@@ -37,10 +37,10 @@ class Status(Enum):
     top-level crash panel even though it's an :attr:`ERROR` underneath).
     """
 
-    WARNING = ("yellow", "⚠︎  ", "Warning")
-    ERROR = ("red", "✗ ", "Error")
+    WARNING = ("yellow", "△ ", "Warning")
+    ERROR = ("red", "✕ ", "Error")
     SUCCESS = ("green", "✓ ", "Complete")
-    INFO = ("cyan", "▸ ", "Info")
+    INFO = ("cyan", "▷ ", "Info")
 
     def __init__(self, hue: str, icon: str, default_label: str) -> None:
         self.hue: str = hue

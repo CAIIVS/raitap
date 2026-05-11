@@ -144,12 +144,14 @@ def get_stderr_console() -> Console:
     return _stderr_console
 
 
-_LEVEL_ICONS: dict[int, tuple[str, Style]] = {
-    logging.DEBUG: ("·", Style(dim=True)),
-    logging.INFO: ("▸", colour(Status.INFO).base),
-    logging.WARNING: ("⚠︎ ", colour(Status.WARNING).light),
-    logging.ERROR: ("✗", colour(Status.ERROR).base),
-    logging.CRITICAL: ("✗", colour(Status.ERROR).base + Style(bold=True)),
+# Map logging levels onto :class:`Status`. The level-prefix renderer pulls
+# icon + colour from the Status so glyphs live in exactly one place (the
+# enum). DEBUG isn't a Status — we render it as a dim ``·`` separately.
+_LEVEL_STATUS: dict[int, Status] = {
+    logging.INFO: Status.INFO,
+    logging.WARNING: Status.WARNING,
+    logging.ERROR: Status.ERROR,
+    logging.CRITICAL: Status.ERROR,
 }
 
 
@@ -159,8 +161,20 @@ class RaitapRichHandler(RichHandler):
     _last_was_panel: bool = False
 
     def get_level_text(self, record: logging.LogRecord) -> Text:
-        icon, style = _LEVEL_ICONS.get(record.levelno, ("·", "white"))
-        return Text(icon, style=style)
+        if record.levelno < logging.INFO:
+            return Text("·", style=Style(dim=True))
+        status = _LEVEL_STATUS.get(record.levelno, Status.INFO)
+        shades = colour(status)
+        # WARNING level-prefix uses ``light`` for legibility (ANSI 33 yellow
+        # is brownish on a single glyph); other levels stay on ``base``.
+        # CRITICAL adds bold on top of the ERROR base.
+        if status is Status.WARNING:
+            style = shades.light
+        elif record.levelno >= logging.CRITICAL:
+            style = shades.base + Style(bold=True)
+        else:
+            style = shades.base
+        return Text(status.icon.rstrip(), style=style)
 
     def render_message(self, record: logging.LogRecord, message: str) -> Any:
         return _linkify_message(message)
@@ -427,8 +441,9 @@ def print_summary_panel(config: AppConfig, model: Model) -> None:
         # surface that with the same yellow used for warnings.
         hw_label = str(hardware)
         is_cpu = "cpu" in hw_label.lower()
-        hw_style = colour(Status.WARNING).base if is_cpu else colour(Status.SUCCESS).base
-        hw_symbol = "⚠︎  " if is_cpu else "✓ "
+        hw_status = Status.WARNING if is_cpu else Status.SUCCESS
+        hw_style = colour(hw_status).base
+        hw_symbol = hw_status.icon
         if is_cpu:
             cpu_install_docs = "https://caiivs.github.io/raitap/using-raitap/installation.html#execution-dependencies"
             hw_text = Text.assemble(
@@ -479,7 +494,7 @@ def print_summary_panel(config: AppConfig, model: Model) -> None:
 def print_complete_panel(duration: str) -> None:
     shades = colour(Status.SUCCESS)
     body = Text.assemble(
-        (f"{Status.SUCCESS.icon} ", shades.base),
+        (Status.SUCCESS.icon, shades.base),
         ("Assessment complete", shades.base + Style(bold=True)),
         ("    duration ", Style(dim=True)),
         (duration, Style(color="white")),
@@ -496,7 +511,7 @@ def print_complete_panel(duration: str) -> None:
 def print_failure_panel(exc: BaseException, duration: str) -> None:
     shades = colour(Status.ERROR)
     body_pieces: list[tuple[str, Style] | tuple[str, str]] = [
-        (f"{Status.ERROR.icon} ", shades.base),
+        (Status.ERROR.icon, shades.base),
         ("Assessment failed", shades.base + Style(bold=True)),
         ("    after ", Style(dim=True)),
         (duration, Style(color="white")),
