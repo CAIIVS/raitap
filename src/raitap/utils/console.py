@@ -222,7 +222,7 @@ class RaitapRichHandler(RichHandler):
                 main_style=main_style,
                 sub_style=sub_style,
             )
-            self._render_panel(header_parts, body, border)
+            self._render_panel(header_parts, body, border, record=record)
             return
         # Only treat the "<path>:<line>: <Category>: msg" shape as a warnings.warn
         # payload when it actually came from logging.captureWarnings (logger name
@@ -277,7 +277,7 @@ class RaitapRichHandler(RichHandler):
         body: str,
         border: str,
         *,
-        record: logging.LogRecord | None = None,
+        record: logging.LogRecord,
     ) -> None:
         # Build a non-wrapping ``Text`` with overflow="ellipsis" so a narrow
         # terminal trims chips with ``…`` instead of hard-cutting mid-word.
@@ -299,8 +299,7 @@ class RaitapRichHandler(RichHandler):
             self._last_was_panel = True
         except Exception:
             # Never let logging crash the run — fall back to plain RichHandler.
-            if record is not None:
-                super().emit(record)
+            super().emit(record)
 
     def _render_diagnostic_header(
         self,
@@ -319,10 +318,10 @@ class RaitapRichHandler(RichHandler):
         - **Dev install** (cloned repo): ``· <scope> · <path:line>``,
           ``path`` clickable. ``scope`` is the subsystem name when classified,
           otherwise a caller-provided fallback (warning category / exception class).
-        - **Installed wheel, raitap-emitted**: ``· <scope>`` only,
-          subsystem text linked to the docs page.
-        - **Installed wheel, third-party**: ``· <scope> · via <lib>``,
-          subsystem linked to the frameworks-and-libraries doc page.
+        - **Installed wheel, raitap-emitted**: ``· <scope> · View docs``,
+          ``View docs`` linking to the subsystem documentation page.
+        - **Installed wheel, third-party**: ``· <scope> · via <lib> · View docs``,
+          link points to the frameworks-and-libraries doc page.
         - **Installed wheel, unclassified**: no subheader at all.
         """
         sub = diagnostic.subsystem if diagnostic else None
