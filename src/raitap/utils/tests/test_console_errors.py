@@ -16,9 +16,11 @@ import pytest
 from rich.console import Console
 
 import raitap.utils.console as console_module
+from raitap.utils.colour import THEME
 from raitap.utils.console import (
+    _FAILURE_KIND,
     RaitapRichHandler,
-    _append_failure_chips,
+    _append_chips,
     print_failure_panel,
 )
 from raitap.utils.diagnostics import Diagnostic, Subsystem
@@ -47,13 +49,12 @@ class TestAppendFailureChips:
         )
         parts: list[str] = ["[red]✗ Failure[/]"]
         with patch.object(console_module, "is_dev_install", return_value=True):
-            _append_failure_chips(
+            _append_chips(
                 parts,
                 scope="Transparency",
                 src=f"{diag.file}:{diag.line}",
                 diagnostic=diag,
-                main_style="red",
-                sub_style="yellow",
+                kind=_FAILURE_KIND,
             )
         joined = " ".join(parts)
         assert "Transparency" in joined
@@ -69,13 +70,12 @@ class TestAppendFailureChips:
         )
         parts: list[str] = ["[red]✗ Failure[/]"]
         with patch.object(console_module, "is_dev_install", return_value=False):
-            _append_failure_chips(
+            _append_chips(
                 parts,
                 scope="Transparency",
                 src="",
                 diagnostic=diag,
-                main_style="red",
-                sub_style="yellow",
+                kind=_FAILURE_KIND,
             )
         joined = " ".join(parts)
         assert "View docs" in joined
@@ -86,20 +86,19 @@ class TestAppendFailureChips:
         diag = Diagnostic(subsystem=None, file="", line=0, third_party_lib=None)
         parts: list[str] = ["[red]✗ Failure[/]"]
         with patch.object(console_module, "is_dev_install", return_value=False):
-            _append_failure_chips(
+            _append_chips(
                 parts,
                 scope="RaitapError",
                 src="",
                 diagnostic=diag,
-                main_style="red",
-                sub_style="yellow",
+                kind=_FAILURE_KIND,
             )
         assert parts == ["[red]✗ Failure[/]"]
 
 
 class TestPrintFailurePanel:
     def test_plain_exception_uses_default_title(self) -> None:
-        console = Console(file=io.StringIO(), force_terminal=False, width=120)
+        console = Console(file=io.StringIO(), force_terminal=False, width=120, theme=THEME)
         with patch.object(console_module, "get_stderr_console", return_value=console):
             print_failure_panel(RuntimeError("plain boom"), "0:00:01")
         output = console.file.getvalue()  # type: ignore[attr-defined]
@@ -122,7 +121,7 @@ class TestPrintFailurePanel:
         except AdapterError as exc:
             captured = exc
 
-        console = Console(file=io.StringIO(), force_terminal=False, width=160)
+        console = Console(file=io.StringIO(), force_terminal=False, width=160, theme=THEME)
         with (
             patch.object(console_module, "get_stderr_console", return_value=console),
             patch.object(console_module, "is_dev_install", return_value=True),
@@ -144,7 +143,7 @@ class TestRichHandlerErrorPanel:
         )
         err = RaitapError("rewrapped robustness failure", diagnostic=diag)
 
-        console = Console(file=io.StringIO(), force_terminal=False, width=160)
+        console = Console(file=io.StringIO(), force_terminal=False, width=160, theme=THEME)
         handler = RaitapRichHandler(console=console, show_time=False, show_level=False)
         handler.setLevel(logging.ERROR)
 

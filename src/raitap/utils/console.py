@@ -12,6 +12,7 @@ import logging
 import re
 import sys
 import warnings
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -27,9 +28,9 @@ from rich.progress import (
 )
 from rich.table import Table
 from rich.text import Text
-from rich.theme import Theme
 from rich.traceback import install as install_rich_traceback
 
+from raitap.utils.colour import THEME
 from raitap.utils.diagnostics import (
     Diagnostic,
     docs_url,
@@ -40,15 +41,27 @@ from raitap.utils.diagnostics import (
 from raitap.utils.errors import RaitapError
 from raitap.utils.log import _pop_diagnostic, _push_diagnostic, _take_diagnostic_override
 
-_THEME = Theme(
-    {
-        "log.time": "cyan",
-        "log.message": "default",
-        "logging.level.info": "cyan",
-        "logging.level.warning": "bright_yellow",
-        "logging.level.error": "red",
-    }
-)
+
+@dataclass(frozen=True)
+class _PanelKind:
+    """Visual identity of a panel (warning / error / failure / completion).
+
+    Two colour tokens — ``base`` for the dominant element (border, headline)
+    and ``light`` for secondary chips — plus the leading icon/label pair.
+    Centralising these lets the warning and error renderers share one code
+    path; they differ only in this tuple.
+    """
+
+    base: str
+    light: str
+    icon: str
+    label: str
+
+
+_WARNING_KIND = _PanelKind(base="yellow_base", light="yellow_light", icon="⚠︎  ", label="Warning")
+_ERROR_KIND = _PanelKind(base="red_base", light="red_light", icon="✗ ", label="Error")
+_FAILURE_KIND = _PanelKind(base="red_base", light="red_light", icon="✗ ", label="Failure")
+_COMPLETE_KIND = _PanelKind(base="green_base", light="green.light", icon="✓ ", label="Complete")
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -89,7 +102,7 @@ def _src_to_uri(src: str) -> str:
 
 def _linkify_message(message: str) -> Text:
     """Style backtick-quoted code spans magenta and wrap path-like substrings in
-    a cyan OSC 8 hyperlink."""
+    a ``cyan_base`` OSC 8 hyperlink."""
     from pathlib import Path
 
     rendered = Text()
@@ -105,7 +118,7 @@ def _linkify_message(message: str) -> Text:
             # Non-absolute or invalid path — fall back to manual file:// URI.
             normalized = trimmed.replace("\\", "/")
             uri = f"file:///{normalized.lstrip('/')}"
-        rendered.append(trimmed, style=f"cyan link {uri}")
+        rendered.append(trimmed, style=f"cyan_base link {uri}")
         if trailing:
             rendered.append(trailing)
         last = match.end()
@@ -140,7 +153,7 @@ def get_console() -> Console:
     global _console
     if _console is None:
         _reconfigure_utf8(sys.stdout)
-        _console = Console(soft_wrap=False, highlight=False, theme=_THEME)
+        _console = Console(soft_wrap=False, highlight=False, theme=THEME)
     return _console
 
 
@@ -148,16 +161,16 @@ def get_stderr_console() -> Console:
     global _stderr_console
     if _stderr_console is None:
         _reconfigure_utf8(sys.stderr)
-        _stderr_console = Console(stderr=True, soft_wrap=False, highlight=False, theme=_THEME)
+        _stderr_console = Console(stderr=True, soft_wrap=False, highlight=False, theme=THEME)
     return _stderr_console
 
 
 _LEVEL_ICONS: dict[int, tuple[str, str]] = {
     logging.DEBUG: ("·", "dim"),
-    logging.INFO: ("▸", "cyan"),
-    logging.WARNING: ("⚠︎ ", "bright_yellow"),
-    logging.ERROR: ("✗", "red"),
-    logging.CRITICAL: ("✗", "bold red"),
+    logging.INFO: ("▸", "cyan_base"),
+    logging.WARNING: ("⚠︎ ", "yellow_light"),
+    logging.ERROR: ("✗", "red_base"),
+    logging.CRITICAL: ("✗", "bold red_base"),
 }
 
 
@@ -188,25 +201,10 @@ class RaitapRichHandler(RichHandler):
         self._last_was_panel = False
 
     def _emit_panel(self, record: logging.LogRecord, message: str) -> None:
-        if record.levelno >= logging.ERROR:
-            border, main_style, sub_style, icon, label = (
-                "red",
-                "red",
-                "red dim",
-                "✗ ",
-                "Error",
-            )
-        else:
-            border, main_style, sub_style, icon, label = (
-                "yellow",
-                "yellow",
-                "bright_yellow",
-                "⚠︎  ",
-                "Warning",
-            )
+        kind = _ERROR_KIND if record.levelno >= logging.ERROR else _WARNING_KIND
 
         body = message
-        header_parts = [f"[{main_style}]{icon}{label}[/]"]
+        header_parts = [f"[{kind.base}]{kind.icon}{kind.label}[/]"]
 
         # RaitapError carries an explicit Diagnostic on the exception object,
         # which beats any heuristics we could apply to the formatted message.
@@ -225,10 +223,9 @@ class RaitapRichHandler(RichHandler):
                     else ""
                 ),
                 diagnostic=raitap_exc.diagnostic,
-                main_style=main_style,
-                sub_style=sub_style,
+                kind=kind,
             )
-            self._render_panel(header_parts, body, border, record=record)
+            self._render_panel(header_parts, body, kind.base, record=record)
             return
         # Only treat the "<path>:<line>: <Category>: msg" shape as a warnings.warn
         # payload when it actually came from logging.captureWarnings (logger name
@@ -248,15 +245,14 @@ class RaitapRichHandler(RichHandler):
                 scope=scope,
                 src=src,
                 diagnostic=diagnostic,
-                main_style=main_style,
-                sub_style=sub_style,
+                kind=kind,
             )
             body = warn_match.group("msg").strip()
         else:
             head_match = _LOGGER_HEADER_RE.match(message.strip())
             if head_match:
                 head = head_match.group("head")
-                header_parts.append(f"[{sub_style}]· {head}[/]")
+                header_parts.append(f"[{kind.light}]· {head}[/]")
                 # logger.warning("Subsystem: …") records have no Diagnostic
                 # stashed (no frame walk happened), so synthesise one from the
                 # header text to drive the same View-docs affordance.
@@ -270,12 +266,12 @@ class RaitapRichHandler(RichHandler):
                     url = docs_url(synth)
                     if url is not None:
                         header_parts.append(
-                            f"[{sub_style}]· [/][{sub_style} underline link={url}]View docs[/]"
+                            f"[{kind.light}]· [/][{kind.light} underline link={url}]View docs[/]"
                         )
                 stripped = head_match.group("msg").strip()
                 body = stripped[:1].upper() + stripped[1:] if stripped else stripped
 
-        self._render_panel(header_parts, body, border, record=record)
+        self._render_panel(header_parts, body, kind.base, record=record)
 
     def _render_panel(
         self,
@@ -319,48 +315,23 @@ class RaitapRichHandler(RichHandler):
         scope: str,
         src: str,
         diagnostic: Diagnostic | None,
-        main_style: str,
-        sub_style: str,
+        kind: _PanelKind,
     ) -> None:
-        """Append subsystem / path / docs-link chips to a warning or error panel header.
+        """Append subsystem / path / docs-link chips to a panel header.
 
-        Layout depends on the audience:
+        All sub-chips render in ``kind.light`` so the main label keeps the
+        visual lead. Layout depends on the audience:
 
-        - **Dev install** (cloned repo): ``· <scope> · <path:line>``,
-          ``path`` clickable. ``scope`` is the subsystem name when classified,
-          otherwise a caller-provided fallback (warning category / exception class).
+        - **Dev install** (cloned repo): ``· <scope> · via <lib> · <path:line>``
+          (``via <lib>`` only when a wrapped library is involved). ``path``
+          is clickable.
         - **Installed wheel, raitap-emitted**: ``· <scope> · View docs``,
           ``View docs`` linking to the subsystem documentation page.
         - **Installed wheel, third-party**: ``· <scope> · via <lib> · View docs``,
           link points to the frameworks-and-libraries doc page.
         - **Installed wheel, unclassified**: no subheader at all.
         """
-        sub = diagnostic.subsystem if diagnostic else None
-        third_party = diagnostic.third_party_lib if diagnostic else None
-
-        if is_dev_install():
-            header_parts.append(f"[{sub_style}]· {scope}[/]")
-            if src:
-                header_parts.append(
-                    f"[{main_style}]· [/][{main_style} link={_src_to_uri(src)}]{src}[/]"
-                )
-            if third_party is not None:
-                header_parts.append(f"[{sub_style}]· via {third_party.capitalize()}[/]")
-            return
-
-        # Installed: hide raw paths the user can't act on. Surface docs links instead.
-        if sub is None:
-            return
-        header_parts.append(f"[{sub_style}]· {scope}[/]")
-        if third_party is not None:
-            header_parts.append(f"[{sub_style}]· via {third_party.capitalize()}[/]")
-        url = docs_url(diagnostic) if diagnostic is not None else None
-        if url is not None:
-            # Explicit ``View docs`` chip — clearer affordance than relying on
-            # OSC 8 styling on the subsystem text alone (Windows Terminal /
-            # other terminals don't visually mark hyperlinks by default).
-            # Link wraps only the label so the leading separator stays plain.
-            header_parts.append(f"[{sub_style}]· [/][{sub_style} underline link={url}]View docs[/]")
+        _append_chips(header_parts, scope=scope, src=src, diagnostic=diagnostic, kind=kind)
 
 
 def setup_logging(level: int = logging.INFO) -> None:
@@ -423,7 +394,48 @@ def _format_warning_compact(
     return f"{diagnostic.file}:{diagnostic.line}: {category.__name__}: {message}"
 
 
-def _format_value(value: Any, *, dot: bool = False, dot_style: str = "green") -> Text:
+def _append_chips(
+    header_parts: list[str],
+    *,
+    scope: str,
+    src: str,
+    diagnostic: Diagnostic | None,
+    kind: _PanelKind,
+) -> None:
+    """Append diagnostic chips to a panel header, shared by handler + failure panel.
+
+    See :meth:`RaitapRichHandler._render_diagnostic_header` for the layout
+    rules — pulled out as a free function so the top-level failure panel can
+    reuse the exact same composition without needing a handler instance.
+    """
+    sub = diagnostic.subsystem if diagnostic else None
+    third_party = diagnostic.third_party_lib if diagnostic else None
+
+    if is_dev_install():
+        header_parts.append(f"[{kind.light}]· {scope}[/]")
+        if third_party is not None:
+            header_parts.append(f"[{kind.light}]· via {third_party.capitalize()}[/]")
+        if src:
+            header_parts.append(
+                f"[{kind.light}]· [/][{kind.light} link={_src_to_uri(src)}]{src}[/]"
+            )
+        return
+
+    if sub is None:
+        return
+    header_parts.append(f"[{kind.light}]· {scope}[/]")
+    if third_party is not None:
+        header_parts.append(f"[{kind.light}]· via {third_party.capitalize()}[/]")
+    url = docs_url(diagnostic) if diagnostic is not None else None
+    if url is not None:
+        # Explicit ``View docs`` chip — clearer affordance than relying on
+        # OSC 8 styling on the subsystem text alone (some terminals don't
+        # visually mark hyperlinks by default). Link wraps only the label so
+        # the leading separator stays plain.
+        header_parts.append(f"[{kind.light}]· [/][{kind.light} underline link={url}]View docs[/]")
+
+
+def _format_value(value: Any, *, dot: bool = False, dot_style: str = "green_base") -> Text:
     """Render an arbitrary config value, gracefully handling ``None``/empty.
 
     ``dot=True`` prepends a colored ``●`` glyph (used for status fields).
@@ -433,8 +445,8 @@ def _format_value(value: Any, *, dot: bool = False, dot_style: str = "green") ->
     if isinstance(value, bool):
         if value:
             if dot:
-                return Text.assemble(("● ", dot_style), ("on", "green"))
-            return Text("on", style="green")
+                return Text.assemble(("● ", dot_style), ("on", "green_base"))
+            return Text("on", style="green_base")
         return Text("off", style="dim")
     if isinstance(value, list | tuple):
         return Text(", ".join(str(item) for item in value))
@@ -477,7 +489,7 @@ def print_summary_panel(config: AppConfig, model: Model) -> None:
         # surface that with the same yellow used for warnings.
         hw_label = str(hardware)
         is_cpu = "cpu" in hw_label.lower()
-        hw_color = "yellow" if is_cpu else "green"
+        hw_color = "yellow_base" if is_cpu else "green_base"
         hw_symbol = "⚠︎  " if is_cpu else "✓ "
         if is_cpu:
             cpu_install_docs = "https://caiivs.github.io/raitap/using-raitap/installation.html#execution-dependencies"
@@ -501,7 +513,7 @@ def print_summary_panel(config: AppConfig, model: Model) -> None:
 
         run_dir = str(resolve_run_dir(config))
         run_uri = Path(run_dir).resolve().as_uri()
-        output_text = Text(run_dir, style=f"cyan link {run_uri}")
+        output_text = Text(run_dir, style=f"cyan_base link {run_uri}")
     except Exception:
         # Banner must never crash the run — fall back to em-dash placeholder.
         output_text = Text("—", style="dim")
@@ -509,9 +521,9 @@ def print_summary_panel(config: AppConfig, model: Model) -> None:
 
     panel = Panel(
         table,
-        title="[bold cyan]RAITAP[/] [cyan]· assessment[/]",
+        title="[bold cyan_base]RAITAP[/] [cyan_base]· assessment[/]",
         title_align="left",
-        border_style="cyan",
+        border_style="cyan_base",
         padding=(1, 2),
     )
     get_console().print()
@@ -520,15 +532,16 @@ def print_summary_panel(config: AppConfig, model: Model) -> None:
 
 
 def print_complete_panel(duration: str) -> None:
+    kind = _COMPLETE_KIND
     body = Text.assemble(
-        ("✓  ", "bold green"),
-        ("Assessment complete", "bold"),
+        (f"{kind.icon} ", kind.base),
+        ("Assessment complete", f"bold {kind.base}"),
         ("    duration ", "dim"),
         (duration, "white"),
     )
     panel = Panel(
         body,
-        border_style="bold green",
+        border_style=kind.base,
         padding=(1, 2),
     )
     get_console().print()
@@ -537,14 +550,12 @@ def print_complete_panel(duration: str) -> None:
 
 
 def print_failure_panel(exc: BaseException, duration: str) -> None:
-    # Default crash-panel body for plain exceptions.
+    kind = _FAILURE_KIND
     body_pieces: list[tuple[str, str]] = [
-        ("✗  ", "bold red"),
-        ("Assessment failed", "bold"),
+        (f"{kind.icon} ", kind.base),
+        ("Assessment failed", f"bold {kind.base}"),
         ("    after ", "dim"),
         (duration, "white"),
-        ("\n", ""),
-        (f"{type(exc).__name__}: {exc}", "red"),
     ]
     title: Text | str | None = None
 
@@ -552,48 +563,52 @@ def print_failure_panel(exc: BaseException, duration: str) -> None:
     # affordance the rich handler renders for inline error records, but
     # printed at top-level by the Hydra entrypoint.
     if isinstance(exc, RaitapError) and exc.diagnostic is not None:
-        header_parts: list[str] = ["[red]✗ Failure[/]"]
+        header_parts: list[str] = [f"[{kind.base}]{kind.icon}{kind.label}[/]"]
         scope = (
             exc.diagnostic.subsystem.capitalize()
             if exc.diagnostic.subsystem
             else type(exc).__name__
         )
         src = f"{exc.diagnostic.file}:{exc.diagnostic.line}" if exc.diagnostic.file else ""
-        _append_failure_chips(
+        _append_chips(
             header_parts,
             scope=scope,
             src=src,
             diagnostic=exc.diagnostic,
-            main_style="red",
-            sub_style="red dim",
+            kind=kind,
         )
         title_text = Text.from_markup(" ".join(header_parts))
         title_text.overflow = "ellipsis"
         title_text.no_wrap = True
         title = title_text
-        body_pieces = [
-            ("✗  ", "bold red"),
-            ("Assessment failed", "bold"),
-            ("    after ", "dim"),
-            (duration, "white"),
-            ("\n", ""),
-            (str(exc), "red"),
-        ]
+        body_pieces.extend(
+            [
+                ("\n\n", ""),
+                (str(exc), kind.base),
+            ]
+        )
         cause = exc.__cause__
         if cause is not None:
             body_pieces.extend(
                 [
-                    ("\n", ""),
+                    ("\n\n", ""),
                     (f"caused by {type(cause).__name__}: {cause}", "dim"),
                 ]
             )
+    else:
+        body_pieces.extend(
+            [
+                ("\n\n", ""),
+                (f"{type(exc).__name__}: {exc}", kind.base),
+            ]
+        )
 
     body = Text.assemble(*body_pieces)
     panel = Panel(
         body,
         title=title,
         title_align="left" if title is not None else "center",
-        border_style="bold red",
+        border_style=kind.base,
         padding=(1, 2),
     )
     # Two blank lines so the panel separates cleanly from a progress bar
@@ -604,46 +619,16 @@ def print_failure_panel(exc: BaseException, duration: str) -> None:
     get_stderr_console().print()
 
 
-def _append_failure_chips(
-    header_parts: list[str],
-    *,
-    scope: str,
-    src: str,
-    diagnostic: Diagnostic,
-    main_style: str,
-    sub_style: str,
-) -> None:
-    """Module-level mirror of :meth:`RaitapRichHandler._render_diagnostic_header`
-    so :func:`print_failure_panel` doesn't need a handler instance."""
-    if is_dev_install():
-        header_parts.append(f"[{sub_style}]· {scope}[/]")
-        if src:
-            header_parts.append(
-                f"[{main_style}]· [/][{main_style} link={_src_to_uri(src)}]{src}[/]"
-            )
-        if diagnostic.third_party_lib is not None:
-            header_parts.append(f"[{sub_style}]· via {diagnostic.third_party_lib.capitalize()}[/]")
-        return
-    if diagnostic.subsystem is None:
-        return
-    header_parts.append(f"[{sub_style}]· {scope}[/]")
-    if diagnostic.third_party_lib is not None:
-        header_parts.append(f"[{sub_style}]· via {diagnostic.third_party_lib.capitalize()}[/]")
-    url = docs_url(diagnostic)
-    if url is not None:
-        header_parts.append(f"[{sub_style}]· [/][{sub_style} underline link={url}]View docs[/]")
-
-
 class _PercentColumn(ProgressColumn):
     def render(self, task: Any) -> Text:
-        style = "green" if task.finished else "cyan"
+        style = "green_base" if task.finished else "cyan_base"
         pct = 0.0 if task.percentage is None else task.percentage
         return Text(f"{pct:>3.0f}%", style=style)
 
 
 class _ElapsedColumn(ProgressColumn):
     def render(self, task: Any) -> Text:
-        style = "green" if task.finished else "cyan"
+        style = "green_base" if task.finished else "cyan_base"
         elapsed = task.finished_time if task.finished else task.elapsed
         text = "-:--:--" if elapsed is None else str(timedelta(seconds=int(elapsed)))
         return Text(text, style=style)
@@ -651,9 +636,9 @@ class _ElapsedColumn(ProgressColumn):
 
 def _make_progress() -> Progress:
     return Progress(
-        SpinnerColumn(style="cyan"),
-        TextColumn("[cyan]{task.description}"),
-        BarColumn(complete_style="cyan", finished_style="green"),
+        SpinnerColumn(style="cyan_base"),
+        TextColumn("[cyan_base]{task.description}"),
+        BarColumn(complete_style="cyan_base", finished_style="green_base"),
         _PercentColumn(),
         _ElapsedColumn(),
         console=get_console(),
