@@ -21,6 +21,7 @@ from raitap.utils.console import (
     print_failure_panel,
     setup_logging,
 )
+from raitap.utils.errors import RaitapError
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
@@ -76,6 +77,12 @@ def _hydra_main(config: AppConfig) -> None:
     except Exception as exc:
         duration = _format_duration(time.perf_counter() - start_time)
         print_failure_panel(exc, duration)
+        # RaitapError already carries a user-actionable message + diagnostic
+        # chips in the failure panel; the raw traceback is noise on top of
+        # that, so exit cleanly. Non-raitap exceptions keep propagating so
+        # Hydra/rich_traceback can still surface the full stack for triage.
+        if isinstance(exc, RaitapError):
+            sys.exit(1)
         raise
     duration = _format_duration(time.perf_counter() - start_time)
     print_complete_panel(duration)

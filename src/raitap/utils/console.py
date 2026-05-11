@@ -189,7 +189,13 @@ class RaitapRichHandler(RichHandler):
 
     def _emit_panel(self, record: logging.LogRecord, message: str) -> None:
         if record.levelno >= logging.ERROR:
-            border, main_style, sub_style, icon, label = "red", "red", "yellow", "✗ ", "Error"
+            border, main_style, sub_style, icon, label = (
+                "red",
+                "red",
+                "red dim",
+                "✗ ",
+                "Error",
+            )
         else:
             border, main_style, sub_style, icon, label = (
                 "yellow",
@@ -289,10 +295,15 @@ class RaitapRichHandler(RichHandler):
             title=title_text,
             title_align="left",
             border_style=border,
-            padding=(0, 1),
+            padding=(1, 2),
         )
         try:
+            # Two blank lines so the panel doesn't visually collide with a
+            # progress bar or other Rich output that didn't leave trailing
+            # whitespace (one blank line is sometimes consumed by the
+            # progress renderer's final repaint).
             if not self._last_was_panel:
+                self.console.print()
                 self.console.print()
             self.console.print(panel)
             self.console.print()
@@ -518,7 +529,7 @@ def print_complete_panel(duration: str) -> None:
     panel = Panel(
         body,
         border_style="bold green",
-        padding=(0, 2),
+        padding=(1, 2),
     )
     get_console().print()
     get_console().print(panel)
@@ -554,7 +565,7 @@ def print_failure_panel(exc: BaseException, duration: str) -> None:
             src=src,
             diagnostic=exc.diagnostic,
             main_style="red",
-            sub_style="yellow",
+            sub_style="red dim",
         )
         title_text = Text.from_markup(" ".join(header_parts))
         title_text.overflow = "ellipsis"
@@ -583,8 +594,11 @@ def print_failure_panel(exc: BaseException, duration: str) -> None:
         title=title,
         title_align="left" if title is not None else "center",
         border_style="bold red",
-        padding=(0, 2),
+        padding=(1, 2),
     )
+    # Two blank lines so the panel separates cleanly from a progress bar
+    # whose final repaint may eat the first newline.
+    get_stderr_console().print()
     get_stderr_console().print()
     get_stderr_console().print(panel)
     get_stderr_console().print()
