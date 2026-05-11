@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 import types
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest import mock
 
 import numpy as np
@@ -19,6 +19,9 @@ from raitap.robustness.contracts import (
     RobustnessVerdict,
 )
 from raitap.robustness.exceptions import AssessorBackendIncompatibilityError
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # maraboupy fake module
@@ -444,3 +447,49 @@ def test_bisect_output_bound_upper_converges_to_true_maximum(
         timeout_s=1.0,
     )
     assert abs(bound - true_max) <= 1e-3
+
+
+def test_bisect_output_bound_stops_conservatively_on_unknown_exit_code(
+    fake_maraboupy: _FakeNetwork, tmp_path: Path
+) -> None:
+    """TIMEOUT/UNKNOWN must NOT collapse to SAT — stop with current conservative bound."""
+    onnx_path = tmp_path / "model.onnx"
+    onnx_path.write_bytes(b"\x00")
+    flat_sample = np.zeros(5, dtype=np.float32)
+
+    def scripted_solve(options: object | None = None) -> tuple[str, dict[int, float], object]:
+        del options
+        return ("TIMEOUT", {}, _FakeStats(0.0))
+
+    fake_maraboupy.solve = scripted_solve  # type: ignore[method-assign]
+
+    bound = _bisect_output_bound(
+        onnx_path=onnx_path,
+        flat_sample=flat_sample,
+        eps=0.05,
+        output_index=0,
+        mode="lower",
+        search_range=1.0,
+        tolerance=1e-3,
+        timeout_s=1.0,
+    )
+    # mode='lower' returns lo; lo is initialised to -search_range and only moves
+    # up on UNSAT. With every probe TIMEOUT, lo never moves → conservative bound.
+    assert bound == pytest.approx(-1.0)
+
+
+def test_bisect_output_bound_rejects_non_positive_tolerance(tmp_path: Path) -> None:
+    flat_sample = np.zeros(5, dtype=np.float32)
+    onnx_path = tmp_path / "model.onnx"
+    onnx_path.write_bytes(b"\x00")
+    with pytest.raises(ValueError, match="must be > 0"):
+        _bisect_output_bound(
+            onnx_path=onnx_path,
+            flat_sample=flat_sample,
+            eps=0.05,
+            output_index=0,
+            mode="lower",
+            search_range=1.0,
+            tolerance=0.0,
+            timeout_s=1.0,
+        )

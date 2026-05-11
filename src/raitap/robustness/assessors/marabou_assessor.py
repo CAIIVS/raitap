@@ -14,6 +14,7 @@ Only static-shape MLPs are in scope. Export failures propagate as
 from __future__ import annotations
 
 import logging
+import math
 import shutil
 import tempfile
 import time
@@ -389,12 +390,20 @@ def _bisect_output_bound(
     """
     if mode not in {"lower", "upper"}:
         raise ValueError(f"_bisect_output_bound: mode must be 'lower'|'upper', got {mode!r}")
+    if search_range <= 0 or tolerance <= 0:
+        raise ValueError(
+            f"_bisect_output_bound: search_range and tolerance must be > 0, "
+            f"got search_range={search_range}, tolerance={tolerance}"
+        )
 
     from maraboupy import Marabou  # type: ignore[import-not-found]
 
     lo, hi = -float(search_range), float(search_range)
     options = Marabou.createOptions(timeoutInSeconds=int(timeout_s), verbosity=0)
-    while (hi - lo) > tolerance:
+    max_iters = max(1, math.ceil(math.log2((2.0 * search_range) / tolerance)) + 2)
+    for _ in range(max_iters):
+        if (hi - lo) <= tolerance:
+            break
         mid = (lo + hi) / 2.0
         network = Marabou.read_onnx(str(onnx_path))
         input_vars = np.asarray(network.inputVars[0]).reshape(-1)
@@ -408,14 +417,23 @@ def _bisect_output_bound(
         else:
             network.setLowerBound(out_var, mid)
         exit_code, _, _ = network.solve(options=options)
-        is_unsat = str(exit_code).strip().lower() in {"unsat", "valid"}
+        code = str(exit_code).strip().lower()
+        if code in {"unsat", "valid"}:
+            decision = "unsat"
+        elif code in {"sat", "invalid"}:
+            decision = "sat"
+        else:
+            # TIMEOUT / UNKNOWN / ERROR: can't conclude. Stop bisection; current
+            # conservative endpoint (lo for mode=lower, hi for mode=upper) is
+            # still valid — just looser than the true bound.
+            break
         if mode == "lower":
-            if is_unsat:
+            if decision == "unsat":
                 lo = mid
             else:
                 hi = mid
         else:
-            if is_unsat:
+            if decision == "unsat":
                 hi = mid
             else:
                 lo = mid
