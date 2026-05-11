@@ -36,17 +36,19 @@ def chip(
 ) -> Text:
     """Build a ``· label`` chip with the given Rich :class:`Style`.
 
-    ``link`` adds an OSC 8 hyperlink without breaking the colour;
-    ``underline`` toggles the underline attribute (used for ``View docs``
-    affordances). The leading ``· `` separator is part of the chip so chips
-    compose by simple concatenation.
+    The leading ``· `` separator always renders in the plain chip ``style``;
+    ``link`` / ``underline`` only decorate the label so users don't see the
+    separator dot rendered as part of the clickable region.
     """
-    chip_style = style
+    label_style = style
     if underline:
-        chip_style = chip_style + Style(underline=True)
+        label_style = label_style + Style(underline=True)
     if link is not None:
-        chip_style = chip_style + Style(link=link)
-    return Text(f"· {label}", style=chip_style)
+        label_style = label_style + Style(link=link)
+    text = Text()
+    text.append("· ", style=style)
+    text.append(label, style=label_style)
+    return text
 
 
 @dataclass(frozen=True)
