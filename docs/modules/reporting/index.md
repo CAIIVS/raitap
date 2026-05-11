@@ -1,12 +1,8 @@
 # Reporting
 
-The reporting module generates compact reports from pipeline
-outputs. Reports are assembled semantically from metrics, typed transparency
-summaries, selected local explanations, and robustness evidence instead of
-embedding every PNG artifact written by a run.
-
-The default `HTMLReporter` renders a browser-friendly HTML report with linked
-CSS.
+The reporting module generates compact reports from pipeline outputs. Reports
+summarize key metrics, transparency results, and robustness findings for review
+and sharing.
 
 ```{toctree}
 :maxdepth: 1
