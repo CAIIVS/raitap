@@ -251,7 +251,9 @@ class MarabouAssessor(FormalVerificationAssessor):
         if disjuncts:
             network.addDisjunctionConstraint(disjuncts)
 
-        options = Marabou.createOptions(timeoutInSeconds=int(self.timeout_s), verbosity=0)
+        options = Marabou.createOptions(
+            timeoutInSeconds=max(1, int(math.ceil(self.timeout_s))), verbosity=0
+        )
         started = time.perf_counter()
         exit_code, values, stats = network.solve(options=options)
         wall_runtime = time.perf_counter() - started
@@ -414,7 +416,9 @@ def _bisect_output_bound(
     from maraboupy import Marabou  # type: ignore[import-not-found]
 
     lo, hi = -float(search_range), float(search_range)
-    options = Marabou.createOptions(timeoutInSeconds=int(timeout_s), verbosity=0)
+    options = Marabou.createOptions(
+        timeoutInSeconds=max(1, int(math.ceil(timeout_s))), verbosity=0
+    )
     max_iters = max(1, math.ceil(math.log2((2.0 * search_range) / tolerance)) + 2)
     had_conclusive_probe = False
     for _ in range(max_iters):
