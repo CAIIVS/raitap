@@ -391,7 +391,7 @@ def test_bisect_output_bound_lower_converges_to_true_minimum(
     fake_maraboupy: _FakeNetwork, tmp_path: Any
 ) -> None:
     """Mock returns UNSAT iff probe `c` is below the true min (0.3)."""
-    from maraboupy import Marabou
+    from maraboupy import Marabou  # type: ignore[import-not-found]
 
     onnx_path = tmp_path / "model.onnx"
     onnx_path.write_bytes(b"\x00")
