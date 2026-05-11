@@ -43,3 +43,34 @@ robustness semantics:
   `show_sample_names`).
 - `call_kwargs` — best-effort JSON summary of the library invocation. Tensors
   are summarised (shape, dtype, device) so the metadata stays lightweight.
+
+## Marabou
+
+### Per-logit output bounds (opt-in)
+
+`MarabouAssessor` can populate `RobustnessResult.output_bounds` with certified
+per-class logit ranges for each VERIFIED sample. Enable via the constructor:
+
+| Kwarg | Default | Meaning |
+|---|---|---|
+| `compute_output_bounds` | `False` | Master switch. When `True`, run bisection-via-SAT after each VERIFIED verdict. |
+| `bound_search_range` | `1e3` | Initial probe window `[-range, +range]` per output variable. |
+| `bound_tolerance` | `1e-2` | Stop bisection when the certified interval narrows below this. |
+
+**Runtime cost.** Marabou exposes no native min/max objective; bounds are
+extracted by binary search on `setUpperBound` / `setLowerBound` of each output
+variable. Per verified sample, the assessor runs
+`2 × K × ⌈log₂(bound_search_range / bound_tolerance)⌉` extra Marabou solves —
+for example, `K=10` classes with default settings ≈ 340 additional solves per
+sample. FALSIFIED / UNKNOWN / ERROR samples are skipped (their rows in the
+stacked bounds tensor are NaN-padded).
+
+Inconclusive verdicts during bisection (TIMEOUT / UNKNOWN) break the search
+conservatively: the returned bound is the loosest still-certified value, never
+a falsely tight one.
+
+The PDF report's Robustness section gains rows `logit_{k}_lower_mean`,
+`logit_{k}_upper_mean` (averaged across samples that have bounds) and
+`output_bounds_samples` (count of verified samples with bounds /
+total samples). Visualisation of these bounds is tracked separately in
+issue #141.
