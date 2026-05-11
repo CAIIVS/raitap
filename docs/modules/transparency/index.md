@@ -14,4 +14,5 @@ Captum- and SHAP-based explainers behind the same config surface.
 configuration
 frameworks-and-libraries
 output
+visualisers
 ```
