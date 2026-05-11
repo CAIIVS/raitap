@@ -253,11 +253,18 @@ def _build_robustness_section(outputs: RunOutputs, *, assets_dir: Path) -> Repor
         ):
             lower = result.output_bounds.get("lower")
             upper = result.output_bounds.get("upper")
-            if lower is not None and upper is not None and lower.ndim == 2:
+            if (
+                lower is not None
+                and upper is not None
+                and lower.ndim == 2
+                and upper.shape == lower.shape
+            ):
                 lower_np = lower.detach().cpu().to(torch.float32).numpy()
                 upper_np = upper.detach().cpu().to(torch.float32).numpy()
                 n_samples = lower_np.shape[0]
-                per_sample_has_bounds = int((~np.isnan(lower_np).all(axis=1)).sum())
+                lower_has = ~np.isnan(lower_np).all(axis=1)
+                upper_has = ~np.isnan(upper_np).all(axis=1)
+                per_sample_has_bounds = int((lower_has & upper_has).sum())
                 table_rows.append(
                     (
                         "output_bounds_samples",

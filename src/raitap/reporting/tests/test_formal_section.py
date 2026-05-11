@@ -140,6 +140,50 @@ def test_build_report_includes_per_class_bound_rows_for_formal_results(
     assert rows["output_bounds_samples"] == "2/3"
 
 
+def test_build_report_excludes_rows_with_only_lower_bound(tmp_path: Path) -> None:
+    """A row with all-NaN upper must NOT count toward output_bounds_samples."""
+    config = AppConfig(experiment_name="marabou_test")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    run_dir = tmp_path / "robustness" / "marabou_linf"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    result = _formal_result(run_dir)
+    # Row 0: both sides present. Row 1: lower present, upper all NaN. Row 2: NaN row.
+    result.output_bounds = {
+        "lower": torch.tensor(
+            [
+                [-1.0, -0.5, -0.3, -0.2, -0.1],
+                [-2.0, -1.0, -0.6, -0.4, -0.2],
+                [float("nan")] * 5,
+            ]
+        ),
+        "upper": torch.tensor(
+            [
+                [1.0, 0.5, 0.3, 0.2, 0.1],
+                [float("nan")] * 5,
+                [float("nan")] * 5,
+            ]
+        ),
+    }
+
+    outputs = RunOutputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.zeros(3, 5),
+        sample_ids=None,
+        robustness_results=[result],
+        robustness_visualisations=[],
+    )
+
+    report = build_report(config, outputs)
+    section = next(s for s in report.sections if s.title == "Robustness")
+    rows = dict(section.groups[0].table_rows)
+    # Only row 0 has BOTH sides non-NaN → 1/3.
+    assert rows["output_bounds_samples"] == "1/3"
+
+
 def test_build_report_skips_bound_rows_for_empirical_attack_results(
     tmp_path: Path,
 ) -> None:
