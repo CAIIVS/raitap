@@ -420,7 +420,7 @@ def _bisect_output_bound(
         timeoutInSeconds=max(1, int(math.ceil(timeout_s))), verbosity=0
     )
     max_iters = max(1, math.ceil(math.log2((2.0 * search_range) / tolerance)) + 2)
-    had_conclusive_probe = False
+    had_certifying_unsat = False
     for _ in range(max_iters):
         if (hi - lo) <= tolerance:
             break
@@ -440,10 +440,9 @@ def _bisect_output_bound(
         code = str(exit_code).strip().lower()
         if code in {"unsat", "valid"}:
             decision = "unsat"
-            had_conclusive_probe = True
+            had_certifying_unsat = True
         elif code in {"sat", "invalid"}:
             decision = "sat"
-            had_conclusive_probe = True
         else:
             # TIMEOUT / UNKNOWN / ERROR: can't conclude. Stop bisection; current
             # conservative endpoint (lo for mode=lower, hi for mode=upper) is
@@ -459,15 +458,14 @@ def _bisect_output_bound(
                 hi = mid
             else:
                 lo = mid
-    if not had_conclusive_probe:
+    if not had_certifying_unsat:
         logger.warning(
-            "_bisect_output_bound: all probes inconclusive for output_index=%d "
-            "(mode=%s); returning vacuous bound %f. Consider increasing timeout_s "
-            "or tightening the input box.",
+            "_bisect_output_bound: no certifying UNSAT probe for output_index=%d "
+            "(mode=%s) — returning NaN. Increase bound_search_range or timeout_s.",
             output_index,
             mode,
-            lo if mode == "lower" else hi,
         )
+        return float("nan")
     return lo if mode == "lower" else hi
 
 
