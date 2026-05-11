@@ -28,9 +28,9 @@ By default the script uses:
 - model: `resnet50`
 - image: `~/.cache/raitap/imagenet_samples/golden_retriever.jpg`
 - transparency method: `CaptumExplainer` with `IntegratedGradients`
-- tracking backend: local MLflow server at `http://127.0.0.1:5000`
-- backend store: local SQLite database `./mlflow/mlflow.db`
-- artifact root: `./mlflow/artifacts`
+- tracking backend: local MLflow server at `http://127.0.0.1:5001`
+- backend store: local SQLite database `mlflow/mlflow.db` from the repository root
+- artifact root: `mlflow/artifacts`
 - local artifacts: `./outputs/smoke-manual`
 
 The script predicts the target class automatically from the model output and
@@ -70,10 +70,13 @@ The default sample image must exist locally. If it is missing, either:
 From the repository root:
 
 ```bash
-uv run raitap tracking=mlflow
+uv run raitap +tracking=mlflow
 ```
 
-If no server is already running at `http://127.0.0.1:5000`, `MLFlowTracker` starts a local MLflow server automatically.
+If no server is already running at `http://127.0.0.1:5001`, `MLFlowTracker` starts a local MLflow server automatically.
+When `tracking.open_when_done=true`, the local MLflow UI remains available after
+completion. You can still point `output_forwarding_url` at an existing HTTP
+tracking server instead.
 
 Then in a second terminal:
 
@@ -121,6 +124,15 @@ outputs/smoke-manual/
 
 This is the default and recommended setup.
 
+From the repository root, the SQLite database is stored at `mlflow/mlflow.db`
+and the artifact root is `mlflow/artifacts`.
+
+To migrate existing runs from the old file-store layout:
+
+```bash
+uv run mlflow migrate-filestore --source ./mlruns --target sqlite:///mlflow/mlflow.db
+```
+
 Run the smoke test against the local server:
 
 ```bash
@@ -130,7 +142,7 @@ uv run python -m raitap.tracking.smoke_test_mlflow
 Then open:
 
 ```text
-http://127.0.0.1:5000
+http://127.0.0.1:5001
 ```
 
 ## What You Should See In MLflow
@@ -148,8 +160,8 @@ tab, not under `Metrics`.
 
 ### Cannot connect to tracking server
 
-If the smoke test cannot reach `http://127.0.0.1:5000`, run a normal RAITAP command with
-`tracking=mlflow` once so the local server is started automatically.
+If the smoke test cannot reach `http://127.0.0.1:5001`, run a normal RAITAP command with
+`+tracking=mlflow` once so the local server is started automatically.
 
 ### No metrics visible in MLflow
 

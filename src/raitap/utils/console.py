@@ -67,6 +67,7 @@ _WARNING_PREFIX_RE = re.compile(
 # Detect Windows-drive or POSIX absolute paths inside arbitrary log messages.
 _PATH_RE = re.compile(r"(?:[A-Za-z]:[\\/]|(?<![\w/])/)[^\s]+")
 _PATH_TRIM = '.,;:)]}"'
+_BACKTICK_RE = re.compile(r"`([^`\n]+)`")
 
 # "Header: rest" pattern for non-warnings.warn WARNING records.
 # Example match: ``logger.warning("Robustness: no labels…")``.
@@ -86,13 +87,14 @@ def _src_to_uri(src: str) -> str:
 
 
 def _linkify_message(message: str) -> Text:
-    """Wrap any path-like substrings in a cyan OSC 8 hyperlink."""
+    """Style backtick-quoted code spans magenta and wrap path-like substrings in
+    a cyan OSC 8 hyperlink."""
     from pathlib import Path
 
     rendered = Text()
     last = 0
     for match in _PATH_RE.finditer(message):
-        rendered.append(message[last : match.start()])
+        rendered.append_text(_stylize_inline_code(message[last : match.start()]))
         raw = match.group(0)
         trimmed = raw.rstrip(_PATH_TRIM)
         trailing = raw[len(trimmed) :]
@@ -106,8 +108,20 @@ def _linkify_message(message: str) -> Text:
         if trailing:
             rendered.append(trailing)
         last = match.end()
-    rendered.append(message[last:])
+    rendered.append_text(_stylize_inline_code(message[last:]))
     return rendered
+
+
+def _stylize_inline_code(text: str) -> Text:
+    """Render backtick-quoted runs in magenta; strip the surrounding backticks."""
+    out = Text()
+    last = 0
+    for match in _BACKTICK_RE.finditer(text):
+        out.append(text[last : match.start()])
+        out.append(match.group(1), style="magenta")
+        last = match.end()
+    out.append(text[last:])
+    return out
 
 
 def _reconfigure_utf8(stream: Any) -> None:

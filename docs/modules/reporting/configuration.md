@@ -14,6 +14,16 @@
 :description: Configured report filename. `HTMLReporter` uses the configured basename with
   a `.html` suffix, while the legacy borb `PDFReporter` uses this value unchanged.
 
+:option: sample_selection
+:allowed: list of sample IDs, filenames, or zero-based indices; null
+:default: null
+:description: Optional explicit local-explanation samples to show in the report.
+  Strings are matched against dataset sample IDs and filename stems, so
+  `ISIC_0024306.jpg` can match `ISIC_0024306`. Integers select zero-based batch
+  indices. Invalid, ambiguous, duplicate, or out-of-range entries fail the run
+  with a clear error. This affects report rendering only and does not subset the
+  data sent through metrics, explainers, visualisers, or tracking.
+
 :option: multirun_report
 :allowed: boolean
 :default: true
@@ -82,6 +92,10 @@
 reporting:
   _target_: "raitap.reporting.HTMLReporter"
   filename: "experiment_report.pdf"
+  sample_selection:
+    - "ISIC_0024306.jpg"
+    - "ISIC_0024372.jpg"
+    - 4
   multirun_report: true
   show_original_per_explainer: false
   show_redundant_robustness_panels: false

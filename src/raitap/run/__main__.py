@@ -81,7 +81,20 @@ def _hydra_main(config: AppConfig) -> None:
     print_complete_panel(duration)
 
 
+def _dispatch_subcommand(argv: list[str]) -> bool:
+    """Handle non-Hydra subcommands. Return True if a subcommand ran."""
+    if argv[:2] == ["tracking", "stop"]:
+        from raitap.tracking import run_stop_command
+
+        setup_logging(level=logging.INFO)
+        run_stop_command()
+        return True
+    return False
+
+
 def main() -> None:
+    if _dispatch_subcommand(sys.argv[1:]):
+        return
     sys.argv = _prepare_cli_argv(list(sys.argv))
     _hydra_main()
 

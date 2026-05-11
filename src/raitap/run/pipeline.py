@@ -22,6 +22,7 @@ from raitap.reporting import (
     create_report,
     reporting_enabled,
 )
+from raitap.reporting.sample_selection import resolve_report_sample_selection
 from raitap.robustness.factory import RobustnessAssessment
 from raitap.run.forward_output import extract_primary_tensor
 from raitap.run.outputs import PredictionSummary, RunOutputs
@@ -48,6 +49,7 @@ def _log_phase_start(phase: str, n: int) -> None:
 def run(config: AppConfig) -> RunOutputs:
     model = Model(config)
     data = Data(config)
+    _validate_report_sample_selection(config, data)
     print_summary(config, model)
 
     outputs = _run_without_tracking(config, model, data)
@@ -87,6 +89,18 @@ def run(config: AppConfig) -> RunOutputs:
             report_generation.log(tracker)
 
     return outputs
+
+
+def _validate_report_sample_selection(config: AppConfig, data: Data) -> None:
+    if not reporting_enabled(config):
+        return
+    reporting_cfg = config.reporting
+    selection = None if reporting_cfg is None else reporting_cfg.sample_selection
+    resolve_report_sample_selection(
+        selection,
+        sample_ids=data.sample_ids,
+        batch_size=int(data.tensor.shape[0]) if data.tensor.ndim > 0 else 0,
+    )
 
 
 def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOutputs:

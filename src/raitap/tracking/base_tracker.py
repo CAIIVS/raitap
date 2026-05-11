@@ -20,6 +20,38 @@ if TYPE_CHECKING:
 
 
 class BaseTracker(ABC):
+    @classmethod
+    def tracker_name(cls) -> str:
+        """Identity used by the process registry. Override if multiple classes
+        share a single detached helper."""
+        return cls.__name__
+
+    @classmethod
+    def stop_detached(cls, timeout: float = 5.0) -> tuple[int, int]:
+        """Terminate this tracker's detached helpers. Returns ``(killed, skipped)``.
+
+        Subclasses with detached helpers must override. The default
+        implementation only logs an error so that misconfigured trackers
+        (registry entries written without a matching ``stop_detached``
+        implementation) are surfaced instead of silently leaking processes.
+        """
+        del timeout  # default impl has nothing to terminate
+        from .process_registry import pop_entries_for_tracker, reinsert_entries
+
+        entries, ports = pop_entries_for_tracker(cls.tracker_name())
+        if not entries and not ports:
+            return (0, 0)
+
+        raitap_log.error(
+            "No stop process implemented for tracker %r; %d process entries and "
+            "%d watched ports left in registry.",
+            cls.tracker_name(),
+            len(entries),
+            len(ports),
+        )
+        reinsert_entries(entries, ports)
+        return (0, 0)
+
     @staticmethod
     def create_tracker(config: AppConfig) -> BaseTracker:
         tracking_config = cfg_to_dict(config.tracking)

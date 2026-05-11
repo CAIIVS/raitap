@@ -122,6 +122,18 @@ output shapes, RAITAP falls back to the first available sample. Classification
 confidence is the maximum softmax probability of the model output for each
 sample.
 
+Set `reporting.sample_selection` to pin the exact local samples shown in the
+report. The option accepts sample IDs, filenames, or zero-based batch indices;
+when it is set, RAITAP renders the requested samples in the configured order and
+marks them as user-selected in `report_manifest.json`. Invalid, ambiguous,
+duplicate, or out-of-range entries fail the run before expensive pipeline work
+whenever the data metadata is available.
+
+`reporting.sample_selection` is report-only. It does not reduce the data passed
+through the model forward, metrics, explainers, visualisers, or tracking. To run
+explainers on fewer samples, reduce `data.source` or use a future data-subsetting
+feature.
+
 ## Hydra Multiruns
 
 Each Hydra child run still writes its own `reports/report.html` and
