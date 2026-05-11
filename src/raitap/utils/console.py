@@ -61,7 +61,7 @@ class _PanelKind:
 _WARNING_KIND = _PanelKind(base="yellow_base", light="yellow_light", icon="⚠︎  ", label="Warning")
 _ERROR_KIND = _PanelKind(base="red_base", light="red_light", icon="✗ ", label="Error")
 _FAILURE_KIND = _PanelKind(base="red_base", light="red_light", icon="✗ ", label="Failure")
-_COMPLETE_KIND = _PanelKind(base="green_base", light="green.light", icon="✓ ", label="Complete")
+_COMPLETE_KIND = _PanelKind(base="green_base", light="green_light", icon="✓ ", label="Complete")
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
