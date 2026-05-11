@@ -928,6 +928,8 @@ def test_build_report_thumbnail_programmer_error_is_not_swallowed(
 
     with pytest.raises(TypeError, match="programmer error"):
         build_report(config, outputs)
+
+
 def test_build_report_explicit_filenames_render_in_user_order(tmp_path: Path) -> None:
     config, outputs = _explicit_selection_case(tmp_path)
     config.reporting.sample_selection = [  # type: ignore[union-attr]
