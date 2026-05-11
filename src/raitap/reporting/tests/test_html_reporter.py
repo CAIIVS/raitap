@@ -29,8 +29,10 @@ def test_html_reporter_generates_browser_html_with_expected_anchors(
         'id="explainer-gradcam_localisation"' in html
     )
     assert 'href="#robustness-fgsm_linf_fast"' in html or ('id="robustness-fgsm_linf_fast"' in html)
-    assert '<link rel="stylesheet" href="report.css">' in html
-    assert (tmp_path / "report.css").exists()
+    assert '<link rel="stylesheet" href="report.css">' not in html
+    assert "<style>" in html
+    assert ".section-heading" in html
+    assert not (tmp_path / "report.css").exists()
 
 
 def test_html_reporter_renders_reviewed_browser_structure(
@@ -39,8 +41,6 @@ def test_html_reporter_renders_reviewed_browser_structure(
     HTMLReporter(_config()).generate(_synthetic_sections(), report_dir=tmp_path)
 
     html = (tmp_path / "report.html").read_text(encoding="utf-8")
-    css = (tmp_path / "report.css").read_text(encoding="utf-8")
-
     assert '<meta name="viewport" content="width=device-width, initial-scale=1">' in html
     assert "Clean → adversarial accuracy" in html
     assert "Model Prediction: 5" in html
@@ -52,8 +52,8 @@ def test_html_reporter_renders_reviewed_browser_structure(
         'alt="Grad-CAM lesion localisation"'
     )
     assert 'src="_assets/sample_3_original.png"' in html
-    assert ".section-heading" in css
-    assert "@media (max-width: 900px)" in css
+    assert ".section-heading" in html
+    assert "@media (max-width: 900px)" in html
 
 
 def test_html_reporter_generates_valid_fragment_links_and_image_alts(

@@ -36,17 +36,13 @@ class HTMLReporter(BaseReporter):
             getattr(self.config.reporting, "filename", "report"),
             ".html",
         )
-        css_path = run_dir / "report.css"
-
         metadata = {
             "experiment_name": getattr(self.config, "experiment_name", None),
         }
         view = build_view(sections, metadata, version=__about__.__version__)
         env = _jinja_environment()
         css_text = _template_text("report.css")
-        # Sibling copy keeps the HTML standalone for browser viewing.
-        css_path.write_text(css_text, encoding="utf-8")
-        html = env.get_template("report.html.j2").render(view=view)
+        html = env.get_template("report.html.j2").render(view=view, css_text=css_text)
         html_path.write_text(html, encoding="utf-8")
 
         return html_path

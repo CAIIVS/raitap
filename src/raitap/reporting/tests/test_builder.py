@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
@@ -1522,6 +1523,84 @@ def test_create_report_writes_manifest_next_to_generated_report(
     assert generated.report_path.parent == built.report_dir
     assert generated.manifest_path == generated.report_path.parent / "report_manifest.json"
     assert generated.manifest_path.exists()
+
+
+def test_create_report_writes_html_archive_with_manifest_and_assets(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    config = AppConfig(experiment_name="demo")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="HTMLReporter", filename="report.html")
+    built_report = ReportSection.from_groups(
+        "Metrics",
+        [ReportGroup(heading="Performance Metrics", table_rows=(("accuracy", "0.9"),))],
+    )
+    report = ReportManifest(kind="run", sections=(built_report,), filename="report.html")
+    report_dir = tmp_path / "builder-reports"
+    asset_dir = report_dir / "_assets"
+    asset_dir.mkdir(parents=True)
+    (asset_dir / "example.png").write_bytes(b"png")
+    built = BuiltReport(report_dir=report_dir, sections=(built_report,), manifest=report)
+
+    class _HTMLReporterStub:
+        def __init__(self, _config: Any) -> None:
+            pass
+
+        def generate(self, sections: Any, *, report_dir: Path | None = None) -> Path:
+            del sections
+            assert report_dir is not None
+            output_path = report_dir / "report.html"
+            output_path.write_text("<html></html>", encoding="utf-8")
+            return output_path
+
+    monkeypatch.setattr("raitap.reporting.factory.instantiate", lambda _cfg: _HTMLReporterStub)
+
+    generated = create_report(config, built)
+
+    archive_path = generated.report_path.with_suffix(".zip")
+    assert archive_path.exists()
+    with zipfile.ZipFile(archive_path) as archive:
+        assert archive.namelist() == [
+            "report.html",
+            "report_manifest.json",
+            "_assets/example.png",
+        ]
+
+
+def test_create_report_does_not_archive_pdf_report(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    config = AppConfig(experiment_name="demo")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    built_report = ReportSection.from_groups(
+        "Metrics",
+        [ReportGroup(heading="Performance Metrics", table_rows=(("accuracy", "0.9"),))],
+    )
+    report = ReportManifest(kind="run", sections=(built_report,), filename="report.pdf")
+    built = BuiltReport(
+        report_dir=tmp_path / "builder-reports",
+        sections=(built_report,),
+        manifest=report,
+    )
+
+    class _PDFReporterStub:
+        def __init__(self, _config: Any) -> None:
+            pass
+
+        def generate(self, sections: Any, *, report_dir: Path | None = None) -> Path:
+            del sections
+            assert report_dir is not None
+            output_path = report_dir / "report.pdf"
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_bytes(b"%PDF-1.4\n")
+            return output_path
+
+    monkeypatch.setattr("raitap.reporting.factory.instantiate", lambda _cfg: _PDFReporterStub)
+
+    generated = create_report(config, built)
+
+    assert not generated.report_path.with_suffix(".zip").exists()
 
 
 @pytest.mark.parametrize(

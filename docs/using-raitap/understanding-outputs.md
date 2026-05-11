@@ -23,7 +23,7 @@ outputs/                                      # Hydra's default output directory
         │   └── metrics.json
         ├── reports/                          # HTML report and report-only assets
         │   ├── report.html
-        │   ├── report.css
+        │   ├── report.zip
         │   ├── report_manifest.json
         │   └── _assets/
         ├── transparency/                     # Transparency module outputs (see below for details)
@@ -49,8 +49,8 @@ outputs/                                      # Hydra's default output directory
 
 The `transparency/` and `robustness/` directories keep the full assessor
 artifacts for debugging and tracking. The `reports/` directory contains the
-compact report, its `report_manifest.json`, and curated report-only figure
-assets.
+compact report, a ZIP package with the HTML, manifest, and curated report-only
+figure assets.
 
 You may want to look at each module's output directory for more details:
 

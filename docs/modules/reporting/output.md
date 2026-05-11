@@ -12,7 +12,7 @@ A reporting-enabled single run writes:
 ```text
 reports/
 ├── report.html
-├── report.css
+├── report.zip
 ├── report_manifest.json
 └── _assets/
     ├── ... native global or cohort summary figures
@@ -22,7 +22,8 @@ reports/
 `report_manifest.json` records the semantic report structure, selected samples,
 asset paths, and metadata used for sweep-level merging. The manifest is the
 source of truth for merged reports. `report.html` is a standalone browser view
-with linked CSS. Use `reporting=pdf` for PDF output.
+with embedded CSS. `report.zip` contains the HTML file, `report_manifest.json`,
+and report-local `_assets` images for sharing. Use `reporting=pdf` for PDF output.
 
 The original explainer artifacts are still kept under `transparency/` for
 debugging and tracking. Report-local figures under `reports/_assets/` are the
@@ -145,13 +146,16 @@ multirun/.../
 ├── 0/
 │   └── reports/
 │       ├── report.html
+│       ├── report.zip
 │       └── report_manifest.json
 ├── 1/
 │   └── reports/
 │       ├── report.html
+│       ├── report.zip
 │       └── report_manifest.json
 └── reports/
     ├── report.html
+    ├── report.zip
     ├── report_manifest.json
     └── _assets/
 ```
