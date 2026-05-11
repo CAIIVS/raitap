@@ -122,6 +122,39 @@ def test_html_reporter_omits_missing_sections(
     assert "No local explanations" in html
 
 
+def test_html_reporter_renders_legacy_local_detail_images(tmp_path: Path) -> None:
+    sections = (
+        ReportSection.from_groups(
+            "Local Explanations",
+            [
+                ReportGroup(
+                    heading="Detail - user_selected case_gamma.png",
+                    images=(
+                        Path("reports/_assets/detail_user_selected_gradcam_2_0.png"),
+                        Path("reports/_assets/detail_user_selected_integrated_gradients_2_0.png"),
+                    ),
+                    metadata={
+                        "role": "local_detail",
+                        "bucket": "user_selected",
+                        "sample_index": 2,
+                        "requested_sample": "case_gamma.png",
+                    },
+                )
+            ],
+            metadata={"section_role": "local_explanations"},
+        ),
+    )
+
+    HTMLReporter(_config()).generate(sections, report_dir=tmp_path)
+
+    html = (tmp_path / "report.html").read_text(encoding="utf-8")
+    assert 'src="_assets/detail_user_selected_gradcam_2_0.png"' in html
+    assert 'src="_assets/detail_user_selected_integrated_gradients_2_0.png"' in html
+    assert "n/a · n/a" not in html
+    assert "Technical details" not in html
+    assert "No local explanations were configured" not in html
+
+
 def _config(*, filename: str = "report.pdf") -> AppConfig:
     config = AppConfig(experiment_name="html-report-test")
     config.reporting = ReportingConfig(

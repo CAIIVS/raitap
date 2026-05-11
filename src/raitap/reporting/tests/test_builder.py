@@ -955,6 +955,12 @@ def test_build_report_explicit_filenames_render_in_user_order(tmp_path: Path) ->
     report = build_report(config, outputs)
 
     local_groups = report.sections[0].groups
+    assert [group.metadata["role"] for group in local_groups] == [
+        "local_detail",
+        "local_detail",
+        "local_detail",
+        "local_detail",
+    ]
     assert [group.metadata["sample_index"] for group in local_groups] == [2, 0, 3, 1]
     assert [group.metadata["requested_sample"] for group in local_groups] == [
         "case_gamma.png",
@@ -970,6 +976,39 @@ def test_build_report_explicit_filenames_render_in_user_order(tmp_path: Path) ->
         3,
         1,
     ]
+
+
+def test_build_report_html_explicit_selection_uses_compact_local_layout(
+    tmp_path: Path,
+) -> None:
+    config, outputs = _explicit_selection_case(tmp_path)
+    config.reporting = ReportingConfig(_target_="HTMLReporter", filename="report")
+    config.reporting.sample_selection = [
+        "case_gamma.png",
+        "case_alpha.png",
+        "case_delta.png",
+        "case_beta.png",
+    ]
+
+    report = build_report(config, outputs)
+
+    local_groups = report.sections[0].groups
+    header_groups = [group for group in local_groups if group.metadata["role"] == "sample_header"]
+    visualiser_groups = [
+        group for group in local_groups if group.metadata["role"] == "local_visualiser"
+    ]
+    assert [group.metadata["sample_index"] for group in header_groups] == [2, 0, 3, 1]
+    assert [group.metadata["requested_sample"] for group in header_groups] == [
+        "case_gamma.png",
+        "case_alpha.png",
+        "case_delta.png",
+        "case_beta.png",
+    ]
+    assert [group.metadata["sample_index"] for group in visualiser_groups] == [2, 0, 3, 1]
+    assert all(group.images for group in header_groups)
+    assert all(group.images for group in visualiser_groups)
+    assert dict(header_groups[0].table_rows)["predicted_class"] == "1"
+    assert dict(header_groups[0].table_rows)["confidence"] == "0.5200"
 
 
 def test_build_report_explicit_filename_extension_normalisation(tmp_path: Path) -> None:
@@ -1567,9 +1606,7 @@ def test_create_report_writes_html_archive_with_manifest_and_assets(
         ]
 
 
-def test_create_report_does_not_archive_pdf_report(
-    tmp_path: Path, monkeypatch: Any
-) -> None:
+def test_create_report_does_not_archive_pdf_report(tmp_path: Path, monkeypatch: Any) -> None:
     config = AppConfig(experiment_name="demo")
     set_output_root(config, tmp_path)
     config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")

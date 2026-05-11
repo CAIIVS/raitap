@@ -37,8 +37,12 @@
             <div>
               <span class="badge">{{ sample.bucket }}</span>
               <h4>Sample {{ sample.sample_index }}</h4>
-              <p class="context-line">File: {{ sample.sample_id or "n/a" }}</p>
-              <p>Model Prediction: {{ sample.predicted_class if sample.predicted_class is not none else "n/a" }} · Ground Truth: {{ sample.target_class if sample.target_class is not none else "n/a" }} · Confidence: {{ sample.confidence|fmt_num }}</p>
+              {% if sample.sample_id %}
+                <p class="context-line">File: {{ sample.sample_id }}</p>
+              {% endif %}
+              {% if sample.predicted_class is not none or sample.target_class is not none or sample.confidence is not none %}
+                <p>Model Prediction: {{ sample.predicted_class if sample.predicted_class is not none else "n/a" }} · Ground Truth: {{ sample.target_class if sample.target_class is not none else "n/a" }} · Confidence: {{ sample.confidence|fmt_num }}</p>
+              {% endif %}
             </div>
           </header>
           <div class="explainer-grid">
@@ -55,22 +59,33 @@
                   <img class="figure" src="{{ explainer.image_srcs[0] }}" alt="{{ explainer.visualiser_name }}">
                 {% endif %}
                 <h5>{{ explainer.visualiser_name }}</h5>
-                <p class="context-line">
-                  {{ explainer.headline.get("algorithm", explainer.algorithm) }} · {{ explainer.headline.get("method_families", "n/a") }}
-                </p>
-                <p class="context-line">
-                  {{ explainer.context.get("visualiser_sign", "n/a") }} · {{ explainer.context.get("visualiser_method", "n/a") }} · {{ explainer.context.get("layer_path", "input") }}
-                </p>
-                <details>
-                  <summary>Technical details</summary>
-                  <table>
-                    <tbody>
-                      {% for key, value in explainer.technical.items() %}
-                        <tr><th>{{ key }}</th><td>{{ value }}</td></tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                </details>
+                {% set algorithm = explainer.headline.get("algorithm", explainer.algorithm) %}
+                {% set method_families = explainer.headline.get("method_families") %}
+                {% if algorithm != "n/a" or method_families %}
+                  <p class="context-line">
+                    {% if algorithm != "n/a" %}{{ algorithm }}{% endif %}{% if algorithm != "n/a" and method_families %} · {% endif %}{% if method_families %}{{ method_families }}{% endif %}
+                  </p>
+                {% endif %}
+                {% set visualiser_sign = explainer.context.get("visualiser_sign") %}
+                {% set visualiser_method = explainer.context.get("visualiser_method") %}
+                {% set layer_path = explainer.context.get("layer_path") %}
+                {% if visualiser_sign or visualiser_method or layer_path %}
+                  <p class="context-line">
+                    {% if visualiser_sign %}{{ visualiser_sign }}{% endif %}{% if visualiser_sign and visualiser_method %} · {% endif %}{% if visualiser_method %}{{ visualiser_method }}{% endif %}{% if (visualiser_sign or visualiser_method) and layer_path %} · {% endif %}{% if layer_path %}{{ layer_path }}{% endif %}
+                  </p>
+                {% endif %}
+                {% if explainer.technical %}
+                  <details>
+                    <summary>Technical details</summary>
+                    <table>
+                      <tbody>
+                        {% for key, value in explainer.technical.items() %}
+                          <tr><th>{{ key }}</th><td>{{ value }}</td></tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </details>
+                {% endif %}
                 <a class="text-link" href="#explainer-{{ explainer.explainer_name|slug }}">About this explainer</a>
               </article>
             {% endfor %}

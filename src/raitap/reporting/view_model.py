@@ -233,17 +233,28 @@ def _build_generic_groups(section: ReportSection) -> tuple[GenericGroupView, ...
 def _build_local_samples(section: ReportSection) -> tuple[LocalSampleView, ...]:
     samples_by_index: dict[int, LocalSampleView] = {}
     explainers_by_index: dict[int, list[ExplainerView]] = {}
+    legacy_samples: list[LocalSampleView] = []
+    sample_order: list[tuple[str, int]] = []
 
     for group in section.groups:
         role = group.metadata.get("role")
-        if role not in {"sample_header", "local_visualiser"}:
+        if role not in {"sample_header", "local_visualiser", "local_detail", "local_overview"}:
             continue
         sample_index = _metadata_int(group.metadata, "sample_index")
         if sample_index is None:
             continue
 
+        if role in {"local_detail", "local_overview"}:
+            legacy_sample = _build_legacy_local_sample(group, sample_index)
+            if legacy_sample is not None:
+                sample_order.append(("legacy", len(legacy_samples)))
+                legacy_samples.append(legacy_sample)
+            continue
+
         if role == "sample_header":
             rows = _as_dict(group.table_rows)
+            if sample_index not in samples_by_index:
+                sample_order.append(("compact", sample_index))
             samples_by_index[sample_index] = LocalSampleView(
                 sample_index=sample_index,
                 bucket=str(group.metadata.get("bucket") or rows.get("bucket") or "sample"),
@@ -263,6 +274,7 @@ def _build_local_samples(section: ReportSection) -> tuple[LocalSampleView, ...]:
         explainer = _build_explainer_view(group)
         explainers_by_index.setdefault(sample_index, []).append(explainer)
         if sample_index not in samples_by_index:
+            sample_order.append(("compact", sample_index))
             rows = _as_dict(group.table_rows)
             samples_by_index[sample_index] = LocalSampleView(
                 sample_index=sample_index,
@@ -273,7 +285,11 @@ def _build_local_samples(section: ReportSection) -> tuple[LocalSampleView, ...]:
             )
 
     ordered: list[LocalSampleView] = []
-    for sample_index in samples_by_index:
+    for kind, index in sample_order:
+        if kind == "legacy":
+            ordered.append(legacy_samples[index])
+            continue
+        sample_index = index
         sample = samples_by_index[sample_index]
         ordered.append(
             LocalSampleView(
@@ -291,6 +307,65 @@ def _build_local_samples(section: ReportSection) -> tuple[LocalSampleView, ...]:
             )
         )
     return tuple(ordered)
+
+
+def _build_legacy_local_sample(group: ReportGroup, sample_index: int) -> LocalSampleView | None:
+    if not group.table_rows and not group.images:
+        return None
+
+    rows = _as_dict(group.table_rows)
+    return LocalSampleView(
+        sample_index=sample_index,
+        bucket=str(group.metadata.get("bucket") or rows.get("bucket") or "sample"),
+        heading=group.heading,
+        rows=group.table_rows,
+        thumbnail_srcs=(),
+        explainers=_build_legacy_explainer_views(group),
+        sample_id=_none_if_blank(group.metadata.get("requested_sample")) or rows.get("sample_id"),
+        predicted_class=rows.get("predicted_class"),
+        confidence=rows.get("confidence"),
+        target_class=rows.get("target_class"),
+        correct=_parse_bool(rows.get("correct")),
+    )
+
+
+def _build_legacy_explainer_views(group: ReportGroup) -> tuple[ExplainerView, ...]:
+    if not group.images:
+        return ()
+
+    rows = group.table_rows
+    row_map = _as_dict(rows)
+    explainer_name = str(
+        group.metadata.get("explainer_name") or row_map.get("explainer") or group.heading
+    )
+    algorithm = str(group.metadata.get("algorithm") or row_map.get("algorithm") or "n/a")
+    visualiser_name = str(
+        group.metadata.get("visualiser_name")
+        or group.metadata.get("visualiser_title")
+        or row_map.get("visualiser_title")
+        or group.heading
+    )
+    image_srcs = _image_srcs(group)
+
+    return tuple(
+        ExplainerView(
+            explainer_name=explainer_name,
+            algorithm=algorithm,
+            visualiser_name=(
+                visualiser_name if len(image_srcs) == 1 else f"{visualiser_name} ({index + 1})"
+            ),
+            image_srcs=(image_src,),
+            rows=rows,
+            headline={key: value for key, value in rows if key in _HEADLINE_KEYS},
+            context={key: value for key, value in rows if key in _CONTEXT_KEYS},
+            technical={
+                key: value
+                for key, value in rows
+                if key not in _HEADLINE_KEYS and key not in _CONTEXT_KEYS
+            },
+        )
+        for index, image_src in enumerate(image_srcs)
+    )
 
 
 def _build_explainer_view(group: ReportGroup) -> ExplainerView:

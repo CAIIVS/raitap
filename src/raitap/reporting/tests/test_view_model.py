@@ -97,6 +97,54 @@ def test_build_view_ignores_multirun_heading_prefixes_when_metadata_is_present()
     assert view.local_samples[0].explainers[0].algorithm == "LayerGradCam"
 
 
+def test_build_view_renders_legacy_local_detail_groups_as_samples() -> None:
+    section = ReportSection.from_groups(
+        "Local Explanations",
+        [
+            ReportGroup(
+                heading="Detail - user_selected case_gamma.png",
+                images=(
+                    Path("reports/_assets/detail_user_selected_gradcam_2_0.png"),
+                    Path("reports/_assets/detail_user_selected_integrated_gradients_2_0.png"),
+                ),
+                metadata={
+                    "role": "local_detail",
+                    "bucket": "user_selected",
+                    "sample_index": 2,
+                    "requested_sample": "case_gamma.png",
+                },
+            ),
+            ReportGroup(
+                heading="Detail - user_selected case_alpha.png",
+                images=(Path("reports/_assets/detail_user_selected_gradcam_0_0.png"),),
+                metadata={
+                    "role": "local_detail",
+                    "bucket": "user_selected",
+                    "sample_index": 0,
+                    "requested_sample": "case_alpha.png",
+                },
+            ),
+        ],
+        metadata={"section_role": "local_explanations"},
+    )
+
+    view = build_view((section,), {})
+
+    assert [sample.sample_index for sample in view.local_samples] == [2, 0]
+    assert [sample.bucket for sample in view.local_samples] == ["user_selected", "user_selected"]
+    assert view.local_samples[0].sample_id == "case_gamma.png"
+    assert [
+        image
+        for sample in view.local_samples
+        for explainer in sample.explainers
+        for image in explainer.image_srcs
+    ] == [
+        "_assets/detail_user_selected_gradcam_2_0.png",
+        "_assets/detail_user_selected_integrated_gradients_2_0.png",
+        "_assets/detail_user_selected_gradcam_0_0.png",
+    ]
+
+
 def _local_visualiser_counts(manifest: ReportManifest) -> dict[int, int]:
     counter: Counter[int] = Counter()
     for section in manifest.sections:

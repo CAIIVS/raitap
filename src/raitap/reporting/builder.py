@@ -109,7 +109,10 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
         show_original_per_explainer=bool(
             getattr(getattr(config, "reporting", None), "show_original_per_explainer", False)
         ),
-        explicit_selection=explicit_samples is not None,
+        explicit_selection=(
+            explicit_samples is not None
+            and _reporting_target(config) in {"PDFReporter", "raitap.reporting.PDFReporter"}
+        ),
     )
     if local_section is not None:
         sections.append(local_section)
@@ -227,12 +230,16 @@ def build_merged_report(
 
 
 def _manifest_filename(config: AppConfig) -> str:
-    reporting = getattr(config, "reporting", None)
-    filename = str(getattr(reporting, "filename", "report"))
-    target = str(getattr(reporting, "_target_", ""))
+    target = _reporting_target(config)
+    filename = str(getattr(getattr(config, "reporting", None), "filename", "report"))
     if target in {"HTMLReporter", "raitap.reporting.HTMLReporter"}:
         return report_output_filename(filename, ".html")
     return report_output_filename(filename, ".pdf")
+
+
+def _reporting_target(config: AppConfig) -> str:
+    reporting = getattr(config, "reporting", None)
+    return str(getattr(reporting, "_target_", ""))
 
 
 def _build_metrics_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSection | None:
@@ -870,16 +877,19 @@ def _build_sample_header_group(
     )
     if staged is None:
         return None
+    metadata: dict[str, object] = {
+        "role": "sample_header",
+        "bucket": selected.label,
+        "sample_index": selected.summary.sample_index,
+        "selection_source": selected.selection_source.value,
+        "source_explainer_name": staged.source_explainer_name,
+    }
+    metadata.update(_requested_sample_metadata(selected))
     return ReportGroup(
         heading=f"Sample - {_sample_label(selected)}",
         images=(staged.path,),
         table_rows=_sample_fact_rows(selected),
-        metadata={
-            "role": "sample_header",
-            "bucket": selected.label,
-            "sample_index": selected.summary.sample_index,
-            "source_explainer_name": staged.source_explainer_name,
-        },
+        metadata=metadata,
     )
 
 
