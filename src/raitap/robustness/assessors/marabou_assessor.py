@@ -14,6 +14,7 @@ Only static-shape MLPs are in scope. Export failures propagate as
 from __future__ import annotations
 
 import logging
+import math
 import shutil
 import tempfile
 import time
@@ -80,6 +81,9 @@ class MarabouAssessor(FormalVerificationAssessor):
         timeout_s: float = 300.0,
         epsilon: float = 0.05,
         norm: str = "Linf",
+        compute_output_bounds: bool = False,
+        bound_search_range: float = 1e3,
+        bound_tolerance: float = 1e-2,
         **kwargs: Any,
     ) -> None:
         del kwargs  # tolerate forward-compat kwargs for YAML configs.
@@ -90,12 +94,22 @@ class MarabouAssessor(FormalVerificationAssessor):
         self.timeout_s = float(timeout_s)
         self.epsilon = float(epsilon)
         self._norm = str(norm)
+        self.compute_output_bounds = bool(compute_output_bounds)
+        self.bound_search_range = float(bound_search_range)
+        self.bound_tolerance = float(bound_tolerance)
+        if self.bound_tolerance <= 0:
+            raise ValueError("MarabouAssessor: bound_tolerance must be > 0.")
+        if self.bound_search_range <= 0:
+            raise ValueError("MarabouAssessor: bound_search_range must be > 0.")
         # Record kwargs the way the framework expects (matches torchattacks /
         # foolbox adapters: ``init_kwargs`` carries the budget for semantics).
         self.init_kwargs: dict[str, Any] = {
             "epsilon": float(epsilon),
             "norm": str(norm),
             "timeout_s": float(timeout_s),
+            "compute_output_bounds": bool(compute_output_bounds),
+            "bound_search_range": float(bound_search_range),
+            "bound_tolerance": float(bound_tolerance),
         }
         # Per-(model, sample-shape) cache so we only export once per assess().
         self._onnx_cache: dict[tuple[int, tuple[int, ...]], Path] = {}
@@ -237,7 +251,9 @@ class MarabouAssessor(FormalVerificationAssessor):
         if disjuncts:
             network.addDisjunctionConstraint(disjuncts)
 
-        options = Marabou.createOptions(timeoutInSeconds=int(self.timeout_s), verbosity=0)
+        options = Marabou.createOptions(
+            timeoutInSeconds=max(1, math.ceil(self.timeout_s)), verbosity=0
+        )
         started = time.perf_counter()
         exit_code, values, stats = network.solve(options=options)
         wall_runtime = time.perf_counter() - started
@@ -253,11 +269,24 @@ class MarabouAssessor(FormalVerificationAssessor):
             sample_shape=tuple(int(d) for d in sample.shape),
         )
 
+        lower_bounds: torch.Tensor | None = None
+        upper_bounds: torch.Tensor | None = None
+        if self.compute_output_bounds and verdict == RobustnessVerdict.VERIFIED:
+            lower_bounds, upper_bounds = _compute_output_bounds(
+                onnx_path=onnx_path,
+                flat_sample=flat_sample,
+                eps=eps,
+                num_outputs=int(output_vars.size),
+                search_range=self.bound_search_range,
+                tolerance=self.bound_tolerance,
+                timeout_s=self.timeout_s,
+            )
+
         return VerificationOutcome(
             verdict=verdict,
             counter_example=counter_example,
-            lower_bounds=None,
-            upper_bounds=None,
+            lower_bounds=lower_bounds,
+            upper_bounds=upper_bounds,
             runtime_seconds=float(runtime_seconds),
             diagnostics={"exit_code": str(exit_code)},
         )
@@ -356,6 +385,126 @@ def _interpret_solver_result(
         return RobustnessVerdict.ERROR, None
     # "timeout", "unknown", or any other code → UNKNOWN.
     return RobustnessVerdict.UNKNOWN, None
+
+
+def _bisect_output_bound(
+    *,
+    onnx_path: Path,
+    flat_sample: np.ndarray,
+    eps: float,
+    output_index: int,
+    mode: str,
+    search_range: float,
+    tolerance: float,
+    timeout_s: float,
+) -> float:
+    """Return certified per-logit bound via bisection-via-SAT.
+
+    ``mode='lower'``: largest c such that out[k] >= c is provable.
+    ``mode='upper'``: smallest c such that out[k] <= c is provable.
+
+    Per spec, a fresh ``MarabouNetwork`` is built for every probe.
+    """
+    if mode not in {"lower", "upper"}:
+        raise ValueError(f"_bisect_output_bound: mode must be 'lower'|'upper', got {mode!r}")
+    if search_range <= 0 or tolerance <= 0:
+        raise ValueError(
+            f"_bisect_output_bound: search_range and tolerance must be > 0, "
+            f"got search_range={search_range}, tolerance={tolerance}"
+        )
+
+    from maraboupy import Marabou  # type: ignore[import-not-found]
+
+    lo, hi = -float(search_range), float(search_range)
+    options = Marabou.createOptions(timeoutInSeconds=max(1, math.ceil(timeout_s)), verbosity=0)
+    max_iters = max(1, math.ceil(math.log2((2.0 * search_range) / tolerance)) + 2)
+    had_certifying_unsat = False
+    for _ in range(max_iters):
+        if (hi - lo) <= tolerance:
+            break
+        mid = (lo + hi) / 2.0
+        network = Marabou.read_onnx(str(onnx_path))
+        input_vars = np.asarray(network.inputVars[0]).reshape(-1)
+        output_vars = np.asarray(network.outputVars[0]).reshape(-1)
+        for var_id, value in zip(input_vars, flat_sample, strict=True):
+            network.setLowerBound(int(var_id), float(value) - eps)
+            network.setUpperBound(int(var_id), float(value) + eps)
+        out_var = int(output_vars[output_index])
+        if mode == "lower":
+            network.setUpperBound(out_var, mid)
+        else:
+            network.setLowerBound(out_var, mid)
+        exit_code, _, _ = network.solve(options=options)
+        code = str(exit_code).strip().lower()
+        if code in {"unsat", "valid"}:
+            decision = "unsat"
+            had_certifying_unsat = True
+        elif code in {"sat", "invalid"}:
+            decision = "sat"
+        else:
+            # TIMEOUT / UNKNOWN / ERROR: can't conclude. Stop bisection; current
+            # conservative endpoint (lo for mode=lower, hi for mode=upper) is
+            # still valid — just looser than the true bound.
+            break
+        if mode == "lower":
+            if decision == "unsat":
+                lo = mid
+            else:
+                hi = mid
+        else:
+            if decision == "unsat":
+                hi = mid
+            else:
+                lo = mid
+    if not had_certifying_unsat:
+        logger.warning(
+            "_bisect_output_bound: no certifying UNSAT probe for output_index=%d "
+            "(mode=%s) — returning NaN. Increase bound_search_range or timeout_s.",
+            output_index,
+            mode,
+        )
+        return float("nan")
+    return lo if mode == "lower" else hi
+
+
+def _compute_output_bounds(
+    *,
+    onnx_path: Path,
+    flat_sample: np.ndarray,
+    eps: float,
+    num_outputs: int,
+    search_range: float,
+    tolerance: float,
+    timeout_s: float,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return ``(lower, upper)`` tensors of shape ``(num_outputs,)``."""
+    lower = np.empty(num_outputs, dtype=np.float32)
+    upper = np.empty(num_outputs, dtype=np.float32)
+    for k in range(num_outputs):
+        lower[k] = _bisect_output_bound(
+            onnx_path=onnx_path,
+            flat_sample=flat_sample,
+            eps=eps,
+            output_index=k,
+            mode="lower",
+            search_range=search_range,
+            tolerance=tolerance,
+            timeout_s=timeout_s,
+        )
+        upper[k] = _bisect_output_bound(
+            onnx_path=onnx_path,
+            flat_sample=flat_sample,
+            eps=eps,
+            output_index=k,
+            mode="upper",
+            search_range=search_range,
+            tolerance=tolerance,
+            timeout_s=timeout_s,
+        )
+    return (
+        torch.from_numpy(np.ascontiguousarray(lower)),
+        torch.from_numpy(np.ascontiguousarray(upper)),
+    )
 
 
 def _reconstruct_counter_example(

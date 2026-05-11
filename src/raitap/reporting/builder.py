@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
 
 from raitap.configs import resolve_run_dir
 from raitap.robustness.contracts import MethodKind
@@ -244,6 +246,38 @@ def _build_robustness_section(outputs: RunOutputs, *, assets_dir: Path) -> Repor
             table_rows.append(("epsilon", f"{budget.epsilon:g}"))
         for metric_name, metric_value in result.metrics.as_dict().items():
             table_rows.append((metric_name, f"{metric_value:.4f}"))
+
+        if (
+            result.method_kind == MethodKind.FORMAL_VERIFICATION
+            and result.output_bounds is not None
+        ):
+            lower = result.output_bounds.get("lower")
+            upper = result.output_bounds.get("upper")
+            if (
+                lower is not None
+                and upper is not None
+                and lower.ndim == 2
+                and upper.shape == lower.shape
+            ):
+                lower_np = lower.detach().cpu().to(torch.float32).numpy()
+                upper_np = upper.detach().cpu().to(torch.float32).numpy()
+                n_samples = lower_np.shape[0]
+                lower_has = ~np.isnan(lower_np).all(axis=1)
+                upper_has = ~np.isnan(upper_np).all(axis=1)
+                per_sample_has_bounds = int((lower_has & upper_has).sum())
+                table_rows.append(
+                    (
+                        "output_bounds_samples",
+                        f"{per_sample_has_bounds}/{n_samples}",
+                    )
+                )
+                for k in range(lower_np.shape[1]):
+                    col_lo = lower_np[:, k]
+                    col_hi = upper_np[:, k]
+                    if np.isnan(col_lo).all() or np.isnan(col_hi).all():
+                        continue
+                    table_rows.append((f"logit_{k}_lower_mean", f"{float(np.nanmean(col_lo)):.4f}"))
+                    table_rows.append((f"logit_{k}_upper_mean", f"{float(np.nanmean(col_hi)):.4f}"))
 
         staged_images: list[Path] = []
         for vis_index, visualisation in enumerate(

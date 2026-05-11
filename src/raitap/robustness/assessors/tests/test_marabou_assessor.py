@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import math
 import sys
 import types
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest import mock
 
 import numpy as np
@@ -12,12 +13,16 @@ import pytest
 import torch
 
 from raitap.robustness.assessors import MarabouAssessor
+from raitap.robustness.assessors.marabou_assessor import _bisect_output_bound
 from raitap.robustness.contracts import (
     PerturbationBudget,
     PerturbationNorm,
     RobustnessVerdict,
 )
 from raitap.robustness.exceptions import AssessorBackendIncompatibilityError
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # maraboupy fake module
@@ -49,6 +54,9 @@ class _FakeNetwork:
         self.lower_bounds: dict[int, float] = {}
         self.upper_bounds: dict[int, float] = {}
         self.disjunctions: list[Any] = []
+        self.solve_results: list[tuple[str, dict[int, float], object]] = []
+        self.solve_calls: list[dict[str, Any]] = []
+        # Back-compat default still used by existing tests:
         self.solve_result: tuple[str, dict[int, float], object] = (
             "unsat",
             {},
@@ -66,6 +74,14 @@ class _FakeNetwork:
 
     def solve(self, options: object | None = None) -> tuple[str, dict[int, float], object]:
         del options
+        self.solve_calls.append(
+            {
+                "lower_bounds": dict(self.lower_bounds),
+                "upper_bounds": dict(self.upper_bounds),
+            }
+        )
+        if self.solve_results:
+            return self.solve_results.pop(0)
         return self.solve_result
 
 
@@ -350,3 +366,328 @@ def test_check_backend_compat_accepts_torch_and_onnx(tmp_path: Any) -> None:
     assessor.check_backend_compat(_OnnxBackend(_onnx_path(tmp_path)))
     assessor.check_backend_compat(object())
     assessor.check_backend_compat(None)
+
+
+def test_compute_output_bounds_defaults_to_disabled() -> None:
+    assessor = MarabouAssessor()
+    assert assessor.compute_output_bounds is False
+    assert assessor.bound_search_range == 1e3
+    assert assessor.bound_tolerance == 1e-2
+
+
+def test_compute_output_bounds_kwargs_round_trip() -> None:
+    assessor = MarabouAssessor(
+        compute_output_bounds=True,
+        bound_search_range=50.0,
+        bound_tolerance=0.05,
+    )
+    assert assessor.compute_output_bounds is True
+    assert assessor.bound_search_range == 50.0
+    assert assessor.bound_tolerance == 0.05
+    assert assessor.init_kwargs["bound_search_range"] == 50.0
+    assert assessor.init_kwargs["bound_tolerance"] == 0.05
+
+
+def test_bisect_output_bound_lower_converges_to_true_minimum(
+    fake_maraboupy: _FakeNetwork, tmp_path: Any
+) -> None:
+    """Mock returns UNSAT iff probe `c` is below the true min (0.3)."""
+    from maraboupy import Marabou  # type: ignore[import-not-found]
+
+    onnx_path = tmp_path / "model.onnx"
+    onnx_path.write_bytes(b"\x00")
+    true_min = 0.3
+    flat_sample = np.zeros(5, dtype=np.float32)
+
+    def scripted_solve(options: object | None = None) -> tuple[str, dict[int, float], object]:
+        del options
+        mid = fake_maraboupy.upper_bounds[5]
+        if mid < true_min:
+            return ("unsat", {}, _FakeStats(0.0))
+        return ("sat", {}, _FakeStats(0.0))
+
+    fake_maraboupy.solve = scripted_solve  # type: ignore[method-assign]
+
+    bound = _bisect_output_bound(
+        onnx_path=onnx_path,
+        flat_sample=flat_sample,
+        eps=0.05,
+        output_index=0,
+        mode="lower",
+        search_range=1.0,
+        tolerance=1e-3,
+        timeout_s=1.0,
+    )
+    assert abs(bound - true_min) <= 1e-3
+    assert Marabou.read_onnx.call_count >= 1
+
+
+def test_bisect_output_bound_upper_converges_to_true_maximum(
+    fake_maraboupy: _FakeNetwork, tmp_path: Any
+) -> None:
+    onnx_path = tmp_path / "model.onnx"
+    onnx_path.write_bytes(b"\x00")
+    true_max = -0.2
+    flat_sample = np.zeros(5, dtype=np.float32)
+
+    def scripted_solve(options: object | None = None) -> tuple[str, dict[int, float], object]:
+        del options
+        mid = fake_maraboupy.lower_bounds[5]
+        if mid > true_max:
+            return ("unsat", {}, _FakeStats(0.0))
+        return ("sat", {}, _FakeStats(0.0))
+
+    fake_maraboupy.solve = scripted_solve  # type: ignore[method-assign]
+
+    bound = _bisect_output_bound(
+        onnx_path=onnx_path,
+        flat_sample=flat_sample,
+        eps=0.05,
+        output_index=0,
+        mode="upper",
+        search_range=1.0,
+        tolerance=1e-3,
+        timeout_s=1.0,
+    )
+    assert abs(bound - true_max) <= 1e-3
+
+
+def test_bisect_output_bound_stops_conservatively_on_unknown_exit_code(
+    fake_maraboupy: _FakeNetwork, tmp_path: Path
+) -> None:
+    """TIMEOUT/UNKNOWN must NOT collapse to SAT — stop with current conservative bound."""
+    onnx_path = tmp_path / "model.onnx"
+    onnx_path.write_bytes(b"\x00")
+    flat_sample = np.zeros(5, dtype=np.float32)
+
+    def scripted_solve(options: object | None = None) -> tuple[str, dict[int, float], object]:
+        del options
+        return ("TIMEOUT", {}, _FakeStats(0.0))
+
+    fake_maraboupy.solve = scripted_solve  # type: ignore[method-assign]
+
+    bound = _bisect_output_bound(
+        onnx_path=onnx_path,
+        flat_sample=flat_sample,
+        eps=0.05,
+        output_index=0,
+        mode="lower",
+        search_range=1.0,
+        tolerance=1e-3,
+        timeout_s=1.0,
+    )
+    # With every probe TIMEOUT no UNSAT ever certifies lo, so the bisect must
+    # return NaN rather than the unproven sentinel.
+    assert math.isnan(bound)
+
+
+def test_bisect_output_bound_warns_when_all_probes_inconclusive(
+    fake_maraboupy: _FakeNetwork,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    onnx_path = tmp_path / "model.onnx"
+    onnx_path.write_bytes(b"\x00")
+    flat_sample = np.zeros(5, dtype=np.float32)
+
+    def scripted_solve(options: object | None = None) -> tuple[str, dict[int, float], object]:
+        del options
+        return ("TIMEOUT", {}, _FakeStats(0.0))
+
+    fake_maraboupy.solve = scripted_solve  # type: ignore[method-assign]
+
+    with caplog.at_level("WARNING", logger="raitap.robustness.assessors.marabou_assessor"):
+        _bisect_output_bound(
+            onnx_path=onnx_path,
+            flat_sample=flat_sample,
+            eps=0.05,
+            output_index=2,
+            mode="lower",
+            search_range=1.0,
+            tolerance=1e-3,
+            timeout_s=1.0,
+        )
+
+    assert any("no certifying UNSAT" in rec.message for rec in caplog.records)
+    assert any("output_index=2" in rec.message for rec in caplog.records)
+
+
+def test_bisect_output_bound_returns_nan_when_no_unsat_observed(
+    fake_maraboupy: _FakeNetwork, tmp_path: Path
+) -> None:
+    """SAT-only probes leave the bound uncertified → must return NaN."""
+    onnx_path = tmp_path / "model.onnx"
+    onnx_path.write_bytes(b"\x00")
+    flat_sample = np.zeros(5, dtype=np.float32)
+
+    def scripted_solve(options: object | None = None) -> tuple[str, dict[int, float], object]:
+        del options
+        return ("sat", {}, _FakeStats(0.0))
+
+    fake_maraboupy.solve = scripted_solve  # type: ignore[method-assign]
+
+    bound = _bisect_output_bound(
+        onnx_path=onnx_path,
+        flat_sample=flat_sample,
+        eps=0.05,
+        output_index=0,
+        mode="lower",
+        search_range=1.0,
+        tolerance=1e-3,
+        timeout_s=1.0,
+    )
+    assert math.isnan(bound)
+
+
+def test_verify_sample_returns_none_bounds_when_flag_disabled(
+    fake_maraboupy: _FakeNetwork, tmp_path: Any
+) -> None:
+    onnx_path = tmp_path / "model.onnx"
+    onnx_path.write_bytes(b"\x00")
+    fake_maraboupy.solve_result = ("unsat", {}, _FakeStats(0.0))
+
+    class _Backend:
+        def __init__(self, p: Any) -> None:
+            self.onnx_path = p
+
+    assessor = MarabouAssessor(compute_output_bounds=False)
+    outcome = assessor.verify_sample(
+        model=_IdentityModel(),
+        sample=torch.zeros(1, 5),
+        target=torch.tensor([0]),
+        budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
+        backend=_Backend(onnx_path),
+    )
+    assert outcome.verdict == RobustnessVerdict.VERIFIED
+    assert outcome.lower_bounds is None
+    assert outcome.upper_bounds is None
+
+
+def test_verify_sample_populates_bounds_when_flag_enabled_and_verified(
+    fake_maraboupy: _FakeNetwork, tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    onnx_path = tmp_path / "model.onnx"
+    onnx_path.write_bytes(b"\x00")
+    fake_maraboupy.solve_result = ("unsat", {}, _FakeStats(0.0))
+
+    fake_bounds = [(-0.1 * k, 0.1 * k) for k in range(5)]
+    calls: list[tuple[int, str]] = []
+
+    def fake_bisect(**kwargs: Any) -> float:
+        calls.append((int(kwargs["output_index"]), str(kwargs["mode"])))
+        lo, hi = fake_bounds[int(kwargs["output_index"])]
+        return lo if kwargs["mode"] == "lower" else hi
+
+    monkeypatch.setattr(
+        "raitap.robustness.assessors.marabou_assessor._bisect_output_bound",
+        fake_bisect,
+    )
+
+    class _Backend:
+        def __init__(self, p: Any) -> None:
+            self.onnx_path = p
+
+    assessor = MarabouAssessor(compute_output_bounds=True)
+    outcome = assessor.verify_sample(
+        model=_IdentityModel(),
+        sample=torch.zeros(1, 5),
+        target=torch.tensor([0]),
+        budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
+        backend=_Backend(onnx_path),
+    )
+    assert outcome.lower_bounds is not None and outcome.upper_bounds is not None
+    assert outcome.lower_bounds.shape == (5,)
+    assert outcome.upper_bounds.shape == (5,)
+    assert outcome.lower_bounds.dtype == torch.float32
+    assert torch.allclose(outcome.lower_bounds, torch.tensor([lo for lo, _ in fake_bounds]))
+    assert torch.allclose(outcome.upper_bounds, torch.tensor([hi for _, hi in fake_bounds]))
+    assert sorted(calls) == sorted(
+        [(k, "lower") for k in range(5)] + [(k, "upper") for k in range(5)]
+    )
+
+
+def test_verify_sample_skips_bounds_for_falsified_verdict(
+    fake_maraboupy: _FakeNetwork, tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    onnx_path = tmp_path / "model.onnx"
+    onnx_path.write_bytes(b"\x00")
+    fake_maraboupy.solve_result = (
+        "sat",
+        {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0},
+        _FakeStats(0.0),
+    )
+
+    def boom(**kwargs: Any) -> float:
+        raise AssertionError("bisect must not be called on FALSIFIED")
+
+    monkeypatch.setattr("raitap.robustness.assessors.marabou_assessor._bisect_output_bound", boom)
+
+    class _Backend:
+        def __init__(self, p: Any) -> None:
+            self.onnx_path = p
+
+    assessor = MarabouAssessor(compute_output_bounds=True)
+    outcome = assessor.verify_sample(
+        model=_IdentityModel(),
+        sample=torch.zeros(1, 5),
+        target=torch.tensor([0]),
+        budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
+        backend=_Backend(onnx_path),
+    )
+    assert outcome.verdict == RobustnessVerdict.FALSIFIED
+    assert outcome.lower_bounds is None
+    assert outcome.upper_bounds is None
+
+
+def test_assess_propagates_output_bounds_to_result(
+    fake_maraboupy: _FakeNetwork, tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two samples: first VERIFIED with bounds, second FALSIFIED → NaN row."""
+    onnx_path = tmp_path / "model.onnx"
+    onnx_path.write_bytes(b"\x00")
+    fake_maraboupy.solve_results = [
+        ("unsat", {}, _FakeStats(0.0)),  # sample 0 → VERIFIED
+        ("sat", dict.fromkeys(range(5), 0.0), _FakeStats(0.0)),  # sample 1 → FALSIFIED
+    ]
+
+    monkeypatch.setattr(
+        "raitap.robustness.assessors.marabou_assessor._bisect_output_bound",
+        lambda **kw: -1.0 if kw["mode"] == "lower" else 1.0,
+    )
+
+    class _Backend:
+        def __init__(self, p: Any) -> None:
+            self.onnx_path = p
+
+    assessor = MarabouAssessor(compute_output_bounds=True)
+    result = assessor.assess(
+        model=_IdentityModel(),
+        inputs=torch.zeros(2, 5),
+        targets=torch.tensor([0, 0]),
+        backend=_Backend(onnx_path),
+    )
+    assert result.output_bounds is not None
+    lower = result.output_bounds["lower"]
+    upper = result.output_bounds["upper"]
+    assert lower.shape == (2, 5)
+    assert torch.allclose(lower[0], torch.full((5,), -1.0))
+    assert torch.allclose(upper[0], torch.full((5,), 1.0))
+    assert torch.isnan(lower[1]).all()
+    assert torch.isnan(upper[1]).all()
+
+
+def test_bisect_output_bound_rejects_non_positive_tolerance(tmp_path: Path) -> None:
+    flat_sample = np.zeros(5, dtype=np.float32)
+    onnx_path = tmp_path / "model.onnx"
+    onnx_path.write_bytes(b"\x00")
+    with pytest.raises(ValueError, match="must be > 0"):
+        _bisect_output_bound(
+            onnx_path=onnx_path,
+            flat_sample=flat_sample,
+            eps=0.05,
+            output_index=0,
+            mode="lower",
+            search_range=1.0,
+            tolerance=0.0,
+            timeout_s=1.0,
+        )
