@@ -31,7 +31,7 @@ class TestResolveDiagnosticFromTraceback:
             "/x/raitap/transparency/explainers/shap_explainer.py", 196, tb_inner_utils
         )
         tb_root = _make_tb("/other/site.py", 1, tb_transparency)
-        diag = resolve_diagnostic_from_traceback(tb_root)
+        diag = resolve_diagnostic_from_traceback(tb_root)  # pyright: ignore[reportArgumentType]
         assert diag.subsystem == Subsystem.transparency
         assert diag.line == 196
         assert "shap_explainer.py" in diag.file
@@ -39,7 +39,7 @@ class TestResolveDiagnosticFromTraceback:
     def test_detects_third_party_in_chain(self) -> None:
         tb_inner = _make_tb("/x/site-packages/shap/explainers/_deep.py", 42, None)
         tb_outer = _make_tb("/x/raitap/transparency/explainers/shap_explainer.py", 196, tb_inner)
-        diag = resolve_diagnostic_from_traceback(tb_outer)
+        diag = resolve_diagnostic_from_traceback(tb_outer)  # pyright: ignore[reportArgumentType]
         assert diag.third_party_lib == "shap"
         assert diag.subsystem == Subsystem.transparency
 
