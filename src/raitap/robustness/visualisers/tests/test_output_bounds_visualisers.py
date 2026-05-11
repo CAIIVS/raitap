@@ -24,6 +24,7 @@ from raitap.robustness.results import RobustnessMetrics, RobustnessResult, encod
 from raitap.robustness.visualisers import (
     OutputBoundsCohortVisualiser,
     OutputBoundsPinnedVisualiser,
+    OutputBoundsWidthHeatmapVisualiser,
 )
 
 
@@ -228,3 +229,66 @@ def test_pinned_method_kind_rejection_for_empirical_results() -> None:
     visualiser = OutputBoundsPinnedVisualiser()
     with pytest.raises(MethodKindVisualiserIncompatibilityError):
         visualiser.validate_result(_empirical_result())
+
+
+# ---------------------------- width heatmap (C1) ---------------------------
+
+
+def test_width_heatmap_renders_grid_with_colorbar() -> None:
+    visualiser = OutputBoundsWidthHeatmapVisualiser()
+    result = _formal_result(n=5, k=4)
+    figure = visualiser.visualise(result, context=_ctx())
+    try:
+        from matplotlib.image import AxesImage
+
+        images = [im for ax in figure.axes for im in ax.get_images()]
+        assert len(images) == 1
+        assert isinstance(images[0], AxesImage)
+        # The figure has 2 axes when a colorbar is attached (image + colorbar).
+        assert len(figure.axes) == 2
+        main_ax = images[0].axes
+        assert len(main_ax.get_xticklabels()) == 4
+        labels = [t.get_text() for t in main_ax.get_xticklabels()]
+        assert labels == [f"logit_{k}" for k in range(4)]
+    finally:
+        plt.close(figure)
+
+
+def test_width_heatmap_masks_all_nan_row() -> None:
+    n, k = 4, 3
+    lower = torch.zeros(n, k)
+    upper = torch.ones(n, k)
+    lower[2] = float("nan")
+    upper[2] = float("nan")
+    result = _formal_result(n=n, k=k, output_bounds={"lower": lower, "upper": upper})
+    figure = OutputBoundsWidthHeatmapVisualiser().visualise(result, context=_ctx())
+    try:
+        import numpy as np
+
+        images = [im for ax in figure.axes for im in ax.get_images()]
+        arr = images[0].get_array()
+        assert hasattr(arr, "mask")
+        mask = np.asarray(arr.mask)
+        # Row 2 must be fully masked.
+        assert mask[2].all()
+        # Rows 0,1,3 must be fully unmasked.
+        assert not mask[0].any()
+        assert not mask[1].any()
+        assert not mask[3].any()
+    finally:
+        plt.close(figure)
+
+
+def test_width_heatmap_handles_none_bounds_gracefully() -> None:
+    result = _formal_result(output_bounds=None)
+    figure = OutputBoundsWidthHeatmapVisualiser().visualise(result, context=_ctx())
+    try:
+        texts = [t.get_text() for t in figure.axes[0].texts]
+        assert any("No output bounds present" in t for t in texts)
+    finally:
+        plt.close(figure)
+
+
+def test_width_heatmap_method_kind_rejection_for_empirical_results() -> None:
+    with pytest.raises(MethodKindVisualiserIncompatibilityError):
+        OutputBoundsWidthHeatmapVisualiser().validate_result(_empirical_result())
