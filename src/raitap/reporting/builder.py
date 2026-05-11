@@ -3,7 +3,7 @@ from __future__ import annotations
 import shutil
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
-from enum import Enum
+from enum import Enum, StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -611,11 +611,12 @@ def _build_local_section(
     if not outputs.explanations:
         return None
 
-    if show_original_per_explainer:
+    if show_original_per_explainer or explicit_selection:
         return _build_legacy_local_section(
             outputs,
             selected_samples=selected_samples,
             assets_dir=assets_dir,
+            explicit_selection=explicit_selection,
         )
 
     groups: list[ReportGroup] = []
@@ -721,6 +722,7 @@ def _build_legacy_local_section(
     *,
     selected_samples: list[SelectedSample],
     assets_dir: Path,
+    explicit_selection: bool = False,
 ) -> ReportSection | None:
     groups: list[ReportGroup] = []
     overview_sample = (
