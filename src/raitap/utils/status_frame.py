@@ -68,7 +68,12 @@ class StatusFrame:
     def render(self) -> Panel:
         shades = colour(self.status)
         label = self.label or self.status.default_label
-        title = Text(f"{self.status.icon}{label}", style=shades.base)
+        # Don't set ``title.style`` on the Text: Panel.__rich_console__ calls
+        # ``text.stylize(text.style)`` over the entire title, which would push
+        # the base style over our chip spans and lose the lighter shade.
+        # Apply styles per-span instead.
+        title = Text()
+        title.append(f"{self.status.icon}{label}", style=shades.base)
         for c in self.chips:
             title.append(" ")
             title.append_text(c)
