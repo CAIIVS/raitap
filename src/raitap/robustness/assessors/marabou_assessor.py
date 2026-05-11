@@ -416,6 +416,7 @@ def _bisect_output_bound(
     lo, hi = -float(search_range), float(search_range)
     options = Marabou.createOptions(timeoutInSeconds=int(timeout_s), verbosity=0)
     max_iters = max(1, math.ceil(math.log2((2.0 * search_range) / tolerance)) + 2)
+    had_conclusive_probe = False
     for _ in range(max_iters):
         if (hi - lo) <= tolerance:
             break
@@ -435,8 +436,10 @@ def _bisect_output_bound(
         code = str(exit_code).strip().lower()
         if code in {"unsat", "valid"}:
             decision = "unsat"
+            had_conclusive_probe = True
         elif code in {"sat", "invalid"}:
             decision = "sat"
+            had_conclusive_probe = True
         else:
             # TIMEOUT / UNKNOWN / ERROR: can't conclude. Stop bisection; current
             # conservative endpoint (lo for mode=lower, hi for mode=upper) is
@@ -452,6 +455,15 @@ def _bisect_output_bound(
                 hi = mid
             else:
                 lo = mid
+    if not had_conclusive_probe:
+        logger.warning(
+            "_bisect_output_bound: all probes inconclusive for output_index=%d "
+            "(mode=%s); returning vacuous bound %f. Consider increasing timeout_s "
+            "or tightening the input box.",
+            output_index,
+            mode,
+            lo if mode == "lower" else hi,
+        )
     return lo if mode == "lower" else hi
 
 

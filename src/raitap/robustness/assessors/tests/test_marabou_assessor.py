@@ -480,6 +480,36 @@ def test_bisect_output_bound_stops_conservatively_on_unknown_exit_code(
     assert bound == pytest.approx(-1.0)
 
 
+def test_bisect_output_bound_warns_when_all_probes_inconclusive(
+    fake_maraboupy: _FakeNetwork,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    onnx_path = tmp_path / "model.onnx"
+    onnx_path.write_bytes(b"\x00")
+    flat_sample = np.zeros(5, dtype=np.float32)
+
+    def scripted_solve(options: object | None = None) -> tuple[str, dict[int, float], object]:
+        del options
+        return ("TIMEOUT", {}, _FakeStats(0.0))
+
+    fake_maraboupy.solve = scripted_solve  # type: ignore[method-assign]
+
+    with caplog.at_level("WARNING", logger="raitap.robustness.assessors.marabou_assessor"):
+        _bisect_output_bound(
+            onnx_path=onnx_path,
+            flat_sample=flat_sample,
+            eps=0.05,
+            output_index=2,
+            mode="lower",
+            search_range=1.0,
+            tolerance=1e-3,
+            timeout_s=1.0,
+        )
+
+    assert any("output_index=2" in rec.message for rec in caplog.records)
+
+
 def test_verify_sample_returns_none_bounds_when_flag_disabled(
     fake_maraboupy: _FakeNetwork, tmp_path: Any
 ) -> None:
