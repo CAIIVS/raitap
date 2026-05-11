@@ -54,7 +54,9 @@ visualisers against the explanation artifact they receive. In short:
 | `ShapWaterfallVisualiser` | Local tabular or interpretable SHAP attributions for one selected sample | Local visualisation | Preserves local scope. |
 | `TabularBarChartVisualiser` | Local tabular or interpretable attributions | Cohort visual summary | Uses mean absolute attribution-style aggregation for the selected batch or cohort. |
 
-Contributor-facing details about semantic contracts are documented in {doc}`../../contributor/transparency`.
+See {doc}`visualisers` for per-visualiser previews, constructor kwargs, and
+modality constraints. Contributor-facing details about semantic contracts are
+documented in {doc}`../../contributor/transparency`.
 
 ## Explainer libraries
 
