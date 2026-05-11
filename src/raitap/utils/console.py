@@ -37,6 +37,7 @@ from raitap.utils.diagnostics import (
     resolve_diagnostic_from_frames,
     subsystem_from_str,
 )
+from raitap.utils.errors import RaitapError
 from raitap.utils.log import _pop_diagnostic, _push_diagnostic, _take_diagnostic_override
 
 _THEME = Theme(
@@ -200,6 +201,29 @@ class RaitapRichHandler(RichHandler):
 
         body = message
         header_parts = [f"[{main_style}]{icon}{label}[/]"]
+
+        # RaitapError carries an explicit Diagnostic on the exception object,
+        # which beats any heuristics we could apply to the formatted message.
+        raitap_exc = _extract_raitap_error(record)
+        if raitap_exc is not None and raitap_exc.diagnostic is not None:
+            self._render_diagnostic_header(
+                header_parts,
+                scope=(
+                    raitap_exc.diagnostic.subsystem.capitalize()
+                    if raitap_exc.diagnostic.subsystem
+                    else type(raitap_exc).__name__
+                ),
+                src=(
+                    f"{raitap_exc.diagnostic.file}:{raitap_exc.diagnostic.line}"
+                    if raitap_exc.diagnostic.file
+                    else ""
+                ),
+                diagnostic=raitap_exc.diagnostic,
+                main_style=main_style,
+                sub_style=sub_style,
+            )
+            self._render_panel(header_parts, body, border)
+            return
         # Only treat the "<path>:<line>: <Category>: msg" shape as a warnings.warn
         # payload when it actually came from logging.captureWarnings (logger name
         # ``py.warnings``). Otherwise an unrelated WARNING that happens to match
@@ -211,10 +235,12 @@ class RaitapRichHandler(RichHandler):
             cat = warn_match.group("cat")
             src = warn_match.group("src")
             diagnostic = _pop_diagnostic()
-            self._render_warning_header(
+            sub = diagnostic.subsystem if diagnostic else None
+            scope = sub.capitalize() if sub else cat
+            self._render_diagnostic_header(
                 header_parts,
+                scope=scope,
                 src=src,
-                category=cat,
                 diagnostic=diagnostic,
                 main_style=main_style,
                 sub_style=sub_style,
@@ -243,6 +269,16 @@ class RaitapRichHandler(RichHandler):
                 stripped = head_match.group("msg").strip()
                 body = stripped[:1].upper() + stripped[1:] if stripped else stripped
 
+        self._render_panel(header_parts, body, border, record=record)
+
+    def _render_panel(
+        self,
+        header_parts: list[str],
+        body: str,
+        border: str,
+        *,
+        record: logging.LogRecord | None = None,
+    ) -> None:
         # Build a non-wrapping ``Text`` with overflow="ellipsis" so a narrow
         # terminal trims chips with ``…`` instead of hard-cutting mid-word.
         title_text = Text.from_markup(" ".join(header_parts))
@@ -263,39 +299,41 @@ class RaitapRichHandler(RichHandler):
             self._last_was_panel = True
         except Exception:
             # Never let logging crash the run — fall back to plain RichHandler.
-            super().emit(record)
+            if record is not None:
+                super().emit(record)
 
-    def _render_warning_header(
+    def _render_diagnostic_header(
         self,
         header_parts: list[str],
         *,
+        scope: str,
         src: str,
-        category: str,
         diagnostic: Diagnostic | None,
         main_style: str,
         sub_style: str,
     ) -> None:
-        """Append subsystem / path / docs-link chips to the warning panel header.
+        """Append subsystem / path / docs-link chips to a warning or error panel header.
 
         Layout depends on the audience:
 
-        - **Dev install** (cloned repo): ``· <Subsystem> · <path:line>``,
-          ``path`` clickable. Falls back to category if no subsystem matched.
-        - **Installed wheel, raitap-emitted**: ``· <Subsystem>`` only,
+        - **Dev install** (cloned repo): ``· <scope> · <path:line>``,
+          ``path`` clickable. ``scope`` is the subsystem name when classified,
+          otherwise a caller-provided fallback (warning category / exception class).
+        - **Installed wheel, raitap-emitted**: ``· <scope>`` only,
           subsystem text linked to the docs page.
-        - **Installed wheel, third-party**: ``· <Subsystem> · via <lib>``,
+        - **Installed wheel, third-party**: ``· <scope> · via <lib>``,
           subsystem linked to the frameworks-and-libraries doc page.
         - **Installed wheel, unclassified**: no subheader at all.
         """
         sub = diagnostic.subsystem if diagnostic else None
         third_party = diagnostic.third_party_lib if diagnostic else None
-        scope = sub.capitalize() if sub else category
 
         if is_dev_install():
             header_parts.append(f"[{sub_style}]· {scope}[/]")
-            header_parts.append(
-                f"[{main_style}]· [/][{main_style} link={_src_to_uri(src)}]{src}[/]"
-            )
+            if src:
+                header_parts.append(
+                    f"[{main_style}]· [/][{main_style} link={_src_to_uri(src)}]{src}[/]"
+                )
             if third_party is not None:
                 header_parts.append(f"[{sub_style}]· via {third_party.capitalize()}[/]")
             return
@@ -340,6 +378,17 @@ def setup_logging(level: int = logging.INFO) -> None:
     # handler then unpacks it back into a Panel with subtitle = source.
     warnings.formatwarning = _format_warning_compact  # type: ignore[assignment]
     install_rich_traceback(console=get_stderr_console(), show_locals=False, width=None)
+
+
+def _extract_raitap_error(record: logging.LogRecord) -> RaitapError | None:
+    """Return the :class:`RaitapError` attached to ``record.exc_info``, if any."""
+    exc_info = record.exc_info
+    if not exc_info:
+        return None
+    exc = exc_info[1] if isinstance(exc_info, tuple) else None
+    if isinstance(exc, RaitapError):
+        return exc
+    return None
 
 
 def _format_warning_compact(
@@ -478,22 +527,98 @@ def print_complete_panel(duration: str) -> None:
 
 
 def print_failure_panel(exc: BaseException, duration: str) -> None:
-    body = Text.assemble(
+    # Default crash-panel body for plain exceptions.
+    body_pieces: list[tuple[str, str]] = [
         ("✗  ", "bold red"),
         ("Assessment failed", "bold"),
         ("    after ", "dim"),
         (duration, "white"),
         ("\n", ""),
         (f"{type(exc).__name__}: {exc}", "red"),
-    )
+    ]
+    title: Text | str | None = None
+
+    # Surface diagnostic chips when the failure carries a Diagnostic — same
+    # affordance the rich handler renders for inline error records, but
+    # printed at top-level by the Hydra entrypoint.
+    if isinstance(exc, RaitapError) and exc.diagnostic is not None:
+        header_parts: list[str] = ["[red]✗ Failure[/]"]
+        scope = (
+            exc.diagnostic.subsystem.capitalize()
+            if exc.diagnostic.subsystem
+            else type(exc).__name__
+        )
+        src = f"{exc.diagnostic.file}:{exc.diagnostic.line}" if exc.diagnostic.file else ""
+        _append_failure_chips(
+            header_parts,
+            scope=scope,
+            src=src,
+            diagnostic=exc.diagnostic,
+            main_style="red",
+            sub_style="yellow",
+        )
+        title_text = Text.from_markup(" ".join(header_parts))
+        title_text.overflow = "ellipsis"
+        title_text.no_wrap = True
+        title = title_text
+        body_pieces = [
+            ("✗  ", "bold red"),
+            ("Assessment failed", "bold"),
+            ("    after ", "dim"),
+            (duration, "white"),
+            ("\n", ""),
+            (str(exc), "red"),
+        ]
+        cause = exc.__cause__
+        if cause is not None:
+            body_pieces.extend(
+                [
+                    ("\n", ""),
+                    (f"caused by {type(cause).__name__}: {cause}", "dim"),
+                ]
+            )
+
+    body = Text.assemble(*body_pieces)
     panel = Panel(
         body,
+        title=title,
+        title_align="left" if title is not None else "center",
         border_style="bold red",
         padding=(0, 2),
     )
     get_stderr_console().print()
     get_stderr_console().print(panel)
     get_stderr_console().print()
+
+
+def _append_failure_chips(
+    header_parts: list[str],
+    *,
+    scope: str,
+    src: str,
+    diagnostic: Diagnostic,
+    main_style: str,
+    sub_style: str,
+) -> None:
+    """Module-level mirror of :meth:`RaitapRichHandler._render_diagnostic_header`
+    so :func:`print_failure_panel` doesn't need a handler instance."""
+    if is_dev_install():
+        header_parts.append(f"[{sub_style}]· {scope}[/]")
+        if src:
+            header_parts.append(
+                f"[{main_style}]· [/][{main_style} link={_src_to_uri(src)}]{src}[/]"
+            )
+        if diagnostic.third_party_lib is not None:
+            header_parts.append(f"[{sub_style}]· via {diagnostic.third_party_lib.capitalize()}[/]")
+        return
+    if diagnostic.subsystem is None:
+        return
+    header_parts.append(f"[{sub_style}]· {scope}[/]")
+    if diagnostic.third_party_lib is not None:
+        header_parts.append(f"[{sub_style}]· via {diagnostic.third_party_lib.capitalize()}[/]")
+    url = docs_url(diagnostic)
+    if url is not None:
+        header_parts.append(f"[{sub_style}]· [/][{sub_style} underline link={url}]View docs[/]")
 
 
 class _PercentColumn(ProgressColumn):
