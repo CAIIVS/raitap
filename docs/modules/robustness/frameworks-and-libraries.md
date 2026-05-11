@@ -47,6 +47,8 @@ they receive. In short:
 | `VerdictSummaryVisualiser` | `FORMAL_VERIFICATION` | Two-panel summary: verdict-count bar chart plus a runtime histogram per verified sample. |
 | `OutputBoundsCohortVisualiser` | `FORMAL_VERIFICATION` | Boxplot of certified per-class output-bound widths (`upper - lower`) across the verified batch. Constructor kwargs: `whis`, `show_outliers`. Renders a placeholder figure when `result.output_bounds is None` or all rows are NaN. |
 | `OutputBoundsPinnedVisualiser` | `FORMAL_VERIFICATION` | Per-sample plot of `[lower_k, upper_k]` certified intervals for each output class with the target class highlighted. Constructor kwargs: `max_samples`, `target_color`, `bar_color`, `sample_indices`. Falls back to a placeholder when bounds are absent. |
+| `OutputBoundsWidthHeatmapVisualiser` | `FORMAL_VERIFICATION` | Heatmap of certified per-class output-bound widths (`upper - lower`) across the verified batch (rows = samples, columns = classes). Constructor kwargs: `cmap`, `max_samples`, `figsize`. Renders a placeholder figure when `result.output_bounds is None` or every row is NaN. |
+| `OutputBoundsMarginHeatmapVisualiser` | `FORMAL_VERIFICATION` | Heatmap of signed per-class margins relative to the target class's lower bound (rows = samples, columns = classes; target cell masked). Constructor kwargs: `cmap`, `max_samples`, `figsize`. Falls back to a placeholder when bounds or targets are absent. |
 
 Contributor-facing details about the assessor / visualiser internals are in
 {doc}`../../contributor/robustness`.

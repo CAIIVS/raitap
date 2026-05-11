@@ -52,4 +52,5 @@ tensors of shape `(N, K)` (NaN-padded for samples without bounds). The PDF
 report adds rows `output_bounds_samples`, `logit_{k}_lower_mean`, and
 `logit_{k}_upper_mean` to the Robustness section. See
 {doc}`frameworks-and-libraries` for the assessor-side knobs that produce
-these bounds.
+these bounds, and {doc}`visualisers` for the formal-verification visualisers
+that render them.

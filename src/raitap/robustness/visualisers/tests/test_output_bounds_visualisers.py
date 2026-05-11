@@ -370,3 +370,13 @@ def test_margin_heatmap_falls_back_when_targets_missing() -> None:
 def test_margin_heatmap_method_kind_rejection_for_empirical_results() -> None:
     with pytest.raises(MethodKindVisualiserIncompatibilityError):
         OutputBoundsMarginHeatmapVisualiser().validate_result(_empirical_result())
+
+
+def test_width_heatmap_clamps_max_samples_to_at_least_one() -> None:
+    vis = OutputBoundsWidthHeatmapVisualiser(max_samples=0)
+    assert vis.max_samples == 1
+
+
+def test_margin_heatmap_clamps_max_samples_to_at_least_one() -> None:
+    vis = OutputBoundsMarginHeatmapVisualiser(max_samples=0)
+    assert vis.max_samples == 1

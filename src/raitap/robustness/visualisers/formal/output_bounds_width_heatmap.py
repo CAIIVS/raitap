@@ -56,7 +56,7 @@ class OutputBoundsWidthHeatmapVisualiser(BaseRobustnessVisualiser):
         figsize: tuple[float, float] | None = None,
     ) -> None:
         self.cmap = cmap
-        self.max_samples = int(max_samples) if max_samples is not None else None
+        self.max_samples = max(int(max_samples), 1) if max_samples is not None else None
         self.figsize = figsize
 
     def visualise(
