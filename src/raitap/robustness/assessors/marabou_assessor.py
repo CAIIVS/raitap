@@ -265,11 +265,24 @@ class MarabouAssessor(FormalVerificationAssessor):
             sample_shape=tuple(int(d) for d in sample.shape),
         )
 
+        lower_bounds: torch.Tensor | None = None
+        upper_bounds: torch.Tensor | None = None
+        if self.compute_output_bounds and verdict == RobustnessVerdict.VERIFIED:
+            lower_bounds, upper_bounds = _compute_output_bounds(
+                onnx_path=onnx_path,
+                flat_sample=flat_sample,
+                eps=eps,
+                num_outputs=int(output_vars.size),
+                search_range=self.bound_search_range,
+                tolerance=self.bound_tolerance,
+                timeout_s=self.timeout_s,
+            )
+
         return VerificationOutcome(
             verdict=verdict,
             counter_example=counter_example,
-            lower_bounds=None,
-            upper_bounds=None,
+            lower_bounds=lower_bounds,
+            upper_bounds=upper_bounds,
             runtime_seconds=float(runtime_seconds),
             diagnostics={"exit_code": str(exit_code)},
         )
@@ -438,6 +451,46 @@ def _bisect_output_bound(
             else:
                 lo = mid
     return lo if mode == "lower" else hi
+
+
+def _compute_output_bounds(
+    *,
+    onnx_path: Path,
+    flat_sample: np.ndarray,
+    eps: float,
+    num_outputs: int,
+    search_range: float,
+    tolerance: float,
+    timeout_s: float,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return ``(lower, upper)`` tensors of shape ``(num_outputs,)``."""
+    lower = np.empty(num_outputs, dtype=np.float32)
+    upper = np.empty(num_outputs, dtype=np.float32)
+    for k in range(num_outputs):
+        lower[k] = _bisect_output_bound(
+            onnx_path=onnx_path,
+            flat_sample=flat_sample,
+            eps=eps,
+            output_index=k,
+            mode="lower",
+            search_range=search_range,
+            tolerance=tolerance,
+            timeout_s=timeout_s,
+        )
+        upper[k] = _bisect_output_bound(
+            onnx_path=onnx_path,
+            flat_sample=flat_sample,
+            eps=eps,
+            output_index=k,
+            mode="upper",
+            search_range=search_range,
+            tolerance=tolerance,
+            timeout_s=timeout_s,
+        )
+    return (
+        torch.from_numpy(np.ascontiguousarray(lower)),
+        torch.from_numpy(np.ascontiguousarray(upper)),
+    )
 
 
 def _reconstruct_counter_example(

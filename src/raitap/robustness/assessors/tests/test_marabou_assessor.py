@@ -478,6 +478,106 @@ def test_bisect_output_bound_stops_conservatively_on_unknown_exit_code(
     assert bound == pytest.approx(-1.0)
 
 
+def test_verify_sample_returns_none_bounds_when_flag_disabled(
+    fake_maraboupy: _FakeNetwork, tmp_path: Any
+) -> None:
+    onnx_path = tmp_path / "model.onnx"
+    onnx_path.write_bytes(b"\x00")
+    fake_maraboupy.solve_result = ("unsat", {}, _FakeStats(0.0))
+
+    class _Backend:
+        def __init__(self, p: Any) -> None:
+            self.onnx_path = p
+
+    assessor = MarabouAssessor(compute_output_bounds=False)
+    outcome = assessor.verify_sample(
+        model=_IdentityModel(),
+        sample=torch.zeros(1, 5),
+        target=torch.tensor([0]),
+        budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
+        backend=_Backend(onnx_path),
+    )
+    assert outcome.verdict == RobustnessVerdict.VERIFIED
+    assert outcome.lower_bounds is None
+    assert outcome.upper_bounds is None
+
+
+def test_verify_sample_populates_bounds_when_flag_enabled_and_verified(
+    fake_maraboupy: _FakeNetwork, tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    onnx_path = tmp_path / "model.onnx"
+    onnx_path.write_bytes(b"\x00")
+    fake_maraboupy.solve_result = ("unsat", {}, _FakeStats(0.0))
+
+    fake_bounds = [(-0.1 * k, 0.1 * k) for k in range(5)]
+    calls: list[tuple[int, str]] = []
+
+    def fake_bisect(**kwargs: Any) -> float:
+        calls.append((int(kwargs["output_index"]), str(kwargs["mode"])))
+        lo, hi = fake_bounds[int(kwargs["output_index"])]
+        return lo if kwargs["mode"] == "lower" else hi
+
+    monkeypatch.setattr(
+        "raitap.robustness.assessors.marabou_assessor._bisect_output_bound",
+        fake_bisect,
+    )
+
+    class _Backend:
+        def __init__(self, p: Any) -> None:
+            self.onnx_path = p
+
+    assessor = MarabouAssessor(compute_output_bounds=True)
+    outcome = assessor.verify_sample(
+        model=_IdentityModel(),
+        sample=torch.zeros(1, 5),
+        target=torch.tensor([0]),
+        budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
+        backend=_Backend(onnx_path),
+    )
+    assert outcome.lower_bounds is not None and outcome.upper_bounds is not None
+    assert outcome.lower_bounds.shape == (5,)
+    assert outcome.upper_bounds.shape == (5,)
+    assert outcome.lower_bounds.dtype == torch.float32
+    assert torch.allclose(outcome.lower_bounds, torch.tensor([lo for lo, _ in fake_bounds]))
+    assert torch.allclose(outcome.upper_bounds, torch.tensor([hi for _, hi in fake_bounds]))
+    assert sorted(calls) == sorted(
+        [(k, "lower") for k in range(5)] + [(k, "upper") for k in range(5)]
+    )
+
+
+def test_verify_sample_skips_bounds_for_falsified_verdict(
+    fake_maraboupy: _FakeNetwork, tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    onnx_path = tmp_path / "model.onnx"
+    onnx_path.write_bytes(b"\x00")
+    fake_maraboupy.solve_result = (
+        "sat",
+        {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0},
+        _FakeStats(0.0),
+    )
+
+    def boom(**kwargs: Any) -> float:
+        raise AssertionError("bisect must not be called on FALSIFIED")
+
+    monkeypatch.setattr("raitap.robustness.assessors.marabou_assessor._bisect_output_bound", boom)
+
+    class _Backend:
+        def __init__(self, p: Any) -> None:
+            self.onnx_path = p
+
+    assessor = MarabouAssessor(compute_output_bounds=True)
+    outcome = assessor.verify_sample(
+        model=_IdentityModel(),
+        sample=torch.zeros(1, 5),
+        target=torch.tensor([0]),
+        budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
+        backend=_Backend(onnx_path),
+    )
+    assert outcome.verdict == RobustnessVerdict.FALSIFIED
+    assert outcome.lower_bounds is None
+    assert outcome.upper_bounds is None
+
+
 def test_bisect_output_bound_rejects_non_positive_tolerance(tmp_path: Path) -> None:
     flat_sample = np.zeros(5, dtype=np.float32)
     onnx_path = tmp_path / "model.onnx"
