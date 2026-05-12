@@ -813,6 +813,71 @@ def test_build_report_thumbnail_uses_first_compatible_explanation_in_order(
     assert image_visualiser.calls == [{"include_original_input": False}]
 
 
+def test_build_report_thumbnail_falls_back_to_later_explanation_after_runtime_error(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    config = AppConfig(experiment_name="thumbnail_multi_fallback")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    original_visualise = reporting_builder.InputThumbnailVisualiser.visualise
+    call_count = {"n": 0}
+
+    def _fail_first_then_delegate(self: Any, *args: Any, **kwargs: Any) -> Any:
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise RuntimeError("first explanation thumbnail failed")
+        return original_visualise(self, *args, **kwargs)
+
+    monkeypatch.setattr(
+        "raitap.reporting.builder.InputThumbnailVisualiser.visualise",
+        _fail_first_then_delegate,
+    )
+
+    first_explanation = ExplanationResult(
+        attributions=torch.rand(1, 1, 4, 4),
+        inputs=torch.rand(1, 1, 4, 4),
+        run_dir=tmp_path / "transparency" / "first",
+        experiment_name="thumbnail_multi_fallback",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((1, 1, 4, 4)),
+        explainer_name="first_exp",
+        visualisers=[ConfiguredVisualiser(visualiser=_EmbeddedOriginalVisualiser())],
+    )
+    second_explanation = ExplanationResult(
+        attributions=torch.rand(1, 1, 4, 4),
+        inputs=torch.rand(1, 1, 4, 4),
+        run_dir=tmp_path / "transparency" / "second",
+        experiment_name="thumbnail_multi_fallback",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((1, 1, 4, 4)),
+        explainer_name="second_exp",
+        visualisers=[ConfiguredVisualiser(visualiser=_EmbeddedOriginalVisualiser())],
+    )
+    outputs = RunOutputs(
+        explanations=[first_explanation, second_explanation],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.tensor([[0.1, 0.9]]),
+        prediction_summaries=(
+            PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
+        ),
+    )
+
+    report = build_report(config, outputs)
+
+    local_groups = report.sections[0].groups
+    sample_header_groups = [
+        group for group in local_groups if group.metadata["role"] == "sample_header"
+    ]
+    assert len(sample_header_groups) == 1
+    assert sample_header_groups[0].metadata["source_explainer_name"] == "second_exp"
+    assert call_count["n"] == 2
+
+
 def test_build_report_thumbnail_failure_falls_back_for_that_sample_only(
     tmp_path: Path,
 ) -> None:

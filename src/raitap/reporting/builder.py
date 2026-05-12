@@ -938,7 +938,8 @@ def _stage_sample_thumbnail(
                 sample_index,
                 exc,
             )
-            return None
+            last_error = exc
+            continue
 
         target = assets_dir / target_name
         target.parent.mkdir(parents=True, exist_ok=True)

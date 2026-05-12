@@ -2,23 +2,20 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import Any, ClassVar
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.figure import (
+    Figure,  # noqa: TC002 — runtime import: typing.get_type_hints() resolves this
+)
 
-from raitap.transparency.contracts import ExplanationScope
+from raitap.transparency.contracts import ExplanationScope, VisualisationContext
 
 from .base_visualiser import BaseVisualiser
 
-if TYPE_CHECKING:
-    import torch
-    from matplotlib.figure import Figure
 
-    from raitap.transparency.contracts import VisualisationContext
-
-
-def _to_numpy(x: torch.Tensor | np.ndarray) -> np.ndarray:
+def _to_numpy(x: Any) -> np.ndarray:
     val: Any = x
     if hasattr(val, "detach"):
         val = val.detach()
@@ -76,8 +73,8 @@ class InputThumbnailVisualiser(BaseVisualiser):
     def validate_explanation(
         self,
         explanation: object,
-        attributions: torch.Tensor,
-        inputs: torch.Tensor | None,
+        attributions: Any,
+        inputs: Any | None,
     ) -> None:
         super().validate_explanation(explanation, attributions, inputs)
         if not _has_image_input_metadata(explanation):
@@ -87,8 +84,8 @@ class InputThumbnailVisualiser(BaseVisualiser):
 
     def visualise(
         self,
-        attributions: torch.Tensor,
-        inputs: torch.Tensor | None = None,
+        attributions: Any,
+        inputs: Any | None = None,
         *,
         context: VisualisationContext | None = None,
         max_samples: int = 8,
