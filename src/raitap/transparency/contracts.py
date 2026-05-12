@@ -54,6 +54,9 @@ class ExplanationOutputSpace(StrEnum):
     LAYER_ACTIVATION = "layer_activation"
     IMAGE_SPATIAL_MAP = "image_spatial_map"
     TOKEN_SEQUENCE = "token_sequence"
+    DETECTION_BOXES = "detection_boxes"
+    SEGMENTATION_MASK = "segmentation_mask"
+    BBOX_REGRESSION = "bbox_regression"
 
 
 class InputKind(StrEnum):

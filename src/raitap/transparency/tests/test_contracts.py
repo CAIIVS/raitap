@@ -60,6 +60,9 @@ def test_semantic_enum_members_are_exact_and_not_placeholders() -> None:
         "LAYER_ACTIVATION",
         "IMAGE_SPATIAL_MAP",
         "TOKEN_SEQUENCE",
+        "DETECTION_BOXES",
+        "SEGMENTATION_MASK",
+        "BBOX_REGRESSION",
     }
     assert {member.name for member in InputKind} == {
         "IMAGE",
@@ -209,3 +212,10 @@ def test_public_transparency_exports_new_contract_surface_without_report_scope()
         "method_families_for_explainer",
     } <= public_names
     assert "report_scope" not in public_names
+
+
+def test_explanation_output_space_includes_detection_members():
+    values = {member.value for member in ExplanationOutputSpace}
+    assert "detection_boxes" in values
+    assert "segmentation_mask" in values
+    assert "bbox_regression" in values
