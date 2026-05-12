@@ -271,6 +271,7 @@ class ExplanationResult(Trackable):
         *,
         scope: ExplanationScope | str,
         sample_index: int | None = None,
+        **render_kwargs: Any,
     ) -> list[VisualisationResult]:
         """
         Render scoped visualisations without persisting them to disk.
@@ -281,79 +282,101 @@ class ExplanationResult(Trackable):
         as real on-disk artifacts or passed to ``VisualisationResult.log()``.
         """
         results: list[VisualisationResult] = []
-        wanted = _normalise_scope(scope)
-
         for index, configured in enumerate(self.visualisers):
-            vis = configured.visualiser
-            if self._scope_for_visualiser(vis) != wanted:
-                continue
-
-            merged_call = dict(configured.call_kwargs)
-            attributions = merged_call.pop("attributions", self.attributions)
-            inputs = merged_call.pop("inputs", self.inputs)
-            show_sample_names = bool(
-                merged_call.pop("show_sample_names", self.kwargs.get("show_sample_names", False))
+            del configured
+            rendered = self.render_visualisation_for_scope(
+                index,
+                scope=scope,
+                sample_index=sample_index,
+                **render_kwargs,
             )
-            sample_names_value = merged_call.pop("sample_names", self.kwargs.get("sample_names"))
-            sample_names = _normalise_sample_names(sample_names_value)
-
-            if sample_index is not None:
-                attributions = attributions[sample_index : sample_index + 1]
-                inputs = inputs[sample_index : sample_index + 1]
-                if sample_names:
-                    sample_names = sample_names[sample_index : sample_index + 1]
-            else:
-                limit = _batch_size(attributions) or _batch_size(inputs)
-                if limit is not None:
-                    sample_names = sample_names[:limit]
-
-            context = VisualisationContext(
-                algorithm=self.algorithm,
-                sample_names=sample_names,
-                show_sample_names=show_sample_names,
-            )
-            vis.validate_explanation(self, attributions, inputs)
-            original_visualiser_sample_index = getattr(vis, "sample_index", None)
-            reset_visualiser_sample_index = (
-                sample_index is not None and original_visualiser_sample_index is not None
-            )
-            visualiser_with_sample_index: Any | None = None
-            if reset_visualiser_sample_index:
-                # Report rendering has already sliced to a one-sample batch, so visualisers
-                # with their own batch selector must read index 0 inside that slice.
-                visualiser_with_sample_index = vis
-                visualiser_with_sample_index.sample_index = 0
-            try:
-                figure = vis.visualise(attributions, inputs=inputs, context=context, **merged_call)
-            finally:
-                if visualiser_with_sample_index is not None:
-                    visualiser_with_sample_index.sample_index = original_visualiser_sample_index
-
-            if (
-                show_sample_names
-                and sample_names
-                and not figure.texts
-                and not any(ax.get_title() for ax in figure.axes)
-            ):
-                figure.suptitle(_sample_names_title(sample_names), fontsize=10)
-                figure.tight_layout()
-
-            cls = type(vis)
-            visualiser_name = f"{cls.__name__}_{index}"
-            results.append(
-                VisualisationResult(
-                    explanation=self,
-                    figure=figure,
-                    visualiser_name=visualiser_name,
-                    visualiser_target=f"{cls.__module__}.{visualiser_name}",
-                    output_path=Path(visualiser_name).with_suffix(".png"),
-                    scope=wanted,
-                    scope_definition_step=self._scope_definition_step_for_visualiser(vis),
-                    visual_summary=getattr(type(vis), "visual_summary", None),
-                )
-            )
+            if rendered is not None:
+                results.append(rendered)
 
         return results
+
+    def render_visualisation_for_scope(
+        self,
+        visualiser_index: int,
+        *,
+        scope: ExplanationScope | str,
+        sample_index: int | None = None,
+        **render_kwargs: Any,
+    ) -> VisualisationResult | None:
+        """
+        Render one scoped visualisation without persisting it to disk.
+
+        Returns ``None`` when the selected visualiser does not produce the requested scope.
+        """
+        wanted = _normalise_scope(scope)
+        configured = self.visualisers[visualiser_index]
+        vis = configured.visualiser
+        if self._scope_for_visualiser(vis) != wanted:
+            return None
+
+        merged_call = dict(configured.call_kwargs)
+        merged_call.update(render_kwargs)
+        attributions = merged_call.pop("attributions", self.attributions)
+        inputs = merged_call.pop("inputs", self.inputs)
+        show_sample_names = bool(
+            merged_call.pop("show_sample_names", self.kwargs.get("show_sample_names", False))
+        )
+        sample_names_value = merged_call.pop("sample_names", self.kwargs.get("sample_names"))
+        sample_names = _normalise_sample_names(sample_names_value)
+
+        if sample_index is not None:
+            attributions = attributions[sample_index : sample_index + 1]
+            inputs = inputs[sample_index : sample_index + 1]
+            if sample_names:
+                sample_names = sample_names[sample_index : sample_index + 1]
+        else:
+            limit = _batch_size(attributions) or _batch_size(inputs)
+            if limit is not None:
+                sample_names = sample_names[:limit]
+
+        context = VisualisationContext(
+            algorithm=self.algorithm,
+            sample_names=sample_names,
+            show_sample_names=show_sample_names,
+        )
+        vis.validate_explanation(self, attributions, inputs)
+        original_visualiser_sample_index = getattr(vis, "sample_index", None)
+        reset_visualiser_sample_index = (
+            sample_index is not None and original_visualiser_sample_index is not None
+        )
+        visualiser_with_sample_index: Any | None = None
+        if reset_visualiser_sample_index:
+            # Report rendering has already sliced to a one-sample batch, so visualisers
+            # with their own batch selector must read index 0 inside that slice.
+            visualiser_with_sample_index = vis
+            visualiser_with_sample_index.sample_index = 0
+        try:
+            figure = vis.visualise(attributions, inputs=inputs, context=context, **merged_call)
+        finally:
+            if visualiser_with_sample_index is not None:
+                visualiser_with_sample_index.sample_index = original_visualiser_sample_index
+
+        if (
+            show_sample_names
+            and sample_names
+            and not figure.texts
+            and not any(ax.get_title() for ax in figure.axes)
+        ):
+            figure.suptitle(_sample_names_title(sample_names), fontsize=10)
+            figure.tight_layout()
+
+        cls = type(vis)
+        visualiser_name = f"{cls.__name__}_{visualiser_index}"
+        return VisualisationResult(
+            explanation=self,
+            figure=figure,
+            visualiser_name=visualiser_name,
+            visualiser_target=f"{cls.__module__}.{visualiser_name}",
+            output_path=Path(visualiser_name).with_suffix(".png"),
+            scope=wanted,
+            scope_definition_step=self._scope_definition_step_for_visualiser(vis),
+            visual_summary=getattr(type(vis), "visual_summary", None),
+        )
 
     def _scope_for_visualiser(self, visualiser: BaseVisualiser) -> ExplanationScope:
         produced = getattr(type(visualiser), "produces_scope", None)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -17,6 +18,7 @@ from raitap import raitap_log
 from raitap.configs import resolve_run_dir
 
 from .base_reporter import BaseReporter
+from .filenames import report_output_filename
 
 # A4 default in borb (points). SingleColumnLayout uses ~10% side margins.
 _A4_WIDTH_PT = 595
@@ -26,7 +28,7 @@ _MARGIN_FRAC = 0.1
 
 def _borb_pdf_ns() -> SimpleNamespace:
     """Load borb only when generating a PDF (optional ``reporting`` extra)."""
-    from borb.pdf import (
+    from borb.pdf import (  # type: ignore[reportMissingImports]
         PDF,
         Chart,
         Document,
@@ -98,8 +100,15 @@ def _pdf_display_text(value: Any) -> str:
 
 
 def _reporting_formatting(reporting: Any) -> Any:
-    """Nested ``formatting`` block, or an empty namespace if absent."""
-    fmt = getattr(reporting, "formatting", None)
+    """PDFReporter ``call.formatting`` block, or an empty namespace if absent."""
+    call = (
+        reporting.get("call")
+        if isinstance(reporting, Mapping)
+        else getattr(reporting, "call", None)
+    )
+    if call is None:
+        return SimpleNamespace()
+    fmt = call.get("formatting") if isinstance(call, Mapping) else getattr(call, "formatting", None)
     if fmt is None:
         return SimpleNamespace()
     return fmt
@@ -219,7 +228,10 @@ class PDFReporter(BaseReporter):
         )
         run_dir.mkdir(parents=True, exist_ok=True)
 
-        filename = getattr(self.config.reporting, "filename", "report.pdf")
+        filename = report_output_filename(
+            getattr(self.config.reporting, "filename", "report"),
+            ".pdf",
+        )
         output_path = run_dir / filename
 
         doc = b.Document()

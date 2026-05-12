@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import matplotlib.pyplot as plt
 import numpy as np
 
+from raitap import raitap_log
 from raitap.transparency.contracts import (
     ExplanationOutputSpace,
     ExplanationScope,
@@ -204,6 +205,10 @@ class CaptumImageVisualiser(BaseVisualiser):
             MethodFamily.SURROGATE,
         }
     )
+    embeds_original_input: ClassVar[bool] = True
+
+    def renders_attribution_only_when_original_hidden(self) -> bool:
+        return self.method != "masked_image"
 
     def validate_explanation(
         self,
@@ -266,6 +271,20 @@ class CaptumImageVisualiser(BaseVisualiser):
         Returns:
             Matplotlib Figure with one column per sample.
         """
+        if "include_original_input" in kwargs:
+            include_original_image = bool(kwargs.pop("include_original_input"))
+            kwargs.pop("include_original_image", None)
+        elif "include_original_image" in kwargs:
+            raitap_log.warn(
+                "`include_original_image` as a render-time kwarg is deprecated; "
+                "use `include_original_input` instead.",
+                category=DeprecationWarning,
+                stacklevel=3,
+            )
+            include_original_image = bool(kwargs.pop("include_original_image"))
+        else:
+            include_original_image = self.include_original_image
+
         try:
             from captum.attr import visualization as viz
         except ImportError as e:
@@ -293,7 +312,7 @@ class CaptumImageVisualiser(BaseVisualiser):
         names = [] if sample_names is None else [str(name) for name in sample_names[:n]]
 
         show_original_panel = (
-            self.include_original_image and origs is not None and self.method != "original_image"
+            include_original_image and origs is not None and self.method != "original_image"
         )
 
         if show_original_panel and self.show_colorbar:

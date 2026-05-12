@@ -50,6 +50,14 @@ they receive. In short:
 | `OutputBoundsWidthHeatmapVisualiser` | `FORMAL_VERIFICATION` | Heatmap of certified per-class output-bound widths (`upper - lower`) across the verified batch (rows = samples, columns = classes). Constructor kwargs: `cmap`, `max_samples`, `figsize`. Renders a placeholder figure when `result.output_bounds is None` or every row is NaN. |
 | `OutputBoundsMarginHeatmapVisualiser` | `FORMAL_VERIFICATION` | Heatmap of signed per-class margins relative to the target class's lower bound (rows = samples, columns = classes; target cell masked). Constructor kwargs: `cmap`, `max_samples`, `figsize`. Falls back to a placeholder when bounds or targets are absent. |
 
+Empirical image visualisers declare whether they embed a clean-input panel or a
+perturbation-map panel by default. Compact reporting uses those declarations to
+choose one canonical owner per facet and ask non-owners to omit repeated panels.
+The runtime kwargs are `include_clean_input` and `include_perturbation_map`.
+They affect report-only renders; persisted visualiser PNGs remain self-contained.
+Verifier visualisers keep the default facet flags (`False`) and do not need to
+accept these kwargs unless they explicitly opt into the contract.
+
 Contributor-facing details about the assessor / visualiser internals are in
 {doc}`../../contributor/robustness`.
 

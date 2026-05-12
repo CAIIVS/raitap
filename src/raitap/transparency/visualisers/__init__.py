@@ -12,6 +12,7 @@ from .captum_visualisers import (
     CaptumTextVisualiser,
     CaptumTimeSeriesVisualiser,
 )
+from .input_thumbnail import InputThumbnailVisualiser
 
 # SHAP-native visualisers
 from .shap_visualisers import (
@@ -27,6 +28,7 @@ __all__ = [  # noqa: RUF022
     # Base
     "BaseVisualiser",
     "VisualiserIncompatibilityError",
+    "InputThumbnailVisualiser",
     # Captum
     "CaptumImageVisualiser",
     "CaptumTextVisualiser",

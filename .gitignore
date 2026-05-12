@@ -77,3 +77,7 @@ conductor/
 
 # Git worktrees
 .worktrees/
+
+# Usecases
+usecases/
+examples/

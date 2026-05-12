@@ -1,0 +1,25 @@
+<section class="detail-section page--portrait" id="appendix-section">
+  <div class="section-heading">
+    <p class="eyebrow">Appendix</p>
+    <h2>Raw Report Rows</h2>
+  </div>
+  {% for section in view.appendix.sections %}
+    <section class="appendix-block">
+      <h3>{{ section.title }}</h3>
+      {% for group in section.groups %}
+        {% if group.table_rows %}
+          <article class="compact-card">
+            <h4>{{ group.heading }}</h4>
+            <table>
+              <tbody>
+                {% for key, value in group.table_rows %}
+                  <tr><th>{{ key }}</th><td>{{ value }}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </article>
+        {% endif %}
+      {% endfor %}
+    </section>
+  {% endfor %}
+</section>

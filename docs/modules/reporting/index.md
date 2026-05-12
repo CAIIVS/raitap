@@ -1,13 +1,8 @@
 # Reporting
 
-The reporting module generates compact PDF reports from pipeline outputs. Reports
-are assembled semantically from metrics, typed transparency summaries, and
-selected local explanations instead of embedding every PNG artifact written by a
-run.
-
-Rendered visualisations are grouped by `VisualisationResult.scope`; current
-section names include Global Explanations, Cohort Explanations, and Local
-Explanations.
+The reporting module generates compact reports from pipeline outputs. Reports
+summarize key metrics, transparency results, and robustness findings for review
+and sharing.
 
 ```{toctree}
 :maxdepth: 1

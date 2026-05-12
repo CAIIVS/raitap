@@ -1,0 +1,68 @@
+<section class="summary-page">
+  <header class="report-hero">
+    <div>
+      <p class="eyebrow">RAITAP assessment report</p>
+      <h1>{{ view.experiment_name }}</h1>
+    </div>
+    <div class="scope-pill">
+      {{ view.summary.sample_count }} samples · {{ view.summary.explainer_count }} explainers · {{ view.summary.assessor_count }} assessors
+    </div>
+  </header>
+
+  <div class="summary-grid">
+    <section class="card">
+      <h2>Experiment</h2>
+      <dl class="meta-list">
+        <div><dt>Model</dt><dd>{{ view.summary.model_name }}</dd></div>
+        <div><dt>Data</dt><dd>{{ view.summary.data_name }}</dd></div>
+        <div><dt>Generated</dt><dd>{{ view.generated_at }}</dd></div>
+      </dl>
+    </section>
+
+    {% if view.metrics %}
+      <section class="card" id="metrics-panel">
+        <h2>Headline Metrics</h2>
+        <div class="metric-grid">
+          {% for key, value in view.metrics.rows[:6] %}
+            <div class="tile"><span>{{ key }}</span><strong>{{ value|fmt_num }}</strong></div>
+          {% endfor %}
+        </div>
+        {% if view.metrics.image_srcs %}
+          <img class="summary-image" src="{{ view.metrics.image_srcs[0] }}" alt="Metrics visualisation">
+        {% endif %}
+      </section>
+    {% endif %}
+
+    {% if view.robustness_assessors %}
+      <section class="card">
+        <h2>Robustness Overview</h2>
+        <p class="panel-note">Clean → adversarial accuracy · ASR = attack success rate</p>
+        {% for assessor in view.robustness_assessors %}
+          {% set asr = assessor.metrics.get("attack_success_rate") %}
+          <a class="robust-link" href="#robustness-{{ assessor.assessor_name|slug }}">
+            <span>{{ assessor.assessor_name }}</span>
+            <strong>{{ assessor.metrics.get("clean_accuracy", "n/a")|fmt_num }}→{{ assessor.metrics.get("adversarial_accuracy", "n/a")|fmt_num }}</strong>
+            <em class="badge badge--{{ asr|asr_band }}">ASR {{ asr|fmt_pct }}</em>
+          </a>
+        {% endfor %}
+      </section>
+    {% endif %}
+  </div>
+
+  {% if view.local_samples %}
+    <section class="preview-strip" aria-label="Sample preview">
+      {% for sample in view.local_samples %}
+        <a class="sample-preview sample-preview--{{ sample.bucket|bucket_class(sample.correct) }}" href="#sample-{{ sample.sample_index }}">
+          {% if sample.thumbnail_srcs %}
+            <img src="{{ sample.thumbnail_srcs[0] }}" alt="Sample {{ sample.sample_index }}">
+          {% endif %}
+          <span class="badge">{{ sample.bucket }}</span>
+          <strong>Sample {{ sample.sample_index }}</strong>
+          {% if sample.predicted_class is not none or sample.target_class is not none or sample.confidence is not none %}
+            <small>Model Prediction: {{ sample.predicted_class if sample.predicted_class is not none else "n/a" }} · Ground Truth: {{ sample.target_class if sample.target_class is not none else "n/a" }} · Confidence: {{ sample.confidence|fmt_num }}</small>
+          {% endif %}
+        </a>
+      {% endfor %}
+    </section>
+  {% endif %}
+</section>

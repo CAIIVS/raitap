@@ -35,6 +35,7 @@ class PerturbationHeatmapVisualiser(BaseRobustnessVisualiser):
     supported_method_kinds: ClassVar[frozenset[MethodKind]] = frozenset(
         {MethodKind.EMPIRICAL_ATTACK}
     )
+    embeds_perturbation_map: ClassVar[bool] = True
 
     def __init__(
         self,
@@ -59,7 +60,13 @@ class PerturbationHeatmapVisualiser(BaseRobustnessVisualiser):
         context: RobustnessVisualisationContext,
         **kwargs: Any,
     ) -> Figure:
+        kwargs.pop("include_clean_input", None)
+        include_perturbation_map = bool(kwargs.pop("include_perturbation_map", True))
         del kwargs
+        if not include_perturbation_map:
+            raise ValueError(
+                "PerturbationHeatmapVisualiser requires include_perturbation_map=True."
+            )
         if result.perturbed_inputs is None:
             raise ValueError(
                 "PerturbationHeatmapVisualiser requires perturbed_inputs on the result."

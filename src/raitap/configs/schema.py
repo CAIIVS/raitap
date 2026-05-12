@@ -127,29 +127,18 @@ class TrackingConfig:
 
 
 @dataclass
-class ReportingFormattingConfig:
-    """PDF layout and rasterisation tuning for embedded figures."""
-
-    # None = derive from A4 column size / heuristic page budget.
-    max_image_width_pt: int | None = None
-    max_image_height_pt: int | None = None
-    figures_max_pages: int | None = None
-    # Pixels-per-layout-point (borb draws at ``size`` points). None ≈ 3 (~216 DPI).
-    image_raster_multiplier: float | None = None
-    image_raster_max_edge_px: int | None = None
-
-
-@dataclass
 class ReportingConfig:
     """Configuration for report generation."""
 
-    _target_: str = "PDFReporter"
-    filename: str = "report.pdf"
+    _target_: str = "HTMLReporter"
+    filename: str = "report"
     sample_selection: list[int | str] | None = None
     include_config: bool = True
     include_metadata: bool = True
     multirun_report: bool = True
-    formatting: ReportingFormattingConfig = field(default_factory=ReportingFormattingConfig)
+    show_original_per_explainer: bool = False
+    show_redundant_robustness_panels: bool = False
+    call: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import matplotlib.pyplot as plt
 import numpy as np
 
+from raitap import raitap_log
 from raitap.transparency.contracts import (
     ExplanationOutputSpace,
     ExplanationScope,
@@ -471,6 +472,7 @@ class ShapImageVisualiser(BaseVisualiser):
     supported_method_families: ClassVar[frozenset[MethodFamily]] = frozenset(
         {MethodFamily.GRADIENT}
     )
+    embeds_original_input: ClassVar[bool] = True
 
     def validate_explanation(
         self,
@@ -563,9 +565,19 @@ class ShapImageVisualiser(BaseVisualiser):
         cmap = kwargs.pop("cmap", self.cmap)
         overlay_alpha = kwargs.pop("overlay_alpha", self.overlay_alpha)
         show_colorbar = bool(kwargs.pop("show_colorbar", self.show_colorbar))
-        include_original_image = bool(
-            kwargs.pop("include_original_image", self.include_original_image)
-        )
+        if "include_original_input" in kwargs:
+            include_original_image = bool(kwargs.pop("include_original_input"))
+            kwargs.pop("include_original_image", None)
+        elif "include_original_image" in kwargs:
+            raitap_log.warn(
+                "`include_original_image` as a render-time kwarg is deprecated; "
+                "use `include_original_input` instead.",
+                category=DeprecationWarning,
+                stacklevel=3,
+            )
+            include_original_image = bool(kwargs.pop("include_original_image"))
+        else:
+            include_original_image = self.include_original_image
 
         show_original_panel = include_original_image and pixel_values is not None
         if show_original_panel and show_colorbar:

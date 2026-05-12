@@ -1,19 +1,12 @@
 # @package _global_
 
 reporting:
-  _target_: PDFReporter
+  _target_: HTMLReporter
   filename: report
   sample_selection: null
   multirun_report: true
   show_original_per_explainer: false
   show_redundant_robustness_panels: false
-  call:
-    formatting:
-      max_image_width_pt: null
-      max_image_height_pt: null
-      figures_max_pages: null
-      image_raster_multiplier: null
-      image_raster_max_edge_px: null
 
 hydra:
   callbacks:

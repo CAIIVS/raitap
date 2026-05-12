@@ -100,9 +100,9 @@ tracking:
   open_when_done: true
 
 reporting:
-  _target_: "PDFReporter"
-  filename: "report.pdf"
+  _target_: "HTMLReporter"
+  filename: "report"
   multirun_report: true
-  formatting:
-    figures_max_pages: 12
+  show_original_per_explainer: false
+  show_redundant_robustness_panels: false
 ```

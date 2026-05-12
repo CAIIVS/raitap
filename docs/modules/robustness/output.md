@@ -14,6 +14,9 @@
 
 If an assessor uses more than one visualiser, RAITAP writes one PNG per
 visualiser using the pattern `<VisualiserClassName>_<index>.png`.
+These standalone PNGs remain self-contained even when the PDF report uses a
+compact robustness layout. The `metadata.json` `visualisers` list always
+references the canonical persisted layouts, not report-only variants.
 
 `robustness_data.pt` is a torch checkpoint dict with the following keys (some
 are present only for the matching method kind):

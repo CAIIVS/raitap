@@ -43,6 +43,10 @@ class BaseVisualiser(ABC):
     supported_scopes, supported_output_spaces, supported_method_families:
         Typed semantic compatibility declarations. Empty frozensets are wildcards for custom and
         legacy subclasses.
+    embeds_original_input:
+        Whether the visualiser's default layout includes an original input panel alongside the
+        rendered explanation. Reporting can use this to request attribution-only rendering through
+        ``include_original_input=False``.
     """
 
     compatible_algorithms: ClassVar[frozenset[str]] = frozenset()
@@ -55,6 +59,18 @@ class BaseVisualiser(ABC):
     produces_scope: ClassVar[ExplanationScope | None] = None
     scope_definition_step: ClassVar[ScopeDefinitionStep | None] = None
     visual_summary: ClassVar[VisualSummarySpec | None] = None
+    # Class-level because embedding the original next to an attribution is part
+    # of the visualiser's layout contract, not an individual render decision.
+    embeds_original_input: ClassVar[bool] = False
+
+    def renders_attribution_only_when_original_hidden(self) -> bool:
+        """
+        Whether ``include_original_input=False`` still leaves a meaningful attribution view.
+
+        This is instance-level because some visualisers depend on constructor settings
+        such as Captum's ``method``.
+        """
+        return True
 
     def validate_explanation(
         self,

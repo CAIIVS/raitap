@@ -53,9 +53,19 @@ All visualisers implement `BaseRobustnessVisualiser`, which defines:
   The factory's `check_assessor_visualiser_compat` enforces this at YAML parse
   time so configuration errors fail fast (raises
   `MethodKindVisualiserIncompatibilityError`).
+- `embeds_clean_input` / `embeds_perturbation_map` — class-level report layout
+  hints for empirical visualisers. A visualiser that sets either flag to `True`
+  must accept the matching runtime kwarg (`include_clean_input` /
+  `include_perturbation_map`) and omit that facet when it is `False`.
 - `validate_result(result)` — render-time check that the assessor's
   `method_kind` is in `supported_method_kinds`. Image visualisers additionally
   refuse non-image results via `_require_image_modality`.
+
+The facet flags are used only by compact robustness reporting to avoid repeated
+clean-input or perturbation-map panels across multiple empirical visualisers.
+Standalone `RobustnessResult.visualise()` artifacts remain self-contained and
+continue to use the canonical layouts. Formal verifier visualisers and custom
+visualisers that do not opt into these flags need no changes.
 
 ### Typed semantics contract
 

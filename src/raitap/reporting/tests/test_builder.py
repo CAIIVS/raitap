@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
@@ -10,20 +11,48 @@ import torch
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
+import raitap.reporting.builder as reporting_builder
 from raitap.configs import set_output_root
 from raitap.configs.schema import AppConfig, ReportingConfig
-from raitap.reporting.builder import BuiltReport, _copy_asset, build_merged_report, build_report
+from raitap.reporting.builder import (
+    BuiltReport,
+    _canonical_facet_owners,
+    _copy_asset,
+    _render_kwargs_for_robustness_visualiser,
+    build_merged_report,
+    build_report,
+)
 from raitap.reporting.factory import create_report
 from raitap.reporting.hydra_callback import ReportingSweepCallback
 from raitap.reporting.manifest import ReportManifest
 from raitap.reporting.sample_selection import ReportSampleSelectionEntry
 from raitap.reporting.sections import ReportGroup, ReportSection
+from raitap.robustness.contracts import (
+    MethodKind,
+    Objective,
+    PerturbationBudget,
+    PerturbationNorm,
+    RobustnessSemantics,
+    RobustnessVerdict,
+    RobustnessVisualisationContext,
+    ThreatModel,
+)
+from raitap.robustness.results import (
+    ConfiguredRobustnessVisualiser,
+    RobustnessMetrics,
+    RobustnessResult,
+    RobustnessVisualisationResult,
+    encode_verdicts,
+)
+from raitap.robustness.visualisers import ImagePairVisualiser, PerturbationHeatmapVisualiser
+from raitap.robustness.visualisers.base_visualiser import BaseRobustnessVisualiser
 from raitap.run.outputs import PredictionSummary, RunOutputs
 from raitap.transparency.contracts import (
     ExplanationOutputSpace,
     ExplanationPayloadKind,
     ExplanationScope,
     ExplanationSemantics,
+    ExplanationTarget,
     InputSpec,
     MethodFamily,
     OutputSpaceSpec,
@@ -49,8 +78,20 @@ class _MetricsStub:
 
 
 class _LocalImageVisualiser(BaseVisualiser):
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        title: str | None = None,
+        method: str | None = None,
+        sign: str | None = None,
+        show_colorbar: bool | None = None,
+    ) -> None:
         self.figures: list[Figure] = []
+        self.calls: list[dict[str, Any]] = []
+        self.title = title
+        self.method = method
+        self.sign = sign
+        self.show_colorbar = show_colorbar
 
     def visualise(
         self,
@@ -60,7 +101,8 @@ class _LocalImageVisualiser(BaseVisualiser):
         context: Any = None,
         **kwargs: Any,
     ) -> Figure:
-        del attributions, inputs, kwargs
+        del attributions, inputs
+        self.calls.append(dict(kwargs))
         fig, ax = plt.subplots(figsize=(2, 2))
         ax.imshow([[0.0, 1.0], [1.0, 0.0]], cmap="magma")
         if context is not None and context.sample_names:
@@ -70,13 +112,80 @@ class _LocalImageVisualiser(BaseVisualiser):
         return fig
 
 
-def _local_image_semantics(shape: tuple[int, ...]) -> ExplanationSemantics:
+class _EmbeddedOriginalVisualiser(_LocalImageVisualiser):
+    embeds_original_input = True
+
+
+class _MaskedLikeVisualiser(_LocalImageVisualiser):
+    embeds_original_input = True
+
+    def renders_attribution_only_when_original_hidden(self) -> bool:
+        return False
+
+
+class _RobustnessRecordingVisualiser(BaseRobustnessVisualiser):
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    def visualise(
+        self,
+        result: RobustnessResult,
+        *,
+        context: RobustnessVisualisationContext,
+        **kwargs: Any,
+    ) -> Figure:
+        del result, context
+        self.calls.append(dict(kwargs))
+        fig, _ax = plt.subplots(figsize=(1, 1))
+        return fig
+
+
+class _PerturbationRecordingVisualiser(_RobustnessRecordingVisualiser):
+    embeds_perturbation_map = True
+
+
+class _ErroringRobustnessVisualiser(BaseRobustnessVisualiser):
+    def visualise(
+        self,
+        result: RobustnessResult,
+        *,
+        context: RobustnessVisualisationContext,
+        **kwargs: Any,
+    ) -> Figure:
+        del result, context, kwargs
+        raise ValueError("builder visualiser failed")
+
+
+class _StrictPerturbationVisualiser(BaseRobustnessVisualiser):
+    embeds_perturbation_map = True
+
+    def visualise(  # type: ignore[reportIncompatibleMethodOverride]
+        self,
+        result: RobustnessResult,
+        *,
+        context: RobustnessVisualisationContext,
+    ) -> Figure:
+        del result, context
+        fig, _ax = plt.subplots(figsize=(1, 1))
+        return fig
+
+
+def _local_image_semantics(
+    shape: tuple[int, ...],
+    *,
+    target: int | str | list[int] | tuple[int, ...] | None = None,
+    method_families: frozenset[MethodFamily] = frozenset({MethodFamily.GRADIENT}),
+    output_space: ExplanationOutputSpace = ExplanationOutputSpace.INPUT_FEATURES,
+    output_shape: tuple[int, ...] | None = None,
+    layer_path: str | None = None,
+    requires_interpolation: bool = False,
+) -> ExplanationSemantics:
     return ExplanationSemantics(
         scope=ExplanationScope.LOCAL,
         scope_definition_step=ScopeDefinitionStep.EXPLAINER_OUTPUT,
         payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
-        method_families=frozenset({MethodFamily.GRADIENT}),
-        target=None,
+        method_families=method_families,
+        target=ExplanationTarget(target=target) if target is not None else None,
         sample_selection=None,
         input_spec=InputSpec(
             kind="image",
@@ -85,10 +194,81 @@ def _local_image_semantics(shape: tuple[int, ...]) -> ExplanationSemantics:
             metadata={"kind": "image", "layout": "NCHW"},
         ),
         output_space=OutputSpaceSpec(
+            space=output_space,
+            shape=shape if output_shape is None else output_shape,
+            layout="NCHW",
+            layer_path=layer_path,
+            requires_interpolation=requires_interpolation,
+        ),
+    )
+
+
+def _local_tabular_semantics(shape: tuple[int, ...]) -> ExplanationSemantics:
+    return ExplanationSemantics(
+        scope=ExplanationScope.LOCAL,
+        scope_definition_step=ScopeDefinitionStep.EXPLAINER_OUTPUT,
+        payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
+        method_families=frozenset({MethodFamily.GRADIENT}),
+        target=None,
+        sample_selection=None,
+        input_spec=InputSpec(
+            kind="tabular",
+            shape=shape,
+            layout="(B,F)",
+            metadata={"kind": "tabular", "layout": "(B,F)"},
+        ),
+        output_space=OutputSpaceSpec(
             space=ExplanationOutputSpace.INPUT_FEATURES,
             shape=shape,
-            layout="NCHW",
+            layout="(B,F)",
         ),
+    )
+
+
+def _robustness_semantics() -> RobustnessSemantics:
+    return RobustnessSemantics(
+        method_kind=MethodKind.EMPIRICAL_ATTACK,
+        threat_model=ThreatModel.WHITE_BOX,
+        objective=Objective.UNTARGETED,
+        families=frozenset({"gradient_sign"}),
+        budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.03),
+        input_spec=InputSpec(
+            kind="image",
+            shape=(1, 3, 4, 4),
+            layout="NCHW",
+            metadata={"kind": "image", "layout": "NCHW"},
+        ),
+    )
+
+
+def _make_robustness_result(
+    tmp_path: Path,
+    *,
+    assessor_name: str = "fgsm",
+    batch_size: int = 1,
+    visualisers: list[ConfiguredRobustnessVisualiser] | None = None,
+) -> RobustnessResult:
+    clean = torch.rand(batch_size, 3, 4, 4)
+    return RobustnessResult(
+        clean_inputs=clean,
+        targets=torch.arange(batch_size),
+        clean_predictions=torch.arange(batch_size),
+        verdicts=encode_verdicts([RobustnessVerdict.ATTACKED] * batch_size),
+        metrics=RobustnessMetrics(
+            clean_accuracy=1.0,
+            adversarial_accuracy=0.0,
+            attack_success_rate=1.0,
+        ),
+        run_dir=tmp_path / "robustness" / assessor_name,
+        experiment_name="robustness",
+        assessor_target="t",
+        algorithm="FGSM",
+        assessor_name=assessor_name,
+        perturbed_inputs=(clean + 0.03).clamp(0.0, 1.0),
+        perturbed_predictions=torch.arange(batch_size) + 1,
+        perturbation_distance=torch.full((batch_size,), 0.03),
+        semantics=_robustness_semantics(),
+        visualisers=[] if visualisers is None else visualisers,
     )
 
 
@@ -161,11 +341,27 @@ def test_build_report_orders_sections_and_ranks_samples(tmp_path: Path) -> None:
         "Global Explanations",
         "Local Explanations",
     ]
-    local_headings = [group.heading for group in report.sections[2].groups]
-    assert local_headings[0].startswith("Overview - Explainer: captum_ig - wrong")
-    assert "Detail - insecure" in local_headings[1]
-    assert "Detail - high_confidence" in local_headings[2]
-    assert all("Detail - wrong" not in heading for heading in local_headings)
+    local_groups = report.sections[2].groups
+    assert [group.metadata["role"] for group in local_groups] == [
+        "sample_header",
+        "local_visualiser",
+        "sample_header",
+        "local_visualiser",
+        "sample_header",
+        "local_visualiser",
+    ]
+    assert [group.metadata["sample_index"] for group in local_groups[::2]] == [0, 1, 2]
+    assert [group.metadata["sample_index"] for group in local_groups[1::2]] == [0, 1, 2]
+    assert local_groups[1].metadata["explainer_name"] == "captum_ig"
+    assert local_groups[1].metadata["visualiser_index"] == 0
+    assert [group.images[0].name for group in local_groups] == [
+        "sample_0_thumbnail_0.png",
+        "sample_0_captum_ig__LocalImageVisualiser_0.png",
+        "sample_1_thumbnail_0.png",
+        "sample_1_captum_ig__LocalImageVisualiser_0.png",
+        "sample_2_thumbnail_0.png",
+        "sample_2_captum_ig__LocalImageVisualiser_0.png",
+    ]
     assert all(
         path.parent.name == "_assets"
         for section in report.sections
@@ -298,10 +494,518 @@ def test_build_report_local_assets_are_staged_and_closed(tmp_path: Path) -> None
     report = build_report(config, outputs)
 
     local_groups = report.sections[0].groups
-    assert len(local_groups) == 2
-    assert local_groups[0].images[0].name.startswith("overview_captum_ig_1_")
-    assert local_groups[1].images[0].name.startswith("detail_high_confidence_captum_ig_2_")
+    assert len(local_groups) == 4
+    assert [group.metadata["role"] for group in local_groups] == [
+        "sample_header",
+        "local_visualiser",
+        "sample_header",
+        "local_visualiser",
+    ]
+    assert [group.metadata["sample_index"] for group in local_groups] == [1, 1, 2, 2]
+    assert [group.images[0].name for group in local_groups] == [
+        "sample_1_thumbnail_0.png",
+        "sample_1_captum_ig__LocalImageVisualiser_0.png",
+        "sample_2_thumbnail_0.png",
+        "sample_2_captum_ig__LocalImageVisualiser_0.png",
+    ]
+    assert all(ax.get_title() == "" for fig in visualiser.figures for ax in fig.axes)
     assert all(not plt.fignum_exists(fig.number) for fig in visualiser.figures)
+
+
+def test_build_report_compact_local_thumbnail_titles_are_stripped(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    config = AppConfig(experiment_name="compact_thumbnail_titles")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    thumbnail_figures: list[Figure] = []
+
+    def _titled_thumbnail(*_args: Any, **_kwargs: Any) -> Figure:
+        fig, ax = plt.subplots(figsize=(1, 1))
+        ax.imshow([[0.0, 1.0], [1.0, 0.0]])
+        ax.set_title("Input: ISIC_0001")
+        fig.suptitle("Input thumbnail")
+        thumbnail_figures.append(fig)
+        return fig
+
+    monkeypatch.setattr(
+        "raitap.reporting.builder.InputThumbnailVisualiser.visualise",
+        _titled_thumbnail,
+    )
+
+    explanation = ExplanationResult(
+        attributions=torch.rand(1, 1, 4, 4),
+        inputs=torch.rand(1, 1, 4, 4),
+        run_dir=tmp_path / "transparency" / "exp",
+        experiment_name="compact_thumbnail_titles",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((1, 1, 4, 4)),
+        explainer_name="captum_ig",
+        visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
+    )
+    outputs = RunOutputs(
+        explanations=[explanation],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.tensor([[0.1, 0.9]]),
+        prediction_summaries=(
+            PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
+        ),
+    )
+
+    build_report(config, outputs)
+
+    assert thumbnail_figures
+    assert all(text.get_text() == "" for fig in thumbnail_figures for text in fig.texts)
+    assert all(ax.get_title() == "" for fig in thumbnail_figures for ax in fig.axes)
+
+
+def test_build_report_compact_mode_omits_repeated_original_for_capable_visualisers(
+    tmp_path: Path,
+) -> None:
+    config = AppConfig(experiment_name="compact")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    compact_visualiser = _EmbeddedOriginalVisualiser()
+    masked_visualiser = _MaskedLikeVisualiser()
+    explanation = ExplanationResult(
+        attributions=torch.rand(1, 1, 4, 4),
+        inputs=torch.rand(1, 1, 4, 4),
+        run_dir=tmp_path / "transparency" / "exp",
+        experiment_name="compact",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((1, 1, 4, 4)),
+        explainer_name="captum_ig",
+        visualisers=[
+            ConfiguredVisualiser(visualiser=compact_visualiser),
+            ConfiguredVisualiser(visualiser=masked_visualiser),
+        ],
+    )
+    outputs = RunOutputs(
+        explanations=[explanation],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.tensor([[0.1, 0.9]]),
+        prediction_summaries=(
+            PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
+        ),
+    )
+
+    report = build_report(config, outputs)
+
+    local_groups = report.sections[0].groups
+    assert [group.metadata["role"] for group in local_groups] == [
+        "sample_header",
+        "local_visualiser",
+        "local_visualiser",
+    ]
+    assert [group.metadata["visualiser_index"] for group in local_groups[1:]] == [0, 1]
+    assert [len(group.images) for group in local_groups] == [1, 1, 1]
+    assert compact_visualiser.calls == [{"include_original_input": False}]
+    assert masked_visualiser.calls == [{}]
+
+
+def test_build_report_local_explainer_group_includes_curated_transparency_rows(
+    tmp_path: Path,
+) -> None:
+    config = AppConfig(experiment_name="transparency_rows")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    heatmap_visualiser = _LocalImageVisualiser(
+        title="Grad-CAM lesion localisation",
+        method="heat_map",
+        sign="positive",
+        show_colorbar=True,
+    )
+    masked_visualiser = _LocalImageVisualiser(
+        title="Evidence-masked dermoscopy view",
+        method="masked_image",
+        sign="absolute_value",
+        show_colorbar=False,
+    )
+    explanation = ExplanationResult(
+        attributions=torch.rand(2, 1, 2, 2),
+        inputs=torch.rand(2, 3, 4, 4),
+        run_dir=tmp_path / "transparency" / "gradcam",
+        experiment_name="transparency_rows",
+        explainer_target="raitap.transparency.CaptumExplainer",
+        algorithm="LayerGradCam",
+        semantics=_local_image_semantics(
+            (2, 3, 4, 4),
+            target=[5, 6],
+            method_families=frozenset({MethodFamily.CAM, MethodFamily.GRADIENT}),
+            output_space=ExplanationOutputSpace.IMAGE_SPATIAL_MAP,
+            output_shape=(2, 1, 2, 2),
+            layer_path="1.layer4.2.conv3",
+            requires_interpolation=True,
+        ),
+        explainer_name="gradcam_localisation",
+        call_kwargs={"relu_attributions": True},
+        visualisers=[
+            ConfiguredVisualiser(
+                visualiser=heatmap_visualiser,
+                call_kwargs={"max_samples": 4},
+            ),
+            ConfiguredVisualiser(
+                visualiser=masked_visualiser,
+                call_kwargs={"max_samples": 1},
+            ),
+        ],
+    )
+    outputs = RunOutputs(
+        explanations=[explanation],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.tensor([[0.1, 0.9], [0.8, 0.2]]),
+        prediction_summaries=(
+            PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
+            PredictionSummary(sample_index=1, predicted_class=0, confidence=0.8),
+        ),
+    )
+
+    report = build_report(config, outputs)
+
+    local_groups = report.sections[0].groups
+    visualiser_groups = [
+        group for group in local_groups if group.metadata["role"] == "local_visualiser"
+    ]
+    assert len(visualiser_groups) == 4
+    assert visualiser_groups[0].heading == (
+        "Explainer: gradcam_localisation - Visualiser: Grad-CAM lesion localisation"
+    )
+    assert visualiser_groups[1].heading == (
+        "Explainer: gradcam_localisation - Visualiser: Evidence-masked dermoscopy view"
+    )
+
+    rows = dict(visualiser_groups[2].table_rows)
+    assert rows["explainer"] == "gradcam_localisation"
+    assert rows["algorithm"] == "LayerGradCam"
+    assert rows["method_families"] == "cam, gradient"
+    assert rows["targets"] == "0: 5"
+    assert rows["output_space"] == "image_spatial_map"
+    assert rows["output_shape"] == "2 x 1 x 2 x 2"
+    assert rows["layer_path"] == "1.layer4.2.conv3"
+    assert rows["requires_interpolation"] == "true"
+    assert rows["call.relu_attributions"] == "true"
+    assert rows["visualiser_title"] == "Grad-CAM lesion localisation"
+    assert rows["visualiser_method"] == "heat_map"
+    assert rows["visualiser_sign"] == "positive"
+    assert "visualiser_show_colorbar" not in rows
+    assert "visualiser_colorbar" not in rows
+    assert "visualiser_include_original_image" not in rows
+    assert "visualiser_embeds_original_input" not in rows
+    assert "visualiser_attribution_only_without_original" not in rows
+    assert "visualiser_call.max_samples" not in rows
+    assert "visualiser_1_title" not in rows
+
+    second_rows = dict(visualiser_groups[3].table_rows)
+    assert second_rows["visualiser_title"] == "Evidence-masked dermoscopy view"
+    assert second_rows["visualiser_method"] == "masked_image"
+    assert "visualiser_show_colorbar" not in second_rows
+    assert "visualiser_call.max_samples" not in second_rows
+
+
+def test_build_report_show_original_per_explainer_uses_legacy_local_layout(
+    tmp_path: Path,
+) -> None:
+    config = AppConfig(experiment_name="legacy_originals")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(
+        _target_="PDFReporter",
+        filename="report.pdf",
+        show_original_per_explainer=True,
+    )
+
+    visualiser = _EmbeddedOriginalVisualiser()
+    explanation = ExplanationResult(
+        attributions=torch.rand(2, 1, 4, 4),
+        inputs=torch.rand(2, 1, 4, 4),
+        run_dir=tmp_path / "transparency" / "exp",
+        experiment_name="legacy_originals",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((2, 1, 4, 4)),
+        explainer_name="captum_ig",
+        kwargs={"sample_names": ["legacy-a", "legacy-b"], "show_sample_names": True},
+        visualisers=[ConfiguredVisualiser(visualiser=visualiser)],
+    )
+    outputs = RunOutputs(
+        explanations=[explanation],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.tensor([[0.1, 0.9], [0.8, 0.2]]),
+        prediction_summaries=(
+            PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
+            PredictionSummary(sample_index=1, predicted_class=0, confidence=0.8),
+        ),
+    )
+
+    report = build_report(config, outputs)
+
+    local_groups = report.sections[0].groups
+    assert len(local_groups) == 2
+    assert all(group.metadata["role"] != "sample_header" for group in local_groups)
+    assert all("include_original_input" not in call for call in visualiser.calls)
+    assert any(ax.get_title() for fig in visualiser.figures for ax in fig.axes)
+
+
+def test_build_report_thumbnail_uses_first_compatible_explanation_in_order(
+    tmp_path: Path,
+) -> None:
+    config = AppConfig(experiment_name="thumbnail_fallback")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    image_visualiser = _EmbeddedOriginalVisualiser()
+    tabular_visualiser = _EmbeddedOriginalVisualiser()
+    image_explanation = ExplanationResult(
+        attributions=torch.rand(1, 1, 4, 4),
+        inputs=torch.rand(1, 1, 4, 4),
+        run_dir=tmp_path / "transparency" / "image",
+        experiment_name="thumbnail_fallback",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((1, 1, 4, 4)),
+        explainer_name="image_exp",
+        visualisers=[ConfiguredVisualiser(visualiser=image_visualiser)],
+    )
+    tabular_explanation = ExplanationResult(
+        attributions=torch.rand(1, 4),
+        inputs=torch.rand(1, 4),
+        run_dir=tmp_path / "transparency" / "tabular",
+        experiment_name="thumbnail_fallback",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        semantics=_local_tabular_semantics((1, 4)),
+        explainer_name="tabular_exp",
+        visualisers=[ConfiguredVisualiser(visualiser=tabular_visualiser)],
+    )
+    outputs = RunOutputs(
+        explanations=[tabular_explanation, image_explanation],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.tensor([[0.1, 0.9]]),
+        prediction_summaries=(
+            PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
+        ),
+    )
+
+    report = build_report(config, outputs)
+
+    local_groups = report.sections[0].groups
+    assert [group.metadata["role"] for group in local_groups] == [
+        "sample_header",
+        "local_visualiser",
+        "local_visualiser",
+    ]
+    assert local_groups[0].metadata["source_explainer_name"] == "image_exp"
+    assert local_groups[1].metadata["explainer_name"] == "tabular_exp"
+    assert local_groups[1].metadata["thumbnail_source_explainer_names"] == ("image_exp",)
+    assert local_groups[2].metadata["explainer_name"] == "image_exp"
+    assert local_groups[2].metadata["thumbnail_source_explainer_names"] == ("image_exp",)
+    assert tabular_visualiser.calls == [{"include_original_input": False}]
+    assert image_visualiser.calls == [{"include_original_input": False}]
+
+
+def test_build_report_thumbnail_falls_back_to_later_explanation_after_runtime_error(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    config = AppConfig(experiment_name="thumbnail_multi_fallback")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    original_visualise = reporting_builder.InputThumbnailVisualiser.visualise
+    call_count = {"n": 0}
+
+    def _fail_first_then_delegate(self: Any, *args: Any, **kwargs: Any) -> Any:
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise RuntimeError("first explanation thumbnail failed")
+        return original_visualise(self, *args, **kwargs)
+
+    monkeypatch.setattr(
+        "raitap.reporting.builder.InputThumbnailVisualiser.visualise",
+        _fail_first_then_delegate,
+    )
+
+    first_explanation = ExplanationResult(
+        attributions=torch.rand(1, 1, 4, 4),
+        inputs=torch.rand(1, 1, 4, 4),
+        run_dir=tmp_path / "transparency" / "first",
+        experiment_name="thumbnail_multi_fallback",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((1, 1, 4, 4)),
+        explainer_name="first_exp",
+        visualisers=[ConfiguredVisualiser(visualiser=_EmbeddedOriginalVisualiser())],
+    )
+    second_explanation = ExplanationResult(
+        attributions=torch.rand(1, 1, 4, 4),
+        inputs=torch.rand(1, 1, 4, 4),
+        run_dir=tmp_path / "transparency" / "second",
+        experiment_name="thumbnail_multi_fallback",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((1, 1, 4, 4)),
+        explainer_name="second_exp",
+        visualisers=[ConfiguredVisualiser(visualiser=_EmbeddedOriginalVisualiser())],
+    )
+    outputs = RunOutputs(
+        explanations=[first_explanation, second_explanation],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.tensor([[0.1, 0.9]]),
+        prediction_summaries=(
+            PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
+        ),
+    )
+
+    report = build_report(config, outputs)
+
+    local_groups = report.sections[0].groups
+    sample_header_groups = [
+        group for group in local_groups if group.metadata["role"] == "sample_header"
+    ]
+    assert len(sample_header_groups) == 1
+    assert sample_header_groups[0].metadata["source_explainer_name"] == "second_exp"
+    assert call_count["n"] == 2
+
+
+def test_build_report_thumbnail_failure_falls_back_for_that_sample_only(
+    tmp_path: Path,
+) -> None:
+    config = AppConfig(experiment_name="thumbnail_fallback")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    visualiser = _EmbeddedOriginalVisualiser()
+    explanation = ExplanationResult(
+        attributions=torch.rand(1, 4),
+        inputs=torch.rand(1, 4),
+        run_dir=tmp_path / "transparency" / "tabular",
+        experiment_name="thumbnail_fallback",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        semantics=_local_tabular_semantics((1, 4)),
+        explainer_name="tabular_exp",
+        visualisers=[ConfiguredVisualiser(visualiser=visualiser)],
+    )
+    outputs = RunOutputs(
+        explanations=[explanation],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.tensor([[0.1, 0.9]]),
+        prediction_summaries=(
+            PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
+        ),
+    )
+
+    report = build_report(config, outputs)
+
+    local_groups = report.sections[0].groups
+    assert len(local_groups) == 1
+    assert local_groups[0].metadata["role"] == "local_visualiser"
+    assert visualiser.calls == [{}]
+
+
+def test_build_report_thumbnail_runtime_failure_logs_traceback_and_falls_back(
+    tmp_path: Path,
+    monkeypatch: Any,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    config = AppConfig(experiment_name="thumbnail_runtime_fallback")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    def _raise_runtime_error(*_args: Any, **_kwargs: Any) -> Figure:
+        raise RuntimeError("thumbnail render failed")
+
+    monkeypatch.setattr(
+        "raitap.reporting.builder.InputThumbnailVisualiser.visualise",
+        _raise_runtime_error,
+    )
+
+    visualiser = _EmbeddedOriginalVisualiser()
+    explanation = ExplanationResult(
+        attributions=torch.rand(1, 1, 4, 4),
+        inputs=torch.rand(1, 1, 4, 4),
+        run_dir=tmp_path / "transparency" / "exp",
+        experiment_name="thumbnail_runtime_fallback",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((1, 1, 4, 4)),
+        explainer_name="captum_ig",
+        visualisers=[ConfiguredVisualiser(visualiser=visualiser)],
+    )
+    outputs = RunOutputs(
+        explanations=[explanation],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.tensor([[0.1, 0.9]]),
+        prediction_summaries=(
+            PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
+        ),
+    )
+
+    with caplog.at_level("WARNING"):
+        report = build_report(config, outputs)
+
+    local_groups = report.sections[0].groups
+    assert len(local_groups) == 1
+    assert local_groups[0].metadata["role"] == "local_visualiser"
+    assert visualiser.calls == [{}]
+    assert any(
+        record.exc_info is not None and "thumbnail render failed" in record.getMessage()
+        for record in caplog.records
+    )
+
+
+def test_build_report_thumbnail_programmer_error_is_not_swallowed(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    config = AppConfig(experiment_name="thumbnail_programmer_error")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    def _raise_type_error(*_args: Any, **_kwargs: Any) -> Figure:
+        raise TypeError("programmer error")
+
+    monkeypatch.setattr(
+        "raitap.reporting.builder.InputThumbnailVisualiser.visualise",
+        _raise_type_error,
+    )
+
+    explanation = ExplanationResult(
+        attributions=torch.rand(1, 1, 4, 4),
+        inputs=torch.rand(1, 1, 4, 4),
+        run_dir=tmp_path / "transparency" / "exp",
+        experiment_name="thumbnail_programmer_error",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        semantics=_local_image_semantics((1, 1, 4, 4)),
+        explainer_name="captum_ig",
+        visualisers=[ConfiguredVisualiser(visualiser=_EmbeddedOriginalVisualiser())],
+    )
+    outputs = RunOutputs(
+        explanations=[explanation],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.tensor([[0.1, 0.9]]),
+        prediction_summaries=(
+            PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
+        ),
+    )
+
+    with pytest.raises(TypeError, match="programmer error"):
+        build_report(config, outputs)
 
 
 def test_build_report_explicit_filenames_render_in_user_order(tmp_path: Path) -> None:
@@ -316,6 +1020,12 @@ def test_build_report_explicit_filenames_render_in_user_order(tmp_path: Path) ->
     report = build_report(config, outputs)
 
     local_groups = report.sections[0].groups
+    assert [group.metadata["role"] for group in local_groups] == [
+        "local_detail",
+        "local_detail",
+        "local_detail",
+        "local_detail",
+    ]
     assert [group.metadata["sample_index"] for group in local_groups] == [2, 0, 3, 1]
     assert [group.metadata["requested_sample"] for group in local_groups] == [
         "case_gamma.png",
@@ -331,6 +1041,39 @@ def test_build_report_explicit_filenames_render_in_user_order(tmp_path: Path) ->
         3,
         1,
     ]
+
+
+def test_build_report_html_explicit_selection_uses_compact_local_layout(
+    tmp_path: Path,
+) -> None:
+    config, outputs = _explicit_selection_case(tmp_path)
+    config.reporting = ReportingConfig(_target_="HTMLReporter", filename="report")
+    config.reporting.sample_selection = [
+        "case_gamma.png",
+        "case_alpha.png",
+        "case_delta.png",
+        "case_beta.png",
+    ]
+
+    report = build_report(config, outputs)
+
+    local_groups = report.sections[0].groups
+    header_groups = [group for group in local_groups if group.metadata["role"] == "sample_header"]
+    visualiser_groups = [
+        group for group in local_groups if group.metadata["role"] == "local_visualiser"
+    ]
+    assert [group.metadata["sample_index"] for group in header_groups] == [2, 0, 3, 1]
+    assert [group.metadata["requested_sample"] for group in header_groups] == [
+        "case_gamma.png",
+        "case_alpha.png",
+        "case_delta.png",
+        "case_beta.png",
+    ]
+    assert [group.metadata["sample_index"] for group in visualiser_groups] == [2, 0, 3, 1]
+    assert all(group.images for group in header_groups)
+    assert all(group.images for group in visualiser_groups)
+    assert dict(header_groups[0].table_rows)["predicted_class"] == "1"
+    assert dict(header_groups[0].table_rows)["confidence"] == "0.5200"
 
 
 def test_build_report_explicit_filename_extension_normalisation(tmp_path: Path) -> None:
@@ -468,6 +1211,310 @@ def test_build_report_skips_local_groups_when_no_local_visualisations(tmp_path: 
     assert report.sections == ()
 
 
+def test_canonical_facet_owners_prefers_dedicated_visualiser_in_any_order() -> None:
+    pair = ConfiguredRobustnessVisualiser(visualiser=ImagePairVisualiser(max_samples=1))
+    heatmap = ConfiguredRobustnessVisualiser(
+        visualiser=PerturbationHeatmapVisualiser(max_samples=1)
+    )
+
+    assert _canonical_facet_owners([pair, heatmap])["perturbation_map"] == 1
+    assert _canonical_facet_owners([heatmap, pair])["perturbation_map"] == 0
+    assert _canonical_facet_owners([pair, heatmap])["clean_input"] == 0
+
+
+def test_robustness_render_kwargs_skip_if_all_declared_facets_would_be_omitted() -> None:
+    visualiser = ImagePairVisualiser(max_samples=1)
+
+    assert (
+        _render_kwargs_for_robustness_visualiser(
+            visualiser,
+            owners={"clean_input": 1, "perturbation_map": 2},
+            visualiser_index=0,
+            omit_redundant=True,
+        )
+        is None
+    )
+
+
+def test_robustness_no_embedder_receives_no_compact_kwargs() -> None:
+    visualiser = _RobustnessRecordingVisualiser()
+    owners = _canonical_facet_owners([ConfiguredRobustnessVisualiser(visualiser=visualiser)])
+
+    assert owners == {}
+    assert (
+        _render_kwargs_for_robustness_visualiser(
+            visualiser,
+            owners=owners,
+            visualiser_index=0,
+            omit_redundant=True,
+        )
+        == {}
+    )
+
+
+def test_build_report_compact_robustness_omits_non_owner_perturbation_panel(
+    tmp_path: Path,
+) -> None:
+    config = AppConfig(experiment_name="robustness_compact")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    result = _make_robustness_result(
+        tmp_path,
+        visualisers=[
+            ConfiguredRobustnessVisualiser(visualiser=ImagePairVisualiser(max_samples=1)),
+            ConfiguredRobustnessVisualiser(visualiser=PerturbationHeatmapVisualiser(max_samples=1)),
+        ],
+    )
+    outputs = RunOutputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.zeros(1, 2),
+        robustness_results=[result],
+    )
+
+    report = build_report(config, outputs)
+
+    robustness_group = report.sections[0].groups[0]
+    assert robustness_group.metadata["role"] == "robustness"
+    assert len(robustness_group.images) == 1
+    pair_image = plt.imread(robustness_group.images[0])
+    width_ratio = pair_image.shape[1] / pair_image.shape[0]
+    assert width_ratio > 2.0
+    assert dict(robustness_group.table_rows)["attack_success_rate"] == "1.0000"
+    assert robustness_group.images[0].name.startswith(
+        "robustness_0_fgsm_sample_0_ImagePairVisualiser_0"
+    )
+    assert "PerturbationHeatmapVisualiser" not in robustness_group.images[0].name
+
+
+def test_build_report_compact_robustness_skips_redundant_single_facet_visualiser(
+    tmp_path: Path,
+) -> None:
+    config = AppConfig(experiment_name="robustness_compact_skip")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    owner = _PerturbationRecordingVisualiser()
+    redundant = _PerturbationRecordingVisualiser()
+    result = _make_robustness_result(
+        tmp_path,
+        visualisers=[
+            ConfiguredRobustnessVisualiser(visualiser=owner),
+            ConfiguredRobustnessVisualiser(visualiser=redundant),
+        ],
+    )
+    outputs = RunOutputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.zeros(1, 2),
+        robustness_results=[result],
+    )
+
+    report = build_report(config, outputs)
+
+    robustness_group = report.sections[0].groups[0]
+    assert len(robustness_group.images) == 1
+    assert owner.calls == [{}]
+    assert redundant.calls == []
+    assert robustness_group.images[0].name.startswith(
+        "robustness_0_fgsm_sample_0__PerturbationRecordingVisualiser_0"
+    )
+
+
+def test_build_report_compact_robustness_propagates_visualiser_errors(
+    tmp_path: Path,
+) -> None:
+    config = AppConfig(experiment_name="robustness_compact_error")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    result = _make_robustness_result(
+        tmp_path,
+        visualisers=[
+            ConfiguredRobustnessVisualiser(visualiser=_ErroringRobustnessVisualiser()),
+        ],
+    )
+    outputs = RunOutputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.zeros(1, 2),
+        robustness_results=[result],
+    )
+
+    with pytest.raises(ValueError, match="builder visualiser failed"):
+        build_report(config, outputs)
+
+
+def test_build_report_compact_robustness_renders_selected_samples_per_assessor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = AppConfig(experiment_name="robustness_compact_samples")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    result = _make_robustness_result(
+        tmp_path,
+        batch_size=20,
+        visualisers=[
+            ConfiguredRobustnessVisualiser(visualiser=ImagePairVisualiser(max_samples=4)),
+            ConfiguredRobustnessVisualiser(visualiser=PerturbationHeatmapVisualiser(max_samples=4)),
+        ],
+    )
+    outputs = RunOutputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.zeros(20, 2),
+        prediction_summaries=(
+            PredictionSummary(
+                sample_index=3,
+                predicted_class=1,
+                confidence=0.9,
+                correct=False,
+            ),
+            PredictionSummary(
+                sample_index=8,
+                predicted_class=0,
+                confidence=0.1,
+                correct=False,
+            ),
+            PredictionSummary(
+                sample_index=19,
+                predicted_class=1,
+                confidence=0.8,
+                correct=True,
+            ),
+        ),
+        robustness_results=[result],
+    )
+    stripped_figures: list[tuple[str, tuple[str, ...]]] = []
+    original_strip = reporting_builder._strip_report_figure_titles
+
+    def _record_stripped_titles(figure: Figure) -> None:
+        original_strip(figure)
+        suptitle_artist = getattr(figure, "_suptitle", None)
+        suptitle = suptitle_artist.get_text() if suptitle_artist is not None else ""
+        stripped_figures.append((suptitle, tuple(ax.get_title() for ax in figure.axes)))
+
+    monkeypatch.setattr(reporting_builder, "_strip_report_figure_titles", _record_stripped_titles)
+
+    report = build_report(config, outputs)
+
+    robustness_group = report.sections[0].groups[0]
+    assert robustness_group.metadata["role"] == "robustness"
+    assert robustness_group.metadata["sample_indices"] == (3, 8, 19)
+    assert len(report.sections[0].groups) == 1
+    assert len(robustness_group.images) == 3
+    image_names = [image.name for image in robustness_group.images]
+    assert all("_sample_" in name for name in image_names)
+    assert [name.split("_sample_", 1)[1].split("_", 1)[0] for name in image_names] == [
+        "3",
+        "8",
+        "19",
+    ]
+    assert all("ImagePairVisualiser_0" in name for name in image_names)
+    assert all("PerturbationHeatmapVisualiser" not in name for name in image_names)
+    assert any("sample_3_ImagePairVisualiser_0" in name for name in image_names)
+    assert any("sample_8_ImagePairVisualiser_0" in name for name in image_names)
+    assert any("sample_19_ImagePairVisualiser_0" in name for name in image_names)
+    assert len(stripped_figures) == 3
+    assert all(suptitle == "" for suptitle, _titles in stripped_figures)
+    assert all(all(title == "" for title in titles) for _suptitle, titles in stripped_figures)
+
+
+def test_build_report_robustness_single_pair_keeps_all_panels(tmp_path: Path) -> None:
+    config = AppConfig(experiment_name="robustness_single_pair")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    result = _make_robustness_result(
+        tmp_path,
+        visualisers=[ConfiguredRobustnessVisualiser(visualiser=ImagePairVisualiser(max_samples=1))],
+    )
+    outputs = RunOutputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.zeros(1, 2),
+        robustness_results=[result],
+    )
+
+    report = build_report(config, outputs)
+
+    assert len(report.sections[0].groups[0].images) == 1
+
+
+def test_build_report_legacy_robustness_reuses_existing_visualisations_without_kwargs(
+    tmp_path: Path,
+) -> None:
+    config = AppConfig(experiment_name="robustness_legacy")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(
+        _target_="PDFReporter",
+        filename="report.pdf",
+        show_redundant_robustness_panels=True,
+    )
+
+    recording = _PerturbationRecordingVisualiser()
+    result = _make_robustness_result(
+        tmp_path,
+        visualisers=[ConfiguredRobustnessVisualiser(visualiser=recording)],
+    )
+    existing_image = _write_test_image(tmp_path / "robustness_existing.png")
+    existing_visualisation = RobustnessVisualisationResult(
+        result=result,
+        figure=plt.figure(),
+        visualiser_name="_RobustnessRecordingVisualiser_0",
+        visualiser_target="test._RobustnessRecordingVisualiser_0",
+        output_path=existing_image,
+    )
+    outputs = RunOutputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.zeros(1, 2),
+        robustness_results=[result],
+        robustness_visualisations=[existing_visualisation],
+    )
+
+    report = build_report(config, outputs)
+
+    assert len(report.sections[0].groups[0].images) == 1
+    assert recording.calls == []
+
+
+def test_build_report_robustness_redundant_single_facet_without_kwarg_support_is_skipped(
+    tmp_path: Path,
+) -> None:
+    config = AppConfig(experiment_name="robustness_redundant_strict_visualiser")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    result = _make_robustness_result(
+        tmp_path,
+        visualisers=[
+            ConfiguredRobustnessVisualiser(visualiser=PerturbationHeatmapVisualiser(max_samples=1)),
+            ConfiguredRobustnessVisualiser(visualiser=_StrictPerturbationVisualiser()),
+        ],
+    )
+    outputs = RunOutputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.zeros(1, 2),
+        robustness_results=[result],
+    )
+
+    report = build_report(config, outputs)
+
+    assert len(report.sections[0].groups[0].images) == 1
+
+
 def test_report_manifest_round_trip_preserves_relative_images(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="demo")
     set_output_root(config, tmp_path)
@@ -580,6 +1627,124 @@ def test_create_report_writes_manifest_next_to_generated_report(
     assert generated.report_path.parent == built.report_dir
     assert generated.manifest_path == generated.report_path.parent / "report_manifest.json"
     assert generated.manifest_path.exists()
+
+
+def test_create_report_writes_html_archive_with_manifest_and_assets(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    config = AppConfig(experiment_name="demo")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="HTMLReporter", filename="report.html")
+    built_report = ReportSection.from_groups(
+        "Metrics",
+        [ReportGroup(heading="Performance Metrics", table_rows=(("accuracy", "0.9"),))],
+    )
+    report = ReportManifest(kind="run", sections=(built_report,), filename="report.html")
+    report_dir = tmp_path / "builder-reports"
+    asset_dir = report_dir / "_assets"
+    asset_dir.mkdir(parents=True)
+    (asset_dir / "example.png").write_bytes(b"png")
+    built = BuiltReport(report_dir=report_dir, sections=(built_report,), manifest=report)
+
+    class _HTMLReporterStub:
+        def __init__(self, _config: Any) -> None:
+            pass
+
+        def generate(self, sections: Any, *, report_dir: Path | None = None) -> Path:
+            del sections
+            assert report_dir is not None
+            output_path = report_dir / "report.html"
+            output_path.write_text("<html></html>", encoding="utf-8")
+            return output_path
+
+    monkeypatch.setattr("raitap.reporting.factory.instantiate", lambda _cfg: _HTMLReporterStub)
+
+    generated = create_report(config, built)
+
+    archive_path = generated.report_path.with_suffix(".zip")
+    assert archive_path.exists()
+    with zipfile.ZipFile(archive_path) as archive:
+        assert archive.namelist() == [
+            "report.html",
+            "report_manifest.json",
+            "_assets/example.png",
+        ]
+
+
+def test_create_report_does_not_archive_pdf_report(tmp_path: Path, monkeypatch: Any) -> None:
+    config = AppConfig(experiment_name="demo")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    built_report = ReportSection.from_groups(
+        "Metrics",
+        [ReportGroup(heading="Performance Metrics", table_rows=(("accuracy", "0.9"),))],
+    )
+    report = ReportManifest(kind="run", sections=(built_report,), filename="report.pdf")
+    built = BuiltReport(
+        report_dir=tmp_path / "builder-reports",
+        sections=(built_report,),
+        manifest=report,
+    )
+
+    class _PDFReporterStub:
+        def __init__(self, _config: Any) -> None:
+            pass
+
+        def generate(self, sections: Any, *, report_dir: Path | None = None) -> Path:
+            del sections
+            assert report_dir is not None
+            output_path = report_dir / "report.pdf"
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_bytes(b"%PDF-1.4\n")
+            return output_path
+
+    monkeypatch.setattr("raitap.reporting.factory.instantiate", lambda _cfg: _PDFReporterStub)
+
+    generated = create_report(config, built)
+
+    assert not generated.report_path.with_suffix(".zip").exists()
+
+
+@pytest.mark.parametrize(
+    ("configured_filename", "expected_html_name", "expected_pdf_name"),
+    [
+        ("custom_report", "custom_report.html", "custom_report.pdf"),
+        ("custom_report.pdf", "custom_report.html", "custom_report.pdf"),
+        ("custom_report.html", "custom_report.html", "custom_report.pdf"),
+    ],
+)
+def test_build_report_manifest_filename_matches_selected_reporter(
+    tmp_path: Path,
+    configured_filename: str,
+    expected_html_name: str,
+    expected_pdf_name: str,
+) -> None:
+    outputs = RunOutputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=torch.empty(0),
+    )
+
+    html_config = AppConfig(experiment_name="demo")
+    set_output_root(html_config, tmp_path / "html")
+    html_config.reporting = ReportingConfig(
+        _target_="raitap.reporting.HTMLReporter",
+        filename=configured_filename,
+    )
+    html_report = build_report(html_config, outputs)
+
+    assert html_report.manifest.filename == expected_html_name
+
+    pdf_config = AppConfig(experiment_name="demo")
+    set_output_root(pdf_config, tmp_path / "pdf")
+    pdf_config.reporting = ReportingConfig(
+        _target_="raitap.reporting.PDFReporter",
+        filename=configured_filename,
+    )
+    pdf_report = build_report(pdf_config, outputs)
+
+    assert pdf_report.manifest.filename == expected_pdf_name
 
 
 def test_reporting_sweep_callback_builds_merged_report_from_child_manifests(
@@ -725,7 +1890,7 @@ def test_build_merged_report_keeps_empty_metrics_groups(tmp_path: Path) -> None:
 
 def test_reporting_configs_compose_multirun_report_controls() -> None:
     cfg = _compose_raitap_config()
-    assert cfg.reporting._target_ == "PDFReporter"
+    assert cfg.reporting._target_ == "HTMLReporter"
     assert cfg.reporting.multirun_report is True
     assert cfg.hydra.callbacks.reporting_sweep._target_.endswith("ReportingSweepCallback")
 
@@ -737,16 +1902,39 @@ def test_reporting_configs_compose_multirun_report_controls() -> None:
     pdf_cfg = _compose_raitap_config(["reporting=pdf"])
     assert pdf_cfg.reporting._target_ == "PDFReporter"
     assert pdf_cfg.reporting.multirun_report is True
+    assert pdf_cfg.reporting.show_original_per_explainer is False
+    assert pdf_cfg.reporting.show_redundant_robustness_panels is False
+    assert pdf_cfg.reporting.call.formatting.figures_max_pages is None
+    assert pdf_cfg.reporting.call.formatting.image_raster_multiplier is None
     assert pdf_cfg.hydra.callbacks.reporting_sweep._target_.endswith("ReportingSweepCallback")
+
+    html_cfg = _compose_raitap_config(["reporting=html"])
+    assert html_cfg.reporting._target_ == "HTMLReporter"
+    assert html_cfg.reporting.multirun_report is True
+    assert "call" not in html_cfg.reporting
 
     opt_out_cfg = _compose_raitap_config(["reporting=pdf", "reporting.multirun_report=false"])
     assert opt_out_cfg.reporting._target_ == "PDFReporter"
     assert opt_out_cfg.reporting.multirun_report is False
 
+    originals_cfg = _compose_raitap_config(
+        ["reporting=pdf", "reporting.show_original_per_explainer=true"]
+    )
+    assert originals_cfg.reporting.show_original_per_explainer is True
+
+    redundant_robustness_cfg = _compose_raitap_config(
+        ["reporting=pdf", "reporting.show_redundant_robustness_panels=true"]
+    )
+    assert redundant_robustness_cfg.reporting.show_redundant_robustness_panels is True
     explicit_cfg = _compose_raitap_config(
         ["reporting=pdf", "reporting.sample_selection=[case_alpha.png,2]"]
     )
     assert list(explicit_cfg.reporting.sample_selection) == ["case_alpha.png", 2]
+
+    pdf_formatting_cfg = _compose_raitap_config(
+        ["reporting=pdf", "reporting.call.formatting.figures_max_pages=12"]
+    )
+    assert pdf_formatting_cfg.reporting.call.formatting.figures_max_pages == 12
 
 
 def test_reporting_sweep_callback_skips_when_multirun_report_disabled(

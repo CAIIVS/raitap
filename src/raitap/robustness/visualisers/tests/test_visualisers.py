@@ -72,15 +72,69 @@ def test_image_pair_visualiser_renders_figure() -> None:
         plt.close(figure)
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "expected_axes", "expected_titles"),
+    [
+        ({}, 3, ["clean", "perturbed", "perturbation"]),
+        ({"include_clean_input": False}, 2, ["perturbed", "perturbation"]),
+        ({"include_perturbation_map": False}, 2, ["clean", "perturbed"]),
+        (
+            {"include_clean_input": False, "include_perturbation_map": False},
+            1,
+            ["perturbed"],
+        ),
+    ],
+)
+def test_image_pair_visualiser_honours_facet_kwargs(
+    kwargs: dict[str, bool],
+    expected_axes: int,
+    expected_titles: list[str],
+) -> None:
+    result = _make_result()
+    visualiser = ImagePairVisualiser(max_samples=1)
+
+    figure = visualiser.visualise(result, context=_empirical_context(), **kwargs)
+
+    try:
+        assert len(figure.axes) == expected_axes
+        for axis, expected in zip(figure.axes, expected_titles, strict=True):
+            assert expected in axis.get_title()
+    finally:
+        plt.close(figure)
+
+
+def test_empirical_visualisers_declare_embedded_facets() -> None:
+    assert ImagePairVisualiser.embeds_clean_input is True
+    assert ImagePairVisualiser.embeds_perturbation_map is True
+    assert PerturbationHeatmapVisualiser.embeds_clean_input is False
+    assert PerturbationHeatmapVisualiser.embeds_perturbation_map is True
+
+
 def test_perturbation_heatmap_visualiser_renders_figure() -> None:
     result = _make_result()
     visualiser = PerturbationHeatmapVisualiser(max_samples=2)
     visualiser.validate_result(result)
-    figure = visualiser.visualise(result, context=_empirical_context())
+    figure = visualiser.visualise(
+        result,
+        context=_empirical_context(),
+        include_clean_input=False,
+    )
     try:
         assert len(figure.axes) == 2
     finally:
         plt.close(figure)
+
+
+def test_perturbation_heatmap_visualiser_rejects_render_without_its_facet() -> None:
+    result = _make_result()
+    visualiser = PerturbationHeatmapVisualiser(max_samples=1)
+
+    with pytest.raises(ValueError, match="requires include_perturbation_map=True"):
+        visualiser.visualise(
+            result,
+            context=_empirical_context(),
+            include_perturbation_map=False,
+        )
 
 
 def test_image_pair_visualiser_rejects_non_image_modality() -> None:

@@ -75,6 +75,36 @@ def _normalise_sample_names(value: Any) -> list[str]:
     return [str(value)]
 
 
+def _slice_sample_tensor(tensor: torch.Tensor, sample_index: int) -> torch.Tensor:
+    return tensor[sample_index : sample_index + 1]
+
+
+def _slice_optional_sample_tensor(
+    tensor: torch.Tensor | None,
+    sample_index: int,
+) -> torch.Tensor | None:
+    if tensor is None:
+        return None
+    return _slice_sample_tensor(tensor, sample_index)
+
+
+def _slice_output_bounds(
+    output_bounds: dict[str, torch.Tensor] | None,
+    *,
+    batch_size: int,
+    sample_index: int,
+) -> dict[str, torch.Tensor] | None:
+    if output_bounds is None:
+        return None
+    sliced: dict[str, torch.Tensor] = {}
+    for key, value in output_bounds.items():
+        if isinstance(value, torch.Tensor) and value.ndim > 0 and value.shape[0] == batch_size:
+            sliced[key] = _slice_sample_tensor(value, sample_index)
+        else:
+            sliced[key] = value
+    return sliced
+
+
 def encode_verdicts(verdicts: list[RobustnessVerdict]) -> torch.Tensor:
     """Encode a per-sample list of verdicts as a long tensor of stable codes."""
     return torch.tensor([VERDICT_CODES[v] for v in verdicts], dtype=torch.long)
@@ -298,6 +328,100 @@ class RobustnessResult(Trackable):
             self._write_metadata()
 
         return results
+
+    def render_visualisation_for_report(
+        self,
+        visualiser_index: int,
+        *,
+        sample_index: int | None = None,
+        **render_kwargs: Any,
+    ) -> RobustnessVisualisationResult | None:
+        """Render one visualiser for report staging without persistence side effects.
+
+        Unlike ``RobustnessResult.visualise``, this hook never writes PNGs,
+        updates ``metadata.json``, mutates ``visualiser_targets``, or touches
+        ``run_dir``. Visualiser errors propagate to the caller; callers are
+        expected to pre-filter redundant visualisers before invoking this method.
+        """
+        batch_size = int(self.clean_inputs.shape[0])
+        if sample_index is not None and not 0 <= sample_index < batch_size:
+            raise IndexError(
+                f"sample_index {sample_index} is out of range for batch size {batch_size}."
+            )
+
+        configured = self.visualisers[visualiser_index]
+        vis = configured.visualiser
+        merged_call = {**configured.call_kwargs, **render_kwargs}
+        show_sample_names = bool(
+            merged_call.pop("show_sample_names", self.kwargs.get("show_sample_names", False))
+        )
+        sample_names_value = merged_call.pop("sample_names", self.kwargs.get("sample_names"))
+        sample_names = _normalise_sample_names(sample_names_value)
+
+        if sample_index is None:
+            result_for_render = self
+            sample_names = sample_names[:batch_size]
+        else:
+            result_for_render = RobustnessResult(
+                clean_inputs=_slice_sample_tensor(self.clean_inputs, sample_index),
+                targets=_slice_sample_tensor(self.targets, sample_index),
+                clean_predictions=_slice_sample_tensor(self.clean_predictions, sample_index),
+                verdicts=_slice_sample_tensor(self.verdicts, sample_index),
+                metrics=self.metrics,
+                run_dir=self.run_dir,
+                experiment_name=self.experiment_name,
+                assessor_target=self.assessor_target,
+                algorithm=self.algorithm,
+                assessor_name=self.assessor_name,
+                kwargs=dict(self.kwargs),
+                call_kwargs=dict(self.call_kwargs),
+                visualiser_targets=list(self.visualiser_targets),
+                visualisers=self.visualisers,
+                perturbed_inputs=_slice_optional_sample_tensor(
+                    self.perturbed_inputs,
+                    sample_index,
+                ),
+                perturbed_predictions=_slice_optional_sample_tensor(
+                    self.perturbed_predictions,
+                    sample_index,
+                ),
+                perturbation_distance=_slice_optional_sample_tensor(
+                    self.perturbation_distance,
+                    sample_index,
+                ),
+                output_bounds=_slice_output_bounds(
+                    self.output_bounds,
+                    batch_size=batch_size,
+                    sample_index=sample_index,
+                ),
+                runtime_per_sample=_slice_optional_sample_tensor(
+                    self.runtime_per_sample,
+                    sample_index,
+                ),
+                semantics=self.semantics,
+            )
+            sample_names = [sample_names[sample_index]] if sample_index < len(sample_names) else []
+
+        context = RobustnessVisualisationContext(
+            algorithm=self.algorithm,
+            method_kind=self.method_kind,
+            sample_names=sample_names,
+            show_sample_names=show_sample_names,
+        )
+
+        vis.validate_result(result_for_render)
+        figure = vis.visualise(result_for_render, context=context, **merged_call)
+
+        cls = type(vis)
+        visualiser_name = f"{cls.__name__}_{visualiser_index}"
+        visualiser_target = f"{cls.__module__}.{visualiser_name}"
+        return RobustnessVisualisationResult(
+            result=result_for_render,
+            figure=figure,
+            visualiser_name=visualiser_name,
+            visualiser_target=visualiser_target,
+            output_path=Path(visualiser_name).with_suffix(".png"),
+        )
 
     def log(
         self,

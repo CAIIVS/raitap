@@ -54,6 +54,17 @@ def _mock_borb() -> SimpleNamespace:
     )
 
 
+def _mock_borb_writing_pdf() -> SimpleNamespace:
+    b = _mock_borb()
+
+    def _write(*, what: object, where_to: Path) -> None:
+        del what
+        where_to.write_bytes(b"%PDF-1.4\n")
+
+    b.PDF.write = _write
+    return b
+
+
 def test_pdf_reporter_generates_file(mock_config: AppConfig, tmp_path: Path) -> None:
     """Test basic PDF generation."""
     reporter = PDFReporter(mock_config)
@@ -65,6 +76,45 @@ def test_pdf_reporter_generates_file(mock_config: AppConfig, tmp_path: Path) -> 
     assert output_path.exists() is False or output_path.parent.exists()
     assert output_path.suffix == ".pdf"
     assert "test.pdf" in str(output_path)
+
+
+@pytest.mark.parametrize(
+    ("configured_filename", "expected_pdf_name"),
+    [
+        ("Assessment_Report", "Assessment_Report.pdf"),
+        ("Assessment_Report.html", "Assessment_Report.pdf"),
+        ("Assessment_Report.pdf", "Assessment_Report.pdf"),
+    ],
+)
+def test_pdf_reporter_uses_configured_basename_with_pdf_suffix(
+    mock_config: AppConfig,
+    tmp_path: Path,
+    configured_filename: str,
+    expected_pdf_name: str,
+) -> None:
+    assert mock_config.reporting is not None
+    mock_config.reporting.filename = configured_filename
+    reporter = PDFReporter(mock_config)
+
+    with patch("raitap.reporting.pdf_reporter._borb_pdf_ns", return_value=_mock_borb_writing_pdf()):
+        output_path = reporter.generate((), report_dir=tmp_path)
+
+    assert output_path == tmp_path / expected_pdf_name
+    assert output_path.read_bytes().startswith(b"%PDF-")
+
+
+def test_pdf_reporter_rejects_path_like_filename(
+    mock_config: AppConfig,
+    tmp_path: Path,
+) -> None:
+    assert mock_config.reporting is not None
+    mock_config.reporting.filename = "nested/report"
+
+    with (
+        patch("raitap.reporting.pdf_reporter._borb_pdf_ns", return_value=_mock_borb()),
+        pytest.raises(ValueError, match="simple filename"),
+    ):
+        PDFReporter(mock_config).generate((), report_dir=tmp_path)
 
 
 def test_pdf_reporter_creates_report_directory(mock_config: AppConfig, tmp_path: Path) -> None:
@@ -141,9 +191,11 @@ def test_prepare_raster_scales_large_png_to_bounds(tmp_path: Path) -> None:
     path = tmp_path / "large.png"
     PILImage.new("RGB", (4000, 3000), color="red").save(path)
     reporting = SimpleNamespace(
-        formatting=SimpleNamespace(
-            image_raster_multiplier=3.0,
-            image_raster_max_edge_px=2400,
+        call=SimpleNamespace(
+            formatting=SimpleNamespace(
+                image_raster_multiplier=3.0,
+                image_raster_max_edge_px=2400,
+            ),
         ),
     )
     pil, (dw, dh) = _prepare_raster_for_pdf(
@@ -160,9 +212,11 @@ def test_prepare_raster_does_not_upscale_small_png(tmp_path: Path) -> None:
     path = tmp_path / "small.png"
     PILImage.new("RGB", (80, 60), color="blue").save(path)
     reporting = SimpleNamespace(
-        formatting=SimpleNamespace(
-            image_raster_multiplier=3.0,
-            image_raster_max_edge_px=2400,
+        call=SimpleNamespace(
+            formatting=SimpleNamespace(
+                image_raster_multiplier=3.0,
+                image_raster_max_edge_px=2400,
+            ),
         ),
     )
     pil, (dw, dh) = _prepare_raster_for_pdf(
@@ -170,3 +224,25 @@ def test_prepare_raster_does_not_upscale_small_png(tmp_path: Path) -> None:
     )
     assert (dw, dh) == (80, 60)
     assert pil.size == (240, 180)
+
+
+def test_prepare_raster_applies_call_formatting_raster_limits(tmp_path: Path) -> None:
+    from PIL import Image as PILImage
+
+    path = tmp_path / "raster-limit.png"
+    PILImage.new("RGB", (400, 200), color="green").save(path)
+    reporting = SimpleNamespace(
+        call=SimpleNamespace(
+            formatting=SimpleNamespace(
+                image_raster_multiplier=4.0,
+                image_raster_max_edge_px=600,
+            ),
+        ),
+    )
+
+    pil, (dw, dh) = _prepare_raster_for_pdf(
+        path, max_width_pt=300, max_height_pt=300, reporting=reporting
+    )
+
+    assert (dw, dh) == (300, 150)
+    assert pil.size == (600, 300)
