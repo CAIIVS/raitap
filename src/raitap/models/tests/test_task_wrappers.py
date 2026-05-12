@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import pytest
 import torch
+from torch import nn
 
-from raitap.models.task_wrappers import DetectionTarget
+from raitap.models.task_wrappers import DetectionTarget, ScalarDetectionWrapper
 
 
 def _sample_detection_output() -> list[dict[str, torch.Tensor]]:
@@ -88,3 +89,45 @@ def test_empty_batch_returns_zero() -> None:
     target = DetectionTarget(box_idx=0, mode="class_score")
     value = target([])
     assert torch.allclose(value, torch.tensor(0.0))
+
+
+class _FakeDetector(nn.Module):
+    def forward(self, images: torch.Tensor) -> list[dict[str, torch.Tensor]]:
+        batch_size = images.shape[0]
+        return [
+            {
+                "boxes": torch.tensor([[0.0, 0.0, 1.0, 1.0]]),
+                "scores": torch.tensor([0.7]),
+                "labels": torch.tensor([5]),
+            }
+            for _ in range(batch_size)
+        ]
+
+
+def test_scalar_detection_wrapper_returns_batched_logit_tensor() -> None:
+    wrapper = ScalarDetectionWrapper(
+        _FakeDetector(), target=DetectionTarget(box_idx=0, mode="class_score")
+    )
+    images = torch.zeros(2, 3, 8, 8)
+    out = wrapper(images)
+    # Shape contract: (batch, 1) so existing classification-shaped explainers
+    # (which call ``output[:, target_class]``) work unchanged.
+    assert out.shape == (2, 1)
+    assert torch.allclose(out, torch.tensor([[0.7], [0.7]]))
+
+
+def test_scalar_detection_wrapper_is_an_nn_module() -> None:
+    wrapper = ScalarDetectionWrapper(
+        _FakeDetector(), target=DetectionTarget(box_idx=0, mode="objectness")
+    )
+    assert isinstance(wrapper, nn.Module)
+
+
+def test_scalar_detection_wrapper_eval_propagates_to_inner_model() -> None:
+    detector = _FakeDetector()
+    detector.train()
+    wrapper = ScalarDetectionWrapper(
+        detector, target=DetectionTarget(box_idx=0, mode="class_score")
+    )
+    wrapper.eval()
+    assert not detector.training

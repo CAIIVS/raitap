@@ -8,8 +8,10 @@ module bridges that gap with two pieces:
 * :class:`DetectionTarget` — reduces a detection model's output to a
   single ``torch.Tensor`` scalar via one of three modes
   (``class_score`` / ``objectness`` / ``bbox_l2``).
-* :class:`ScalarDetectionWrapper` — added in a follow-up task; wraps a
-  detection model so existing scalar-output adapters can consume it.
+* :class:`ScalarDetectionWrapper` — an ``nn.Module`` that wraps a
+  detection model and applies a ``DetectionTarget`` so existing
+  scalar-output adapters (Captum, SHAP, torchattacks, foolbox) can
+  consume detection models unchanged.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from __future__ import annotations
 from typing import Literal
 
 import torch
+from torch import nn
 
 DetectionTargetMode = Literal["class_score", "objectness", "bbox_l2"]
 _VALID_MODES: frozenset[str] = frozenset({"class_score", "objectness", "bbox_l2"})
@@ -83,3 +86,35 @@ class DetectionTarget:
         if boxes is None or boxes.numel() == 0 or boxes.shape[0] <= self.box_idx:
             return torch.tensor(0.0)
         return (boxes[self.box_idx] ** 2).sum()
+
+
+class ScalarDetectionWrapper(nn.Module):
+    """Make a detection model look like a scalar-output classification model.
+
+    Existing explainers (Captum / SHAP / Grad-CAM) and gradient-based attacks
+    (torchattacks / foolbox) call ``model(x)[:, target_class]`` and
+    differentiate the result. This wrapper takes any module whose forward
+    returns ``list[dict[str, Tensor]]`` and reduces each sample's prediction
+    to a single scalar via :class:`DetectionTarget`, returning a tensor of
+    shape ``(batch, 1)``.
+    """
+
+    def __init__(self, model: nn.Module, *, target: DetectionTarget) -> None:
+        super().__init__()
+        self.model = model
+        self.target = target
+
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        outputs = self.model(inputs)
+        if not isinstance(outputs, list):
+            raise TypeError(
+                "ScalarDetectionWrapper expected list[dict] from the wrapped "
+                f"detection model; got {type(outputs).__name__}."
+            )
+        per_sample: list[torch.Tensor] = []
+        for sample in outputs:
+            scalar = self.target([sample])
+            per_sample.append(scalar.reshape(()))
+        if not per_sample:
+            return torch.zeros((0, 1), device=inputs.device)
+        return torch.stack(per_sample).reshape(-1, 1)
