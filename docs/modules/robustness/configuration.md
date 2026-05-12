@@ -86,7 +86,11 @@
 :default: null
 :description: Input modality + layout hints. Used by image visualisers to
   refuse non-image results and by the budget norm to size per-sample distance.
-  Auto-inferred from `data.source` for the default loaders.
+  Auto-inferred from `data.source` for the default loaders. When provided,
+  `shape` (the non-batch per-sample layout) is also consumed by the model
+  backend to reshape inputs to the model's declared layout before the
+  forward pass — see {doc}`../data/configuration` for the full reshape
+  semantics and the `ModelInputShapeError` cases.
 
 :option: visualisers
 :allowed: list[dict]

@@ -9,8 +9,14 @@ import torch
 import torch.nn as nn
 
 from raitap.models import Model, runtime
-from raitap.models.backend import OnnxBackend, TorchBackend
+from raitap.models.backend import (
+    OnnxBackend,
+    TorchBackend,
+    _adapt_input_shape,
+    _resolve_onnx_expected_shape,
+)
 from raitap.models.runtime import resolve_onnx_providers, resolve_torch_device
+from raitap.utils.errors import ModelInputShapeError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -33,9 +39,15 @@ class _FakeXpuModule:
 
 
 class _FakeOnnxValueInfo:
-    def __init__(self, name: str, type_name: str = "tensor(float)") -> None:
+    def __init__(
+        self,
+        name: str,
+        type_name: str = "tensor(float)",
+        shape: list[int | str | None] | None = None,
+    ) -> None:
         self.name = name
         self.type = type_name
+        self.shape = shape if shape is not None else ["batch", 4]
 
 
 class _FakeOnnxSession:
@@ -574,3 +586,164 @@ class TestModelLog:
 
         logged_model = tracker.log_model.call_args[0][0]
         assert logged_model is model.backend
+
+
+@pytest.fixture
+def saved_onnx_tabular(tmp_path: Path) -> Path:
+    """Tiny ONNX model declaring input shape [1, 5] (2D tabular)."""
+    onnx = pytest.importorskip("onnx")
+    pytest.importorskip("onnxruntime")
+    from onnx import TensorProto, helper, numpy_helper
+
+    path = tmp_path / "tabular.onnx"
+    weight = torch.full((5, 2), 0.1, dtype=torch.float32).numpy()
+    bias = torch.tensor([0.0, 0.0], dtype=torch.float32).numpy()
+
+    graph = helper.make_graph(
+        [helper.make_node("Gemm", ["input", "weight", "bias"], ["output"])],
+        "tabular_graph",
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 5])],
+        [helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 2])],
+        [
+            numpy_helper.from_array(weight, name="weight"),
+            numpy_helper.from_array(bias, name="bias"),
+        ],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    onnx.checker.check_model(model)
+    onnx.save(model, path)
+    return path
+
+
+class TestModelInputShapeAdapter:
+    def test_adapt_input_shape_passthrough_when_expected_is_none(self) -> None:
+        t = torch.randn(3, 4)
+        result = _adapt_input_shape(t, None)
+        assert result is t
+
+    def test_adapt_input_shape_passthrough_when_already_matches(self) -> None:
+        t = torch.randn(3, 4)
+        result = _adapt_input_shape(t, (None, 4))
+        assert result is t
+        assert result.shape == (3, 4)
+
+    def test_adapt_input_shape_reshapes_when_numel_matches_torch(self) -> None:
+        t = torch.randn(7, 5)
+        result = _adapt_input_shape(t, (None, 1, 1, 5))
+        assert isinstance(result, torch.Tensor)
+        assert result.shape == (7, 1, 1, 5)
+        # Values preserved (same underlying storage via reshape).
+        torch.testing.assert_close(result.reshape(7, 5), t)
+
+    def test_adapt_input_shape_reshapes_when_numel_matches_numpy(self) -> None:
+        arr = np.random.randn(7, 5).astype(np.float32)
+        result = _adapt_input_shape(arr, (None, 1, 1, 5))
+        assert isinstance(result, np.ndarray)
+        assert result.shape == (7, 1, 1, 5)
+        np.testing.assert_array_equal(result.reshape(7, 5), arr)
+
+    def test_adapt_input_shape_raises_on_numel_mismatch(self) -> None:
+        t = torch.randn(3, 6)
+        with pytest.raises(ModelInputShapeError) as exc_info:
+            _adapt_input_shape(t, (None, 1, 1, 5))
+        msg = str(exc_info.value)
+        assert "(3, 6)" in msg
+        # Expected shape rendered with 'N' for the batch dim.
+        assert "1, 1, 5" in msg
+        assert "data.input_metadata.shape" in msg
+        # Carries structured fields.
+        assert exc_info.value.input_shape == (3, 6)
+        assert exc_info.value.expected_shape == (None, 1, 1, 5)
+
+    def test_resolve_onnx_expected_shape_force_batch_dynamic(self) -> None:
+        assert _resolve_onnx_expected_shape([1, 1, 1, 5]) == (None, 1, 1, 5)
+        assert _resolve_onnx_expected_shape([1, 3, 224, 224]) == (None, 3, 224, 224)
+
+    def test_resolve_onnx_expected_shape_force_batch_dynamic_when_symbolic(self) -> None:
+        # "batch" first dim with all other dims concrete -> ok.
+        assert _resolve_onnx_expected_shape(["batch", 3, 224, 224]) == (None, 3, 224, 224)
+
+    def test_resolve_onnx_expected_shape_raises_on_ambiguous(self) -> None:
+        with pytest.raises(ModelInputShapeError) as exc_info:
+            _resolve_onnx_expected_shape(["batch", "c", "h", "w"])
+        # Ambiguous variant: input_shape is None.
+        assert exc_info.value.input_shape is None
+        assert "ambiguous" in str(exc_info.value).lower()
+        assert "data.input_metadata.shape" in str(exc_info.value)
+
+    def test_resolve_onnx_expected_shape_empty_returns_none(self) -> None:
+        assert _resolve_onnx_expected_shape([]) is None
+
+    def test_onnx_backend_auto_reshapes_tabular_input(self, saved_onnx_tabular: Path) -> None:
+        pytest.importorskip("onnx")
+        pytest.importorskip("onnxruntime")
+        backend = OnnxBackend.from_path(saved_onnx_tabular, hardware="cpu")
+        # Backend declared [1, 5] -> resolved to (None, 5).
+        assert backend.expected_input_shape == (None, 5)
+        # Feed batch (N, 5) directly -- already matches.
+        x = torch.randn(4, 5)
+        tensor_out = backend(x)
+        assert isinstance(tensor_out, torch.Tensor)
+        assert tensor_out.shape == (4, 2)
+        # forward_numpy path too.
+        numpy_out = backend.forward_numpy(x.numpy())
+        assert numpy_out.shape == (4, 2)
+        np.testing.assert_allclose(
+            tensor_out.detach().cpu().numpy(), numpy_out, rtol=1e-5, atol=1e-6
+        )
+
+    def test_onnx_backend_reshapes_when_caller_supplies_flat_batch(self, tmp_path: Path) -> None:
+        """ONNX with [1,1,1,5] should accept (N,5) inputs via auto-reshape."""
+        onnx = pytest.importorskip("onnx")
+        pytest.importorskip("onnxruntime")
+        from onnx import TensorProto, helper, numpy_helper
+
+        path = tmp_path / "acasxu_like.onnx"
+        # Flatten -> Gemm to make a [1,1,1,5] input model.
+        weight = torch.full((5, 2), 0.1, dtype=torch.float32).numpy()
+        bias = torch.tensor([0.0, 0.0], dtype=torch.float32).numpy()
+        shape_init = np.array([-1, 5], dtype=np.int64)
+        graph = helper.make_graph(
+            [
+                helper.make_node("Reshape", ["input", "new_shape"], ["flat"]),
+                helper.make_node("Gemm", ["flat", "weight", "bias"], ["output"]),
+            ],
+            "acasxu_like",
+            [helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 1, 1, 5])],
+            [helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 2])],
+            [
+                numpy_helper.from_array(weight, name="weight"),
+                numpy_helper.from_array(bias, name="bias"),
+                numpy_helper.from_array(shape_init, name="new_shape"),
+            ],
+        )
+        model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+        onnx.checker.check_model(model)
+        onnx.save(model, path)
+
+        backend = OnnxBackend.from_path(path, hardware="cpu")
+        assert backend.expected_input_shape == (None, 1, 1, 5)
+        # Feed (N, 5) -- should be auto-reshaped to (N, 1, 1, 5).
+        tensor_out = backend(torch.randn(3, 5))
+        assert tensor_out.shape == (3, 2)
+        numpy_out = backend.forward_numpy(np.random.randn(3, 5).astype(np.float32))
+        assert numpy_out.shape == (3, 2)
+
+    def test_torch_backend_honours_explicit_expected_input_shape(self) -> None:
+        model = nn.Linear(5, 2).eval()
+        backend = TorchBackend(model, device=torch.device("cpu"))
+        backend.expected_input_shape = (None, 5)
+
+        out = backend(backend._prepare_inputs(torch.randn(4, 5)))
+        assert out.shape == (4, 2)
+
+        with pytest.raises(ModelInputShapeError):
+            backend._prepare_inputs(torch.randn(4, 4))
+
+    def test_torch_backend_reshapes_via_prepare_inputs(self) -> None:
+        model = nn.Linear(5, 2).eval()
+        backend = TorchBackend(model, device=torch.device("cpu"))
+        backend.expected_input_shape = (None, 1, 1, 5)
+
+        prepared = backend._prepare_inputs(torch.randn(3, 5))
+        assert prepared.shape == (3, 1, 1, 5)

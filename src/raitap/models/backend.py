@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, overload
 
 import numpy as np
 import torch
 from torch import nn
+
+from raitap.utils.errors import ModelInputShapeError
 
 from .runtime import _ONNX_RUNTIME_INSTALL_HINT, resolve_onnx_providers
 
@@ -17,6 +19,85 @@ if TYPE_CHECKING:
     import onnxruntime as ort
 
 logger = logging.getLogger(__name__)
+
+
+@overload
+def _adapt_input_shape(
+    inputs: torch.Tensor,
+    expected: tuple[int | None, ...] | None,
+) -> torch.Tensor: ...
+
+
+@overload
+def _adapt_input_shape(
+    inputs: np.ndarray[Any, Any],
+    expected: tuple[int | None, ...] | None,
+) -> np.ndarray[Any, Any]: ...
+
+
+def _adapt_input_shape(
+    inputs: torch.Tensor | np.ndarray[Any, Any],
+    expected: tuple[int | None, ...] | None,
+) -> torch.Tensor | np.ndarray[Any, Any]:
+    """Reshape ``inputs`` to match ``expected`` (with ``None`` = batch dim).
+
+    Returns inputs unchanged when ``expected`` is ``None`` or already matches.
+    Raises :class:`ModelInputShapeError` when per-sample numel mismatches.
+    """
+    if expected is None:
+        return inputs
+
+    input_shape = tuple(int(dim) for dim in inputs.shape)
+    batch = input_shape[0] if input_shape else 1
+    target = tuple(batch if dim is None else int(dim) for dim in expected)
+
+    if input_shape == target:
+        return inputs
+
+    input_numel = 1
+    for dim in input_shape:
+        input_numel *= dim
+    target_numel = 1
+    for dim in target:
+        target_numel *= dim
+
+    if input_numel != target_numel:
+        raise ModelInputShapeError(expected_shape=expected, input_shape=input_shape)
+
+    return inputs.reshape(target)
+
+
+def _resolve_onnx_expected_shape(
+    raw_shape: Sequence[Any],
+) -> tuple[int | None, ...] | None:
+    """Translate an ONNX input shape spec into a ``(int | None, ...)`` tuple
+    suitable for :func:`_adapt_input_shape`.
+
+    ONNX dims can be ints, ``None``, or strings (symbolic names like
+    ``"batch"``). The first dim is always treated as dynamic regardless of
+    declaration: ONNX models commonly fix the batch dim to ``1`` even though
+    they accept any batch size at runtime. Other dims become ``None`` only
+    when symbolic / unknown.
+
+    Returns ``None`` when the shape is empty (scalar input — no adaptation
+    possible). Raises :class:`ModelInputShapeError` when two or more
+    non-batch dims are dynamic, since reshape targets become ambiguous.
+    """
+    if not raw_shape:
+        return None
+    parsed: list[int | None] = []
+    for index, dim in enumerate(raw_shape):
+        if index == 0:
+            parsed.append(None)
+            continue
+        if isinstance(dim, int) and dim > 0:
+            parsed.append(int(dim))
+        else:
+            parsed.append(None)
+    dynamic_non_batch = sum(1 for dim in parsed[1:] if dim is None)
+    if dynamic_non_batch >= 1:
+        raise ModelInputShapeError(expected_shape=tuple(parsed))
+    return tuple(parsed)
 
 
 _NUMPY_DTYPES_BY_ONNX_TYPE: dict[str, np.dtype[Any]] = {
@@ -36,6 +117,9 @@ class ModelBackend(ABC):
     """Backend-agnostic model runtime interface."""
 
     supports_torch_autograd: bool
+    # Declared per-sample input shape with ``None`` marking dynamic dims
+    # (typically the batch dim). ``None`` overall = no rank adaptation.
+    expected_input_shape: tuple[int | None, ...] | None = None
 
     @property
     @abstractmethod
@@ -44,7 +128,7 @@ class ModelBackend(ABC):
 
     def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
         """Adapt runtime inputs to this backend's preferred device/layout."""
-        return inputs
+        return _adapt_input_shape(inputs, self.expected_input_shape)
 
     def _prepare_kwargs(self, kwargs: dict[str, Any]) -> dict[str, Any]:
         """Adapt explainer/runtime kwargs for this backend."""
@@ -73,7 +157,8 @@ class TorchBackend(ModelBackend):
         return _torch_hardware_label(self.device)
 
     def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
-        return inputs.to(self.device)
+        reshaped = _adapt_input_shape(inputs, self.expected_input_shape)
+        return reshaped.to(self.device)
 
     def _prepare_kwargs(self, kwargs: dict[str, Any]) -> dict[str, Any]:
         return _move_tensors_to_device(kwargs, self.device)
@@ -124,6 +209,7 @@ class OnnxBackend(ModelBackend):
         self.input_name = inputs[0].name
         self.input_type = inputs[0].type
         self.output_names = [output.name for output in session.get_outputs()]
+        self.expected_input_shape = _resolve_onnx_expected_shape(inputs[0].shape)
         self._explanation_module = _OnnxExplanationModule(self)
 
     @property
@@ -148,7 +234,7 @@ class OnnxBackend(ModelBackend):
     def forward_numpy(self, batch: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Run inference on a NumPy batch (no Torch required on the hot path)."""
         expected_dtype = _NUMPY_DTYPES_BY_ONNX_TYPE.get(self.input_type)
-        input_array = batch
+        input_array = _adapt_input_shape(batch, self.expected_input_shape)
         if expected_dtype is not None and input_array.dtype != expected_dtype:
             input_array = input_array.astype(expected_dtype, copy=False)
         output_names: list[str] | None = self.output_names or None

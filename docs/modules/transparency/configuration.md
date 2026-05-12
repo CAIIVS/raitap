@@ -88,11 +88,15 @@
 :description: Input modality + layout hints used by output-space inference
   and visualiser selection. Keys: `kind` (one of `image`, `tabular`, `text`,
   `time_series`), `layout` (`NCHW`, `(B,F)`, `(B,T,C)`, `TOKENS`),
-  `feature_names`. Either `kind` or `layout` alone is enough to disambiguate
-  the output space. The full run pipeline auto-infers `input_metadata` from
-  `data.source` for image and tabular layouts, so most users won't need to
-  set this. Direct callers of `infer_output_space` must pass it explicitly —
-  otherwise the helper raises `ValueError`.
+  `feature_names`, and `shape`. Either `kind` or `layout` alone is enough to
+  disambiguate the output space. When provided, `shape` (the non-batch
+  per-sample layout) is also consumed by the model backend to reshape
+  inputs to the model's declared layout before the forward pass — see
+  {doc}`../data/configuration` for the full reshape semantics and the
+  `ModelInputShapeError` cases. The full run pipeline auto-infers
+  `input_metadata` from `data.source` for image and tabular layouts, so most
+  users won't need to set this. Direct callers of `infer_output_space` must
+  pass it explicitly — otherwise the helper raises `ValueError`.
 
 :option: visualisers
 :allowed: list[dict]

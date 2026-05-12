@@ -8,6 +8,7 @@ from torch import nn
 from torchvision import models
 
 from raitap import raitap_log
+from raitap.configs import cfg_to_dict
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 
 from .backend import ModelBackend, OnnxBackend, TorchBackend
@@ -20,6 +21,9 @@ if TYPE_CHECKING:
 class Model(Trackable):
     def __init__(self, config: AppConfig) -> None:
         self.backend = self._load_model(config)
+        shape_override = _resolve_shape_override(config)
+        if shape_override is not None:
+            self.backend.expected_input_shape = shape_override
 
     def _load_model(self, config: AppConfig) -> ModelBackend:
         source = config.model.source
@@ -50,6 +54,39 @@ class Model(Trackable):
 
     def log(self, tracker: BaseTracker, **kwargs: Any) -> None:
         tracker.log_model(self.backend)
+
+
+def _resolve_shape_override(config: Any) -> tuple[int | None, ...] | None:
+    """
+    Extract a user-specified non-batch input shape from
+    ``config.data.input_metadata.shape`` and convert it into an
+    ``expected_input_shape`` tuple with a dynamic batch dimension prepended.
+
+    Returns ``None`` if the config does not specify a shape, allowing callers
+    to keep whatever the backend resolved on its own.
+    """
+    data_cfg = getattr(config, "data", None)
+    if data_cfg is None:
+        return None
+    input_metadata = getattr(data_cfg, "input_metadata", None)
+    if input_metadata is None:
+        return None
+    try:
+        metadata = cfg_to_dict(input_metadata)
+    except Exception:
+        return None
+    if not isinstance(metadata, dict):
+        return None
+    raw_shape = metadata.get("shape")
+    if raw_shape is None:
+        return None
+    try:
+        non_batch = tuple(int(item) for item in raw_shape)
+    except (TypeError, ValueError):
+        return None
+    if not non_batch:
+        return None
+    return (None, *non_batch)
 
 
 def _load_from_path(path: Path, *, model_cfg: Any, hardware: str) -> ModelBackend:
