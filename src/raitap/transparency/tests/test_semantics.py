@@ -7,6 +7,7 @@ from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
+import torch
 
 
 def _load_contracts_and_semantics() -> tuple[Any, Any]:
@@ -47,6 +48,7 @@ InputSpec = contracts.InputSpec
 MethodFamily = contracts.MethodFamily
 ScopeDefinitionStep = contracts.ScopeDefinitionStep
 TensorLayout = contracts.TensorLayout
+from raitap.semantics_base import TaskKind  # noqa: E402
 from raitap.transparency.explainers.captum_explainer import CaptumExplainer  # noqa: E402
 from raitap.transparency.explainers.shap_explainer import ShapExplainer  # noqa: E402
 
@@ -316,3 +318,31 @@ def test_infer_output_space_rejects_ambiguous_algorithm_only_signal(
             input_spec=InputSpec(kind="image", shape=(2, 3, 8, 8), layout="NCHW"),
             algorithm="SharedAlgorithm",
         )
+
+
+def test_infer_output_space_returns_detection_boxes_for_detection_task() -> None:
+    input_spec = InputSpec(
+        kind=InputKind.IMAGE,
+        shape=(1, 3, 224, 224),
+        layout=TensorLayout.BATCH_CHANNEL_HEIGHT_WIDTH,
+    )
+    attrs = torch.zeros(1, 3, 224, 224)
+    result = infer_output_space(
+        input_spec=input_spec,
+        attributions=attrs,
+        task_kind=TaskKind.DETECTION,
+    )
+    assert result.space is ExplanationOutputSpace.DETECTION_BOXES
+
+
+def test_infer_output_space_classification_unchanged_when_task_kind_omitted() -> None:
+    input_spec = InputSpec(
+        kind=InputKind.IMAGE,
+        shape=(1, 3, 224, 224),
+        layout=TensorLayout.BATCH_CHANNEL_HEIGHT_WIDTH,
+    )
+    attrs = torch.zeros(1, 3, 224, 224)
+    # No task_kind → default classification path → INPUT_FEATURES (existing
+    # behaviour, must not regress).
+    result = infer_output_space(input_spec=input_spec, attributions=attrs)
+    assert result.space is ExplanationOutputSpace.INPUT_FEATURES

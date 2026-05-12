@@ -17,6 +17,7 @@ from .contracts import (
     explainer_output_kind,
     explainer_output_scope,
 )
+from raitap.semantics_base import TaskKind
 
 
 def method_families_for_explainer(explainer: object) -> frozenset[MethodFamily]:
@@ -153,8 +154,20 @@ def infer_output_space(
     method_families: frozenset[MethodFamily] | None = None,
     layer_path: str | None = None,
     feature_names: Sequence[str] | None = None,
+    task_kind: TaskKind | None = None,
 ) -> OutputSpaceSpec:
     """Infer deterministic output-space metadata from input and method semantics."""
+
+    if task_kind is TaskKind.DETECTION:
+        shape = _shape_tuple(getattr(attributions, "shape", None))
+        features = list(feature_names) if feature_names is not None else input_spec.feature_names
+        return OutputSpaceSpec(
+            space=ExplanationOutputSpace.DETECTION_BOXES,
+            shape=shape,
+            layout=input_spec.layout,
+            layer_path=layer_path,
+            feature_names=features,
+        )
 
     resolved_method_families = _resolve_method_families(
         method_families=method_families,
