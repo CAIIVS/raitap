@@ -35,6 +35,7 @@ from ..contracts import (
     ThreatModel,
     VerificationOutcome,
 )
+from ..exceptions import AssessorBackendIncompatibilityError
 from ..results import (
     ConfiguredRobustnessVisualiser,
     RobustnessMetrics,
@@ -374,6 +375,12 @@ class FormalVerificationAssessor(BaseAssessor, ABC, register=False):
                     backend=backend,
                     **verify_kwargs,
                 )
+            except AssessorBackendIncompatibilityError:
+                # Structural incompatibility (e.g. unsupported ONNX op) is
+                # identical for every sample in the batch — propagate so the
+                # user sees one clear panel instead of N repeats of the
+                # generic "verify_sample crashed" log.
+                raise
             except Exception:  # pragma: no cover — per-sample isolation
                 raitap_log.exception("verify_sample crashed for index %d", index)
                 outcome = VerificationOutcome(

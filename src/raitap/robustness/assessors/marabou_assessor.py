@@ -210,7 +210,29 @@ class MarabouAssessor(FormalVerificationAssessor):
                 "(Linux/macOS x86-64, Python 3.11 only — maraboupy 2.0 ships cp311 wheels only)."
             ) from error
 
-        network = Marabou.read_onnx(str(onnx_path))
+        try:
+            network = Marabou.read_onnx(str(onnx_path))
+        except NotImplementedError as error:
+            # maraboupy's ONNX parser only implements a small op subset
+            # (Gemm/MatMul/Add/Relu/Conv/MaxPool/Sub/...). Anything else —
+            # commonly ``Shape``, ``Reshape``, ``Gather``, ``Concat``,
+            # ``Squeeze`` introduced by ``nn.Flatten`` or dynamic-axis
+            # reshapes — raises ``NotImplementedError: Operation X not
+            # implemented``. Re-raise as the user-actionable variant so the
+            # rich handler renders a panel instead of dumping a parser
+            # traceback.
+            raise AssessorBackendIncompatibilityError(
+                assessor=type(self).__name__,
+                backend=type(backend).__name__ if backend is not None else "?",
+                algorithm=self.algorithm,
+                reason=(
+                    f"Marabou's ONNX parser does not implement an op used by "
+                    f"the model ({error}). Re-export the network using only "
+                    "Marabou-supported ops — typically: avoid `nn.Flatten` "
+                    "and reshape steps, expose a pre-flattened input, and "
+                    "drop unsupported activations / normalisation layers."
+                ),
+            ) from error
         input_vars = np.asarray(network.inputVars[0]).reshape(-1)
         output_vars = np.asarray(network.outputVars[0]).reshape(-1)
 
