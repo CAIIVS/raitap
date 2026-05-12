@@ -381,8 +381,13 @@ class FormalVerificationAssessor(BaseAssessor, ABC, register=False):
                 # user sees one clear panel instead of N repeats of the
                 # generic "verify_sample crashed" log.
                 raise
-            except Exception:  # pragma: no cover — per-sample isolation
-                raitap_log.exception("verify_sample crashed for index %d", index)
+            except Exception as crash:  # pragma: no cover — per-sample isolation
+                raitap_log.exception(
+                    "verify_sample crashed for index %d: %s: %s",
+                    index,
+                    type(crash).__name__,
+                    crash,
+                )
                 outcome = VerificationOutcome(
                     verdict=RobustnessVerdict.ERROR,
                     runtime_seconds=time.perf_counter() - started,
