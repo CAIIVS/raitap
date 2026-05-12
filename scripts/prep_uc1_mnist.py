@@ -110,6 +110,11 @@ def _train(device: torch.device) -> MnistMLP:
 def _export_onnx(model: MnistMLP, device: torch.device) -> None:
     _MODEL_DIR.mkdir(parents=True, exist_ok=True)
     dummy = torch.zeros(1, _INPUT_CHANNELS, _INPUT_SIZE, _INPUT_SIZE, device=device)
+    # Keep batch dim dynamic so the raitap forward pass can run on the
+    # full sample batch in one call (Marabou is invoked per-sample anyway
+    # and tolerates the dynamic axis). Opset 13 lands inside the
+    # maraboupy 2.0 tested range — newer opsets occasionally trip the
+    # parser.
     torch.onnx.export(
         model,
         dummy,
@@ -117,7 +122,7 @@ def _export_onnx(model: MnistMLP, device: torch.device) -> None:
         input_names=["input"],
         output_names=["logits"],
         dynamic_axes={"input": {0: "batch"}, "logits": {0: "batch"}},
-        opset_version=17,
+        opset_version=13,
     )
     print(f"wrote {_ONNX_PATH} ({_ONNX_PATH.stat().st_size // 1024} KB)")
 
