@@ -22,4 +22,9 @@ uv run -p 3.11 \
   --extra onnx-cpu \
   --extra metrics \
   --extra reporting \
-  raitap data=mnist_samples model=mlp_mnist robustness=marabou_linf "$@"
+  raitap \
+    data=mnist_samples \
+    model=mlp_mnist \
+    robustness=marabou_linf \
+    '~transparency' \
+    "$@"
