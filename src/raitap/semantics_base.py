@@ -9,6 +9,11 @@ the single shared contract:
   ``algorithm_registry: ClassVar[Mapping[str, T]]`` as a non-empty mapping.
 * ``__init_subclass__`` enforces the registry at class-definition time so
   configuration mistakes fail at import, not at runtime mid-pipeline.
+* ``TaskKind`` — task-family taxonomy (classification / detection / segmentation
+  / seq2seq / regression) shared across the transparency and robustness modules.
+* ``supported_tasks`` ClassVar on every adapter, defaulting to
+  ``{TaskKind.CLASSIFICATION}`` so legacy adapters keep current behaviour
+  without edits.
 
 Intermediate abstract base classes (e.g. ``BaseAssessor``,
 ``EmpiricalAttackAssessor``, ``AbstractExplainer``) opt out of validation by
@@ -20,9 +25,26 @@ from __future__ import annotations
 
 from abc import ABC
 from collections.abc import Mapping
+from enum import StrEnum
 from typing import Any, ClassVar, Generic, TypeVar
 
 T = TypeVar("T")
+
+
+class TaskKind(StrEnum):
+    """Model task family.
+
+    Adapters declare which task families they support via
+    ``supported_tasks: ClassVar[frozenset[TaskKind]]``. The default is
+    ``{CLASSIFICATION}`` so existing adapters stay correct without explicit
+    declaration.
+    """
+
+    CLASSIFICATION = "classification"
+    DETECTION = "detection"
+    SEGMENTATION = "segmentation"
+    SEQ2SEQ = "seq2seq"
+    REGRESSION = "regression"
 
 
 class SemanticallyDescribable(ABC, Generic[T]):
@@ -42,8 +64,25 @@ class SemanticallyDescribable(ABC, Generic[T]):
     algorithm_registry: ClassVar[Mapping[str, Any]]  # type: ignore[misc]
     """Concrete subclasses narrow the value type to ``Mapping[str, T]``."""
 
+    supported_tasks: ClassVar[frozenset[TaskKind]] = frozenset({TaskKind.CLASSIFICATION})
+    """Task families this adapter supports. Defaults to ``{CLASSIFICATION}``."""
+
     def __init_subclass__(cls, *, register: bool = True, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
+        raw_tasks = cls.__dict__.get("supported_tasks")
+        if raw_tasks is not None:
+            if not isinstance(raw_tasks, frozenset) or not all(
+                isinstance(item, TaskKind) for item in raw_tasks
+            ):
+                raise TypeError(
+                    f"{cls.__name__}.supported_tasks must be a "
+                    "frozenset[TaskKind]."
+                )
+            if not raw_tasks:
+                raise TypeError(
+                    f"{cls.__name__}.supported_tasks must contain at least "
+                    "one TaskKind member."
+                )
         if not register:
             return
         registry = cls.__dict__.get("algorithm_registry")
