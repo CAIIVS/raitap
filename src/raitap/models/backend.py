@@ -8,6 +8,8 @@ import numpy as np
 import torch
 from torch import nn
 
+from raitap.semantics_base import TaskKind
+
 from .runtime import _ONNX_RUNTIME_INSTALL_HINT, resolve_onnx_providers
 
 if TYPE_CHECKING:
@@ -32,6 +34,17 @@ _NUMPY_DTYPES_BY_ONNX_TYPE: dict[str, np.dtype[Any]] = {
 }
 
 
+def _is_torchvision_detection_model(model: nn.Module) -> bool:
+    """Return True for torchvision detection models (Faster R-CNN, RetinaNet, SSD)."""
+    try:
+        from torchvision.models.detection.generalized_rcnn import GeneralizedRCNN
+        from torchvision.models.detection.retinanet import RetinaNet
+        from torchvision.models.detection.ssd import SSD
+    except ImportError:
+        return False
+    return isinstance(model, GeneralizedRCNN | RetinaNet | SSD)
+
+
 class ModelBackend(ABC):
     """Backend-agnostic model runtime interface."""
 
@@ -41,6 +54,11 @@ class ModelBackend(ABC):
     @abstractmethod
     def hardware_label(self) -> str:
         """Human-readable label for the resolved runtime backend."""
+
+    @property
+    def task_kind(self) -> TaskKind:
+        """Task family this backend serves. Defaults to ``CLASSIFICATION``."""
+        return TaskKind.CLASSIFICATION
 
     def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
         """Adapt runtime inputs to this backend's preferred device/layout."""
@@ -64,9 +82,26 @@ class TorchBackend(ModelBackend):
 
     supports_torch_autograd = True
 
-    def __init__(self, model: nn.Module, *, device: torch.device | None = None) -> None:
+    def __init__(
+        self,
+        model: nn.Module,
+        *,
+        device: torch.device | None = None,
+        task_kind: TaskKind | None = None,
+    ) -> None:
         self.model = model
         self.device = torch.device("cpu") if device is None else device
+        self._task_kind = task_kind if task_kind is not None else self._infer_task_kind(model)
+
+    @staticmethod
+    def _infer_task_kind(model: nn.Module) -> TaskKind:
+        if _is_torchvision_detection_model(model):
+            return TaskKind.DETECTION
+        return TaskKind.CLASSIFICATION
+
+    @property
+    def task_kind(self) -> TaskKind:
+        return self._task_kind
 
     @property
     def hardware_label(self) -> str:
