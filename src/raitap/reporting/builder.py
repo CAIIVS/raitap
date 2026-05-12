@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from enum import Enum, StrEnum
@@ -83,11 +84,12 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
         sample_ids=outputs.sample_ids,
         batch_size=_batch_size(outputs),
     )
-    selected_samples = (
-        _explicit_selected_samples(explicit_samples, outputs=outputs)
+    sample_strategy: SampleSelectionStrategy = (
+        UserSelectorStrategy(explicit_samples)
         if explicit_samples is not None
-        else _select_samples(outputs)
+        else EdgecaseSelectorStrategy()
     )
+    selected_samples = sample_strategy.select(outputs)
     sections: list[ReportSection] = []
 
     metrics_section = _build_metrics_section(outputs, assets_dir=assets_dir)
@@ -1168,17 +1170,54 @@ def _render_kwargs_for_visualiser(
     return {"include_original_input": False}
 
 
-def _select_samples(outputs: RunOutputs) -> list[SelectedSample]:
-    summaries = list(outputs.prediction_summaries)
-    if summaries:
+class SampleSelectionStrategy(ABC):
+    @abstractmethod
+    def select(self, outputs: RunOutputs) -> list[SelectedSample]: ...
+
+
+class UserSelectorStrategy(SampleSelectionStrategy):
+    def __init__(self, resolved_samples: list[ResolvedReportSample]) -> None:
+        self._resolved_samples = resolved_samples
+
+    def select(self, outputs: RunOutputs) -> list[SelectedSample]:
+        summaries = {summary.sample_index: summary for summary in outputs.prediction_summaries}
+        return [
+            SelectedSample(
+                label="user_selected",
+                summary=summaries.get(
+                    resolved.sample_index,
+                    PredictionSummary(
+                        sample_index=resolved.sample_index,
+                        predicted_class=-1,
+                        confidence=0.0,
+                        sample_id=resolved.sample_id,
+                    ),
+                ),
+                selection_source=SelectionSource.USER,
+                requested_sample=resolved.requested_sample,
+            )
+            for resolved in self._resolved_samples
+        ]
+
+
+class EdgecaseSelectorStrategy(SampleSelectionStrategy):
+    def select(self, outputs: RunOutputs) -> list[SelectedSample]:
+        summaries = list(outputs.prediction_summaries)
+        if summaries:
+            picked = self._pick_tiered(summaries)
+            if picked:
+                return picked
+        return self._placeholder_samples(outputs)
+
+    def _pick_tiered(self, summaries: list[PredictionSummary]) -> list[SelectedSample]:
         selected: list[SelectedSample] = []
         seen: set[int] = set()
-
-        for label, candidates, reverse in (
+        tiers = (
             ("wrong", [s for s in summaries if s.correct is False], True),
             ("insecure", summaries, False),
             ("high_confidence", [s for s in summaries if s.correct is not False], True),
-        ):
+        )
+        for label, candidates, reverse in tiers:
             if not candidates:
                 continue
             ordered = sorted(candidates, key=lambda item: item.confidence, reverse=reverse)
@@ -1190,17 +1229,15 @@ def _select_samples(outputs: RunOutputs) -> list[SelectedSample]:
                 break
             if len(selected) >= _MAX_LOCAL_DETAIL_SAMPLES:
                 break
-        if selected:
-            return selected
+        return selected
 
-    total = _batch_size(outputs)
-    if total <= 0:
-        return []
-    fallback_count = min(total, _MAX_LOCAL_DETAIL_SAMPLES)
-    sample_ids = outputs.sample_ids or []
-    selected = []
-    for index in range(fallback_count):
-        selected.append(
+    def _placeholder_samples(self, outputs: RunOutputs) -> list[SelectedSample]:
+        total = _batch_size(outputs)
+        if total <= 0:
+            return []
+        count = min(total, _MAX_LOCAL_DETAIL_SAMPLES)
+        sample_ids = outputs.sample_ids or []
+        return [
             SelectedSample(
                 label="sample",
                 summary=PredictionSummary(
@@ -1210,33 +1247,8 @@ def _select_samples(outputs: RunOutputs) -> list[SelectedSample]:
                     sample_id=sample_ids[index] if index < len(sample_ids) else None,
                 ),
             )
-        )
-    return selected
-
-
-def _explicit_selected_samples(
-    resolved_samples: list[ResolvedReportSample],
-    *,
-    outputs: RunOutputs,
-) -> list[SelectedSample]:
-    summaries = {summary.sample_index: summary for summary in outputs.prediction_summaries}
-    return [
-        SelectedSample(
-            label="user_selected",
-            summary=summaries.get(
-                resolved.sample_index,
-                PredictionSummary(
-                    sample_index=resolved.sample_index,
-                    predicted_class=-1,
-                    confidence=0.0,
-                    sample_id=resolved.sample_id,
-                ),
-            ),
-            selection_source=SelectionSource.USER,
-            requested_sample=resolved.requested_sample,
-        )
-        for resolved in resolved_samples
-    ]
+            for index in range(count)
+        ]
 
 
 def _batch_size(outputs: RunOutputs) -> int:
