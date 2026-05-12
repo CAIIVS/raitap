@@ -59,9 +59,10 @@ class DetectionTarget:
         if self.mode == "objectness":
             per_sample_sums: list[torch.Tensor] = []
             for item in model_out:
-                scores = item["scores"]
-                if scores.numel() == 0:
-                    per_sample_sums.append(torch.tensor(0.0, device=scores.device))
+                scores = item.get("scores")
+                if scores is None or scores.numel() == 0:
+                    device = scores.device if scores is not None else None
+                    per_sample_sums.append(torch.tensor(0.0, device=device))
                 else:
                     per_sample_sums.append(scores.sum())
             return torch.stack(per_sample_sums).sum()
