@@ -80,13 +80,16 @@
 :default: null
 :description: The **non-batch** per-sample layout expected by the model
   (batch dim is implicit and resolved at runtime). Beyond informing
-  output-space inference, `shape` now also controls the model-input reshape
+  output-space inference, `shape` also controls the model-input reshape
   performed at the backend boundary: per-sample inputs whose `numel` matches
   `shape` are reshaped to `(N, *shape)` before being passed to the model.
-  For ONNX models the backend auto-derives this from
-  `session.get_inputs()[0].shape` (the first dim is always treated as
-  dynamic, regardless of the graph); `input_metadata.shape` overrides the
-  auto-derived value. For Torch models, `nn.Module` declares no shape, so
+  For ONNX models the backend auto-derives the expected shape from
+  `session.get_inputs()[0].shape` — concrete dims are respected as-is and
+  symbolic / unknown dims (e.g. `"batch"`) become dynamic.
+  `input_metadata.shape` overrides the auto-derived value, useful when an
+  ONNX graph declares the batch dim as a fixed `1` even though the model
+  accepts arbitrary batches, or when you want to feed flatter inputs than
+  the graph declares. For Torch models, `nn.Module` declares no shape, so
   setting `input_metadata.shape` is the only way to enable backend reshape —
   otherwise inputs are passed through unchanged. A
   `raitap.utils.errors.ModelInputShapeError` is raised when per-sample

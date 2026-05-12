@@ -74,28 +74,25 @@ def _resolve_onnx_expected_shape(
     suitable for :func:`_adapt_input_shape`.
 
     ONNX dims can be ints, ``None``, or strings (symbolic names like
-    ``"batch"``). The first dim is always treated as dynamic regardless of
-    declaration: ONNX models commonly fix the batch dim to ``1`` even though
-    they accept any batch size at runtime. Other dims become ``None`` only
-    when symbolic / unknown.
+    ``"batch"``). Concrete positive ints are respected; ``None`` and
+    strings become ``None`` (dynamic, resolved at runtime from the input
+    batch dim).
 
     Returns ``None`` when the shape is empty (scalar input — no adaptation
-    possible). Raises :class:`ModelInputShapeError` when two or more
-    non-batch dims are dynamic, since reshape targets become ambiguous.
+    possible). Raises :class:`ModelInputShapeError` when two or more dims
+    are dynamic, since reshape targets become ambiguous and the user must
+    override via ``data.input_metadata.shape``.
     """
     if not raw_shape:
         return None
     parsed: list[int | None] = []
-    for index, dim in enumerate(raw_shape):
-        if index == 0:
-            parsed.append(None)
-            continue
+    for dim in raw_shape:
         if isinstance(dim, int) and dim > 0:
             parsed.append(int(dim))
         else:
             parsed.append(None)
-    dynamic_non_batch = sum(1 for dim in parsed[1:] if dim is None)
-    if dynamic_non_batch >= 1:
+    dynamic_total = sum(1 for dim in parsed if dim is None)
+    if dynamic_total >= 2:
         raise ModelInputShapeError(expected_shape=tuple(parsed))
     return tuple(parsed)
 

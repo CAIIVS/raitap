@@ -602,8 +602,8 @@ def saved_onnx_tabular(tmp_path: Path) -> Path:
     graph = helper.make_graph(
         [helper.make_node("Gemm", ["input", "weight", "bias"], ["output"])],
         "tabular_graph",
-        [helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 5])],
-        [helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 2])],
+        [helper.make_tensor_value_info("input", TensorProto.FLOAT, ["batch", 5])],
+        [helper.make_tensor_value_info("output", TensorProto.FLOAT, ["batch", 2])],
         [
             numpy_helper.from_array(weight, name="weight"),
             numpy_helper.from_array(bias, name="bias"),
@@ -655,17 +655,22 @@ class TestModelInputShapeAdapter:
         assert exc_info.value.input_shape == (3, 6)
         assert exc_info.value.expected_shape == (None, 1, 1, 5)
 
-    def test_resolve_onnx_expected_shape_force_batch_dynamic(self) -> None:
-        assert _resolve_onnx_expected_shape([1, 1, 1, 5]) == (None, 1, 1, 5)
-        assert _resolve_onnx_expected_shape([1, 3, 224, 224]) == (None, 3, 224, 224)
+    def test_resolve_onnx_expected_shape_respects_concrete_dims(self) -> None:
+        # All-concrete dims pass through unchanged. The graph's fixed batch
+        # dim is the source of truth — callers feeding a mismatching batch
+        # get a typed error from `_adapt_input_shape`, not a cryptic ORT one.
+        assert _resolve_onnx_expected_shape([1, 1, 1, 5]) == (1, 1, 1, 5)
+        assert _resolve_onnx_expected_shape([1, 3, 224, 224]) == (1, 3, 224, 224)
 
-    def test_resolve_onnx_expected_shape_force_batch_dynamic_when_symbolic(self) -> None:
-        # "batch" first dim with all other dims concrete -> ok.
+    def test_resolve_onnx_expected_shape_marks_symbolic_dim_dynamic(self) -> None:
+        # Symbolic batch dim -> `None` so `_adapt_input_shape` resolves it
+        # from `inputs.shape[0]` at runtime.
         assert _resolve_onnx_expected_shape(["batch", 3, 224, 224]) == (None, 3, 224, 224)
 
     def test_resolve_onnx_expected_shape_raises_on_ambiguous(self) -> None:
+        # Two or more symbolic / unknown dims -> no single reshape target.
         with pytest.raises(ModelInputShapeError) as exc_info:
-            _resolve_onnx_expected_shape(["batch", "c", "h", "w"])
+            _resolve_onnx_expected_shape(["batch", 3, "h", "w"])
         # Ambiguous variant: input_shape is None.
         assert exc_info.value.input_shape is None
         assert "ambiguous" in str(exc_info.value).lower()
@@ -709,8 +714,8 @@ class TestModelInputShapeAdapter:
                 helper.make_node("Gemm", ["flat", "weight", "bias"], ["output"]),
             ],
             "acasxu_like",
-            [helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 1, 1, 5])],
-            [helper.make_tensor_value_info("output", TensorProto.FLOAT, [1, 2])],
+            [helper.make_tensor_value_info("input", TensorProto.FLOAT, ["batch", 1, 1, 5])],
+            [helper.make_tensor_value_info("output", TensorProto.FLOAT, ["batch", 2])],
             [
                 numpy_helper.from_array(weight, name="weight"),
                 numpy_helper.from_array(bias, name="bias"),

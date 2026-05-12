@@ -9,6 +9,7 @@ from torchvision import models
 
 from raitap import raitap_log
 from raitap.configs import cfg_to_dict
+from raitap.data.metadata import shape_tuple
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 
 from .backend import ModelBackend, OnnxBackend, TorchBackend
@@ -63,7 +64,9 @@ def _resolve_shape_override(config: Any) -> tuple[int | None, ...] | None:
     ``expected_input_shape`` tuple with a dynamic batch dimension prepended.
 
     Returns ``None`` if the config does not specify a shape, allowing callers
-    to keep whatever the backend resolved on its own.
+    to keep whatever the backend resolved on its own. Parsing is delegated to
+    :func:`raitap.data.metadata.shape_tuple` so semantics stay consistent with
+    the rest of the metadata pipeline.
     """
     data_cfg = getattr(config, "data", None)
     if data_cfg is None:
@@ -77,13 +80,7 @@ def _resolve_shape_override(config: Any) -> tuple[int | None, ...] | None:
         return None
     if not isinstance(metadata, dict):
         return None
-    raw_shape = metadata.get("shape")
-    if raw_shape is None:
-        return None
-    try:
-        non_batch = tuple(int(item) for item in raw_shape)
-    except (TypeError, ValueError):
-        return None
+    non_batch = shape_tuple(metadata.get("shape"))
     if not non_batch:
         return None
     return (None, *non_batch)
