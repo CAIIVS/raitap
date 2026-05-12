@@ -144,7 +144,7 @@ class CaptumExplainer(AttributionOnlyExplainer):
             ) from None
 
         init_kwargs = dict(self.init_kwargs)
-        if self.algorithm == "LayerGradCam":
+        if self.algorithm in ("LayerGradCam", "GuidedGradCam"):
             layer_path = init_kwargs.pop("layer_path", None)
             if layer_path is not None and "layer" not in init_kwargs:
                 init_kwargs["layer"] = _resolve_layer(model, str(layer_path))
