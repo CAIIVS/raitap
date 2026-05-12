@@ -50,9 +50,18 @@ _SAMPLE_LABELS = (0, 3, 7, 9)
 
 
 class MnistMLP(nn.Module):
+    """Plain MLP — no ``nn.Flatten``.
+
+    Marabou's ONNX parser does not implement the ``Shape`` op that
+    ``Flatten`` (or ``x.view(B, -1)`` with dynamic batch) lowers into. We
+    therefore expose the model on a pre-flattened ``(N, _FLAT_DIM)`` input
+    and let the raitap backend shape adapter reshape ``(N, 3, 28, 28)``
+    tensors emitted by the image loader into that layout at runtime —
+    declared via ``data.input_metadata.shape: [_FLAT_DIM]`` in the YAML.
+    """
+
     def __init__(self) -> None:
         super().__init__()
-        self.flatten = nn.Flatten()
         self.net = nn.Sequential(
             nn.Linear(_FLAT_DIM, _HIDDEN_1),
             nn.ReLU(),
@@ -62,7 +71,7 @@ class MnistMLP(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(self.flatten(x))
+        return self.net(x)
 
 
 def _to_rgb(x: torch.Tensor) -> torch.Tensor:
@@ -91,7 +100,7 @@ def _train(device: torch.device) -> MnistMLP:
     for epoch in range(_EPOCHS):
         running = 0.0
         for batch_idx, (images, labels) in enumerate(loader):
-            images = _to_rgb(images.to(device))
+            images = _to_rgb(images.to(device)).reshape(images.shape[0], _FLAT_DIM)
             labels = labels.to(device)
             optimiser.zero_grad()
             logits = model(images)
@@ -109,7 +118,7 @@ def _train(device: torch.device) -> MnistMLP:
 
 def _export_onnx(model: MnistMLP, device: torch.device) -> None:
     _MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    dummy = torch.zeros(1, _INPUT_CHANNELS, _INPUT_SIZE, _INPUT_SIZE, device=device)
+    dummy = torch.zeros(1, _FLAT_DIM, device=device)
     # Keep batch dim dynamic so the raitap forward pass can run on the
     # full sample batch in one call (Marabou is invoked per-sample anyway
     # and tolerates the dynamic axis). Opset 13 lands inside the
