@@ -1176,7 +1176,8 @@ def _render_kwargs_for_visualiser(
 
 class SampleSelectionStrategy(ABC):
     @abstractmethod
-    def select(self, outputs: RunOutputs) -> list[SelectedSample]: ...
+    def select(self, outputs: RunOutputs) -> list[SelectedSample]:
+        """Return the samples that should be highlighted in the local section."""
 
 
 class UserSelectorStrategy(SampleSelectionStrategy):
