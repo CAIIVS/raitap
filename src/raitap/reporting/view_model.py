@@ -99,6 +99,8 @@ class SummaryView:
     sample_count: int
     explainer_count: int
     assessor_count: int
+    model_name: str = "n/a"
+    data_name: str = "n/a"
     metric_highlights: tuple[tuple[str, str], ...] = ()
     robustness_highlights: tuple[tuple[str, str, str], ...] = ()
 
@@ -159,6 +161,8 @@ def build_view(
             robustness_assessors = _build_robustness_assessors(section)
 
     experiment_name = _none_if_blank(metadata.get("experiment_name")) or "n/a"
+    model_name = _compact_model_label(metadata.get("model_source"))
+    data_name = _none_if_blank(metadata.get("data_name")) or "n/a"
     summary = SummaryView(
         experiment_name=experiment_name,
         sample_count=len(local_samples),
@@ -170,6 +174,8 @@ def build_view(
             }
         ),
         assessor_count=len(robustness_assessors),
+        model_name=model_name,
+        data_name=data_name,
         metric_highlights=metrics.rows if metrics is not None else (),
         robustness_highlights=tuple(
             (
@@ -184,7 +190,7 @@ def build_view(
 
     return ReportView(
         experiment_name=experiment_name,
-        generated_at=generated.isoformat(timespec="seconds"),
+        generated_at=generated.strftime("%d.%m.%Y %H:%M:%S"),
         version=version,
         summary=summary,
         metrics=metrics,
@@ -514,3 +520,12 @@ def _none_if_blank(value: object) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _compact_model_label(value: object) -> str:
+    text = _none_if_blank(value)
+    if text is None:
+        return "n/a"
+    if "/" in text or "\\" in text:
+        return Path(text).name or text
+    return text

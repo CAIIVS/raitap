@@ -38,6 +38,8 @@ class HTMLReporter(BaseReporter):
         )
         metadata = {
             "experiment_name": getattr(self.config, "experiment_name", None),
+            "model_source": getattr(getattr(self.config, "model", None), "source", None),
+            "data_name": getattr(getattr(self.config, "data", None), "name", None),
         }
         view = build_view(sections, metadata, version=__about__.__version__)
         env = _jinja_environment()

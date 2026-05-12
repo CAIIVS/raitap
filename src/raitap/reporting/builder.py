@@ -139,6 +139,8 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
         sections=tuple(sections),
         metadata={
             "experiment_name": getattr(config, "experiment_name", None),
+            "model_source": getattr(getattr(config, "model", None), "source", None),
+            "data_name": getattr(getattr(config, "data", None), "name", None),
             "selected_samples": [
                 _selected_sample_manifest_entry(sample) for sample in selected_samples
             ],
@@ -220,6 +222,8 @@ def build_merged_report(
         sections=ordered_sections,
         metadata={
             "experiment_name": getattr(config, "experiment_name", None),
+            "model_source": getattr(getattr(config, "model", None), "source", None),
+            "data_name": getattr(getattr(config, "data", None), "name", None),
             "children": [
                 {"job_label": job_label, "override_summary": override_summary}
                 for job_label, override_summary, _manifest in child_manifests

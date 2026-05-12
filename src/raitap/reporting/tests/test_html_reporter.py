@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from raitap.configs.schema import AppConfig, ReportingConfig
+from raitap.configs.schema import AppConfig, DataConfig, ModelConfig, ReportingConfig
 from raitap.reporting.html_reporter import HTMLReporter
 from raitap.reporting.sections import ReportGroup, ReportSection
 
@@ -120,6 +120,32 @@ def test_html_reporter_omits_missing_sections(
     assert 'id="robustness-section"' not in html
     assert 'class="card empty-card"' not in html
     assert "No local explanations" in html
+
+
+def test_html_reporter_renders_configured_model_and_data_in_summary_card(
+    tmp_path: Path,
+) -> None:
+    config = _config()
+    config.model = ModelConfig(source="/abs/path/lwise_ham10000_eager.pt")
+    config.data = DataConfig(name="ham10000-presentation-balanced")
+
+    HTMLReporter(config).generate(_synthetic_sections(), report_dir=tmp_path)
+
+    html = (tmp_path / "report.html").read_text(encoding="utf-8")
+    assert "<dt>Model</dt><dd>lwise_ham10000_eager.pt</dd>" in html
+    assert "<dt>Data</dt><dd>ham10000-presentation-balanced</dd>" in html
+
+
+def test_html_reporter_falls_back_to_na_when_model_source_blank(tmp_path: Path) -> None:
+    config = _config()
+    config.model = ModelConfig(source=None)
+    config.data = DataConfig(name="isic2018")
+
+    HTMLReporter(config).generate(_synthetic_sections(), report_dir=tmp_path)
+
+    html = (tmp_path / "report.html").read_text(encoding="utf-8")
+    assert "<dt>Model</dt><dd>n/a</dd>" in html
+    assert "<dt>Data</dt><dd>isic2018</dd>" in html
 
 
 def test_html_reporter_renders_legacy_local_detail_images(tmp_path: Path) -> None:

@@ -145,6 +145,41 @@ def test_build_view_renders_legacy_local_detail_groups_as_samples() -> None:
     ]
 
 
+def test_build_view_populates_summary_model_and_data_from_metadata() -> None:
+    view = build_view(
+        (),
+        {
+            "experiment_name": "demo",
+            "model_source": "/abs/path/to/lwise_ham10000_eager.pt",
+            "data_name": "ham10000-presentation-balanced",
+        },
+    )
+
+    assert view.summary.model_name == "lwise_ham10000_eager.pt"
+    assert view.summary.data_name == "ham10000-presentation-balanced"
+
+
+def test_build_view_keeps_non_path_model_source_as_is() -> None:
+    view = build_view((), {"model_source": "resnet50", "data_name": "isic2018"})
+
+    assert view.summary.model_name == "resnet50"
+    assert view.summary.data_name == "isic2018"
+
+
+def test_build_view_defaults_summary_model_and_data_to_na_when_missing() -> None:
+    view = build_view((), {})
+
+    assert view.summary.model_name == "n/a"
+    assert view.summary.data_name == "n/a"
+
+
+def test_build_view_treats_blank_model_and_data_as_na() -> None:
+    view = build_view((), {"model_source": "   ", "data_name": ""})
+
+    assert view.summary.model_name == "n/a"
+    assert view.summary.data_name == "n/a"
+
+
 def _local_visualiser_counts(manifest: ReportManifest) -> dict[int, int]:
     counter: Counter[int] = Counter()
     for section in manifest.sections:
