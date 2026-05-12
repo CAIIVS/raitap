@@ -227,10 +227,18 @@ class MarabouAssessor(FormalVerificationAssessor):
                 algorithm=self.algorithm,
                 reason=(
                     f"Marabou's ONNX parser does not implement an op used by "
-                    f"the model ({error}). Re-export the network using only "
-                    "Marabou-supported ops — typically: avoid `nn.Flatten` "
-                    "and reshape steps, expose a pre-flattened input, and "
-                    "drop unsupported activations / normalisation layers."
+                    f"the model ({error}). Supported op subset (maraboupy 2.0): "
+                    "Add, AveragePool, BatchNormalization, Cast, Concat, "
+                    "Constant, Conv, ConvTranspose, Dropout, Flatten, Gather, "
+                    "Gemm, Identity, LeakyRelu, MatMul, MaxPool, Mul, Pad, "
+                    "Relu, Reshape, Resize, Sigmoid, Sign, Slice, Softmax, "
+                    "Split, Sub, Squeeze, Tanh, Transpose, Unsqueeze. "
+                    "Anything outside this list (notably `Shape`, dynamic "
+                    "`Gather`/`Concat` patterns emitted by `nn.Flatten` on "
+                    "dynamic-batch exports) must be removed at export time. "
+                    "See https://github.com/NeuralNetworkVerification/Marabou"
+                    "/blob/master/maraboupy/parsers/ONNXParser.py for the "
+                    "authoritative op list."
                 ),
             ) from error
         input_vars = np.asarray(network.inputVars[0]).reshape(-1)
