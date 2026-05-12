@@ -75,14 +75,10 @@ class SemanticallyDescribable(ABC, Generic[T]):
             if not isinstance(raw_tasks, frozenset) or not all(
                 isinstance(item, TaskKind) for item in raw_tasks
             ):
-                raise TypeError(
-                    f"{cls.__name__}.supported_tasks must be a "
-                    "frozenset[TaskKind]."
-                )
+                raise TypeError(f"{cls.__name__}.supported_tasks must be a frozenset[TaskKind].")
             if not raw_tasks:
                 raise TypeError(
-                    f"{cls.__name__}.supported_tasks must contain at least "
-                    "one TaskKind member."
+                    f"{cls.__name__}.supported_tasks must contain at least one TaskKind member."
                 )
         if not register:
             return
