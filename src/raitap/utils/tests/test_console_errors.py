@@ -26,7 +26,7 @@ from raitap.utils.diagnostics import Diagnostic, Subsystem
 from raitap.utils.errors import AdapterError, RaitapError
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
 
 @pytest.fixture(autouse=True)
@@ -125,7 +125,63 @@ class TestPrintFailurePanel:
         assert "caused by RuntimeError" in output
 
 
+def _emit_to_handler(record_factory: Callable[[logging.Logger], None]) -> str:
+    console = Console(file=io.StringIO(), force_terminal=False, width=160, theme=THEME)
+    handler = RaitapRichHandler(console=console, show_time=False, show_level=False)
+    handler.setLevel(logging.DEBUG)
+    logger = logging.getLogger("raitap.tests.console_fallback")
+    logger.handlers.clear()
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+    try:
+        record_factory(logger)
+    finally:
+        logger.removeHandler(handler)
+    return console.file.getvalue()  # type: ignore[attr-defined]
+
+
 class TestRichHandlerErrorPanel:
+    def test_plain_logger_exception_renders_subsystem_chip_from_traceback(self) -> None:
+        # Simulate an exception caught inside src/raitap/robustness/ so the
+        # traceback walker classifies the frame as the robustness subsystem.
+        src = "import logging\ndef boom():\n    raise RuntimeError('inner')\n"
+        code = compile(src, "/tmp/raitap/src/raitap/robustness/fake.py", "exec")
+        ns: dict[str, object] = {}
+        exec(code, ns)
+
+        def fire(logger: logging.Logger) -> None:
+            with patch.object(console_module, "is_dev_install", return_value=True):
+                try:
+                    ns["boom"]()  # type: ignore[operator]
+                except RuntimeError:
+                    logger.exception("verify_sample crashed for index 0")
+
+        output = _emit_to_handler(fire)
+        assert "verify_sample crashed" in output
+        assert "Robustness" in output
+        assert "fake.py:3" in output
+
+    def test_plain_logger_warning_falls_back_to_record_path(self) -> None:
+        def fire(logger: logging.Logger) -> None:
+            with patch.object(console_module, "is_dev_install", return_value=True):
+                # Synthesise a record whose pathname lives in a raitap subsystem
+                # but whose message does NOT match the header pattern.
+                record = logger.makeRecord(
+                    name=logger.name,
+                    level=logging.WARNING,
+                    fn="/tmp/raitap/src/raitap/metrics/factory.py",
+                    lno=51,
+                    msg="bare warning with no header",
+                    args=(),
+                    exc_info=None,
+                )
+                logger.handle(record)
+
+        output = _emit_to_handler(fire)
+        assert "Metrics" in output
+        assert "factory.py:51" in output
+
     def test_logger_error_with_raitap_exc_renders_diagnostic_header(self) -> None:
         diag = Diagnostic(
             subsystem=Subsystem.robustness,

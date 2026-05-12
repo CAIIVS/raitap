@@ -36,6 +36,8 @@ from raitap.utils.diagnostics import (
     docs_url,
     is_dev_install,
     resolve_diagnostic_from_frames,
+    resolve_diagnostic_from_path,
+    resolve_diagnostic_from_traceback,
     subsystem_from_str,
 )
 from raitap.utils.errors import RaitapError
@@ -239,26 +241,41 @@ class RaitapRichHandler(RichHandler):
             if head_match:
                 head = head_match.group("head")
                 shades = colour(status)
-                chips = [chip(head, style=shades.light)]
-                # logger.warning("Subsystem: …") records have no Diagnostic
-                # stashed (no frame walk happened), so synthesise one from the
-                # header text to drive the same View-docs affordance.
-                synth = Diagnostic(
-                    subsystem=subsystem_from_str(head.lower()),
-                    file="",
-                    line=0,
-                    third_party_lib=None,
-                )
-                if not is_dev_install():
-                    url = docs_url(synth)
-                    if url is not None:
-                        chips.append(
-                            chip("View docs", style=shades.light, link=url, underline=True)
-                        )
+                # Prefer a traceback/path-derived Diagnostic so the chips can
+                # carry a real file:line; fall back to a header-derived synth
+                # for plain logger.warning("Foo: …") records that have no
+                # exc_info and no informative pathname.
+                resolved = _diagnostic_from_record(record)
+                if resolved is None or (
+                    resolved.subsystem is None and resolved.third_party_lib is None
+                ):
+                    resolved = Diagnostic(
+                        subsystem=subsystem_from_str(head.lower()),
+                        file="",
+                        line=0,
+                        third_party_lib=None,
+                    )
+                scope = resolved.subsystem.capitalize() if resolved.subsystem else head
+                src = f"{resolved.file}:{resolved.line}" if resolved.file else ""
+                derived = diagnostic_chips(status, scope=scope, src=src, diagnostic=resolved)
+                chips = derived if derived else [chip(head, style=shades.light)]
                 stripped = head_match.group("msg").strip()
                 body = _linkify_message(
                     stripped[:1].upper() + stripped[1:] if stripped else stripped
                 )
+
+        if not chips:
+            diagnostic = _diagnostic_from_record(record)
+            if diagnostic is not None and (
+                diagnostic.subsystem is not None or diagnostic.third_party_lib is not None
+            ):
+                scope = (
+                    diagnostic.subsystem.capitalize()
+                    if diagnostic.subsystem
+                    else record.name.rsplit(".", 1)[-1].capitalize()
+                )
+                src = f"{diagnostic.file}:{diagnostic.line}" if diagnostic.file else ""
+                chips = diagnostic_chips(status, scope=scope, src=src, diagnostic=diagnostic)
 
         self._print_frame(record, StatusFrame(status, body, label=label, chips=chips))
 
@@ -304,6 +321,27 @@ def setup_logging(level: int = logging.INFO) -> None:
     # handler then unpacks it back into a Panel with subtitle = source.
     warnings.formatwarning = _format_warning_compact  # type: ignore[assignment]
     install_rich_traceback(console=get_stderr_console(), show_locals=False, width=None)
+
+
+def _diagnostic_from_record(record: logging.LogRecord) -> Diagnostic | None:
+    """Resolve a :class:`Diagnostic` for *any* log record.
+
+    Walks ``record.exc_info`` traceback first (most informative — pinpoints the
+    actual raising frame inside a raitap subsystem); falls back to the
+    record's own ``pathname``/``lineno`` so non-exception ``logger.warning`` /
+    ``logger.error`` calls still get scope and ``file:line`` chips. Returns
+    ``None`` only when the record carries no usable location at all.
+    """
+    exc_info = record.exc_info
+    if isinstance(exc_info, tuple) and len(exc_info) >= 3 and exc_info[2] is not None:
+        return resolve_diagnostic_from_traceback(
+            exc_info[2],
+            default_file=record.pathname or "",
+            default_line=record.lineno or 0,
+        )
+    if record.pathname:
+        return resolve_diagnostic_from_path(record.pathname, record.lineno or 0)
+    return None
 
 
 def _extract_raitap_error(record: logging.LogRecord) -> RaitapError | None:

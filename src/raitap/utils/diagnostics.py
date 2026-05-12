@@ -30,6 +30,7 @@ import sys
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import lru_cache
+from types import TracebackType  # noqa: TC003 — runtime import: keeps public hints resolvable
 from typing import Final
 
 _SUBSYSTEM_RE = re.compile(r"raitap[\\/](?!src[\\/])(?P<sub>\w+)[\\/]")
@@ -182,6 +183,75 @@ def resolve_diagnostic_from_frames(default_file: str, default_line: int) -> Diag
     )
 
 
+def resolve_diagnostic_from_traceback(
+    tb: TracebackType | None,
+    default_file: str = "",
+    default_line: int = 0,
+) -> Diagnostic:
+    """Walk an exception traceback to find the deepest raitap subsystem frame.
+
+    Unlike :func:`resolve_diagnostic_from_frames`, the traceback survives the
+    ``except`` handler, so we can still classify origins after the live frames
+    have been unwound (e.g. inside a ``logger.exception`` handler at emit time).
+    Picks the *deepest* matching subsystem frame so the chip points at the
+    actual raising site, not the entry point.
+    """
+    third_party: str | None = None
+    rai_path: str | None = None
+    rai_line: int = default_line
+    rai_sub: Subsystem | None = None
+
+    cur = tb
+    while cur is not None:
+        path = cur.tb_frame.f_code.co_filename
+        normalized = path.replace("\\", "/")
+        if third_party is None:
+            third_party = _detect_third_party(path)
+        if "/raitap/" in normalized and "/raitap/utils/" not in normalized:
+            sub = _classify_subsystem(path)
+            if sub is not None:
+                rai_path = path
+                rai_line = cur.tb_lineno
+                rai_sub = sub
+        cur = cur.tb_next
+
+    if rai_path is None:
+        return Diagnostic(
+            subsystem=None,
+            file=default_file,
+            line=default_line,
+            third_party_lib=third_party,
+        )
+    return Diagnostic(
+        subsystem=rai_sub,
+        file=rai_path,
+        line=rai_line,
+        third_party_lib=third_party,
+    )
+
+
+def resolve_diagnostic_from_path(path: str, line: int) -> Diagnostic:
+    """Classify a single ``path:line`` location without walking any stack.
+
+    Useful for log records that carry their emission site via
+    ``record.pathname`` / ``record.lineno`` but no exception traceback. Returns
+    a :class:`Diagnostic` with ``subsystem``/``file`` populated when the path
+    sits inside a non-``utils`` raitap subsystem; otherwise the third-party
+    flag may still be set if the path lives inside a wrapped library.
+    """
+    normalized = path.replace("\\", "/")
+    sub: Subsystem | None = None
+    if "/raitap/" in normalized and "/raitap/utils/" not in normalized:
+        sub = _classify_subsystem(path)
+    third_party = _detect_third_party(path)
+    return Diagnostic(
+        subsystem=sub,
+        file=path if sub is not None else "",
+        line=line if sub is not None else 0,
+        third_party_lib=third_party,
+    )
+
+
 @lru_cache(maxsize=1)
 def is_dev_install() -> bool:
     """Return ``True`` when raitap appears to run from a cloned/editable checkout.
@@ -223,5 +293,7 @@ __all__ = [
     "docs_url",
     "is_dev_install",
     "resolve_diagnostic_from_frames",
+    "resolve_diagnostic_from_path",
+    "resolve_diagnostic_from_traceback",
     "subsystem_from_str",
 ]
