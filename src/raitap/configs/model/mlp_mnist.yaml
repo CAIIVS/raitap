@@ -2,4 +2,4 @@
 # exported by ``scripts/prep_uc1_mnist.py``. ONNX declares dynamic batch +
 # fixed (3, 28, 28) non-batch dims; the backend shape adapter consumes them
 # directly so no ``data.input_metadata.shape`` override is needed.
-source: ${oc.env:HOME,${oc.env:USERPROFILE}}/.cache/raitap/uc1_mlp_mnist/mlp_mnist.onnx
+source: ${oc.env:HOME}/.cache/raitap/uc1_mlp_mnist/mlp_mnist.onnx
