@@ -54,6 +54,7 @@ class _FakeNetwork:
         self.lower_bounds: dict[int, float] = {}
         self.upper_bounds: dict[int, float] = {}
         self.disjunctions: list[Any] = []
+        self.equations: list[Any] = []
         self.solve_results: list[tuple[str, dict[int, float], object]] = []
         self.solve_calls: list[dict[str, Any]] = []
         # Back-compat default still used by existing tests:
@@ -71,6 +72,9 @@ class _FakeNetwork:
 
     def addDisjunctionConstraint(self, disjuncts: Any) -> None:  # noqa: N802 — Marabou API
         self.disjunctions.append(disjuncts)
+
+    def addEquation(self, equation: Any) -> None:  # noqa: N802 — Marabou API
+        self.equations.append(equation)
 
     def solve(self, options: object | None = None) -> tuple[str, dict[int, float], object]:
         del options
@@ -177,7 +181,8 @@ def test_verify_sample_unsat_maps_to_verified(tmp_path: Any, fake_maraboupy: _Fa
 
     assert outcome.verdict == RobustnessVerdict.VERIFIED
     assert outcome.counter_example is None
-    assert outcome.runtime_seconds == pytest.approx(0.5)
+    # 5 output classes minus the target class → 4 per-class solves at 0.5s each.
+    assert outcome.runtime_seconds == pytest.approx(2.0)
     # Bounds applied to all 5 inputs around the sample value.
     assert fake_maraboupy.lower_bounds[0] == pytest.approx(0.99)
     assert fake_maraboupy.upper_bounds[0] == pytest.approx(1.01)
@@ -645,8 +650,10 @@ def test_assess_propagates_output_bounds_to_result(
     """Two samples: first VERIFIED with bounds, second FALSIFIED → NaN row."""
     onnx_path = tmp_path / "model.onnx"
     onnx_path.write_bytes(b"\x00")
+    # Per-class solve loop issues N-1 calls per sample (N=5 outputs). Sample 0
+    # needs 4 UNSAT to reach VERIFIED; sample 1 short-circuits on first SAT.
     fake_maraboupy.solve_results = [
-        ("unsat", {}, _FakeStats(0.0)),  # sample 0 → VERIFIED
+        *[("unsat", {}, _FakeStats(0.0))] * 4,  # sample 0 → VERIFIED
         ("sat", dict.fromkeys(range(5), 0.0), _FakeStats(0.0)),  # sample 1 → FALSIFIED
     ]
 
