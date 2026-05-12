@@ -142,6 +142,14 @@ def _snapshot_samples() -> None:
         if len(chosen) == len(_SAMPLE_LABELS):
             break
 
+    missing = [label for label in _SAMPLE_LABELS if label not in chosen]
+    if missing:
+        raise RuntimeError(
+            f"MNIST test set did not yield samples for labels {missing}; "
+            "the dataset may be corrupted or incomplete — delete "
+            f"{_CACHE_ROOT / 'torchvision_mnist'} and retry."
+        )
+
     rows = ["image,label"]
     for label_int in _SAMPLE_LABELS:
         filename, tensor = chosen[label_int]
