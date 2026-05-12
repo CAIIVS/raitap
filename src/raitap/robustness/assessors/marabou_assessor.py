@@ -45,14 +45,14 @@ from .base_assessor import FormalVerificationAssessor
 # ``str(exc)``; first hit wins. See :func:`raitap.utils.errors.rethrow`.
 _MARABOUPY_ERROR_MESSAGES: Mapping[re.Pattern[str], str] = {
     re.compile(r"Invoked with: <class 'maraboupy\.MarabouCore\.Equation\.EquationType'>"): (
-        "maraboupy 2.0 has a bug in `InputQueryBuilder.getInputQuery` that "
-        "trips whenever a query carries equations submitted via "
-        "`addDisjunctionConstraint` (it passes the `EquationType` class to the "
-        "`Equation` constructor instead of an enum member). The raitap "
-        "adapter avoids this path by issuing one solve per non-target class, "
-        "but if you see this error a code path still routes through the "
-        "broken builder — file an issue. Upstream tracker: "
-        "https://github.com/NeuralNetworkVerification/Marabou/issues"
+        "Equation construction trap: `MarabouCore.Equation` (the C++ class) "
+        "stores its type on the class, not the instance, so "
+        "`InputQueryBuilder.getInputQuery` accessing `e.EquationType` returns "
+        "the class itself and crashes the rebuild. Use "
+        "`maraboupy.MarabouUtils.Equation` (the Python wrapper) when adding "
+        "constraints via `addEquation` / `addDisjunctionConstraint` — see "
+        "https://github.com/NeuralNetworkVerification/Marabou/blob/master/"
+        "maraboupy/MarabouUtils.py."
     ),
     re.compile(r"Operation \S+ not implemented"): (
         "Marabou's ONNX parser does not implement an op used by the model. "
@@ -227,7 +227,11 @@ class MarabouAssessor(FormalVerificationAssessor):
         onnx_path = self._resolve_onnx_path(model, sample, backend)
 
         try:
-            from maraboupy import Marabou, MarabouCore  # type: ignore[import-not-found]
+            from maraboupy import (  # type: ignore[import-not-found]
+                Marabou,
+                MarabouCore,
+                MarabouUtils,
+            )
         except ImportError as error:
             raise ImportError(
                 "MarabouAssessor requires the optional dependency 'maraboupy'. "
@@ -243,21 +247,67 @@ class MarabouAssessor(FormalVerificationAssessor):
             third_party_lib="maraboupy",
             message_map=_MARABOUPY_ERROR_MESSAGES,
         ):
-            verdict, counter_example, runtime_seconds, exit_code, _input_vars, output_vars = (
-                _verify_via_per_class_solves(
-                    marabou=Marabou,
-                    marabou_core=MarabouCore,
-                    onnx_path=onnx_path,
-                    flat_sample=flat_sample,
-                    sample_shape=sample_shape,
-                    target_idx_raw=int(target.reshape(-1)[0].item()),
-                    eps=eps,
-                    total_timeout_s=self.timeout_s,
-                    assessor_name=type(self).__name__,
-                    backend_name=type(backend).__name__ if backend is not None else "?",
+            network = Marabou.read_onnx(str(onnx_path))
+            input_vars = np.asarray(network.inputVars[0]).reshape(-1)
+            output_vars = np.asarray(network.outputVars[0]).reshape(-1)
+
+            if flat_sample.size != input_vars.size:
+                raise AssessorBackendIncompatibilityError(
+                    assessor=type(self).__name__,
+                    backend=type(backend).__name__ if backend is not None else "?",
                     algorithm=self.algorithm,
+                    reason=(
+                        f"ONNX network expects {input_vars.size} input variables but "
+                        f"the sample has {flat_sample.size} elements; check that the "
+                        "ONNX graph matches the sample shape."
+                    ),
                 )
+
+            target_idx = int(target.reshape(-1)[0].item())
+            if not (0 <= target_idx < output_vars.size):
+                raise ValueError(
+                    f"target index {target_idx} out of range for output size {output_vars.size}."
+                )
+
+            for var_id, value in zip(input_vars, flat_sample, strict=True):
+                network.setLowerBound(int(var_id), float(value) - eps)
+                network.setUpperBound(int(var_id), float(value) + eps)
+
+            target_var = int(output_vars[target_idx])
+            disjuncts: list[list[Any]] = []
+            for j, out_var in enumerate(output_vars):
+                if j == target_idx:
+                    continue
+                # ``MarabouUtils.Equation`` (Python wrapper) — its
+                # ``EquationType`` instance attribute is what
+                # ``getInputQuery`` expects. Constructing
+                # ``MarabouCore.Equation`` directly would land a C++ object
+                # in ``disjunctionList`` whose ``EquationType`` is the
+                # class itself, crashing the rebuild.
+                eq = MarabouUtils.Equation(MarabouCore.Equation.GE)
+                eq.addAddend(1.0, int(out_var))
+                eq.addAddend(-1.0, target_var)
+                eq.setScalar(0.0)
+                disjuncts.append([eq])
+            if disjuncts:
+                network.addDisjunctionConstraint(disjuncts)
+
+            options = Marabou.createOptions(
+                timeoutInSeconds=max(1, math.ceil(self.timeout_s)),
+                verbosity=0,
             )
+            solve_started = time.perf_counter()
+            exit_code, values, stats = network.solve(options=options)
+            solve_wall = time.perf_counter() - solve_started
+
+        stats_runtime = _stats_runtime_seconds(stats)
+        runtime_seconds = stats_runtime if stats_runtime is not None else solve_wall
+        verdict, counter_example = _interpret_solver_result(
+            exit_code=exit_code,
+            values=values,
+            input_vars=input_vars,
+            sample_shape=sample_shape,
+        )
 
         lower_bounds: torch.Tensor | None = None
         upper_bounds: torch.Tensor | None = None
@@ -285,136 +335,6 @@ class MarabouAssessor(FormalVerificationAssessor):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _verify_via_per_class_solves(
-    *,
-    marabou: Any,
-    marabou_core: Any,
-    onnx_path: Path,
-    flat_sample: np.ndarray,
-    sample_shape: tuple[int, ...],
-    target_idx_raw: int,
-    eps: float,
-    total_timeout_s: float,
-    assessor_name: str,
-    backend_name: str,
-    algorithm: str,
-) -> tuple[
-    RobustnessVerdict,
-    torch.Tensor | None,
-    float,
-    object,
-    np.ndarray,
-    np.ndarray,
-]:
-    """Issue one Marabou solve per non-target class and aggregate the result.
-
-    Replaces the natural ``addDisjunctionConstraint`` approach because
-    maraboupy 2.0's ``InputQueryBuilder.getInputQuery`` crashes whenever the
-    query carries equations added that way (it does
-    ``MarabouCore.Equation(e.EquationType)`` — the class attribute lookup
-    returns the *class* not an enum member, which the constructor rejects).
-
-    Returns ``(verdict, counter_example, runtime_seconds, exit_code,
-    input_vars, output_vars)``. Stops early on the first SAT (falsified).
-    Aggregates: any SAT → FALSIFIED; all UNSAT → VERIFIED; otherwise UNKNOWN.
-    """
-    network = marabou.read_onnx(str(onnx_path))
-    input_vars = np.asarray(network.inputVars[0]).reshape(-1)
-    output_vars = np.asarray(network.outputVars[0]).reshape(-1)
-
-    if flat_sample.size != input_vars.size:
-        raise AssessorBackendIncompatibilityError(
-            assessor=assessor_name,
-            backend=backend_name,
-            algorithm=algorithm,
-            reason=(
-                f"ONNX network expects {input_vars.size} input variables but "
-                f"the sample has {flat_sample.size} elements; check that the "
-                "ONNX graph matches the sample shape."
-            ),
-        )
-
-    if not (0 <= target_idx_raw < output_vars.size):
-        raise ValueError(
-            f"target index {target_idx_raw} out of range for output size {output_vars.size}."
-        )
-
-    non_target = [j for j in range(output_vars.size) if j != target_idx_raw]
-    per_call_timeout = max(1, math.ceil(total_timeout_s / max(1, len(non_target))))
-    options = marabou.createOptions(timeoutInSeconds=per_call_timeout, verbosity=0)
-
-    saw_unknown = False
-    last_exit_code: object = "unsat"
-    aggregated_runtime = 0.0
-    wall_started = time.perf_counter()
-    for j in non_target:
-        net = marabou.read_onnx(str(onnx_path))
-        ivars = np.asarray(net.inputVars[0]).reshape(-1)
-        ovars = np.asarray(net.outputVars[0]).reshape(-1)
-        for var_id, value in zip(ivars, flat_sample, strict=True):
-            net.setLowerBound(int(var_id), float(value) - eps)
-            net.setUpperBound(int(var_id), float(value) + eps)
-        eq = marabou_core.Equation(marabou_core.Equation.GE)
-        eq.addAddend(1.0, int(ovars[j]))
-        eq.addAddend(-1.0, int(ovars[target_idx_raw]))
-        eq.setScalar(0.0)
-        net.addEquation(eq)
-        per_call_started = time.perf_counter()
-        exit_code, values, stats = net.solve(options=options)
-        per_call_wall = time.perf_counter() - per_call_started
-        stats_seconds = _stats_runtime_seconds(stats)
-        aggregated_runtime += stats_seconds if stats_seconds is not None else per_call_wall
-        last_exit_code = exit_code
-        code = str(exit_code).strip().lower()
-        if code in {"sat", "invalid"}:
-            verdict, counter_example = _interpret_solver_result(
-                exit_code=exit_code,
-                values=values,
-                input_vars=input_vars,
-                sample_shape=sample_shape,
-            )
-            return (
-                verdict,
-                counter_example,
-                aggregated_runtime,
-                exit_code,
-                input_vars,
-                output_vars,
-            )
-        if code in {"error", "quit_requested"}:
-            return (
-                RobustnessVerdict.ERROR,
-                None,
-                aggregated_runtime,
-                exit_code,
-                input_vars,
-                output_vars,
-            )
-        if code not in {"unsat", "valid"}:
-            saw_unknown = True
-
-    # Fallback wall clock when no per-call stats were available.
-    if aggregated_runtime == 0.0:
-        aggregated_runtime = time.perf_counter() - wall_started
-    if saw_unknown:
-        return (
-            RobustnessVerdict.UNKNOWN,
-            None,
-            aggregated_runtime,
-            last_exit_code,
-            input_vars,
-            output_vars,
-        )
-    return (
-        RobustnessVerdict.VERIFIED,
-        None,
-        aggregated_runtime,
-        last_exit_code,
-        input_vars,
-        output_vars,
-    )
 
 
 def _backend_onnx_path(backend: object | None) -> Path | None:

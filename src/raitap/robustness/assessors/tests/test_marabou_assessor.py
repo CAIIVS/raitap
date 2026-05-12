@@ -109,13 +109,18 @@ def fake_maraboupy(monkeypatch: pytest.MonkeyPatch) -> _FakeNetwork:
     core_module = types.ModuleType("maraboupy.MarabouCore")
     core_module.Equation = _FakeEquation  # type: ignore[attr-defined]
 
+    utils_module = types.ModuleType("maraboupy.MarabouUtils")
+    utils_module.Equation = _FakeEquation  # type: ignore[attr-defined]
+
     package = types.ModuleType("maraboupy")
     package.Marabou = marabou_module  # type: ignore[attr-defined]
     package.MarabouCore = core_module  # type: ignore[attr-defined]
+    package.MarabouUtils = utils_module  # type: ignore[attr-defined]
 
     monkeypatch.setitem(sys.modules, "maraboupy", package)
     monkeypatch.setitem(sys.modules, "maraboupy.Marabou", marabou_module)
     monkeypatch.setitem(sys.modules, "maraboupy.MarabouCore", core_module)
+    monkeypatch.setitem(sys.modules, "maraboupy.MarabouUtils", utils_module)
     return network
 
 
@@ -181,8 +186,7 @@ def test_verify_sample_unsat_maps_to_verified(tmp_path: Any, fake_maraboupy: _Fa
 
     assert outcome.verdict == RobustnessVerdict.VERIFIED
     assert outcome.counter_example is None
-    # 5 output classes minus the target class → 4 per-class solves at 0.5s each.
-    assert outcome.runtime_seconds == pytest.approx(2.0)
+    assert outcome.runtime_seconds == pytest.approx(0.5)
     # Bounds applied to all 5 inputs around the sample value.
     assert fake_maraboupy.lower_bounds[0] == pytest.approx(0.99)
     assert fake_maraboupy.upper_bounds[0] == pytest.approx(1.01)
@@ -230,12 +234,16 @@ def test_verify_sample_sat_reconstructs_counter_example_image(
     marabou_module.createOptions = mock.MagicMock(return_value=object())  # type: ignore[attr-defined]
     core_module = types.ModuleType("maraboupy.MarabouCore")
     core_module.Equation = _FakeEquation  # type: ignore[attr-defined]
+    utils_module = types.ModuleType("maraboupy.MarabouUtils")
+    utils_module.Equation = _FakeEquation  # type: ignore[attr-defined]
     package = types.ModuleType("maraboupy")
     package.Marabou = marabou_module  # type: ignore[attr-defined]
     package.MarabouCore = core_module  # type: ignore[attr-defined]
+    package.MarabouUtils = utils_module  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "maraboupy", package)
     monkeypatch.setitem(sys.modules, "maraboupy.Marabou", marabou_module)
     monkeypatch.setitem(sys.modules, "maraboupy.MarabouCore", core_module)
+    monkeypatch.setitem(sys.modules, "maraboupy.MarabouUtils", utils_module)
 
     assessor = MarabouAssessor(epsilon=0.05)
     backend = _OnnxBackend(_onnx_path(tmp_path))
@@ -650,10 +658,8 @@ def test_assess_propagates_output_bounds_to_result(
     """Two samples: first VERIFIED with bounds, second FALSIFIED → NaN row."""
     onnx_path = tmp_path / "model.onnx"
     onnx_path.write_bytes(b"\x00")
-    # Per-class solve loop issues N-1 calls per sample (N=5 outputs). Sample 0
-    # needs 4 UNSAT to reach VERIFIED; sample 1 short-circuits on first SAT.
     fake_maraboupy.solve_results = [
-        *[("unsat", {}, _FakeStats(0.0))] * 4,  # sample 0 → VERIFIED
+        ("unsat", {}, _FakeStats(0.0)),  # sample 0 → VERIFIED
         ("sat", dict.fromkeys(range(5), 0.0), _FakeStats(0.0)),  # sample 1 → FALSIFIED
     ]
 
