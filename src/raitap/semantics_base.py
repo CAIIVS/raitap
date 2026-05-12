@@ -16,9 +16,10 @@ the single shared contract:
   without edits.
 
 Intermediate abstract base classes (e.g. ``BaseAssessor``,
-``EmpiricalAttackAssessor``, ``AbstractExplainer``) opt out of validation by
-passing ``register=False`` in their class signature; concrete adapters always
-opt in (default).
+``EmpiricalAttackAssessor``, ``AbstractExplainer``) opt out of
+``algorithm_registry`` validation by passing ``register=False`` in their class
+signature; ``supported_tasks`` validation always runs regardless of
+``register``. Concrete adapters always opt in to both (default).
 """
 
 from __future__ import annotations

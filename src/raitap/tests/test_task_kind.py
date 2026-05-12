@@ -38,3 +38,11 @@ def test_supported_tasks_must_be_frozenset_of_task_kind():
         class _BadAdapter(SemanticallyDescribable[str]):
             algorithm_registry = {"foo": "bar"}
             supported_tasks = frozenset({"detection"})  # type: ignore[assignment]
+
+
+def test_supported_tasks_must_be_nonempty():
+    with pytest.raises(TypeError, match="at least one"):
+
+        class _EmptyAdapter(SemanticallyDescribable[str]):
+            algorithm_registry = {"foo": "bar"}
+            supported_tasks = frozenset()  # type: ignore[var-annotated]
