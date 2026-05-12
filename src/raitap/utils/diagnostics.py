@@ -30,10 +30,8 @@ import sys
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import lru_cache
-from typing import TYPE_CHECKING, Final
-
-if TYPE_CHECKING:
-    from types import TracebackType
+from types import TracebackType  # noqa: TC003 — runtime import: keeps public hints resolvable
+from typing import Final
 
 _SUBSYSTEM_RE = re.compile(r"raitap[\\/](?!src[\\/])(?P<sub>\w+)[\\/]")
 
