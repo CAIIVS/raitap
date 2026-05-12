@@ -8,7 +8,7 @@ input_metadata:
   kind: image
   layout: NCHW
 labels:
-  source: ${oc.env:HOME}/.cache/raitap/uc1_mnist_samples/labels.csv
+  source: ${oc.env:HOME}/.cache/raitap/uc1_mnist_labels.csv
   id_column: image
   column: label
   encoding: index

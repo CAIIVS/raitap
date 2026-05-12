@@ -32,7 +32,7 @@ _CACHE_ROOT = Path.home() / ".cache" / "raitap"
 _MODEL_DIR = _CACHE_ROOT / "uc1_mlp_mnist"
 _SAMPLES_DIR = _CACHE_ROOT / "uc1_mnist_samples"
 _ONNX_PATH = _MODEL_DIR / "mlp_mnist.onnx"
-_LABELS_PATH = _SAMPLES_DIR / "labels.csv"
+_LABELS_PATH = _CACHE_ROOT / "uc1_mnist_labels.csv"
 
 # 3-channel 28x28 input — matches the raitap RGB image loader so no
 # grayscale special case is required downstream. Replicating MNIST to RGB
@@ -124,6 +124,12 @@ def _export_onnx(model: MnistMLP, device: torch.device) -> None:
 
 def _snapshot_samples() -> None:
     _SAMPLES_DIR.mkdir(parents=True, exist_ok=True)
+    # Earlier revisions wrote labels.csv inside the samples dir, which
+    # made the raitap image loader refuse to ingest the directory (mixed
+    # image + tabular files). Sweep any stale copy out of the way.
+    stale_labels = _SAMPLES_DIR / "labels.csv"
+    if stale_labels.exists():
+        stale_labels.unlink()
     transform = transforms.Compose([transforms.ToTensor()])
     test_ds = datasets.MNIST(
         root=str(_CACHE_ROOT / "torchvision_mnist"),
