@@ -3,12 +3,12 @@
 # the bundled MLP accepts directly. Prepared by ``scripts/prep_uc1_mnist.py``.
 name: mnist_samples
 description: "MNIST sample digits (0, 3, 7, 9) for Marabou UC1 verification"
-source: ${oc.env:HOME}/.cache/raitap/uc1_mnist_samples
+source: ${oc.env:HOME,${oc.env:USERPROFILE}}/.cache/raitap/uc1_mnist_samples
 input_metadata:
   kind: image
   layout: NCHW
 labels:
-  source: ${oc.env:HOME}/.cache/raitap/uc1_mnist_samples/labels.csv
+  source: ${oc.env:HOME,${oc.env:USERPROFILE}}/.cache/raitap/uc1_mnist_samples/labels.csv
   id_column: image
   column: label
   encoding: index
