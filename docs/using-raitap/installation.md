@@ -37,10 +37,10 @@ uv run raitap --config-dir my-configs --config-name assessment
 raitap --config-dir my-configs --config-name assessment
 ```
 
-Then, depending on your setup, RAITAP will either rinstall deps automatically and start the run, or ask for further action:
+Then, depending on your setup, RAITAP will either install deps automatically and start the run, or ask for further action:
 
 - If you are using `uv`, it will ask you to run the `uv add` command yourself, or add the `--allow-project-edit` flag. This is because `uv add` modifies your `pyproject.toml`.
-- If you are using `pip`and are not in a virtual environment (`venv`), it will ask to add the `--exec-global` flag. This will modify your global Pythn setup and is not recommended.
+- If you are using `pip` and are not in a virtual environment (`venv`), it will ask to add the `--exec-global` flag. This will modify your global Python setup and is not recommended.
 
 ### Flags
 
