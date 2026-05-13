@@ -51,3 +51,14 @@ def test_select_mode_explicit() -> None:
 def test_invalid_mode_rejected() -> None:
     with pytest.raises(ValueError):
         select_mode("nope")  # type: ignore[arg-type]
+
+
+def test_sync_with_python_version_inserts_p_flag() -> None:
+    argv, pretty = render_command(mode="sync", extras={"marabou"}, python_version="3.11")
+    assert argv == ["uv", "sync", "-p", "3.11", "--extra", "marabou"]
+    assert "-p 3.11" in pretty
+
+
+def test_add_with_python_version_inserts_p_flag() -> None:
+    argv, _ = render_command(mode="add", extras={"marabou"}, python_version="3.11")
+    assert argv == ["uv", "add", "-p", "3.11", "raitap[marabou]"]

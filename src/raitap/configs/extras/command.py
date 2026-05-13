@@ -25,24 +25,34 @@ def select_mode(requested: ModeRequest) -> Mode:
     raise ValueError(f"Unknown mode: {requested!r}")
 
 
-def render_command(*, mode: Mode, extras: Iterable[str]) -> tuple[list[str], str]:
+def render_command(
+    *,
+    mode: Mode,
+    extras: Iterable[str],
+    python_version: str | None = None,
+) -> tuple[list[str], str]:
     """Return ``(argv, pretty_string)`` for the rendered uv command.
 
-    ``extras`` is sorted and deduplicated for stable output.
+    ``extras`` is sorted and deduplicated for stable output. When
+    ``python_version`` is set, ``-p X.Y`` is inserted after the subcommand
+    so uv resolves into that interpreter.
     """
     sorted_extras = sorted(set(extras))
 
     if mode == "sync":
         argv = ["uv", "sync"]
-        for extra in sorted_extras:
-            argv.extend(["--extra", extra])
     elif mode == "add":
         argv = ["uv", "add"]
-        if sorted_extras:
-            argv.append(f"raitap[{','.join(sorted_extras)}]")
-        else:
-            argv.append("raitap")
     else:
         raise ValueError(f"Unknown mode: {mode!r}")
+
+    if python_version is not None:
+        argv.extend(["-p", python_version])
+
+    if mode == "sync":
+        for extra in sorted_extras:
+            argv.extend(["--extra", extra])
+    else:  # add
+        argv.append(f"raitap[{','.join(sorted_extras)}]" if sorted_extras else "raitap")
 
     return argv, " ".join(argv)

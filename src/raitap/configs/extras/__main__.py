@@ -25,6 +25,7 @@ from raitap.configs.extras.command import render_command, select_mode
 from raitap.configs.extras.conflicts import ExtrasConflictError, validate_conflicts
 from raitap.configs.extras.inference import infer_extras
 from raitap.configs.extras.probe import detect_hardware
+from raitap.configs.extras.python_version import pick_python_version
 from raitap.utils.diagnostics import is_dev_install
 
 if TYPE_CHECKING:
@@ -70,6 +71,7 @@ def _print_frame(
     hardware_origin: str,
     mode: str,
     mode_origin: str,
+    python_version: str | None,
     extras: list[str],
     pretty_command: str,
 ) -> None:
@@ -80,6 +82,7 @@ def _print_frame(
         f"│ Config        {config_dir}/{config_name}.yaml",
         f"│ Hardware      {hardware_value} ({hardware_origin})",
         f"│ Install mode  {mode} ({mode_origin})",
+        f"│ Python        {python_version or 'unset (host default)'}",
         f"│ Extras        {', '.join(extras) if extras else '(none)'}",
         f"│ Command       {pretty_command}",
         f"└{bar}",
@@ -126,7 +129,8 @@ def main(argv: list[str] | None = None) -> int:
         else ("installed" if args.mode == "auto" else "forced")
     )
 
-    argv_cmd, pretty = render_command(mode=mode, extras=extras)
+    python_version = pick_python_version(_PYPROJECT, extras)
+    argv_cmd, pretty = render_command(mode=mode, extras=extras, python_version=python_version)
     _print_frame(
         config_dir=args.config_dir,
         config_name=args.config_name,
@@ -134,6 +138,7 @@ def main(argv: list[str] | None = None) -> int:
         hardware_origin=hardware_origin,
         mode=mode,
         mode_origin=mode_origin,
+        python_version=python_version,
         extras=sorted(extras),
         pretty_command=pretty,
     )
