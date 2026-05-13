@@ -1,13 +1,21 @@
 # Installation
 
-RAITAP infers the right `uv` extras from the Hydra config it is about to
-run. In normal use you do not pick extras at all — `raitap` does it for
-you and re-launches into a venv that has exactly what your config needs.
+RAITAP infers the right extras from the Hydra config it is about to run.
+In normal use you do not pick extras at all — `raitap` does it for you
+and re-launches into a venv that has exactly what your config needs.
 
-The auto-install flow runs only on developer checkouts that have `uv`
-available. Wheel / `pip install raitap` users keep their existing
-package manager — see {ref}`execution-dependencies` below for the manual
-extras table.
+The bootstrap auto-detects which install backend to drive (`uv` or
+`pip`) based on the install layout it sees:
+
+| Install layout                       | Has `uv`? | Bootstrap action                                                                          |
+| ------------------------------------ | --------- | ----------------------------------------------------------------------------------------- |
+| Developer checkout (editable)        | yes       | `uv sync --extra …` then relaunch via `uv run raitap` — **default flow**                  |
+| Developer checkout                   | no        | Abort with "install uv"                                                                   |
+| Wheel install in a uv-managed project | yes      | Print the suggested `uv add raitap[…]`; only exec it when you pass `--allow-project-edit` |
+| Wheel install via pip                 | no       | Run `python -m pip install raitap[…]` inside a venv; require `--exec-global` outside one  |
+
+In every case the inference step is the same; the difference is only
+which install command the bootstrap renders and (optionally) executes.
 
 ## 1. Install RAITAP
 
@@ -39,10 +47,10 @@ through `uv run` with the correct `--extra` flags. The first run prints a
 panel like this before the install starts:
 
 ```
-┌─ RAITAP · deps · sync + run ────────────────────────────────────────────┐
+┌─ RAITAP · Deps · Sync then run ─────────────────────────────────────────┐
 │                                                                         │
 │  hardware  xpu (probed)                                                 │
-│    python  host default                                                 │
+│    python  3.13 (host default)                                          │
 │    extras  captum, jinja, metrics, torch-intel, torchattacks            │
 │   command  uv sync --extra captum --extra jinja --extra metrics ...     │
 │                                                                         │
@@ -66,6 +74,29 @@ prepping a venv ahead of an offline run, or for CI matrix lanes:
 uv run raitap --sync-only --config-dir my-configs --config-name assessment
 ```
 
+### Use raitap as a project dependency
+
+When raitap is installed as a wheel inside another project's `pyproject.toml`
+and `uv` is available, the bootstrap prints the suggested
+`uv add raitap[…]` line and stops — running it would silently edit the
+caller project. Pass `--allow-project-edit` to let `raitap` exec the
+command:
+
+```bash
+uv run raitap --allow-project-edit --config-dir my-configs --config-name assessment
+```
+
+### Pip outside a venv
+
+When `uv` is not available and the host interpreter is *not* in a venv,
+the bootstrap refuses to `pip install` into the base interpreter. Either
+activate a venv first, or accept the global install with
+`--exec-global`:
+
+```bash
+raitap --exec-global --config-dir my-configs --config-name assessment
+```
+
 ### Bypass inference
 
 If you prefer to manage extras yourself (e.g. unusual driver setup, a
@@ -80,6 +111,16 @@ uv run --extra torch-cuda --extra captum raitap \
 `--custom-deps` skips the inference step entirely. Read the rest of this
 page if you go that route — you are on the hook for choosing the right
 backend and adapter extras.
+
+### Flag reference
+
+| Flag                    | Effect                                                              |
+| ----------------------- | ------------------------------------------------------------------- |
+| `--dry-run`             | Print the inferred plan, do not install, do not run                 |
+| `--sync-only`           | Install the inferred extras, do not run the pipeline                |
+| `--custom-deps`         | Skip inference entirely; trust user-managed extras                  |
+| `--allow-project-edit`  | Allow the bootstrap to `uv add` into the caller project's pyproject |
+| `--exec-global`         | Allow `pip install` into the base interpreter (no venv detected)    |
 
 (execution-dependencies)=
 

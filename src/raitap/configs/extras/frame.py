@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 
+from rich.console import Group
 from rich.panel import Panel
 from rich.style import Style
 from rich.table import Table
@@ -30,11 +31,14 @@ def print_deps_frame(
     extras: list[str],
     pretty_command: str,
     action: str,
+    note_blocks: list[Text] | None = None,
 ) -> None:
     """Print a Rich panel summarising the dep-bootstrap decision.
 
-    ``action`` is a short verb shown in the header chip — typically
-    ``"sync"`` or ``"dry-run"``.
+    ``action`` is a short verb shown in the header chip. ``note_blocks``
+    (when provided) are rendered below the table separated by blank lines —
+    each block is a pre-styled :class:`rich.text.Text`, so callers control
+    which spans are warning-coloured (prose) vs white (copy-paste commands).
     """
     info = colour(Status.INFO).base
 
@@ -51,7 +55,17 @@ def print_deps_frame(
         (" · Deps · ", info),
         (action, info),
     )
-    panel = Panel(table, title=title, title_align="left", border_style=info, padding=(1, 2))
+
+    body: object = table
+    if note_blocks:
+        renderables: list[object] = [table, Text("")]
+        for i, block in enumerate(note_blocks):
+            if i:
+                renderables.append(Text(""))
+            renderables.append(block)
+        body = Group(*renderables)
+
+    panel = Panel(body, title=title, title_align="left", border_style=info, padding=(1, 2))
     console = get_console()
     console.print()
     console.print(panel)

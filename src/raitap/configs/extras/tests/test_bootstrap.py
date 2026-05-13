@@ -45,27 +45,95 @@ def test_custom_deps_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
     run_mock.assert_not_called()
 
 
-def test_pip_install_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Wheel / pip-installed raitap should never trigger the uv bootstrap."""
-    monkeypatch.setattr(bootstrap, "is_dev_install", lambda: False)
+def _stub_common(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_compose(monkeypatch, _baseline_cfg())
+    monkeypatch.setattr(bootstrap, "detect_hardware", lambda: "cpu")
+    monkeypatch.setattr(bootstrap, "pick_python_version", lambda *_a, **_k: None)
+    monkeypatch.setattr(bootstrap, "check_platform_availability", lambda *_a, **_k: None)
+    monkeypatch.setattr(bootstrap, "validate_conflicts", lambda *_a, **_k: None)
+
+
+def test_case_b_no_uv_aborts(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_common(monkeypatch)
+    monkeypatch.setattr(bootstrap, "_is_dev_install", lambda: True)
+    monkeypatch.setattr(bootstrap, "_uv_available", lambda: False)
+    with pytest.raises(SystemExit) as excinfo:
+        bootstrap.maybe_bootstrap(["raitap"])
+    assert excinfo.value.code == 2
+
+
+def test_case_c_without_consent_shows_hint(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_common(monkeypatch)
+    monkeypatch.setattr(bootstrap, "_is_dev_install", lambda: False)
+    monkeypatch.setattr(bootstrap, "_uv_available", lambda: True)
     run_mock = MagicMock()
     monkeypatch.setattr(bootstrap.subprocess, "run", run_mock)
-    cleaned = bootstrap.maybe_bootstrap(["raitap", "data=mnist_samples"])
-    assert cleaned == ["raitap", "data=mnist_samples"]
+    with pytest.raises(SystemExit) as excinfo:
+        bootstrap.maybe_bootstrap(["raitap"])
+    assert excinfo.value.code == 1
     run_mock.assert_not_called()
 
 
-def test_missing_uv_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Dev checkout without uv on PATH should fall through to the user's env."""
-    monkeypatch.setattr(bootstrap, "is_dev_install", lambda: True)
-    import shutil as _shutil
+def test_case_c_with_consent_runs_uv_add(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_common(monkeypatch)
+    monkeypatch.setattr(bootstrap, "_is_dev_install", lambda: False)
+    monkeypatch.setattr(bootstrap, "_uv_available", lambda: True)
+    run_mock = MagicMock(return_value=subprocess.CompletedProcess(args=[], returncode=0))
+    monkeypatch.setattr(bootstrap.subprocess, "run", run_mock)
+    with pytest.raises(SystemExit):
+        bootstrap.maybe_bootstrap(["raitap", "--allow-project-edit"])
+    first_call = run_mock.call_args_list[0].args[0]
+    assert first_call[:2] == ["uv", "add"]
+    assert any("raitap[" in a for a in first_call)
 
-    monkeypatch.setattr(_shutil, "which", lambda _name: None)
+
+def test_case_d_in_venv_runs_pip(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_common(monkeypatch)
+    monkeypatch.setattr(bootstrap, "_is_dev_install", lambda: False)
+    monkeypatch.setattr(bootstrap, "_uv_available", lambda: False)
+    monkeypatch.setattr(bootstrap, "_in_venv", lambda: True)
+    run_mock = MagicMock(return_value=subprocess.CompletedProcess(args=[], returncode=0))
+    monkeypatch.setattr(bootstrap.subprocess, "run", run_mock)
+    with pytest.raises(SystemExit):
+        bootstrap.maybe_bootstrap(["raitap"])
+    first_call = run_mock.call_args_list[0].args[0]
+    assert first_call[1:4] == ["-m", "pip", "install"]
+
+
+def test_case_d_global_without_consent_shows_hint(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_common(monkeypatch)
+    monkeypatch.setattr(bootstrap, "_is_dev_install", lambda: False)
+    monkeypatch.setattr(bootstrap, "_uv_available", lambda: False)
+    monkeypatch.setattr(bootstrap, "_in_venv", lambda: False)
     run_mock = MagicMock()
     monkeypatch.setattr(bootstrap.subprocess, "run", run_mock)
-    cleaned = bootstrap.maybe_bootstrap(["raitap", "data=mnist_samples"])
-    assert cleaned == ["raitap", "data=mnist_samples"]
+    with pytest.raises(SystemExit) as excinfo:
+        bootstrap.maybe_bootstrap(["raitap"])
+    assert excinfo.value.code == 1
     run_mock.assert_not_called()
+
+
+def test_case_d_global_with_exec_flag_runs_pip(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_common(monkeypatch)
+    monkeypatch.setattr(bootstrap, "_is_dev_install", lambda: False)
+    monkeypatch.setattr(bootstrap, "_uv_available", lambda: False)
+    monkeypatch.setattr(bootstrap, "_in_venv", lambda: False)
+    run_mock = MagicMock(return_value=subprocess.CompletedProcess(args=[], returncode=0))
+    monkeypatch.setattr(bootstrap.subprocess, "run", run_mock)
+    with pytest.raises(SystemExit):
+        bootstrap.maybe_bootstrap(["raitap", "--exec-global"])
+    first_call = run_mock.call_args_list[0].args[0]
+    assert first_call[1:4] == ["-m", "pip", "install"]
+
+
+def test_python_pin_mismatch_aborts_non_uv_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_common(monkeypatch)
+    monkeypatch.setattr(bootstrap, "_is_dev_install", lambda: False)
+    monkeypatch.setattr(bootstrap, "_uv_available", lambda: True)
+    monkeypatch.setattr(bootstrap, "pick_python_version", lambda *_a, **_k: "3.99")
+    with pytest.raises(SystemExit) as excinfo:
+        bootstrap.maybe_bootstrap(["raitap", "--allow-project-edit"])
+    assert excinfo.value.code == 2
 
 
 def test_dry_run_prints_and_exits(
@@ -153,13 +221,23 @@ def test_relaunch_propagates_child_returncode(monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_strip_deps_flags() -> None:
-    cleaned, dry, sync_only, custom = bootstrap._strip_deps_flags(
-        ["raitap", "--dry-run", "--sync-only", "--custom-deps", "data=x"]
+    cleaned, flags = bootstrap._strip_deps_flags(
+        [
+            "raitap",
+            "--dry-run",
+            "--sync-only",
+            "--custom-deps",
+            "--allow-project-edit",
+            "--exec-global",
+            "data=x",
+        ]
     )
     assert cleaned == ["raitap", "data=x"]
-    assert dry is True
-    assert sync_only is True
-    assert custom is True
+    assert flags.dry_run is True
+    assert flags.sync_only is True
+    assert flags.custom is True
+    assert flags.allow_project_edit is True
+    assert flags.exec_global is True
 
 
 def test_sync_only_runs_sync_and_exits(monkeypatch: pytest.MonkeyPatch) -> None:

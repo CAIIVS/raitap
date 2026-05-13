@@ -1,7 +1,8 @@
-"""Render the final ``uv sync``/``uv add`` argv and resolve install mode."""
+"""Render the final ``uv sync`` / ``uv add`` / ``pip install`` argv."""
 
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING, Literal
 
 from raitap.utils.diagnostics import is_dev_install
@@ -9,8 +10,8 @@ from raitap.utils.diagnostics import is_dev_install
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-Mode = Literal["sync", "add"]
-ModeRequest = Literal["auto", "sync", "add"]
+Mode = Literal["sync", "add", "pip"]
+ModeRequest = Literal["auto", "sync", "add", "pip"]
 
 
 def select_mode(requested: ModeRequest) -> Mode:
@@ -41,18 +42,23 @@ def render_command(
 
     if mode == "sync":
         argv = ["uv", "sync"]
-    elif mode == "add":
-        argv = ["uv", "add"]
-    else:
-        raise ValueError(f"Unknown mode: {mode!r}")
-
-    if python_version is not None:
-        argv.extend(["-p", python_version])
-
-    if mode == "sync":
+        if python_version is not None:
+            argv.extend(["-p", python_version])
         for extra in sorted_extras:
             argv.extend(["--extra", extra])
-    else:  # add
+    elif mode == "add":
+        argv = ["uv", "add"]
+        if python_version is not None:
+            argv.extend(["-p", python_version])
         argv.append(f"raitap[{','.join(sorted_extras)}]" if sorted_extras else "raitap")
+    elif mode == "pip":
+        # Use the running interpreter's own pip so the install lands in the
+        # correct site-packages (venv vs system) — pip cannot switch
+        # interpreters, so ``python_version`` is ignored here. Callers must
+        # validate the host Python before selecting this mode.
+        argv = [sys.executable, "-m", "pip", "install"]
+        argv.append(f"raitap[{','.join(sorted_extras)}]" if sorted_extras else "raitap")
+    else:
+        raise ValueError(f"Unknown mode: {mode!r}")
 
     return argv, " ".join(argv)

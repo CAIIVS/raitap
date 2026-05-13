@@ -1,19 +1,30 @@
 """Auto-install raitap extras inferred from the active Hydra config.
 
-Invoked by :mod:`raitap.run.__main__` before Hydra takes over. Walks the
-composed config, picks the right backend + adapter extras for the current
-host, then re-launches ``raitap`` through ``uv run`` so the freshly synced
-venv (and possibly a different interpreter, see
-:mod:`raitap.configs.extras.python_version`) is the one that actually runs
-the pipeline.
+Invoked by :mod:`raitap._entry` before Hydra (or any torch-heavy code)
+takes over. Walks the composed config, picks the right backend + adapter
+extras for the current host, then dispatches per install context:
+
+============  ==========  =======================================
+``is_dev``    ``uv``      Action
+============  ==========  =======================================
+True          present     **Case A** — ``uv sync`` + ``uv run`` relaunch
+True          missing     **Case B** — abort with "install uv" error
+False         present     **Case C** — print ``uv add`` plan; only exec it when
+                          ``--allow-project-edit`` was passed (otherwise abort)
+False         missing     **Case D** — print ``pip install`` plan; auto-exec
+                          when running inside a venv, require ``--exec-global``
+                          when targeting the base interpreter
+============  ==========  =======================================
 
 Flags consumed (and removed from ``sys.argv`` before Hydra sees it):
 
-- ``--dry-run`` — print the decision, do not sync, do not run.
-- ``--sync-only`` — sync the venv with the inferred extras, then exit
-  without running the pipeline.
-- ``--custom-deps`` — skip the whole flow; assume the user manages extras
-  manually.
+- ``--dry-run`` — print the decision, do nothing.
+- ``--sync-only`` — install, but skip the run step.
+- ``--custom-deps`` — skip the whole flow.
+- ``--allow-project-edit`` — Case C: consent to ``uv add`` modifying the
+  caller's ``pyproject.toml``.
+- ``--exec-global`` — Case D: consent to ``pip install`` against the base
+  interpreter (not in a venv).
 
 A sentinel env var prevents recursion when the re-exec'd process re-enters
 this module.
@@ -63,44 +74,46 @@ def _flag_value(argv: list[str], flags: tuple[str, ...]) -> str | None:
 
 
 def _split_error_message(msg: str) -> list[str]:
-    """Split a multi-line exception message into ``[header, *bullets]``.
-
-    The conflicts/availability errors emit ``"<sentence>\\n  - <bullet>\\n  - ..."``
-    so we strip the leading marker and return each part as plain text for the
-    error frame to render.
-    """
+    """Split a multi-line exception message into ``[header, *bullets]``."""
     lines = msg.splitlines()
     header = lines[0].rstrip()
     bullets = [line.lstrip(" -•").rstrip() for line in lines[1:] if line.strip()]
     return [header, *bullets]
 
 
-def _strip_deps_flags(argv: list[str]) -> tuple[list[str], bool, bool, bool]:
-    """Return ``(cleaned_argv, dry_run, sync_only, custom_deps)``."""
+class _DepFlags:
+    __slots__ = ("allow_project_edit", "custom", "dry_run", "exec_global", "sync_only")
+
+    def __init__(self) -> None:
+        self.dry_run = False
+        self.sync_only = False
+        self.custom = False
+        self.allow_project_edit = False
+        self.exec_global = False
+
+
+def _strip_deps_flags(argv: list[str]) -> tuple[list[str], _DepFlags]:
+    flags = _DepFlags()
     keep: list[str] = []
-    dry_run = False
-    sync_only = False
-    custom = False
     for a in argv:
         if a == "--dry-run":
-            dry_run = True
+            flags.dry_run = True
         elif a == "--sync-only":
-            sync_only = True
+            flags.sync_only = True
         elif a == "--custom-deps":
-            custom = True
+            flags.custom = True
+        elif a == "--allow-project-edit":
+            flags.allow_project_edit = True
+        elif a == "--exec-global":
+            flags.exec_global = True
         else:
             keep.append(a)
-    return keep, dry_run, sync_only, custom
+    return keep, flags
 
 
 def _hydra_overrides(argv: list[str]) -> list[str]:
-    """Return positional Hydra-style overrides (e.g. ``data=mnist_samples``).
-
-    Skips the program name and any ``--flag`` / ``--flag=value`` pairs.
-    """
     overrides: list[str] = []
     i = 0
-    # argv[0] is the program name when called as ``main(sys.argv)``.
     while i < len(argv):
         a = argv[i]
         if a.startswith("--") or a.startswith("-"):
@@ -139,29 +152,149 @@ def _ensure_utf8_stdout() -> None:
                 reconfigure(encoding="utf-8")
 
 
-def maybe_bootstrap(argv: list[str]) -> list[str]:
-    """Run the deps-bootstrap flow if appropriate; return cleaned argv.
-
-    The cleaned argv has ``--dry-run`` / ``--custom-deps`` removed and is the
-    value the caller should feed back into ``sys.argv`` before invoking the
-    Hydra entry point.
-    """
-    cleaned, dry_run, sync_only, custom = _strip_deps_flags(argv)
-
-    if os.environ.get(_SENTINEL) == "1" or custom:
-        return cleaned
-
-    # Bootstrap only manages deps in a uv-driven developer checkout. Wheel /
-    # pip installs (no local pyproject, no uv) keep the user's chosen extras
-    # untouched.
+def _uv_available() -> bool:
     import shutil
 
-    if not is_dev_install() or shutil.which("uv") is None or not _PYPROJECT.exists():
+    return shutil.which("uv") is not None
+
+
+def _in_venv() -> bool:
+    return sys.prefix != sys.base_prefix
+
+
+def _is_dev_install() -> bool:
+    return is_dev_install()
+
+
+def _host_python() -> str:
+    return f"{sys.version_info.major}.{sys.version_info.minor}"
+
+
+def _check_pin_matches_host(python_version: str | None) -> None:
+    """Abort when the inferred Python pin cannot be satisfied by the host.
+
+    Only relevant for non-uv paths — uv handles ``-p X.Y`` itself.
+    """
+    if python_version is None or python_version == _host_python():
+        return
+    print_deps_error_frame(
+        label="Python mismatch",
+        message=(
+            f"This config needs Python {python_version}, but the running interpreter "
+            f"is {_host_python()}."
+        ),
+        details=[
+            "Switch to a Python " + python_version + " interpreter and rerun, or use a "
+            "uv-managed dev checkout so the bootstrap can pin the version automatically."
+        ],
+    )
+    sys.exit(2)
+
+
+def _exec(argv: list[str], *, set_sentinel: bool = False) -> int:
+    env = {**os.environ, _SENTINEL: "1"} if set_sentinel else None
+    try:
+        completed = subprocess.run(argv, check=False, env=env)
+    except OSError as exc:
+        print_deps_error_frame(
+            label="Exec error",
+            message=f"Failed to launch: {argv[0]!r}.",
+            details=[str(exc)],
+        )
+        return 2
+    return int(completed.returncode)
+
+
+def _case_b_no_uv() -> None:
+    print_deps_error_frame(
+        label="Missing uv",
+        message="Developer checkout requires uv but uv was not found on PATH.",
+        details=[
+            "Install uv from https://docs.astral.sh/uv/getting-started/installation/ "
+            "and rerun. Or pass --custom-deps to bypass the auto-installer."
+        ],
+    )
+    sys.exit(2)
+
+
+def _case_c_uv_add(extras: set[str], python_version: str | None, flags: _DepFlags) -> int:
+    _check_pin_matches_host(python_version)
+    add_argv, _ = render_command(mode="add", extras=extras, python_version=None)
+    return _exec(add_argv, set_sentinel=True)
+
+
+def _case_d_pip(extras: set[str], python_version: str | None) -> int:
+    _check_pin_matches_host(python_version)
+    pip_argv, _ = render_command(mode="pip", extras=extras, python_version=None)
+    return _exec(pip_argv, set_sentinel=True)
+
+
+def _hint_invocation(cleaned: list[str], extra_flag: str) -> str:
+    """Reconstruct the user's invocation with an extra flag appended."""
+    tail = " ".join(cleaned[1:])
+    base = "uv run raitap" if _uv_available() else "raitap"
+    return f"{base} {tail} {extra_flag}".replace("  ", " ").strip()
+
+
+def _refusal_note_blocks(case: str, extras: set[str], cleaned: list[str]) -> list:
+    """Build the yellow/white note blocks for case C/D refusal."""
+    from rich.style import Style
+    from rich.text import Text
+
+    from raitap.utils.colour import Status, colour
+
+    warn = colour(Status.WARNING).base
+    white = Style(color="white")
+
+    if case == "C":
+        cmd = f"uv add raitap[{','.join(sorted(extras))}]" if extras else "uv add raitap"
+        hint = _hint_invocation(cleaned, "--allow-project-edit")
+        return [
+            Text("Running the uv add command would modify your project file. Either:", style=warn),
+            Text.assemble(
+                ("- Run it yourself: ", warn),
+                (cmd, white),
+            ),
+            Text.assemble(
+                ("- Add the --allow-project-edit flag: ", warn),
+                (hint, white),
+            ),
+        ]
+    # Case D
+    pip_cmd = (
+        f"{sys.executable} -m pip install raitap[{','.join(sorted(extras))}]"
+        if extras
+        else f"{sys.executable} -m pip install raitap"
+    )
+    hint = _hint_invocation(cleaned, "--exec-global")
+    return [
+        Text(
+            "Running pip install would target the base interpreter (no venv detected). Either:",
+            style=warn,
+        ),
+        Text.assemble(
+            ("- Activate a venv and rerun.", warn),
+        ),
+        Text.assemble(
+            ("- Run it yourself: ", warn),
+            (pip_cmd, white),
+        ),
+        Text.assemble(
+            ("- Add the --exec-global flag: ", warn),
+            (hint, white),
+        ),
+    ]
+
+
+def maybe_bootstrap(argv: list[str]) -> list[str]:
+    """Run the deps-bootstrap flow if appropriate; return cleaned argv."""
+    cleaned, flags = _strip_deps_flags(argv)
+
+    if os.environ.get(_SENTINEL) == "1" or flags.custom:
         return cleaned
 
     _ensure_utf8_stdout()
 
-    # Locate config dir/name from cleaned argv; otherwise fall back to defaults.
     config_dir = Path(_flag_value(cleaned, _CONFIG_DIR_FLAGS) or _DEFAULT_CONFIG_DIR)
     config_name = _flag_value(cleaned, _CONFIG_NAME_FLAGS) or _DEFAULT_CONFIG_NAME
     overrides = _hydra_overrides(cleaned[1:])
@@ -197,50 +330,83 @@ def maybe_bootstrap(argv: list[str]) -> list[str]:
         sys.exit(2)
 
     python_version = pick_python_version(_PYPROJECT, extras)
-    sync_argv, sync_pretty = render_command(
-        mode="sync", extras=extras, python_version=python_version
-    )
+    dev = _is_dev_install()
+    uv_present = _uv_available()
 
-    if dry_run:
+    # Dispatch case → which install command to render in the preview frame.
+    if dev and uv_present:
+        case = "A"
+        sync_argv, pretty = render_command(
+            mode="sync", extras=extras, python_version=python_version
+        )
+    elif dev and not uv_present:
+        # Case B: nothing to render; abort before frame.
+        _case_b_no_uv()
+        return cleaned  # unreachable, keeps type checkers happy
+    elif not dev and uv_present:
+        case = "C"
+        _, pretty = render_command(mode="add", extras=extras, python_version=None)
+    else:
+        case = "D"
+        _, pretty = render_command(mode="pip", extras=extras, python_version=None)
+
+    if flags.dry_run:
         action = "Dry-run preview"
-    elif sync_only:
+    elif flags.sync_only:
         action = "Sync only"
     else:
         action = "Sync then run"
+
+    # Render frame with optional info note when the bootstrap will refuse to
+    # exec (case C without --allow-project-edit, case D global w/o --exec-global).
+    refusal = (case == "C" and not flags.allow_project_edit and not flags.dry_run) or (
+        case == "D" and not _in_venv() and not flags.exec_global and not flags.dry_run
+    )
+
+    note_blocks = _refusal_note_blocks(case, extras, cleaned) if refusal else None
 
     print_deps_frame(
         hardware=hardware,
         hardware_origin="probed",
         python_version=python_version,
         extras=sorted(extras),
-        pretty_command=sync_pretty,
+        pretty_command=pretty,
         action=action,
+        note_blocks=note_blocks,
     )
 
-    if dry_run:
+    if flags.dry_run:
         sys.exit(0)
+    if refusal:
+        # Refusal path: frame already told the user what to do. Exit non-zero
+        # so callers can detect "did not run".
+        sys.exit(1)
 
-    if sync_only:
-        # Sync the venv with the inferred extras and exit; do not run the
-        # pipeline. Useful for prepping a venv ahead of time.
-        try:
-            completed = subprocess.run(sync_argv, check=False)
-        except OSError as exc:
-            print(f"raitap: failed to launch uv ({exc}). Is uv on PATH?", file=sys.stderr)
-            sys.exit(2)
-        sys.exit(int(completed.returncode))
+    if case == "A":
+        if flags.sync_only:
+            sys.exit(_exec(sync_argv))
+        # Sync first so the parent process never sees a stale lockfile, then
+        # relaunch via ``uv run`` so the (possibly re-pinned) interpreter is
+        # the one that imports torch and runs Hydra.
+        rc = _exec(sync_argv)
+        if rc != 0:
+            sys.exit(rc)
+        relaunch = ["uv", "run"]
+        if python_version is not None:
+            relaunch += ["-p", python_version]
+        for x in sorted(extras):
+            relaunch += ["--extra", x]
+        relaunch += ["raitap", *cleaned[1:]]
+        sys.exit(_exec(relaunch, set_sentinel=True))
 
-    # Re-launch through ``uv run`` so the right interpreter / extras execute.
-    relaunch = ["uv", "run"]
-    if python_version is not None:
-        relaunch += ["-p", python_version]
-    for x in sorted(extras):
-        relaunch += ["--extra", x]
-    relaunch += ["raitap", *cleaned[1:]]
-    env = {**os.environ, _SENTINEL: "1"}
-    try:
-        completed = subprocess.run(relaunch, check=False, env=env)
-    except OSError as exc:
-        print(f"raitap: failed to relaunch via uv ({exc}). Is uv on PATH?", file=sys.stderr)
-        sys.exit(2)
-    sys.exit(int(completed.returncode))
+    if case == "C":
+        rc = _case_c_uv_add(extras, python_version, flags)
+        if rc != 0 or flags.sync_only:
+            sys.exit(rc)
+        sys.exit(_exec([sys.executable, "-m", "raitap._entry", *cleaned[1:]], set_sentinel=True))
+
+    # Case D
+    rc = _case_d_pip(extras, python_version)
+    if rc != 0 or flags.sync_only:
+        sys.exit(rc)
+    sys.exit(_exec([sys.executable, "-m", "raitap._entry", *cleaned[1:]], set_sentinel=True))
