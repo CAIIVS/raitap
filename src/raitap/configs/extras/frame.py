@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 
-from rich.console import Group
+from rich.console import Group, RenderableType
 from rich.panel import Panel
 from rich.style import Style
 from rich.table import Table
@@ -56,9 +56,9 @@ def print_deps_frame(
         (action, info),
     )
 
-    body: object = table
+    body: RenderableType = table
     if note_blocks:
-        renderables: list[object] = [table, Text("")]
+        renderables: list[RenderableType] = [table, Text("")]
         for i, block in enumerate(note_blocks):
             if i:
                 renderables.append(Text(""))

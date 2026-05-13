@@ -334,6 +334,7 @@ def maybe_bootstrap(argv: list[str]) -> list[str]:
     uv_present = _uv_available()
 
     # Dispatch case → which install command to render in the preview frame.
+    sync_argv: list[str] = []
     if dev and uv_present:
         case = "A"
         sync_argv, pretty = render_command(
@@ -410,3 +411,4 @@ def maybe_bootstrap(argv: list[str]) -> list[str]:
     if rc != 0 or flags.sync_only:
         sys.exit(rc)
     sys.exit(_exec([sys.executable, "-m", "raitap._entry", *cleaned[1:]], set_sentinel=True))
+    return cleaned  # unreachable; satisfies static analysers that flag implicit return
