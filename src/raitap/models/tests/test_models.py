@@ -69,6 +69,7 @@ def _make_config(
     arch: str | None = None,
     num_classes: int | None = None,
     pretrained: bool = False,
+    allow_unsafe_pickle: bool = False,
 ) -> AppConfig:
     return cast(
         "AppConfig",
@@ -84,6 +85,7 @@ def _make_config(
                         "arch": arch,
                         "num_classes": num_classes,
                         "pretrained": pretrained,
+                        "allow_unsafe_pickle": allow_unsafe_pickle,
                     },
                 )(),
                 "hardware": hardware,
@@ -152,24 +154,29 @@ def saved_onnx(tmp_path: Path) -> Path:
 
 class TestLoadModelFromPath:
     def test_loads_pth_file(self, saved_pth: Path) -> None:
-        cfg = _make_config(str(saved_pth))
+        cfg = _make_config(str(saved_pth), allow_unsafe_pickle=True)
         with pytest.warns(DeprecationWarning, match="pickled nn.Module"):
             model = Model(cfg)
         assert isinstance(model.backend, TorchBackend)
         assert isinstance(model.backend.as_model_for_explanation(), nn.Module)
 
     def test_loads_pt_file(self, saved_pt: Path) -> None:
-        cfg = _make_config(str(saved_pt))
+        cfg = _make_config(str(saved_pt), allow_unsafe_pickle=True)
         with pytest.warns(DeprecationWarning, match="pickled nn.Module"):
             model = Model(cfg)
         assert isinstance(model.backend, TorchBackend)
         assert isinstance(model.backend.as_model_for_explanation(), nn.Module)
 
     def test_returns_eval_mode(self, saved_pth: Path) -> None:
-        cfg = _make_config(str(saved_pth))
+        cfg = _make_config(str(saved_pth), allow_unsafe_pickle=True)
         with pytest.warns(DeprecationWarning, match="pickled nn.Module"):
             model = Model(cfg).backend.as_model_for_explanation()
         assert not model.training
+
+    def test_pickled_module_load_refused_without_opt_in(self, saved_pth: Path) -> None:
+        cfg = _make_config(str(saved_pth))
+        with pytest.raises(ValueError, match=r"Refusing to load.*allow_unsafe_pickle"):
+            Model(cfg)
 
     def test_missing_file_raises_file_not_found(self, tmp_path: Path) -> None:
         cfg = _make_config(str(tmp_path / "ghost.pth"))
@@ -224,7 +231,7 @@ class TestLoadModelFromPath:
         torch.testing.assert_close(loaded(x), ref(x))
 
     def test_pickled_module_load_emits_deprecation_warning(self, saved_pth: Path) -> None:
-        cfg = _make_config(str(saved_pth))
+        cfg = _make_config(str(saved_pth), allow_unsafe_pickle=True)
         with pytest.warns(
             DeprecationWarning,
             match=r"Loading pickled nn\.Module.*Prefer.*state_dict",
@@ -267,9 +274,10 @@ class TestLoadModelFromPath:
             Model(cfg)
 
     def test_torch_hardware_cpu_sets_cpu_device(self, saved_pth: Path) -> None:
-        cfg = _make_config(str(saved_pth), hardware="cpu")
+        cfg = _make_config(str(saved_pth), hardware="cpu", allow_unsafe_pickle=True)
 
-        model = Model(cfg)
+        with pytest.warns(DeprecationWarning, match="pickled nn.Module"):
+            model = Model(cfg)
 
         assert isinstance(model.backend, TorchBackend)
         assert model.backend.device == torch.device("cpu")
@@ -513,9 +521,10 @@ class TestLoadModelFromPath:
     @pytest.mark.cuda
     @pytest.mark.skipif(_cuda_not_available(), reason="CUDA is not available")
     def test_torch_gpu_uses_real_cuda_backend(self, saved_pth: Path) -> None:
-        cfg = _make_config(str(saved_pth), hardware="gpu")
+        cfg = _make_config(str(saved_pth), hardware="gpu", allow_unsafe_pickle=True)
 
-        model = Model(cfg)
+        with pytest.warns(DeprecationWarning, match="pickled nn.Module"):
+            model = Model(cfg)
 
         assert isinstance(model.backend, TorchBackend)
         assert model.backend.device.type == "cuda"

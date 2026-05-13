@@ -167,12 +167,24 @@ def _load_torch_module_from_path(path: Path, *, model_cfg: Any, device: torch.de
 
     # Try the safe path first: `weights_only=True` only deserialises tensors and
     # state-dicts, refusing arbitrary pickled objects (no code execution risk).
-    # Pickled `nn.Module` checkpoints fail this and fall through to the
-    # deprecated unsafe path below.
+    # Pickled `nn.Module` checkpoints fail this and require the unsafe path,
+    # which executes arbitrary code embedded in the file. We refuse it unless
+    # the user has explicitly opted in via ``model.allow_unsafe_pickle``.
     pickled_module = False
     try:
         obj: Any = torch.load(path, map_location="cpu", weights_only=True)
-    except Exception:
+    except Exception as safe_load_error:
+        if not bool(getattr(model_cfg, "allow_unsafe_pickle", False)):
+            raise ValueError(
+                f"Refusing to load {path}: the file requires unsafe pickle "
+                "deserialisation, which executes arbitrary code embedded in "
+                "the checkpoint. Re-save it as a state-dict "
+                "(`torch.save(model.state_dict(), path)` plus model.arch + "
+                "model.num_classes in the config) or a TorchScript archive "
+                "(`torch.jit.save(scripted, path)`). If the source is fully "
+                "trusted, set `model.allow_unsafe_pickle: true` to override. "
+                f"Underlying error: {safe_load_error}"
+            ) from safe_load_error
         pickled_module = True
         obj = torch.load(path, map_location="cpu", weights_only=False)
 
