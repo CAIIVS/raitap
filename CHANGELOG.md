@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.6.0](https://github.com/CAIIVS/raitap/compare/v0.5.0...v0.6.0) (2026-05-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **model:** refuse unsafe pickle checkpoints unless opted in ([#157](https://github.com/CAIIVS/raitap/issues/157))
+* **model:** adapt model input shape in backends ([#152](https://github.com/CAIIVS/raitap/issues/152))
+* **reporting:** redesign report and implement html reporter ([#139](https://github.com/CAIIVS/raitap/issues/139))
+
+### Features
+
+* **infra:** chips for every panel-producing log ([#149](https://github.com/CAIIVS/raitap/issues/149)) ([#150](https://github.com/CAIIVS/raitap/issues/150)) ([d75b7a9](https://github.com/CAIIVS/raitap/commit/d75b7a9e9b94204f99b0ab3ef45974e7796509fc))
+* **infra:** error-rethrow layer for wrapped third-party libs ([#140](https://github.com/CAIIVS/raitap/issues/140)) ([1bdd2b6](https://github.com/CAIIVS/raitap/commit/1bdd2b666936878265b44d0fb2810c8807a0a9c3))
+* **infra:** raitap-deps — auto-detect uv extras from Hydra config ([#100](https://github.com/CAIIVS/raitap/issues/100)) ([#155](https://github.com/CAIIVS/raitap/issues/155)) ([6d4cb71](https://github.com/CAIIVS/raitap/commit/6d4cb716d5b1c9aa3c54fc82980bdcabe3a12824))
+* **model:** adapt model input shape in backends ([#152](https://github.com/CAIIVS/raitap/issues/152)) ([d04bab7](https://github.com/CAIIVS/raitap/commit/d04bab70d1599f5286ff6bf5d06f592befe83f27))
+* **reporting:** redesign report and implement html reporter ([#139](https://github.com/CAIIVS/raitap/issues/139)) ([f80df50](https://github.com/CAIIVS/raitap/commit/f80df501ac0ffcc9dc3c8351cb005cd89c27e16a))
+* **robustness:** per-logit output bounds for MarabouAssessor ([#142](https://github.com/CAIIVS/raitap/issues/142)) ([aa11125](https://github.com/CAIIVS/raitap/commit/aa11125a5898478e118f6d04d4445a908fa3197f))
+* **robustness:** visualise MarabouAssessor per-logit output bounds ([#145](https://github.com/CAIIVS/raitap/issues/145)) ([5dc9ec1](https://github.com/CAIIVS/raitap/commit/5dc9ec1d9cbe0a89bfbf561a0e4aed20579025ea))
+
+
+### Bug fixes
+
+* **model:** refuse unsafe pickle checkpoints unless opted in ([#157](https://github.com/CAIIVS/raitap/issues/157)) ([1f0cb66](https://github.com/CAIIVS/raitap/commit/1f0cb6696637fa83593eedcee5e388df712b9f6a))
+
 ## [0.5.0](https://github.com/CAIIVS/raitap/compare/v0.4.2...v0.5.0) (2026-05-10)
 
 
