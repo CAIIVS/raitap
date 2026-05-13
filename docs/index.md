@@ -1,4 +1,4 @@
-<p style="margin: 0 0 2rem;">
+<p>
   <img src="https://github.com/user-attachments/assets/9de86f66-f85d-47b4-9bce-7ca10bb14406" alt="RAITAP" width="400">
 </p>
 

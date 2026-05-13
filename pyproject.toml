@@ -135,9 +135,9 @@ tracking = ["raitap[mlflow]"]
 metrics = ["torchmetrics>=1.8.2", "faster-coco-eval>=1.6.3"]
 
 # Reporting module
-borb = ["borb==3.0.7"]
-jinja = ["jinja2>=3.1"]
-reporting = ["raitap[borb,jinja]"]
+pdf = ["borb==3.0.7"]
+html = ["jinja2>=3.1"]
+reporting = ["raitap[pdf,html]"]
 
 [dependency-groups]
 lint = ["ruff>=0.8.0", "pyright>=1.1.390"]

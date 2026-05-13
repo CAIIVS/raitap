@@ -79,30 +79,30 @@ def test_robustness_extras() -> None:
     assert {"torchattacks", "foolbox", "marabou"} <= extras
 
 
-def test_reporting_html_uses_jinja() -> None:
+def test_reporting_html_uses_html_extra() -> None:
     cfg = {
         "model": {"source": "x.pt"},
         "reporting": {"_target_": "HTMLReporter", "filename": "r"},
     }
     extras, _ = infer_extras(cfg, hardware="cpu")
-    assert "jinja" in extras
-    assert "borb" not in extras
+    assert "html" in extras
+    assert "pdf" not in extras
 
 
-def test_reporting_pdf_uses_borb() -> None:
+def test_reporting_pdf_uses_pdf_extra() -> None:
     cfg = {
         "model": {"source": "x.pt"},
         "reporting": {"_target_": "PDFReporter", "filename": "r"},
     }
     extras, _ = infer_extras(cfg, hardware="cpu")
-    assert "borb" in extras
-    assert "jinja" not in extras
+    assert "pdf" in extras
+    assert "html" not in extras
 
 
 def test_reporting_disabled() -> None:
     cfg = {"model": {"source": "x.pt"}, "reporting": {"_target_": None}}
     extras, _ = infer_extras(cfg, hardware="cpu")
-    assert "borb" not in extras and "jinja" not in extras
+    assert "pdf" not in extras and "html" not in extras
 
 
 def test_tracking_mlflow() -> None:
