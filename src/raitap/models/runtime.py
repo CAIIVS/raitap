@@ -15,6 +15,9 @@ _ONNX_RUNTIME_INSTALL_HINT = (
     "Install it with `uv sync --extra onnx-cpu`, `uv sync --extra onnx-cuda`, "
     "or `uv sync --extra onnx-intel`."
 )
+_INSTALL_DOCS_URL = (
+    "https://caiivs.github.io/raitap/using-raitap/installation.html#install-optional-dependencies"
+)
 
 
 def validate_hardware(hardware: str) -> str:
@@ -45,8 +48,12 @@ def resolve_torch_device(hardware: str) -> torch.device:
         return torch.device("xpu")
 
     raitap_log.warn(
-        "GPU was requested for PyTorch, but neither CUDA nor Intel XPU is available. "
-        "Falling back to CPU."
+        "GPU was requested for PyTorch, but neither CUDA nor Intel XPU is available — "
+        "falling back to CPU. Did you install the matching extra? "
+        "`uv sync --extra torch-cuda` for NVIDIA, `--extra torch-intel` for Intel XPU. "
+        "If the environment already has the extra, the device driver / runtime may be "
+        "missing or unsupported. Install docs: %s",
+        _INSTALL_DOCS_URL,
     )
     return torch.device("cpu")
 
@@ -86,7 +93,12 @@ def resolve_onnx_providers(
 
     raitap_log.warn(
         "GPU was requested for ONNX Runtime, but neither CUDAExecutionProvider nor "
-        "OpenVINOExecutionProvider is available. Falling back to CPUExecutionProvider."
+        "OpenVINOExecutionProvider is available — falling back to CPUExecutionProvider. "
+        "Did you install the matching extra? `uv sync --extra onnx-cuda` for NVIDIA, "
+        "`--extra onnx-intel` for Intel OpenVINO. If the environment already has the "
+        "extra, the device driver / runtime may be missing or unsupported. "
+        "Install docs: %s",
+        _INSTALL_DOCS_URL,
     )
     return ["CPUExecutionProvider"]
 

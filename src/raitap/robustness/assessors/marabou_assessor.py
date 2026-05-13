@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import math
+import re
 import shutil
 import tempfile
 import time
@@ -23,6 +24,9 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 import torch
+
+from raitap.utils.diagnostics import Subsystem
+from raitap.utils.errors import rethrow
 
 from ..contracts import (
     MethodKind,
@@ -36,6 +40,27 @@ from ..contracts import (
 from ..exceptions import AssessorBackendIncompatibilityError
 from ..semantics import AssessorSemanticsHints
 from .base_assessor import FormalVerificationAssessor
+
+# Curated error patterns for confusing maraboupy errors. Matched against
+# ``str(exc)``; first hit wins. See :func:`raitap.utils.errors.rethrow`.
+_MARABOUPY_ERROR_MESSAGES: Mapping[re.Pattern[str], str] = {
+    re.compile(r"Invoked with: <class 'maraboupy\.MarabouCore\.Equation\.EquationType'>"): (
+        "Equation construction trap: `MarabouCore.Equation` (the C++ class) "
+        "stores its type on the class, not the instance, so "
+        "`InputQueryBuilder.getInputQuery` accessing `e.EquationType` returns "
+        "the class itself and crashes the rebuild. Use "
+        "`maraboupy.MarabouUtils.Equation` (the Python wrapper) when adding "
+        "constraints via `addEquation` / `addDisjunctionConstraint` — see "
+        "https://github.com/NeuralNetworkVerification/Marabou/blob/master/"
+        "maraboupy/MarabouUtils.py."
+    ),
+    re.compile(r"Operation \S+ not implemented"): (
+        "Marabou's ONNX parser does not implement an op used by the model. "
+        "Re-export with the Marabou-supported subset only — see "
+        "https://github.com/NeuralNetworkVerification/Marabou/blob/master/"
+        "maraboupy/parsers/ONNXParser.py for the authoritative list."
+    ),
+}
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -202,7 +227,11 @@ class MarabouAssessor(FormalVerificationAssessor):
         onnx_path = self._resolve_onnx_path(model, sample, backend)
 
         try:
-            from maraboupy import Marabou, MarabouCore  # type: ignore[import-not-found]
+            from maraboupy import (  # type: ignore[import-not-found]
+                Marabou,
+                MarabouCore,
+                MarabouUtils,
+            )
         except ImportError as error:
             raise ImportError(
                 "MarabouAssessor requires the optional dependency 'maraboupy'. "
@@ -210,63 +239,74 @@ class MarabouAssessor(FormalVerificationAssessor):
                 "(Linux/macOS x86-64, Python 3.11 only — maraboupy 2.0 ships cp311 wheels only)."
             ) from error
 
-        network = Marabou.read_onnx(str(onnx_path))
-        input_vars = np.asarray(network.inputVars[0]).reshape(-1)
-        output_vars = np.asarray(network.outputVars[0]).reshape(-1)
-
         flat_sample = sample.detach().cpu().to(torch.float32).numpy().reshape(-1)
-        if flat_sample.size != input_vars.size:
-            raise AssessorBackendIncompatibilityError(
-                assessor=type(self).__name__,
-                backend=type(backend).__name__ if backend is not None else "?",
-                algorithm=self.algorithm,
-                reason=(
-                    f"ONNX network expects {input_vars.size} input variables but the "
-                    f"sample has {flat_sample.size} elements; check that the ONNX "
-                    "graph matches the sample shape."
-                ),
+        sample_shape = tuple(int(d) for d in sample.shape)
+
+        with rethrow(
+            subsystem=Subsystem.robustness,
+            third_party_lib="maraboupy",
+            message_map=_MARABOUPY_ERROR_MESSAGES,
+        ):
+            network = Marabou.read_onnx(str(onnx_path))
+            input_vars = np.asarray(network.inputVars[0]).reshape(-1)
+            output_vars = np.asarray(network.outputVars[0]).reshape(-1)
+
+            if flat_sample.size != input_vars.size:
+                raise AssessorBackendIncompatibilityError(
+                    assessor=type(self).__name__,
+                    backend=type(backend).__name__ if backend is not None else "?",
+                    algorithm=self.algorithm,
+                    reason=(
+                        f"ONNX network expects {input_vars.size} input variables but "
+                        f"the sample has {flat_sample.size} elements; check that the "
+                        "ONNX graph matches the sample shape."
+                    ),
+                )
+
+            target_idx = int(target.reshape(-1)[0].item())
+            if not (0 <= target_idx < output_vars.size):
+                raise ValueError(
+                    f"target index {target_idx} out of range for output size {output_vars.size}."
+                )
+
+            for var_id, value in zip(input_vars, flat_sample, strict=True):
+                network.setLowerBound(int(var_id), float(value) - eps)
+                network.setUpperBound(int(var_id), float(value) + eps)
+
+            target_var = int(output_vars[target_idx])
+            disjuncts: list[list[Any]] = []
+            for j, out_var in enumerate(output_vars):
+                if j == target_idx:
+                    continue
+                # ``MarabouUtils.Equation`` (Python wrapper) — its
+                # ``EquationType`` instance attribute is what
+                # ``getInputQuery`` expects. Constructing
+                # ``MarabouCore.Equation`` directly would land a C++ object
+                # in ``disjunctionList`` whose ``EquationType`` is the
+                # class itself, crashing the rebuild.
+                eq = MarabouUtils.Equation(MarabouCore.Equation.GE)
+                eq.addAddend(1.0, int(out_var))
+                eq.addAddend(-1.0, target_var)
+                eq.setScalar(0.0)
+                disjuncts.append([eq])
+            if disjuncts:
+                network.addDisjunctionConstraint(disjuncts)
+
+            options = Marabou.createOptions(
+                timeoutInSeconds=max(1, math.ceil(self.timeout_s)),
+                verbosity=0,
             )
+            solve_started = time.perf_counter()
+            exit_code, values, stats = network.solve(options=options)
+            solve_wall = time.perf_counter() - solve_started
 
-        for var_id, value in zip(input_vars, flat_sample, strict=True):
-            network.setLowerBound(int(var_id), float(value) - eps)
-            network.setUpperBound(int(var_id), float(value) + eps)
-
-        target_idx = int(target.reshape(-1)[0].item())
-        if not (0 <= target_idx < output_vars.size):
-            raise ValueError(
-                f"target index {target_idx} out of range for output size {output_vars.size}."
-            )
-
-        disjuncts: list[list[Any]] = []
-        target_var = int(output_vars[target_idx])
-        for j, out_var in enumerate(output_vars):
-            if j == target_idx:
-                continue
-            equation = MarabouCore.Equation(MarabouCore.Equation.GE)
-            equation.addAddend(1.0, int(out_var))
-            equation.addAddend(-1.0, target_var)
-            equation.setScalar(0.0)
-            disjuncts.append([equation])
-
-        if disjuncts:
-            network.addDisjunctionConstraint(disjuncts)
-
-        options = Marabou.createOptions(
-            timeoutInSeconds=max(1, math.ceil(self.timeout_s)), verbosity=0
-        )
-        started = time.perf_counter()
-        exit_code, values, stats = network.solve(options=options)
-        wall_runtime = time.perf_counter() - started
-
-        runtime_seconds = _stats_runtime_seconds(stats)
-        if runtime_seconds is None:
-            runtime_seconds = wall_runtime
-
+        stats_runtime = _stats_runtime_seconds(stats)
+        runtime_seconds = stats_runtime if stats_runtime is not None else solve_wall
         verdict, counter_example = _interpret_solver_result(
             exit_code=exit_code,
             values=values,
             input_vars=input_vars,
-            sample_shape=tuple(int(d) for d in sample.shape),
+            sample_shape=sample_shape,
         )
 
         lower_bounds: torch.Tensor | None = None
