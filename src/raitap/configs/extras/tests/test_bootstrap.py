@@ -45,6 +45,29 @@ def test_custom_deps_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
     run_mock.assert_not_called()
 
 
+def test_pip_install_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Wheel / pip-installed raitap should never trigger the uv bootstrap."""
+    monkeypatch.setattr(bootstrap, "is_dev_install", lambda: False)
+    run_mock = MagicMock()
+    monkeypatch.setattr(bootstrap.subprocess, "run", run_mock)
+    cleaned = bootstrap.maybe_bootstrap(["raitap", "data=mnist_samples"])
+    assert cleaned == ["raitap", "data=mnist_samples"]
+    run_mock.assert_not_called()
+
+
+def test_missing_uv_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Dev checkout without uv on PATH should fall through to the user's env."""
+    monkeypatch.setattr(bootstrap, "is_dev_install", lambda: True)
+    import shutil as _shutil
+
+    monkeypatch.setattr(_shutil, "which", lambda _name: None)
+    run_mock = MagicMock()
+    monkeypatch.setattr(bootstrap.subprocess, "run", run_mock)
+    cleaned = bootstrap.maybe_bootstrap(["raitap", "data=mnist_samples"])
+    assert cleaned == ["raitap", "data=mnist_samples"]
+    run_mock.assert_not_called()
+
+
 def test_dry_run_prints_and_exits(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

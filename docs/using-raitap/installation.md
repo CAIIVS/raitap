@@ -4,6 +4,11 @@ RAITAP infers the right `uv` extras from the Hydra config it is about to
 run. In normal use you do not pick extras at all — `raitap` does it for
 you and re-launches into a venv that has exactly what your config needs.
 
+The auto-install flow runs only on developer checkouts that have `uv`
+available. Wheel / `pip install raitap` users keep their existing
+package manager — see {ref}`execution-dependencies` below for the manual
+extras table.
+
 ## 1. Install RAITAP
 
 ```{install-tabs}

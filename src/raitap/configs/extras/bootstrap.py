@@ -37,6 +37,7 @@ from raitap.configs.extras.frame import print_deps_error_frame, print_deps_frame
 from raitap.configs.extras.inference import infer_extras
 from raitap.configs.extras.probe import detect_hardware
 from raitap.configs.extras.python_version import pick_python_version
+from raitap.utils.diagnostics import is_dev_install
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -148,6 +149,14 @@ def maybe_bootstrap(argv: list[str]) -> list[str]:
     cleaned, dry_run, sync_only, custom = _strip_deps_flags(argv)
 
     if os.environ.get(_SENTINEL) == "1" or custom:
+        return cleaned
+
+    # Bootstrap only manages deps in a uv-driven developer checkout. Wheel /
+    # pip installs (no local pyproject, no uv) keep the user's chosen extras
+    # untouched.
+    import shutil
+
+    if not is_dev_install() or shutil.which("uv") is None or not _PYPROJECT.exists():
         return cleaned
 
     _ensure_utf8_stdout()
