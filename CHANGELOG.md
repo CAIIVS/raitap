@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/CAIIVS/raitap/compare/v0.6.0...v0.6.1) (2026-05-13)
+
+
+### Features
+
+* **docs:** brand color, landing logo, sidebar alignment ([#159](https://github.com/CAIIVS/raitap/issues/159)) ([#160](https://github.com/CAIIVS/raitap/issues/160)) ([7f2d014](https://github.com/CAIIVS/raitap/commit/7f2d0142d5da4f2aa8581999fe8acde924851eaf))
+
 ## [0.6.0](https://github.com/CAIIVS/raitap/compare/v0.5.0...v0.6.0) (2026-05-13)
 
 
