@@ -26,10 +26,13 @@ uv run ^
 exit /b
 ::CMD
 
-# Bash branch
+# Bash branch — defaults to torch-cpu so Linux/WSL doesn't pull the
+# multi-GB Intel oneAPI runtime. Override with `TORCH_EXTRA=torch-cuda
+# bash scripts/demo_lwise_ham10000.cmd` etc.
 set -euo pipefail
+TORCH_EXTRA="${TORCH_EXTRA:-torch-cpu}"
 uv run \
-    --extra torch-intel \
+    --extra "$TORCH_EXTRA" \
     --extra captum \
     --extra torchattacks \
     --extra metrics \
