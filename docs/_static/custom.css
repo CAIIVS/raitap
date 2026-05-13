@@ -101,7 +101,7 @@ h4 {
   box-sizing: border-box;
   margin-top: 0;
   margin-bottom: 0;
-  padding: 1rem var(--sidebar-item-spacing-horizontal) var(--sidebar-item-spacing-vertical);
+  padding: 1rem var(--sidebar-item-spacing-horizontal) var(--sidebar-item-spacing-vertical) 0;
   border-top: 1px solid var(--color-sidebar-item-background--hover);
   background-color: var(--color-sidebar-background);
 }
@@ -114,8 +114,11 @@ h4 {
 
 /* Furo's default sidebar-tree ul has padding-left; zero it so the repo row
    sits flush with the panel edge like the other sidebar items. */
-.raitap-sidebar-repo ul {
+.raitap-sidebar-repo ul,
+.raitap-sidebar-repo li {
   padding-left: 0;
+  margin-left: 0;
+  list-style: none;
 }
 
 .sd-container-fluid {

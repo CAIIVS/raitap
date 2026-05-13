@@ -1,4 +1,4 @@
-<p style="text-align:center; margin: 0 0 2rem;">
+<p style="margin: 0 0 2rem;">
   <img src="https://github.com/user-attachments/assets/9de86f66-f85d-47b4-9bce-7ca10bb14406" alt="RAITAP" width="400">
 </p>
 
@@ -36,10 +36,10 @@ RAITAP is a wrapper around existing XAI frameworks, which provides a consistent 
 :maxdepth: 1
 :caption: Using RAITAP
 
-using-raitap/installation
 using-raitap/get-it-running
 using-raitap/configuration/index
 using-raitap/understanding-outputs
+using-raitap/installation
 using-raitap/job-launcher
 ```
 
