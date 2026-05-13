@@ -7,7 +7,7 @@
 set -euo pipefail
 
 uv run \
-  --extra torch-cpu \
+  --extra torch-intel \
   --extra captum \
   --extra torchattacks \
   --extra metrics \
