@@ -2,7 +2,7 @@
   <img src="https://github.com/user-attachments/assets/9de86f66-f85d-47b4-9bce-7ca10bb14406" alt="RAITAP" width="400">
 </p>
 
-# RAITAP
+#
 
 RAITAP is a Python library to assess the responsibility level of AI models. It is designed to be easily integrated into existing MLOps workflows.
 
