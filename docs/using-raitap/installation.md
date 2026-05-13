@@ -16,6 +16,8 @@ raitap --config-dir my-configs --config-name assessment --custom-deps
 
 ## Deciding which dependencies are needed for your config
 
+(execution-dependencies)=
+
 ### Execution dependencies
 
 RAITAP supports both PyTorch and ONNX models, and both CPU and GPU
