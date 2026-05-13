@@ -92,7 +92,10 @@
   the output space. The full run pipeline auto-infers `input_metadata` from
   `data.source` for image and tabular layouts, so most users won't need to
   set this. Direct callers of `infer_output_space` must pass it explicitly —
-  otherwise the helper raises `ValueError`.
+  otherwise the helper raises `ValueError`. This per-explainer metadata is
+  scoped to output-space/visualiser semantics; backend input reshape is
+  controlled by `data.input_metadata.shape` instead — see
+  {doc}`../data/configuration`.
 
 :option: visualisers
 :allowed: list[dict]

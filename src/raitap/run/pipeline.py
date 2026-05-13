@@ -47,8 +47,12 @@ def _log_phase_start(phase: str, n: int) -> None:
 
 
 def run(config: AppConfig) -> RunOutputs:
-    model = Model(config)
-    data = Data(config)
+    # Defer warnings emitted during model + data construction so the
+    # summary panel renders first; otherwise the rich handler interleaves
+    # them above the banner and makes the run header look fragmented.
+    with raitap_log.deferred():
+        model = Model(config)
+        data = Data(config)
     _validate_report_sample_selection(config, data)
     print_summary(config, model)
 

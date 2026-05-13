@@ -54,6 +54,7 @@ class _FakeNetwork:
         self.lower_bounds: dict[int, float] = {}
         self.upper_bounds: dict[int, float] = {}
         self.disjunctions: list[Any] = []
+        self.equations: list[Any] = []
         self.solve_results: list[tuple[str, dict[int, float], object]] = []
         self.solve_calls: list[dict[str, Any]] = []
         # Back-compat default still used by existing tests:
@@ -71,6 +72,9 @@ class _FakeNetwork:
 
     def addDisjunctionConstraint(self, disjuncts: Any) -> None:  # noqa: N802 — Marabou API
         self.disjunctions.append(disjuncts)
+
+    def addEquation(self, equation: Any) -> None:  # noqa: N802 — Marabou API
+        self.equations.append(equation)
 
     def solve(self, options: object | None = None) -> tuple[str, dict[int, float], object]:
         del options
@@ -105,13 +109,18 @@ def fake_maraboupy(monkeypatch: pytest.MonkeyPatch) -> _FakeNetwork:
     core_module = types.ModuleType("maraboupy.MarabouCore")
     core_module.Equation = _FakeEquation  # type: ignore[attr-defined]
 
+    utils_module = types.ModuleType("maraboupy.MarabouUtils")
+    utils_module.Equation = _FakeEquation  # type: ignore[attr-defined]
+
     package = types.ModuleType("maraboupy")
     package.Marabou = marabou_module  # type: ignore[attr-defined]
     package.MarabouCore = core_module  # type: ignore[attr-defined]
+    package.MarabouUtils = utils_module  # type: ignore[attr-defined]
 
     monkeypatch.setitem(sys.modules, "maraboupy", package)
     monkeypatch.setitem(sys.modules, "maraboupy.Marabou", marabou_module)
     monkeypatch.setitem(sys.modules, "maraboupy.MarabouCore", core_module)
+    monkeypatch.setitem(sys.modules, "maraboupy.MarabouUtils", utils_module)
     return network
 
 
@@ -225,12 +234,16 @@ def test_verify_sample_sat_reconstructs_counter_example_image(
     marabou_module.createOptions = mock.MagicMock(return_value=object())  # type: ignore[attr-defined]
     core_module = types.ModuleType("maraboupy.MarabouCore")
     core_module.Equation = _FakeEquation  # type: ignore[attr-defined]
+    utils_module = types.ModuleType("maraboupy.MarabouUtils")
+    utils_module.Equation = _FakeEquation  # type: ignore[attr-defined]
     package = types.ModuleType("maraboupy")
     package.Marabou = marabou_module  # type: ignore[attr-defined]
     package.MarabouCore = core_module  # type: ignore[attr-defined]
+    package.MarabouUtils = utils_module  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "maraboupy", package)
     monkeypatch.setitem(sys.modules, "maraboupy.Marabou", marabou_module)
     monkeypatch.setitem(sys.modules, "maraboupy.MarabouCore", core_module)
+    monkeypatch.setitem(sys.modules, "maraboupy.MarabouUtils", utils_module)
 
     assessor = MarabouAssessor(epsilon=0.05)
     backend = _OnnxBackend(_onnx_path(tmp_path))

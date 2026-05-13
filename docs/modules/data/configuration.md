@@ -64,6 +64,38 @@
   filename stems collide across class subdirs. `"stem"` is the legacy
   flat-dir behaviour.
 
+:option: input_metadata
+:allowed: dict, null
+:default: null
+:description: Input modality + layout hints, normally auto-inferred from
+  `data.source` for image and tabular sources. Set this explicitly when the
+  auto-inference cannot resolve the layout (e.g. raw tensors, custom loaders,
+  or ONNX/Torch models whose declared input shape differs from the on-disk
+  sample shape). Keys: `kind` (one of `image`, `tabular`, `text`,
+  `time_series`), `layout` (`NCHW`, `(B,F)`, `(B,T,C)`, `TOKENS`),
+  `feature_names`, and `shape`.
+
+:option: input_metadata.shape
+:allowed: list[int], null
+:default: null
+:description: The **non-batch** per-sample layout expected by the model
+  (batch dim is implicit and resolved at runtime). Beyond informing
+  output-space inference, `shape` also controls the model-input reshape
+  performed at the backend boundary: per-sample inputs whose `numel` matches
+  `shape` are reshaped to `(N, *shape)` before being passed to the model.
+  For ONNX models the backend auto-derives the expected shape from
+  `session.get_inputs()[0].shape` — concrete dims are respected as-is and
+  symbolic / unknown dims (e.g. `"batch"`) become dynamic.
+  `input_metadata.shape` overrides the auto-derived value, useful when an
+  ONNX graph declares the batch dim as a fixed `1` even though the model
+  accepts arbitrary batches, or when you want to feed flatter inputs than
+  the graph declares. For Torch models, `nn.Module` declares no shape, so
+  setting `input_metadata.shape` is the only way to enable backend reshape —
+  otherwise inputs are passed through unchanged. A
+  `raitap.utils.errors.ModelInputShapeError` is raised when per-sample
+  `numel` mismatches the expected shape, or when an ONNX graph declares two
+  or more dynamic dims (ambiguous — supply `shape` to disambiguate).
+
 :yaml:
 data:
   name: "my-dataset"
@@ -78,6 +110,20 @@ data:
     id_strategy: "auto"
 
 :cli: data.source="./data/images" data.labels.source="./data/labels.csv" data.labels.column=label
+```
+
+For tabular models whose backend expects an unusual per-sample layout (such
+as ACAS Xu, a Torch network whose forward takes `(N, 1, 1, 5)`), supply
+`input_metadata.shape` explicitly so the pipeline reshapes the flat feature
+vectors before the forward pass:
+
+```yaml
+data:
+  input_metadata:
+    kind: tabular
+    layout: "(B,F)"
+    feature_names: [rho, theta, psi, v_own, v_int]
+    shape: [1, 1, 5]   # non-batch dims; reshapes (N, 5) -> (N, 1, 1, 5)
 ```
 
 For nested `ImageFolder`-style layouts (e.g. `data/test/<class>/<file>.jpg`)

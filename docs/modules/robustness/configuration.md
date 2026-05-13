@@ -86,7 +86,10 @@
 :default: null
 :description: Input modality + layout hints. Used by image visualisers to
   refuse non-image results and by the budget norm to size per-sample distance.
-  Auto-inferred from `data.source` for the default loaders.
+  Auto-inferred from `data.source` for the default loaders. This
+  per-assessor metadata is scoped to visualiser/budget semantics; backend
+  input reshape is controlled by `data.input_metadata.shape` instead — see
+  {doc}`../data/configuration`.
 
 :option: visualisers
 :allowed: list[dict]

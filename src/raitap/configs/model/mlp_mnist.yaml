@@ -1,0 +1,5 @@
+# Marabou UC1 model — tiny MLP trained on MNIST (3x28x28 -> 128 -> 64 -> 10),
+# exported by ``scripts/prep_uc1_mnist.py``. ONNX declares dynamic batch +
+# fixed (3, 28, 28) non-batch dims; the backend shape adapter consumes them
+# directly so no ``data.input_metadata.shape`` override is needed.
+source: ${oc.env:HOME}/.cache/raitap/uc1_mlp_mnist/mlp_mnist.onnx

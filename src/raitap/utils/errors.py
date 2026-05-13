@@ -53,6 +53,47 @@ class AdapterError(RaitapError):
     """
 
 
+class ModelInputShapeError(RaitapError):
+    """Raised when model inputs cannot be adapted to the expected shape.
+
+    Two flavours:
+
+    * Runtime mismatch — supplied tensor's per-sample numel disagrees with
+      the expected input shape (set ``input_shape`` and ``expected_shape``).
+    * Ambiguous declared shape — an ONNX graph declares two or more dynamic
+      dims so no single reshape target exists (set ``expected_shape`` only).
+
+    In both cases the message names ``data.input_metadata.shape`` as the
+    override knob.
+    """
+
+    def __init__(
+        self,
+        *,
+        expected_shape: tuple[int | None, ...],
+        input_shape: tuple[int, ...] | None = None,
+        diagnostic: Diagnostic | None = None,
+    ) -> None:
+        self.input_shape = input_shape
+        self.expected_shape = expected_shape
+        expected_display = tuple("N" if dim is None else dim for dim in expected_shape)
+        if input_shape is None:
+            message = (
+                f"Model declares an ambiguous input shape {expected_display}: more than "
+                "one dynamic dimension means no single reshape target exists. "
+                "Set `data.input_metadata.shape` in your config to declare the non-batch "
+                "input layout explicitly."
+            )
+        else:
+            message = (
+                f"Model input shape mismatch: got {input_shape}, expected "
+                f"{expected_display}. Set `data.input_metadata.shape` in your config to "
+                "declare the non-batch input layout (e.g. `[1, 1, 5]` for ACAS Xu), or "
+                "check that the data loader emits the right rank."
+            )
+        super().__init__(message, diagnostic=diagnostic)
+
+
 def resolve_diagnostic_from_traceback(
     tb: TracebackType | None,
     *,
@@ -169,6 +210,7 @@ def rethrow(
 
 __all__ = [
     "AdapterError",
+    "ModelInputShapeError",
     "RaitapError",
     "resolve_diagnostic_from_traceback",
     "rethrow",
