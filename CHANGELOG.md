@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/CAIIVS/raitap/compare/v0.6.1...v0.6.2) (2026-05-13)
+
+
+### Bug fixes
+
+* **docs:** light-mode brand color, drop logo margin; rename reporting extras ([#162](https://github.com/CAIIVS/raitap/issues/162)) ([d7270db](https://github.com/CAIIVS/raitap/commit/d7270db1a2b1cc17142282e4d47f2751f4f08de6))
+
 ## [0.6.1](https://github.com/CAIIVS/raitap/compare/v0.6.0...v0.6.1) (2026-05-13)
 
 
