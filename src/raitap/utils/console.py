@@ -515,7 +515,7 @@ def print_summary_panel(config: AppConfig, model: Model) -> None:
     info_style = colour(Status.INFO).base
     title = Text.assemble(
         ("RAITAP", info_style + Style(bold=True)),
-        (" · assessment", info_style),
+        (" · Assessment summary", info_style),
     )
     panel = Panel(
         table,

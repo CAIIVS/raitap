@@ -52,6 +52,15 @@ Pass `--dry-run` to see the inferred command without syncing or running:
 uv run raitap --dry-run --config-dir my-configs --config-name assessment
 ```
 
+### Sync only, do not run
+
+Pass `--sync-only` to install the inferred extras and exit. Useful for
+prepping a venv ahead of an offline run, or for CI matrix lanes:
+
+```bash
+uv run raitap --sync-only --config-dir my-configs --config-name assessment
+```
+
 ### Bypass inference
 
 If you prefer to manage extras yourself (e.g. unusual driver setup, a

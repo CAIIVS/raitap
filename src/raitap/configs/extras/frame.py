@@ -37,7 +37,7 @@ def print_deps_frame(
 
     title = Text.assemble(
         ("RAITAP", info + Style(bold=True)),
-        (" · deps · ", info),
+        (" · Deps · ", info),
         (action, info),
     )
     panel = Panel(table, title=title, title_align="left", border_style=info, padding=(1, 2))

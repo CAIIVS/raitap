@@ -60,7 +60,8 @@ def test_dry_run_prints_and_exits(
     assert excinfo.value.code == 0
     run_mock.assert_not_called()
     captured = capsys.readouterr().out
-    assert "deps" in captured
+    assert "Deps" in captured
+    assert "Dry-run preview" in captured
     assert "torch-cpu" in captured
 
 
@@ -129,12 +130,30 @@ def test_relaunch_propagates_child_returncode(monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_strip_deps_flags() -> None:
-    cleaned, dry, custom = bootstrap._strip_deps_flags(
-        ["raitap", "--dry-run", "--custom-deps", "data=x"]
+    cleaned, dry, sync_only, custom = bootstrap._strip_deps_flags(
+        ["raitap", "--dry-run", "--sync-only", "--custom-deps", "data=x"]
     )
     assert cleaned == ["raitap", "data=x"]
     assert dry is True
+    assert sync_only is True
     assert custom is True
+
+
+def test_sync_only_runs_sync_and_exits(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_compose(monkeypatch, _baseline_cfg())
+    monkeypatch.setattr(bootstrap, "detect_hardware", lambda: "cpu")
+    monkeypatch.setattr(bootstrap, "pick_python_version", lambda *_a, **_k: None)
+    monkeypatch.setattr(bootstrap, "check_platform_availability", lambda *_a, **_k: None)
+    monkeypatch.setattr(bootstrap, "validate_conflicts", lambda *_a, **_k: None)
+    run_mock = MagicMock(return_value=subprocess.CompletedProcess(args=[], returncode=0))
+    monkeypatch.setattr(bootstrap.subprocess, "run", run_mock)
+    with pytest.raises(SystemExit) as excinfo:
+        bootstrap.maybe_bootstrap(["raitap", "--sync-only"])
+    assert excinfo.value.code == 0
+    argv = run_mock.call_args.args[0]
+    assert argv[:2] == ["uv", "sync"]
+    # No re-launch as `raitap`; no sentinel env.
+    assert "raitap" not in argv
 
 
 def test_hydra_overrides_skips_config_flags() -> None:

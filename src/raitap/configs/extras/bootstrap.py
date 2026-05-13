@@ -10,6 +10,8 @@ the pipeline.
 Flags consumed (and removed from ``sys.argv`` before Hydra sees it):
 
 - ``--dry-run`` — print the decision, do not sync, do not run.
+- ``--sync-only`` — sync the venv with the inferred extras, then exit
+  without running the pipeline.
 - ``--custom-deps`` — skip the whole flow; assume the user manages extras
   manually.
 
@@ -59,19 +61,22 @@ def _flag_value(argv: list[str], flags: tuple[str, ...]) -> str | None:
     return None
 
 
-def _strip_deps_flags(argv: list[str]) -> tuple[list[str], bool, bool]:
-    """Return ``(cleaned_argv, dry_run, custom_deps)``."""
+def _strip_deps_flags(argv: list[str]) -> tuple[list[str], bool, bool, bool]:
+    """Return ``(cleaned_argv, dry_run, sync_only, custom_deps)``."""
     keep: list[str] = []
     dry_run = False
+    sync_only = False
     custom = False
     for a in argv:
         if a == "--dry-run":
             dry_run = True
+        elif a == "--sync-only":
+            sync_only = True
         elif a == "--custom-deps":
             custom = True
         else:
             keep.append(a)
-    return keep, dry_run, custom
+    return keep, dry_run, sync_only, custom
 
 
 def _hydra_overrides(argv: list[str]) -> list[str]:
@@ -127,7 +132,7 @@ def maybe_bootstrap(argv: list[str]) -> list[str]:
     value the caller should feed back into ``sys.argv`` before invoking the
     Hydra entry point.
     """
-    cleaned, dry_run, custom = _strip_deps_flags(argv)
+    cleaned, dry_run, sync_only, custom = _strip_deps_flags(argv)
 
     if os.environ.get(_SENTINEL) == "1" or custom:
         return cleaned
@@ -158,19 +163,38 @@ def maybe_bootstrap(argv: list[str]) -> list[str]:
         sys.exit(2)
 
     python_version = pick_python_version(_PYPROJECT, extras)
-    _, pretty = render_command(mode="sync", extras=extras, python_version=python_version)
+    sync_argv, sync_pretty = render_command(
+        mode="sync", extras=extras, python_version=python_version
+    )
+
+    if dry_run:
+        action = "Dry-run preview"
+    elif sync_only:
+        action = "Sync only"
+    else:
+        action = "Sync then run"
 
     print_deps_frame(
         hardware=hardware,
         hardware_origin="probed",
         python_version=python_version,
         extras=sorted(extras),
-        pretty_command=pretty,
-        action="dry-run" if dry_run else "sync + run",
+        pretty_command=sync_pretty,
+        action=action,
     )
 
     if dry_run:
         sys.exit(0)
+
+    if sync_only:
+        # Sync the venv with the inferred extras and exit; do not run the
+        # pipeline. Useful for prepping a venv ahead of time.
+        try:
+            completed = subprocess.run(sync_argv, check=False)
+        except OSError as exc:
+            print(f"raitap: failed to launch uv ({exc}). Is uv on PATH?", file=sys.stderr)
+            sys.exit(2)
+        sys.exit(int(completed.returncode))
 
     # Re-launch through ``uv run`` so the right interpreter / extras execute.
     relaunch = ["uv", "run"]
