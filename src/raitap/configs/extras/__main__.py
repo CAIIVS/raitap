@@ -21,6 +21,10 @@ from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
 from omegaconf import OmegaConf
 
+from raitap.configs.extras.availability import (
+    ExtraUnavailableError,
+    check_platform_availability,
+)
 from raitap.configs.extras.command import render_command, select_mode
 from raitap.configs.extras.conflicts import ExtrasConflictError, validate_conflicts
 from raitap.configs.extras.inference import infer_extras
@@ -92,13 +96,13 @@ def _print_frame(
 
 def _ensure_utf8_stdout() -> None:
     """Force UTF-8 on stdout so box-drawing chars survive Windows cp1252."""
+    import contextlib
+
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if callable(reconfigure):
-            try:
+            with contextlib.suppress(ValueError, OSError):
                 reconfigure(encoding="utf-8")
-            except (ValueError, OSError):
-                pass
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -131,6 +135,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         validate_conflicts(extras, _PYPROJECT, origins=origins)
     except ExtrasConflictError as exc:
+        print(f"raitap-deps: {exc}", file=sys.stderr)
+        return 2
+
+    try:
+        check_platform_availability(_PYPROJECT, extras)
+    except ExtraUnavailableError as exc:
         print(f"raitap-deps: {exc}", file=sys.stderr)
         return 2
 

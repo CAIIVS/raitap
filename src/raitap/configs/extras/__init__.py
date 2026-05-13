@@ -11,6 +11,7 @@ Public API:
 CLI entry: ``raitap-deps`` (see :mod:`raitap.configs.extras.__main__`).
 """
 
+from raitap.configs.extras.availability import check_platform_availability
 from raitap.configs.extras.command import render_command
 from raitap.configs.extras.conflicts import validate_conflicts
 from raitap.configs.extras.inference import infer_extras
@@ -18,6 +19,7 @@ from raitap.configs.extras.probe import detect_hardware
 from raitap.configs.extras.python_version import pick_python_version
 
 __all__ = [
+    "check_platform_availability",
     "detect_hardware",
     "infer_extras",
     "pick_python_version",
