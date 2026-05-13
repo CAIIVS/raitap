@@ -1,5 +1,21 @@
 :root {
   --content-font-size: 1rem;
+
+  /* RAITAP brand color (logo red) — overrides Furo's default blue. */
+  --color-brand-primary: #e15555;
+  --color-brand-content: #e15555;
+}
+
+@media (prefers-color-scheme: dark) {
+  body:not([data-theme="light"]) {
+    --color-brand-primary: #e15555;
+    --color-brand-content: #e15555;
+  }
+}
+
+body[data-theme="dark"] {
+  --color-brand-primary: #e15555;
+  --color-brand-content: #e15555;
 }
 
 .sidebar-brand-text {
@@ -85,7 +101,7 @@ h4 {
   box-sizing: border-box;
   margin-top: 0;
   margin-bottom: 0;
-  padding: 1rem var(--sidebar-item-spacing-horizontal) var(--sidebar-item-spacing-vertical);
+  padding: 1rem var(--sidebar-item-spacing-horizontal) var(--sidebar-item-spacing-vertical) 0;
   border-top: 1px solid var(--color-sidebar-item-background--hover);
   background-color: var(--color-sidebar-background);
 }
@@ -94,6 +110,15 @@ h4 {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+/* Furo's default sidebar-tree ul has padding-left; zero it so the repo row
+   sits flush with the panel edge like the other sidebar items. */
+.raitap-sidebar-repo ul,
+.raitap-sidebar-repo li {
+  padding-left: 0;
+  margin-left: 0;
+  list-style: none;
 }
 
 .sd-container-fluid {

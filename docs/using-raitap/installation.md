@@ -1,68 +1,24 @@
-# Installation
+# Manual dependencies installation
 
-This page explains how to install RAITAP itself, and the deps needed to run any specific RAITAP config. It is recommended to use `uv`, but `pip` will also work.
+This page explains how to manage config dependencies manually, without the automatic mode. It is recommended to use `uv`, but `pip` will also work.
 
-## 1. Install RAITAP
+## Enabling manual mode
 
-First, you need to install the RAITAP package itself.
-
-```{install-tabs}
-:uv:
-uv add raitap
-
-:pip:
-pip install raitap
-```
-
-:::{note}
-RAITAP supports Python 3.11–3.13. Python 3.14 is not yet
-supported (Hydra 1.3.2 limitation). Some underlying libs require older versions (e.g. Marabou < 3.12). RAITAP will handle the interpreter choice for you.
-:::
-
-## 2. Run a RAITAP config
-
-RAITAP gives access to many underlying libraries (Captum, SHAP, Torchattacks...). To avoid bloat, they are not installed by default with RAITAP. Hence, the required dependencies are determined by analysing your config when you run it.
-
-### Automatic mode (default)
-
-You do not need to do anything but follow the instructions displayed in your terminal.
-
-In the example below, we assume a basic config named `assessment`. For more details, see {doc}`configuration/index`.
+Should you want to bypass the automatic deps detection and manage them yourself, you can pass the `--custom-deps` flag. RAITAP will not infer any dependencies from your config, and will not install anything. You are repsonsible for installing the necessary deps before running the config.
 
 ```{install-tabs}
 :uv:
-uv run raitap --config-dir my-configs --config-name assessment
+uv run raitap --config-dir my-configs --config-name assessment --custom-deps
 
 :pip:
-raitap --config-dir my-configs --config-name assessment
+raitap --config-dir my-configs --config-name assessment --custom-deps
 ```
 
-Then, depending on your setup, RAITAP will either rinstall deps automatically and start the run, or ask for further action:
-
-- If you are using `uv`, it will ask you to run the `uv add` command yourself, or add the `--allow-project-edit` flag. This is because `uv add` modifies your `pyproject.toml`.
-- If you are using `pip`and are not in a virtual environment (`venv`), it will ask to add the `--exec-global` flag. This will modify your global Pythn setup and is not recommended.
-
-### Flags
-
-The following flags are supported:
-
-| Flag                    | Effect                                                                                             |
-| ----------------------- | -------------------------------------------------------------------------------------------------- |
-| `--dry-run`             | Print the inferred plan, do not install, do not run                                                |
-| `--sync-only`           | Install the inferred deps, do not run the pipeline                                                 |
-| `--allow-project-edit`  | Consent to RAITAP modifying your project's `pyproject.toml` when adding deps                       |
-| `--exec-global`         | Consent to `pip install` affecting your global Python (only used when no venv is detected)         |
-| `--custom-deps`         | Skip automatic deps inference; rely on extras you installed manually (see below)                   |
+## Deciding which dependencies are needed for your config
 
 (execution-dependencies)=
 
-### Manual mode
-
-Should you want to bypass the automatic deps detection and manage them yourself, you can pass the `--custom-deps` flag.
-
-The following section explain how to choose your dependencies.
-
-#### Execution dependencies
+### Execution dependencies
 
 RAITAP supports both PyTorch and ONNX models, and both CPU and GPU
 execution. To avoid conflicts, only install the dependencies that match
@@ -122,20 +78,25 @@ RAITAP and the remaining dependencies resolve normally from PyPI.
 
 (assessment-extras)=
 
-#### Assessment dependencies
+### Assessment dependencies
 
-Pick the extras that match the modules you use:
+#### Module dependencies
 
-| Module    | Extra(s)                                  |
-| --------- | ----------------------------------------- |
-| Captum    | `captum` (or umbrella `transparency`)     |
-| SHAP      | `shap` (or umbrella `transparency`)       |
-| Torchattacks / Foolbox / Marabou | `torchattacks` / `foolbox` / `marabou` (or umbrella `robustness`) |
-| Metrics   | `metrics`                                 |
-| HTML report | `jinja` (or umbrella `reporting`)       |
-| PDF report  | `borb` (or umbrella `reporting`)        |
-| MLflow    | `mlflow` (or umbrella `tracking`)         |
-| Slurm launcher | `launcher`                           |
+Each module has its corresponding dependency group. it will install ALL libraries offered by the module.
+
+```{install-tabs}
+:uv:
+uv add "raitap[transparency]"
+
+:pip:
+pip install "raitap[transparency]"
+```
+
+#### Library dependencies
+
+You can also install specific libraries. The group's name is either the name of the library (e.g. `captum`, `mlflow`) or the report file fromat (`html`, `pdf`).
+
+#### Combining in a one-liner
 
 Combine as needed:
 
