@@ -3,6 +3,9 @@
 # verification. Marabou wheels require Python 3.11 on Linux/WSL.
 set -euo pipefail
 
+# Tip: `uv run raitap-deps --config-dir src/raitap/configs --config-name config \
+#      data=mnist_samples model=mlp_mnist robustness=marabou_linf '~transparency'`
+# infers the same extras as the line below.
 uv sync -p 3.11 \
   --extra torch-cpu \
   --extra marabou \
