@@ -33,7 +33,7 @@ from raitap.configs.extras.availability import (
 )
 from raitap.configs.extras.command import render_command
 from raitap.configs.extras.conflicts import ExtrasConflictError, validate_conflicts
-from raitap.configs.extras.frame import print_deps_frame
+from raitap.configs.extras.frame import print_deps_error_frame, print_deps_frame
 from raitap.configs.extras.inference import infer_extras
 from raitap.configs.extras.probe import detect_hardware
 from raitap.configs.extras.python_version import pick_python_version
@@ -59,6 +59,19 @@ def _flag_value(argv: list[str], flags: tuple[str, ...]) -> str | None:
             if a.startswith(flag + "="):
                 return a[len(flag) + 1 :]
     return None
+
+
+def _split_error_message(msg: str) -> list[str]:
+    """Split a multi-line exception message into ``[header, *bullets]``.
+
+    The conflicts/availability errors emit ``"<sentence>\\n  - <bullet>\\n  - ..."``
+    so we strip the leading marker and return each part as plain text for the
+    error frame to render.
+    """
+    lines = msg.splitlines()
+    header = lines[0].rstrip()
+    bullets = [line.lstrip(" -•").rstrip() for line in lines[1:] if line.strip()]
+    return [header, *bullets]
 
 
 def _strip_deps_flags(argv: list[str]) -> tuple[list[str], bool, bool, bool]:
@@ -147,7 +160,11 @@ def maybe_bootstrap(argv: list[str]) -> list[str]:
     try:
         composed = _compose(config_dir, config_name, overrides)
     except Exception as exc:
-        print(f"raitap: deps bootstrap could not compose config: {exc}", file=sys.stderr)
+        print_deps_error_frame(
+            label="Config error",
+            message="Could not compose Hydra config.",
+            details=[str(exc)],
+        )
         sys.exit(2)
 
     hardware = detect_hardware()
@@ -156,10 +173,18 @@ def maybe_bootstrap(argv: list[str]) -> list[str]:
         validate_conflicts(extras, _PYPROJECT, origins=origins)
         check_platform_availability(_PYPROJECT, extras)
     except (ExtrasConflictError, ExtraUnavailableError) as exc:
-        print(f"raitap: {exc}", file=sys.stderr)
+        header, *bullets = _split_error_message(str(exc))
+        label = (
+            "Platform mismatch" if isinstance(exc, ExtraUnavailableError) else "Conflicting extras"
+        )
+        print_deps_error_frame(label=label, message=header, details=bullets)
         sys.exit(2)
     except Exception as exc:
-        print(f"raitap: deps inference failed: {exc}", file=sys.stderr)
+        print_deps_error_frame(
+            label="Inference error",
+            message="Deps inference failed.",
+            details=[str(exc)],
+        )
         sys.exit(2)
 
     python_version = pick_python_version(_PYPROJECT, extras)

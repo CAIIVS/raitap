@@ -45,3 +45,25 @@ def print_deps_frame(
     console.print()
     console.print(panel)
     console.print()
+
+
+def print_deps_error_frame(*, label: str, message: str, details: list[str] | None = None) -> None:
+    """Render a deps-failure panel matching the ``Status.ERROR`` styling."""
+    err = colour(Status.ERROR).base
+    body = Text()
+    body.append(f"{Status.ERROR.icon}", style=err)
+    body.append(message, style=err + Style(bold=True))
+    for detail in details or []:
+        body.append("\n  • ", style=err)
+        body.append(detail, style=err)
+
+    title = Text.assemble(
+        ("RAITAP", err + Style(bold=True)),
+        (" · Deps · ", err),
+        (label, err),
+    )
+    panel = Panel(body, title=title, title_align="left", border_style=err, padding=(1, 2))
+    console = get_console()
+    console.print()
+    console.print(panel)
+    console.print()
