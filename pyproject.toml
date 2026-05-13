@@ -57,7 +57,7 @@ dependencies = [
 ]
 
 [project.scripts]
-raitap = "raitap.run.__main__:main"
+raitap = "raitap._entry:main"
 docs-preview = "raitap.docs_preview:main"
 # `raitap-deps` removed: dep inference is now integrated into `raitap` itself.
 # Use `raitap --dry-run` to preview the inferred install, `raitap --custom-deps`
