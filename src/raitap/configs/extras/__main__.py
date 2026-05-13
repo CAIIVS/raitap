@@ -4,8 +4,8 @@ Examples::
 
     raitap-deps                                   # default config, exec
     raitap-deps --dry-run                         # print only
-    raitap-deps --config-dir examples/lwise-ham10000 \\
-                --config-name assessment
+    raitap-deps --config-dir src/raitap/configs \\
+                --config-name config
     raitap-deps --hardware xpu --mode add data=mnist_samples model=mlp_mnist
 """
 
@@ -143,7 +143,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print("[exec] running uv...")
-    completed = subprocess.run(argv_cmd, check=False)
+    try:
+        completed = subprocess.run(argv_cmd, check=False)
+    except OSError as exc:
+        print(f"raitap-deps: failed to launch uv ({exc}). Is uv on PATH?", file=sys.stderr)
+        return 2
     return int(completed.returncode)
 
 

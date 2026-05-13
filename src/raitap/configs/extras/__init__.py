@@ -1,8 +1,8 @@
 """raitap-deps: infer uv extras from a Hydra config and run uv for the user.
 
 Public API:
-    - :func:`infer_extras` — walk a composed Hydra config and return a sorted
-      list of extras to install.
+    - :func:`infer_extras` — walk a composed Hydra config and return
+      ``(set[str], dict[str, str])`` — extras to install plus per-extra origin.
     - :func:`detect_hardware` — probe the host and return ``cpu``/``cuda``/``xpu``.
     - :func:`validate_conflicts` — assert a set of extras does not violate
       ``[tool.uv].conflicts`` declared in ``pyproject.toml``.

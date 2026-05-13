@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from raitap.configs.extras.inference import infer_extras
 
-
 _LWISE_ASSESSMENT: dict = {
     "experiment_name": "lwise-ham10000-dermoscopy-demo",
     "hardware": "gpu",

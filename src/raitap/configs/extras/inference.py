@@ -6,7 +6,7 @@ the presence of ``_target_``; bare class names and fully-qualified paths are
 both accepted (the class name is taken from the last dotted segment).
 
 Outputs:
-    - sorted list of extras (deduplicated)
+    - ``set[str]`` of extras (deduplicated; the CLI sorts at print/render time)
     - mapping from each extra name to a short human-readable origin phrase
       (used by :mod:`raitap.configs.extras.conflicts` to build error messages)
 
@@ -124,8 +124,9 @@ def infer_extras(
     model = cfg.get("model") or {}
     if not isinstance(model, Mapping) or not isinstance(model.get("source"), str):
         raise ValueError(
-            "raitap-deps needs model.source to pick a torch/onnx backend. "
-            "Provide it in the config or set --hardware explicitly."
+            "raitap-deps needs model.source to pick a torch vs onnx backend "
+            "(the file extension drives that choice). Add `model.source: …` "
+            "to the config or override it via Hydra (e.g. `model.source=foo.pt`)."
         )
     backend = backend_extra(model["source"], hardware)
     _add(extras, backend, f"model.source={model['source']} + hardware={hardware}")
