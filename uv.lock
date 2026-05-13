@@ -3649,7 +3649,7 @@ wheels = [
 
 [[package]]
 name = "raitap"
-version = "0.6.1"
+version = "0.6.2"
 source = { editable = "." }
 dependencies = [
     { name = "hydra-core" },
