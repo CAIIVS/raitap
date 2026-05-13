@@ -38,7 +38,7 @@ _LWISE_ASSESSMENT_MLFLOW: dict = {
 
 def test_lwise_ham10000_assessment_extras() -> None:
     extras, _ = infer_extras(_LWISE_ASSESSMENT, hardware="cpu")
-    assert {"torch-cpu", "captum", "metrics", "jinja", "torchattacks", "marabou"} <= extras
+    assert {"torch-cpu", "captum", "metrics", "html", "torchattacks", "marabou"} <= extras
 
 
 def test_lwise_ham10000_assessment_mlflow_extras() -> None:
@@ -47,7 +47,7 @@ def test_lwise_ham10000_assessment_mlflow_extras() -> None:
         "torch-cpu",
         "captum",
         "metrics",
-        "jinja",
+        "html",
         "torchattacks",
         "marabou",
         "mlflow",
@@ -83,4 +83,4 @@ def test_marabou_mnist_demo_picks_onnx_backend() -> None:
     assert "torch-cpu" not in extras
     assert "marabou" in extras
     assert "metrics" in extras
-    assert "jinja" in extras
+    assert "html" in extras

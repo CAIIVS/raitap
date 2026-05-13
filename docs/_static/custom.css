@@ -1,7 +1,13 @@
 :root {
   --content-font-size: 1rem;
+}
 
-  /* RAITAP brand color (logo red) — overrides Furo's default blue. */
+/* RAITAP brand color (logo red). Furo declares its blue under per-theme
+   selectors, so we match every variant to keep ours from losing the cascade. */
+body,
+body[data-theme="light"],
+body[data-theme="dark"],
+body:not([data-theme]) {
   --color-brand-primary: #e15555;
   --color-brand-content: #e15555;
 }
@@ -13,10 +19,13 @@
   }
 }
 
-body[data-theme="dark"] {
-  --color-brand-primary: #e15555;
-  --color-brand-content: #e15555;
+@media (prefers-color-scheme: light) {
+  body:not([data-theme="dark"]) {
+    --color-brand-primary: #e15555;
+    --color-brand-content: #e15555;
+  }
 }
+
 
 .sidebar-brand-text {
   font-weight: 700;
