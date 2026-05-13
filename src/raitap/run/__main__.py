@@ -102,7 +102,10 @@ def _dispatch_subcommand(argv: list[str]) -> bool:
 def main() -> None:
     if _dispatch_subcommand(sys.argv[1:]):
         return
-    sys.argv = _prepare_cli_argv(list(sys.argv))
+    from raitap.configs.extras.bootstrap import maybe_bootstrap
+
+    sys.argv = maybe_bootstrap(list(sys.argv))
+    sys.argv = _prepare_cli_argv(sys.argv)
     _hydra_main()
 
 

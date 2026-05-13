@@ -33,7 +33,6 @@ RAITAP is a wrapper around existing XAI frameworks, which provides a consistent 
 :caption: Using RAITAP
 
 using-raitap/installation
-using-raitap/auto-extras
 using-raitap/get-it-running
 using-raitap/configuration/index
 using-raitap/understanding-outputs

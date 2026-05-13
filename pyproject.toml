@@ -58,8 +58,10 @@ dependencies = [
 
 [project.scripts]
 raitap = "raitap.run.__main__:main"
-raitap-deps = "raitap.configs.extras.__main__:main"
 docs-preview = "raitap.docs_preview:main"
+# `raitap-deps` removed: dep inference is now integrated into `raitap` itself.
+# Use `raitap --dry-run` to preview the inferred install, `raitap --custom-deps`
+# to bypass inference entirely.
 
 [project.urls]
 Documentation = "https://caiivs.github.io/raitap/"
