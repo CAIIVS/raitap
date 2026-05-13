@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 from rich.panel import Panel
 from rich.style import Style
 from rich.table import Table
@@ -9,6 +11,15 @@ from rich.text import Text
 
 from raitap.utils.colour import Status, colour
 from raitap.utils.console import get_console
+
+
+def _python_label(pinned: str | None) -> str:
+    host = f"{sys.version_info.major}.{sys.version_info.minor}"
+    if pinned is None:
+        return f"{host} (host default)"
+    if pinned == host:
+        return f"{pinned} (pinned, matches host)"
+    return f"{pinned} (pinned, host is {host})"
 
 
 def print_deps_frame(
@@ -31,7 +42,7 @@ def print_deps_frame(
     table.add_column(style="dim", justify="right")
     table.add_column(no_wrap=False, overflow="fold")
     table.add_row("hardware", Text(f"{hardware} ({hardware_origin})", style=info))
-    table.add_row("python", Text(python_version or "host default", style=info))
+    table.add_row("python", Text(_python_label(python_version), style=info))
     table.add_row("extras", Text(", ".join(extras) if extras else "(none)", style=info))
     table.add_row("command", Text(pretty_command, style=Style(color="white")))
 
