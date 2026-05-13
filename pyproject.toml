@@ -57,6 +57,7 @@ dependencies = [
 
 [project.scripts]
 raitap = "raitap.run.__main__:main"
+raitap-deps = "raitap.configs.extras.__main__:main"
 docs-preview = "raitap.docs_preview:main"
 
 [project.urls]
