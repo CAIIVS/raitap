@@ -1,46 +1,87 @@
-"""End-to-end inference checks against real example configs.
+"""End-to-end inference checks against representative composed configs.
 
-These tests guard against drift between the inference mapping and the hand-
-maintained ``uv sync`` lines in ``examples/`` and ``scripts/``. They load the
-YAML directly (no Hydra compose) so they remain runnable without a populated
-artifacts directory.
+These tests bundle config snippets inline so they remain runnable in CI
+without the (gitignored) ``examples/`` artifacts. The shapes mirror the
+real ``examples/lwise-ham10000/assessment*.yaml`` files; if the inference
+mapping ever drifts away from what those examples expect, these tests
+fail loudly.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
-
-import yaml  # type: ignore[import-untyped]
-
 from raitap.configs.extras.inference import infer_extras
 
-REPO_ROOT = Path(__file__).resolve().parents[5]
+
+_LWISE_ASSESSMENT: dict = {
+    "experiment_name": "lwise-ham10000-dermoscopy-demo",
+    "hardware": "gpu",
+    "model": {"source": "lwise_ham10000_eager.pt"},
+    "data": {"name": "ham10000-presentation-balanced"},
+    "metrics": {"_target_": "ClassificationMetrics", "task": "multiclass"},
+    "transparency": {
+        "gradcam": {"_target_": "CaptumExplainer", "algorithm": "LayerGradCam"},
+        "saliency": {"_target_": "CaptumExplainer", "algorithm": "Saliency"},
+    },
+    "robustness": {
+        "fgsm": {"_target_": "TorchattacksAssessor", "algorithm": "FGSM"},
+        "pgd": {"_target_": "TorchattacksAssessor", "algorithm": "PGD"},
+        "marabou_linf": {"_target_": "MarabouAssessor", "algorithm": "linf-box"},
+    },
+    "reporting": {"_target_": "HTMLReporter", "filename": "lwise_ham10000_report.pdf"},
+}
 
 
-def _load(path: Path) -> dict:
-    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+_LWISE_ASSESSMENT_MLFLOW: dict = {
+    **_LWISE_ASSESSMENT,
+    "tracking": {"_target_": "MLFlowTracker"},
+}
 
 
-def test_lwise_ham10000_assessment() -> None:
-    cfg = _load(REPO_ROOT / "examples" / "lwise-ham10000" / "assessment.yaml")
-    extras, _ = infer_extras(cfg, hardware="cpu")
-    # README's `uv sync` line: torch-cpu, captum, metrics, reporting (html→jinja),
-    # torchattacks, marabou (from marabou_linf block in YAML).
+def test_lwise_ham10000_assessment_extras() -> None:
+    extras, _ = infer_extras(_LWISE_ASSESSMENT, hardware="cpu")
     assert {"torch-cpu", "captum", "metrics", "jinja", "torchattacks", "marabou"} <= extras
 
 
-def test_lwise_ham10000_assessment_mlflow() -> None:
-    # assessment_mlflow.yaml uses Hydra `defaults: [assessment]`; merge the base
-    # in manually since this test bypasses Hydra compose.
-    base = _load(REPO_ROOT / "examples" / "lwise-ham10000" / "assessment.yaml")
-    overlay = _load(REPO_ROOT / "examples" / "lwise-ham10000" / "assessment_mlflow.yaml")
-    cfg = {**base, **{k: v for k, v in overlay.items() if k != "defaults"}}
-    extras, _ = infer_extras(cfg, hardware="cpu")
-    assert {"torch-cpu", "captum", "metrics", "jinja", "torchattacks", "mlflow"} <= extras
+def test_lwise_ham10000_assessment_mlflow_extras() -> None:
+    extras, _ = infer_extras(_LWISE_ASSESSMENT_MLFLOW, hardware="cpu")
+    assert {
+        "torch-cpu",
+        "captum",
+        "metrics",
+        "jinja",
+        "torchattacks",
+        "marabou",
+        "mlflow",
+    } <= extras
 
 
 def test_lwise_ham10000_with_xpu_picks_torch_intel() -> None:
-    cfg = _load(REPO_ROOT / "examples" / "lwise-ham10000" / "assessment.yaml")
-    extras, _ = infer_extras(cfg, hardware="xpu")
+    extras, _ = infer_extras(_LWISE_ASSESSMENT, hardware="xpu")
     assert "torch-intel" in extras
     assert "torch-cpu" not in extras
+
+
+def test_lwise_ham10000_with_cuda_picks_torch_cuda() -> None:
+    extras, _ = infer_extras(_LWISE_ASSESSMENT, hardware="cuda")
+    assert "torch-cuda" in extras
+    assert "torch-cpu" not in extras
+
+
+_MARABOU_MNIST_DEMO: dict = {
+    "model": {"source": "mlp_mnist.onnx"},
+    "data": {"name": "mnist_samples"},
+    "metrics": {"_target_": "ClassificationMetrics", "task": "multiclass"},
+    "robustness": {
+        "marabou_linf": {"_target_": "MarabouAssessor", "algorithm": "linf-box"},
+    },
+    "reporting": {"_target_": "HTMLReporter"},
+}
+
+
+def test_marabou_mnist_demo_picks_onnx_backend() -> None:
+    extras, _ = infer_extras(_MARABOU_MNIST_DEMO, hardware="cpu")
+    assert "onnx-cpu" in extras
+    assert "torch-cpu" not in extras
+    assert "marabou" in extras
+    assert "metrics" in extras
+    assert "jinja" in extras
