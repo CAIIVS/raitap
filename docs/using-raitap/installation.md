@@ -1,23 +1,10 @@
 # Installation
 
-RAITAP infers the right extras from the Hydra config it is about to run.
-In normal use you do not pick extras at all — `raitap` does it for you
-and re-launches into a venv that has exactly what your config needs.
-
-The bootstrap auto-detects which install backend to drive (`uv` or
-`pip`) based on the install layout it sees:
-
-| Install layout                       | Has `uv`? | Bootstrap action                                                                          |
-| ------------------------------------ | --------- | ----------------------------------------------------------------------------------------- |
-| Developer checkout (editable)        | yes       | `uv sync --extra …` then relaunch via `uv run raitap` — **default flow**                  |
-| Developer checkout                   | no        | Abort with "install uv"                                                                   |
-| Wheel install in a uv-managed project | yes      | Print the suggested `uv add raitap[…]`; only exec it when you pass `--allow-project-edit` |
-| Wheel install via pip                 | no       | Run `python -m pip install raitap[…]` inside a venv; require `--exec-global` outside one  |
-
-In every case the inference step is the same; the difference is only
-which install command the bootstrap renders and (optionally) executes.
+This page explains how to install RAITAP itself, and the deps needed to run any specific RAITAP config. It is recommended to use `uv`, but `pip` will also work.
 
 ## 1. Install RAITAP
+
+First, you need to install the RAITAP package itself.
 
 ```{install-tabs}
 :uv:
@@ -28,108 +15,54 @@ pip install raitap
 ```
 
 :::{note}
-RAITAP supports Python 3.11+ (3.11–3.13 tested). Python 3.14 is not yet
-supported (Hydra 1.3.2 limitation). Some adapters (e.g. Marabou formal
-verification) pin Python further; `raitap` picks a compatible interpreter
-automatically when those adapters appear in the config.
+RAITAP supports Python 3.11–3.13. Python 3.14 is not yet
+supported (Hydra 1.3.2 limitation). Some underlying libs require older versions (e.g. Marabou < 3.12). RAITAP will handle the interpreter choice for you.
 :::
 
-## 2. Run RAITAP
+## 2. Run a RAITAP config
 
-```bash
+RAITAP gives access to many underlying libraries (Captum, SHAP, Torchattacks...). To avoid bloat, they are not installed by default with RAITAP. Hence, the required dependencies are determined by analysing your config when you run it.
+
+### Automatic mode (default)
+
+You do not need to do anything but follow the instructions displayed in your terminal.
+
+In the example below, we assume a basic config named `assessment`. For more details, see {doc}`configuration/index`.
+
+```{install-tabs}
+:uv:
 uv run raitap --config-dir my-configs --config-name assessment
+
+:pip:
+raitap --config-dir my-configs --config-name assessment
 ```
 
-That is the whole flow. `raitap` reads the config, infers the necessary
-extras (backend, explainers, attackers, reporting, tracking, metrics),
-probes the host hardware, picks the right Python, and re-launches itself
-through `uv run` with the correct `--extra` flags. The first run prints a
-panel like this before the install starts:
+Then, depending on your setup, RAITAP will either rinstall deps automatically and start the run, or ask for further action:
 
-```
-┌─ RAITAP · Deps · Sync then run ─────────────────────────────────────────┐
-│                                                                         │
-│  hardware  xpu (probed)                                                 │
-│    python  3.13 (host default)                                          │
-│    extras  captum, jinja, metrics, torch-intel, torchattacks            │
-│   command  uv sync --extra captum --extra jinja --extra metrics ...     │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+- If you are using `uv`, it will ask you to run the `uv add` command yourself, or add the `--allow-project-edit` flag. This is because `uv add` modifies your `pyproject.toml`.
+- If you are using `pip`and are not in a virtual environment (`venv`), it will ask to add the `--exec-global` flag. This will modify your global Pythn setup and is not recommended.
 
-### Preview without installing
+### Flags
 
-Pass `--dry-run` to see the inferred command without syncing or running:
+The following flags are supported:
 
-```bash
-uv run raitap --dry-run --config-dir my-configs --config-name assessment
-```
-
-### Sync only, do not run
-
-Pass `--sync-only` to install the inferred extras and exit. Useful for
-prepping a venv ahead of an offline run, or for CI matrix lanes:
-
-```bash
-uv run raitap --sync-only --config-dir my-configs --config-name assessment
-```
-
-### Use raitap as a project dependency
-
-When raitap is installed as a wheel inside another project's `pyproject.toml`
-and `uv` is available, the bootstrap prints the suggested
-`uv add raitap[…]` line and stops — running it would silently edit the
-caller project. Pass `--allow-project-edit` to let `raitap` exec the
-command:
-
-```bash
-uv run raitap --allow-project-edit --config-dir my-configs --config-name assessment
-```
-
-### Pip outside a venv
-
-When `uv` is not available and the host interpreter is *not* in a venv,
-the bootstrap refuses to `pip install` into the base interpreter. Either
-activate a venv first, or accept the global install with
-`--exec-global`:
-
-```bash
-raitap --exec-global --config-dir my-configs --config-name assessment
-```
-
-### Bypass inference
-
-If you prefer to manage extras yourself (e.g. unusual driver setup, a
-private fork that adds extras outside the RAITAP table), pass
-`--custom-deps`:
-
-```bash
-uv run --extra torch-cuda --extra captum raitap \
-    --custom-deps --config-dir my-configs --config-name assessment
-```
-
-`--custom-deps` skips the inference step entirely. Read the rest of this
-page if you go that route — you are on the hook for choosing the right
-backend and adapter extras.
-
-### Flag reference
-
-| Flag                    | Effect                                                              |
-| ----------------------- | ------------------------------------------------------------------- |
-| `--dry-run`             | Print the inferred plan, do not install, do not run                 |
-| `--sync-only`           | Install the inferred extras, do not run the pipeline                |
-| `--custom-deps`         | Skip inference entirely; trust user-managed extras                  |
-| `--allow-project-edit`  | Allow the bootstrap to `uv add` into the caller project's pyproject |
-| `--exec-global`         | Allow `pip install` into the base interpreter (no venv detected)    |
+| Flag                    | Effect                                                                                             |
+| ----------------------- | -------------------------------------------------------------------------------------------------- |
+| `--dry-run`             | Print the inferred plan, do not install, do not run                                                |
+| `--sync-only`           | Install the inferred deps, do not run the pipeline                                                 |
+| `--allow-project-edit`  | Consent to RAITAP modifying your project's `pyproject.toml` when adding deps                       |
+| `--exec-global`         | Consent to `pip install` affecting your global Python (only used when no venv is detected)         |
+| `--custom-deps`         | Skip automatic deps inference; rely on extras you installed manually (see below)                   |
 
 (execution-dependencies)=
 
-## Manual extras (advanced)
+### Manual mode
 
-Use this section only when running with `--custom-deps`. The default flow
-covers these decisions for you.
+Should you want to bypass the automatic deps detection and manage them yourself, you can pass the `--custom-deps` flag.
 
-### Execution dependencies
+The following section explain how to choose your dependencies.
+
+#### Execution dependencies
 
 RAITAP supports both PyTorch and ONNX models, and both CPU and GPU
 execution. To avoid conflicts, only install the dependencies that match
@@ -140,13 +73,7 @@ your setup.
 | Torch | `torch-cpu` | `torch-cuda` | `torch-intel` |
 | ONNX  | `onnx-cpu`  | `onnx-cuda`  | `onnx-intel`  |
 
-```{install-tabs}
-:uv:
-uv add "raitap[onnx-cpu]" # replace `onnx-cpu` with your group
-
-:pip:
-pip install "raitap[onnx-cpu]" # replace `onnx-cpu` with your group
-```
+Combine with assessment extras as needed; see {ref}`assessment-extras` below.
 
 :::{note}
 
@@ -193,7 +120,9 @@ This keeps PyTorch on the CUDA wheel family you selected while letting
 RAITAP and the remaining dependencies resolve normally from PyPI.
 :::
 
-### Assessment dependencies
+(assessment-extras)=
+
+#### Assessment dependencies
 
 Pick the extras that match the modules you use:
 
