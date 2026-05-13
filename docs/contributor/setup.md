@@ -14,6 +14,10 @@ Python 3.14 is not supported yet due to Hydra's own requirements. uv will pick a
 
 ### 1. Install dependencies
 
+By default, RAITAP will sync the correct dev whenever you run a config. However, you can override them using the `--custom-deps` flag. Then, it is up to you to manage them as described below. This is useful when testing and adding new libraries.
+
+#### Custom deps management with `--custom-deps` (optional)
+
 RAITAP supports many machine and model configurations. To avoid conflicts, only install the dependencies that match your setup. Linting and testing of all configurations is done on the CI.
 
 1. Choose your execution dependency group from the following table:
@@ -41,6 +45,10 @@ RAITAP supports many machine and model configurations. To avoid conflicts, only 
 
     :::{warning}
     Do not run the `sync` commands separately. The latest run will override the previous ones.
+    :::
+
+    :::{tip}
+    Once the dev group is installed, you can run any RAITAP config with `uv run raitap --config-dir … --config-name …` and the deps-bootstrap will pick the right execution + assessment extras for that config automatically. The manual `--extra` choice above only matters for the initial dev environment.
     :::
 
 ### 2. Install the commit message hook

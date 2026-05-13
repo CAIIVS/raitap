@@ -1,3 +1,6 @@
+# Superpowers brainstorming/plan artifacts (local to author)
+docs/superpowers/
+
 # Python
 __pycache__/
 *.py[cod]
