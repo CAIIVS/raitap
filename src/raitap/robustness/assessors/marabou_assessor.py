@@ -19,6 +19,7 @@ import re
 import shutil
 import tempfile
 import time
+from collections.abc import Mapping  # noqa: TC003 — runtime use in module-level annotation
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -63,8 +64,6 @@ _MARABOUPY_ERROR_MESSAGES: Mapping[re.Pattern[str], str] = {
 }
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from torch import nn
 
 logger = logging.getLogger(__name__)

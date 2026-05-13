@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from typing import TYPE_CHECKING, Any
 
 import torch
@@ -48,23 +47,14 @@ def _log_phase_start(phase: str, n: int) -> None:
 
 
 def run(config: AppConfig) -> RunOutputs:
-    # Capture warnings emitted during model + data construction so the
+    # Defer warnings emitted during model + data construction so the
     # summary panel renders first; otherwise the rich handler interleaves
     # them above the banner and makes the run header look fragmented.
-    with warnings.catch_warnings(record=True) as deferred:
-        warnings.simplefilter("always")
+    with raitap_log.deferred():
         model = Model(config)
         data = Data(config)
     _validate_report_sample_selection(config, data)
     print_summary(config, model)
-    for entry in deferred:
-        warnings.warn_explicit(
-            entry.message,
-            entry.category,
-            entry.filename,
-            entry.lineno,
-            source=entry.source,
-        )
 
     outputs = _run_without_tracking(config, model, data)
 

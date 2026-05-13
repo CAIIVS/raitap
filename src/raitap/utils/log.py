@@ -32,7 +32,11 @@ import sys
 import threading
 import warnings
 from collections import deque
-from typing import Any
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 from raitap.utils.diagnostics import Diagnostic, Subsystem
 
@@ -150,6 +154,29 @@ class _RaitapLog:
         wrapped libraries. Match arguments mirror :func:`warnings.filterwarnings`.
         """
         warnings.filterwarnings("ignore", message=message, category=category, module=module)
+
+    @contextmanager
+    def deferred(self) -> Iterator[None]:
+        """Capture every warning emitted inside the ``with`` block and replay
+        them after it exits.
+
+        Use this when an early, ordered block of console output (e.g. the
+        startup summary panel) would otherwise be interleaved with
+        warnings raised during setup. Replayed warnings preserve their
+        original ``filename`` / ``lineno`` so the rich handler still
+        locates the source.
+        """
+        with warnings.catch_warnings(record=True) as captured:
+            warnings.simplefilter("always")
+            yield
+        for entry in captured:
+            warnings.warn_explicit(
+                entry.message,
+                entry.category,
+                entry.filename,
+                entry.lineno,
+                source=entry.source,
+            )
 
 
 raitap_log = _RaitapLog()
