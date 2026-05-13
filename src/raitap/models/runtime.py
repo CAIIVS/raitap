@@ -16,8 +16,7 @@ _ONNX_RUNTIME_INSTALL_HINT = (
     "or `uv sync --extra onnx-intel`."
 )
 _INSTALL_DOCS_URL = (
-    "https://caiivs.github.io/raitap/using-raitap/installation.html"
-    "#install-optional-dependencies"
+    "https://caiivs.github.io/raitap/using-raitap/installation.html#install-optional-dependencies"
 )
 
 
