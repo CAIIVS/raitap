@@ -58,7 +58,9 @@ def test_captum_explainer_block_adds_extra() -> None:
 def test_shap_explainer_block_adds_extra() -> None:
     cfg = {
         "model": {"source": "x.pt"},
-        "transparency": {"shap_block": {"_target_": "ShapExplainer", "algorithm": "GradientExplainer"}},
+        "transparency": {
+            "shap_block": {"_target_": "ShapExplainer", "algorithm": "GradientExplainer"}
+        },
     }
     extras, _ = infer_extras(cfg, hardware="cpu")
     assert "shap" in extras
@@ -147,7 +149,11 @@ def test_visualisers_do_not_contribute() -> None:
 def test_launcher_extra() -> None:
     cfg = {
         "model": {"source": "x.pt"},
-        "hydra": {"launcher": {"_target_": "hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher"}},
+        "hydra": {
+            "launcher": {
+                "_target_": "hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher"
+            }
+        },
     }
     extras, _ = infer_extras(cfg, hardware="cpu")
     assert "launcher" in extras

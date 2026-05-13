@@ -86,8 +86,11 @@ def _walk_section(
                 continue
             target = adapter_cfg.get("_target_")
             if isinstance(target, str):
-                _add(extras, _extra_for_target(target),
-                     f"{section_key}.{adapter_name}._target_={target}")
+                _add(
+                    extras,
+                    _extra_for_target(target),
+                    f"{section_key}.{adapter_name}._target_={target}",
+                )
         return
     if isinstance(section, Mapping):
         target = section.get("_target_")
@@ -96,7 +99,9 @@ def _walk_section(
 
 
 def _walk_launcher(extras: dict[str, str], cfg: Mapping[str, Any]) -> None:
-    launcher = cfg.get("hydra", {}).get("launcher") if isinstance(cfg.get("hydra"), Mapping) else None
+    launcher = (
+        cfg.get("hydra", {}).get("launcher") if isinstance(cfg.get("hydra"), Mapping) else None
+    )
     if not isinstance(launcher, Mapping):
         return
     target = launcher.get("_target_")

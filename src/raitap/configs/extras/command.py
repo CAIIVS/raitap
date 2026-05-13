@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from raitap.utils.diagnostics import is_dev_install
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 Mode = Literal["sync", "add"]
 ModeRequest = Literal["auto", "sync", "add"]

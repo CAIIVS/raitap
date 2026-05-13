@@ -27,8 +27,7 @@ def _which(name: str) -> str | None:
 
 
 def _run(argv: list[str], *, timeout: float = 5.0) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(argv, capture_output=True, text=True,
-                          timeout=timeout, check=False)
+    return subprocess.run(argv, capture_output=True, text=True, timeout=timeout, check=False)
 
 
 def _cuda_available() -> bool:
@@ -62,8 +61,12 @@ def _intel_gpu_windows() -> bool:
         return False
     try:
         result = _run(
-            [powershell, "-NoProfile", "-Command",
-             "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"],
+            [
+                powershell,
+                "-NoProfile",
+                "-Command",
+                "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name",
+            ],
             timeout=5.0,
         )
     except (subprocess.TimeoutExpired, OSError):

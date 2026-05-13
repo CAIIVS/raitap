@@ -14,9 +14,8 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
-from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
@@ -27,6 +26,9 @@ from raitap.configs.extras.conflicts import ExtrasConflictError, validate_confli
 from raitap.configs.extras.inference import infer_extras
 from raitap.configs.extras.probe import detect_hardware
 from raitap.utils.diagnostics import is_dev_install
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 _PYPROJECT = Path(__file__).resolve().parents[4] / "pyproject.toml"
 _DEFAULT_CONFIG_DIR = Path(__file__).resolve().parents[2] / "configs"
@@ -41,19 +43,22 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config-name", type=str, default="config")
     parser.add_argument("--hardware", choices=("auto", "cpu", "cuda", "xpu"), default="auto")
     parser.add_argument("--mode", choices=("auto", "sync", "add"), default="auto")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Print the command but do not run uv.")
-    parser.add_argument("overrides", nargs="*",
-                        help="Hydra overrides, forwarded to compose() verbatim.")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Print the command but do not run uv."
+    )
+    parser.add_argument(
+        "overrides", nargs="*", help="Hydra overrides, forwarded to compose() verbatim."
+    )
     return parser
 
 
-def _compose_config(*, config_dir: Path, config_name: str, overrides: list[str]) -> Mapping[str, Any]:
+def _compose_config(
+    *, config_dir: Path, config_name: str, overrides: list[str]
+) -> Mapping[str, Any]:
     if GlobalHydra.instance().is_initialized():
         GlobalHydra.instance().clear()
     with initialize_config_dir(config_dir=str(config_dir.resolve()), version_base=None):
-        composed = compose(config_name=config_name, overrides=overrides,
-                           return_hydra_cfg=True)
+        composed = compose(config_name=config_name, overrides=overrides, return_hydra_config=True)
         return OmegaConf.to_container(composed, resolve=False)  # type: ignore[return-value]
 
 
@@ -71,7 +76,7 @@ def _print_frame(
     width = 78
     bar = "─" * (width - 2)
     lines = [
-        f"┌─ raitap-deps {bar[len('raitap-deps '):]}",
+        f"┌─ raitap-deps {bar[len('raitap-deps ') :]}",
         f"│ Config        {config_dir}/{config_name}.yaml",
         f"│ Hardware      {hardware_value} ({hardware_origin})",
         f"│ Install mode  {mode} ({mode_origin})",
@@ -115,8 +120,10 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     mode = select_mode(args.mode)
-    mode_origin = "dev checkout" if (args.mode == "auto" and is_dev_install()) else (
-        "installed" if args.mode == "auto" else "forced"
+    mode_origin = (
+        "dev checkout"
+        if (args.mode == "auto" and is_dev_install())
+        else ("installed" if args.mode == "auto" else "forced")
     )
 
     argv_cmd, pretty = render_command(mode=mode, extras=extras)

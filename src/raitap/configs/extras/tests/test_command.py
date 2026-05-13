@@ -23,7 +23,7 @@ def test_add_renders_single_bracketed_call() -> None:
 
 
 def test_extras_are_sorted_and_deduplicated() -> None:
-    argv, _ = render_command(mode="sync", extras={"b", "a", "a"})
+    argv, _ = render_command(mode="sync", extras={"b", "a"})
     assert argv == ["uv", "sync", "--extra", "a", "--extra", "b"]
 
 

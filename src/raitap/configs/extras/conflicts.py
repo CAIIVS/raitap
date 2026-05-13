@@ -9,8 +9,11 @@ origins when the check fails.
 from __future__ import annotations
 
 import tomllib
-from collections.abc import Iterable, Mapping
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
+    from pathlib import Path
 
 
 class ExtrasConflictError(RuntimeError):
@@ -52,10 +55,7 @@ def validate_conflicts(
         clash = selected & group
         if len(clash) <= 1:
             continue
-        parts = [
-            f"{name} ({origins.get(name, 'no origin recorded')})"
-            for name in sorted(clash)
-        ]
+        parts = [f"{name} ({origins.get(name, 'no origin recorded')})" for name in sorted(clash)]
         raise ExtrasConflictError(
             "Inferred extras violate a pyproject conflict group: " + ", ".join(parts)
         )

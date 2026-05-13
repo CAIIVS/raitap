@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
 import pytest
 
 from raitap.configs.extras import __main__ as cli
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture
@@ -24,7 +26,9 @@ def fake_compose(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
 
 def test_dry_run_does_not_exec(
-    monkeypatch: pytest.MonkeyPatch, fake_compose: dict[str, Any], capsys: pytest.CaptureFixture[str]
+    monkeypatch: pytest.MonkeyPatch,
+    fake_compose: dict[str, Any],
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setattr(cli, "detect_hardware", lambda: "cpu")
     monkeypatch.setattr(cli, "is_dev_install", lambda: True)
@@ -42,7 +46,9 @@ def test_dry_run_does_not_exec(
 
 
 def test_default_executes(
-    monkeypatch: pytest.MonkeyPatch, fake_compose: dict[str, Any], capsys: pytest.CaptureFixture[str]
+    monkeypatch: pytest.MonkeyPatch,
+    fake_compose: dict[str, Any],
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setattr(cli, "detect_hardware", lambda: "cpu")
     monkeypatch.setattr(cli, "is_dev_install", lambda: True)
@@ -56,9 +62,7 @@ def test_default_executes(
     assert argv[:2] == ["uv", "sync"]
 
 
-def test_hardware_override(
-    monkeypatch: pytest.MonkeyPatch, fake_compose: dict[str, Any]
-) -> None:
+def test_hardware_override(monkeypatch: pytest.MonkeyPatch, fake_compose: dict[str, Any]) -> None:
     probe_mock = MagicMock(return_value="cuda")
     monkeypatch.setattr(cli, "detect_hardware", probe_mock)
     monkeypatch.setattr(cli, "is_dev_install", lambda: True)
@@ -79,7 +83,9 @@ def test_auto_hardware_probes(
 
 
 def test_mode_add(
-    monkeypatch: pytest.MonkeyPatch, fake_compose: dict[str, Any], capsys: pytest.CaptureFixture[str]
+    monkeypatch: pytest.MonkeyPatch,
+    fake_compose: dict[str, Any],
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setattr(cli, "detect_hardware", lambda: "cpu")
     monkeypatch.setattr(cli, "is_dev_install", lambda: True)
@@ -91,9 +97,7 @@ def test_mode_add(
     assert "raitap[" in out
 
 
-def test_conflict_aborts(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_conflict_aborts(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     cfg = {
         "model": {"source": "x.pt"},
     }
