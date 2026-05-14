@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import torch
 
-from raitap.utils.diagnostics import Subsystem
+from raitap.utils.diagnostics import Module
 from raitap.utils.errors import rethrow
 
 from ..contracts import MethodKind, Objective, PerturbationNorm, ThreatModel
@@ -167,7 +167,7 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
         )
 
         with rethrow(
-            subsystem=Subsystem.robustness,
+            module=Module.robustness,
             third_party_lib="foolbox",
             message_map=type(self).error_messages,
         ):

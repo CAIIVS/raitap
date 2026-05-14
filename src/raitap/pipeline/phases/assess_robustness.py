@@ -39,12 +39,12 @@ def resolve_robustness_targets(
         return None
     predictions, _ = metrics_prediction_pair(forward_output)
 
-    from raitap.utils.diagnostics import Subsystem
+    from raitap.utils.diagnostics import Module
 
     raitap_log.warn(
         "No ground-truth labels provided; using model predictions as the "
         "reference for untargeted attacks.",
-        subsystem=Subsystem.robustness,
+        module=Module.robustness,
     )
     return predictions.detach().cpu()
 

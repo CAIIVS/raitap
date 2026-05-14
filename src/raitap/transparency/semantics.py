@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from raitap.utils.diagnostics import Diagnostic, Subsystem
+from raitap.utils.diagnostics import Diagnostic, Module
 from raitap.utils.errors import RaitapError
 
 from .contracts import (
@@ -303,7 +303,7 @@ def _method_family_error(framework: str, algorithm: str) -> RaitapError:
     return RaitapError(
         message,
         diagnostic=Diagnostic(
-            subsystem=Subsystem.transparency,
+            module=Module.transparency,
             file=__file__,
             line=0,
             third_party_lib=None,

@@ -1,7 +1,7 @@
 """Generic, cross-platform process / port primitives.
 
 Tracker shutdown code composes these helpers. The module is deliberately
-free of tracker-specific knowledge so any subsystem that needs to terminate
+free of tracker-specific knowledge so any module that needs to terminate
 local helpers can reuse it.
 """
 

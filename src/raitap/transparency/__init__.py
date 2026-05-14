@@ -52,7 +52,7 @@ from .semantics import (
     method_families_for_explainer,
 )
 
-# Third-party explainer libraries this subsystem wraps. Consumed by
+# Third-party explainer libraries this module wraps. Consumed by
 # :mod:`raitap.utils.diagnostics` to attribute warnings/errors emitted from
 # inside these packages to a "via <lib>" chip and the frameworks-and-libraries
 # docs page. **When adding a new wrapped library, append its import name here.**

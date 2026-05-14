@@ -33,10 +33,10 @@ from raitap.utils.diagnostics import (
     Diagnostic,
     docs_url,
     is_dev_install,
+    module_from_str,
     resolve_diagnostic_from_frames,
     resolve_diagnostic_from_path,
     resolve_diagnostic_from_traceback,
-    subsystem_from_str,
 )
 from raitap.utils.errors import RaitapError
 from raitap.utils.log import _pop_diagnostic, _push_diagnostic, _take_diagnostic_override
@@ -204,8 +204,8 @@ class RaitapRichHandler(RichHandler):
             chips = diagnostic_chips(
                 status,
                 scope=(
-                    raitap_exc.diagnostic.subsystem.capitalize()
-                    if raitap_exc.diagnostic.subsystem
+                    raitap_exc.diagnostic.module.capitalize()
+                    if raitap_exc.diagnostic.module
                     else type(raitap_exc).__name__
                 ),
                 src=(
@@ -228,7 +228,7 @@ class RaitapRichHandler(RichHandler):
             cat = warn_match.group("cat")
             src = warn_match.group("src")
             diagnostic = _pop_diagnostic()
-            sub = diagnostic.subsystem if diagnostic else None
+            sub = diagnostic.module if diagnostic else None
             scope = sub.capitalize() if sub else cat
             chips = diagnostic_chips(status, scope=scope, src=src, diagnostic=diagnostic)
             body = _linkify_message(warn_match.group("msg").strip())
@@ -243,15 +243,15 @@ class RaitapRichHandler(RichHandler):
                 # exc_info and no informative pathname.
                 resolved = _diagnostic_from_record(record)
                 if resolved is None or (
-                    resolved.subsystem is None and resolved.third_party_lib is None
+                    resolved.module is None and resolved.third_party_lib is None
                 ):
                     resolved = Diagnostic(
-                        subsystem=subsystem_from_str(head.lower()),
+                        module=module_from_str(head.lower()),
                         file="",
                         line=0,
                         third_party_lib=None,
                     )
-                scope = resolved.subsystem.capitalize() if resolved.subsystem else head
+                scope = resolved.module.capitalize() if resolved.module else head
                 src = f"{resolved.file}:{resolved.line}" if resolved.file else ""
                 derived = diagnostic_chips(status, scope=scope, src=src, diagnostic=resolved)
                 chips = derived if derived else [chip(head, style=shades.light)]
@@ -263,11 +263,11 @@ class RaitapRichHandler(RichHandler):
         if not chips:
             diagnostic = _diagnostic_from_record(record)
             if diagnostic is not None and (
-                diagnostic.subsystem is not None or diagnostic.third_party_lib is not None
+                diagnostic.module is not None or diagnostic.third_party_lib is not None
             ):
                 scope = (
-                    diagnostic.subsystem.capitalize()
-                    if diagnostic.subsystem
+                    diagnostic.module.capitalize()
+                    if diagnostic.module
                     else record.name.rsplit(".", 1)[-1].capitalize()
                 )
                 src = f"{diagnostic.file}:{diagnostic.line}" if diagnostic.file else ""
@@ -323,7 +323,7 @@ def _diagnostic_from_record(record: logging.LogRecord) -> Diagnostic | None:
     """Resolve a :class:`Diagnostic` for *any* log record.
 
     Walks ``record.exc_info`` traceback first (most informative — pinpoints the
-    actual raising frame inside a raitap subsystem); falls back to the
+    actual raising frame inside a raitap module); falls back to the
     record's own ``pathname``/``lineno`` so non-exception ``logger.warning`` /
     ``logger.error`` calls still get scope and ``file:line`` chips. Returns
     ``None`` only when the record carries no usable location at all.
@@ -358,12 +358,12 @@ def _format_warning_compact(
     lineno: int,
     line: str | None = None,
 ) -> str:
-    """Resolve the warn origin to the first raitap subsystem frame and stash it
+    """Resolve the warn origin to the first raitap module frame and stash it
     for :class:`RaitapRichHandler`.
 
     The returned canonical string ``path:line: Category: msg`` is what the
     standard ``logging.captureWarnings`` pipeline forwards to the handler. The
-    structured :class:`~raitap.utils.diagnostics.Diagnostic` (subsystem +
+    structured :class:`~raitap.utils.diagnostics.Diagnostic` (module +
     third-party detection) is stashed on a thread-local queue so the handler
     can render an audience-appropriate header without re-walking frames at
     emit time (frames are unwound by then).
@@ -389,13 +389,13 @@ def diagnostic_chips(
       clickable; all chips render in ``colour(status).light`` so the main
       label keeps the visual lead.
     - **Installed wheel, raitap-emitted**: ``· <scope> · View docs``,
-      ``View docs`` linking to the subsystem documentation page.
+      ``View docs`` linking to the module documentation page.
     - **Installed wheel, third-party**: ``· <scope> · via <lib> · View docs``,
       link points to the frameworks-and-libraries doc page.
     - **Installed wheel, unclassified**: empty list.
     """
     shades = colour(status)
-    sub = diagnostic.subsystem if diagnostic else None
+    sub = diagnostic.module if diagnostic else None
     third_party = diagnostic.third_party_lib if diagnostic else None
     chips: list[Text] = []
 
@@ -486,7 +486,7 @@ def print_failure_panel(exc: BaseException, duration: str) -> None:
     if isinstance(exc, RaitapError) and exc.diagnostic is not None:
         diagnostic = exc.diagnostic
     elif exc.__traceback__ is not None:
-        # Best-effort: any error raised from a raitap subsystem module gets
+        # Best-effort: any error raised from a raitap module module gets
         # tagged by walking its traceback. Keeps bare ``raise ValueError(...)``
         # sites tied to their owning module.
         diagnostic = resolve_diagnostic_from_traceback(
@@ -495,9 +495,9 @@ def print_failure_panel(exc: BaseException, duration: str) -> None:
             default_line=0,
         )
 
-    if diagnostic is not None and diagnostic.subsystem is not None:
+    if diagnostic is not None and diagnostic.module is not None:
         label = "Failure"
-        scope = diagnostic.subsystem.capitalize()
+        scope = diagnostic.module.capitalize()
         src = f"{diagnostic.file}:{diagnostic.line}" if diagnostic.file else ""
         chips = diagnostic_chips(Status.ERROR, scope=scope, src=src, diagnostic=diagnostic)
         # Hide the bland ``RaitapError:`` prefix; the chip already labels scope.

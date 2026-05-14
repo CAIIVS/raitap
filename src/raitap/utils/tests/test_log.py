@@ -15,7 +15,7 @@ import pytest
 
 import raitap.utils.log as log_module
 from raitap import raitap_log
-from raitap.utils.diagnostics import Diagnostic, Subsystem
+from raitap.utils.diagnostics import Diagnostic, Module
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -71,9 +71,7 @@ class TestDiagnosticQueueIsThreadLocal:
     def test_pushes_in_one_thread_dont_leak_into_another(self) -> None:
         from raitap.utils.log import _pop_diagnostic, _push_diagnostic
 
-        sentinel = Diagnostic(
-            subsystem=Subsystem.metrics, file="/x.py", line=1, third_party_lib=None
-        )
+        sentinel = Diagnostic(module=Module.metrics, file="/x.py", line=1, third_party_lib=None)
         _push_diagnostic(sentinel)
 
         observed: list[Diagnostic | None] = []

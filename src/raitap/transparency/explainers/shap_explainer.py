@@ -12,7 +12,7 @@ from raitap import raitap_log
 from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
 from raitap.transparency.contracts import ExplanationPayloadKind, MethodFamily
 from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
-from raitap.utils.diagnostics import Subsystem
+from raitap.utils.diagnostics import Module
 from raitap.utils.errors import rethrow
 
 from .base_explainer import AttributionOnlyExplainer
@@ -208,7 +208,7 @@ class ShapExplainer(AttributionOnlyExplainer):
         # GradientExplainer and DeepExplainer expect torch tensors
         # KernelExplainer and TreeExplainer expect numpy arrays
         with rethrow(
-            subsystem=Subsystem.transparency,
+            module=Module.transparency,
             third_party_lib="shap",
             message_map=type(self).error_messages,
         ):

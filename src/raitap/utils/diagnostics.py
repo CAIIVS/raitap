@@ -1,7 +1,7 @@
 """Diagnostic infrastructure shared by warnings and errors.
 
 A :class:`Diagnostic` describes *where* an in-flight problem comes from inside
-raitap (subsystem + source location, plus an optional third-party library
+raitap (module + source location, plus an optional third-party library
 flag). The same dataclass is reused for warnings (populated from frame walks
 in :mod:`raitap.utils.log`) and, in future, for errors raised by the
 robustness/transparency adapters (issue #22), where it will be populated from
@@ -9,17 +9,17 @@ an exception's traceback.
 
 Public surface:
 
-- :class:`Diagnostic` — typed origin record (file/line/subsystem/third-party)
-- :class:`Subsystem` — type-safe enum of raitap subsystem directory names
-- :func:`resolve_diagnostic_from_frames` — walk live frames to find the raitap subsystem
+- :class:`Diagnostic` — typed origin record (file/line/module/third-party)
+- :class:`Module` — type-safe enum of raitap module directory names
+- :func:`resolve_diagnostic_from_frames` — walk live frames to find the raitap module
 - :func:`is_dev_install` — ``True`` for cloned/editable checkouts, ``False`` for installed wheels
-- :func:`docs_url` — subsystem-driven docs URL for a diagnostic
+- :func:`docs_url` — module-driven docs URL for a diagnostic
 
 Third-party library detection lives here, but the *list* of wrapped libraries
-does not: each subsystem package (``raitap.transparency``, ``raitap.robustness``,
+does not: each module package (``raitap.transparency``, ``raitap.robustness``,
 …) exposes a ``THIRD_PARTY_LIBS`` constant, aggregated lazily by
 :func:`_third_party_libs`. Adding a new wrapped library is a one-line edit in
-the relevant subsystem ``__init__``, not here.
+the relevant module ``__init__``, not here.
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ from typing import Final
 
 _SUBSYSTEM_RE = re.compile(r"raitap[\\/](?!src[\\/])(?P<sub>\w+)[\\/]")
 
-# Subsystem packages that wrap third-party libraries and expose a
+# Module packages that wrap third-party libraries and expose a
 # ``THIRD_PARTY_LIBS`` constant. Aggregated lazily by :func:`_third_party_libs`
 # so ``utils`` stays free of an upward dependency on these packages.
 _THIRD_PARTY_LIB_PROVIDERS: Final[tuple[str, ...]] = (
@@ -46,8 +46,8 @@ _THIRD_PARTY_LIB_PROVIDERS: Final[tuple[str, ...]] = (
 _DOCS_BASE: Final[str] = "https://caiivs.github.io/raitap"
 
 
-class Subsystem(StrEnum):
-    """Type-safe enum of legitimate raitap subsystem directory names.
+class Module(StrEnum):
+    """Type-safe enum of legitimate raitap module directory names.
 
     Anchoring origin classification to this enum prevents false matches when
     ``raitap`` appears multiple times in a path (e.g. CI checkouts at
@@ -69,30 +69,30 @@ class Subsystem(StrEnum):
     utils = "utils"
 
 
-def subsystem_from_str(name: str) -> Subsystem | None:
-    """Return the :class:`Subsystem` matching ``name``, or ``None`` if unknown."""
+def module_from_str(name: str) -> Module | None:
+    """Return the :class:`Module` matching ``name``, or ``None`` if unknown."""
     try:
-        return Subsystem(name)
+        return Module(name)
     except ValueError:
         return None
 
 
-# Subsystems that are infrastructure rather than user-facing modules and so
-# have no dedicated docs page. All other ``Subsystem`` members do.
-_NO_DOC_SUBSYSTEMS: Final[frozenset[Subsystem]] = frozenset(
-    {Subsystem.cli, Subsystem.configs, Subsystem.deps, Subsystem.pipeline, Subsystem.utils}
+# Modules that are infrastructure rather than user-facing modules and so
+# have no dedicated docs page. All other ``Module`` members do.
+_NO_DOC_MODULESS: Final[frozenset[Module]] = frozenset(
+    {Module.cli, Module.configs, Module.deps, Module.pipeline, Module.utils}
 )
-_DOC_SUBSYSTEMS: Final[frozenset[Subsystem]] = frozenset(Subsystem) - _NO_DOC_SUBSYSTEMS
+_DOC_SUBSYSTEMS: Final[frozenset[Module]] = frozenset(Module) - _NO_DOC_MODULESS
 
 
 @dataclass(frozen=True)
 class Diagnostic:
     """Resolved origin of a warning or error.
 
-    ``subsystem`` and ``third_party_lib`` are ``None`` when not classifiable.
+    ``module`` and ``third_party_lib`` are ``None`` when not classifiable.
     """
 
-    subsystem: Subsystem | None
+    module: Module | None
     file: str
     line: int
     third_party_lib: str | None
@@ -100,7 +100,7 @@ class Diagnostic:
 
 @lru_cache(maxsize=1)
 def _third_party_libs() -> frozenset[str]:
-    """Aggregate ``THIRD_PARTY_LIBS`` from each subsystem package.
+    """Aggregate ``THIRD_PARTY_LIBS`` from each module package.
 
     Imported lazily so ``utils.diagnostics`` doesn't pay the cost (or pull in
     optional dependencies) until the first warning needs classifying. Cached
@@ -124,11 +124,11 @@ def _detect_third_party(path: str) -> str | None:
     return None
 
 
-def _classify_subsystem(path: str) -> Subsystem | None:
+def _classify_module(path: str) -> Module | None:
     match = _SUBSYSTEM_RE.search(path)
     if match is None:
         return None
-    return subsystem_from_str(match.group("sub"))
+    return module_from_str(match.group("sub"))
 
 
 def resolve_diagnostic_from_frames(default_file: str, default_line: int) -> Diagnostic:
@@ -136,9 +136,9 @@ def resolve_diagnostic_from_frames(default_file: str, default_line: int) -> Diag
 
     Returns a :class:`Diagnostic` with:
 
-    - ``file`` / ``line``: first frame inside ``raitap/<subsystem>/`` (so users see
+    - ``file`` / ``line``: first frame inside ``raitap/<module>/`` (so users see
       a location they can act on), falling back to ``default_file:default_line``.
-    - ``subsystem``: the matching ``<subsystem>``, or ``None``.
+    - ``module``: the matching ``<module>``, or ``None``.
     - ``third_party_lib``: name of a known wrapped library if a frame in the
       stack lives inside it; otherwise ``None``. Checked against the *initial*
       default file as well as inner frames.
@@ -146,7 +146,7 @@ def resolve_diagnostic_from_frames(default_file: str, default_line: int) -> Diag
     third_party = _detect_third_party(default_file)
     rai_path: str | None = None
     rai_line: int = default_line
-    rai_sub: Subsystem | None = None
+    rai_sub: Module | None = None
 
     frame: object = sys._getframe()
     while frame is not None:
@@ -159,7 +159,7 @@ def resolve_diagnostic_from_frames(default_file: str, default_line: int) -> Diag
         if third_party is None:
             third_party = _detect_third_party(path)
         if rai_path is None and "/raitap/" in normalized:
-            sub = _classify_subsystem(path)
+            sub = _classify_module(path)
             if sub is not None and "/raitap/utils/" not in normalized:
                 rai_path = path
                 rai_line = getattr(frame, "f_lineno", default_line)
@@ -172,13 +172,13 @@ def resolve_diagnostic_from_frames(default_file: str, default_line: int) -> Diag
 
     if rai_path is None:
         return Diagnostic(
-            subsystem=None,
+            module=None,
             file=default_file,
             line=default_line,
             third_party_lib=third_party,
         )
     return Diagnostic(
-        subsystem=rai_sub,
+        module=rai_sub,
         file=rai_path,
         line=rai_line,
         third_party_lib=third_party,
@@ -190,18 +190,18 @@ def resolve_diagnostic_from_traceback(
     default_file: str = "",
     default_line: int = 0,
 ) -> Diagnostic:
-    """Walk an exception traceback to find the deepest raitap subsystem frame.
+    """Walk an exception traceback to find the deepest raitap module frame.
 
     Unlike :func:`resolve_diagnostic_from_frames`, the traceback survives the
     ``except`` handler, so we can still classify origins after the live frames
     have been unwound (e.g. inside a ``logger.exception`` handler at emit time).
-    Picks the *deepest* matching subsystem frame so the chip points at the
+    Picks the *deepest* matching module frame so the chip points at the
     actual raising site, not the entry point.
     """
     third_party: str | None = None
     rai_path: str | None = None
     rai_line: int = default_line
-    rai_sub: Subsystem | None = None
+    rai_sub: Module | None = None
 
     cur = tb
     while cur is not None:
@@ -210,7 +210,7 @@ def resolve_diagnostic_from_traceback(
         if third_party is None:
             third_party = _detect_third_party(path)
         if "/raitap/" in normalized and "/raitap/utils/" not in normalized:
-            sub = _classify_subsystem(path)
+            sub = _classify_module(path)
             if sub is not None:
                 rai_path = path
                 rai_line = cur.tb_lineno
@@ -219,13 +219,13 @@ def resolve_diagnostic_from_traceback(
 
     if rai_path is None:
         return Diagnostic(
-            subsystem=None,
+            module=None,
             file=default_file,
             line=default_line,
             third_party_lib=third_party,
         )
     return Diagnostic(
-        subsystem=rai_sub,
+        module=rai_sub,
         file=rai_path,
         line=rai_line,
         third_party_lib=third_party,
@@ -237,17 +237,17 @@ def resolve_diagnostic_from_path(path: str, line: int) -> Diagnostic:
 
     Useful for log records that carry their emission site via
     ``record.pathname`` / ``record.lineno`` but no exception traceback. Returns
-    a :class:`Diagnostic` with ``subsystem``/``file`` populated when the path
-    sits inside a non-``utils`` raitap subsystem; otherwise the third-party
+    a :class:`Diagnostic` with ``module``/``file`` populated when the path
+    sits inside a non-``utils`` raitap module; otherwise the third-party
     flag may still be set if the path lives inside a wrapped library.
     """
     normalized = path.replace("\\", "/")
-    sub: Subsystem | None = None
+    sub: Module | None = None
     if "/raitap/" in normalized and "/raitap/utils/" not in normalized:
-        sub = _classify_subsystem(path)
+        sub = _classify_module(path)
     third_party = _detect_third_party(path)
     return Diagnostic(
-        subsystem=sub,
+        module=sub,
         file=path if sub is not None else "",
         line=line if sub is not None else 0,
         third_party_lib=third_party,
@@ -303,7 +303,7 @@ def is_dev_install() -> bool:
 
 def docs_url(diagnostic: Diagnostic) -> str | None:
     """Return a documentation URL for a diagnostic, or ``None`` if unclassified."""
-    sub = diagnostic.subsystem
+    sub = diagnostic.module
     if sub is None:
         return None
     if sub not in _DOC_SUBSYSTEMS:
@@ -315,11 +315,11 @@ def docs_url(diagnostic: Diagnostic) -> str | None:
 
 __all__ = [
     "Diagnostic",
-    "Subsystem",
+    "Module",
     "docs_url",
     "is_dev_install",
+    "module_from_str",
     "resolve_diagnostic_from_frames",
     "resolve_diagnostic_from_path",
     "resolve_diagnostic_from_traceback",
-    "subsystem_from_str",
 ]

@@ -38,7 +38,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-from raitap.utils.diagnostics import Diagnostic, Subsystem
+from raitap.utils.diagnostics import Diagnostic, Module
 
 _FALLBACK_LOGGER_NAME = "raitap"
 
@@ -77,16 +77,16 @@ class _RaitapLog:
         self,
         message: str,
         *args: object,
-        subsystem: Subsystem | None = None,
+        module: Module | None = None,
         third_party_lib: str | None = None,
         category: type[Warning] = UserWarning,
         stacklevel: int = 2,
     ) -> None:
-        """Emit a warning, optionally tagged with a logical raitap subsystem.
+        """Emit a warning, optionally tagged with a logical raitap module.
 
         Single warning verb in the facade — operational and user-facing
         warnings both go through here. Routed via :func:`warnings.warn` so the
-        rich handler frames it as a panel with subsystem chip + docs link, and
+        rich handler frames it as a panel with module chip + docs link, and
         :func:`logging.captureWarnings` (installed by ``setup_logging``)
         forwards it to the logging system so MLflow / Airflow / any handler
         attached to the root logger picks it up too.
@@ -94,19 +94,19 @@ class _RaitapLog:
         ``*args`` enables printf-style formatting matching :class:`logging.Logger`:
         ``raitap_log.warn("loaded %d samples from %s", n, path)``.
 
-        When ``subsystem`` is omitted the rich handler walks frames to classify
+        When ``module`` is omitted the rich handler walks frames to classify
         the origin — usually correct when the call site lives inside the right
-        subsystem directory. Pass ``subsystem`` explicitly only when the
-        *logical* subsystem differs from the file path (e.g. ``run/pipeline.py``
+        module directory. Pass ``module`` explicitly only when the
+        *logical* module differs from the file path (e.g. ``run/pipeline.py``
         emitting a robustness warning).
 
         ``stacklevel`` follows :func:`warnings.warn` semantics: ``2`` (default)
         blames the immediate caller of this method.
         """
-        if subsystem is not None:
+        if module is not None:
             frame = sys._getframe(max(stacklevel - 1, 0))
             _diagnostic_override.value = Diagnostic(
-                subsystem=subsystem,
+                module=module,
                 file=frame.f_code.co_filename,
                 line=frame.f_lineno,
                 third_party_lib=third_party_lib,

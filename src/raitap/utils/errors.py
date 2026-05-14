@@ -20,8 +20,8 @@ from typing import TYPE_CHECKING
 
 from raitap.utils.diagnostics import (
     Diagnostic,
-    Subsystem,
-    _classify_subsystem,
+    Module,
+    _classify_module,
     _detect_third_party,
 )
 
@@ -109,16 +109,16 @@ def resolve_diagnostic_from_traceback(
 
     Returns a :class:`Diagnostic` with:
 
-    - ``file`` / ``line``: deepest frame inside ``raitap/<subsystem>/`` that
+    - ``file`` / ``line``: deepest frame inside ``raitap/<module>/`` that
       isn't ``raitap/utils/`` (so the user lands at the adapter, not the
       rethrow helper), falling back to ``default_file:default_line``.
-    - ``subsystem``: the matching ``<subsystem>``, or ``None``.
+    - ``module``: the matching ``<module>``, or ``None``.
     - ``third_party_lib``: name of a known wrapped library if any traceback
       frame lives inside it; otherwise ``None``.
     """
     rai_path: str | None = None
     rai_line: int = default_line
-    rai_sub: Subsystem | None = None
+    rai_sub: Module | None = None
     third_party: str | None = None
 
     cursor = tb
@@ -129,7 +129,7 @@ def resolve_diagnostic_from_traceback(
         if third_party is None:
             third_party = _detect_third_party(path)
         if "/raitap/" in normalized and "/raitap/utils/" not in normalized:
-            sub = _classify_subsystem(path)
+            sub = _classify_module(path)
             if sub is not None:
                 rai_path = path
                 rai_line = cursor.tb_lineno
@@ -138,13 +138,13 @@ def resolve_diagnostic_from_traceback(
 
     if rai_path is None:
         return Diagnostic(
-            subsystem=None,
+            module=None,
             file=default_file,
             line=default_line,
             third_party_lib=third_party,
         )
     return Diagnostic(
-        subsystem=rai_sub,
+        module=rai_sub,
         file=rai_path,
         line=rai_line,
         third_party_lib=third_party,
@@ -154,7 +154,7 @@ def resolve_diagnostic_from_traceback(
 @contextmanager
 def rethrow(
     *,
-    subsystem: Subsystem,
+    module: Module,
     third_party_lib: str | None,
     message_map: Mapping[re.Pattern[str], str],
     base_exc: type[BaseException] = Exception,
@@ -164,7 +164,7 @@ def rethrow(
     Adapter call sites wrap their third-party calls in::
 
         with rethrow(
-            subsystem=Subsystem.transparency,
+            module=Module.transparency,
             third_party_lib="shap",
             message_map=type(self).error_messages,
         ):
@@ -191,16 +191,16 @@ def rethrow(
             default_file="",
             default_line=0,
         )
-        if diagnostic.subsystem is None:
+        if diagnostic.module is None:
             diagnostic = Diagnostic(
-                subsystem=subsystem,
+                module=module,
                 file=diagnostic.file,
                 line=diagnostic.line,
                 third_party_lib=diagnostic.third_party_lib or third_party_lib,
             )
         elif diagnostic.third_party_lib is None and third_party_lib is not None:
             diagnostic = Diagnostic(
-                subsystem=diagnostic.subsystem,
+                module=diagnostic.module,
                 file=diagnostic.file,
                 line=diagnostic.line,
                 third_party_lib=third_party_lib,
