@@ -108,12 +108,11 @@ robustness:
 
 Hydra recognises three group-override prefixes on the command line:
 
-- `key=value` — **override** an existing key already in the config's `defaults:` list.
-  Example: `metrics=detection` (works only if `metrics` is already in the defaults list).
-- `+key=value` — **add** a key not yet in the defaults list.
-  Example: `+reporting=html` (works even if your YAML omits `reporting`).
-- `~key` — **remove** a key from the defaults list.
-  Example: `~robustness.pgd` drops the named robustness assessor.
+| Prefix       | Effect                                                                 | Example                                                                  |
+| ------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `key=value`  | **Override** an existing key already in the config's `defaults:` list. | `metrics=detection` (only if `metrics` is already in the defaults list). |
+| `+key=value` | **Add** a key not yet in the defaults list.                            | `+reporting=html` (even if your YAML omits `reporting`).                 |
+| `~key`       | **Remove** a key from the defaults list.                               | `~robustness.pgd` drops the named robustness assessor.                   |
 
 #### Nested value overriding
 
