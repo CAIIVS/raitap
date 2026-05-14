@@ -258,7 +258,7 @@ class VisualisationContext:
 @runtime_checkable
 class ExplainerAdapter(Protocol):
     """
-    Hydra explainer: ``explain`` matches :class:`~raitap.transparency.explainers.base_explainer.AbstractExplainer`.
+    Hydra explainer: ``explain`` matches :class:`~raitap.transparency.explainers.base_explainer.BaseExplainer`.
 
     Read ``output_payload_kind`` via :func:`raitap.transparency.contracts.explainer_output_kind`
     (not via direct attribute access — the attribute is optional and defaults to

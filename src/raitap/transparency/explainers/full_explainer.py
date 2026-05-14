@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
-from .base_explainer import AbstractExplainer
+from .base_explainer import BaseExplainer
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from ..results import ConfiguredVisualiser, ExplanationResult
 
 
-class FullExplainer(AbstractExplainer, ABC, register=False):
+class FullExplainer(BaseExplainer, ABC, abstract=True):
     """
     Explainer where you own the full ``explain`` pipeline end-to-end.
 

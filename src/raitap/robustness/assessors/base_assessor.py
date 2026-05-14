@@ -24,7 +24,7 @@ import torch
 
 from raitap import raitap_log
 from raitap.configs import resolve_run_dir
-from raitap.semantics_base import SemanticallyDescribable
+from raitap.registry_base import WithAlgorithmRegistry
 
 from ..contracts import (
     MethodKind,
@@ -50,7 +50,7 @@ if TYPE_CHECKING:
     from torch import nn
 
     # AssessorSemanticsHints is referenced as a string forward-ref in
-    # ``SemanticallyDescribable["AssessorSemanticsHints"]`` below. Pyright
+    # ``WithAlgorithmRegistry["AssessorSemanticsHints"]`` below. Pyright
     # resolves string generics, so the symbol must be importable in this
     # scope even though it is never used at runtime.
     from ..semantics import AssessorSemanticsHints  # noqa: F401
@@ -58,13 +58,13 @@ if TYPE_CHECKING:
 _VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
 
 
-class BaseAssessor(SemanticallyDescribable["AssessorSemanticsHints"], register=False):
+class BaseAssessor(WithAlgorithmRegistry["AssessorSemanticsHints"], abstract=True):
     """Root base class for all robustness assessors.
 
     Concrete subclasses must declare ``algorithm_registry: ClassVar[Mapping[str,
     AssessorSemanticsHints]]`` per the
-    :class:`raitap.semantics_base.SemanticallyDescribable` contract.
-    Intermediate abstract classes opt out via ``register=False``.
+    :class:`raitap.registry_base.WithAlgorithmRegistry` contract.
+    Intermediate abstract classes opt out via ``abstract=True``.
     """
 
     method_kind: ClassVar[MethodKind]
@@ -115,7 +115,7 @@ def _per_sample_norm(delta: torch.Tensor, norm: PerturbationNorm) -> torch.Tenso
     raise ValueError(f"Unsupported perturbation norm {norm!r}.")
 
 
-class EmpiricalAttackAssessor(BaseAssessor, ABC, register=False):
+class EmpiricalAttackAssessor(BaseAssessor, ABC, abstract=True):
     """Empirical attack adapter: subclass implements one method, framework does the rest."""
 
     method_kind: ClassVar[MethodKind] = MethodKind.EMPIRICAL_ATTACK
@@ -294,7 +294,7 @@ class EmpiricalAttackAssessor(BaseAssessor, ABC, register=False):
         return torch.cat(chunks, dim=0)
 
 
-class FormalVerificationAssessor(BaseAssessor, ABC, register=False):
+class FormalVerificationAssessor(BaseAssessor, ABC, abstract=True):
     """Formal-verification adapter: subclass implements per-sample ``verify_sample``."""
 
     method_kind: ClassVar[MethodKind] = MethodKind.FORMAL_VERIFICATION

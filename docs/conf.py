@@ -82,7 +82,7 @@ myst_heading_anchors = 4
 nitpick_ignore_regex = [
     (r"py:class", r"Data"),
     (r"py:class", r"'dict\[str.*"),
-    (r"py:class", r"raitap\.transparency\.explainers\.base_explainer\.AbstractExplainer"),
+    (r"py:class", r"raitap\.transparency\.explainers\.base_explainer\.BaseExplainer"),
     (r"py:class", r"raitap\.transparency\.explainers\.base_explainer\.AttributionOnlyExplainer"),
     (r"py:class", r"raitap\.transparency\.explainers\.full_explainer\.FullExplainer"),
     (r"py:class", r"raitap\.transparency\.visualisers\.base_visualiser\.BaseVisualiser"),
@@ -92,8 +92,8 @@ nitpick_ignore_regex = [
     ),
     (r"py:class", r"raitap\.tracking\.base_tracker\.Trackable"),
     (r"py:class", r"raitap\.reporting\.sections\.Reportable"),
-    # SemanticallyDescribable[T] generic params + forward-string narrowings.
-    (r"py:obj", r"raitap\.semantics_base\.T"),
+    # WithAlgorithmRegistry[T] generic params + forward-string narrowings.
+    (r"py:obj", r"raitap\.registry_base\.T"),
     (r"py:class", r"AssessorSemanticsHints"),
     (r"py:class", r"frozenset\[MethodFamily\]"),
 ]

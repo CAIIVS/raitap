@@ -1,7 +1,7 @@
 # `raitap.transparency`
 
 ```{eval-rst}
-.. autoclass:: raitap.transparency.explainers.base_explainer.AbstractExplainer
+.. autoclass:: raitap.transparency.explainers.base_explainer.BaseExplainer
    :members:
    :show-inheritance:
 
