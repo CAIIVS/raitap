@@ -105,6 +105,28 @@ robustness:
 Skip `raitap_schema` only if you're hand-rolling every field — it's never wrong
 to include it.
 
+#### Discover what's available: `--help`
+
+Pass `--help` to print every available config group + the fully composed config
+for the current invocation. Useful when picking presets or sanity-checking
+overrides:
+
+```bash
+uv run raitap --demo --help
+uv run raitap --config-dir my-configs --config-name assessment --help
+```
+
+Output has two sections:
+
+- **Configuration groups** — names you can pass as `<group>=<option>` (e.g.
+  `reporting=pdf`, `+transparency=shap`).
+- **Config** — the fully composed YAML that will be passed to the run, with
+  all schema defaults expanded. Every key shown is overridable via
+  `key=value` on the command line.
+
+`--cfg job` shows the same composed config without the groups list;
+`--hydra-help` covers Hydra's own flags (multirun, sweep, etc.).
+
 #### Override syntax: `key=value`, `+key=value`, `~key`
 
 Hydra recognises three group-override prefixes on the command line:
