@@ -84,3 +84,5 @@ conductor/
 # Usecases
 usecases/
 contributor-configs/lwise-ham10000/
+# Stray robustness output (pipeline writes here when no hydra.run.dir override)
+/robustness/
