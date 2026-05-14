@@ -1,13 +1,10 @@
-# Example consumer config. Demonstrates Hydra composition: the bundled
-# raitap groups (reporting, metrics) are resolved via raitap's SearchPathPlugin,
-# so this YAML doesn't need an explicit `hydra: searchpath:` declaration.
 defaults:
-  - raitap_schema     # binds AppConfig dataclass → unset fields inherit defaults
+  - raitap_schema      # required to bind the schema, must come first
   - _self_
   - reporting: html
   - metrics: classification
 
-hardware: cpu
+hardware: gpu
 experiment_name: example
 
 model:
