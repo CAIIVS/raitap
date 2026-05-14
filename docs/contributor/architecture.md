@@ -59,13 +59,13 @@ src/
     │   ├── orchestrator.py         # run() + run_without_tracking() — wires the phases together; tracker context
     │   ├── ui.py                   # print_summary() — the rich panel banner
     │   ├── outputs.py              # PredictionSummary + RunOutputs dataclasses (typed return)
-    │   └── phases/                 # one file per phase; each exposes a single ``assess_*`` / ``evaluate_*`` function
-    │       ├── forward.py          # forward_pass(): batched backend forward; extract_primary_tensor for dict/tuple outputs
-    │       ├── metrics.py          # evaluate_metrics(): runs metrics when configured, infers num_classes
-    │       ├── transparency.py     # assess_transparency(): instantiates explainers; resolve_explainer_runtime_kwargs (auto_pred)
-    │       ├── robustness.py       # assess_robustness(): instantiates assessors; resolve_robustness_targets (labels or argmax fallback)
-    │       ├── predictions.py      # prediction_summaries(): per-sample PredictionSummary rows from logits
-    │       └── data_metadata.py    # input_metadata_for_data(): bridges raitap.data → transparency/robustness InputSpec
+    │   └── phases/                 # one file per phase; filename matches the public function
+    │       ├── forward_pass.py     # forward_pass(): batched backend forward; extract_primary_tensor for dict/tuple outputs
+    │       ├── evaluate_metrics.py # evaluate_metrics(): runs metrics when configured, infers num_classes
+    │       ├── assess_transparency.py  # assess_transparency(): instantiates explainers; resolve_explainer_runtime_kwargs (auto_pred)
+    │       ├── assess_robustness.py    # assess_robustness(): instantiates assessors; resolve_robustness_targets (labels or argmax fallback)
+    │       ├── prediction_summaries.py # prediction_summaries(): per-sample PredictionSummary rows from logits
+    │       └── input_metadata.py   # input_metadata_for_data(): bridges raitap.data → transparency/robustness InputSpec
     │
     ├── models/                     # model loading + backend wrappers (PyTorch + ONNX)
     │   ├── model.py                # Model wrapper, source resolution (built-in name / .pt / state-dict / .onnx)

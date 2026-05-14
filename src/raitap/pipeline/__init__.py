@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from raitap.configs import register_configs
 from raitap.pipeline.outputs import PredictionSummary, RunOutputs
-from raitap.pipeline.phases.forward import extract_primary_tensor
+from raitap.pipeline.phases.forward_pass import extract_primary_tensor
 
 if TYPE_CHECKING:
     from raitap.metrics import metrics_prediction_pair, resolve_metric_targets

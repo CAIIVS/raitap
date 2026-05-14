@@ -114,7 +114,7 @@ def test_resolve_explainer_runtime_kwargs_detaches_target() -> None:
     Uses a (N, 1) forward output so metrics_prediction_pair returns squeeze(1),
     a float tensor that *would* keep requires_grad without an explicit .detach().
     """
-    from raitap.pipeline.phases.transparency import (
+    from raitap.pipeline.phases.assess_transparency import (
         resolve_explainer_runtime_kwargs as _resolve_explainer_runtime_kwargs,
     )
 
@@ -168,8 +168,8 @@ def test_run_without_tracking_forward_output_is_cpu_and_detached() -> None:
     fake_explanation.visualise.return_value = []
 
     with (
-        patch("raitap.pipeline.phases.metrics.metrics_run_enabled", return_value=False),
-        patch("raitap.pipeline.phases.transparency.Explanation", return_value=fake_explanation),
+        patch("raitap.pipeline.phases.evaluate_metrics.metrics_run_enabled", return_value=False),
+        patch("raitap.pipeline.phases.assess_transparency.Explanation", return_value=fake_explanation),
     ):
         outputs = _run_without_tracking(config, model, data)
 
