@@ -57,7 +57,7 @@ if TYPE_CHECKING:
 _SENTINEL = "_RAITAP_DEPS_BOOTSTRAPPED"
 _PYPROJECT = Path(__file__).resolve().parents[3] / "pyproject.toml"
 _DEFAULT_CONFIG_DIR = Path(__file__).resolve().parents[1] / "configs"
-_DEFAULT_CONFIG_NAME = "config"
+_DEFAULT_CONFIG_NAME = "demo"
 
 _CONFIG_DIR_FLAGS = ("--config-dir", "-cd", "--config-path", "-cp")
 _CONFIG_NAME_FLAGS = ("--config-name", "-cn")
@@ -289,6 +289,30 @@ def _refusal_note_blocks(case: str, extras: set[str], cleaned: list[str]) -> lis
     ]
 
 
+def _is_consumer_project_cwd() -> bool:
+    """Return ``True`` when cwd's pyproject.toml is for a non-raitap project.
+
+    Bootstrap's auto-sync runs ``uv sync --extra ...`` against the *current*
+    pyproject — that only makes sense when the current project IS raitap (dev
+    checkout). For consumer projects that declare raitap as a dependency, the
+    extras are namespaced under ``raitap[...]`` in their dependency string and
+    the consumer's pyproject won't define those bare extra names, so the sync
+    would fail. Detect this and skip the bootstrap flow.
+    """
+    cwd_pyproject = Path.cwd() / "pyproject.toml"
+    if not cwd_pyproject.exists():
+        return False
+    try:
+        import tomllib
+
+        with cwd_pyproject.open("rb") as fh:
+            data = tomllib.load(fh)
+    except Exception:
+        return False
+    name = data.get("project", {}).get("name")
+    return isinstance(name, str) and name != "raitap"
+
+
 def maybe_bootstrap(argv: list[str]) -> list[str]:
     """Run the deps-bootstrap flow if appropriate; return cleaned argv."""
     cleaned, flags = _strip_deps_flags(argv)
@@ -296,10 +320,25 @@ def maybe_bootstrap(argv: list[str]) -> list[str]:
     if os.environ.get(_SENTINEL) == "1" or flags.custom:
         return cleaned
 
+    if _is_consumer_project_cwd():
+        # Consumer projects declare raitap (and its extras) via their own
+        # pyproject — auto-sync would target the wrong project. Treat as if
+        # ``--custom-deps`` was passed.
+        return cleaned
+
     _ensure_utf8_stdout()
 
-    config_dir = Path(_flag_value(cleaned, _CONFIG_DIR_FLAGS) or _DEFAULT_CONFIG_DIR)
-    config_name = _flag_value(cleaned, _CONFIG_NAME_FLAGS) or _DEFAULT_CONFIG_NAME
+    explicit_dir = _flag_value(cleaned, _CONFIG_DIR_FLAGS)
+    explicit_name = _flag_value(cleaned, _CONFIG_NAME_FLAGS)
+    # Mirror pipeline/__main__.py:_prepare_cli_argv — when the user picks a
+    # custom ``--config-name`` but no ``--config-dir``, look in the cwd so
+    # external consumer configs resolve without the user having to spell
+    # ``--config-dir .`` every time.
+    if explicit_dir is None and explicit_name not in (None, _DEFAULT_CONFIG_NAME):
+        config_dir = Path.cwd()
+    else:
+        config_dir = Path(explicit_dir or _DEFAULT_CONFIG_DIR)
+    config_name = explicit_name or _DEFAULT_CONFIG_NAME
     overrides = _hydra_overrides(cleaned[1:])
 
     try:

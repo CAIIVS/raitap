@@ -17,11 +17,17 @@ data:
   name: imagenet_samples
   source: imagenet_samples
   forward_batch_size: 4
+  labels:
+    source: imagenet_samples    # bundled labels.csv for this sample
+    id_column: image
+    column: label
 
 transparency:
   default:
     _target_: CaptumExplainer
     algorithm: IntegratedGradients
+    call:
+      target: 0
     visualisers:
       - _target_: CaptumImageVisualiser
 
