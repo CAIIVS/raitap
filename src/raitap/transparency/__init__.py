@@ -81,8 +81,8 @@ def _unavailable(public_name: str, dependency: str) -> _UnavailableOptionalDepen
 try:
     # Explainer classes — public _target_ surface
     from .explainers import (
-        AbstractExplainer,
         AttributionOnlyExplainer,
+        BaseExplainer,
         CaptumExplainer,
         FullExplainer,
         ShapExplainer,
@@ -112,7 +112,7 @@ try:
 except ModuleNotFoundError as error:
     if error.name != "torch":
         raise
-    AbstractExplainer = _unavailable("AbstractExplainer", "torch")
+    BaseExplainer = _unavailable("BaseExplainer", "torch")
     AttributionOnlyExplainer = _unavailable("AttributionOnlyExplainer", "torch")
     CaptumExplainer = _unavailable("CaptumExplainer", "torch")
     FullExplainer = _unavailable("FullExplainer", "torch")
@@ -138,7 +138,7 @@ __all__ = [  # noqa: RUF022
     "THIRD_PARTY_LIBS",
     # Explainer adapters
     "CaptumExplainer",
-    "AbstractExplainer",
+    "BaseExplainer",
     "AttributionOnlyExplainer",
     "FullExplainer",
     "ShapExplainer",

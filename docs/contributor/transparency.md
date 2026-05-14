@@ -9,14 +9,14 @@ The transparency module wraps XAI frameworks (Captum, SHAP) behind a unified int
 Explainers form a three-level hierarchy (see `src/raitap/transparency/explainers/base_explainer.py` and `full_explainer.py`):
 
 ```text
-AbstractExplainer                       # root — owns output_payload_kind + check_backend_compat no-op
+BaseExplainer                       # root — owns output_payload_kind + check_backend_compat no-op
 ├── AttributionOnlyExplainer            # you implement compute_attributions(); framework owns explain()
 │   ├── CaptumExplainer
 │   └── ShapExplainer
 └── FullExplainer                       # you implement the full explain() pipeline end-to-end
 ```
 
-- **`AbstractExplainer`** — root base class. Owns the shared contract: `output_payload_kind` class variable (default `ATTRIBUTIONS`) and the `check_backend_compat` no-op. Never subclass directly.
+- **`BaseExplainer`** — root base class. Owns the shared contract: `output_payload_kind` class variable (default `ATTRIBUTIONS`) and the `check_backend_compat` no-op. Never subclass directly.
 - **`AttributionOnlyExplainer`** — extend this when the framework should manage the full `explain` pipeline. Subclasses implement only `compute_attributions(model, inputs, **kwargs) → Tensor`; batching, normalisation, result wrapping, and `write_artifacts` are handled by this class.
 - **`FullExplainer`** — extend this when you own the entire `explain` pipeline yourself (data conversion, model invocation, result construction, persistence).
 

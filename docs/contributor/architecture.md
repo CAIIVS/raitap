@@ -32,7 +32,7 @@ src/
 └── raitap/
     ├── cli.py                      # console-script entry; tracking-stop subcommand, --demo, help frame, then deps bootstrap
     ├── docs_preview.py             # `docs-preview` console-script: serves built Sphinx output for local preview
-    ├── semantics_base.py           # SemanticallyDescribable generic + base hooks shared by transparency/robustness
+    ├── semantics_base.py           # WithAlgorithmRegistry generic + base hooks shared by transparency/robustness
     │
     ├── configs/                    # Hydra config tree shipped with the wheel
     │   ├── schema.py               # AppConfig + nested dataclasses; MISSING-typed required fields

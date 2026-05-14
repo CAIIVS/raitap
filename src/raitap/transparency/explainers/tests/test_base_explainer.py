@@ -16,7 +16,7 @@ from raitap.transparency.contracts import (
 from raitap.transparency.explainers.base_explainer import AttributionOnlyExplainer
 
 
-class _StrictExplainer(AttributionOnlyExplainer, register=False):
+class _StrictExplainer(AttributionOnlyExplainer, abstract=True):
     algorithm = "Saliency"
 
     def __init__(self) -> None:
@@ -35,11 +35,11 @@ class _StrictExplainer(AttributionOnlyExplainer, register=False):
         return inputs
 
 
-class _GlobalScopeExplainer(_StrictExplainer, register=False):
+class _GlobalScopeExplainer(_StrictExplainer, abstract=True):
     output_scope = ExplanationScope.GLOBAL
 
 
-class _UnknownAlgorithmExplainer(AttributionOnlyExplainer, register=False):
+class _UnknownAlgorithmExplainer(AttributionOnlyExplainer, abstract=True):
     algorithm = "UnregisteredAlgorithm"
 
     def __init__(self) -> None:
@@ -57,7 +57,7 @@ class _UnknownAlgorithmExplainer(AttributionOnlyExplainer, register=False):
         return inputs
 
 
-class _BatchRecordingExplainer(AttributionOnlyExplainer, register=False):
+class _BatchRecordingExplainer(AttributionOnlyExplainer, abstract=True):
     algorithm = "IntegratedGradients"
 
     def __init__(self) -> None:
@@ -86,7 +86,7 @@ class _BatchRecordingExplainer(AttributionOnlyExplainer, register=False):
         return inputs
 
 
-class _GradTrackingExplainer(AttributionOnlyExplainer, register=False):
+class _GradTrackingExplainer(AttributionOnlyExplainer, abstract=True):
     algorithm = "Saliency"
 
     def compute_attributions(
@@ -100,7 +100,7 @@ class _GradTrackingExplainer(AttributionOnlyExplainer, register=False):
         return source * 2
 
 
-class _TupleExplainer(AttributionOnlyExplainer, register=False):
+class _TupleExplainer(AttributionOnlyExplainer, abstract=True):
     algorithm = "Saliency"
 
     def compute_attributions(
@@ -113,7 +113,7 @@ class _TupleExplainer(AttributionOnlyExplainer, register=False):
         return inputs, torch.zeros(inputs.shape[0])
 
 
-class _ListExplainer(AttributionOnlyExplainer, register=False):
+class _ListExplainer(AttributionOnlyExplainer, abstract=True):
     algorithm = "Saliency"
 
     def compute_attributions(

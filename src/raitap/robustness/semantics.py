@@ -2,7 +2,7 @@
 
 Per-algorithm registries live on each adapter as
 ``algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]`` —
-see :class:`raitap.semantics_base.SemanticallyDescribable`. This module
+see :class:`raitap.semantics_base.WithAlgorithmRegistry`. This module
 contains only the framework-agnostic mechanics that consume those
 registries.
 """
@@ -13,7 +13,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from raitap.semantics_base import SemanticallyDescribable
+from raitap.semantics_base import WithAlgorithmRegistry
 from raitap.transparency.contracts import InputSpec, SampleSelection
 from raitap.transparency.semantics import infer_input_spec
 
@@ -53,7 +53,7 @@ def hints_for_assessor(assessor: object) -> AssessorSemanticsHints:
     """Resolve the registry hints for a configured assessor.
 
     Reads the adapter's ``algorithm_registry`` ClassVar (enforced by the
-    :class:`raitap.semantics_base.SemanticallyDescribable` interface).
+    :class:`raitap.semantics_base.WithAlgorithmRegistry` interface).
     """
     algorithm = str(getattr(assessor, "algorithm", ""))
     if not algorithm:
@@ -61,9 +61,9 @@ def hints_for_assessor(assessor: object) -> AssessorSemanticsHints:
             f"Assessor {type(assessor).__name__!r} has no ``algorithm`` attribute. "
             "Set the YAML ``algorithm:`` field (e.g. ``algorithm: PGD``)."
         )
-    if not isinstance(assessor, SemanticallyDescribable):
+    if not isinstance(assessor, WithAlgorithmRegistry):
         raise TypeError(
-            f"Assessor {type(assessor).__name__!r} must extend SemanticallyDescribable "
+            f"Assessor {type(assessor).__name__!r} must extend WithAlgorithmRegistry "
             "and declare an ``algorithm_registry`` ClassVar."
         )
     registry: Mapping[str, AssessorSemanticsHints] = type(assessor).algorithm_registry

@@ -82,7 +82,7 @@ def _make_explanation(run_dir: Path, *, explainer_name: str | None = "exp") -> E
     )
 
 
-class _IdentityExplainer(AttributionOnlyExplainer, register=False):
+class _IdentityExplainer(AttributionOnlyExplainer, abstract=True):
     algorithm = "Saliency"
     explainer_framework = "Captum"
 

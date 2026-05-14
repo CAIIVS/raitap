@@ -5,15 +5,15 @@ by mapping algorithm-name → typed semantics payload (``frozenset[MethodFamily]
 for explainers, ``AssessorSemanticsHints`` for assessors). This module provides
 the single shared contract:
 
-* ``SemanticallyDescribable[T]`` — generic ABC; subclasses declare
+* ``WithAlgorithmRegistry[T]`` — generic ABC; subclasses declare
   ``algorithm_registry: ClassVar[Mapping[str, T]]`` as a non-empty mapping.
 * ``__init_subclass__`` enforces the registry at class-definition time so
   configuration mistakes fail at import, not at runtime mid-pipeline.
 
 Intermediate abstract base classes (e.g. ``BaseAssessor``,
-``EmpiricalAttackAssessor``, ``AbstractExplainer``) opt out of validation by
-passing ``register=False`` in their class signature; concrete adapters always
-opt in (default).
+``EmpiricalAttackAssessor``, ``BaseExplainer``) opt out of validation by
+passing ``abstract=True`` in their class signature; concrete adapters always
+opt in (default ``abstract=False``).
 """
 
 from __future__ import annotations
@@ -25,11 +25,11 @@ from typing import Any, ClassVar, Generic, TypeVar
 T = TypeVar("T")
 
 
-class SemanticallyDescribable(ABC, Generic[T]):
+class WithAlgorithmRegistry(ABC, Generic[T]):
     """Adapter that publishes an algorithm-name → hints registry as a ClassVar.
 
     Subclasses must declare a non-empty ``algorithm_registry`` ClassVar at
-    class-definition time. Pass ``register=False`` on the class line for
+    class-definition time. Pass ``abstract=True`` on the class line for
     abstract intermediate classes that don't (yet) carry concrete algorithms.
 
     The ``Generic[T]`` parameter is enforced statically only — pyright requires
@@ -42,9 +42,9 @@ class SemanticallyDescribable(ABC, Generic[T]):
     algorithm_registry: ClassVar[Mapping[str, Any]]  # type: ignore[misc]
     """Concrete subclasses narrow the value type to ``Mapping[str, T]``."""
 
-    def __init_subclass__(cls, *, register: bool = True, **kwargs: Any) -> None:
+    def __init_subclass__(cls, *, abstract: bool = False, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
-        if not register:
+        if abstract:
             return
         registry = cls.__dict__.get("algorithm_registry")
         if not isinstance(registry, Mapping) or not registry:
@@ -52,5 +52,5 @@ class SemanticallyDescribable(ABC, Generic[T]):
                 f"{cls.__name__} must declare a non-empty "
                 "``algorithm_registry: ClassVar[Mapping[str, ...]]`` ClassVar. "
                 "Abstract intermediate classes can opt out via "
-                "``class Foo(SemanticallyDescribable, register=False): ...``."
+                "``class Foo(WithAlgorithmRegistry, abstract=True): ...``."
             )
