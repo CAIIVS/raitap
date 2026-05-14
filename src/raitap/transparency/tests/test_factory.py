@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 from unittest.mock import MagicMock
@@ -34,6 +33,8 @@ from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from matplotlib.figure import Figure
 
     from raitap.configs.schema import AppConfig
@@ -63,12 +64,28 @@ class _BackendStub(ModelBackend):
 
 
 def _load_transparency_preset(name: str) -> Any:
-    configs_dir = Path(__file__).resolve().parents[2] / "configs" / "transparency"
-    preset = cast(
-        "dict[str, Any]",
-        OmegaConf.to_container(OmegaConf.load(configs_dir / f"{name}.yaml")),
-    )
-    return preset[name]
+    """Return an inline SHAP-gradient transparency config for legacy tests.
+
+    The bundled ``shap_gradient`` preset was removed when shipped configs were
+    pared down to ``_target_``-only stubs. Tests that previously loaded the
+    YAML now consume this inlined equivalent — the YAML structure is
+    intentionally preserved so the assertions still match the original
+    composition.
+    """
+    del name
+    return {
+        "_target_": "ShapExplainer",
+        "algorithm": "GradientExplainer",
+        "constructor": {"local_smoothing": 0.0},
+        "call": {"target": 0, "nsamples": 10},
+        "raitap": {"batch_size": 1, "progress_desc": "SHAP batches"},
+        "visualisers": [
+            {
+                "_target_": "ShapImageVisualiser",
+                "constructor": {"max_samples": 1},
+            },
+        ],
+    }
 
 
 def _make_config(tmp_path: Path, transparency_config: Any) -> AppConfig:

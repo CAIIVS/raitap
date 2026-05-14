@@ -1,4 +1,1 @@
 *.sh text eol=lf
-# Polyglot cmd/bash scripts: bash heredoc delimiter matching is CR-sensitive
-# on some bash builds, so pin LF — modern cmd.exe tolerates LF too.
-*.cmd text eol=lf

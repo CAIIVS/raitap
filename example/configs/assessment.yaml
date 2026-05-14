@@ -1,0 +1,39 @@
+# Example consumer config. Demonstrates Hydra composition: the bundled
+# raitap groups (reporting, metrics) are resolved via raitap's SearchPathPlugin,
+# so this YAML doesn't need an explicit `hydra: searchpath:` declaration.
+defaults:
+  - raitap_schema     # binds AppConfig dataclass → unset fields inherit defaults
+  - _self_
+  - reporting: html
+  - metrics: classification
+
+hardware: cpu
+experiment_name: example
+
+model:
+  source: vit_b_32
+  arch: vit_b_32
+  pretrained: true
+
+data:
+  name: imagenet_samples
+  source: imagenet_samples
+  forward_batch_size: 4
+
+transparency:
+  default:
+    _target_: CaptumExplainer
+    algorithm: IntegratedGradients
+    visualisers:
+      - _target_: CaptumImageVisualiser
+
+robustness:
+  pgd:
+    _target_: TorchattacksAssessor
+    algorithm: PGD
+    constructor:
+      eps: 0.03
+      alpha: 0.005
+      steps: 10
+    visualisers:
+      - _target_: ImagePairVisualiser

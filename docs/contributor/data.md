@@ -27,8 +27,12 @@ To add a new built-in dataset config:
 
 3. **Use it**
 
+    Reference the dataset inline from your config YAML (no shipped `data=` preset
+    exists; the `data:` group must be defined in your own config). For ad-hoc
+    overrides, pass keys directly, e.g.:
+
     ```bash
-    uv run raitap data=cifar10
+    uv run raitap --config-name assessment data.source=cifar10
     ```
 
 4. **Update documentation**

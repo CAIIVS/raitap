@@ -483,12 +483,22 @@ def print_summary_panel(config: AppConfig, model: Model) -> None:
         hw_style = colour(hw_status).base
         hw_symbol = hw_status.icon
         if is_cpu:
-            cpu_install_docs = "https://caiivs.github.io/raitap/using-raitap/installation.html#execution-dependencies"
+            requested = str(_safe_attr(config, "hardware") or "").lower()
+            if requested == "cpu":
+                hint_text = "CPU set in config"
+                link_text = "View config docs"
+                hint_link = "https://caiivs.github.io/raitap/using-raitap/configuration/global-config-options.html"
+            else:
+                hint_text = "GPU not usable, fell back to CPU"
+                link_text = "View execution dependencies docs"
+                hint_link = "https://caiivs.github.io/raitap/using-raitap/installation.html#execution-dependencies"
             hw_text = Text.assemble(
                 (hw_symbol, hw_style),
                 (hw_label, hw_style),
-                ("  ", ""),
-                ("Use GPU", hw_style + Style(underline=True, link=cpu_install_docs)),
+                (" · ", hw_style),
+                (hint_text, hw_style),
+                (" · ", hw_style),
+                (link_text, hw_style + Style(underline=True, link=hint_link)),
             )
         else:
             hw_text = Text.assemble((hw_symbol, hw_style), (hw_label, hw_style))

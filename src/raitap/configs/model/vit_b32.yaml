@@ -1,3 +1,0 @@
-# Built-in ViT-B/32 with default ImageNet weights — for demos/quick testing.
-# For your own model use custom.yaml instead.
-source: vit_b_32

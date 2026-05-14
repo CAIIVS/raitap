@@ -14,6 +14,7 @@ from omegaconf import OmegaConf
 import raitap.reporting.builder as reporting_builder
 from raitap.configs import set_output_root
 from raitap.configs.schema import AppConfig, ReportingConfig
+from raitap.pipeline.outputs import PredictionSummary, RunOutputs
 from raitap.reporting.builder import (
     BuiltReport,
     _canonical_facet_owners,
@@ -46,7 +47,6 @@ from raitap.robustness.results import (
 )
 from raitap.robustness.visualisers import ImagePairVisualiser, PerturbationHeatmapVisualiser
 from raitap.robustness.visualisers.base_visualiser import BaseRobustnessVisualiser
-from raitap.run.outputs import PredictionSummary, RunOutputs
 from raitap.transparency.contracts import (
     ExplanationOutputSpace,
     ExplanationPayloadKind,
@@ -1889,52 +1889,25 @@ def test_build_merged_report_keeps_empty_metrics_groups(tmp_path: Path) -> None:
 
 
 def test_reporting_configs_compose_multirun_report_controls() -> None:
-    cfg = _compose_raitap_config()
-    assert cfg.reporting._target_ == "HTMLReporter"
-    assert cfg.reporting.multirun_report is True
-    assert cfg.hydra.callbacks.reporting_sweep._target_.endswith("ReportingSweepCallback")
+    """Bundled reporting presets resolve the right ``_target_`` and wire the
+    multirun-aggregation Hydra callback.
 
-    disabled_cfg = _compose_raitap_config(["reporting=disabled"])
-    assert disabled_cfg.reporting._target_ is None
-    assert disabled_cfg.reporting.multirun_report is False
-    assert disabled_cfg.hydra.get("callbacks") == {}
-
-    pdf_cfg = _compose_raitap_config(["reporting=pdf"])
+    The presets ship as minimal ``_target_``-only stubs (plus the
+    ``reporting_sweep`` callback for non-disabled presets). All other
+    ReportingConfig fields come from the user's config or CLI overrides;
+    this test only verifies what's actually shipped + the callback wiring.
+    """
+    pdf_cfg = _compose_raitap_config(["+reporting=pdf"])
     assert pdf_cfg.reporting._target_ == "PDFReporter"
-    assert pdf_cfg.reporting.multirun_report is True
-    assert pdf_cfg.reporting.show_original_per_explainer is False
-    assert pdf_cfg.reporting.show_redundant_robustness_panels is False
-    assert pdf_cfg.reporting.call.formatting.figures_max_pages is None
-    assert pdf_cfg.reporting.call.formatting.image_raster_multiplier is None
     assert pdf_cfg.hydra.callbacks.reporting_sweep._target_.endswith("ReportingSweepCallback")
 
-    html_cfg = _compose_raitap_config(["reporting=html"])
+    html_cfg = _compose_raitap_config(["+reporting=html"])
     assert html_cfg.reporting._target_ == "HTMLReporter"
-    assert html_cfg.reporting.multirun_report is True
-    assert "call" not in html_cfg.reporting
+    assert html_cfg.hydra.callbacks.reporting_sweep._target_.endswith("ReportingSweepCallback")
 
-    opt_out_cfg = _compose_raitap_config(["reporting=pdf", "reporting.multirun_report=false"])
-    assert opt_out_cfg.reporting._target_ == "PDFReporter"
-    assert opt_out_cfg.reporting.multirun_report is False
-
-    originals_cfg = _compose_raitap_config(
-        ["reporting=pdf", "reporting.show_original_per_explainer=true"]
-    )
-    assert originals_cfg.reporting.show_original_per_explainer is True
-
-    redundant_robustness_cfg = _compose_raitap_config(
-        ["reporting=pdf", "reporting.show_redundant_robustness_panels=true"]
-    )
-    assert redundant_robustness_cfg.reporting.show_redundant_robustness_panels is True
-    explicit_cfg = _compose_raitap_config(
-        ["reporting=pdf", "reporting.sample_selection=[case_alpha.png,2]"]
-    )
-    assert list(explicit_cfg.reporting.sample_selection) == ["case_alpha.png", 2]
-
-    pdf_formatting_cfg = _compose_raitap_config(
-        ["reporting=pdf", "reporting.call.formatting.figures_max_pages=12"]
-    )
-    assert pdf_formatting_cfg.reporting.call.formatting.figures_max_pages == 12
+    disabled_cfg = _compose_raitap_config(["+reporting=disabled"])
+    assert disabled_cfg.reporting._target_ is None
+    assert disabled_cfg.reporting.multirun_report is False
 
 
 def test_reporting_sweep_callback_skips_when_multirun_report_disabled(
@@ -2000,7 +1973,7 @@ def test_reporting_sweep_callback_skips_when_reporting_disabled(
 def _compose_raitap_config(overrides: list[str] | None = None) -> Any:
     with initialize_config_dir(version_base="1.3", config_dir=str(_configs_dir())):
         return compose(
-            config_name="config",
+            config_name="demo",
             overrides=[] if overrides is None else overrides,
             return_hydra_config=True,
         )

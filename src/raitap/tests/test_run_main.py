@@ -17,11 +17,11 @@ if TYPE_CHECKING:
     from raitap.transparency.contracts import InputSpec
 
 
-from raitap import run as run_module
+from raitap import pipeline as run_module
 from raitap.metrics import metrics_prediction_pair
-from raitap.run import __main__ as run_entry
-from raitap.run import extract_primary_tensor
-from raitap.run import pipeline as run_pipeline
+from raitap.pipeline import __main__ as run_entry
+from raitap.pipeline import extract_primary_tensor
+from raitap.pipeline import pipeline as run_pipeline
 from raitap.tracking import BaseTracker
 
 
@@ -154,7 +154,7 @@ def test_hydra_main_composes_default_config(monkeypatch: MonkeyPatch, tmp_path: 
         sys,
         "argv",
         [
-            "raitap.run",
+            "raitap.pipeline",
             f"hydra.run.dir={tmp_path / 'hydra-run'}",
             "hydra.output_subdir=null",
         ],
@@ -183,7 +183,7 @@ def test_hydra_main_prefers_packaged_default_over_local_config(
         sys,
         "argv",
         [
-            "raitap.run",
+            "raitap.pipeline",
             f"hydra.run.dir={tmp_path / 'hydra-run'}",
             "hydra.output_subdir=null",
         ],
@@ -208,7 +208,7 @@ def test_hydra_main_loads_custom_config_name_from_cwd_and_keeps_packaged_default
         "\n".join(
             [
                 "defaults:",
-                "  - config",
+                "  - demo",
                 "  - _self_",
                 "",
                 "experiment_name: my-exp",
@@ -224,7 +224,7 @@ def test_hydra_main_loads_custom_config_name_from_cwd_and_keeps_packaged_default
         sys,
         "argv",
         [
-            "raitap.run",
+            "raitap.pipeline",
             "--config-name",
             "my-exp",
             f"hydra.run.dir={tmp_path / 'hydra-run'}",

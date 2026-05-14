@@ -27,6 +27,8 @@ body:not([data-theme]) {
 }
 
 
+
+
 .sidebar-brand-text {
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -67,6 +69,11 @@ h1 {
   h1 {
     margin-bottom: 4rem;
   }
+}
+
+#id1 h1 {
+  height: 0;
+  /* Ghost H1 on homepage */
 }
 
 h2 {

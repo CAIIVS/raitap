@@ -1,0 +1,20 @@
+[project]
+name = "raitap-example"
+version = "0.0.1"
+description = "Standalone example project demonstrating raitap as a library dependency."
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "raitap[reporting,torchattacks,captum,metrics]>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = []
+
+[tool.uv.sources]
+# Dev: consume raitap from the parent checkout.
+# Real consumers should remove this section to fetch from PyPI.
+raitap = { path = "..", editable = true }

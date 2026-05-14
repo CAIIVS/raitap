@@ -117,7 +117,7 @@ The `factory.py` module provides the `Explanation` class and helper functions, w
 
 ## Runtime flow
 
-Transparency runs after the forward pass in `src/raitap/run/pipeline.py`. For each configured explainer:
+Transparency runs after the forward pass in `src/raitap/pipeline/pipeline.py`. For each configured explainer:
 
 1. `Explanation(config, name, model, data)` creates the explainer and visualisers using the factory functions
 2. The explainer's `explain()` method returns an `ExplanationResult` (for `AttributionOnlyExplainer`, after calling `compute_attributions()`)
@@ -131,8 +131,8 @@ Each explainer writes to its own subdirectory under the Hydra run folder. See {d
 Captum and SHAP wrappers dispatch to algorithms dynamically via `getattr`, so most new methods require no code changes. Override the algorithm on a specific explainer entry in your transparency config:
 
 ```bash
-uv run raitap transparency=demo transparency.captum_ig.algorithm=Saliency
-uv run raitap transparency=demo transparency.shap_gradient.algorithm=GradientShap
+uv run raitap +transparency=captum transparency.default.algorithm=Saliency
+uv run raitap +transparency=shap transparency.default.algorithm=GradientShap
 ```
 
 Add an integration test to confirm the method works end-to-end. Reference `src/raitap/transparency/explainers/tests/test_captum_explainer.py` for examples.

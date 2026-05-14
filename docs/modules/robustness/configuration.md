@@ -8,11 +8,12 @@
   See {doc}`frameworks-and-libraries` for the backend behaviour behind
   `_target_`, `algorithm`, and visualiser compatibility.
 
-  The robustness module is **opt-in**: the shipped default config enables a
-  cheap FGSM assessor for the demo run, but a consumer config that omits
-  `robustness:` simply skips the module. Enable it at the CLI with
-  `+robustness=<preset>` (e.g. `+robustness=torchattacks_pgd`) when no preset
-  is in your defaults list.
+  The robustness module is **opt-in**: a consumer config that omits
+  `robustness:` simply skips the module. Enable a bundled backend at the CLI
+  with `+robustness=<backend>` (e.g. `+robustness=torchattacks
+  robustness.algorithm=PGD robustness.constructor.eps=0.03`) when no preset is
+  in your defaults list. Available backends: `torchattacks`, `foolbox`,
+  `marabou`.
 
 :option: _target_
 :allowed: "TorchattacksAssessor", "FoolboxAssessor"
@@ -123,5 +124,5 @@ robustness:
       - _target_: "ImagePairVisualiser"
       - _target_: "PerturbationHeatmapVisualiser"
 
-:cli: +robustness=torchattacks_pgd robustness.pgd.constructor.eps=0.05
+:cli: +robustness=torchattacks robustness.algorithm=PGD robustness.constructor.eps=0.05
 ```

@@ -1,0 +1,47 @@
+# Self-contained Marabou UC1 assessment config. Inlines the data, model,
+# and robustness blocks formerly provided by the deleted built-in presets
+# `data=mnist_samples`, `model=mlp_mnist`, `robustness=marabou_linf`.
+# No transparency block (the original demo invoked `~transparency`).
+defaults:
+  - _self_
+
+experiment_name: marabou_mnist_uc1
+
+# Marabou UC1 fixture — four MNIST test digits replicated to 3-channel RGB
+# so the standard raitap image loader produces (N, 3, 28, 28) tensors that
+# the bundled MLP accepts directly. Prepared by ``prep.py``.
+data:
+  name: mnist_samples
+  description: "MNIST sample digits (0, 3, 7, 9) for Marabou UC1 verification"
+  source: ${oc.env:HOME}/.cache/raitap/uc1_mnist_samples
+  input_metadata:
+    kind: image
+    layout: NCHW
+    # Backend reshape target: the bundled MLP consumes a flat 2352-vector
+    # because Marabou's ONNX parser does not support the Shape op that
+    # ``nn.Flatten`` lowers into. The shape adapter folds (N, 3, 28, 28)
+    # tensors from the image loader into (N, 2352) before the forward pass.
+    shape: [2352]
+  labels:
+    source: ${oc.env:HOME}/.cache/raitap/uc1_mnist_labels.csv
+    id_column: image
+    column: label
+    encoding: index
+
+# Marabou UC1 model — tiny MLP trained on MNIST (3x28x28 -> 128 -> 64 -> 10),
+# exported by ``prep.py``. ONNX declares dynamic batch + fixed (3, 28, 28)
+# non-batch dims; the backend shape adapter consumes them directly so no
+# ``data.input_metadata.shape`` override is needed.
+model:
+  source: ${oc.env:HOME}/.cache/raitap/uc1_mlp_mnist/mlp_mnist.onnx
+
+robustness:
+  marabou_linf:
+    _target_: MarabouAssessor
+    algorithm: linf-box
+    constructor:
+      epsilon: 0.05
+      norm: Linf
+      timeout_s: 300
+    visualisers:
+      - _target_: VerdictSummaryVisualiser

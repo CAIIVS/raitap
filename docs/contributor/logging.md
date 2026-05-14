@@ -135,7 +135,7 @@ directory.
 When the **logical** subsystem differs from the file path, pass it explicitly:
 
 ```python
-# src/raitap/run/pipeline.py — file lives in run/, but the warning
+# src/raitap/pipeline/pipeline.py — file lives in pipeline/, but the warning
 # is logically a robustness concern.
 from raitap import raitap_log
 from raitap.utils.diagnostics import Subsystem

@@ -1,0 +1,50 @@
+# Self-contained demo config invoked via `raitap --demo`.
+# Inlines every value so it works without external group YAMLs.
+defaults:
+  - raitap_schema     # binds AppConfig dataclass → unset fields inherit defaults
+  - _self_
+
+hardware: cpu
+experiment_name: demo
+
+model:
+  source: vit_b_32
+  arch: vit_b_32
+  pretrained: true
+
+data:
+  name: imagenet_samples
+  source: imagenet_samples
+  forward_batch_size: 4
+  labels:
+    source: imagenet_samples    # resolves to the bundled labels.csv for this sample
+    id_column: image
+    column: label
+
+metrics:
+  _target_: ClassificationMetrics
+  task: multiclass
+
+transparency:
+  default:
+    _target_: CaptumExplainer
+    algorithm: IntegratedGradients
+    call:
+      target: 0
+    visualisers:
+      - _target_: CaptumImageVisualiser
+
+robustness:
+  pgd:
+    _target_: TorchattacksAssessor
+    algorithm: PGD
+    constructor:
+      eps: 0.03
+      alpha: 0.005
+      steps: 10
+    visualisers:
+      - _target_: ImagePairVisualiser
+
+reporting:
+  _target_: HTMLReporter
+  filename: demo_report

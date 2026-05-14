@@ -7,7 +7,7 @@ import pytest
 import torch
 
 from raitap.metrics import resolve_metric_targets
-from raitap.run import pipeline as run_pipeline
+from raitap.pipeline import pipeline as run_pipeline
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig

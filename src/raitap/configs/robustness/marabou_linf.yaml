@@ -1,9 +1,0 @@
-marabou_linf:
-  _target_: MarabouAssessor
-  algorithm: linf-box
-  constructor:
-    epsilon: 0.05
-    norm: Linf
-    timeout_s: 300
-  visualisers:
-    - _target_: VerdictSummaryVisualiser

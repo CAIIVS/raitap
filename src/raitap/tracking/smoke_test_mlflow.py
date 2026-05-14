@@ -16,7 +16,7 @@ from raitap.configs.schema import (
     TrackingConfig,
     TransparencyConfig,
 )
-from raitap.run import run
+from raitap.pipeline import run
 
 DEFAULT_TRACKING_URI = "http://127.0.0.1:5000"
 

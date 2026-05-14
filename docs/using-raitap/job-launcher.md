@@ -35,11 +35,15 @@ Compose the sweep, launcher selection, and Slurm resources in one experiment YAM
 defaults:
   - _self_
   - hydra/launcher: submitit_slurm # this is a preset from the plugin
-  - data: my_dataset
   - transparency:
-      - captum_ig
-      - shap_gradient
-  # model, metrics, tracking, ... — see the configuration guides.
+      - captum
+      - shap
+  # model, data, metrics, tracking, ... — see the configuration guides.
+  # RAITAP ships only `_target_`-only stubs for transparency/robustness/etc.;
+  # `data` and `model` must be defined inline in your own YAML.
+
+data:
+  source: my_dataset
 
 hydra:
     launcher:
@@ -72,8 +76,7 @@ The same sweep and resource knobs expressed as overrides:
 uv run raitap \
   --multirun \
   hydra/launcher=submitit_slurm \
-  transparency=captum_ig,shap_gradient \
-  data=my_dataset \
+  +transparency=captum,shap \
   hydra.launcher.partition=gpu \
   hydra.launcher.account=myproject \
   hydra.launcher.timeout_min=240 \
@@ -86,8 +89,7 @@ uv run raitap \
 raitap \
   --multirun \
   hydra/launcher=submitit_slurm \
-  transparency=captum_ig,shap_gradient \
-  data=my_dataset \
+  +transparency=captum,shap \
   hydra.launcher.partition=gpu \
   hydra.launcher.account=myproject \
   hydra.launcher.timeout_min=240 \
@@ -135,10 +137,12 @@ Reference it in your experiment YAML in place of `submitit_slurm` and the inline
 defaults:
   - _self_
   - hydra/launcher: my_launcher  # replaces submitit_slurm + inline hydra.launcher.*
-  - data: my_dataset
   - transparency:
-      - captum_ig
-      - shap_gradient
+      - captum
+      - shap
+
+data:
+  source: my_dataset
 ```
 
 The run command is unchanged:

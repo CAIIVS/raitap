@@ -57,7 +57,7 @@ dependencies = [
 ]
 
 [project.scripts]
-raitap = "raitap._entry:main"
+raitap = "raitap.cli:main"
 docs-preview = "raitap.docs_preview:main"
 # `raitap-deps` removed: dep inference is now integrated into `raitap` itself.
 # Use `raitap --dry-run` to preview the inferred install, `raitap --custom-deps`
@@ -150,6 +150,7 @@ docs = [
   "sphinx-copybutton>=0.5.2; python_full_version >= '3.13'",
   "sphinx-design>=0.6.1; python_full_version >= '3.13'",
   "sphinx-autobuild>=2025.8.25; python_full_version >= '3.13'",
+  "sphinxcontrib-mermaid>=1.0.0; python_full_version >= '3.13'",
 ]
 dev = [
   { include-group = "lint" },
@@ -252,12 +253,13 @@ url = "https://download.pytorch.org/whl/xpu"
 explicit = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/raitap"]
+packages = ["src/raitap", "src/hydra_plugins"]
 include = [
   "src/raitap/py.typed",
   "src/raitap/configs/**/*.yaml",
   "src/raitap/configs/**/*.yml",
   "src/raitap/reporting/templates/**/*",
+  "src/hydra_plugins/**/*.py",
 ]
 exclude = ["src/raitap/**/test_*.py", "src/raitap/**/conftest.py", "src/raitap/configs/zhaw/*.yaml", "src/raitap/configs/zhaw/*.yml"]
 

@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from omegaconf import MISSING
+
 
 @dataclass
 class ModelConfig:
@@ -67,8 +69,10 @@ class TransparencyConfig:
     # Hydra _target_: points to an ExplainerAdapter
     # (e.g. AttributionOnlyExplainer or FullExplainer subclass)
     # Overridden by the transparency config-group YAML (transparency=captum / shap).
-    _target_: str = "CaptumExplainer"
-    algorithm: str = "IntegratedGradients"
+    # MISSING by default so omission fails validation loudly rather than
+    # silently selecting a library.
+    _target_: str = MISSING
+    algorithm: str = MISSING
     # Constructor kwargs for the explainer / underlying library method (e.g. Captum
     # ``IntegratedGradients(model, **kwargs)``, SHAP ``GradientExplainer(model, data, **kwargs)``).
     constructor: dict[str, Any] = field(default_factory=dict)
@@ -95,9 +99,9 @@ class RobustnessConfig:
     # Hydra _target_: points to a BaseAssessor subclass
     # (e.g. EmpiricalAttackAssessor or FormalVerificationAssessor implementation).
     # Overridden by the robustness config-group YAML
-    # (robustness=torchattacks_pgd / foolbox_lin_pgd).
-    _target_: str = "TorchattacksAssessor"
-    algorithm: str = "PGD"
+    # (robustness=torchattacks / foolbox / marabou).
+    _target_: str = MISSING
+    algorithm: str = MISSING
     # Constructor kwargs forwarded to the assessor's ``__init__``. For torchattacks
     # adapters this is where attack hyperparameters live (eps, alpha, steps), since
     # torchattacks consumes them at attack-instance construction.
@@ -117,14 +121,14 @@ class RobustnessConfig:
 
 @dataclass
 class MetricsConfig:
-    _target_: str = "ClassificationMetrics"
+    _target_: str = MISSING
     task: str = "multiclass"
     num_classes: int | None = None
 
 
 @dataclass
 class TrackingConfig:
-    _target_: str = "MLFlowTracker"
+    _target_: str = MISSING
     output_forwarding_url: str | None = None
     backend_store_uri: str | None = None
     default_artifact_root: str | None = None
@@ -136,7 +140,8 @@ class TrackingConfig:
 class ReportingConfig:
     """Configuration for report generation."""
 
-    _target_: str = "HTMLReporter"
+    # ``None`` disables reporting entirely (used by ``reporting/disabled.yaml``).
+    _target_: str | None = MISSING
     filename: str = "report"
     sample_selection: list[int | str] | None = None
     include_config: bool = True
@@ -151,10 +156,10 @@ class ReportingConfig:
 class AppConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     data: DataConfig = field(default_factory=DataConfig)
-    transparency: dict[str, Any] = field(default_factory=lambda: {"default": TransparencyConfig()})
+    transparency: dict[str, Any] = field(default_factory=dict)
     robustness: dict[str, Any] = field(default_factory=dict)
-    metrics: MetricsConfig = field(default_factory=MetricsConfig)
-    tracking: TrackingConfig = field(default_factory=TrackingConfig)
+    metrics: MetricsConfig | None = None
+    tracking: TrackingConfig | None = None
     reporting: ReportingConfig | None = None  # Optional, null by default
     hardware: str = "gpu"
     experiment_name: str = "Experiment"
