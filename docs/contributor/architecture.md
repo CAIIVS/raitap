@@ -21,12 +21,91 @@ flowchart TB
 
 ## Module map
 
-| Module                      | Responsibility                                                                                                                                                                                                                          |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `raitap.cli`                | Console-script entry. Handles `tracking stop` subcommand, `--demo` flag, bare-invocation help frame, then delegates to `raitap.deps.bootstrap`.                                                                                         |
-| `raitap.deps`               | Pre-pipeline dependency inference + auto-sync. Walks the composed Hydra config, picks backend + adapter extras for the host, then re-execs via `uv run` (dev) or prints an `uv add` / `pip install` plan (installed). Stays torch-free. |
-| `raitap.pipeline.__main__`  | `@hydra.main` entry. Composes the config (incl. bundled `raitap_schema` structured-config), then dispatches to `pipeline.run`.                                                                                                          |
-| `raitap.pipeline.pipeline`  | Orchestrates the assessment run: model + data load, forward pass, metrics, transparency explainers, robustness assessors, optional tracking.                                                                                            |
-| `raitap.configs.searchpath` | `RaitapSearchPathPlugin` — appends `pkg://raitap.configs` to Hydra's search path so external configs resolve bundled group presets without manual `hydra.searchpath` wiring. Surfaced via the `hydra_plugins` namespace package.        |
-| `raitap.reporting`          | Report builder + HTML / PDF reporters + multirun sweep callback.                                                                                                                                                                        |
-| `raitap.tracking`           | Tracker base class + MLflow adapter + `tracking stop` subcommand.                                                                                                                                                                       |
+```text
+src/
+├── hydra_plugins/                  # Hydra-discovery namespace package
+│   └── raitap_search_path.py       # re-exports RaitapSearchPathPlugin so Hydra finds it at import time
+└── raitap/
+    ├── cli.py                      # console-script entry; tracking-stop subcommand, --demo, help frame, then deps bootstrap
+    ├── docs_preview.py             # `docs-preview` console-script: serves built Sphinx output for local preview
+    ├── semantics_base.py           # SemanticallyDescribable generic + base hooks shared by transparency/robustness
+    │
+    ├── configs/                    # Hydra config tree shipped with the wheel
+    │   ├── schema.py               # AppConfig + nested dataclasses; MISSING-typed required fields
+    │   ├── searchpath.py           # RaitapSearchPathPlugin impl (appends pkg://raitap.configs)
+    │   ├── utils.py                # ConfigStore registration of `raitap_schema`; resolve_run_dir helpers
+    │   ├── adapter_factory.py      # short-name → full-target resolution (HTMLReporter, CaptumExplainer, …)
+    │   ├── demo.yaml               # self-contained demo invoked by `raitap --demo`
+    │   ├── reporting/{html,pdf,disabled}.yaml
+    │   ├── transparency/{captum,shap}.yaml         # `_target_`-only stubs, @package-nested per library
+    │   ├── robustness/{torchattacks,foolbox,marabou}.yaml
+    │   ├── metrics/classification.yaml
+    │   └── tracking/mlflow.yaml
+    │
+    ├── deps/                       # pre-pipeline dep inference + auto-sync (torch-free)
+    │   ├── bootstrap.py            # maybe_bootstrap(): top-level flow + case A/B/C/D dispatch
+    │   ├── inference.py            # walks composed config, picks extras from `_target_` mapping
+    │   ├── availability.py         # reads raitap pyproject for declared extras + platform markers
+    │   ├── conflicts.py            # enforces tool.uv.conflicts groups (torch-cpu vs torch-cuda, …)
+    │   ├── probe.py                # host probe → cpu / cuda / xpu
+    │   ├── python_version.py       # picks compatible Python interpreter for the selected extras
+    │   ├── command.py              # renders the final uv-sync / uv-add / pip-install argv
+    │   └── frame.py                # rich panels for deps status + error frames
+    │
+    ├── pipeline/                   # the actual assessment run
+    │   ├── __main__.py             # @hydra.main entry; composes config (incl. raitap_schema) → run()
+    │   ├── pipeline.py             # run(): model + data → forward → metrics + transparency + robustness → tracker
+    │   ├── outputs.py              # PredictionSummary + RunOutputs dataclasses (typed return)
+    │   └── forward_output.py       # extracts the primary logits tensor from torch / dict / tuple outputs
+    │
+    ├── models/                     # model loading + backend wrappers (PyTorch + ONNX)
+    │   ├── model.py                # Model wrapper, source resolution (built-in name / .pt / state-dict / .onnx)
+    │   ├── backend.py              # TorchBackend / OnnxBackend + hardware_label
+    │   └── runtime.py              # resolve_torch_device, resolve_onnx_providers
+    │
+    ├── data/                       # dataset loading (images + tabular) + labels resolution
+    │   ├── data.py                 # Data class; samples / tabular loaders
+    │   └── samples.py              # bundled sample sets (imagenet_samples, mnist_samples, …) + labels CSVs
+    │
+    ├── metrics/                    # metrics adapters (currently torchmetrics-backed)
+    │   ├── factory.py              # metrics_run_enabled, evaluate(), instantiation via adapter_factory
+    │   ├── classification_metrics.py
+    │   └── inputs.py               # target/prediction alignment, fallbacks when labels missing
+    │
+    ├── transparency/               # XAI adapters
+    │   ├── factory.py              # create_explainer / create_visualisers; runtime kwargs resolution
+    │   ├── contracts.py            # ExplanationPayloadKind, InputSpec, MethodFamily, …
+    │   ├── results.py              # ExplanationResult + Explanation orchestration object
+    │   ├── explainers/             # CaptumExplainer, ShapExplainer (subclass of base_explainer)
+    │   └── visualisers/            # CaptumImageVisualiser, ShapImageVisualiser, InputThumbnailVisualiser, …
+    │
+    ├── robustness/                 # adversarial-attack + formal-verification adapters
+    │   ├── factory.py              # create_assessor; raitap-key migration warnings
+    │   ├── assessors/              # TorchattacksAssessor, FoolboxAssessor, MarabouAssessor
+    │   └── visualisers/            # ImagePairVisualiser, PerturbationHeatmapVisualiser, formal/*
+    │
+    ├── reporting/                  # HTML + PDF report builders + multirun aggregation
+    │   ├── builder.py              # build_report(): assembles sections from RunOutputs
+    │   ├── html_reporter.py        # Jinja2-backed HTML renderer
+    │   ├── pdf_reporter.py         # borb-backed PDF renderer
+    │   ├── hydra_callback.py       # ReportingSweepCallback wired by reporting/{html,pdf}.yaml
+    │   ├── sample_selection.py     # user-selected vs auto-picked sample logic
+    │   ├── filenames.py            # output filename validation
+    │   └── templates/              # Jinja templates
+    │
+    ├── tracking/                   # experiment-tracking adapters
+    │   ├── base_tracker.py         # BaseTracker abstract class + stop_detached hook
+    │   ├── mlflow_tracker.py       # MLflow adapter
+    │   ├── process_registry.py     # ~/.raitap/tracking_processes.json (used by `tracking stop`)
+    │   └── stop.py                 # run_stop_command(): terminates detached tracker processes
+    │
+    ├── utils/                      # cross-cutting helpers
+    │   ├── console.py              # rich panels (summary, failure, complete) + setup_logging
+    │   ├── diagnostics.py          # Diagnostic dataclass + is_dev_install heuristic
+    │   ├── errors.py               # RaitapError hierarchy
+    │   ├── log.py                  # raitap_log wrapper (filename-aware warnings)
+    │   ├── process.py              # cross-platform subprocess helpers
+    │   └── tests/
+    │
+    └── tests/                      # cross-package integration tests (pipeline orchestration, memory leaks)
+```
