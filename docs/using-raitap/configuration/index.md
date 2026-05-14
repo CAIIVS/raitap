@@ -28,6 +28,7 @@ Transparency <../../modules/transparency/configuration>
 Robustness <../../modules/robustness/configuration>
 Metrics <../../modules/metrics/configuration>
 Tracking <../../modules/tracking/configuration>
+Reporting <../../modules/reporting/configuration>
 ```
 
 ::::{grid} 1 2 2 3

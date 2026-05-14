@@ -12,7 +12,7 @@ Hydra parses YAML files to understand which options to apply to the pipeline. Yo
 
 ```yaml
 defaults:
-  - raitap_schema
+  - raitap_schema # Do not omit this!
   - _self_
 
 // ...your options, see below
@@ -65,7 +65,7 @@ Hydra does not only read from YAML files. It can also parse CLI option overrides
 In the following, we override some options from the
 {doc}`../../modules/transparency/configuration`.
 
-#### 1. Discover what's available: `--help`
+#### Discover what's available: `--help`
 
 Pass `--help` to print every available config group + the fully composed config
 for the current invocation. Useful when picking presets or sanity-checking
@@ -115,9 +115,9 @@ Hydra recognises three group-override prefixes on the command line:
 - `~key` — **remove** a key from the defaults list.
   Example: `~robustness.pgd` drops the named robustness assessor.
 
-#### Overriding values
+#### Nested value overriding
 
-You can either set individual options:
+You can override individual nested values:
 
 ```{install-tabs}
 :uv:
@@ -127,7 +127,7 @@ uv run raitap --config-name assessment hardware=cpu transparency.myexplainer1.ca
 raitap --config-name assessment hardware=cpu transparency.myexplainer1.call.target=0
 ```
 
-Or override an entire nested value at once:
+Or override all nested values at once:
 
 ```{install-tabs}
 :uv:
@@ -150,7 +150,7 @@ The main mechanism for this is the `defaults` list.
 # assessment.yaml
 defaults:
   - raitap_schema  # required, do not omit it, ever
-  - _self_         # inserts the 2 keys below into the final config
+  - _self_         # inserts the 2 keys below into the final config, at that location
   - transparency: shap
   - metrics: classification
 
