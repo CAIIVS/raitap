@@ -1,0 +1,61 @@
+{
+  "experiment_name": null,
+  "target": "raitap.robustness.assessors.marabou_assessor.MarabouAssessor",
+  "algorithm": "linf-box",
+  "assessor_name": null,
+  "method_kind": "formal_verification",
+  "visualisers": [],
+  "metrics": {
+    "clean_accuracy": 0.0,
+    "verified_rate": 0.5,
+    "falsified_rate": 0.5,
+    "unknown_rate": 0.0,
+    "error_rate": 0.0,
+    "mean_runtime": 0.0
+  },
+  "verdict_codes": {
+    "attacked": 1,
+    "not_attacked": 2,
+    "verified": 3,
+    "falsified": 4,
+    "unknown": 5,
+    "error": 6
+  },
+  "semantics": {
+    "method_kind": "formal_verification",
+    "threat_model": "white_box",
+    "objective": "untargeted",
+    "families": [
+      "complete",
+      "smt",
+      "sound"
+    ],
+    "budget": {
+      "norm": "Linf",
+      "epsilon": 0.05,
+      "step_size": null,
+      "steps": null
+    },
+    "target_classes": null,
+    "sample_selection": {
+      "sample_ids": null,
+      "sample_display_names": null
+    },
+    "input_spec": {
+      "kind": null,
+      "shape": [
+        2,
+        5
+      ],
+      "layout": null,
+      "feature_names": null,
+      "metadata": null
+    }
+  },
+  "kwargs": {
+    "sample_ids": null,
+    "sample_names": null,
+    "show_sample_names": false
+  },
+  "call_kwargs": {}
+}

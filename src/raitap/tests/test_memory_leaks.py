@@ -169,7 +169,9 @@ def test_run_without_tracking_forward_output_is_cpu_and_detached() -> None:
 
     with (
         patch("raitap.pipeline.phases.evaluate_metrics.metrics_run_enabled", return_value=False),
-        patch("raitap.pipeline.phases.assess_transparency.Explanation", return_value=fake_explanation),
+        patch(
+            "raitap.pipeline.phases.assess_transparency.Explanation", return_value=fake_explanation
+        ),
     ):
         outputs = _run_without_tracking(config, model, data)
 

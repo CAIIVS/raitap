@@ -3,9 +3,7 @@ name = "raitap-example"
 version = "0.0.1"
 description = "Standalone example project demonstrating raitap as a library dependency."
 requires-python = ">=3.11,<3.14"
-# Only `raitap` is listed — raitap's auto-deps inference walks the active
-# Hydra config on first run, then runs `uv add raitap[<extras>]` to pin the
-# right extras into this file (pass `--allow-project-edit` to confirm).
+# Only the `raitap` dep is needed. It will add required extras automatically when a config is ran.
 dependencies = [
   "raitap",
 ]
