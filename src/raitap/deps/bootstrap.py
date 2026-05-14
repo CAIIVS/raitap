@@ -251,7 +251,7 @@ def _refusal_note_blocks(case: str, extras: set[str], cleaned: list[str]) -> lis
 
     if case == "C":
         cmd = f"uv add raitap[{','.join(sorted(extras))}]" if extras else "uv add raitap"
-        hint = _hint_invocation(cleaned, "--allow-project-edit")
+        hint = _hint_invocation(cleaned, "-y")
         return [
             Text("Running the uv add command would modify your project file. Either:", style=warn),
             Text.assemble(
@@ -259,7 +259,7 @@ def _refusal_note_blocks(case: str, extras: set[str], cleaned: list[str]) -> lis
                 (cmd, white),
             ),
             Text.assemble(
-                ("- Add the --allow-project-edit (or -y) flag: ", warn),
+                ("- Add the -y flag (alias of --allow-project-edit): ", warn),
                 (hint, white),
             ),
         ]
