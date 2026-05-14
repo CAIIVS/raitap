@@ -23,6 +23,7 @@ Then, you can add your own options. You may find useful to refer to:
 - the {doc}`global-config-options`
 - the {ref}`module-specific-configurations`
 - the {doc}`kitchen-sink`
+- the [showcase project in the `example/` directory of the RAITAP repository](https://github.com/CAIIVS/raitap/tree/main/example)
 
 If your workflow does not make it easy to use YAML files, you can rely 100% on a CLI command. See {ref}`cli-overriding` for more details.
 
