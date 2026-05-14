@@ -80,10 +80,11 @@ jobs:
             core.setOutput("is_draft_pr", pulls[0].draft ? "true" : "false");
 
   quality-gate-linux-cpu:
-    # Single job runs both supported Python versions sequentially. 3.11 only
-    # exercises the test suite (floor compatibility); 3.13 runs the full
-    # quality gate (lint, format, pyright, coverage). Collapsing into one
-    # GitHub check trades parallelism for a quieter PR status list.
+    # Single job runs both supported Python versions sequentially. 3.13 runs
+    # the full quality gate (lint, format, pyright, coverage) first so cheap
+    # checks fail fast; 3.11 only exercises the test suite (floor compatibility)
+    # and runs last — its result is moot if 3.13 already failed. Collapsing into
+    # one GitHub check trades parallelism for a quieter PR status list.
     name: Quality Gate (Linux CPU)
     needs: changes
     if: needs.changes.outputs.python == 'true'
@@ -92,15 +93,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
-
-      - name: Set up Python 3.11 environment
-        uses: ./.github/actions/setup-raitap-env
-        with:
-          python-version: "3.11"
-          sync-command: uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cpu --extra reporting
-
-      - name: Pytest on 3.11 (floor compatibility, no coverage)
-        run: uv run pytest -m "not e2e and not cuda" -v
 
       - name: Set up Python 3.13 environment
         uses: ./.github/actions/setup-raitap-env
@@ -126,6 +118,15 @@ jobs:
           name: coverage-report
           path: htmlcov/
           retention-days: 30
+
+      - name: Set up Python 3.11 environment
+        uses: ./.github/actions/setup-raitap-env
+        with:
+          python-version: "3.11"
+          sync-command: uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cpu --extra reporting
+
+      - name: Pytest on 3.11 (floor compatibility, no coverage)
+        run: uv run pytest -m "not e2e and not cuda" -v
 
   quality-gate-linux-cuda:
     name: Quality Gate (Linux CUDA)
