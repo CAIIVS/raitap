@@ -34,6 +34,15 @@ body:not([data-theme]) {
   letter-spacing: 0.02em;
 }
 
+/* Constrain the sidebar logo — the asset is wide (906×356) and renders too
+   large at Furo's default width. */
+.sidebar-logo {
+  max-width: 60%;
+  height: auto;
+  margin: 0 auto;
+  display: block;
+}
+
 .toctree-wrapper .caption {
   font-weight: 700;
 }
