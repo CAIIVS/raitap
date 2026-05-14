@@ -7,7 +7,7 @@ Standalone project demonstrating how to consume raitap as a third-party library.
 ```bash
 cd example
 uv sync                                                          # pulls bare raitap
-uv run raitap --config-name assessment --allow-project-edit      # first run: auto-deps adds extras
+uv run raitap --config-name assessment --allow-project-edit      # first run: auto-deps adds extras (or -y for short)
 uv run raitap --config-name assessment                           # subsequent runs
 ```
 

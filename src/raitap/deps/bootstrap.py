@@ -102,7 +102,7 @@ def _strip_deps_flags(argv: list[str]) -> tuple[list[str], _DepFlags]:
             flags.sync_only = True
         elif a == "--custom-deps":
             flags.custom = True
-        elif a == "--allow-project-edit":
+        elif a in ("--allow-project-edit", "-y"):
             flags.allow_project_edit = True
         elif a == "--exec-global":
             flags.exec_global = True
@@ -259,7 +259,7 @@ def _refusal_note_blocks(case: str, extras: set[str], cleaned: list[str]) -> lis
                 (cmd, white),
             ),
             Text.assemble(
-                ("- Add the --allow-project-edit flag: ", warn),
+                ("- Add the --allow-project-edit (or -y) flag: ", warn),
                 (hint, white),
             ),
         ]

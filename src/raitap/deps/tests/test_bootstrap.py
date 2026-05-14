@@ -240,6 +240,12 @@ def test_strip_deps_flags() -> None:
     assert flags.exec_global is True
 
 
+def test_strip_deps_flags_accepts_y_alias() -> None:
+    cleaned, flags = bootstrap._strip_deps_flags(["raitap", "-y", "data=x"])
+    assert cleaned == ["raitap", "data=x"]
+    assert flags.allow_project_edit is True
+
+
 def test_sync_only_runs_sync_and_exits(monkeypatch: pytest.MonkeyPatch) -> None:
     _fake_compose(monkeypatch, _baseline_cfg())
     monkeypatch.setattr(bootstrap, "detect_hardware", lambda: "cpu")
