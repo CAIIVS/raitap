@@ -33,13 +33,26 @@ Compose the sweep, launcher selection, and Slurm resources in one experiment YAM
 ```yaml
 # assessment.yaml
 defaults:
+  - raitap_schema   # bind AppConfig schema — required for unset optional fields
   - _self_
   - hydra/launcher: submitit_slurm # this is a preset from the plugin
-  - data: my_dataset
-  - transparency:
-      - captum_ig
-      - shap_gradient
-  # model, metrics, tracking, ... — see the configuration guides.
+
+transparency:
+  captum:
+    algorithm: IntegratedGradients
+    call:
+      target: 0
+    visualisers:
+      - _target_: CaptumImageVisualiser
+  shap:
+    algorithm: GradientExplainer
+    call:
+      target: 0
+    visualisers:
+      - _target_: ShapImageVisualiser
+
+data:
+  source: my_dataset
 
 hydra:
     launcher:
@@ -72,8 +85,9 @@ The same sweep and resource knobs expressed as overrides:
 uv run raitap \
   --multirun \
   hydra/launcher=submitit_slurm \
-  transparency=captum_ig,shap_gradient \
-  data=my_dataset \
+  +transparency=captum,shap \
+  "transparency.captum.algorithm=IntegratedGradients" \
+  "transparency.shap.algorithm=GradientExplainer" \
   hydra.launcher.partition=gpu \
   hydra.launcher.account=myproject \
   hydra.launcher.timeout_min=240 \
@@ -86,8 +100,9 @@ uv run raitap \
 raitap \
   --multirun \
   hydra/launcher=submitit_slurm \
-  transparency=captum_ig,shap_gradient \
-  data=my_dataset \
+  +transparency=captum,shap \
+  "transparency.captum.algorithm=IntegratedGradients" \
+  "transparency.shap.algorithm=GradientExplainer" \
   hydra.launcher.partition=gpu \
   hydra.launcher.account=myproject \
   hydra.launcher.timeout_min=240 \
@@ -103,10 +118,10 @@ YAML keeps Slurm settings next to the rest of the experiment under version contr
 
 ### Reusing the same launcher preset
 
-If you run sweeps across several experiments on the same cluster, extract the `hydra.launcher.*` settings into a shared preset under `configs/hydra/launcher/` instead of repeating them in every experiment YAML.
+If you run sweeps across several experiments on the same cluster, extract the `hydra.launcher.*` settings into a standalone YAML file.
 
 ```yaml
-# configs/hydra/launcher/my_launcher.yaml
+# my_launcher.yaml
 # @package hydra.launcher
 defaults:
   - submitit_slurm
@@ -135,10 +150,8 @@ Reference it in your experiment YAML in place of `submitit_slurm` and the inline
 defaults:
   - _self_
   - hydra/launcher: my_launcher  # replaces submitit_slurm + inline hydra.launcher.*
-  - data: my_dataset
-  - transparency:
-      - captum_ig
-      - shap_gradient
+
+//...your options
 ```
 
 The run command is unchanged:

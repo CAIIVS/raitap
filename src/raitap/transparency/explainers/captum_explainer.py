@@ -8,7 +8,7 @@ from raitap import raitap_log
 from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
 from raitap.transparency.contracts import ExplanationPayloadKind, MethodFamily
 from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
-from raitap.utils.diagnostics import Subsystem
+from raitap.utils.diagnostics import Module
 from raitap.utils.errors import rethrow
 
 from .base_explainer import AttributionOnlyExplainer
@@ -153,7 +153,7 @@ class CaptumExplainer(AttributionOnlyExplainer):
             attr_kwargs = _normalise_occlusion_kwargs(attr_kwargs)
 
         with rethrow(
-            subsystem=Subsystem.transparency,
+            module=Module.transparency,
             third_party_lib="captum",
             message_map=type(self).error_messages,
         ):

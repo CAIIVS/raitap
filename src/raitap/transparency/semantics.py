@@ -5,6 +5,9 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from raitap.utils.diagnostics import Diagnostic, Module
+from raitap.utils.errors import RaitapError
+
 from .contracts import (
     ExplainerCapability,
     ExplanationOutputSpace,
@@ -46,13 +49,13 @@ def method_families_for_explainer(explainer: object) -> frozenset[MethodFamily]:
             registry = adapter_cls.algorithm_registry
             if algorithm in registry:
                 return registry[algorithm]
-            raise ValueError(_method_family_error(framework, algorithm))
+            raise _method_family_error(framework, algorithm)
 
     # No framework hint: try unique cross-framework match via algorithm name.
     try:
         return _method_families_for_algorithm(algorithm)
     except ValueError:
-        raise ValueError(_method_family_error(type(explainer).__name__, algorithm)) from None
+        raise _method_family_error(type(explainer).__name__, algorithm) from None
 
 
 def _adapter_class_for_framework(framework: str) -> type | None:
@@ -92,7 +95,7 @@ def _explainer_framework(explainer: object) -> str | None:
 def _explainer_algorithm(explainer: object) -> str:
     raw = getattr(explainer, "algorithm", None)
     if raw is None:
-        raise ValueError(_method_family_error(type(explainer).__name__, "<missing>"))
+        raise _method_family_error(type(explainer).__name__, "<missing>")
     return str(raw)
 
 
@@ -265,7 +268,7 @@ def _method_families_for_algorithm(algorithm: str) -> frozenset[MethodFamily]:
     if len(matches) == 1:
         return matches[0][1]
     if not matches:
-        raise ValueError(_method_family_error("<unknown>", algorithm))
+        raise _method_family_error("<unknown>", algorithm)
 
     frameworks = ", ".join(framework for framework, _families in matches)
     raise ValueError(
@@ -283,10 +286,28 @@ def _normalise_framework(framework: str) -> str:
     return framework
 
 
-def _method_family_error(framework: str, algorithm: str) -> str:
-    return (
-        "method-family inference is not implemented for framework "
-        f"{framework} and algorithm {algorithm}."
+def _method_family_error(framework: str, algorithm: str) -> RaitapError:
+    if algorithm == "<missing>":
+        message = (
+            f"Explainer {framework} has no `algorithm` set. The bundled "
+            f"`transparency/{framework.lower().replace('explainer', '')}.yaml` "
+            "preset only sets `_target_`. Add `transparency.<name>.algorithm: ...` "
+            "(e.g. `GradientExplainer` for SHAP, `IntegratedGradients` for Captum) "
+            "to your config or pass it as a CLI override."
+        )
+    else:
+        message = (
+            f"method-family inference is not implemented for framework "
+            f"{framework} and algorithm {algorithm}."
+        )
+    return RaitapError(
+        message,
+        diagnostic=Diagnostic(
+            module=Module.transparency,
+            file=__file__,
+            line=0,
+            third_party_lib=None,
+        ),
     )
 
 

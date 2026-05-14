@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 import torch
 
-from raitap.utils.diagnostics import Subsystem
+from raitap.utils.diagnostics import Module
 from raitap.utils.errors import rethrow
 
 from ..contracts import (
@@ -242,7 +242,7 @@ class MarabouAssessor(FormalVerificationAssessor):
         sample_shape = tuple(int(d) for d in sample.shape)
 
         with rethrow(
-            subsystem=Subsystem.robustness,
+            module=Module.robustness,
             third_party_lib="maraboupy",
             message_map=_MARABOUPY_ERROR_MESSAGES,
         ):

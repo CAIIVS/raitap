@@ -22,7 +22,7 @@ from raitap.utils.console import (
     diagnostic_chips,
     print_failure_panel,
 )
-from raitap.utils.diagnostics import Diagnostic, Subsystem
+from raitap.utils.diagnostics import Diagnostic, Module
 from raitap.utils.errors import AdapterError, RaitapError
 
 if TYPE_CHECKING:
@@ -41,7 +41,7 @@ def _reset_dev_install_cache() -> Iterator[None]:
 class TestDiagnosticChips:
     def test_dev_install_includes_path_and_third_party(self) -> None:
         diag = Diagnostic(
-            subsystem=Subsystem.transparency,
+            module=Module.transparency,
             file="src/raitap/transparency/explainers/shap_explainer.py",
             line=196,
             third_party_lib="shap",
@@ -60,7 +60,7 @@ class TestDiagnosticChips:
 
     def test_installed_wheel_includes_docs_link(self) -> None:
         diag = Diagnostic(
-            subsystem=Subsystem.transparency,
+            module=Module.transparency,
             file="<frozen>",
             line=0,
             third_party_lib="shap",
@@ -77,7 +77,7 @@ class TestDiagnosticChips:
         assert "<frozen>" not in joined
 
     def test_unclassified_in_installed_mode_yields_no_chips(self) -> None:
-        diag = Diagnostic(subsystem=None, file="", line=0, third_party_lib=None)
+        diag = Diagnostic(module=None, file="", line=0, third_party_lib=None)
         with patch.object(console_module, "is_dev_install", return_value=False):
             chips = diagnostic_chips(
                 Status.ERROR,
@@ -100,7 +100,7 @@ class TestPrintFailurePanel:
 
     def test_raitap_error_renders_diagnostic_chips_and_cause(self) -> None:
         diag = Diagnostic(
-            subsystem=Subsystem.transparency,
+            module=Module.transparency,
             file="/x/raitap/transparency/explainers/shap_explainer.py",
             line=196,
             third_party_lib="shap",
@@ -142,9 +142,9 @@ def _emit_to_handler(record_factory: Callable[[logging.Logger], None]) -> str:
 
 
 class TestRichHandlerErrorPanel:
-    def test_plain_logger_exception_renders_subsystem_chip_from_traceback(self) -> None:
+    def test_plain_logger_exception_renders_module_chip_from_traceback(self) -> None:
         # Simulate an exception caught inside src/raitap/robustness/ so the
-        # traceback walker classifies the frame as the robustness subsystem.
+        # traceback walker classifies the frame as the robustness module.
         src = "import logging\ndef boom():\n    raise RuntimeError('inner')\n"
         code = compile(src, "/tmp/raitap/src/raitap/robustness/fake.py", "exec")
         ns: dict[str, object] = {}
@@ -165,7 +165,7 @@ class TestRichHandlerErrorPanel:
     def test_plain_logger_warning_falls_back_to_record_path(self) -> None:
         def fire(logger: logging.Logger) -> None:
             with patch.object(console_module, "is_dev_install", return_value=True):
-                # Synthesise a record whose pathname lives in a raitap subsystem
+                # Synthesise a record whose pathname lives in a raitap module
                 # but whose message does NOT match the header pattern.
                 record = logger.makeRecord(
                     name=logger.name,
@@ -184,7 +184,7 @@ class TestRichHandlerErrorPanel:
 
     def test_logger_error_with_raitap_exc_renders_diagnostic_header(self) -> None:
         diag = Diagnostic(
-            subsystem=Subsystem.robustness,
+            module=Module.robustness,
             file="/x/raitap/robustness/assessors/foolbox_assessor.py",
             line=161,
             third_party_lib="foolbox",

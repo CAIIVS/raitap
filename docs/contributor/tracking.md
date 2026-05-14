@@ -19,7 +19,7 @@ All trackers implement `BaseTracker`, which defines the common surface:
 
 ## Runtime flow
 
-Tracking runs after the local assessment phase. In `src/raitap/run/pipeline.py`,
+Tracking runs after the local assessment phase. In `src/raitap/pipeline/pipeline.py`,
 RAITAP first computes the forward pass, optional metrics, and optional
 transparency artifacts in the normal Hydra run directory.
 

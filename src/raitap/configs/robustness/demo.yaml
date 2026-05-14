@@ -1,7 +1,0 @@
-fgsm:
-  _target_: TorchattacksAssessor
-  algorithm: FGSM
-  constructor:
-    eps: 0.03
-  visualisers:
-    - _target_: ImagePairVisualiser

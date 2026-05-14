@@ -64,5 +64,11 @@ def resolve_run_dir(
 
 
 def register_configs() -> None:
+    """Register the ``AppConfig`` dataclass as ``raitap_schema``.
+
+    User and bundled YAMLs reference it via ``defaults: [raitap_schema, _self_]``
+    so unset fields inherit dataclass defaults (e.g. ``reporting.sample_selection``)
+    and required fields are ``MISSING`` (loud error if omitted).
+    """
     cs = ConfigStore.instance()
-    cs.store(group="schema", name="config", node=AppConfig)
+    cs.store(name="raitap_schema", node=AppConfig)

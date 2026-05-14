@@ -85,7 +85,7 @@ def test_shap_method_family_registry_accepts_adr_v1_list() -> None:
 
 def test_shap_permutation_explainer_is_rejected() -> None:
     with pytest.raises(
-        ValueError,
+        Exception,
         match=(
             "method-family inference is not implemented for framework "
             "SHAP and algorithm PermutationExplainer"
@@ -120,7 +120,7 @@ def test_captum_method_family_registry_exactly_matches_adr_v1_list() -> None:
 
 def test_bare_captum_grad_cam_is_rejected() -> None:
     with pytest.raises(
-        ValueError,
+        Exception,
         match=(
             "method-family inference is not implemented for framework Captum and algorithm GradCam"
         ),
@@ -279,7 +279,7 @@ def test_infer_output_space_explicit_algorithm_takes_precedence_over_explainer()
 
 def test_infer_output_space_rejects_unknown_algorithm_only_signal() -> None:
     with pytest.raises(
-        ValueError,
+        Exception,
         match=(
             "method-family inference is not implemented for framework "
             "<unknown> and algorithm MadeUpExplainer"
@@ -306,7 +306,7 @@ def test_infer_output_space_rejects_ambiguous_algorithm_only_signal(
     )
 
     with pytest.raises(
-        ValueError,
+        Exception,
         match=(
             "method-family inference is ambiguous for algorithm "
             "SharedAlgorithm; matched frameworks SHAP, Captum"

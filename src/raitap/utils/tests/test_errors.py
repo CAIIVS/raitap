@@ -7,7 +7,7 @@ import types
 
 import pytest
 
-from raitap.utils.diagnostics import Diagnostic, Subsystem
+from raitap.utils.diagnostics import Diagnostic, Module
 from raitap.utils.errors import (
     AdapterError,
     RaitapError,
@@ -21,10 +21,10 @@ class TestResolveDiagnosticFromTraceback:
         diag = resolve_diagnostic_from_traceback(None, default_file="x.py", default_line=7)
         assert diag.file == "x.py"
         assert diag.line == 7
-        assert diag.subsystem is None
+        assert diag.module is None
         assert diag.third_party_lib is None
 
-    def test_picks_deepest_raitap_subsystem_frame(self) -> None:
+    def test_picks_deepest_raitap_module_frame(self) -> None:
         # Build a synthetic traceback chain: outer non-raitap → transparency → utils.
         tb_inner_utils = _make_tb("/x/raitap/utils/log.py", 20, None)
         tb_transparency = _make_tb(
@@ -32,7 +32,7 @@ class TestResolveDiagnosticFromTraceback:
         )
         tb_root = _make_tb("/other/site.py", 1, tb_transparency)
         diag = resolve_diagnostic_from_traceback(tb_root)  # pyright: ignore[reportArgumentType]
-        assert diag.subsystem == Subsystem.transparency
+        assert diag.module == Module.transparency
         assert diag.line == 196
         assert "shap_explainer.py" in diag.file
 
@@ -41,13 +41,13 @@ class TestResolveDiagnosticFromTraceback:
         tb_outer = _make_tb("/x/raitap/transparency/explainers/shap_explainer.py", 196, tb_inner)
         diag = resolve_diagnostic_from_traceback(tb_outer)  # pyright: ignore[reportArgumentType]
         assert diag.third_party_lib == "shap"
-        assert diag.subsystem == Subsystem.transparency
+        assert diag.module == Module.transparency
 
 
 class TestRethrow:
     def test_passthrough_when_no_exception(self) -> None:
         with rethrow(
-            subsystem=Subsystem.transparency,
+            module=Module.transparency,
             third_party_lib="shap",
             message_map={re.compile("never matches"): "replacement"},
         ):
@@ -59,7 +59,7 @@ class TestRethrow:
         with (
             pytest.raises(AdapterError) as info,
             rethrow(
-                subsystem=Subsystem.transparency,
+                module=Module.transparency,
                 third_party_lib="shap",
                 message_map=message_map,
             ),
@@ -71,14 +71,14 @@ class TestRethrow:
         assert "Use GradientExplainer" in str(exc)
         assert isinstance(exc.__cause__, RuntimeError)
         assert exc.diagnostic is not None
-        assert exc.diagnostic.subsystem == Subsystem.transparency
+        assert exc.diagnostic.module == Module.transparency
         assert exc.diagnostic.third_party_lib == "shap"
 
     def test_unmatched_message_propagates_unchanged(self) -> None:
         with (
             pytest.raises(RuntimeError) as info,
             rethrow(
-                subsystem=Subsystem.transparency,
+                module=Module.transparency,
                 third_party_lib="shap",
                 message_map={re.compile("xyz"): "rewritten"},
             ),
@@ -91,7 +91,7 @@ class TestRethrow:
         with (
             pytest.raises(KeyboardInterrupt),
             rethrow(
-                subsystem=Subsystem.transparency,
+                module=Module.transparency,
                 third_party_lib="shap",
                 message_map={re.compile(".*"): "rewritten"},
                 base_exc=Exception,
@@ -103,7 +103,7 @@ class TestRethrow:
 class TestRaitapError:
     def test_carries_diagnostic(self) -> None:
         diag = Diagnostic(
-            subsystem=Subsystem.robustness,
+            module=Module.robustness,
             file="x.py",
             line=1,
             third_party_lib="foolbox",

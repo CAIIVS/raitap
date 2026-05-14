@@ -27,9 +27,25 @@ body:not([data-theme]) {
 }
 
 
+
+
 .sidebar-brand-text {
   font-weight: 700;
   letter-spacing: 0.02em;
+}
+
+/* Constrain the sidebar logo — the asset is wide (906×356) and renders too
+   large at Furo's default width. Keep it left-aligned with the rest of the
+   sidebar items (override Furo's auto-centering on .sidebar-logo-container). */
+.sidebar-logo {
+  max-width: 60%;
+  height: auto;
+  margin: 0;
+  display: block;
+}
+
+.sidebar-logo-container {
+  text-align: left;
 }
 
 .toctree-wrapper .caption {
@@ -69,6 +85,11 @@ h1 {
   }
 }
 
+#id1 h1 {
+  height: 0;
+  /* Ghost H1 on homepage */
+}
+
 h2 {
   font-size: 1.75rem;
 }
@@ -79,7 +100,7 @@ h3 {
 }
 
 h4 {
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 500;
 }
 
@@ -158,4 +179,10 @@ h4 {
 
 .sidebar-drawer {
   width: auto;
+}
+
+/* Mermaid (sphinxcontrib.mermaid): keep wide SVGs usable in the content column. */
+article .mermaid {
+  overflow-x: auto;
+  max-width: 100%;
 }

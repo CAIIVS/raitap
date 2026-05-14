@@ -19,9 +19,10 @@ from raitap.metrics.base_metric import BaseMetricComputer, MetricResult
 def test_metrics_run_enabled_respects_empty_target(tmp_path: Path) -> None:
     cfg = AppConfig(experiment_name="t")
     set_output_root(cfg, tmp_path)
-    cfg.metrics._target_ = ""
+    assert not metrics_run_enabled(cfg)  # metrics is None by default
+    cfg.metrics = MetricsConfig(_target_="")
     assert not metrics_run_enabled(cfg)
-    cfg.metrics._target_ = "ClassificationMetrics"
+    cfg.metrics = MetricsConfig(_target_="ClassificationMetrics")
     assert metrics_run_enabled(cfg)
 
 
@@ -60,6 +61,7 @@ def test_evaluate_writes_outputs(tmp_path: Path) -> None:
 
 def test_evaluate_bad_target_raises(tmp_path: Path) -> None:
     cfg = _config(tmp_path)
+    assert cfg.metrics is not None
     cfg.metrics._target_ = "DoesNotExist"
 
     with pytest.raises(ValueError, match="Could not instantiate metric"):

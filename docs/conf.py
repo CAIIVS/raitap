@@ -24,6 +24,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx_copybutton",
     "sphinx_design",
+    "sphinxcontrib.mermaid",
 ]
 
 templates_path: list[str] = ["_templates"]
@@ -105,6 +106,9 @@ html_theme = "furo"
 html_title = "RAITAP Documentation"
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
+html_logo = "_static/logo.png"
+# Hide the project name beside the logo (logo already contains the name).
+html_short_title = ""
 html_js_files = [
     ("https://context7.com/widget.js", {"data-library": "/caiivs/raitap"}),
 ]
@@ -118,7 +122,7 @@ html_theme_options = {
     "source_repository": "https://github.com/CAIIVS/raitap",
     "source_branch": "main",
     "source_directory": "docs/",
-    "sidebar_hide_name": False,
+    "sidebar_hide_name": True,
     "footer_icons": [
         {
             "name": "GitHub",

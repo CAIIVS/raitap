@@ -25,8 +25,8 @@ import torch
 from omegaconf import OmegaConf
 
 from raitap.models.backend import ModelBackend
+from raitap.pipeline.orchestrator import run_without_tracking as _run_without_tracking
 from raitap.robustness import RobustnessAssessment, RobustnessResult
-from raitap.run.pipeline import _run_without_tracking
 
 if TYPE_CHECKING:
     from pathlib import Path

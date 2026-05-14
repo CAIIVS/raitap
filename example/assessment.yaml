@@ -1,0 +1,40 @@
+defaults:
+  - raitap_schema      # required to bind the schema, must come first
+  - _self_
+  - reporting: html
+  - metrics: classification
+
+hardware: gpu
+experiment_name: example
+
+model:
+  source: vit_b_32   # built-in torchvision name; loads with default ImageNet weights
+
+data:
+  name: imagenet_samples
+  source: imagenet_samples
+  forward_batch_size: 4
+  labels:
+    source: imagenet_samples    # bundled labels.csv for this sample
+    id_column: image
+    column: label
+
+transparency:
+  default:
+    _target_: CaptumExplainer
+    algorithm: IntegratedGradients
+    call:
+      target: 0
+    visualisers:
+      - _target_: CaptumImageVisualiser
+
+robustness:
+  pgd:
+    _target_: TorchattacksAssessor
+    algorithm: PGD
+    constructor:
+      eps: 0.03
+      alpha: 0.005
+      steps: 10
+    visualisers:
+      - _target_: ImagePairVisualiser

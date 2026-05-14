@@ -1,3 +1,0 @@
-# Built-in ResNet50 with default ImageNet weights — for demos/quick testing.
-# For your own model use custom.yaml instead.
-source: resnet50

@@ -1,6 +1,6 @@
 """End-to-end CLI smoke tests for ``MarabouAssessor``.
 
-Each test drives ``python -m raitap.run`` as a subprocess against a tiny
+Each test drives ``python -m raitap.pipeline`` as a subprocess against a tiny
 synthetic fixture, exercising every layer between the user and the
 solver:
 
@@ -237,7 +237,7 @@ def _run_raitap(
         [
             sys.executable,
             "-m",
-            "raitap.run",
+            "raitap.pipeline",
             "--config-dir",
             str(config_dir),
             "--config-name",

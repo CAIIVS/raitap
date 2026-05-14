@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from raitap.transparency.explainers import ShapExplainer
-from raitap.utils.diagnostics import Subsystem
+from raitap.utils.diagnostics import Module
 from raitap.utils.errors import AdapterError, rethrow
 
 
@@ -37,7 +37,7 @@ def test_silu_runtime_error_is_rewrapped() -> None:
     with (
         pytest.raises(AdapterError) as info,
         rethrow(
-            subsystem=Subsystem.transparency,
+            module=Module.transparency,
             third_party_lib="shap",
             message_map=ShapExplainer.error_messages,
         ),
@@ -49,5 +49,5 @@ def test_silu_runtime_error_is_rewrapped() -> None:
     assert "GradientExplainer" in str(exc)
     assert isinstance(exc.__cause__, RuntimeError)
     assert exc.diagnostic is not None
-    assert exc.diagnostic.subsystem == Subsystem.transparency
+    assert exc.diagnostic.module == Module.transparency
     assert exc.diagnostic.third_party_lib == "shap"

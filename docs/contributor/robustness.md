@@ -112,7 +112,7 @@ attacks), sample selection, and input metadata.
 
 ## Runtime flow
 
-Robustness runs after the transparency loop in `src/raitap/run/pipeline.py`.
+Robustness runs after the transparency loop in `src/raitap/pipeline/pipeline.py`.
 For each configured assessor:
 
 1. `RobustnessAssessment(config, name, model, inputs, targets)` creates the
@@ -136,9 +136,12 @@ algorithm typically only requires extending the corresponding registry in
 and families. Override the algorithm at runtime via the YAML or CLI:
 
 ```bash
-uv run raitap +robustness=torchattacks_pgd robustness.pgd.algorithm=DeepFool
-uv run raitap +robustness=foolbox_lin_pgd robustness.linf_pgd.algorithm=L2PGD
+uv run raitap +robustness=torchattacks robustness.torchattacks.algorithm=PGD robustness.torchattacks.constructor.eps=0.03
+uv run raitap +robustness=foolbox robustness.foolbox.algorithm=LinfPGD robustness.foolbox.call.eps=0.03
 ```
+
+(`+robustness=<lib>` nests under `robustness.<lib>` via the bundled
+preset's `# @package robustness.<name>` directive.)
 
 Add an integration test that asserts the verdicts and per-sample distance look
 sane on a tiny CNN. Reference

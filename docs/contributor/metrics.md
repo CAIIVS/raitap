@@ -23,7 +23,7 @@ The `factory.py` module provides the `evaluate()` entry point, which uses Hydra'
 
 ## Runtime flow
 
-Metrics run after the forward pass in `src/raitap/run/pipeline.py`. RAITAP instantiates the configured metric computer, calls `update(predictions, targets)`, then calls `compute()` to generate the final results.
+Metrics run after the forward pass in `src/raitap/pipeline/pipeline.py`. RAITAP instantiates the configured metric computer, calls `update(predictions, targets)`, then calls `compute()` to generate the final results.
 
 The metrics module writes three files under the Hydra run folder:
 

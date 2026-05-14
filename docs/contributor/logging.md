@@ -32,32 +32,32 @@ Three reasons:
    via stack inspection. Per-module log levels configured through
    `logging.dictConfig` keep working — no `logger = …` boilerplate at the
    call site.
-3. **Subsystem-aware warnings.** `.warn` flows through `warnings.warn`, so it
+3. **Module-aware warnings.** `.warn` flows through `warnings.warn`, so it
    stays compatible with `warnings.filterwarnings`, `pytest.warns`, and
    `warnings.catch_warnings` — the rich console handler renders it as a
-   framed panel with a *Subsystem* chip and a *View docs* link, and
+   framed panel with a *Module* chip and a *View docs* link, and
    `logging.captureWarnings` (installed by `setup_logging`) forwards it to
    the logging system so MLflow / Airflow / any handler attached to the root
    logger picks it up too.
 
 ## Methods
 
-| Method | Pipeline | Use for |
-|---|---|---|
-| `raitap_log.warn(msg, *args, *, subsystem=…)` | `warnings.warn` (also forwarded to `py.warnings` logger) | **Any warning.** User-facing config issues *and* operational signals (MLflow not ready, GPU fallback). Suppressible via `warnings.filterwarnings`, panel-rendered with subsystem chip, captured by external log sinks via `captureWarnings`. |
-| `raitap_log.info(msg, *args)` | `logging` | Normal operational events (phase started, file written) |
-| `raitap_log.debug(msg, *args)` | `logging` | Verbose diagnostics off by default |
-| `raitap_log.error(msg, *args)` | `logging` | Recoverable errors logged before fallback. Does **not** raise. |
-| `raitap_log.exception(msg, *args)` | `logging` | Inside an `except` block — logs traceback at ERROR level |
-| `raitap_log.critical(msg, *args)` | `logging` | Process-ending failures |
-| `raitap_log.suppress(message=, category=, module=)` | `warnings.filterwarnings` | Silence known-noise warnings from a wrapped library at adapter import time |
+| Method                                              | Pipeline                                                 | Use for                                                                                                                                                                                                                                   |
+| --------------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `raitap_log.warn(msg, *args, *, module=…)`          | `warnings.warn` (also forwarded to `py.warnings` logger) | **Any warning.** User-facing config issues *and* operational signals (MLflow not ready, GPU fallback). Suppressible via `warnings.filterwarnings`, panel-rendered with module chip, captured by external log sinks via `captureWarnings`. |
+| `raitap_log.info(msg, *args)`                       | `logging`                                                | Normal operational events (phase started, file written)                                                                                                                                                                                   |
+| `raitap_log.debug(msg, *args)`                      | `logging`                                                | Verbose diagnostics off by default                                                                                                                                                                                                        |
+| `raitap_log.error(msg, *args)`                      | `logging`                                                | Recoverable errors logged before fallback. Does **not** raise.                                                                                                                                                                            |
+| `raitap_log.exception(msg, *args)`                  | `logging`                                                | Inside an `except` block — logs traceback at ERROR level                                                                                                                                                                                  |
+| `raitap_log.critical(msg, *args)`                   | `logging`                                                | Process-ending failures                                                                                                                                                                                                                   |
+| `raitap_log.suppress(message=, category=, module=)` | `warnings.filterwarnings`                                | Silence known-noise warnings from a wrapped library at adapter import time                                                                                                                                                                |
 
 ## One warning verb
 
 There is exactly one warning verb: **`.warn`**. Both user-config issues
 ("labels file is empty") and operational signals ("MLflow server not ready
 after 10s") use it. The rich handler frames every warning as a panel with a
-subsystem chip; `logging.captureWarnings` forwards every warning to the
+module chip; `logging.captureWarnings` forwards every warning to the
 logging system so MLflow / Airflow / external sinks see them.
 
 If you find yourself wanting an "operational warning that doesn't show as a
@@ -88,14 +88,14 @@ raise ValueError(
 For wrapped third-party calls (captum / shap / foolbox / torchattacks), use
 `raitap.utils.errors.rethrow` to rewrap matched error messages into a
 user-actionable `AdapterError` carrying a `Diagnostic`. The rich handler
-renders raised `RaitapError` subclasses with the same `Subsystem · via <lib>
+renders raised `RaitapError` subclasses with the same `Module · via <lib>
 · View docs` chips as warnings, and the top-level `print_failure_panel`
 suppresses the raw traceback so the user sees the actionable copy first.
 
 ```python
 # src/raitap/transparency/explainers/shap_explainer.py
 import re
-from raitap.utils.diagnostics import Subsystem
+from raitap.utils.diagnostics import Module
 from raitap.utils.errors import rethrow
 
 class ShapExplainer:
@@ -113,7 +113,7 @@ class ShapExplainer:
     def compute_attributions(self, model, inputs, ...):
         ...
         with rethrow(
-            subsystem=Subsystem.transparency,
+            module=Module.transparency,
             third_party_lib="shap",
             message_map=type(self).error_messages,
         ):
@@ -124,30 +124,30 @@ The original exception is preserved on `__cause__`, so the raw library
 traceback stays available for debugging — only the user-facing top is
 rewritten.
 
-## Subsystem attribution
+## Module attribution
 
-The rich handler decorates warning panels with a subsystem chip (Metrics,
-Robustness, Transparency, …) and a *View docs* link. It infers the subsystem
+The rich handler decorates warning panels with a module chip (Metrics,
+Robustness, Transparency, …) and a *View docs* link. It infers the module
 from the call site by walking frames at `warnings.formatwarning` time —
-usually correct because the call site lives inside the right subsystem
+usually correct because the call site lives inside the right module
 directory.
 
-When the **logical** subsystem differs from the file path, pass it explicitly:
+When the **logical** module differs from the file path, pass it explicitly:
 
 ```python
-# src/raitap/run/pipeline.py — file lives in run/, but the warning
+# src/raitap/pipeline/pipeline.py — file lives in pipeline/, but the warning
 # is logically a robustness concern.
 from raitap import raitap_log
-from raitap.utils.diagnostics import Subsystem
+from raitap.utils.diagnostics import Module
 
 raitap_log.warn(
     "No ground-truth labels provided; using model predictions as the "
     "reference for untargeted attacks.",
-    subsystem=Subsystem.robustness,
+    module=Module.robustness,
 )
 ```
 
-`Subsystem` is a `StrEnum` with one member per top-level raitap directory.
+`Module` is a `StrEnum` with one member per top-level raitap directory.
 Use the enum, not a raw string, so a typo fails at import.
 
 ## Suppressing third-party noise
@@ -185,7 +185,7 @@ import warnings
 warnings.warn("…", UserWarning, stacklevel=2)
 ```
 
-Both patterns lose subsystem attribution and force every reader to track two
+Both patterns lose module attribution and force every reader to track two
 mental models. Use `raitap_log`.
 
 ## Where the infrastructure lives
@@ -194,9 +194,9 @@ mental models. Use `raitap_log`.
   singleton. Contains the thread-local diagnostic queue that bridges
   `warnings.formatwarning` (frames at warn time) to the rich handler
   (panels at emit time).
-- `src/raitap/utils/diagnostics.py` — `Subsystem` enum, frame-walking
+- `src/raitap/utils/diagnostics.py` — `Module` enum, frame-walking
   classifier, third-party library detection (libs declared in each
-  subsystem's `__init__.py` as `THIRD_PARTY_LIBS`).
+  module's `__init__.py` as `THIRD_PARTY_LIBS`).
 - `src/raitap/utils/errors.py` — `RaitapError`, `AdapterError`,
   traceback-walking diagnostic resolver, and the `rethrow` context manager
   that adapters use to rewrap confusing third-party errors.
@@ -204,7 +204,7 @@ mental models. Use `raitap_log`.
   `<hue>_light`) plus the Rich `Theme`. Edit here when adding or
   rebalancing colours; renderers reference tokens, not raw ANSI names.
 - `src/raitap/utils/console.py` — the rich `RichHandler` subclass that
-  formats WARNING+ records into panels with subsystem / via-lib / docs
+  formats WARNING+ records into panels with module / via-lib / docs
   chips. Calls `logging.captureWarnings(True)` so external log sinks
   (MLflow, Airflow) see warnings too. `print_failure_panel` mirrors the
   same chip composition for top-level crashes.

@@ -13,8 +13,8 @@ import torch
 
 from raitap import raitap_log
 from raitap.configs import resolve_run_dir
+from raitap.pipeline.outputs import PredictionSummary, RunOutputs
 from raitap.robustness.contracts import MethodKind
-from raitap.run.outputs import PredictionSummary, RunOutputs
 from raitap.transparency.contracts import ExplanationScope, VisualisationContext
 from raitap.transparency.visualisers import BaseVisualiser, InputThumbnailVisualiser
 

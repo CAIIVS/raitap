@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 from raitap.configs import set_output_root
 from raitap.configs.schema import AppConfig, ReportingConfig
+from raitap.pipeline.outputs import RunOutputs
 from raitap.reporting.builder import build_report
 from raitap.robustness.contracts import (
     MethodKind,
@@ -22,7 +23,6 @@ from raitap.robustness.contracts import (
     ThreatModel,
 )
 from raitap.robustness.results import RobustnessMetrics, RobustnessResult, encode_verdicts
-from raitap.run.outputs import RunOutputs
 
 
 def _formal_result(run_dir: Path) -> RobustnessResult:

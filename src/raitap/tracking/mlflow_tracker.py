@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 from raitap import raitap_log
 from raitap.configs import cfg_to_dict, resolve_run_dir
 from raitap.models.backend import OnnxBackend, TorchBackend
-from raitap.utils.diagnostics import Subsystem
+from raitap.utils.diagnostics import Module
 
 from .base_tracker import BaseTracker
 from .process_registry import (
@@ -210,7 +210,7 @@ class MLFlowTracker(BaseTracker):
                     "%s on %s still alive after stop attempt",
                     entry.label,
                     entry.url or f"PID {entry.pid}",
-                    subsystem=Subsystem.tracking,
+                    module=Module.tracking,
                 )
                 failed_entries.append(entry)
 
@@ -225,7 +225,7 @@ class MLFlowTracker(BaseTracker):
                     port.host,
                     port.port,
                     port.label,
-                    subsystem=Subsystem.tracking,
+                    module=Module.tracking,
                 )
                 failed_ports.append(port)
                 continue
@@ -246,7 +246,7 @@ class MLFlowTracker(BaseTracker):
                     port.label,
                     port.host,
                     port.port,
-                    subsystem=Subsystem.tracking,
+                    module=Module.tracking,
                 )
                 failed_ports.append(port)
 
@@ -463,7 +463,7 @@ class MLFlowTracker(BaseTracker):
                     host,
                     port,
                     MLFLOW_SERVER_READY_TIMEOUT,
-                    subsystem=Subsystem.tracking,
+                    module=Module.tracking,
                 )
             else:
                 raitap_log.info("MLflow server is ready at %s:%d", host, port)
@@ -503,7 +503,7 @@ class MLFlowTracker(BaseTracker):
                         "MLflow UI may not be ready at %s after %.0f seconds",
                         url,
                         MLFLOW_SERVER_READY_TIMEOUT,
-                        subsystem=Subsystem.tracking,
+                        module=Module.tracking,
                     )
                 else:
                     raitap_log.info("MLflow UI is ready at %s", url)
@@ -513,7 +513,7 @@ class MLFlowTracker(BaseTracker):
                     "but the existing UI may use a different backend store.",
                     url,
                     self.tracking_uri,
-                    subsystem=Subsystem.tracking,
+                    module=Module.tracking,
                 )
 
             webbrowser.open(self._mlflow_ui_url(url))
