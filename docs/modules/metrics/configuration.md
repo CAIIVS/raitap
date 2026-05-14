@@ -95,5 +95,5 @@ metrics:
   average: "macro"
   ignore_index: null
 
-:cli: metrics._target_=DetectionMetrics metrics.class_metrics=true metrics.extended_summary=true
+:cli: +metrics._target_=DetectionMetrics +metrics.class_metrics=true +metrics.extended_summary=true
 ```

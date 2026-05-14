@@ -9,11 +9,17 @@
   `_target_`, `algorithm`, and visualiser compatibility.
 
   The robustness module is **opt-in**: a consumer config that omits
-  `robustness:` simply skips the module. Enable a bundled backend at the CLI
-  with `+robustness=<backend>` (e.g. `+robustness=torchattacks
-  robustness.algorithm=PGD robustness.constructor.eps=0.03`) when no preset is
-  in your defaults list. Available backends: `torchattacks`, `foolbox`,
-  `marabou`.
+  `robustness:` simply skips the module. Bundled backends nest under their
+  library name when composed via `+robustness=<backend>`, so overrides target
+  that nested key:
+
+  ```bash
+  +robustness=torchattacks \
+    robustness.torchattacks.algorithm=PGD \
+    robustness.torchattacks.constructor.eps=0.03
+  ```
+
+  Available backends: `torchattacks`, `foolbox`, `marabou`.
 
 :option: _target_
 :allowed: "TorchattacksAssessor", "FoolboxAssessor"
@@ -124,5 +130,5 @@ robustness:
       - _target_: "ImagePairVisualiser"
       - _target_: "PerturbationHeatmapVisualiser"
 
-:cli: +robustness=torchattacks robustness.algorithm=PGD robustness.constructor.eps=0.05
+:cli: +robustness=torchattacks robustness.torchattacks.algorithm=PGD robustness.torchattacks.constructor.eps=0.05
 ```

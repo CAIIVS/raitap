@@ -131,9 +131,13 @@ Each explainer writes to its own subdirectory under the Hydra run folder. See {d
 Captum and SHAP wrappers dispatch to algorithms dynamically via `getattr`, so most new methods require no code changes. Override the algorithm on a specific explainer entry in your transparency config:
 
 ```bash
-uv run raitap +transparency=captum transparency.default.algorithm=Saliency
-uv run raitap +transparency=shap transparency.default.algorithm=GradientShap
+uv run raitap +transparency=captum transparency.captum.algorithm=Saliency
+uv run raitap +transparency=shap transparency.shap.algorithm=GradientShap
 ```
+
+(`+transparency=captum` / `+transparency=shap` nest under
+`transparency.captum` / `transparency.shap` via the bundled preset's
+`# @package transparency.<name>` directive.)
 
 Add an integration test to confirm the method works end-to-end. Reference `src/raitap/transparency/explainers/tests/test_captum_explainer.py` for examples.
 

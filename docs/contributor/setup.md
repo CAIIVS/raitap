@@ -5,7 +5,7 @@
 ### 0. Prerequisites
 
 - The repository cloned.
-- Python 3.11+ (3.11–3.13 tested; 3.13 recommended for contributors since the `docs` group requires 3.13)
+- Python 3.13+
 - [uv](https://docs.astral.sh/uv/) package manager
 
 :::{note}

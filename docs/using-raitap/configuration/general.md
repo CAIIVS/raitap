@@ -183,12 +183,24 @@ The main mechanism for this is the `defaults` list.
 ```yaml
 # assessment.yaml
 defaults:
-  - _self_ # inserts experiment_name and hardware from the current file into the final config
+  - raitap_schema  # bind AppConfig dataclass — required so unset optional fields inherit defaults
+  - _self_         # inserts the keys below into the final config
   - transparency: shap            # bundled group stub from raitap (see SearchPathPlugin note below)
   - metrics: classification       # bundled group stub from raitap
 
 experiment_name: "my-exp"
 hardware: cpu
+
+# Bundled `transparency/shap.yaml` only sets `_target_: ShapExplainer` and
+# nests it under `transparency.shap`. The explainer's required fields
+# (`algorithm`, `call`, `visualisers`) still need to be supplied here:
+transparency:
+  shap:
+    algorithm: GradientExplainer
+    call:
+      target: 0
+    visualisers:
+      - _target_: ShapImageVisualiser
 
 # Inline model + data — RAITAP does not ship `data=` or `model=` presets, so
 # define them in your own config (or reference your own group files).
@@ -217,12 +229,16 @@ In the above example, the final config will use the custom ONNX model, because `
 Hydra can execute multiple runs from a single command using `--multirun`.
 This is useful when you want to compare several presets or override values in one go.
 
+The bundled `+transparency=captum` / `+transparency=shap` stubs only set
+`_target_` and nest under `transparency.captum` / `transparency.shap`; the
+sweep below pairs each with the matching `algorithm` override.
+
 ```{install-tabs}
 :uv:
-uv run raitap --multirun +transparency=captum,shap experiment_name=captum,shap
+uv run raitap --multirun +transparency=captum,shap "transparency.captum.algorithm=IntegratedGradients" "transparency.shap.algorithm=GradientExplainer" experiment_name=captum,shap
 
 :pip:
-raitap --multirun +transparency=captum,shap experiment_name=captum,shap
+raitap --multirun +transparency=captum,shap "transparency.captum.algorithm=IntegratedGradients" "transparency.shap.algorithm=GradientExplainer" experiment_name=captum,shap
 ```
 
 Hydra expands the comma-separated values into multiple runs. To inspect where each run

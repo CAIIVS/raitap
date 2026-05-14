@@ -136,9 +136,12 @@ algorithm typically only requires extending the corresponding registry in
 and families. Override the algorithm at runtime via the YAML or CLI:
 
 ```bash
-uv run raitap +robustness=torchattacks robustness.algorithm=PGD robustness.constructor.eps=0.03
-uv run raitap +robustness=foolbox robustness.algorithm=LinfPGD robustness.call.eps=0.03
+uv run raitap +robustness=torchattacks robustness.torchattacks.algorithm=PGD robustness.torchattacks.constructor.eps=0.03
+uv run raitap +robustness=foolbox robustness.foolbox.algorithm=LinfPGD robustness.foolbox.call.eps=0.03
 ```
+
+(`+robustness=<lib>` nests under `robustness.<lib>` via the bundled
+preset's `# @package robustness.<name>` directive.)
 
 Add an integration test that asserts the verdicts and per-sample distance look
 sane on a tiny CNN. Reference

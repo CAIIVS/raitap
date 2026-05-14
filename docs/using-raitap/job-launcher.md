@@ -33,6 +33,7 @@ Compose the sweep, launcher selection, and Slurm resources in one experiment YAM
 ```yaml
 # assessment.yaml
 defaults:
+  - raitap_schema   # bind AppConfig schema — required for unset optional fields
   - _self_
   - hydra/launcher: submitit_slurm # this is a preset from the plugin
   - transparency:
@@ -41,6 +42,23 @@ defaults:
   # model, data, metrics, tracking, ... — see the configuration guides.
   # RAITAP ships only `_target_`-only stubs for transparency/robustness/etc.;
   # `data` and `model` must be defined inline in your own YAML.
+
+# Bundled transparency stubs only set `_target_`. Each preset key
+# (``transparency.captum`` / ``transparency.shap``) still needs its required
+# fields supplied here — algorithm, call, visualisers, etc.
+transparency:
+  captum:
+    algorithm: IntegratedGradients
+    call:
+      target: 0
+    visualisers:
+      - _target_: CaptumImageVisualiser
+  shap:
+    algorithm: GradientExplainer
+    call:
+      target: 0
+    visualisers:
+      - _target_: ShapImageVisualiser
 
 data:
   source: my_dataset
@@ -77,6 +95,8 @@ uv run raitap \
   --multirun \
   hydra/launcher=submitit_slurm \
   +transparency=captum,shap \
+  "transparency.captum.algorithm=IntegratedGradients" \
+  "transparency.shap.algorithm=GradientExplainer" \
   hydra.launcher.partition=gpu \
   hydra.launcher.account=myproject \
   hydra.launcher.timeout_min=240 \
@@ -90,6 +110,8 @@ raitap \
   --multirun \
   hydra/launcher=submitit_slurm \
   +transparency=captum,shap \
+  "transparency.captum.algorithm=IntegratedGradients" \
+  "transparency.shap.algorithm=GradientExplainer" \
   hydra.launcher.partition=gpu \
   hydra.launcher.account=myproject \
   hydra.launcher.timeout_min=240 \
