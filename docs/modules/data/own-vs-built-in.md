@@ -66,12 +66,16 @@ optional `data.labels` block as described in {doc}`configuration`.
 RAITAP also includes a few built-in sample datasets that can be referenced by
 name through `data.source`.
 
-Available sample names are:
+Available sample names (registered in `src/raitap/data/samples.py`) are:
 
-- `imagenet_samples`
-- `isic2018`
-- `malaria`
-- `UdacitySelfDriving`
+- `imagenet_samples` — 4 ImageNet test images (tench, shih-tzu, golden retriever, tiger cat), with bundled `labels.csv`.
+- `isic2018` — small ISIC 2018 dermoscopy subset (no labels).
+- `malaria` — small malaria thin-blood-smear subset (no labels).
+- `acas_xu_n1_1` — ACAS Xu N1_1 tabular sample (no labels).
+- `UdacitySelfDriving` — small Udacity self-driving subset (no labels).
+
+`mnist_samples` is **not** bundled; it's materialised on demand by
+`contributor-configs/marabou-mnist/prep.py` for the formal-verification demo.
 
 Example:
 
