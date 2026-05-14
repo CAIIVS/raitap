@@ -11,14 +11,8 @@
   The robustness module is **opt-in**: a consumer config that omits
   `robustness:` simply skips the module. Bundled backends nest under their
   library name when composed via `+robustness=<backend>`, so overrides target
-  that nested key:
-
-  ```bash
-  +robustness=torchattacks \
-    robustness.torchattacks.algorithm=PGD \
-    robustness.torchattacks.constructor.eps=0.03
-  ```
-
+  that nested key — e.g.
+  `+robustness=torchattacks robustness.torchattacks.algorithm=PGD robustness.torchattacks.constructor.eps=0.03`.
   Available backends: `torchattacks`, `foolbox`, `marabou`.
 
 :option: _target_
