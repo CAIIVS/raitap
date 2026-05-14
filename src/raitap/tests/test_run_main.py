@@ -164,6 +164,7 @@ def test_hydra_main_composes_default_config(monkeypatch: MonkeyPatch, tmp_path: 
 
     cfg = cast("AppConfig", captured["config"])
     assert cfg.model.source == "vit_b_32"
+    assert cfg.metrics is not None
     assert cfg.metrics._target_ == "ClassificationMetrics"
     assert cfg.transparency
 
@@ -238,6 +239,7 @@ def test_hydra_main_loads_custom_config_name_from_cwd_and_keeps_packaged_default
     assert cfg.experiment_name == "my-exp"
     assert cfg.hardware == "cpu"
     assert cfg.model.source == "vit_b_32"
+    assert cfg.metrics is not None
     assert cfg.metrics._target_ == "ClassificationMetrics"
     assert cfg.transparency
 

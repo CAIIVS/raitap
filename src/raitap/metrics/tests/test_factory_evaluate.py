@@ -61,6 +61,7 @@ def test_evaluate_writes_outputs(tmp_path: Path) -> None:
 
 def test_evaluate_bad_target_raises(tmp_path: Path) -> None:
     cfg = _config(tmp_path)
+    assert cfg.metrics is not None
     cfg.metrics._target_ = "DoesNotExist"
 
     with pytest.raises(ValueError, match="Could not instantiate metric"):

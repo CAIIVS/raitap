@@ -119,6 +119,8 @@ def _run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOut
 
     metrics_eval: MetricsEvaluation | None = None
     if metrics_run_enabled(config):
+        # ``metrics_run_enabled`` already rejected the ``None`` case.
+        assert config.metrics is not None
         raitap_log.info("Computing metrics...")
         if (
             getattr(config.metrics, "num_classes", None) is None
