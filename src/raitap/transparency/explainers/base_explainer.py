@@ -10,7 +10,7 @@ from typing import Any, ClassVar, cast
 import torch
 
 from raitap.configs import resolve_run_dir
-from raitap.semantics_base import WithAlgorithmRegistry
+from raitap.registry_base import WithAlgorithmRegistry
 
 from ..contracts import (
     ExplanationOutputSpace,

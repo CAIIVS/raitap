@@ -2,7 +2,7 @@
 
 Per-algorithm registries live on each adapter as
 ``algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]`` —
-see :class:`raitap.semantics_base.WithAlgorithmRegistry`. This module
+see :class:`raitap.registry_base.WithAlgorithmRegistry`. This module
 contains only the framework-agnostic mechanics that consume those
 registries.
 """
@@ -13,7 +13,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from raitap.semantics_base import WithAlgorithmRegistry
+from raitap.registry_base import WithAlgorithmRegistry
 from raitap.transparency.contracts import InputSpec, SampleSelection
 from raitap.transparency.semantics import infer_input_spec
 
@@ -53,7 +53,7 @@ def hints_for_assessor(assessor: object) -> AssessorSemanticsHints:
     """Resolve the registry hints for a configured assessor.
 
     Reads the adapter's ``algorithm_registry`` ClassVar (enforced by the
-    :class:`raitap.semantics_base.WithAlgorithmRegistry` interface).
+    :class:`raitap.registry_base.WithAlgorithmRegistry` interface).
     """
     algorithm = str(getattr(assessor, "algorithm", ""))
     if not algorithm:

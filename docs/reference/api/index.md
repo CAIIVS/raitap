@@ -9,7 +9,7 @@ implementation modules are intentionally left out of the primary navigation tree
 data
 metrics
 models
-semantics_base
+registry_base
 tracking
 transparency
 robustness

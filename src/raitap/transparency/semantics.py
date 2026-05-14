@@ -28,7 +28,7 @@ def method_families_for_explainer(explainer: object) -> frozenset[MethodFamily]:
     Resolution order:
 
     1. ``type(explainer).algorithm_registry`` — the canonical
-       :class:`raitap.semantics_base.WithAlgorithmRegistry` contract.
+       :class:`raitap.registry_base.WithAlgorithmRegistry` contract.
     2. Framework label on the explainer (``framework="shap"`` /
        ``"captum"``) → matching adapter class's registry.
     3. Cross-framework algorithm-name lookup (used by minimal test stubs
