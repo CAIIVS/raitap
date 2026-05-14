@@ -254,12 +254,20 @@ def resolve_diagnostic_from_path(path: str, line: int) -> Diagnostic:
 
 @lru_cache(maxsize=1)
 def is_dev_install() -> bool:
-    """Return ``True`` when raitap appears to run from a cloned/editable checkout.
+    """Return ``True`` when raitap is being run from its OWN cloned checkout.
 
-    Heuristic: the package's ``__file__`` lives outside any ``site-packages`` /
-    ``dist-packages`` segment (case-insensitive). Editable installs (``uv pip
-    install -e``) point ``__file__`` at the source tree, so they correctly
-    report ``True`` and contributors keep the full ``path:line`` subheader.
+    Two conditions must hold:
+
+    1. The package's ``__file__`` lives outside any ``site-packages`` /
+       ``dist-packages`` segment (editable / source layout).
+    2. The current working directory's ``pyproject.toml`` declares
+       ``project.name = "raitap"``.
+
+    Condition 1 alone is not enough: a consumer project that pulls raitap via
+    ``tool.uv.sources = { path = "..", editable = true }`` also points raitap's
+    ``__file__`` at a source tree, but the *current* project is the consumer,
+    not raitap itself. Bootstrap's "dev" auto-sync targets the cwd pyproject,
+    so dev-detection must check cwd too.
     """
     try:
         import raitap
@@ -272,7 +280,23 @@ def is_dev_install() -> bool:
     # ``site-packages`` (PyPI / venv) and ``dist-packages`` (Debian/Ubuntu) both
     # indicate an installed wheel. Case-insensitive to handle Windows ``Lib``
     # variants and odd casing in custom layouts.
-    return "/site-packages/" not in location and "/dist-packages/" not in location
+    if "/site-packages/" in location or "/dist-packages/" in location:
+        return False
+
+    # Condition 2: cwd's pyproject must be raitap's.
+    from pathlib import Path
+
+    cwd_pyproject = Path.cwd() / "pyproject.toml"
+    if not cwd_pyproject.exists():
+        return False
+    try:
+        import tomllib
+
+        with cwd_pyproject.open("rb") as fh:
+            data = tomllib.load(fh)
+    except Exception:
+        return False
+    return data.get("project", {}).get("name") == "raitap"
 
 
 def docs_url(diagnostic: Diagnostic) -> str | None:

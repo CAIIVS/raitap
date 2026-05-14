@@ -3,16 +3,16 @@ name = "raitap-example"
 version = "0.0.1"
 description = "Standalone example project demonstrating raitap as a library dependency."
 requires-python = ">=3.11,<3.14"
+# Only `raitap` is listed — raitap's auto-deps inference walks the active
+# Hydra config on first run, then runs `uv add raitap[<extras>]` to pin the
+# right extras into this file (pass `--allow-project-edit` to confirm).
 dependencies = [
-  "raitap[reporting,torchattacks,captum,metrics]>=0.6",
+  "raitap",
 ]
 
-# This project is an application, not a library — uv should manage deps but
-# not try to build/install ``raitap-example`` itself.
 [tool.uv]
 package = false
 
 [tool.uv.sources]
-# Dev: consume raitap from the parent checkout.
-# Real consumers should remove this section to fetch from PyPI.
+# This line below should be REMOVED for real projects.
 raitap = { path = "..", editable = true }
