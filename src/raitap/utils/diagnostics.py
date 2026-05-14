@@ -55,13 +55,15 @@ class Subsystem(StrEnum):
     with their string values for logging, dataclass fields, and existing tests.
     """
 
+    cli = "cli"
     configs = "configs"
     data = "data"
+    deps = "deps"
     metrics = "metrics"
     models = "models"
+    pipeline = "pipeline"
     reporting = "reporting"
     robustness = "robustness"
-    run = "run"
     tracking = "tracking"
     transparency = "transparency"
     utils = "utils"
@@ -78,7 +80,7 @@ def subsystem_from_str(name: str) -> Subsystem | None:
 # Subsystems that are infrastructure rather than user-facing modules and so
 # have no dedicated docs page. All other ``Subsystem`` members do.
 _NO_DOC_SUBSYSTEMS: Final[frozenset[Subsystem]] = frozenset(
-    {Subsystem.configs, Subsystem.run, Subsystem.utils}
+    {Subsystem.cli, Subsystem.configs, Subsystem.deps, Subsystem.pipeline, Subsystem.utils}
 )
 _DOC_SUBSYSTEMS: Final[frozenset[Subsystem]] = frozenset(Subsystem) - _NO_DOC_SUBSYSTEMS
 

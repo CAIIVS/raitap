@@ -479,19 +479,30 @@ def print_failure_panel(exc: BaseException, duration: str) -> None:
     chips: list[Text] = []
     label: str | None = None
 
-    # Surface diagnostic chips when the failure carries a Diagnostic — same
-    # affordance the rich handler renders for inline error records, but
-    # printed at top-level by the Hydra entrypoint.
+    # Surface diagnostic chips when the failure carries (or can be classified
+    # to) a Diagnostic — same affordance the rich handler renders for inline
+    # error records, but printed at top-level by the Hydra entrypoint.
+    diagnostic = None
     if isinstance(exc, RaitapError) and exc.diagnostic is not None:
-        label = "Failure"
-        scope = (
-            exc.diagnostic.subsystem.capitalize()
-            if exc.diagnostic.subsystem
-            else type(exc).__name__
+        diagnostic = exc.diagnostic
+    elif exc.__traceback__ is not None:
+        # Best-effort: any error raised from a raitap subsystem module gets
+        # tagged by walking its traceback. Keeps bare ``raise ValueError(...)``
+        # sites tied to their owning module.
+        diagnostic = resolve_diagnostic_from_traceback(
+            exc.__traceback__,
+            default_file="",
+            default_line=0,
         )
-        src = f"{exc.diagnostic.file}:{exc.diagnostic.line}" if exc.diagnostic.file else ""
-        chips = diagnostic_chips(Status.ERROR, scope=scope, src=src, diagnostic=exc.diagnostic)
-        body_pieces.extend([("\n\n", ""), (str(exc), shades.base)])
+
+    if diagnostic is not None and diagnostic.subsystem is not None:
+        label = "Failure"
+        scope = diagnostic.subsystem.capitalize()
+        src = f"{diagnostic.file}:{diagnostic.line}" if diagnostic.file else ""
+        chips = diagnostic_chips(Status.ERROR, scope=scope, src=src, diagnostic=diagnostic)
+        # Hide the bland ``RaitapError:`` prefix; the chip already labels scope.
+        body_text = str(exc) if isinstance(exc, RaitapError) else f"{type(exc).__name__}: {exc}"
+        body_pieces.extend([("\n\n", ""), (body_text, shades.base)])
         cause = exc.__cause__
         if cause is not None:
             body_pieces.extend(
