@@ -49,24 +49,6 @@ wire raitap into your own Hydra config. For the full ZHAW thesis demo
 
 If you wish to manually manage your dependencies, see {doc}`installation`. You can also see a preview of the inferred deps with `--dry-run`.
 
-## How a `raitap` invocation flows
-
-```{mermaid}
-flowchart LR
-  A[uv run raitap …] --> B[raitap.cli.main]
-  B -->|tracking stop?| Z[run_stop_command]
-  B -->|--demo?| C1[load bundled demo.yaml]
-  B -->|else| C2[parse user args]
-  C1 --> D[raitap.deps.bootstrap.maybe_bootstrap]
-  C2 --> D
-  D -->|missing extras?| D1[uv sync + re-exec]
-  D --> E[raitap.pipeline.__main__]
-  E --> F["@hydra.main composes config"]
-  F --> G[raitap.pipeline.pipeline.run]
-  G --> H[forward · metrics · transparency · robustness]
-  H --> I[reporting + tracking]
-```
-
 ## 3. Inspect the output
 
 After the run is complete, the `outputs` directory can be found in the directory you ran RAITAP from.

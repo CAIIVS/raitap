@@ -8,9 +8,7 @@ hardware: cpu
 experiment_name: demo
 
 model:
-  source: vit_b_32
-  arch: vit_b_32
-  pretrained: true
+  source: vit_b_32   # built-in torchvision name; loads with default ImageNet weights
 
 data:
   name: imagenet_samples

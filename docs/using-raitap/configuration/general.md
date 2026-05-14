@@ -74,14 +74,19 @@ defaults:
 experiment_name: my-exp
 hardware: cpu
 
-model: { source: vit_b_32, arch: vit_b_32, pretrained: true }
-data: { name: imagenet_samples, source: imagenet_samples }
+model:
+  source: vit_b_32
+
+data:
+  name: imagenet_samples
+  source: imagenet_samples
 
 transparency:
   default:
     _target_: CaptumExplainer
     algorithm: IntegratedGradients
-    call: { target: 0 }
+    call:
+      target: 0
     visualisers:
       - _target_: CaptumImageVisualiser
 
@@ -89,7 +94,10 @@ robustness:
   pgd:
     _target_: TorchattacksAssessor
     algorithm: PGD
-    constructor: { eps: 0.03, alpha: 0.005, steps: 10 }
+    constructor:
+      eps: 0.03
+      alpha: 0.005
+      steps: 10
     visualisers:
       - _target_: ImagePairVisualiser
 ```
