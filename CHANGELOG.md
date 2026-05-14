@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.0](https://github.com/CAIIVS/raitap/compare/v0.6.2...v0.7.0) (2026-05-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* **config:** prune presets, add --demo flag ([#165](https://github.com/CAIIVS/raitap/issues/165))
+
+### Internal code refactoring
+
+* **config:** prune presets, add --demo flag ([#165](https://github.com/CAIIVS/raitap/issues/165)) ([b1107cc](https://github.com/CAIIVS/raitap/commit/b1107cc5dc322bf1d5eb60946fc39d0be27c68c1))
+* rename Base/Abstract classes and registry kwarg ([#167](https://github.com/CAIIVS/raitap/issues/167)) ([b4de997](https://github.com/CAIIVS/raitap/commit/b4de9976a9f8a32e613cfa2eda8e38c2f8f347bc))
+
 ## [0.6.2](https://github.com/CAIIVS/raitap/compare/v0.6.1...v0.6.2) (2026-05-13)
 
 
