@@ -8,8 +8,17 @@ These docs will explain just enough about Hydra to use RAITAP effectively. Howev
 
 ### 1. Write your configuration YAML
 
-Hydra parses YAML files to understand which options to apply to the pipeline. Create a YAML file with the options you need.
-You may find useful to refer to:
+Hydra parses YAML files to understand which options to apply to the pipeline. Your YAML must include the `raitap_schema` defaults entry. hence, it should always start with:
+
+```yaml
+defaults:
+  - raitap_schema
+  - _self_
+
+// ...your options, see below
+```
+
+Then, you can add your own options. You may find useful to refer to:
 
 - the {doc}`global-config-options`
 - the {ref}`module-specific-configurations`
@@ -17,16 +26,16 @@ You may find useful to refer to:
 
 If your workflow does not make it easy to use YAML files, you can rely 100% on a CLI command. See {ref}`cli-overriding` for more details.
 
-### 2. Preview your configuration
+### 2. Preview your configuration with `--help`
 
 You can preview the final, Hydra-parsed configuration before executing it. Run the following from the same directory:
 
 ```{install-tabs}
 :uv:
-uv run raitap --config-name assessment --cfg job # assuming your config is at `./assessment.yaml`
+uv run raitap --config-name assessment --help # assuming your config is at `./assessment.yaml`
 
 :pip:
-raitap --config-name assessment --cfg job # assuming your config is at `./assessment.yaml`
+raitap --config-name assessment --help # assuming your config is at `./assessment.yaml`
 ```
 
 ### 3. Execute your configuration
@@ -39,7 +48,13 @@ uv run raitap --config-name assessment # assuming your config is `./assessment.y
 raitap --config-name assessment # assuming your config is `./assessment.yaml`
 ```
 
+As mentioned in {doc}`../get-it-running`, RAITAP will then detect required dependencies and guide you in the terminal.
+
 ## Some advanced Hydra features
+
+### Getting Hydra help
+
+Hydra provides a `--hydra-help` flag to print the available options and their descriptions. Note that it differs from the `--help` flag, see below.
 
 (cli-overriding)=
 
@@ -49,70 +64,13 @@ Hydra does not only read from YAML files. It can also parse CLI option overrides
 In the following, we override some options from the
 {doc}`../../modules/transparency/configuration`.
 
-#### Inherit raitap's schema defaults: `defaults: [raitap_schema, _self_]`
-
-Every consumer config should start with the `raitap_schema` defaults entry. It
-binds raitap's `AppConfig` dataclass schema to your config, so:
-
-- **Unset optional fields** inherit safe defaults (e.g. `reporting.sample_selection`
-  is `null`, `reporting.multirun_report` is `true`) — no crashes when pipeline
-  code reads them.
-- **Required fields** stay `MISSING` and fail loudly at composition time if you
-  forget them (e.g. `metrics._target_`).
-- **Types are enforced** — pass `reporting.multirun_report=42` and Hydra rejects
-  it before the run starts.
-
-Minimal example:
-
-```yaml
-defaults:
-  - raitap_schema     # bind AppConfig schema
-  - _self_            # apply this file's overrides on top
-  - reporting: html   # compose bundled reporting/html.yaml
-  - metrics: classification
-
-experiment_name: my-exp
-hardware: cpu
-
-model:
-  source: vit_b_32
-
-data:
-  name: imagenet_samples
-  source: imagenet_samples
-
-transparency:
-  default:
-    _target_: CaptumExplainer
-    algorithm: IntegratedGradients
-    call:
-      target: 0
-    visualisers:
-      - _target_: CaptumImageVisualiser
-
-robustness:
-  pgd:
-    _target_: TorchattacksAssessor
-    algorithm: PGD
-    constructor:
-      eps: 0.03
-      alpha: 0.005
-      steps: 10
-    visualisers:
-      - _target_: ImagePairVisualiser
-```
-
-Skip `raitap_schema` only if you're hand-rolling every field — it's never wrong
-to include it.
-
-#### Discover what's available: `--help`
+#### 1. Discover what's available: `--help`
 
 Pass `--help` to print every available config group + the fully composed config
 for the current invocation. Useful when picking presets or sanity-checking
 overrides:
 
 ```bash
-uv run raitap --demo --help
 uv run raitap --config-dir my-configs --config-name assessment --help
 ```
 
@@ -124,32 +82,39 @@ Output has two sections:
   all schema defaults expanded. Every key shown is overridable via
   `key=value` on the command line.
 
-`--cfg job` shows the same composed config without the groups list;
-`--hydra-help` covers Hydra's own flags (multirun, sweep, etc.).
-
 #### Override syntax: `key=value`, `+key=value`, `~key`
+
+For the following, we will assume your are overriding the following YAML config:
+
+```yaml
+defaults:
+  - raitap_schema
+  - _self_
+  - metrics: classification
+
+robustness:
+  pgd:
+    _target_: TorchattacksAssessor
+    algorithm: PGD
+    constructor:
+      eps: 0.03
+      alpha: 0.005
+      steps: 10
+    visualisers:
+      - _target_: ImagePairVisualiser
+
+```
 
 Hydra recognises three group-override prefixes on the command line:
 
 - `key=value` — **override** an existing key already in the config's `defaults:` list.
-  Example: `reporting=pdf` (works only if `reporting` is already in the defaults list).
+  Example: `metrics=detection` (works only if `metrics` is already in the defaults list).
 - `+key=value` — **add** a key not yet in the defaults list.
   Example: `+reporting=html` (works even if your YAML omits `reporting`).
 - `~key` — **remove** a key from the defaults list.
   Example: `~robustness.pgd` drops the named robustness assessor.
 
-Bundled raitap groups (`reporting/html`, `transparency/captum`,
-`robustness/torchattacks`, `metrics/classification`, `tracking/mlflow`) are
-auto-discovered from the installed package via raitap's `SearchPathPlugin`, so
-they work from any user config directory without manual `hydra: searchpath:`
-declarations.
-
-Example — run an external config and bolt on bundled HTML reporting:
-
-```bash
-uv run raitap --config-dir my-configs --config-name assessment +reporting=html
-```
-
+#### Overriding values
 
 You can either set individual options:
 
@@ -183,10 +148,10 @@ The main mechanism for this is the `defaults` list.
 ```yaml
 # assessment.yaml
 defaults:
-  - raitap_schema  # bind AppConfig dataclass — required so unset optional fields inherit defaults
-  - _self_         # inserts the keys below into the final config
-  - transparency: shap            # bundled group stub from raitap (see SearchPathPlugin note below)
-  - metrics: classification       # bundled group stub from raitap
+  - raitap_schema  # required, do not omit it, ever
+  - _self_         # inserts the 2 keys below into the final config
+  - transparency: shap
+  - metrics: classification
 
 experiment_name: "my-exp"
 hardware: cpu

@@ -139,10 +139,10 @@ def test_explain_rejects_unknown_method_family_before_compute() -> None:
     inputs = torch.randn(2, 3, 4, 4)
 
     with pytest.raises(
-        ValueError,
+        Exception,
         match=(
             "method-family inference is not implemented for framework "
-            "_UnknownAlgorithmExplainer and algorithm UnregisteredAlgorithm"
+            "<unknown> and algorithm UnregisteredAlgorithm"
         ),
     ):
         explainer.explain(

@@ -1,6 +1,8 @@
 # Architecture
 
-The page explains the high level architecture of the `raitap` package. RAITAP is built to be modular. The `pipeline` module makes the data flow between other modules.
+The page explains the high level architecture of the `raitap` package. RAITAP is built to be modular.
+
+The user launches RAITAP via the CLI. The `cli` module handles parsing, and passes over to the `deps` module, which handles parsing required dependencies and auto-adding them. Then the `pipeline` module orchestrates the assessment flow, delegating to the other modules, and finally terminating the run.
 
 ## Data flow
 

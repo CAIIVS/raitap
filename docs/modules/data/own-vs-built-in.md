@@ -26,7 +26,7 @@ data:
 
 Example (nested ImageFolder layout — `data/test/<class>/<file>.jpg`):
 
-```
+```text
 data/test/
 ├── NORMAL/IM-0001.jpeg
 ├── NORMAL/IM-0002.jpeg
@@ -73,9 +73,6 @@ Available sample names (registered in `src/raitap/data/samples.py`) are:
 - `malaria` — small malaria thin-blood-smear subset (no labels).
 - `acas_xu_n1_1` — ACAS Xu N1_1 tabular sample (no labels).
 - `UdacitySelfDriving` — small Udacity self-driving subset (no labels).
-
-`mnist_samples` is **not** bundled; it's materialised on demand by
-`contributor-configs/marabou-mnist/prep.py` for the formal-verification demo.
 
 Example:
 
