@@ -263,6 +263,33 @@ include = [
 ]
 exclude = ["src/raitap/**/test_*.py", "src/raitap/**/conftest.py", "src/raitap/configs/zhaw/*.yaml", "src/raitap/configs/zhaw/*.yml"]
 
+[tool.hatch.build.targets.sdist]
+# Keep PyPI sdist focused on installable library code; everything else
+# (contributor-only assets, standalone example, docs) stays in the repo.
+include = [
+  "src/raitap/**",
+  "src/hydra_plugins/**",
+  "pyproject.toml",
+  "README.md",
+  "LICENSE",
+  "CHANGELOG.md",
+]
+exclude = [
+  "src/raitap/**/test_*.py",
+  "src/raitap/**/conftest.py",
+  "src/raitap/configs/zhaw/*.yaml",
+  "src/raitap/configs/zhaw/*.yml",
+  "contributor-configs/**",
+  "example/**",
+  "docs/**",
+  "scripts/**",
+  "mlartifacts/**",
+  "mlflow*/**",
+  "outputs/**",
+  "tmp/**",
+  "conductor/**",
+]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"
