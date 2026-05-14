@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, cast
 import pytest
 import torch
 
+import raitap.pipeline.orchestrator as run_pipeline
 from raitap.metrics import resolve_metric_targets
-from raitap.pipeline import pipeline as run_pipeline
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
@@ -91,11 +91,11 @@ def test_run_without_tracking_passes_ground_truth_labels_to_metrics(
         captured["targets"] = targets
         return SimpleNamespace()
 
-    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: True)
-    monkeypatch.setattr(run_pipeline, "Metrics", fake_metrics)
-    monkeypatch.setattr(run_pipeline, "Explanation", DummyExplanation)
+    monkeypatch.setattr("raitap.pipeline.phases.metrics.metrics_run_enabled", lambda _cfg: True)
+    monkeypatch.setattr("raitap.pipeline.phases.metrics.Metrics", fake_metrics)
+    monkeypatch.setattr("raitap.pipeline.phases.transparency.Explanation", DummyExplanation)
 
-    outputs = run_pipeline._run_without_tracking(
+    outputs = run_pipeline.run_without_tracking(
         cast("AppConfig", cast("object", config)),
         cast("Model", cast("object", model)),
         cast("Data", cast("object", data)),

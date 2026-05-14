@@ -17,11 +17,12 @@ if TYPE_CHECKING:
     from raitap.transparency.contracts import InputSpec
 
 
+import raitap.pipeline.orchestrator as run_pipeline
 from raitap import pipeline as run_module
 from raitap.metrics import metrics_prediction_pair
 from raitap.pipeline import __main__ as run_entry
 from raitap.pipeline import extract_primary_tensor
-from raitap.pipeline import pipeline as run_pipeline
+from raitap.pipeline.phases import forward as run_pipeline_forward
 from raitap.tracking import BaseTracker
 
 
@@ -108,7 +109,7 @@ def test_forward_primary_tensor_batches_backend_calls() -> None:
     backend = _RecordingBackend()
     inputs = torch.arange(10, dtype=torch.float32).reshape(5, 2)
 
-    output = run_pipeline._forward_primary_tensor(
+    output = run_pipeline_forward.forward_pass(
         cast("AppConfig", cast("object", config)),
         backend,
         inputs,
@@ -254,7 +255,9 @@ def test_print_summary_logs_hydra_resolved_output_dir(
         runtime = _HydraRuntime()
 
     monkeypatch.setattr("raitap.configs.utils.HydraConfig.get", lambda: _HydraConfig())
-    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr(
+        "raitap.utils.console.metrics_run_enabled", lambda _cfg: False, raising=False
+    )
 
     config = SimpleNamespace(
         experiment_name="demo",
@@ -265,7 +268,9 @@ def test_print_summary_logs_hydra_resolved_output_dir(
     )
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
 
-    run_pipeline.print_summary(config, model)  # type: ignore[arg-type]
+    from raitap.pipeline.ui import print_summary
+
+    print_summary(config, model)  # type: ignore[arg-type]
 
     captured = capsys.readouterr()
     assert "hydra-output" in captured.out
@@ -287,7 +292,7 @@ def test_run_without_tracking_returns_outputs(monkeypatch: MonkeyPatch) -> None:
 
     monkeypatch.setattr(run_pipeline, "Model", lambda _cfg: model)
     monkeypatch.setattr(run_pipeline, "Data", lambda _cfg: data)
-    monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
+    monkeypatch.setattr(run_pipeline, "run_without_tracking", lambda _c, _m, _d: fake_output)
     monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
     monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
 
@@ -320,7 +325,7 @@ def test_run_invalid_report_sample_selection_fails_before_pipeline_work(
 
     monkeypatch.setattr(run_pipeline, "Model", lambda _cfg: model)
     monkeypatch.setattr(run_pipeline, "Data", lambda _cfg: data)
-    monkeypatch.setattr(run_pipeline, "_run_without_tracking", pipeline_work)
+    monkeypatch.setattr(run_pipeline, "run_without_tracking", pipeline_work)
     monkeypatch.setattr(run_pipeline, "build_report", build_report)
     monkeypatch.setattr(run_pipeline, "create_report", create_report)
     monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
@@ -368,7 +373,7 @@ def test_run_with_tracking_logs_all_outputs(monkeypatch: MonkeyPatch) -> None:
 
     monkeypatch.setattr(run_pipeline, "Model", lambda _cfg: model)
     monkeypatch.setattr(run_pipeline, "Data", lambda _cfg: data)
-    monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
+    monkeypatch.setattr(run_pipeline, "run_without_tracking", lambda _c, _m, _d: fake_output)
     monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
@@ -412,7 +417,7 @@ def test_run_with_tracking_skips_model_logging_when_disabled(monkeypatch: Monkey
 
     monkeypatch.setattr(run_pipeline, "Model", lambda _cfg: model)
     monkeypatch.setattr(run_pipeline, "Data", lambda _cfg: data)
-    monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
+    monkeypatch.setattr(run_pipeline, "run_without_tracking", lambda _c, _m, _d: fake_output)
     monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
@@ -454,7 +459,7 @@ def test_run_with_multiple_explainers_uses_subdirs(monkeypatch: MonkeyPatch) -> 
 
     monkeypatch.setattr(run_pipeline, "Model", lambda _cfg: model)
     monkeypatch.setattr(run_pipeline, "Data", lambda _cfg: data)
-    monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
+    monkeypatch.setattr(run_pipeline, "run_without_tracking", lambda _c, _m, _d: fake_output)
     monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
@@ -486,7 +491,7 @@ def test_run_with_tracking_config_but_no_target_skips_tracking(monkeypatch: Monk
 
     monkeypatch.setattr(run_pipeline, "Model", lambda _cfg: model)
     monkeypatch.setattr(run_pipeline, "Data", lambda _cfg: data)
-    monkeypatch.setattr(run_pipeline, "_run_without_tracking", lambda _c, _m, _d: fake_output)
+    monkeypatch.setattr(run_pipeline, "run_without_tracking", lambda _c, _m, _d: fake_output)
     monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
     monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
 
@@ -509,10 +514,10 @@ def test_run_without_tracking_raises_if_no_explainers_or_assessors(
         metrics=SimpleNamespace(num_classes=None),
     )
 
-    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr("raitap.pipeline.phases.metrics.metrics_run_enabled", lambda _cfg: False)
 
     with pytest.raises(ValueError, match="No explainers or robustness assessors configured"):
-        run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
+        run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
 
 def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: MonkeyPatch) -> None:
@@ -537,11 +542,11 @@ def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: M
         transparency={"one": {}},
         metrics=SimpleNamespace(num_classes=None),
     )
-    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: True)
-    monkeypatch.setattr(run_pipeline, "Explanation", _fake_explanation)
-    monkeypatch.setattr(run_pipeline, "Metrics", _fake_metrics)
+    monkeypatch.setattr("raitap.pipeline.phases.metrics.metrics_run_enabled", lambda _cfg: True)
+    monkeypatch.setattr("raitap.pipeline.phases.transparency.Explanation", _fake_explanation)
+    monkeypatch.setattr("raitap.pipeline.phases.metrics.Metrics", _fake_metrics)
 
-    outputs = run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
+    outputs = run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
     assert config.metrics.num_classes == 3
     assert outputs.metrics is not None
@@ -568,11 +573,13 @@ def test_run_without_tracking_uses_provided_num_classes(monkeypatch: MonkeyPatch
         transparency={"one": {}},
         metrics=SimpleNamespace(num_classes=10),
     )
-    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: True)
-    monkeypatch.setattr(run_pipeline, "Explanation", _fake_explanation)
-    monkeypatch.setattr(run_pipeline, "Metrics", lambda _c, _p, _t: SimpleNamespace())
+    monkeypatch.setattr("raitap.pipeline.phases.metrics.metrics_run_enabled", lambda _cfg: True)
+    monkeypatch.setattr("raitap.pipeline.phases.transparency.Explanation", _fake_explanation)
+    monkeypatch.setattr(
+        "raitap.pipeline.phases.metrics.Metrics", lambda _c, _p, _t: SimpleNamespace()
+    )
 
-    run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
+    run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
     assert config.metrics.num_classes == 10
 
@@ -595,10 +602,10 @@ def test_run_without_tracking_passes_sample_names_to_explanation(monkeypatch: Mo
         transparency={"one": {}},
         metrics=SimpleNamespace(num_classes=None),
     )
-    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr(run_pipeline, "Explanation", _fake_explanation)
+    monkeypatch.setattr("raitap.pipeline.phases.metrics.metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr("raitap.pipeline.phases.transparency.Explanation", _fake_explanation)
 
-    run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
+    run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
     assert captured_kwargs["sample_names"] == ["isic_1", "isic_2"]
 
@@ -628,10 +635,10 @@ def test_run_without_tracking_threads_sample_ids_and_image_metadata_to_explanati
         transparency={"one": {}},
         metrics=SimpleNamespace(num_classes=None),
     )
-    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr(run_pipeline, "Explanation", _fake_explanation)
+    monkeypatch.setattr("raitap.pipeline.phases.metrics.metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr("raitap.pipeline.phases.transparency.Explanation", _fake_explanation)
 
-    run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
+    run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
     assert captured_kwargs["sample_ids"] == ["stable-1", "stable-2"]
     assert captured_kwargs["sample_names"] == ["stable-1", "stable-2"]
@@ -666,10 +673,10 @@ def test_run_without_tracking_threads_tabular_metadata_to_explanation(
         transparency={"one": {}},
         metrics=SimpleNamespace(num_classes=None),
     )
-    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr(run_pipeline, "Explanation", _fake_explanation)
+    monkeypatch.setattr("raitap.pipeline.phases.metrics.metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr("raitap.pipeline.phases.transparency.Explanation", _fake_explanation)
 
-    run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
+    run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
     input_metadata = cast("InputSpec", captured_kwargs["input_metadata"])
     assert input_metadata.kind == "tabular"
@@ -706,10 +713,10 @@ def test_run_without_tracking_passes_none_when_inference_cant_determine_kind(
         transparency={"one": {}},
         metrics=SimpleNamespace(num_classes=None),
     )
-    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr(run_pipeline, "Explanation", _fake_explanation)
+    monkeypatch.setattr("raitap.pipeline.phases.metrics.metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr("raitap.pipeline.phases.transparency.Explanation", _fake_explanation)
 
-    run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
+    run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
     assert captured_kwargs["input_metadata"] is None
 
@@ -745,10 +752,10 @@ def test_run_without_tracking_preserves_layout_only_input_metadata(
         transparency={"one": {}},
         metrics=SimpleNamespace(num_classes=None),
     )
-    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr(run_pipeline, "Explanation", _fake_explanation)
+    monkeypatch.setattr("raitap.pipeline.phases.metrics.metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr("raitap.pipeline.phases.transparency.Explanation", _fake_explanation)
 
-    run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
+    run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
     spec = captured_kwargs["input_metadata"]
     assert spec is not None
@@ -775,10 +782,10 @@ def test_run_without_tracking_resolves_auto_pred_target(monkeypatch: MonkeyPatch
         transparency={"one": {"call": {"target": "auto_pred"}}},
         metrics=SimpleNamespace(num_classes=None),
     )
-    monkeypatch.setattr(run_pipeline, "metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr(run_pipeline, "Explanation", _fake_explanation)
+    monkeypatch.setattr("raitap.pipeline.phases.metrics.metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr("raitap.pipeline.phases.transparency.Explanation", _fake_explanation)
 
-    run_pipeline._run_without_tracking(config, model, data)  # type: ignore[arg-type]
+    run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
     target = captured_kwargs["target"]
     assert isinstance(target, torch.Tensor)

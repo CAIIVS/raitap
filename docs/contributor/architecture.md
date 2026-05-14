@@ -1,6 +1,8 @@
 # Architecture
 
-The page explains the high level architecture of the `raitap` package.
+The page explains the high level architecture of the `raitap` package. RAITAP is built to be modular. The `pipeline` module makes the data flow between other modules.
+
+## Data flow
 
 ```{mermaid}
 flowchart TB
@@ -19,7 +21,7 @@ flowchart TB
   H --> I[reporting + tracking]
 ```
 
-## Module map
+## Directory structure
 
 ```text
 src/
@@ -52,11 +54,18 @@ src/
     │   ├── command.py              # renders the final uv-sync / uv-add / pip-install argv
     │   └── frame.py                # rich panels for deps status + error frames
     │
-    ├── pipeline/                   # the actual assessment run
-    │   ├── __main__.py             # @hydra.main entry; composes config (incl. raitap_schema) → run()
-    │   ├── pipeline.py             # run(): model + data → forward → metrics + transparency + robustness → tracker
+    ├── pipeline/                   # the assessment run, split by phase
+    │   ├── __main__.py             # @hydra.main entry; composes config (incl. raitap_schema) → orchestrator.run()
+    │   ├── orchestrator.py         # run() + run_without_tracking() — wires the phases together; tracker context
+    │   ├── ui.py                   # print_summary() — the rich panel banner
     │   ├── outputs.py              # PredictionSummary + RunOutputs dataclasses (typed return)
-    │   └── forward_output.py       # extracts the primary logits tensor from torch / dict / tuple outputs
+    │   └── phases/                 # one file per phase; each exposes a single ``assess_*`` / ``evaluate_*`` function
+    │       ├── forward.py          # forward_pass(): batched backend forward; extract_primary_tensor for dict/tuple outputs
+    │       ├── metrics.py          # evaluate_metrics(): runs metrics when configured, infers num_classes
+    │       ├── transparency.py     # assess_transparency(): instantiates explainers; resolve_explainer_runtime_kwargs (auto_pred)
+    │       ├── robustness.py       # assess_robustness(): instantiates assessors; resolve_robustness_targets (labels or argmax fallback)
+    │       ├── predictions.py      # prediction_summaries(): per-sample PredictionSummary rows from logits
+    │       └── data_metadata.py    # input_metadata_for_data(): bridges raitap.data → transparency/robustness InputSpec
     │
     ├── models/                     # model loading + backend wrappers (PyTorch + ONNX)
     │   ├── model.py                # Model wrapper, source resolution (built-in name / .pt / state-dict / .onnx)

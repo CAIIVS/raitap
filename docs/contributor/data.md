@@ -5,9 +5,7 @@ This page describes how to add new built-in sample datasets to RAITAP.
 ## Overview
 
 RAITAP ships a small set of named sample bundles (e.g. `imagenet_samples`,
-`mnist_samples`) that can be referenced by name in `data.source`. They are
-**not** Hydra config-group presets — RAITAP no longer ships a `src/raitap/configs/data/`
-group. The registration lives in `src/raitap/data/samples.py` as plain
+`mnist_samples`) that can be referenced by name in `data.source`. The registration lives in `src/raitap/data/samples.py` as plain
 Python dicts:
 
 - `SAMPLE_SOURCES` — name → list of `(url, filename)` pairs to download into

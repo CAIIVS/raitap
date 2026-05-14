@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 import hydra
 
-from raitap.pipeline.pipeline import run
+from raitap.pipeline.orchestrator import run
 from raitap.utils.console import (
     print_complete_panel,
     print_failure_panel,
