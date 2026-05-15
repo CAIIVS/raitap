@@ -164,7 +164,13 @@ def test_assessor_builders_accept_schema_fields() -> None:
 
 @pytest.fixture(scope="module")
 def _demo_run() -> RunOutputs:
-    """Run the programmatic pipeline once and share results across tests."""
+    """Run the programmatic pipeline once and share results across tests.
+
+    Skipped on environments without the ``torchattacks`` extra: the demo
+    config exercises ``TorchattacksAssessor`` to mirror what ``--demo`` runs
+    on the CLI. Surface tests above stay unconditional.
+    """
+    pytest.importorskip("torchattacks")
     cfg = _demo_app_config()
     buf = io.StringIO()
     with redirect_stdout(buf):
