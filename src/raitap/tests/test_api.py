@@ -119,6 +119,51 @@ def test_classification_metrics_builder_instantiates_round_trip() -> None:
     assert isinstance(instance, ClassificationMetrics)
 
 
+def test_explainer_builders_accept_schema_fields() -> None:
+    """``captum`` / ``shap`` must accept every ``TransparencyConfig`` field.
+
+    Guards against a hydra-zen pitfall: ``builds(Cls, populate_full_signature=True)``
+    lifts only ``__init__`` params. Wrapped explainers take ``**kwargs``, so
+    without ``builds_bases=(TransparencyConfig,)`` the builders would reject
+    ``call=`` / ``visualisers=`` / etc. — exactly the kwargs docs and Hydra
+    YAML configs use.
+    """
+    captum_cfg = captum(
+        algorithm="IntegratedGradients",
+        call={"target": 0},
+        visualisers=[{"_target_": "CaptumImageVisualiser"}],
+    )
+    assert captum_cfg.algorithm == "IntegratedGradients"
+    assert captum_cfg.call == {"target": 0}
+
+    shap_cfg = shap(
+        algorithm="GradientExplainer",
+        constructor={"local_smoothing": 0.0},
+        raitap={"batch_size": 1},
+    )
+    assert shap_cfg.constructor == {"local_smoothing": 0.0}
+    assert shap_cfg.raitap == {"batch_size": 1}
+
+
+def test_assessor_builders_accept_schema_fields() -> None:
+    """``torchattacks`` / ``foolbox`` must accept every ``RobustnessConfig`` field."""
+    torchattacks_cfg = torchattacks(
+        algorithm="PGD",
+        constructor={"eps": 0.03, "alpha": 0.005, "steps": 10},
+        visualisers=[{"_target_": "ImagePairVisualiser"}],
+    )
+    assert torchattacks_cfg.algorithm == "PGD"
+    assert torchattacks_cfg.constructor == {"eps": 0.03, "alpha": 0.005, "steps": 10}
+
+    foolbox_cfg = foolbox(
+        algorithm="LinfPGD",
+        constructor={"rel_stepsize": 0.025, "steps": 40},
+        call={"eps": 0.03},
+    )
+    assert foolbox_cfg.constructor["rel_stepsize"] == 0.025
+    assert foolbox_cfg.call == {"eps": 0.03}
+
+
 @pytest.fixture(scope="module")
 def _demo_run() -> RunOutputs:
     """Run the programmatic pipeline once and share results across tests."""

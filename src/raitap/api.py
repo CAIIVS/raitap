@@ -61,8 +61,19 @@ def run(config: AppConfig, *, verbose: bool = True) -> RunOutputs:
     return _orchestrator_run(config, verbose=verbose)
 
 
-captum = builds(CaptumExplainer, populate_full_signature=True, zen_partial=False)
-shap = builds(ShapExplainer, populate_full_signature=True)
-torchattacks = builds(TorchattacksAssessor, populate_full_signature=True)
-foolbox = builds(FoolboxAssessor, populate_full_signature=True)
-classification_metrics = builds(ClassificationMetrics, populate_full_signature=True)
+# Builders inherit the schema dataclass via ``builds_bases`` so users can pass
+# every field on ``TransparencyConfig`` / ``RobustnessConfig`` / ``MetricsConfig``
+# (``constructor``, ``call``, ``raitap``, ``visualisers``) — not just the
+# underlying ``__init__`` signature. ``populate_full_signature`` is enabled only
+# where the wrapped class exposes typed kwargs (``ClassificationMetrics``);
+# explainer / assessor ``__init__``s take ``**kwargs`` which hydra-zen cannot
+# introspect, so we rely on the schema base for those.
+captum = builds(CaptumExplainer, builds_bases=(TransparencyConfig,))
+shap = builds(ShapExplainer, builds_bases=(TransparencyConfig,))
+torchattacks = builds(TorchattacksAssessor, builds_bases=(RobustnessConfig,))
+foolbox = builds(FoolboxAssessor, builds_bases=(RobustnessConfig,))
+classification_metrics = builds(
+    ClassificationMetrics,
+    builds_bases=(MetricsConfig,),
+    populate_full_signature=True,
+)

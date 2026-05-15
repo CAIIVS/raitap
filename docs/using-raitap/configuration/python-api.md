@@ -382,7 +382,7 @@ The schema is a deliberate mix of strict and forwarded. Knowing which fields are
 - `TransparencyConfig.constructor` / `.call` / `.raitap` — dicts forwarded verbatim to the underlying explainer library (Captum's `IntegratedGradients(...)`, SHAP's `GradientExplainer(...)`, the corresponding `.attribute()` / `.shap_values()` call).
 - `RobustnessConfig.constructor` / `.call` / `.raitap` — same story for torchattacks / Foolbox / Marabou.
 
-The hydra-zen builders in `raitap.api` tighten this layer where possible: `captum(...)`, `shap(...)`, `torchattacks(...)`, `foolbox(...)`, and `classification_metrics(...)` are built with `populate_full_signature=True`, which lifts every wrapped-constructor parameter onto the generated dataclass. Your editor will autocomplete `eps=`, `steps=`, `algorithm=` exactly as if you were calling the library directly — even though, on the YAML side, those values live under a free-form `constructor:` dict.
+The hydra-zen builders in `raitap.api` (`captum`, `shap`, `torchattacks`, `foolbox`, `classification_metrics`) inherit the corresponding schema dataclass via `builds_bases=`, so they accept every field on `TransparencyConfig` / `RobustnessConfig` / `MetricsConfig` (`algorithm`, `constructor`, `call`, `raitap`, `visualisers`). `classification_metrics` additionally uses `populate_full_signature=True` to surface the full `ClassificationMetrics.__init__` signature (`average`, `num_labels`, `ignore_index`). For Captum / SHAP / torchattacks / Foolbox, the underlying constructor takes `**kwargs`, so per-library kwargs (`eps=`, `steps=`, `target=`) stay inside the `constructor` / `call` dict — your editor autocompletes the schema fields, not the library kwargs.
 
 ## RunOutputs shape
 
