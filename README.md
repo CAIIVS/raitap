@@ -29,3 +29,16 @@ For more information
 
 - as a consumer/user: [consumer documentation](https://caiivs.github.io/raitap/)
 - as a contributor: [contributor documentation](https://caiivs.github.io/raitap/contributor/index.html)
+
+## Showcase
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/_static/showcase-terminal.png" alt="raitap CLI run in a terminal" /></td>
+    <td width="50%"><img src="docs/_static/showcase-report.jpeg" alt="Generated raitap report" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>CLI run</sub></td>
+    <td align="center"><sub>Generated report</sub></td>
+  </tr>
+</table>
