@@ -5,8 +5,8 @@ to raw tensors, hosting the demo-sample list.
 Heavy submodules (``data``, ``metadata``) and schema dataclasses are loaded
 lazily via :pep:`562` ``__getattr__`` so that imports like
 ``from raitap.data.types import LabelEncoding`` — used by
-:mod:`raitap.configs.schema` during package init — do not re-enter
-:mod:`raitap.configs` mid-load and explode with a circular ImportError.
+``raitap.configs.schema`` during package init — do not re-enter
+``raitap.configs`` mid-load and explode with a circular ImportError.
 """
 
 from __future__ import annotations

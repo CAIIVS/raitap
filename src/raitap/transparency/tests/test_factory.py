@@ -1413,7 +1413,7 @@ def test_create_visualisers_accepts_flat_constructor_kwargs() -> None:
     )
     visualisers = create_visualisers(config)
     assert len(visualisers) == 1
-    assert visualisers[0].visualiser.method == "heat_map"
+    assert visualisers[0].visualiser.method == "heat_map"  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_create_visualisers_splits_constructor_and_call(monkeypatch: pytest.MonkeyPatch) -> None:

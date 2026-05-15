@@ -5,8 +5,8 @@ Models module — loads pretrained or custom models and selects a backend
 Public Python surface
 ---------------------
 ``ModelConfig``
-    Dataclass section of :class:`raitap.configs.schema.AppConfig` describing
-    how to locate / construct the model under test.
+    Dataclass section of ``AppConfig`` describing how to locate / construct
+    the model under test.
 ``Model``
     The loaded model object passed to assessors and explainers.
 """
