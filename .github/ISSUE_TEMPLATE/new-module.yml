@@ -1,0 +1,115 @@
+name: New module / dimension
+description: Propose a brand-new top-level module (e.g. fairness, privacy) — a new RAI dimension beyond the current set.
+title: "feat(<module>): introduce <module> module"
+labels: ["enhancement", "module", "rfc"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this **only** for adding a brand-new top-level module — a new responsible-AI dimension alongside `transparency`, `robustness`, `metrics`, `reporting`, `tracking`, `data`, `model`.
+
+        Wrapping a new library inside an **existing** module? Use the **New library / adapter** template.
+
+        New modules are a large surface change. Expect heavy review and a design discussion before any code lands. This issue **is** the RFC.
+
+  - type: input
+    id: module-name
+    attributes:
+      label: Proposed module name
+      description: Snake_case, singular noun. Becomes the Hydra group, package path, and docs section.
+      placeholder: "e.g. fairness, privacy, uncertainty"
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: |
+        What responsible-AI concern does this module address? Why is it not already covered by `transparency` / `robustness` / `metrics`?
+        Reference papers, standards (EU AI Act, NIST AI RMF, ISO 42001…), or industry practice as appropriate.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and non-goals
+      description: What this module **will** cover and — equally important — what it will **not** cover.
+    validations:
+      required: true
+
+  - type: textarea
+    id: families
+    attributes:
+      label: Adapter families
+      description: |
+        Sketch the abstract bases you envision (analogous to `AttributionOnlyExplainer`, `EmpiricalAttackAssessor`, …).
+        For each: name, what concrete adapters subclass it, what the family-level contract is.
+      placeholder: |
+        - FairnessAuditor — input: model + protected-attribute column; output: per-group metric dict.
+        - BiasMitigator   — input: model + train data; output: re-trained model.
+    validations:
+      required: true
+
+  - type: textarea
+    id: schema
+    attributes:
+      label: Config schema
+      description: |
+        Sketch the `<Module>Config` dataclass (mirrors `TransparencyConfig`, `RobustnessConfig`, …): top-level fields,
+        whether it's a flat schema (`<group>: <Config>`) or a dict-typed one (`<group>: dict[str, <Config>]`),
+        and how `package_style` should be set on the base.
+    validations:
+      required: true
+
+  - type: textarea
+    id: initial-adapters
+    attributes:
+      label: Initial adapter set
+      description: |
+        Which libraries / algorithms will ship with the first cut? Each needs its own follow-up **New library / adapter** issue,
+        but list them here so the scope is concrete.
+      placeholder: |
+        - fairlearn → FairlearnAuditor (DemographicParity, EqualizedOdds)
+        - aif360    → AIF360Mitigator (Reweighing)
+    validations:
+      required: true
+
+  - type: textarea
+    id: outputs
+    attributes:
+      label: Outputs and interop
+      description: |
+        What artefacts does the module produce (per-sample tensors, summary tables, plots)?
+        How do they flow into `reporting` (PDF/HTML)? Into `tracking` (MLflow)? Any new visualiser bases needed?
+    validations:
+      required: true
+
+  - type: textarea
+    id: cross-module
+    attributes:
+      label: Cross-module interactions
+      description: Does this module read from `data` / `model`? Does it require new fields on existing configs? Any ordering constraints with the existing pipeline?
+    validations:
+      required: false
+
+  - type: textarea
+    id: docs
+    attributes:
+      label: Docs surface
+      description: |
+        Confirm the docs pages you'll add under `docs/modules/<module>/`:
+        `index.md`, `configuration.md`, `frameworks-and-libraries.md`, `output.md`, `visualisers.md` (when applicable),
+        plus the contributor guide `docs/contributor/<module>.md`.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: RFC checklist
+      options:
+        - label: I've read `docs/contributor/architecture.md` and `docs/contributor/adding-an-adapter.md`.
+        - label: I've checked existing modules don't already cover this concern via a different framing.
+        - label: I'm prepared to land this as a multi-PR stack (schema + base classes first, adapters second, docs third).
