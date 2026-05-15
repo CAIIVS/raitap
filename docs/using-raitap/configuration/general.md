@@ -83,8 +83,12 @@ Pass `--help` to print every available config group + the fully composed config
 for the current invocation. Useful when picking presets or sanity-checking
 overrides:
 
-```bash
+```{install-tabs}
+:uv:
 uv run raitap --config-dir my-configs --config-name assessment --help
+
+:pip:
+raitap --config-dir my-configs --config-name assessment --help
 ```
 
 Output has two sections:
