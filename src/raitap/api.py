@@ -2,15 +2,20 @@
 
 Programmatic counterpart to ``raitap --config-name ...``. Same
 :class:`AppConfig`, same orchestrator. No Hydra working-dir chdir, no
-logging hijack.
+logging hijack — but :func:`run` sets a sensible default ``output_root``
+mirroring Hydra's layout so artefacts land under ``outputs/<date>/<time>/``
+instead of polluting the caller's cwd.
 """
 
 from __future__ import annotations
 
+from datetime import datetime
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hydra_zen import builds, instantiate
 
+from raitap.configs import set_output_root
 from raitap.configs.schema import (
     AppConfig,
     DataConfig,
@@ -52,12 +57,35 @@ __all__ = [
 ]
 
 
-def run(config: AppConfig, *, verbose: bool = True) -> RunOutputs:
+def run(
+    config: AppConfig,
+    *,
+    verbose: bool = True,
+    output_root: str | Path | None = None,
+) -> RunOutputs:
     """Run the full pipeline programmatically.
 
     No chdir, no logging hijack. Pass ``verbose=False`` to suppress the
     summary panel + report-generation log line.
+
+    Outputs (metrics, reports, transparency artefacts) are written under
+    ``output_root``. When ``None``, mirrors Hydra's default and writes to
+    ``./outputs/<YYYY-MM-DD>/<HH-MM-SS>/`` so the caller's cwd stays clean.
+    Pass an explicit path to redirect, or pre-populate ``config._output_root``
+    via :func:`raitap.configs.set_output_root` if you need finer control.
     """
+    # OmegaConf ``DictConfig`` raises on missing keys, so guard with try/except
+    # instead of ``getattr(..., default)``. Dataclass ``AppConfig`` returns
+    # ``None`` naturally; only Hydra-composed configs hit the exception path.
+    try:
+        existing_root = config._output_root  # type: ignore[attr-defined]
+    except Exception:
+        existing_root = None
+    if output_root is None and existing_root is None:
+        now = datetime.now()
+        output_root = Path("outputs") / now.strftime("%Y-%m-%d") / now.strftime("%H-%M-%S")
+    if output_root is not None:
+        set_output_root(config, output_root)
     return _orchestrator_run(config, verbose=verbose)
 
 

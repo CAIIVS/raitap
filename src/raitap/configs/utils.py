@@ -38,6 +38,16 @@ def resolve_target(target: str, prefix: str) -> str:
 
 
 def set_output_root(config: Any, output_root: str | Path) -> None:
+    if isinstance(config, DictConfig):
+        # OmegaConf structured configs reject keys outside the schema; flip
+        # struct off just long enough to set the runtime-only marker.
+        was_struct = OmegaConf.is_struct(config)
+        OmegaConf.set_struct(config, False)
+        try:
+            config._output_root = str(output_root)
+        finally:
+            OmegaConf.set_struct(config, was_struct)
+        return
     config._output_root = str(output_root)
 
 
