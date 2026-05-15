@@ -122,6 +122,7 @@ If you run sweeps across several experiments on the same cluster, extract the `h
 
 ```yaml
 # my_launcher.yaml
+
 # @package hydra.launcher
 defaults:
   - submitit_slurm

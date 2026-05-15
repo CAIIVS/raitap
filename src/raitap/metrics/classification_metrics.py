@@ -4,13 +4,16 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from torchmetrics import Accuracy, F1Score, Precision, Recall
 
+from raitap.types import Task
+
 from .base_metric import BaseMetricComputer, MetricResult
 from .utils import tensor_to_python
 
 if TYPE_CHECKING:
     import torch
 
-Task = Literal["binary", "multiclass", "multilabel"]
+__all__ = ["Average", "ClassificationMetrics", "Task"]
+
 Average = Literal["micro", "macro", "weighted", "none"]
 
 

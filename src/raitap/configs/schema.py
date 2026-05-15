@@ -5,6 +5,8 @@ from typing import Any
 
 from omegaconf import MISSING
 
+from raitap.types import Hardware, IdStrategy, LabelEncoding, Task
+
 
 @dataclass
 class ModelConfig:
@@ -40,13 +42,13 @@ class LabelsConfig:
     # Optional class-label column; when omitted, one-hot numeric columns are used via argmax.
     column: str | None = None
     # Optional parsing strategy for labels: "index", "one_hot", or "argmax".
-    encoding: str | None = None
+    encoding: LabelEncoding | None = None
     # Strategy for matching label-file ids to discovered sample files. One of:
     #   "auto"          — pick "relative_path" if any id contains "/" or "\\"; else "stem".
     #   "relative_path" — ids are resolved as posix-style paths relative to ``data.source``
     #                     (supports nested ImageFolder layouts with colliding stems).
     #   "stem"          — legacy flat-dir behaviour: match by ``Path(id).stem`` only.
-    id_strategy: str = "auto"
+    id_strategy: IdStrategy = IdStrategy.auto
 
 
 @dataclass
@@ -122,7 +124,7 @@ class RobustnessConfig:
 @dataclass
 class MetricsConfig:
     _target_: str = MISSING
-    task: str = "multiclass"
+    task: Task = Task.multiclass
     num_classes: int | None = None
 
 
@@ -161,5 +163,5 @@ class AppConfig:
     metrics: MetricsConfig | None = None
     tracking: TrackingConfig | None = None
     reporting: ReportingConfig | None = None  # Optional, null by default
-    hardware: str = "gpu"
+    hardware: Hardware = Hardware.gpu
     experiment_name: str = "Experiment"
