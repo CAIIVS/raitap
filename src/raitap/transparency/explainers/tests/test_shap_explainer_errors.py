@@ -18,11 +18,9 @@ def test_error_messages_contains_silu_entry() -> None:
         "would override the custom backward associated with the custom Function, "
         "leading to incorrect gradients. This behavior is forbidden."
     )
-    hits = [
-        replacement
-        for pattern, replacement in ShapExplainer.error_patterns.items()
-        if pattern.search(original)
-    ]
+    patterns = ShapExplainer.error_patterns
+    assert patterns is not None
+    hits = [replacement for pattern, replacement in patterns.items() if pattern.search(original)]
     assert hits, "Expected the SiLU/DeepExplainer pattern to match the issue's example error."
     assert "GradientExplainer" in hits[0]
 
@@ -34,12 +32,14 @@ def test_silu_runtime_error_is_rewrapped() -> None:
     Exercising the dict via :func:`rethrow` directly avoids needing the optional
     ``shap`` dependency, while still proving the dict + wrapper compose correctly.
     """
+    patterns = ShapExplainer.error_patterns
+    assert patterns is not None
     with (
         pytest.raises(AdapterError) as info,
         rethrow(
             module=Module.transparency,
             third_party_lib="shap",
-            message_map=ShapExplainer.error_patterns,
+            message_map=patterns,
         ),
     ):
         raise RuntimeError(
