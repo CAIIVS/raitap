@@ -158,8 +158,8 @@ class ReportingConfig:
 class AppConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     data: DataConfig = field(default_factory=DataConfig)
-    transparency: dict[str, Any] = field(default_factory=dict)
-    robustness: dict[str, Any] = field(default_factory=dict)
+    transparency: dict[str, TransparencyConfig] = field(default_factory=dict)
+    robustness: dict[str, RobustnessConfig] = field(default_factory=dict)
     metrics: MetricsConfig | None = None
     tracking: TrackingConfig | None = None
     reporting: ReportingConfig | None = None  # Optional, null by default
