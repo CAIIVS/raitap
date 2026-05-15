@@ -72,3 +72,9 @@ def register_configs() -> None:
     """
     cs = ConfigStore.instance()
     cs.store(name="raitap_schema", node=AppConfig)
+
+    # Register hydra-zen group entries (transparency / robustness / metrics /
+    # reporting / tracking) that replaced the per-group YAML files.
+    from .zen import register_zen_groups
+
+    register_zen_groups()
