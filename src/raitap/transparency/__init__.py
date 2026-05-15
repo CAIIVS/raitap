@@ -23,7 +23,7 @@ TabularBarChartVisualiser
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .contracts import (
     ExplainerAdapter,
@@ -131,20 +131,36 @@ except ModuleNotFoundError as error:
     TabularBarChartVisualiser = _unavailable("TabularBarChartVisualiser", "torch")
 
 
-def __getattr__(name: str) -> Any:
-    """Resolve hydra-zen builders by their ``registry_name``.
+if TYPE_CHECKING:
+    from raitap.configs.schema import TransparencyConfig
 
-    Lets users write ``from raitap.transparency import captum, captum_image``
+
+def __getattr__(name: str) -> Any:
+    """Resolve hydra-zen builders by their ``registry_name``, plus the
+    schema dataclass (:class:`~raitap.configs.schema.TransparencyConfig`)
+    re-exported here so the module is the single owner of both the type
+    and its builder instances.
+
+    Lets users write::
+
+        from raitap.transparency import TransparencyConfig, captum, captum_image
+
     without us hand-maintaining a registry — the builder is created by
     :class:`raitap._adapters.AdapterMixin` at class-declaration time and
     looked up here.
     """
+    if name == "TransparencyConfig":
+        from raitap.configs.schema import TransparencyConfig
+
+        return TransparencyConfig
     from raitap._adapters import lookup
 
     return lookup("transparency", name)
 
 
 __all__ = [  # noqa: RUF022
+    # Schema dataclass (lazy)
+    "TransparencyConfig",
     # Explainer adapters
     "CaptumExplainer",
     "BaseExplainer",

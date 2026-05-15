@@ -14,14 +14,44 @@ This page is the canonical translation reference between YAML configs and the Py
 
 **Use Python when** you work in a notebook, embed RAITAP into another tool, want type checking against the dataclass schema, or build configs dynamically (e.g. a sweep generated in a `for` loop where each iteration depends on the previous result). The Python path skips Hydra's `chdir` and its logging hijack, so it composes cleanly with your own logging and working-directory conventions.
 
+## API surface
+
+The Python API is laid out so each module is the single owner of *both* its type contract (the schema dataclass) and its instances (the hydra-zen builders). Adding a new adapter is therefore strictly a single-file change inside its module — nothing else needs editing.
+
+**Top-level — `from raitap import …`.** Orchestration-level only.
+
+| Name | Kind | Why top-level |
+| --- | --- | --- |
+| `run` | function | runs an `AppConfig` through the orchestrator |
+| `AppConfig` | dataclass | root schema; consumed by `run` |
+| `Hardware` | `StrEnum` | cross-cuts orchestrator + deps inference |
+| `raitap_log` | logger | unified info/warn singleton |
+
+**Per-module — `from raitap.<module> import …`.** Each module exposes its schema dataclass, its adapter builders, and any module-local enum.
+
+| Module | Schema | Builders | Module enums |
+| --- | --- | --- | --- |
+| `raitap.models` | `ModelConfig` | — | — |
+| `raitap.data` | `DataConfig`, `LabelsConfig` | — | `LabelEncoding`, `IdStrategy` |
+| `raitap.metrics` | `MetricsConfig` | `classification`, `detection` | `Task` |
+| `raitap.transparency` | `TransparencyConfig` | `captum`, `shap`, `captum_image`, `captum_text`, `captum_time_series`, `shap_bar`, `shap_beeswarm`, `shap_force`, `shap_image`, `shap_waterfall`, `tabular_bar_chart` | — |
+| `raitap.robustness` | `RobustnessConfig` | `torchattacks`, `foolbox`, `marabou`, `image_pair`, `perturbation_heatmap`, `output_bounds_cohort`, `output_bounds_pinned`, `output_bounds_width_heatmap`, `output_bounds_margin_heatmap`, `verdict_summary` | — |
+| `raitap.reporting` | `ReportingConfig` | `html`, `pdf` | — |
+| `raitap.tracking` | `TrackingConfig` | `mlflow` | — |
+
+Each builder is a hydra-zen `builds()` dataclass; calling it returns an instance the orchestrator `instantiate`s. See {ref}`type-safety-map` for what is statically typed vs forwarded.
+
+All names load lazily via :pep:`562` ``__getattr__`` so ``import raitap`` does not pull torch / Captum / torchattacks. `TYPE_CHECKING` blocks list every name statically so editor autocomplete still surfaces them.
+
 ## Install + quickstart
 
-The Python equivalent of `raitap --demo` is roughly twenty lines. Build an `AppConfig` (`raitap.configs.schema.AppConfig`), pass it to `raitap.run`, read the structured `RunOutputs` (`raitap.pipeline.outputs.RunOutputs`) back:
+The Python equivalent of `raitap --demo` is roughly twenty lines. Build an `AppConfig`, pass it to `run`, read the structured `RunOutputs` (`raitap.pipeline.outputs.RunOutputs`) back:
 
 ```python
 from raitap import AppConfig, run
-from raitap.configs.schema import DataConfig, LabelsConfig, ModelConfig
+from raitap.data import DataConfig, LabelsConfig
 from raitap.metrics import classification
+from raitap.models import ModelConfig
 from raitap.robustness import image_pair, torchattacks
 from raitap.transparency import captum, captum_image
 
@@ -86,7 +116,7 @@ model:
   source: "./models/my-model.onnx"
 
 :python:
-from raitap.configs.schema import ModelConfig
+from raitap.models import ModelConfig
 
 model = ModelConfig(source="./models/my-model.onnx")
 ```
@@ -109,8 +139,7 @@ data:
     encoding: "index"
 
 :python:
-from raitap.configs.schema import DataConfig, LabelsConfig
-from raitap.types import LabelEncoding
+from raitap.data import DataConfig, LabelEncoding, LabelsConfig
 
 data = DataConfig(
     name="my-dataset",
@@ -350,13 +379,15 @@ outputs = run(cfg)
 
 The builders are the only supported Python surface for new code. Raw `TransparencyConfig(_target_="…")` / `{"_target_": "…"}` dict forms still parse (Hydra reads them the same way), but they shouldn't appear in new snippets — they exist only because Hydra YAML composition produces them under the hood.
 
+(type-safety-map)=
+
 ## Type safety map
 
 The schema is a deliberate mix of strict and forwarded. Knowing which fields are which avoids head-scratching about why one typo is caught immediately and another only at run time.
 
 **Fully typed**
 
-- `hardware: Hardware`, `data.labels.encoding: LabelEncoding`, `data.labels.id_strategy: IdStrategy`, `metrics.task: Task` — all four are `enum.StrEnum` subclasses defined in `raitap.types`. Pass either the enum member (`Hardware.cpu`) or its string value (`"cpu"`); OmegaConf validates the latter against the member name.
+- `hardware: Hardware`, `data.labels.encoding: LabelEncoding`, `data.labels.id_strategy: IdStrategy`, `metrics.task: Task` — all four are `enum.StrEnum` subclasses. Imports follow the module-ownership rule: `from raitap import Hardware`, `from raitap.data import LabelEncoding, IdStrategy`, `from raitap.metrics import Task`. Pass either the enum member (`Hardware.cpu`) or its string value (`"cpu"`); OmegaConf validates the latter against the member name.
 - The nested dataclass dicts on `AppConfig.transparency` and `AppConfig.robustness` — keys are arbitrary user-chosen strings, values must be `TransparencyConfig` / `RobustnessConfig` instances (or dicts with the right keys).
 - All scalar fields on `ModelConfig`, `DataConfig`, `LabelsConfig`, `MetricsConfig`, `TrackingConfig`, `ReportingConfig` are checked by OmegaConf's structured-config validation when the orchestrator boots.
 

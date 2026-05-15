@@ -11,9 +11,9 @@ import torch
 from PIL import Image
 
 from raitap import raitap_log
+from raitap.data.types import IdStrategy, LabelEncoding
 from raitap.data.utils import download_file
 from raitap.tracking.base_tracker import BaseTracker, Trackable
-from raitap.types import IdStrategy, LabelEncoding
 
 from .samples import SAMPLE_SOURCES, _load_sample, resolve_sample_labels_path
 

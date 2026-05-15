@@ -19,7 +19,7 @@ Visualiser classes (``_target_`` values; live under ``raitap.robustness.visualis
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .contracts import (
     VERDICT_CODES,
@@ -119,14 +119,26 @@ except ModuleNotFoundError as error:
     PerturbationHeatmapVisualiser = _unavailable("PerturbationHeatmapVisualiser", "torch")
 
 
+if TYPE_CHECKING:
+    from raitap.configs.schema import RobustnessConfig
+
+
 def __getattr__(name: str) -> Any:
-    """Resolve hydra-zen builders (assessors + visualisers) by registry name."""
+    """Resolve hydra-zen builders (assessors + visualisers) by registry name,
+    plus the schema dataclass (:class:`~raitap.configs.schema.RobustnessConfig`)
+    re-exported here so the module owns both the type and its instances."""
+    if name == "RobustnessConfig":
+        from raitap.configs.schema import RobustnessConfig
+
+        return RobustnessConfig
     from raitap._adapters import lookup
 
     return lookup("robustness", name)
 
 
 __all__ = [  # noqa: RUF022
+    # Schema dataclass (lazy)
+    "RobustnessConfig",
     # Assessor classes
     "BaseAssessor",
     "EmpiricalAttackAssessor",

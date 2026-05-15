@@ -5,7 +5,8 @@ from typing import Any
 
 from omegaconf import MISSING
 
-from raitap.types import Hardware, IdStrategy, LabelEncoding, Task
+from raitap.data.types import IdStrategy, LabelEncoding
+from raitap.types import Hardware, Task
 
 
 @dataclass

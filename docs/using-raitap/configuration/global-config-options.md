@@ -36,7 +36,7 @@ hardware: "gpu"
 experiment_name: "My Experiment"
 
 :python:
-from raitap.api import AppConfig
+from raitap import AppConfig
 
 # Python users construct AppConfig directly and call ``run(config)``;
 # ``hydra.run.dir`` is a CLI/YAML-only knob (set the output directory in

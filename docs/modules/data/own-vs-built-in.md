@@ -25,7 +25,7 @@ data:
     column: "label"
 
 :python:
-from raitap.api import DataConfig, LabelsConfig
+from raitap.data import DataConfig, LabelsConfig
 
 data = DataConfig(
     source="./data/images",  # a directory of images
@@ -57,7 +57,7 @@ data:
     # id_strategy: "auto"   # default — relative paths auto-detected
 
 :python:
-from raitap.api import DataConfig, LabelsConfig
+from raitap.data import DataConfig, LabelsConfig
 
 data = DataConfig(
     source="./data/test",
@@ -109,7 +109,7 @@ data:
   source: "imagenet_samples"
 
 :python:
-from raitap.api import DataConfig
+from raitap.data import DataConfig
 
 data = DataConfig(source="imagenet_samples")
 ```

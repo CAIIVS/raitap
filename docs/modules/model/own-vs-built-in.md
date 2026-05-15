@@ -37,7 +37,7 @@ model:
   num_classes: 2
 
 :python:
-from raitap.api import ModelConfig
+from raitap.models import ModelConfig
 
 model = ModelConfig(
     source="weights.pth",

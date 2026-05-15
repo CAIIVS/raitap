@@ -108,8 +108,10 @@ reporting:
   show_redundant_robustness_panels: false
 
 :python:
-from raitap.api import AppConfig, DataConfig, LabelsConfig, ModelConfig
+from raitap import AppConfig
+from raitap.data import DataConfig, LabelsConfig
 from raitap.metrics import classification as classification_metrics
+from raitap.models import ModelConfig
 from raitap.reporting import html as html_report
 from raitap.robustness import foolbox, image_pair, perturbation_heatmap, torchattacks
 from raitap.tracking import mlflow

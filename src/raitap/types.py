@@ -1,9 +1,11 @@
-"""Shared enum aliases used by :mod:`raitap.configs.schema`.
+"""Cross-cutting enum aliases used by :mod:`raitap.configs.schema`.
 
 Lives at the package root so importing it doesn't trigger the heavy
-sub-package ``__init__`` modules (``raitap.data``, ``raitap.models``,
-``raitap.metrics``) that pull in torch, pandas, torchmetrics, and the
-tracking subsystem.
+sub-package ``__init__`` modules (``raitap.models``, ``raitap.metrics``)
+that pull in torch and torchmetrics. Holds only the enums whose owning
+module would itself be heavy to import — ``Hardware`` (models/deps) and
+``Task`` (metrics/tracking). Module-local enums live next to their owning
+module: see :mod:`raitap.data.types`.
 
 ``StrEnum`` members are string subclasses, so YAML / Python users can pass
 the raw value (``"cpu"``) **or** the enum member (``Hardware.cpu``)
@@ -22,22 +24,6 @@ from enum import StrEnum
 class Hardware(StrEnum):
     cpu = "cpu"
     gpu = "gpu"
-
-
-class LabelEncoding(StrEnum):
-    # ``index`` shadows ``str.index`` — pyright (correctly) flags member assignments
-    # whose name matches an inherited str method. Runtime works fine because Enum
-    # member assignment goes through ``EnumMeta.__setattr__`` and binds the member
-    # object, not the method. Suppress just this line.
-    index = "index"  # type: ignore[assignment]
-    one_hot = "one_hot"
-    argmax = "argmax"
-
-
-class IdStrategy(StrEnum):
-    auto = "auto"
-    relative_path = "relative_path"
-    stem = "stem"
 
 
 class Task(StrEnum):

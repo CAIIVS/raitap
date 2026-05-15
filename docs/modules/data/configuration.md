@@ -112,7 +112,7 @@ data:
 :cli: data.source="./data/images" data.labels.source="./data/labels.csv" data.labels.column=label
 
 :python:
-from raitap.api import DataConfig, LabelsConfig
+from raitap.data import DataConfig, LabelsConfig
 
 data = DataConfig(
     name="my-dataset",

@@ -23,7 +23,7 @@ defaults:
 # ...your options, see below
 
 :python:
-from raitap.api import AppConfig
+from raitap import AppConfig
 
 config = AppConfig() # includes the schema
 
@@ -122,7 +122,7 @@ robustness:
       - _target_: ImagePairVisualiser
 
 :python:
-from raitap.api import AppConfig
+from raitap import AppConfig
 from raitap.metrics import classification
 from raitap.robustness import image_pair, torchattacks
 
@@ -209,8 +209,10 @@ data:
   source: ./my-dataset
 
 :python:
-from raitap.api import AppConfig, DataConfig, ModelConfig
+from raitap import AppConfig
+from raitap.data import DataConfig
 from raitap.metrics import classification
+from raitap.models import ModelConfig
 from raitap.transparency import shap, shap_image
 
 config = AppConfig(
@@ -241,7 +243,8 @@ model:
   source: "./my-custom-model.onnx"
 
 :python:
-from raitap.api import AppConfig, ModelConfig
+from raitap import AppConfig
+from raitap.models import ModelConfig
 
 config = AppConfig(model=ModelConfig(source="./my-custom-model.onnx"))
 ```

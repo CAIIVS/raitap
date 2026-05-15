@@ -1,23 +1,26 @@
 """Top-level public surface for raitap.
 
-Re-exports the unified :data:`raitap_log` singleton so call sites can use one
-import for warnings, info logs, and (future) errors::
+Orchestration-level imports only. Schema dataclasses, builders, and
+module-local enums live next to their owning module so the unit of
+ownership is consistent across both type and value::
 
-    from raitap import raitap_log
+    from raitap import AppConfig, run, Hardware           # orchestration
+    from raitap.models import ModelConfig
+    from raitap.data import DataConfig, LabelsConfig, LabelEncoding, IdStrategy
+    from raitap.metrics import MetricsConfig, Task, classification
+    from raitap.transparency import TransparencyConfig, captum, captum_image
+    from raitap.robustness import RobustnessConfig, torchattacks, image_pair
+    from raitap.reporting import ReportingConfig, html
+    from raitap.tracking import TrackingConfig, mlflow
 
-    raitap_log.warn("…")
-    raitap_log.info("…")
+``AppConfig`` is the only schema dataclass at this level because it is the
+root the orchestrator consumes; ``Hardware`` is similarly cross-cutting
+(orchestrator + deps). Everything else is module-owned.
 
-Also re-exports the programmatic entry point :func:`run` and the
-:class:`AppConfig` dataclass so library users can drive the pipeline without
-touching Hydra::
-
-    from raitap import run, AppConfig
-
-``run`` and ``AppConfig`` are loaded lazily via :pep:`562` ``__getattr__`` to
-keep ``import raitap`` lightweight: the underlying :mod:`raitap.api` module
-imports torchmetrics / Captum / torchattacks / etc., which a bare-bones
-``pip install raitap`` does not pull in.
+Names are resolved lazily via :pep:`562` ``__getattr__`` so ``import raitap``
+stays cheap (no torchmetrics / Captum / torchattacks import on a bare
+``pip install raitap``). The ``TYPE_CHECKING`` block lists names statically
+so editor autocomplete still surfaces them.
 """
 
 from __future__ import annotations
@@ -29,17 +32,36 @@ from raitap.utils.log import raitap_log
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
     from raitap.pipeline.outputs import RunOutputs
+    from raitap.types import Hardware
 
-    def run(config: AppConfig, *, verbose: bool = True) -> RunOutputs: ...
+    def run(
+        config: AppConfig,
+        *,
+        verbose: bool = True,
+        output_root: str | None = None,
+    ) -> RunOutputs: ...
 
 
-__all__ = ["AppConfig", "raitap_log", "run"]
+__all__ = [
+    "AppConfig",
+    "Hardware",
+    "raitap_log",
+    "run",
+]
+
+
+_LAZY: dict[str, tuple[str, str]] = {
+    "run": ("raitap.api", "run"),
+    "AppConfig": ("raitap.configs.schema", "AppConfig"),
+    "Hardware": ("raitap.types", "Hardware"),
+}
 
 
 def __getattr__(name: str) -> Any:
-    if name in {"run", "AppConfig"}:
-        from raitap.api import AppConfig as _AppConfig
-        from raitap.api import run as _run
+    target = _LAZY.get(name)
+    if target is None:
+        raise AttributeError(f"module 'raitap' has no attribute {name!r}")
+    import importlib
 
-        return {"run": _run, "AppConfig": _AppConfig}[name]
-    raise AttributeError(f"module 'raitap' has no attribute {name!r}")
+    module_path, attr = target
+    return getattr(importlib.import_module(module_path), attr)
