@@ -13,15 +13,12 @@ transparency:
       - _target_: "TabularBarChartVisualiser"
 
 :python:
-from raitap.transparency import captum
+from raitap.transparency import captum, captum_image, tabular_bar_chart
 
 transparency = {
     "captum_ig": captum(
         algorithm="IntegratedGradients",
-        visualisers=[
-            {"_target_": "CaptumImageVisualiser"},
-            {"_target_": "TabularBarChartVisualiser"},
-        ],
+        visualisers=[captum_image(), tabular_bar_chart()],
     ),
 }
 ```

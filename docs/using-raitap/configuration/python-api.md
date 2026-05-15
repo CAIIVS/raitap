@@ -200,6 +200,7 @@ transparency:
 
 :python:
 from raitap.configs.schema import TransparencyConfig
+from raitap.transparency import shap_image
 
 transparency = {
     "captum_ig": TransparencyConfig(
@@ -233,14 +234,12 @@ transparency = {
             "background_data": {"source": "./data/background", "n_samples": 32},
         },
         raitap={"batch_size": 1, "progress_desc": "SHAP batches"},
-        visualisers=[
-            {"_target_": "ShapImageVisualiser", "constructor": {"max_samples": 2}}
-        ],
+        visualisers=[shap_image(max_samples=2)],
     ),
 }
 ```
 
-Visualisers stay as plain dicts even when the explainer is built via a typed dataclass — they are heterogeneous (different `_target_` per entry) and the orchestrator resolves them through Hydra `instantiate` at run time.
+Visualisers expose a builder per class (`captum_image`, `shap_image`, `image_pair`, `perturbation_heatmap`, …) that accepts the `__init__` (constructor) kwargs directly. When a visualiser also needs a `call:` block — e.g. the Captum image visualiser above — fall back to the dict shape, since the builders don't surface `call=` separately.
 
 ### Robustness
 

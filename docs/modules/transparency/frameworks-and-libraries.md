@@ -294,7 +294,7 @@ transparency:
           show_sample_names: true
 
 :python:
-from raitap.transparency import shap
+from raitap.transparency import shap, shap_image
 
 transparency = {
     "my_shap_explainer": shap(
@@ -309,12 +309,10 @@ transparency = {
         },
         raitap={"batch_size": 1},
         visualisers=[
-            # Minimal configuration
-            {
-                "_target_": "ShapImageVisualiser",
-                "constructor": {"max_samples": 1},
-            },
-            # Full configuration with all options
+            # Minimal configuration — builder takes constructor kwargs directly.
+            shap_image(max_samples=1),
+            # The ``call:`` block (e.g. ``show_sample_names``) isn't exposed by
+            # the builder, so use the dict shape when you need it.
             {
                 "_target_": "ShapImageVisualiser",
                 "constructor": {

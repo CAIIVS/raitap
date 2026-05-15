@@ -117,8 +117,8 @@ from raitap.api import (
     TrackingConfig,
 )
 from raitap.metrics import classification as classification_metrics
-from raitap.robustness import foolbox, perturbation_heatmap, torchattacks
-from raitap.transparency import captum, shap
+from raitap.robustness import foolbox, image_pair, perturbation_heatmap, torchattacks
+from raitap.transparency import captum, shap, shap_image
 
 config = AppConfig(
     hardware="gpu",
@@ -169,24 +169,14 @@ config = AppConfig(
                 },
             },
             raitap={"batch_size": 1, "progress_desc": "SHAP batches"},
-            visualisers=[
-                {
-                    "_target_": "ShapImageVisualiser",
-                    "constructor": {"max_samples": 2},
-                },
-            ],
+            visualisers=[shap_image(max_samples=2)],
         ),
     },
     robustness={
         "pgd": torchattacks(
             algorithm="PGD",
             constructor={"eps": 0.03, "alpha": 0.0078, "steps": 10},
-            visualisers=[
-                {
-                    "_target_": "ImagePairVisualiser",
-                    "constructor": {"max_samples": 4},
-                },
-            ],
+            visualisers=[image_pair(max_samples=4)],
         ),
         "linf_pgd": foolbox(
             algorithm="LinfPGD",

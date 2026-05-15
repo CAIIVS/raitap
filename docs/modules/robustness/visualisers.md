@@ -13,14 +13,12 @@ robustness:
 
 :python:
 from raitap.api import RobustnessConfig
+from raitap.robustness import output_bounds_cohort, output_bounds_margin_heatmap
 
 robustness = {
     "marabou": RobustnessConfig(
         _target_="MarabouAssessor",
-        visualisers=[
-            {"_target_": "OutputBoundsCohortVisualiser"},
-            {"_target_": "OutputBoundsMarginHeatmapVisualiser"},
-        ],
+        visualisers=[output_bounds_cohort(), output_bounds_margin_heatmap()],
     ),
 }
 ```
