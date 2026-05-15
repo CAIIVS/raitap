@@ -17,7 +17,7 @@ __all__ = ["Average", "ClassificationMetrics", "Task"]
 Average = Literal["micro", "macro", "weighted", "none"]
 
 
-class ClassificationMetrics(BaseMetricComputer):
+class ClassificationMetrics(BaseMetricComputer, registry_name="classification", extra="metrics"):
     """
     Classification metrics using torchmetrics
 

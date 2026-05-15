@@ -66,7 +66,7 @@ def _select_target_attributions(
     return shap_values[batch_indices, ..., target_tensor]
 
 
-class ShapExplainer(AttributionOnlyExplainer):
+class ShapExplainer(AttributionOnlyExplainer, registry_name="shap", extra="shap"):
     """
     Single wrapper for ALL SHAP explainer types.
 

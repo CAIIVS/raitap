@@ -11,3 +11,10 @@ try:
     __all__.append("MLFlowTracker")  # noqa: PYI056
 except ImportError:
     pass
+
+
+def __getattr__(name: str) -> object:
+    """Resolve hydra-zen builders by registry name."""
+    from raitap._adapters import lookup
+
+    return lookup("tracking", name)

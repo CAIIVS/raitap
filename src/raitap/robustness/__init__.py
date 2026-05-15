@@ -123,6 +123,13 @@ except ModuleNotFoundError as error:
     PerturbationHeatmapVisualiser = _unavailable("PerturbationHeatmapVisualiser", "torch")
 
 
+def __getattr__(name: str) -> object:
+    """Resolve hydra-zen builders (assessors + visualisers) by registry name."""
+    from raitap._adapters import lookup
+
+    return lookup("robustness", name)
+
+
 __all__ = [  # noqa: RUF022
     "THIRD_PARTY_LIBS",
     # Assessor classes

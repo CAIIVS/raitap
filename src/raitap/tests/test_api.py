@@ -20,14 +20,7 @@ from hydra import compose, initialize_config_dir
 
 import raitap
 from raitap import AppConfig, run
-from raitap.api import (
-    captum,
-    classification_metrics,
-    foolbox,
-    instantiate,
-    shap,
-    torchattacks,
-)
+from raitap.api import instantiate
 from raitap.configs.schema import (
     DataConfig,
     LabelsConfig,
@@ -36,7 +29,10 @@ from raitap.configs.schema import (
     RobustnessConfig,
     TransparencyConfig,
 )
+from raitap.metrics import classification as classification_metrics
 from raitap.pipeline.outputs import RunOutputs
+from raitap.robustness import foolbox, torchattacks
+from raitap.transparency import captum, shap
 from raitap.types import Hardware, Task
 
 

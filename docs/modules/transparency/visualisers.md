@@ -13,7 +13,7 @@ transparency:
       - _target_: "TabularBarChartVisualiser"
 
 :python:
-from raitap.api import captum
+from raitap.transparency import captum
 
 transparency = {
     "captum_ig": captum(

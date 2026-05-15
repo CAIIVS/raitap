@@ -70,13 +70,15 @@ metric_values = outputs.metrics.result.metrics if outputs.metrics else {}
 
 `verbose=False` suppresses the rich console summary panel but does not silence Python `logging`; configure the root logger yourself if you want quiet output.
 
-`raitap.api` also exposes [hydra-zen `builds`](https://mit-ll-responsible-ai.github.io/hydra-zen/) factories for the four library-forwarded sections:
+Each module exposes [hydra-zen `builds`](https://mit-ll-responsible-ai.github.io/hydra-zen/) factories — one per adapter — derived automatically from the class declaration. Import them from the relevant module:
 
 ```python
-from raitap.api import captum, classification_metrics, foolbox, shap, torchattacks
+from raitap.transparency import captum, shap
+from raitap.robustness import foolbox, torchattacks
+from raitap.metrics import classification
 ```
 
-These return *dataclass types* whose fields mirror the underlying constructor signature (`populate_full_signature=True`). Calling them with keyword arguments produces a config instance that the orchestrator can `instantiate` — the same path Hydra takes when reading YAML. They are interchangeable with hand-written `TransparencyConfig` / `RobustnessConfig` / `MetricsConfig` instances; choose whichever gives you better autocomplete in your editor.
+These return *dataclass types* whose fields inherit the schema dataclass (`TransparencyConfig` / `RobustnessConfig` / `MetricsConfig`). Calling them with keyword arguments produces a config instance the orchestrator `instantiate`s — the same path Hydra takes when reading YAML. They are interchangeable with hand-written schema instances; choose whichever gives you better autocomplete in your editor.
 
 ## Kitchen-sink translation
 
@@ -141,9 +143,9 @@ metrics:
   average: "macro"
 
 :python:
-from raitap.api import classification_metrics
+from raitap.metrics import classification
 
-metrics = classification_metrics(task="multiclass", num_classes=7, average="macro")
+metrics = classification(task="multiclass", num_classes=7, average="macro")
 ```
 
 The hydra-zen builder is the recommended path here because `ClassificationMetrics` exposes many optional kwargs (`average`, `ignore_index`, …) that `MetricsConfig` does not type explicitly. `populate_full_signature=True` lifts the full constructor signature onto the dataclass, so your editor will autocomplete every kwarg.

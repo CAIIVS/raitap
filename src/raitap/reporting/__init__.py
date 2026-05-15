@@ -7,6 +7,14 @@ from .manifest import ReportManifest
 from .pdf_reporter import PDFReporter
 from .sections import ReportGroup, ReportSection
 
+
+def __getattr__(name: str) -> object:
+    """Resolve hydra-zen builders by registry name."""
+    from raitap._adapters import lookup
+
+    return lookup("reporting", name)
+
+
 __all__ = [
     "BuiltReport",
     "HTMLReporter",

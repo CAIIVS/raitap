@@ -134,6 +134,20 @@ except ModuleNotFoundError as error:
     ShapWaterfallVisualiser = _unavailable("ShapWaterfallVisualiser", "torch")
     TabularBarChartVisualiser = _unavailable("TabularBarChartVisualiser", "torch")
 
+
+def __getattr__(name: str) -> object:
+    """Resolve hydra-zen builders by their ``registry_name``.
+
+    Lets users write ``from raitap.transparency import captum, captum_image``
+    without us hand-maintaining a registry — the builder is created by
+    :class:`raitap._adapters.AdapterMixin` at class-declaration time and
+    looked up here.
+    """
+    from raitap._adapters import lookup
+
+    return lookup("transparency", name)
+
+
 __all__ = [  # noqa: RUF022
     "THIRD_PARTY_LIBS",
     # Explainer adapters

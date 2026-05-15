@@ -1,14 +1,18 @@
 # General configuration guide
 
-RAITAP has two entry points: YAML + CLI (this page, built on [Hydra](https://hydra.cc/)) and the [Python API](python-api.md). Both share the same `AppConfig` schema, so the snippets on this page are paired YAML/Python tabs you can copy from either side.
+RAITAP is built on top of [Hydra](https://hydra.cc/), a powerful configuration framework for Python. These docs will explain just enough about Hydra to use RAITAP effectively. However, you might want to dive deeper into the [Hydra documentation](https://hydra.cc/docs/intro/).
 
-These docs will explain just enough about Hydra to use RAITAP effectively. However, you might want to dive deeper into the [Hydra documentation](https://hydra.cc/docs/intro/).
+## Using YAML or Python to configure RAITAP
+
+You can configure RAITAP configs either using YAML files, or directly in your Python code. When using Python code, Hydra will convert it to YAML configs internally. The following sections offer code snippets for both solutions. {doc}`python-api` offers a more detailed reference for the Python API.
 
 ## Guide to writing and using your own configuration
 
 ### 1. Write your configuration YAML
 
-Hydra parses YAML files to understand which options to apply to the pipeline. Your YAML must include the `raitap_schema` defaults entry. hence, it should always start with:
+Hydra parses YAML files (either directly written by you, or generated from the Python code) to understand which options to apply to the pipeline.
+
+If you use YAML, you must include the `raitap_schema` defaults entry at the top. This is automatically handled if you use Python.
 
 ```{config-tabs}
 :yaml:
@@ -21,8 +25,9 @@ defaults:
 :python:
 from raitap.api import AppConfig
 
-config = AppConfig()  # AppConfig IS the schema — no defaults list needed.
-# ...set your options on `config`, see below
+config = AppConfig() # includes the schema
+
+# ...your options on `config`, see below
 ```
 
 Then, you can add your own options. You may find useful to refer to:
@@ -113,10 +118,12 @@ robustness:
       - _target_: ImagePairVisualiser
 
 :python:
-from raitap.api import AppConfig, classification_metrics, torchattacks
+from raitap.api import AppConfig
+from raitap.metrics import classification
+from raitap.robustness import torchattacks
 
 config = AppConfig(
-    metrics=classification_metrics(task="multiclass"),
+    metrics=classification(task="multiclass"),
     robustness={
         "pgd": torchattacks(
             algorithm="PGD",
@@ -198,13 +205,9 @@ data:
   source: ./my-dataset
 
 :python:
-from raitap.api import (
-    AppConfig,
-    DataConfig,
-    ModelConfig,
-    classification_metrics,
-    shap,
-)
+from raitap.api import AppConfig, DataConfig, ModelConfig
+from raitap.metrics import classification
+from raitap.transparency import shap
 
 config = AppConfig(
     experiment_name="my-exp",
@@ -218,7 +221,7 @@ config = AppConfig(
             visualisers=[{"_target_": "ShapImageVisualiser"}],
         ),
     },
-    metrics=classification_metrics(task="multiclass"),
+    metrics=classification(task="multiclass"),
 )
 ```
 

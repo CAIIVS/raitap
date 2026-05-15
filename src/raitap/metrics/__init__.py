@@ -40,6 +40,14 @@ from .factory import (
 from .inputs import metrics_prediction_pair, resolve_metric_targets
 from .visualizers import MetricsVisualizer
 
+
+def __getattr__(name: str) -> object:
+    """Resolve hydra-zen builders by registry name."""
+    from raitap._adapters import lookup
+
+    return lookup("metrics", name)
+
+
 __all__ = [  # noqa: RUF022
     # Base types
     "BaseMetricComputer",

@@ -211,7 +211,7 @@ def _image_limits_for_figures(
     return max_w, max_h
 
 
-class PDFReporter(BaseReporter):
+class PDFReporter(BaseReporter, registry_name="pdf", extra="pdf"):
     """PDF report generator using borb library."""
 
     def generate(

@@ -98,9 +98,9 @@ metrics:
 :cli: +metrics=detection +metrics.class_metrics=true +metrics.extended_summary=true
 
 :python:
-from raitap.api import classification_metrics
+from raitap.metrics import classification
 
-metrics = classification_metrics(
+metrics = classification(
     task="multiclass",
     num_classes=7,
 )

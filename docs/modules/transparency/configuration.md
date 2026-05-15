@@ -141,7 +141,7 @@ transparency:
 :cli: transparency.captum_ig.algorithm=GradientShap
 
 :python:
-from raitap.api import captum, shap
+from raitap.transparency import captum, shap
 
 transparency = {
     "my_first_explainer": captum(

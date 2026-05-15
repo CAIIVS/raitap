@@ -32,7 +32,7 @@ transparency:
           max_samples: 1
 
 :python:
-from raitap.api import shap
+from raitap.transparency import shap
 
 transparency = {
     "my_first_explainer": shap(
@@ -104,7 +104,7 @@ transparency:
       target: 0
 
 :python:
-from raitap.api import captum
+from raitap.transparency import captum
 
 transparency = {
     "my_captum_explainer": captum(
@@ -165,7 +165,7 @@ transparency:
       batch_size: 1
 
 :python:
-from raitap.api import shap
+from raitap.transparency import shap
 
 transparency = {
     "my_shap_explainer": shap(
@@ -294,7 +294,7 @@ transparency:
           show_sample_names: true
 
 :python:
-from raitap.api import shap
+from raitap.transparency import shap
 
 transparency = {
     "my_shap_explainer": shap(

@@ -69,7 +69,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class MarabouAssessor(FormalVerificationAssessor):
+class MarabouAssessor(FormalVerificationAssessor, registry_name="marabou", extra="marabou"):
     """Marabou-backed L∞ formal-verification adapter.
 
     Only ``algorithm="linf-box"`` is supported in v1: per-input box bounds

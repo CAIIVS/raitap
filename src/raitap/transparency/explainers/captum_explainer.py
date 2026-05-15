@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     import torch.nn as nn
 
 
-class CaptumExplainer(AttributionOnlyExplainer):
+class CaptumExplainer(AttributionOnlyExplainer, registry_name="captum", extra="captum"):
     """
     Single wrapper for ALL Captum attribution methods.
 

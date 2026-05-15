@@ -5,6 +5,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from raitap._adapters import AdapterMixin
+
 from ..exceptions import MethodKindVisualiserIncompatibilityError
 
 if TYPE_CHECKING:
@@ -14,7 +16,7 @@ if TYPE_CHECKING:
     from ..results import RobustnessResult
 
 
-class BaseRobustnessVisualiser(ABC):
+class BaseRobustnessVisualiser(ABC, AdapterMixin, abstract=True, strip_suffixes=("Visualiser",)):
     """All robustness visualisers extend this class.
 
     Subclasses declare which method kinds they support via the

@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from torch import nn
 
 
-class FoolboxAssessor(EmpiricalAttackAssessor):
+class FoolboxAssessor(EmpiricalAttackAssessor, registry_name="foolbox", extra="foolbox"):
     """Single wrapper for foolbox attack classes.
 
     Foolbox consumes the perturbation budget at *call time* (``attack(fmodel,

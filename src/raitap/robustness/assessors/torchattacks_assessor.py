@@ -21,7 +21,9 @@ if TYPE_CHECKING:
     from torch import nn
 
 
-class TorchattacksAssessor(EmpiricalAttackAssessor):
+class TorchattacksAssessor(
+    EmpiricalAttackAssessor, registry_name="torchattacks", extra="torchattacks"
+):
     """Single wrapper for ALL torchattacks methods.
 
     Uses dynamic method loading - no need for class-per-method.

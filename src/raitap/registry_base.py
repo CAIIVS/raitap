@@ -43,7 +43,14 @@ class WithAlgorithmRegistry(ABC, Generic[T]):
     """Concrete subclasses narrow the value type to ``Mapping[str, T]``."""
 
     def __init_subclass__(cls, *, abstract: bool = False, **kwargs: Any) -> None:
-        super().__init_subclass__(**kwargs)
+        # Pass ``abstract`` through to any cooperative mixin (e.g.
+        # :class:`raitap._adapters.AdapterMixin`) further down the MRO.
+        # Catch ``TypeError`` for the terminal ``object.__init_subclass__``
+        # which rejects unknown keyword arguments.
+        try:
+            super().__init_subclass__(abstract=abstract, **kwargs)
+        except TypeError:
+            super().__init_subclass__(**kwargs)
         if abstract:
             return
         registry = cls.__dict__.get("algorithm_registry")

@@ -120,7 +120,7 @@ robustness:
 :cli: +robustness=torchattacks robustness.torchattacks.algorithm=PGD robustness.torchattacks.constructor.eps=0.05
 
 :python:
-from raitap.api import foolbox, torchattacks
+from raitap.robustness import foolbox, torchattacks
 
 robustness = {
     "pgd": torchattacks(

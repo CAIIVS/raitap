@@ -27,18 +27,13 @@ class UnknownAdapterTargetError(RuntimeError):
     """Raised when a ``_target_`` class is not in the adapter→extra map."""
 
 
-ADAPTER_EXTRAS: dict[str, str] = {
-    "CaptumExplainer": "captum",
-    "ShapExplainer": "shap",
-    "TorchattacksAssessor": "torchattacks",
-    "FoolboxAssessor": "foolbox",
-    "MarabouAssessor": "marabou",
-    "HTMLReporter": "html",
-    "PDFReporter": "pdf",
-    "MLFlowTracker": "mlflow",
-    "ClassificationMetrics": "metrics",
-    "DetectionMetrics": "metrics",
-}
+# Populated by :class:`raitap._adapters.AdapterMixin.__init_subclass__` at
+# class-creation time. ``register_zen_groups`` imports every adapter module so
+# the map is fully populated before this module reads it.
+from raitap._adapters import ADAPTER_EXTRAS  # noqa: E402
+from raitap.configs.zen import register_zen_groups  # noqa: E402
+
+register_zen_groups()
 
 _HARDWARE_SUFFIX: dict[Hardware, str] = {"cuda": "cuda", "xpu": "intel", "cpu": "cpu"}
 
