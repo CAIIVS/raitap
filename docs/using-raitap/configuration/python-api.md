@@ -339,16 +339,16 @@ outputs = run(cfg)
 
 ## Translation rules
 
-The four patterns below cover every shape you'll meet when porting a YAML config to Python.
+| YAML pattern | Python builder |
+| --- | --- |
+| `_target_: CaptumExplainer` + `algorithm: IntegratedGradients` | `captum(algorithm="IntegratedGradients", ...)` (the `_target_` is baked in) |
+| `defaults: [raitap_schema, _self_]` | Not needed — `AppConfig` already *is* the schema. The defaults entry is a Hydra-only construct. |
+| Group/name selection (`transparency: captum` + dict key in YAML) | Use the dict key on the Python side too: `transparency={"my_run": captum(algorithm=...)}`. |
+| List of visualisers | One builder per visualiser (`captum_image`, `image_pair`, …): flat constructor kwargs, optional `call={...}` for render-time options. `visualisers=[captum_image(max_samples=4, call={"show_sample_names": True})]`. |
+| `MISSING` defaults | Builder kwargs are required-or-optional based on the wrapped constructor signature; your editor surfaces the missing ones. |
+| CLI overrides (`+foo.bar=baz`) | Mutate the dataclass: `cfg.transparency["my_run"].call["target"] = 1`. Builders return dataclasses, so attribute assignment works. |
 
-| YAML pattern | Python (dict shape) | Python (hydra-zen builder) |
-| --- | --- | --- |
-| `_target_: CaptumExplainer` | `{"_target_": "CaptumExplainer", ...}` or `TransparencyConfig(_target_="CaptumExplainer", ...)` | `captum(algorithm="IntegratedGradients", ...)` (the `_target_` is baked in) |
-| `defaults: [raitap_schema, _self_]` | Not needed — `AppConfig` already *is* the schema. The defaults entry is a Hydra-only construct. | Same — builders return dataclass types bound to the right `_target_`. |
-| Group/name selection (`transparency: captum`) | Set the key on the dict yourself: `transparency={"default": TransparencyConfig(...)}`. The key is the run name. | `transparency={"default": captum(algorithm=...)}` works identically. |
-| List of visualisers | Optional dict shape `visualisers=[{"_target_": "...", "constructor": {...}, "call": {...}}]`. | Builder per visualiser (`captum_image`, `image_pair`, …): flat constructor kwargs, optional `call={...}` for render-time options. `visualisers=[captum_image(max_samples=4, call={"show_sample_names": True})]`. |
-| `MISSING` defaults | Fields default to `omegaconf.MISSING` so omitting `_target_` / `algorithm` raises at validation time. Provide both explicitly. | Builder kwargs are required-or-optional based on the wrapped constructor signature; let your editor surface the missing ones. |
-| CLI overrides (`+foo.bar=baz`) | Mutate the dataclass: `cfg.transparency["default"].call["target"] = 1`. | Same — builders produce dataclasses, so attribute assignment works. |
+The builders are the only supported Python surface for new code. Raw `TransparencyConfig(_target_="…")` / `{"_target_": "…"}` dict forms still parse (Hydra reads them the same way), but they shouldn't appear in new snippets — they exist only because Hydra YAML composition produces them under the hood.
 
 ## Type safety map
 

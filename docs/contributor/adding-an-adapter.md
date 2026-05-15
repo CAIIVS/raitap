@@ -94,9 +94,14 @@ If your new adapter only needs to set `_target_` + optional kwargs on its schema
 
 ## End-to-end checklist for a new adapter
 
-1. Implement the class in the right `raitap/<module>/<subdir>/` location.
-2. Add `[project.optional-dependencies]` entry in `pyproject.toml` if it pulls a new lib.
-3. Tests under `raitap/<module>/.../tests/test_<name>.py`.
-4. Docs row in `docs/modules/<module>/frameworks-and-libraries.md` (or analogous).
+All four steps are **required**. None are optional.
 
-Steps 2–4 are convention; only step 1 is enforced by the framework.
+1. **Adapter class.** Implement under `raitap/<module>/<subdir>/<name>_<entity>.py`. Inherit from the family abstract base (`AttributionOnlyExplainer`, `EmpiricalAttackAssessor`, `BaseMetricComputer`, …) and declare `registry_name`, `extra`, `library` (+ optional `error_patterns`, `suppress_warnings`) via class kwargs.
+
+2. **`pyproject.toml` entry — mandatory.** Add `[project.optional-dependencies] <extra> = ["<pip-name>>=<min>"]`. The `raitap-deps` inference uses this to map `<extra>` (the class's `extra=` kwarg) → the install command emitted when a user composes a config that needs your adapter. Skipping this breaks auto-install for every user who composes your adapter — `raitap-deps` will refuse to emit a `uv sync` command because the extra doesn't exist. If your adapter belongs to an umbrella extra (e.g. `transparency = ["raitap[shap,captum,…]"]`), add yourself to that list too.
+
+3. **Tests — mandatory.** Add `raitap/<module>/.../tests/test_<name>_<entity>.py`. Cover at minimum: registry membership, `check_backend_compat`, `__init_subclass__` wiring (the class lands in `_BUILDERS["<group>"]["<name>"]` and in `ADAPTER_EXTRAS`), and one `_compute` / `generate_adversarial` / `compute` happy path. CI enforces coverage on the module.
+
+4. **Docs — mandatory.** Add a row to `docs/modules/<module>/frameworks-and-libraries.md` documenting the algorithms you support (or analogous page for non-adapter modules). YAML + Python tabs both required via `config-tabs`. This is what users see when they look up "does raitap support X?".
+
+The framework only validates step 1 at class-creation time (`TypeError` if `group`/`schema` aren't inherited). Steps 2–4 break the user-facing contract silently; missing them blocks the PR in code review.
