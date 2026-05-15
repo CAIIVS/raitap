@@ -1,0 +1,94 @@
+name: Performance regression
+description: Something got slower, hungrier on memory, or eats more disk / GPU than it used to.
+title: "perf(<module>): <short description>"
+labels: ["performance", "regression"]
+body:
+  - type: dropdown
+    id: resource
+    attributes:
+      label: Resource affected
+      options:
+        - Wall-clock runtime
+        - Peak RAM
+        - Peak GPU memory
+        - Disk artefact size
+        - Startup / import time
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module
+      options:
+        - transparency
+        - robustness
+        - metrics
+        - reporting
+        - tracking
+        - data
+        - model
+        - CLI / packaging
+    validations:
+      required: true
+
+  - type: input
+    id: adapter
+    attributes:
+      label: Adapter / algorithm (if applicable)
+      placeholder: "CaptumExplainer / IntegratedGradients"
+    validations:
+      required: false
+
+  - type: input
+    id: version-fast
+    attributes:
+      label: Fast version (good)
+      description: Commit SHA or release tag.
+    validations:
+      required: true
+
+  - type: input
+    id: version-slow
+    attributes:
+      label: Slow version (bad)
+    validations:
+      required: true
+
+  - type: textarea
+    id: numbers
+    attributes:
+      label: Numbers
+      description: Concrete before / after measurements. Include batch size, dataset size, hardware.
+      placeholder: |
+        before (0c5f7c9): 12.3 s, peak 1.8 GB
+        after  (9a0e406): 47.1 s, peak 4.6 GB
+        hardware: AMD 7950X, RTX 4090, batch=64, MNIST 10k samples
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Repro command + config
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: profile
+    attributes:
+      label: Profile output (optional)
+      description: cProfile, py-spy, nvprof, memray — whatever pinpoints the hot path.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: suspected-commit
+    attributes:
+      label: Suspected commit / PR
+      description: Bisection result if you have one.
+    validations:
+      required: false

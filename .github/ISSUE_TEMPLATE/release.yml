@@ -1,0 +1,67 @@
+name: Release / version bump
+description: Track a release. Most releases ride the automated release-please PR — file this only for non-routine cases.
+title: "chore(infra): release <version>"
+labels: ["release"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Routine releases happen via the automated release-please PR (see `docs/contributor/releases.md`).
+        Use this template for: forcing a version, cutting 1.0.0, alternate-path tag publishes, or release-blockers tracking.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - Standard release-please PR (tracking only)
+        - Forced version via `Release-As:` footer
+        - Alternate path: publish from existing `v*.*.*` tag
+        - 0.x → 1.0.0 cutover
+        - Hotfix
+    validations:
+      required: true
+
+  - type: input
+    id: target-version
+    attributes:
+      label: Target version
+      placeholder: "e.g. 0.7.0, 1.0.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: highlights
+    attributes:
+      label: Highlights
+      description: User-visible changes since last release. Pull from generated CHANGELOG once the release PR opens — don't hand-edit `CHANGELOG.md`.
+    validations:
+      required: true
+
+  - type: textarea
+    id: breaking
+    attributes:
+      label: Breaking changes
+      description: Each must be a `feat!:` / `fix!:` commit or carry a `BREAKING CHANGE` footer. List them with the commit subject.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: blockers
+    attributes:
+      label: Pre-release checklist
+      options:
+        - label: All required CI checks green on `main`.
+        - label: No open `release-blocker` issues.
+        - label: Docs build clean.
+        - label: `pyproject.toml` extras / dependency bounds reviewed.
+        - label: For 1.0.0 only — `release-please-config.json` updated per `docs/contributor/releases.md`.
+        - label: For 1.0.0 only — `[tool.commitizen] major_version_zero = false` set.
+
+  - type: textarea
+    id: post-release
+    attributes:
+      label: Post-release
+      description: Anything to do after PyPI + docs publish (announce, update integrations, …).
+    validations:
+      required: false
