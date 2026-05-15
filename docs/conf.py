@@ -16,6 +16,7 @@ author = "Stanislas Laurent, Jonas Vonderhagen, Philipp Denzel, Oliver Forster"
 
 extensions = [
     "config_options",
+    "config_tabs",
     "install_tabs",
     "myst_parser",
     "sphinx.ext.autodoc",
