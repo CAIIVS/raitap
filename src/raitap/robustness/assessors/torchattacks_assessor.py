@@ -6,23 +6,22 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import torch
 
-from raitap.utils.diagnostics import Module
-from raitap.utils.errors import rethrow
-
 from ..contracts import MethodKind, Objective, PerturbationNorm, ThreatModel
 from ..exceptions import AssessorBackendIncompatibilityError
 from ..semantics import AssessorSemanticsHints
 from .base_assessor import EmpiricalAttackAssessor, _prepare_inputs_for_forward
 
 if TYPE_CHECKING:
-    import re
     from collections.abc import Mapping
 
     from torch import nn
 
 
 class TorchattacksAssessor(
-    EmpiricalAttackAssessor, registry_name="torchattacks", extra="torchattacks"
+    EmpiricalAttackAssessor,
+    registry_name="torchattacks",
+    extra="torchattacks",
+    library="torchattacks",
 ):
     """Single wrapper for ALL torchattacks methods.
 
@@ -102,10 +101,6 @@ class TorchattacksAssessor(
         ),
     }
 
-    # Curated patterns for confusing torchattacks errors. Seed empty; extend as
-    # we observe confusing errors in practice. See :func:`raitap.utils.errors.rethrow`.
-    error_messages: ClassVar[Mapping[re.Pattern[str], str]] = {}
-
     def __init__(self, algorithm: str, **init_kwargs: Any) -> None:
         self.algorithm = algorithm
         self.init_kwargs = dict(init_kwargs)
@@ -132,13 +127,7 @@ class TorchattacksAssessor(
         backend: object | None = None,
         **kwargs: Any,
     ) -> torch.Tensor:
-        try:
-            import torchattacks  # pyright: ignore[reportMissingImports]
-        except ImportError as error:
-            raise ImportError(
-                "TorchattacksAssessor requires the optional dependency 'torchattacks'. "
-                "Install it with `uv sync --extra torchattacks` (or `--extra robustness`)."
-            ) from error
+        torchattacks = self._lazy_import()
 
         try:
             attack_class = getattr(torchattacks, self.algorithm)
@@ -165,11 +154,7 @@ class TorchattacksAssessor(
             targets, model=model, backend=backend
         ).contiguous()
 
-        with rethrow(
-            module=Module.robustness,
-            third_party_lib="torchattacks",
-            message_map=type(self).error_messages,
-        ):
+        with self._rethrow():
             if target_kwargs is not None:
                 adversarial = attack(
                     inputs_dev,

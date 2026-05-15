@@ -47,12 +47,6 @@ from .semantics import (
     hints_for_assessor,
 )
 
-# Third-party robustness libraries this module wraps. Consumed by
-# :mod:`raitap.utils.diagnostics` to attribute warnings/errors emitted from
-# inside these packages to a "via <lib>" chip and the frameworks-and-libraries
-# docs page. **When adding a new wrapped library, append its import name here.**
-THIRD_PARTY_LIBS: frozenset[str] = frozenset({"foolbox", "torchattacks"})
-
 
 class _UnavailableOptionalDependency:
     def __init__(self, public_name: str, dependency: str) -> None:
@@ -131,7 +125,6 @@ def __getattr__(name: str) -> object:
 
 
 __all__ = [  # noqa: RUF022
-    "THIRD_PARTY_LIBS",
     # Assessor classes
     "BaseAssessor",
     "EmpiricalAttackAssessor",

@@ -23,9 +23,14 @@ import importlib
 import inspect
 import pkgutil
 import re
-from typing import Any
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any
 
 from hydra_zen import ZenStore, builds
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator, Mapping
+    from types import ModuleType
 
 # Our own ``overwrite_ok=True`` store so re-importing a module — or pytest
 # collecting the same class twice via slightly different paths — doesn't
@@ -36,6 +41,9 @@ store = ZenStore(overwrite_ok=True)
 _BUILDERS: dict[str, dict[str, type]] = {}
 # adapter class name -> uv extra (consumed by raitap.deps.inference)
 ADAPTER_EXTRAS: dict[str, str] = {}
+# group -> set of wrapped third-party library names; used by
+# :mod:`raitap.utils.diagnostics` to mark a "via <lib>" chip on log messages.
+THIRD_PARTY_LIBS: dict[str, set[str]] = {}
 
 _CAMEL_TO_KEBAB = re.compile(r"(?<!^)(?=[A-Z])")
 
@@ -92,6 +100,11 @@ class AdapterMixin:
     _ADAPTER_PACKAGE_STYLE: str = "nested"
     registry_name: str | None = None
     extra: str | None = None
+    # Wrapped third-party library (pip name). Drives ``self._lazy_import()``,
+    # ``self._rethrow()``, and module-level :data:`THIRD_PARTY_LIBS`.
+    library: str | None = None
+    # Regex → friendly-message map applied automatically by ``self._rethrow()``.
+    error_patterns: Mapping[re.Pattern[str], str] | None = None
 
     def __init_subclass__(
         cls,
@@ -103,6 +116,9 @@ class AdapterMixin:
         strip_suffixes: tuple[str, ...] | None = None,
         registry_name: str | None = None,
         extra: str | None = None,
+        library: str | None = None,
+        error_patterns: Mapping[re.Pattern[str], str] | None = None,
+        suppress_warnings: tuple[tuple[str, type[Warning], str | None], ...] | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init_subclass__(**kwargs)
@@ -120,6 +136,19 @@ class AdapterMixin:
             cls.registry_name = registry_name
         if extra is not None:
             cls.extra = extra
+        if library is not None:
+            cls.library = library
+        if error_patterns is not None:
+            cls.error_patterns = error_patterns
+
+        # Silence noisy library warnings once at class load. Declared via
+        # ``suppress_warnings=`` so each adapter file no longer needs a
+        # module-level ``raitap_log.suppress(...)`` block.
+        if suppress_warnings:
+            from raitap.utils.log import raitap_log
+
+            for pattern, category, module in suppress_warnings:
+                raitap_log.suppress(message=pattern, category=category, module=module)
 
         if abstract or inspect.isabstract(cls):
             # ABCs and intermediates with unimplemented ``@abstractmethod``s
@@ -158,6 +187,54 @@ class AdapterMixin:
 
         if cls.extra:
             ADAPTER_EXTRAS[cls.__name__] = cls.extra
+        if cls.library and cls._ADAPTER_GROUP:
+            THIRD_PARTY_LIBS.setdefault(cls._ADAPTER_GROUP, set()).add(cls.library)
+
+    # ------------------------------------------------------------------
+    # Instance helpers — concrete adapters use these instead of hand-rolling
+    # the ``Module()`` / ``rethrow(module=..., third_party_lib=..., ...)``
+    # boilerplate at every call site.
+    # ------------------------------------------------------------------
+
+    def _lazy_import(self, submodule: str | None = None) -> ModuleType:
+        """Import the wrapped third-party library lazily.
+
+        Raises a clear, install-hint-bearing :class:`ImportError` when the
+        library isn't available, instead of the bare ``ModuleNotFoundError``
+        users would otherwise see deep in the pipeline. Pass ``submodule`` to
+        load a specific subpackage (e.g. ``"attr"`` for ``captum.attr``).
+        """
+        cls = type(self)
+        if not cls.library:
+            raise RuntimeError(f"{cls.__name__} has no ``library`` declared")
+        target = f"{cls.library}.{submodule}" if submodule else cls.library
+        try:
+            return importlib.import_module(target)
+        except ModuleNotFoundError as exc:
+            install_hint = f" (install with `uv sync --extra {cls.extra}`)" if cls.extra else ""
+            raise ImportError(
+                f"{cls.__name__} requires the {cls.library!r} package{install_hint}."
+            ) from exc
+
+    @contextmanager
+    def _rethrow(self, *, base_exc: type[BaseException] = Exception) -> Iterator[None]:
+        """Wrap a third-party call so curated error patterns get rewritten.
+
+        Equivalent to ``rethrow(module=Module(<group>), third_party_lib=<library>,
+        message_map=<error_patterns>)`` but pulls all three from the adapter's
+        own class declaration.
+        """
+        from raitap.utils.diagnostics import Module
+        from raitap.utils.errors import rethrow
+
+        cls = type(self)
+        with rethrow(
+            module=Module(cls._ADAPTER_GROUP) if cls._ADAPTER_GROUP else Module.utils,
+            third_party_lib=cls.library,
+            message_map=cls.error_patterns or {},
+            base_exc=base_exc,
+        ):
+            yield
 
 
 def _build_schema_adapter(cls: type, schema: type) -> type:

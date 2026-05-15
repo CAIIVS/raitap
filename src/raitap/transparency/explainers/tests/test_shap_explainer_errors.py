@@ -20,7 +20,7 @@ def test_error_messages_contains_silu_entry() -> None:
     )
     hits = [
         replacement
-        for pattern, replacement in ShapExplainer.error_messages.items()
+        for pattern, replacement in ShapExplainer.error_patterns.items()
         if pattern.search(original)
     ]
     assert hits, "Expected the SiLU/DeepExplainer pattern to match the issue's example error."
@@ -28,7 +28,7 @@ def test_error_messages_contains_silu_entry() -> None:
 
 
 def test_silu_runtime_error_is_rewrapped() -> None:
-    """End-to-end: rethrow context using ShapExplainer.error_messages rewraps the
+    """End-to-end: rethrow context using ShapExplainer.error_patterns rewraps the
     canonical SiLU :class:`RuntimeError` into an :class:`AdapterError`.
 
     Exercising the dict via :func:`rethrow` directly avoids needing the optional
@@ -39,7 +39,7 @@ def test_silu_runtime_error_is_rewrapped() -> None:
         rethrow(
             module=Module.transparency,
             third_party_lib="shap",
-            message_map=ShapExplainer.error_messages,
+            message_map=ShapExplainer.error_patterns,
         ),
     ):
         raise RuntimeError(

@@ -26,9 +26,6 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 import torch
 
-from raitap.utils.diagnostics import Module
-from raitap.utils.errors import rethrow
-
 from ..contracts import (
     MethodKind,
     Objective,
@@ -69,7 +66,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class MarabouAssessor(FormalVerificationAssessor, registry_name="marabou", extra="marabou"):
+class MarabouAssessor(
+    FormalVerificationAssessor,
+    registry_name="marabou",
+    extra="marabou",
+    library="maraboupy",
+    error_patterns=_MARABOUPY_ERROR_MESSAGES,
+):
     """Marabou-backed L∞ formal-verification adapter.
 
     Only ``algorithm="linf-box"`` is supported in v1: per-input box bounds
@@ -241,11 +244,7 @@ class MarabouAssessor(FormalVerificationAssessor, registry_name="marabou", extra
         flat_sample = sample.detach().cpu().to(torch.float32).numpy().reshape(-1)
         sample_shape = tuple(int(d) for d in sample.shape)
 
-        with rethrow(
-            module=Module.robustness,
-            third_party_lib="maraboupy",
-            message_map=_MARABOUPY_ERROR_MESSAGES,
-        ):
+        with self._rethrow():
             network = Marabou.read_onnx(str(onnx_path))
             input_vars = np.asarray(network.inputVars[0]).reshape(-1)
             output_vars = np.asarray(network.outputVars[0]).reshape(-1)

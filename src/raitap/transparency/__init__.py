@@ -52,12 +52,6 @@ from .semantics import (
     method_families_for_explainer,
 )
 
-# Third-party explainer libraries this module wraps. Consumed by
-# :mod:`raitap.utils.diagnostics` to attribute warnings/errors emitted from
-# inside these packages to a "via <lib>" chip and the frameworks-and-libraries
-# docs page. **When adding a new wrapped library, append its import name here.**
-THIRD_PARTY_LIBS: frozenset[str] = frozenset({"captum", "shap"})
-
 
 class _UnavailableOptionalDependency:
     def __init__(self, public_name: str, dependency: str) -> None:
@@ -149,7 +143,6 @@ def __getattr__(name: str) -> object:
 
 
 __all__ = [  # noqa: RUF022
-    "THIRD_PARTY_LIBS",
     # Explainer adapters
     "CaptumExplainer",
     "BaseExplainer",

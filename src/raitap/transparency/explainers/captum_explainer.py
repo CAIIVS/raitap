@@ -4,34 +4,30 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
-from raitap import raitap_log
 from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
 from raitap.transparency.contracts import ExplanationPayloadKind, MethodFamily
 from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
-from raitap.utils.diagnostics import Module
-from raitap.utils.errors import rethrow
 
 from .base_explainer import AttributionOnlyExplainer
 
-# Captum emits this on every run when inputs don't already require gradients.
-# It auto-fixes the issue, so the warning is pure noise — silence it at import.
-# Scope ``module=`` to captum so unrelated UserWarnings whose messages happen
-# to match the same pattern aren't accidentally hidden.
-raitap_log.suppress(
-    message=r"Input Tensor.*required_grads",
-    category=UserWarning,
-    module=r"captum.*",
-)
-
 if TYPE_CHECKING:
-    import re
     from collections.abc import Mapping
 
     import torch
     import torch.nn as nn
 
 
-class CaptumExplainer(AttributionOnlyExplainer, registry_name="captum", extra="captum"):
+class CaptumExplainer(
+    AttributionOnlyExplainer,
+    registry_name="captum",
+    extra="captum",
+    library="captum",
+    # Captum emits the ``required_grads`` UserWarning on every run when inputs
+    # don't already require gradients; it auto-fixes the issue so the warning
+    # is pure noise. Scope ``module=`` to captum so unrelated UserWarnings
+    # with matching messages aren't accidentally hidden.
+    suppress_warnings=((r"Input Tensor.*required_grads", UserWarning, r"captum.*"),),
+):
     """
     Single wrapper for ALL Captum attribution methods.
 
@@ -69,10 +65,6 @@ class CaptumExplainer(AttributionOnlyExplainer, registry_name="captum", extra="c
             "Lime",
         }
     )
-
-    # Curated patterns for confusing Captum errors. Seed empty; extend as we
-    # observe confusing errors in practice. See :func:`raitap.utils.errors.rethrow`.
-    error_messages: ClassVar[Mapping[re.Pattern[str], str]] = {}
 
     def __init__(self, algorithm: str, **init_kwargs):
         """
@@ -125,17 +117,11 @@ class CaptumExplainer(AttributionOnlyExplainer, registry_name="captum", extra="c
             Attribution tensor matching input shape
         """
         del backend
-        try:
-            import captum.attr
-        except ImportError as e:
-            raise ImportError(
-                "Captum explainer is enabled but captum is not installed. "
-                "Install it with `uv sync --extra captum`."
-            ) from e
+        captum_attr = self._lazy_import("attr")
 
         # Dynamically get the method class
         try:
-            method_class = getattr(captum.attr, self.algorithm)
+            method_class = getattr(captum_attr, self.algorithm)
         except AttributeError:
             raise ValueError(
                 f"'{self.algorithm}' is not a valid captum.attr method.\n"
@@ -152,11 +138,7 @@ class CaptumExplainer(AttributionOnlyExplainer, registry_name="captum", extra="c
         if self.algorithm == "Occlusion":
             attr_kwargs = _normalise_occlusion_kwargs(attr_kwargs)
 
-        with rethrow(
-            module=Module.transparency,
-            third_party_lib="captum",
-            message_map=type(self).error_messages,
-        ):
+        with self._rethrow():
             # Instantiate method with model and constructor args
             method = method_class(model, **init_kwargs)
 

@@ -11,20 +11,35 @@ Concrete class declares its identity inline:
 ```python
 class SuperXAIExplainer(
     AttributionOnlyExplainer,
-    registry_name="superxai",   # CLI: `+transparency=superxai` / Python: `from raitap.transparency import superxai`
-    extra="superxai",            # uv extra mapped by raitap-deps
+    registry_name="superxai",        # CLI `+transparency=superxai` / Python `from raitap.transparency import superxai`
+    extra="superxai",                 # uv extra mapped by raitap-deps
+    library="superxai",               # pip package the adapter wraps
+    error_patterns={                  # optional regex → friendly-message rewrite
+        re.compile(r"some library footgun"): "Do X instead.",
+    },
+    suppress_warnings=(               # optional library-noise filters applied at import
+        (r"some noisy.*pattern", UserWarning, r"superxai.*"),
+    ),
 ):
     algorithm_registry = {"supertreeshap": frozenset({MethodFamily.SHAPLEY})}
+
     def __init__(self, algorithm: str, **init_kwargs): ...
-    def _compute(self, model, inputs, **call_kwargs): ...
+
+    def _compute(self, model, inputs, **call_kwargs):
+        superxai = self._lazy_import()       # no try/except boilerplate
+        with self._rethrow():                # no rethrow(module=..., third_party_lib=..., ...) boilerplate
+            return getattr(superxai, self.algorithm)(model, **self.init_kwargs).attribute(inputs, **call_kwargs)
 ```
 
-That triggers `__init_subclass__` once at module-load time:
+`AdapterMixin.__init_subclass__` does everything else at module-load time:
 
 1. Generates a hydra-zen builder typed against the family schema (`TransparencyConfig`).
 2. Registers it in Hydra's `ConfigStore` under `(group="transparency", name="superxai")`.
-3. Adds it to `_BUILDERS["transparency"]["superxai"]` so `from raitap.transparency import superxai` resolves.
-4. Adds `("SuperXAIExplainer", "superxai")` to `ADAPTER_EXTRAS` so `raitap-deps` knows the optional dep.
+3. Exposes it under `raitap.transparency.superxai` (lazy `__getattr__`).
+4. Adds `("SuperXAIExplainer", "superxai")` to `ADAPTER_EXTRAS` for `raitap-deps`.
+5. Adds `"superxai"` to `THIRD_PARTY_LIBS["transparency"]` so diagnostics attribute warnings/errors to it.
+6. Applies any `suppress_warnings` filters once.
+7. Wires `self._lazy_import()` (clean ImportError with install hint) and `self._rethrow()` (uses your `error_patterns`).
 
 ## Where each piece lives
 
@@ -33,6 +48,9 @@ That triggers `__init_subclass__` once at module-load time:
 | Family group + schema (declared once) | The abstract base — e.g. `AttributionOnlyExplainer` declares `group="transparency"`, `schema=TransparencyConfig`. Concrete adapters inherit. |
 | `registry_name` (default = snake-cased class name minus the family suffix) | Concrete class via `registry_name="..."`. |
 | `extra` (optional dep) | Concrete class via `extra="..."`. |
+| `library` (pip package name, wraps the third-party lib) | Concrete class via `library="..."`. |
+| `error_patterns` (regex → friendlier message) | Concrete class via `error_patterns={re.compile(...): "..."}`. |
+| `suppress_warnings` (library-noise filters) | Concrete class via `suppress_warnings=(("pattern", Category, "module_regex"),)`. |
 | Optional Python package extras | `pyproject.toml` `[project.optional-dependencies] superxai = ["superxai-lib"]`. |
 
 ## Adapter families and where to look
