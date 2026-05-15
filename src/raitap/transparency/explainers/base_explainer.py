@@ -69,7 +69,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC, abstract=True):
         *,
         backend: object | None = None,
         run_dir: str | Path | None = None,
-        output_root: str | Path = ".",
+        output_root: str | Path | None = None,
         experiment_name: str | None = None,
         explainer_target: str | None = None,
         explainer_name: str | None = None,
