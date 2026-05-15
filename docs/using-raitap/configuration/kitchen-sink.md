@@ -115,12 +115,10 @@ from raitap.api import (
     ModelConfig,
     ReportingConfig,
     TrackingConfig,
-    captum,
-    classification_metrics,
-    foolbox,
-    shap,
-    torchattacks,
 )
+from raitap.metrics import classification as classification_metrics
+from raitap.robustness import foolbox, perturbation_heatmap, torchattacks
+from raitap.transparency import captum, shap
 
 config = AppConfig(
     hardware="gpu",
@@ -194,7 +192,7 @@ config = AppConfig(
             algorithm="LinfPGD",
             constructor={"rel_stepsize": 0.025, "steps": 40},
             call={"eps": 0.03},
-            visualisers=[{"_target_": "PerturbationHeatmapVisualiser"}],
+            visualisers=[perturbation_heatmap()],
         ),
     },
     metrics=classification_metrics(

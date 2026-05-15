@@ -28,6 +28,8 @@ from raitap.configs.schema import (
     RobustnessConfig,
     TransparencyConfig,
 )
+from raitap.robustness import image_pair
+from raitap.transparency import captum_image
 
 cfg = AppConfig(
     hardware="cpu",
@@ -49,7 +51,7 @@ cfg = AppConfig(
             _target_="CaptumExplainer",
             algorithm="IntegratedGradients",
             call={"target": 0},
-            visualisers=[{"_target_": "CaptumImageVisualiser"}],
+            visualisers=[captum_image()],
         )
     },
     robustness={
@@ -57,7 +59,7 @@ cfg = AppConfig(
             _target_="TorchattacksAssessor",
             algorithm="PGD",
             constructor={"eps": 0.03, "alpha": 0.005, "steps": 10},
-            visualisers=[{"_target_": "ImagePairVisualiser"}],
+            visualisers=[image_pair()],
         )
     },
 )
@@ -271,6 +273,7 @@ robustness:
 
 :python:
 from raitap.configs.schema import RobustnessConfig
+from raitap.robustness import perturbation_heatmap
 
 robustness = {
     "pgd": RobustnessConfig(
@@ -286,7 +289,7 @@ robustness = {
         algorithm="LinfPGD",
         constructor={"rel_stepsize": 0.025, "steps": 40},
         call={"eps": 0.03},
-        visualisers=[{"_target_": "PerturbationHeatmapVisualiser"}],
+        visualisers=[perturbation_heatmap()],
     ),
 }
 ```
@@ -365,7 +368,7 @@ The four patterns below cover every shape you'll meet when porting a YAML config
 | `_target_: CaptumExplainer` | `{"_target_": "CaptumExplainer", ...}` or `TransparencyConfig(_target_="CaptumExplainer", ...)` | `captum(algorithm="IntegratedGradients", ...)` (the `_target_` is baked in) |
 | `defaults: [raitap_schema, _self_]` | Not needed — `AppConfig` already *is* the schema. The defaults entry is a Hydra-only construct. | Same — builders return dataclass types bound to the right `_target_`. |
 | Group/name selection (`transparency: captum`) | Set the key on the dict yourself: `transparency={"default": TransparencyConfig(...)}`. The key is the run name. | `transparency={"default": captum(algorithm=...)}` works identically. |
-| List of visualisers | List of dicts: `visualisers=[{"_target_": "...", "constructor": {...}}]`. | No builder yet; use the dict shape inside any builder kwargs. |
+| List of visualisers | List of dicts: `visualisers=[{"_target_": "...", "constructor": {...}}]`. Required for visualisers with separate `constructor:` / `call:` blocks. | Builder per visualiser, e.g. `from raitap.transparency import captum_image` / `from raitap.robustness import image_pair`; call as `visualisers=[captum_image(max_samples=4)]`. Builders only expose the `__init__` kwargs (constructor) — fall back to the dict shape when you need a `call:` block. |
 | `MISSING` defaults | Fields default to `omegaconf.MISSING` so omitting `_target_` / `algorithm` raises at validation time. Provide both explicitly. | Builder kwargs are required-or-optional based on the wrapped constructor signature; let your editor surface the missing ones. |
 | CLI overrides (`+foo.bar=baz`) | Mutate the dataclass: `cfg.transparency["default"].call["target"] = 1`. | Same — builders produce dataclasses, so attribute assignment works. |
 

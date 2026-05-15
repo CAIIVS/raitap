@@ -124,7 +124,7 @@ robustness:
 :python:
 from raitap.api import AppConfig
 from raitap.metrics import classification
-from raitap.robustness import torchattacks
+from raitap.robustness import image_pair, torchattacks
 
 config = AppConfig(
     metrics=classification(task="multiclass"),
@@ -132,7 +132,7 @@ config = AppConfig(
         "pgd": torchattacks(
             algorithm="PGD",
             constructor={"eps": 0.03, "alpha": 0.005, "steps": 10},
-            visualisers=[{"_target_": "ImagePairVisualiser"}],
+            visualisers=[image_pair()],
         ),
     },
 )
@@ -211,7 +211,7 @@ data:
 :python:
 from raitap.api import AppConfig, DataConfig, ModelConfig
 from raitap.metrics import classification
-from raitap.transparency import shap
+from raitap.transparency import shap, shap_image
 
 config = AppConfig(
     experiment_name="my-exp",
@@ -222,7 +222,7 @@ config = AppConfig(
         "shap": shap(
             algorithm="GradientExplainer",
             call={"target": 0},
-            visualisers=[{"_target_": "ShapImageVisualiser"}],
+            visualisers=[shap_image()],
         ),
     },
     metrics=classification(task="multiclass"),
@@ -243,8 +243,6 @@ model:
 :python:
 from raitap.api import AppConfig, ModelConfig
 
-# Python users assemble AppConfig directly; the ``defaults`` / ``_self_``
-# ordering tools are Hydra-only and have no Python equivalent.
 config = AppConfig(model=ModelConfig(source="./my-custom-model.onnx"))
 ```
 

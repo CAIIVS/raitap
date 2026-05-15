@@ -120,22 +120,19 @@ robustness:
 :cli: +robustness=torchattacks robustness.torchattacks.algorithm=PGD robustness.torchattacks.constructor.eps=0.05
 
 :python:
-from raitap.robustness import foolbox, torchattacks
+from raitap.robustness import foolbox, image_pair, perturbation_heatmap, torchattacks
 
 robustness = {
     "pgd": torchattacks(
         algorithm="PGD",
         constructor={"eps": 0.03, "alpha": 0.0078, "steps": 10},
-        visualisers=[{"_target_": "ImagePairVisualiser"}],
+        visualisers=[image_pair()],
     ),
     "linf_pgd": foolbox(
         algorithm="LinfPGD",
         constructor={"rel_stepsize": 0.025, "steps": 40},
         call={"eps": 0.03},
-        visualisers=[
-            {"_target_": "ImagePairVisualiser"},
-            {"_target_": "PerturbationHeatmapVisualiser"},
-        ],
+        visualisers=[image_pair(), perturbation_heatmap()],
     ),
 }
 ```

@@ -141,7 +141,7 @@ transparency:
 :cli: transparency.captum_ig.algorithm=GradientShap
 
 :python:
-from raitap.transparency import captum, shap
+from raitap.transparency import captum, shap, shap_bar
 
 transparency = {
     "my_first_explainer": captum(
@@ -172,7 +172,7 @@ transparency = {
                 "feature_names": ["age", "income", "score"],
             },
         },
-        visualisers=[{"_target_": "ShapBarVisualiser"}],
+        visualisers=[shap_bar()],
     ),
 }
 ```
