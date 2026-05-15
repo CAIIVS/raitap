@@ -48,7 +48,7 @@ class WithAlgorithmRegistry(ABC, Generic[T]):
         # ``object.__init_subclass__`` rejects unknown kwargs, so fall back
         # to the plain call when ``super()`` ends up there.
         try:
-            super().__init_subclass__(abstract=abstract, **kwargs)
+            super().__init_subclass__(abstract=abstract, **kwargs)  # pyright: ignore[reportCallIssue]
         except TypeError:
             super().__init_subclass__(**kwargs)
         if abstract:
