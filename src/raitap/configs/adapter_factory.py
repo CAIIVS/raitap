@@ -336,25 +336,45 @@ def instantiate_visualisers(
 
     for visualiser_config in raw.get("visualisers", []):
         entry = _visualiser_entry_to_dict(visualiser_config)
-        visualiser_target = str(entry.get("_target_", ""))
-        _validate_visualiser_entry_keys(entry, target_hint=visualiser_target or "?")
+        raw_target = str(entry.get("_target_", ""))
 
-        constructor_plain = _subdict(
-            entry.get("constructor"),
-            label=f"visualiser constructor ({visualiser_target})",
-            schema=schema,
-        )
-        call_plain = _subdict(
-            entry.get("call"),
-            label=f"visualiser call ({visualiser_target})",
-            schema=schema,
-        )
-        resolved_target = resolve_target(visualiser_target, schema.visualiser_prefix)
-
-        instantiate_cfg: dict[str, Any] = {
-            **constructor_plain,
-            "_target_": resolved_target,
-        }
+        # Three shapes accepted:
+        #   1. Hydra-zen builder with ``zen_meta`` (call/raitap as metadata):
+        #      ``_target_`` is the zen-processing wrapper; the real class is
+        #      under ``_zen_target``. Let hydra-zen's ``instantiate`` handle
+        #      everything (target resolution, kwarg filtering, etc.).
+        #   2. YAML dict: ``{_target_, constructor: {...}, call: {...}}``.
+        #   3. Flat hydra-zen builder (no zen_meta): ``_target_`` is the real
+        #      class FQN, every other key is a constructor kwarg.
+        if raw_target == "hydra_zen.funcs.zen_processing":
+            visualiser_target = str(entry.get("_zen_target", ""))
+            call_plain = _subdict(
+                entry.get("call"),
+                label=f"visualiser call ({visualiser_target})",
+                schema=schema,
+            )
+            instantiate_cfg: dict[str, Any] = entry
+        else:
+            visualiser_target = raw_target
+            if "constructor" in entry or set(entry).issubset(_VISUALISER_ENTRY_KEYS):
+                _validate_visualiser_entry_keys(entry, target_hint=visualiser_target or "?")
+                constructor_source: Any = entry.get("constructor")
+            else:
+                constructor_source = {
+                    k: v for k, v in entry.items() if k not in {"_target_", "call", "raitap"}
+                }
+            constructor_plain = _subdict(
+                constructor_source,
+                label=f"visualiser constructor ({visualiser_target})",
+                schema=schema,
+            )
+            call_plain = _subdict(
+                entry.get("call"),
+                label=f"visualiser call ({visualiser_target})",
+                schema=schema,
+            )
+            resolved_target = resolve_target(visualiser_target, schema.visualiser_prefix)
+            instantiate_cfg = {**constructor_plain, "_target_": resolved_target}
 
         fn = instantiate_fn if instantiate_fn is not None else instantiate
         try:

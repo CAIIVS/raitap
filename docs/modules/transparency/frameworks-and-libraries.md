@@ -32,7 +32,7 @@ transparency:
           max_samples: 1
 
 :python:
-from raitap.transparency import shap
+from raitap.transparency import shap, shap_image
 
 transparency = {
     "my_first_explainer": shap(
@@ -43,12 +43,7 @@ transparency = {
             "background_data": {"source": "imagenet_samples"},
         },
         raitap={"batch_size": 1},
-        visualisers=[
-            {
-                "_target_": "ShapImageVisualiser",
-                "call": {"max_samples": 1},
-            },
-        ],
+        visualisers=[shap_image(call={"max_samples": 1})],
     ),
 }
 ```
@@ -309,22 +304,19 @@ transparency = {
         },
         raitap={"batch_size": 1},
         visualisers=[
-            # Minimal configuration — builder takes constructor kwargs directly.
+            # Minimal configuration.
             shap_image(max_samples=1),
-            # The ``call:`` block (e.g. ``show_sample_names``) isn't exposed by
-            # the builder, so use the dict shape when you need it.
-            {
-                "_target_": "ShapImageVisualiser",
-                "constructor": {
-                    "max_samples": 2,
-                    "title": "Tumour attribution",
-                    "include_original_image": True,
-                    "show_colorbar": True,
-                    "cmap": "coolwarm",
-                    "overlay_alpha": 0.65,
-                },
-                "call": {"show_sample_names": True},
-            },
+            # Full configuration — builder takes flat constructor kwargs
+            # directly; ``call=`` carries render-time options.
+            shap_image(
+                max_samples=2,
+                title="Tumour attribution",
+                include_original_image=True,
+                show_colorbar=True,
+                cmap="coolwarm",
+                overlay_alpha=0.65,
+                call={"show_sample_names": True},
+            ),
         ],
     ),
 }

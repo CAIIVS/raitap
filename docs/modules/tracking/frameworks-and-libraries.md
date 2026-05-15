@@ -32,10 +32,9 @@ tracking:
   open_when_done: false
 
 :python:
-from raitap.api import TrackingConfig
+from raitap.tracking import mlflow
 
-tracking = TrackingConfig(
-    _target_="MLFlowTracker",
+tracking = mlflow(
     output_forwarding_url="http://127.0.0.1:5001",
     log_model=True,
     open_when_done=False,

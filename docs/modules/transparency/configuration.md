@@ -141,19 +141,14 @@ transparency:
 :cli: transparency.captum_ig.algorithm=GradientShap
 
 :python:
-from raitap.transparency import captum, shap, shap_bar
+from raitap.transparency import captum, captum_image, shap, shap_bar
 
 transparency = {
     "my_first_explainer": captum(
         algorithm="IntegratedGradients",
         call={"target": 0},
         raitap={"input_metadata": {"kind": "image", "layout": "NCHW"}},
-        visualisers=[
-            {
-                "_target_": "CaptumImageVisualiser",
-                "call": {"max_samples": 1},
-            },
-        ],
+        visualisers=[captum_image(call={"max_samples": 1})],
     ),
     "my_second_explainer": shap(
         algorithm="KernelExplainer",

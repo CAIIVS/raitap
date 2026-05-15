@@ -173,9 +173,18 @@ class AdapterMixin:
                 _BUILDERS.setdefault(cls._ADAPTER_GROUP, {})[name] = builder
             else:
                 # Visualisers + anything without a top-level Hydra group. The
-                # signature-based builder gives users typed kwargs without
-                # needing a schema dataclass.
-                builder = builds(cls, populate_full_signature=True)
+                # signature-based builder gives users typed kwargs (constructor
+                # values) directly. ``zen_meta`` attaches ``call=`` / ``raitap=``
+                # as metadata fields not forwarded to ``__init__`` — the adapter
+                # factory peels them off and routes them to the render step.
+                # ``image_pair(max_samples=4, call={"show_sample_names": True})``
+                # becomes the canonical Python shape; no ``_target_`` strings
+                # needed at any usage site.
+                builder = builds(
+                    cls,
+                    populate_full_signature=True,
+                    zen_meta={"call": {}, "raitap": {}},
+                )
                 _BUILDERS.setdefault("_unscoped", {})[name] = builder
         except (ModuleNotFoundError, TypeError):
             # Test fixtures define classes inline (no importable path) which

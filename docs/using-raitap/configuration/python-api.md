@@ -20,16 +20,10 @@ The Python equivalent of `raitap --demo` is roughly twenty lines. Build an `AppC
 
 ```python
 from raitap import AppConfig, run
-from raitap.configs.schema import (
-    DataConfig,
-    LabelsConfig,
-    MetricsConfig,
-    ModelConfig,
-    RobustnessConfig,
-    TransparencyConfig,
-)
-from raitap.robustness import image_pair
-from raitap.transparency import captum_image
+from raitap.configs.schema import DataConfig, LabelsConfig, ModelConfig
+from raitap.metrics import classification
+from raitap.robustness import image_pair, torchattacks
+from raitap.transparency import captum, captum_image
 
 cfg = AppConfig(
     hardware="cpu",
@@ -45,22 +39,20 @@ cfg = AppConfig(
             column="label",
         ),
     ),
-    metrics=MetricsConfig(_target_="ClassificationMetrics", task="multiclass"),
+    metrics=classification(task="multiclass"),
     transparency={
-        "default": TransparencyConfig(
-            _target_="CaptumExplainer",
+        "captum_ig": captum(
             algorithm="IntegratedGradients",
             call={"target": 0},
             visualisers=[captum_image()],
-        )
+        ),
     },
     robustness={
-        "pgd": RobustnessConfig(
-            _target_="TorchattacksAssessor",
+        "pgd": torchattacks(
             algorithm="PGD",
             constructor={"eps": 0.03, "alpha": 0.005, "steps": 10},
             visualisers=[image_pair()],
-        )
+        ),
     },
 )
 
@@ -199,33 +191,27 @@ transparency:
           max_samples: 2
 
 :python:
-from raitap.configs.schema import TransparencyConfig
-from raitap.transparency import shap_image
+from raitap.transparency import captum, captum_image, shap, shap_image
 
 transparency = {
-    "captum_ig": TransparencyConfig(
-        _target_="CaptumExplainer",
+    "captum_ig": captum(
         algorithm="IntegratedGradients",
         call={
             "target": 0,
             "baselines": {"source": "./data/baselines", "n_samples": 8},
         },
         visualisers=[
-            {
-                "_target_": "CaptumImageVisualiser",
-                "constructor": {
-                    "method": "blended_heat_map",
-                    "sign": "all",
-                    "show_colorbar": True,
-                    "title": "Integrated gradients",
-                    "include_original_image": True,
-                },
-                "call": {"max_samples": 4, "show_sample_names": True},
-            }
+            captum_image(
+                method="blended_heat_map",
+                sign="all",
+                show_colorbar=True,
+                title="Integrated gradients",
+                include_original_image=True,
+                call={"max_samples": 4, "show_sample_names": True},
+            ),
         ],
     ),
-    "shap_gradient": TransparencyConfig(
-        _target_="ShapExplainer",
+    "shap_gradient": shap(
         algorithm="GradientExplainer",
         constructor={"local_smoothing": 0.0},
         call={
@@ -239,7 +225,7 @@ transparency = {
 }
 ```
 
-Visualisers expose a builder per class (`captum_image`, `shap_image`, `image_pair`, `perturbation_heatmap`, …) that accepts the `__init__` (constructor) kwargs directly. When a visualiser also needs a `call:` block — e.g. the Captum image visualiser above — fall back to the dict shape, since the builders don't surface `call=` separately.
+Visualisers expose a builder per class (`captum_image`, `shap_image`, `image_pair`, `perturbation_heatmap`, …). Flat constructor kwargs map to the wrapped `__init__`; pass `call={...}` for render-time options. No `_target_` strings needed.
 
 ### Robustness
 
@@ -271,20 +257,15 @@ robustness:
       - _target_: "PerturbationHeatmapVisualiser"
 
 :python:
-from raitap.configs.schema import RobustnessConfig
-from raitap.robustness import perturbation_heatmap
+from raitap.robustness import foolbox, image_pair, perturbation_heatmap, torchattacks
 
 robustness = {
-    "pgd": RobustnessConfig(
-        _target_="TorchattacksAssessor",
+    "pgd": torchattacks(
         algorithm="PGD",
         constructor={"eps": 0.03, "alpha": 0.0078, "steps": 10},
-        visualisers=[
-            {"_target_": "ImagePairVisualiser", "constructor": {"max_samples": 4}}
-        ],
+        visualisers=[image_pair(max_samples=4)],
     ),
-    "linf_pgd": RobustnessConfig(
-        _target_="FoolboxAssessor",
+    "linf_pgd": foolbox(
         algorithm="LinfPGD",
         constructor={"rel_stepsize": 0.025, "steps": 40},
         call={"eps": 0.03},
@@ -305,10 +286,9 @@ reporting:
   show_redundant_robustness_panels: false
 
 :python:
-from raitap.configs.schema import ReportingConfig
+from raitap.reporting import html
 
-reporting = ReportingConfig(
-    _target_="HTMLReporter",
+reporting = html(
     filename="report",
     multirun_report=True,
     show_original_per_explainer=False,
@@ -329,10 +309,9 @@ tracking:
   open_when_done: true
 
 :python:
-from raitap.configs.schema import TrackingConfig
+from raitap.tracking import mlflow
 
-tracking = TrackingConfig(
-    _target_="MLFlowTracker",
+tracking = mlflow(
     output_forwarding_url="http://127.0.0.1:5001",
     log_model=False,
     open_when_done=True,
@@ -367,7 +346,7 @@ The four patterns below cover every shape you'll meet when porting a YAML config
 | `_target_: CaptumExplainer` | `{"_target_": "CaptumExplainer", ...}` or `TransparencyConfig(_target_="CaptumExplainer", ...)` | `captum(algorithm="IntegratedGradients", ...)` (the `_target_` is baked in) |
 | `defaults: [raitap_schema, _self_]` | Not needed — `AppConfig` already *is* the schema. The defaults entry is a Hydra-only construct. | Same — builders return dataclass types bound to the right `_target_`. |
 | Group/name selection (`transparency: captum`) | Set the key on the dict yourself: `transparency={"default": TransparencyConfig(...)}`. The key is the run name. | `transparency={"default": captum(algorithm=...)}` works identically. |
-| List of visualisers | List of dicts: `visualisers=[{"_target_": "...", "constructor": {...}}]`. Required for visualisers with separate `constructor:` / `call:` blocks. | Builder per visualiser, e.g. `from raitap.transparency import captum_image` / `from raitap.robustness import image_pair`; call as `visualisers=[captum_image(max_samples=4)]`. Builders only expose the `__init__` kwargs (constructor) — fall back to the dict shape when you need a `call:` block. |
+| List of visualisers | Optional dict shape `visualisers=[{"_target_": "...", "constructor": {...}, "call": {...}}]`. | Builder per visualiser (`captum_image`, `image_pair`, …): flat constructor kwargs, optional `call={...}` for render-time options. `visualisers=[captum_image(max_samples=4, call={"show_sample_names": True})]`. |
 | `MISSING` defaults | Fields default to `omegaconf.MISSING` so omitting `_target_` / `algorithm` raises at validation time. Provide both explicitly. | Builder kwargs are required-or-optional based on the wrapped constructor signature; let your editor surface the missing ones. |
 | CLI overrides (`+foo.bar=baz`) | Mutate the dataclass: `cfg.transparency["default"].call["target"] = 1`. | Same — builders produce dataclasses, so attribute assignment works. |
 

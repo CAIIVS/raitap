@@ -108,17 +108,12 @@ reporting:
   show_redundant_robustness_panels: false
 
 :python:
-from raitap.api import (
-    AppConfig,
-    DataConfig,
-    LabelsConfig,
-    ModelConfig,
-    ReportingConfig,
-    TrackingConfig,
-)
+from raitap.api import AppConfig, DataConfig, LabelsConfig, ModelConfig
 from raitap.metrics import classification as classification_metrics
+from raitap.reporting import html as html_report
 from raitap.robustness import foolbox, image_pair, perturbation_heatmap, torchattacks
-from raitap.transparency import captum, shap, shap_image
+from raitap.tracking import mlflow
+from raitap.transparency import captum, captum_image, shap, shap_image
 
 config = AppConfig(
     hardware="gpu",
@@ -144,17 +139,14 @@ config = AppConfig(
                 "baselines": {"source": "./data/baselines", "n_samples": 8},
             },
             visualisers=[
-                {
-                    "_target_": "CaptumImageVisualiser",
-                    "constructor": {
-                        "method": "blended_heat_map",
-                        "sign": "all",
-                        "show_colorbar": True,
-                        "title": "Integrated gradients",
-                        "include_original_image": True,
-                    },
-                    "call": {"max_samples": 4, "show_sample_names": True},
-                },
+                captum_image(
+                    method="blended_heat_map",
+                    sign="all",
+                    show_colorbar=True,
+                    title="Integrated gradients",
+                    include_original_image=True,
+                    call={"max_samples": 4, "show_sample_names": True},
+                ),
             ],
         ),
         "shap_gradient": shap(
@@ -189,14 +181,12 @@ config = AppConfig(
         task="multiclass",
         num_classes=7,
     ),
-    tracking=TrackingConfig(
-        _target_="MLFlowTracker",
+    tracking=mlflow(
         output_forwarding_url="http://127.0.0.1:5001",
         log_model=False,
         open_when_done=True,
     ),
-    reporting=ReportingConfig(
-        _target_="HTMLReporter",
+    reporting=html_report(
         filename="report",
         multirun_report=True,
         show_original_per_explainer=False,
