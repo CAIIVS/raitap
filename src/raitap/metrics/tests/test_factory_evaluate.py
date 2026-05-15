@@ -14,6 +14,7 @@ from raitap.configs import set_output_root
 from raitap.configs.schema import AppConfig, MetricsConfig
 from raitap.metrics import MetricsEvaluation, evaluate, metrics_run_enabled
 from raitap.metrics.base_metric import BaseMetricComputer, MetricResult
+from raitap.types import Task
 
 
 def test_metrics_run_enabled_respects_empty_target(tmp_path: Path) -> None:
@@ -31,7 +32,7 @@ def _config(tmp_path: Path) -> AppConfig:
     set_output_root(cfg, tmp_path)
     cfg.metrics = MetricsConfig(
         _target_="ClassificationMetrics",
-        task="multiclass",
+        task=Task.multiclass,
         num_classes=3,
     )
     return cfg

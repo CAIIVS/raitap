@@ -34,13 +34,14 @@ class ClassificationMetrics(BaseMetricComputer):
     def __init__(
         self,
         *,
-        task: Task = "multiclass",
+        task: Task | str = Task.multiclass,
         num_classes: int | None = None,
         num_labels: int | None = None,
         average: Average = "macro",
         ignore_index: int | None = None,
         **kwargs: Any,
     ):
+        task = Task(task)
         if task not in ["binary", "multiclass", "multilabel"]:
             raise ValueError(f"Unknown task '{task}'. Use 'binary', 'multiclass' or 'multilabel'.")
 

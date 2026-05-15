@@ -25,7 +25,11 @@ class Hardware(StrEnum):
 
 
 class LabelEncoding(StrEnum):
-    index = "index"
+    # ``index`` shadows ``str.index`` — pyright (correctly) flags member assignments
+    # whose name matches an inherited str method. Runtime works fine because Enum
+    # member assignment goes through ``EnumMeta.__setattr__`` and binds the member
+    # object, not the method. Suppress just this line.
+    index = "index"  # type: ignore[assignment]
     one_hot = "one_hot"
     argmax = "argmax"
 

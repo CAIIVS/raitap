@@ -17,6 +17,7 @@ from raitap.configs.schema import (
     TransparencyConfig,
 )
 from raitap.pipeline import run
+from raitap.types import Task
 
 DEFAULT_TRACKING_URI = "http://127.0.0.1:5000"
 
@@ -103,7 +104,7 @@ def main() -> int:
         },
         metrics=MetricsConfig(
             _target_="ClassificationMetrics",
-            task="multiclass",
+            task=Task.multiclass,
             num_classes=1000,
         ),
         tracking=TrackingConfig(

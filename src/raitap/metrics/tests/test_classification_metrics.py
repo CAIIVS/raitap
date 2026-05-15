@@ -23,7 +23,7 @@ class TestClassificationMetricsInitialization:
     @pytest.mark.parametrize(
         ("task", "num_classes", "num_labels", "match"),
         [
-            ("invalid", 3, None, "Unknown task"),
+            ("invalid", 3, None, "not a valid Task"),
             ("multiclass", None, None, "must provide num_classes > 0"),
             ("multiclass", 0, None, "must provide num_classes > 0"),
             ("multilabel", None, None, "provide num_labels"),

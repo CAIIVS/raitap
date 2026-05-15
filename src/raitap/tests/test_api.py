@@ -37,6 +37,7 @@ from raitap.configs.schema import (
     TransparencyConfig,
 )
 from raitap.pipeline.outputs import RunOutputs
+from raitap.types import Hardware, Task
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig as AppConfigT
@@ -49,7 +50,7 @@ def _configs_dir() -> Path:
 def _demo_app_config() -> AppConfig:
     """Mirror of ``src/raitap/configs/demo.yaml`` as a Python ``AppConfig``."""
     return AppConfig(
-        hardware="cpu",
+        hardware=Hardware.cpu,
         experiment_name="demo",
         model=ModelConfig(source="vit_b_32"),
         data=DataConfig(
@@ -62,7 +63,7 @@ def _demo_app_config() -> AppConfig:
                 column="label",
             ),
         ),
-        metrics=MetricsConfig(_target_="ClassificationMetrics", task="multiclass"),
+        metrics=MetricsConfig(_target_="ClassificationMetrics", task=Task.multiclass),
         transparency={
             "default": TransparencyConfig(
                 _target_="CaptumExplainer",
