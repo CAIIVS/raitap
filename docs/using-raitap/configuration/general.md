@@ -92,7 +92,7 @@ Output has two sections:
 
 #### Override syntax: `key=value`, `+key=value`, `~key`
 
-For the following, we will assume your are overriding the following config:
+For the following, we will assume you are overriding the following config:
 
 ```{config-tabs}
 :yaml:

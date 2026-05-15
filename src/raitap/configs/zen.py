@@ -126,9 +126,11 @@ def register_zen_groups() -> None:
     # node has to be a plain dict (not a structured dataclass) so the global
     # merge does not run AppConfig's subclass check — matching the old YAML
     # behaviour, which produced a free-form DictConfig at composition time.
-    _callback_block: dict[str, Any] = {
-        "callbacks": {"reporting_sweep": {"_target_": _REPORTING_SWEEP_CALLBACK_TARGET}}
-    }
+    def _callback_block() -> dict[str, Any]:
+        # Fresh dict per store entry so downstream Hydra mutation of one
+        # group's callback config cannot leak into siblings.
+        return {"callbacks": {"reporting_sweep": {"_target_": _REPORTING_SWEEP_CALLBACK_TARGET}}}
+
     cs = ConfigStore.instance()
     cs.store(
         group="reporting",
@@ -136,7 +138,7 @@ def register_zen_groups() -> None:
         package="_global_",
         node={
             "reporting": {"_target_": _HTML_REPORTER_TARGET},
-            "hydra": _callback_block,
+            "hydra": _callback_block(),
         },
     )
     cs.store(
@@ -145,7 +147,7 @@ def register_zen_groups() -> None:
         package="_global_",
         node={
             "reporting": {"_target_": _PDF_REPORTER_TARGET},
-            "hydra": _callback_block,
+            "hydra": _callback_block(),
         },
     )
     # ``disabled`` mirrors the old ``_target_: null`` + ``multirun_report: false``.
@@ -156,7 +158,7 @@ def register_zen_groups() -> None:
     reporting_disabled_node = make_dataclass(
         "_ReportingDisabledNode",
         [
-            ("_target_", "str | None", field(default=None)),
+            ("_target_", str | None, field(default=None)),
             ("multirun_report", bool, field(default=False)),
         ],
         bases=(ReportingConfig,),

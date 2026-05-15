@@ -13,7 +13,7 @@ import dataclasses
 import io
 from contextlib import redirect_stdout
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 import pytest
 from hydra import compose, initialize_config_dir
@@ -38,9 +38,6 @@ from raitap.configs.schema import (
 )
 from raitap.pipeline.outputs import RunOutputs
 from raitap.types import Hardware, Task
-
-if TYPE_CHECKING:
-    from raitap.configs.schema import AppConfig as AppConfigT
 
 
 def _configs_dir() -> Path:
@@ -198,7 +195,7 @@ def test_run_parity_with_yaml_demo(_demo_run: RunOutputs) -> None:
     with initialize_config_dir(version_base="1.3", config_dir=str(_configs_dir())):
         yaml_cfg = compose(config_name="demo", overrides=["reporting._target_=null"])
 
-    yaml_outputs = run(cast("AppConfigT", yaml_cfg), verbose=False)
+    yaml_outputs = run(cast("AppConfig", yaml_cfg), verbose=False)
 
     assert len(_demo_run.explanations) == len(yaml_outputs.explanations)
     assert len(_demo_run.robustness_results) == len(yaml_outputs.robustness_results)

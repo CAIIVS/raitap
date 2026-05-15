@@ -36,10 +36,11 @@ def run(config: AppConfig, *, verbose: bool = True) -> RunOutputs:
     config:
         The fully-resolved application configuration.
     verbose:
-        When ``True`` (the default), print the run summary panel and emit
-        progress log lines. When ``False``, suppress the summary panel and the
-        orchestrator-level ``info`` log lines so programmatic callers (e.g.
-        :mod:`raitap.api`) can drive the pipeline silently.
+        When ``True`` (the default), print the run summary panel and the
+        "Generating report..." status line. When ``False``, suppress both —
+        leaving phase-level progress logs under standard ``logging``
+        control. ``logging`` itself is not reconfigured; programmatic callers
+        wanting full silence should raise the root log level.
     """
     # Defer warnings emitted during model + data construction so the
     # summary panel renders first; otherwise the rich handler interleaves
