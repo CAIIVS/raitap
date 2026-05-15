@@ -82,6 +82,16 @@ class CaptumExplainer(AttributionOnlyExplainer, ...):
 - **Abstract intermediates** (your own ABCs in the family) opt out with `abstract=True` on the class line. `inspect.isabstract(cls)` also auto-skips classes with unimplemented `@abstractmethod`s.
 - **`package_style`** distinguishes dict-typed schema fields (`transparency: dict[str, TransparencyConfig]`, package=`"<group>.<name>"`) from flat schema fields (`metrics: MetricsConfig`, package=`"<group>"`). Set on the abstract base; concrete adapters inherit.
 
+## When the mixin isn't enough
+
+A handful of Hydra shapes can't be expressed via `AdapterMixin` alone and live as direct `ConfigStore` writes in `src/raitap/configs/zen.py::register_zen_groups`:
+
+- **`# @package _global_` injections** — e.g. the `reporting=html` / `reporting=pdf` entries push both the `reporting` node **and** a `hydra.callbacks.reporting_sweep` block into the root config so multirun report aggregation auto-wires. The mixin always writes under `package="<group>"` or `"<group>.<name>"`; it can't reach `_global_`.
+- **`_target_: null` variants** — e.g. `reporting=disabled` carries `_target_: null` + `multirun_report: false`. The mixin always targets a concrete class.
+- **Anything that needs a custom hydra-zen `to_config=` or a non-dataclass node** — same escape hatch.
+
+If your new adapter only needs to set `_target_` + optional kwargs on its schema (the 95% case), don't touch `zen.py`. Use class kwargs, done. If you genuinely need one of the special shapes above, add a `cs.store(group=..., name=..., package=..., node=...)` block in `register_zen_groups` after the `store.add_to_hydra_store(...)` flush — that order lets your specialisation overwrite the mixin-generated entry.
+
 ## End-to-end checklist for a new adapter
 
 1. Implement the class in the right `raitap/<module>/<subdir>/` location.
