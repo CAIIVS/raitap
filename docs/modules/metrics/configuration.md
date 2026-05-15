@@ -96,4 +96,12 @@ metrics:
   ignore_index: null
 
 :cli: +metrics=detection +metrics.class_metrics=true +metrics.extended_summary=true
+
+:python:
+from raitap.api import classification_metrics
+
+metrics = classification_metrics(
+    task="multiclass",
+    num_classes=7,
+)
 ```

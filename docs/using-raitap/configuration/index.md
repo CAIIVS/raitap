@@ -2,6 +2,9 @@
 
 This section explains high level configuration principles for your use case.
 
+Prefer Python over YAML? See the [Python API](python-api.md) reference for the
+programmatic counterpart to the YAML + CLI workflow described below.
+
 ```{toctree}
 :maxdepth: 1
 :caption: Configuration pages
@@ -9,6 +12,7 @@ This section explains high level configuration principles for your use case.
 general
 kitchen-sink
 global-config-options
+python-api
 ```
 
 (module-specific-configurations)=

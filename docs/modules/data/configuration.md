@@ -110,6 +110,23 @@ data:
     id_strategy: "auto"
 
 :cli: data.source="./data/images" data.labels.source="./data/labels.csv" data.labels.column=label
+
+:python:
+from raitap.api import DataConfig, LabelsConfig
+
+data = DataConfig(
+    name="my-dataset",
+    description="Internal validation set",
+    source="./data/images",
+    forward_batch_size=32,
+    labels=LabelsConfig(
+        source="./data/labels.csv",
+        id_column="image",
+        column="label",
+        encoding="index",
+        id_strategy="auto",
+    ),
+)
 ```
 
 For tabular models whose backend expects an unusual per-sample layout (such

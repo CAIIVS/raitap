@@ -50,4 +50,13 @@ tracking:
   log_model: true
 
 :cli: +tracking=mlflow tracking.log_model=true
+
+:python:
+from raitap.api import TrackingConfig
+
+tracking = TrackingConfig(
+    _target_="MLFlowTracker",
+    output_forwarding_url="http://127.0.0.1:5001",
+    log_model=True,
+)
 ```

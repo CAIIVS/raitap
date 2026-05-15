@@ -3,7 +3,7 @@
   how the model behaves under input perturbations.
 
   Inside the `robustness` key, you can configure one or more named assessors.
-  See {ref}`modules-robustness-configuration-yaml-example` for the config shape.
+  See {ref}`modules-robustness-configuration-examples` for the config shape.
 
   See {doc}`frameworks-and-libraries` for the backend behaviour behind
   `_target_`, `algorithm`, and visualiser compatibility.
@@ -118,4 +118,24 @@ robustness:
       - _target_: "PerturbationHeatmapVisualiser"
 
 :cli: +robustness=torchattacks robustness.torchattacks.algorithm=PGD robustness.torchattacks.constructor.eps=0.05
+
+:python:
+from raitap.api import foolbox, torchattacks
+
+robustness = {
+    "pgd": torchattacks(
+        algorithm="PGD",
+        constructor={"eps": 0.03, "alpha": 0.0078, "steps": 10},
+        visualisers=[{"_target_": "ImagePairVisualiser"}],
+    ),
+    "linf_pgd": foolbox(
+        algorithm="LinfPGD",
+        constructor={"rel_stepsize": 0.025, "steps": 40},
+        call={"eps": 0.03},
+        visualisers=[
+            {"_target_": "ImagePairVisualiser"},
+            {"_target_": "PerturbationHeatmapVisualiser"},
+        ],
+    ),
+}
 ```

@@ -15,13 +15,26 @@ Supported inputs include:
 
 Example (flat directory):
 
-```yaml
+```{config-tabs}
+:yaml:
 data:
   source: "./data/images" # a directory of images
   labels:
     source: "./data/labels.csv"
     id_column: "image"
     column: "label"
+
+:python:
+from raitap.api import DataConfig, LabelsConfig
+
+data = DataConfig(
+    source="./data/images",  # a directory of images
+    labels=LabelsConfig(
+        source="./data/labels.csv",
+        id_column="image",
+        column="label",
+    ),
+)
 ```
 
 Example (nested ImageFolder layout — `data/test/<class>/<file>.jpg`):
@@ -33,7 +46,8 @@ data/test/
 └── PNEUMONIA/IM-0001.jpeg   # colliding stem with NORMAL/
 ```
 
-```yaml
+```{config-tabs}
+:yaml:
 data:
   source: "./data/test"
   labels:
@@ -41,6 +55,19 @@ data:
     id_column: "image"
     column: "label"
     # id_strategy: "auto"   # default — relative paths auto-detected
+
+:python:
+from raitap.api import DataConfig, LabelsConfig
+
+data = DataConfig(
+    source="./data/test",
+    labels=LabelsConfig(
+        source="./data/labels.csv",
+        id_column="image",
+        column="label",
+        # id_strategy="auto",  # default — relative paths auto-detected
+    ),
+)
 ```
 
 with `labels.csv` rows like:
@@ -76,9 +103,15 @@ Available sample names (registered in `src/raitap/data/samples.py`) are:
 
 Example:
 
-```yaml
+```{config-tabs}
+:yaml:
 data:
   source: "imagenet_samples"
+
+:python:
+from raitap.api import DataConfig
+
+data = DataConfig(source="imagenet_samples")
 ```
 
 Built-in samples are useful for quickly testing the pipeline without preparing

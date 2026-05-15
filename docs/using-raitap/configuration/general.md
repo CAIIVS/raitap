@@ -1,6 +1,6 @@
 # General configuration guide
 
-RAITAP is built on top of [Hydra](https://hydra.cc/), a powerful configuration framework for Python. It allows to configure all options via YAML files, and override them when running via the CLI.
+RAITAP has two entry points: YAML + CLI (this page, built on [Hydra](https://hydra.cc/)) and the [Python API](python-api.md). Both share the same `AppConfig` schema, so the snippets on this page are paired YAML/Python tabs you can copy from either side.
 
 These docs will explain just enough about Hydra to use RAITAP effectively. However, you might want to dive deeper into the [Hydra documentation](https://hydra.cc/docs/intro/).
 
@@ -10,12 +10,19 @@ These docs will explain just enough about Hydra to use RAITAP effectively. Howev
 
 Hydra parses YAML files to understand which options to apply to the pipeline. Your YAML must include the `raitap_schema` defaults entry. hence, it should always start with:
 
-```yaml
+```{config-tabs}
+:yaml:
 defaults:
   - raitap_schema # Do not omit this!
   - _self_
 
-// ...your options, see below
+# ...your options, see below
+
+:python:
+from raitap.api import AppConfig
+
+config = AppConfig()  # AppConfig IS the schema — no defaults list needed.
+# ...set your options on `config`, see below
 ```
 
 Then, you can add your own options. You may find useful to refer to:
@@ -85,9 +92,10 @@ Output has two sections:
 
 #### Override syntax: `key=value`, `+key=value`, `~key`
 
-For the following, we will assume your are overriding the following YAML config:
+For the following, we will assume your are overriding the following config:
 
-```yaml
+```{config-tabs}
+:yaml:
 defaults:
   - raitap_schema
   - _self_
@@ -104,6 +112,19 @@ robustness:
     visualisers:
       - _target_: ImagePairVisualiser
 
+:python:
+from raitap.api import AppConfig, classification_metrics, torchattacks
+
+config = AppConfig(
+    metrics=classification_metrics(task="multiclass"),
+    robustness={
+        "pgd": torchattacks(
+            algorithm="PGD",
+            constructor={"eps": 0.03, "alpha": 0.005, "steps": 10},
+            visualisers=[{"_target_": "ImagePairVisualiser"}],
+        ),
+    },
+)
 ```
 
 Hydra recognises three group-override prefixes on the command line:
@@ -145,7 +166,8 @@ This is useful to avoid repeating the same options in multiple files.
 
 The main mechanism for this is the `defaults` list.
 
-```yaml
+```{config-tabs}
+:yaml:
 # assessment.yaml
 defaults:
   - raitap_schema  # required, do not omit it, ever
@@ -174,17 +196,49 @@ model:
 
 data:
   source: ./my-dataset
+
+:python:
+from raitap.api import (
+    AppConfig,
+    DataConfig,
+    ModelConfig,
+    classification_metrics,
+    shap,
+)
+
+config = AppConfig(
+    experiment_name="my-exp",
+    hardware="cpu",
+    model=ModelConfig(source="resnet50"),
+    data=DataConfig(source="./my-dataset"),
+    transparency={
+        "shap": shap(
+            algorithm="GradientExplainer",
+            call={"target": 0},
+            visualisers=[{"_target_": "ShapImageVisualiser"}],
+        ),
+    },
+    metrics=classification_metrics(task="multiclass"),
+)
 ```
 
 Hydra composition is cascading top-down. Hence, you might want to control the
 order of composition. This can be achieved using the `_self_` keyword (note the single underscores).
 
-```yaml
+```{config-tabs}
+:yaml:
 defaults:
   - _self_
 
 model:
   source: "./my-custom-model.onnx"
+
+:python:
+from raitap.api import AppConfig, ModelConfig
+
+# Python users assemble AppConfig directly; the ``defaults`` / ``_self_``
+# ordering tools are Hydra-only and have no Python equivalent.
+config = AppConfig(model=ModelConfig(source="./my-custom-model.onnx"))
 ```
 
 In the above example, the final config will use the custom ONNX model, because `_self_` is applied last.

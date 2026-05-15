@@ -101,4 +101,16 @@ reporting:
   show_redundant_robustness_panels: false
 
 :cli: reporting=pdf reporting.filename="my_report" reporting.multirun_report=false reporting.show_original_per_explainer=true reporting.show_redundant_robustness_panels=true reporting.call.formatting.figures_max_pages=12
+
+:python:
+from raitap.api import ReportingConfig
+
+reporting = ReportingConfig(
+    _target_="HTMLReporter",
+    filename="experiment_report",
+    sample_selection=["ISIC_0024306.jpg", "ISIC_0024372.jpg", 4],
+    multirun_report=True,
+    show_original_per_explainer=False,
+    show_redundant_robustness_panels=False,
+)
 ```
