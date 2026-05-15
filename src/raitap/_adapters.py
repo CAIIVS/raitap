@@ -255,7 +255,15 @@ def _build_schema_adapter(cls: type, schema: type) -> type:
     if accepts_schema:
         return builds(cls, builds_bases=(schema,))
 
-    fqn = f"{cls.__module__}.{cls.__name__}"
+    # CI's ``pythonpath = ["src"]`` plus ``src/__init__.py`` makes ``src`` an
+    # importable package too, so the same class can carry ``__module__ ==
+    # "src.raitap.…"`` when discovered by pytest before any ``raitap.*`` import
+    # canonicalises it. Strip the prefix so ``instantiate()`` resolves the
+    # same module identity ``isinstance`` checks see.
+    module = cls.__module__
+    if module.startswith("src."):
+        module = module[len("src.") :]
+    fqn = f"{module}.{cls.__name__}"
     return dataclasses.make_dataclass(
         f"_{cls.__name__}Conf",
         [("_target_", str, dataclasses.field(default=fqn))],
