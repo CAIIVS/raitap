@@ -6,7 +6,7 @@ orphan: true
 
 RAITAP can be driven from Python directly, without YAML files or the CLI. The Python entry point shares the orchestrator, schema, and side-effects with `raitap --config-name ...`; only the *front door* differs.
 
-This page is the canonical translation reference between YAML configs and the Python API. Every snippet pair below uses the {rst:dir}`config-tabs` directive so you can flip the whole page between the two surfaces at once.
+This page is the canonical translation reference between YAML configs and the Python API. Every snippet pair below uses the `config-tabs` directive so you can flip the whole page between the two surfaces at once.
 
 ## When to use which
 
@@ -16,7 +16,7 @@ This page is the canonical translation reference between YAML configs and the Py
 
 ## Install + quickstart
 
-The Python equivalent of `raitap --demo` is roughly twenty lines. Build an {py:class}`~raitap.configs.schema.AppConfig`, pass it to {py:func}`raitap.run`, read the structured {py:class}`~raitap.pipeline.outputs.RunOutputs` back:
+The Python equivalent of `raitap --demo` is roughly twenty lines. Build an `AppConfig` (`raitap.configs.schema.AppConfig`), pass it to `raitap.run`, read the structured `RunOutputs` (`raitap.pipeline.outputs.RunOutputs`) back:
 
 ```python
 from raitap import AppConfig, run
@@ -373,7 +373,7 @@ The schema is a deliberate mix of strict and forwarded. Knowing which fields are
 
 **Fully typed**
 
-- `hardware: Hardware`, `data.labels.encoding: LabelEncoding`, `data.labels.id_strategy: IdStrategy`, `metrics.task: Task` — all four are {py:class}`enum.StrEnum` subclasses (see {py:mod}`raitap.types`). Pass either the enum member (`Hardware.cpu`) or its string value (`"cpu"`); OmegaConf validates the latter against the member name.
+- `hardware: Hardware`, `data.labels.encoding: LabelEncoding`, `data.labels.id_strategy: IdStrategy`, `metrics.task: Task` — all four are `enum.StrEnum` subclasses defined in `raitap.types`. Pass either the enum member (`Hardware.cpu`) or its string value (`"cpu"`); OmegaConf validates the latter against the member name.
 - The nested dataclass dicts on `AppConfig.transparency` and `AppConfig.robustness` — keys are arbitrary user-chosen strings, values must be `TransparencyConfig` / `RobustnessConfig` instances (or dicts with the right keys).
 - All scalar fields on `ModelConfig`, `DataConfig`, `LabelsConfig`, `MetricsConfig`, `TrackingConfig`, `ReportingConfig` are checked by OmegaConf's structured-config validation when the orchestrator boots.
 
@@ -386,7 +386,7 @@ The hydra-zen builders in `raitap.api` (`captum`, `shap`, `torchattacks`, `foolb
 
 ## RunOutputs shape
 
-{py:func}`raitap.run` returns a frozen {py:class}`~raitap.pipeline.outputs.RunOutputs` dataclass:
+`raitap.run` returns a frozen `RunOutputs` dataclass:
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -400,7 +400,7 @@ The hydra-zen builders in `raitap.api` (`captum`, `shap`, `torchattacks`, `foolb
 | `robustness_results` | `list[RobustnessResult]` | One per `(robustness_run, sample_batch)`; carries adversarial tensors and per-sample success flags. |
 | `robustness_visualisations` | `list[RobustnessVisualisationResult]` | Rendered robustness outputs (image pairs, heat maps). |
 
-When `reporting` is configured these fields flow through the {py:class}`~raitap.reporting.HTMLReporter` and end up on disk under the reporting output directory; when `tracking` is configured they are logged as MLflow artefacts. From Python you can read them straight out of the returned object without enabling either subsystem.
+When `reporting` is configured these fields flow through `HTMLReporter` and end up on disk under the reporting output directory; when `tracking` is configured they are logged as MLflow artefacts. From Python you can read them straight out of the returned object without enabling either subsystem.
 
 ## CLI ↔ Python parity
 
