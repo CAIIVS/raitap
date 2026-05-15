@@ -42,12 +42,19 @@ def register_zen_groups() -> None:
     _REGISTERED = True
 
     # Importing each subpackage runs its ``__init__.py``, which imports the
-    # leaf adapter modules → ``AdapterMixin.__init_subclass__`` fires.
-    import raitap.metrics
-    import raitap.reporting
-    import raitap.robustness
-    import raitap.tracking
-    import raitap.transparency  # noqa: F401
+    # leaf adapter modules → ``AdapterMixin.__init_subclass__`` fires. These
+    # are pure side-effect imports; we discard the module objects through
+    # ``importlib`` so both ruff and pyright stay quiet.
+    import importlib
+
+    for pkg in (
+        "raitap.metrics",
+        "raitap.reporting",
+        "raitap.robustness",
+        "raitap.tracking",
+        "raitap.transparency",
+    ):
+        importlib.import_module(pkg)
 
     # Flush the mixin-generated entries first; the special-cases below then
     # overwrite the reporting entries with the ``_global_`` + multirun shape.

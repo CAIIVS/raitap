@@ -19,6 +19,8 @@ Visualiser classes (``_target_`` values; live under ``raitap.robustness.visualis
 
 from __future__ import annotations
 
+from typing import Any
+
 from .contracts import (
     VERDICT_CODES,
     VERDICT_FROM_CODE,
@@ -117,7 +119,7 @@ except ModuleNotFoundError as error:
     PerturbationHeatmapVisualiser = _unavailable("PerturbationHeatmapVisualiser", "torch")
 
 
-def __getattr__(name: str) -> object:
+def __getattr__(name: str) -> Any:
     """Resolve hydra-zen builders (assessors + visualisers) by registry name."""
     from raitap._adapters import lookup
 

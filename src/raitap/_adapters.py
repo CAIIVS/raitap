@@ -45,8 +45,6 @@ ADAPTER_EXTRAS: dict[str, str] = {}
 # :mod:`raitap.utils.diagnostics` to mark a "via <lib>" chip on log messages.
 THIRD_PARTY_LIBS: dict[str, set[str]] = {}
 
-_CAMEL_TO_KEBAB = re.compile(r"(?<!^)(?=[A-Z])")
-
 
 def _to_snake(name: str) -> str:
     """``CaptumExplainer`` -> ``captum_explainer``, ``HTMLReporter`` -> ``html_reporter``."""
@@ -148,7 +146,7 @@ class AdapterMixin:
             from raitap.utils.log import raitap_log
 
             for pattern, category, module in suppress_warnings:
-                raitap_log.suppress(message=pattern, category=category, module=module)
+                raitap_log.suppress(message=pattern, category=category, module=module or "")
 
         if abstract or inspect.isabstract(cls):
             # ABCs and intermediates with unimplemented ``@abstractmethod``s
@@ -280,8 +278,14 @@ def discover(package_path: list[str], package_name: str) -> None:
         importlib.import_module(name)
 
 
-def lookup(group: str, name: str) -> type:
-    """Resolve a builder by (group, name). Used by module ``__getattr__``."""
+def lookup(group: str, name: str) -> Any:
+    """Resolve a builder by (group, name). Used by module ``__getattr__``.
+
+    Returns ``Any`` so callers can immediately invoke the result
+    (``captum(algorithm="...")``) without pyright complaining that ``type``
+    isn't callable in the user-facing sense — the builders are dataclass
+    constructors but pyright can't infer that through the dict lookup.
+    """
     try:
         return _BUILDERS[group][name]
     except KeyError:

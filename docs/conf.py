@@ -93,6 +93,9 @@ nitpick_ignore_regex = [
     ),
     (r"py:class", r"raitap\.tracking\.base_tracker\.Trackable"),
     (r"py:class", r"raitap\.reporting\.sections\.Reportable"),
+    # Private adapter-registration mixin; intentionally not in the public API
+    # reference but appears as an inherited base in autodoc class chains.
+    (r"py:class", r"raitap\._adapters\.AdapterMixin"),
     # WithAlgorithmRegistry[T] generic params + forward-string narrowings.
     (r"py:obj", r"raitap\.registry_base\.T"),
     (r"py:class", r"AssessorSemanticsHints"),

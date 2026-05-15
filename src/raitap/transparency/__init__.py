@@ -23,6 +23,8 @@ TabularBarChartVisualiser
 
 from __future__ import annotations
 
+from typing import Any
+
 from .contracts import (
     ExplainerAdapter,
     ExplainerCapability,
@@ -129,7 +131,7 @@ except ModuleNotFoundError as error:
     TabularBarChartVisualiser = _unavailable("TabularBarChartVisualiser", "torch")
 
 
-def __getattr__(name: str) -> object:
+def __getattr__(name: str) -> Any:
     """Resolve hydra-zen builders by their ``registry_name``.
 
     Lets users write ``from raitap.transparency import captum, captum_image``

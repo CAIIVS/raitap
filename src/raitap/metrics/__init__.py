@@ -24,6 +24,8 @@ DetectionMetrics
 
 from __future__ import annotations
 
+from typing import Any
+
 # Base protocol and result type
 from .base_metric import BaseMetricComputer, MetricResult, scalar_metrics_for_tracking
 
@@ -41,7 +43,7 @@ from .inputs import metrics_prediction_pair, resolve_metric_targets
 from .visualizers import MetricsVisualizer
 
 
-def __getattr__(name: str) -> object:
+def __getattr__(name: str) -> Any:
     """Resolve hydra-zen builders by registry name."""
     from raitap._adapters import lookup
 
