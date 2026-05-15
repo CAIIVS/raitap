@@ -36,6 +36,7 @@ from typing import Any, TypeVar, cast
 
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
+from omegaconf.errors import MissingMandatoryValue
 
 from raitap import raitap_log
 from raitap.configs.utils import cfg_to_dict, resolve_target
@@ -287,6 +288,16 @@ def instantiate_adapter(
     fn = instantiate_fn if instantiate_fn is not None else instantiate
     try:
         adapter = fn(instantiate_cfg)
+    except MissingMandatoryValue as error:
+        # Surface "you forgot to set <key>" as the headline message instead of
+        # burying it under the generic "Could not instantiate <FQN>" wording.
+        missing_key = getattr(error, "full_key", None) or "a required field"
+        raise ValueError(
+            f"Your {schema.entity} config is missing the required `{missing_key}` "
+            f"field for `{parsed.target_path}`. Set it in the YAML entry — e.g. "
+            f"`{missing_key}: <value>` — or pass it as a keyword argument when "
+            f"building the config in Python."
+        ) from error
     except Exception as error:
         raitap_log.exception(
             "%s instantiation failed for target %r",
