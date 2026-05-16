@@ -55,8 +55,28 @@ class BaseExplainer(AdapterMixin, ABC):
     ONNX_COMPATIBLE_ALGORITHMS: ClassVar[frozenset[str]] = frozenset()
 
     def check_backend_compat(self, backend: object) -> None:
-        del backend
-        return None
+        """Default: enforce the ONNX-allowlist contract.
+
+        Passes when the backend supports torch autograd, OR when the explainer's
+        selected algorithm is in ``ONNX_COMPATIBLE_ALGORITHMS`` (set by the
+        decorator's ``onnx_compatible_algorithms`` kwarg). Otherwise raises
+        :class:`ExplainerBackendIncompatibilityError`. Override only if your
+        explainer has a backend contract that doesn't fit this pattern.
+        """
+        from ..exceptions import ExplainerBackendIncompatibilityError
+
+        if getattr(backend, "supports_torch_autograd", False):
+            return
+        algorithm = getattr(self, "algorithm", "")
+        compatible: frozenset[str] = type(self).ONNX_COMPATIBLE_ALGORITHMS
+        if algorithm in compatible:
+            return
+        raise ExplainerBackendIncompatibilityError(
+            explainer=type(self).__name__,
+            backend=type(backend).__name__,
+            algorithm=str(algorithm),
+            compatible_algorithms=sorted(compatible),
+        )
 
 
 class AttributionOnlyExplainer(BaseExplainer, ABC):

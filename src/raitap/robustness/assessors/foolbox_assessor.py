@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 import torch
 
 from ..contracts import MethodKind, Objective, PerturbationNorm, ThreatModel
-from ..exceptions import AssessorBackendIncompatibilityError
 from ..semantics import AssessorSemanticsHints
 from .base_assessor import EmpiricalAttackAssessor, _prepare_inputs_for_forward
 from .registration import register_robustness_adapter
@@ -102,19 +101,6 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
         self.preprocessing = dict(preprocessing) if preprocessing else None
         self.init_kwargs = dict(init_kwargs)
         self._last_success: torch.Tensor | None = None
-
-    def check_backend_compat(self, backend: object) -> None:
-        if getattr(backend, "supports_torch_autograd", False):
-            return
-        raise AssessorBackendIncompatibilityError(
-            assessor=type(self).__name__,
-            backend=type(backend).__name__,
-            algorithm=self.algorithm,
-            reason=(
-                "foolbox PyTorchModel requires a torch autograd backend. "
-                "Use a torch backend (e.g. torch-cpu / torch-cuda / torch-intel) rather than ONNX."
-            ),
-        )
 
     def generate_adversarial(
         self,

@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
 from raitap.transparency.contracts import MethodFamily
-from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
 from raitap.transparency.explainers.registration import register_transparency_adapter
 
 from .base_explainer import AttributionOnlyExplainer
@@ -72,19 +70,6 @@ class CaptumExplainer(AttributionOnlyExplainer):
         super().__init__()
         self.algorithm = algorithm
         self.init_kwargs = init_kwargs
-
-    def check_backend_compat(self, backend: object) -> None:
-        if getattr(backend, "supports_torch_autograd", False):
-            return
-        ensure_algorithm_in_allowlist(
-            self.algorithm,
-            type(self).ONNX_COMPATIBLE_ALGORITHMS,
-            error_cls=ExplainerBackendIncompatibilityError,
-            explainer=type(self).__name__,
-            backend=type(backend).__name__,
-            algorithm=self.algorithm,
-            compatible_algorithms=sorted(type(self).ONNX_COMPATIBLE_ALGORITHMS),
-        )
 
     def compute_attributions(
         self,

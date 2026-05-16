@@ -12,9 +12,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypeVar, Unpack
 
-from raitap._adapters import FamilyConfig, _CommonRegKwargs, _register_core
+from raitap._adapters import (
+    ALL,
+    FamilyConfig,
+    _AllAlgorithmsSentinel,
+    _CommonRegKwargs,
+    _register_core,
+)
 from raitap.configs.schema import TransparencyConfig
-from raitap.transparency.contracts import ALL, ExplanationPayloadKind, _AllAlgorithmsSentinel
+from raitap.transparency.contracts import ExplanationPayloadKind
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -56,7 +62,7 @@ def register_transparency_adapter(
     def wrap(cls: type[T]) -> type[T]:
         cls.algorithm_registry = algorithm_registry  # type: ignore[misc]
         cls.output_payload_kind = output_payload_kind
-        cls.ONNX_COMPATIBLE_ALGORITHMS = (
+        cls.ONNX_COMPATIBLE_ALGORITHMS = (  # type: ignore[misc]
             frozenset(algorithm_registry.keys())
             if onnx_compatible_algorithms is ALL
             else onnx_compatible_algorithms

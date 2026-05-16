@@ -26,7 +26,7 @@ import inspect
 import pkgutil
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, Required, TypedDict, Unpack
+from typing import TYPE_CHECKING, Any, Final, Literal, Required, TypedDict, Unpack
 
 from hydra_zen import ZenStore, builds
 
@@ -63,6 +63,21 @@ class FamilyConfig:
     # ``dict[str, Config]`` so multiple named entries can coexist. ``"flat"`` →
     # package=``"<group>"``; the schema field is a single config, names compete.
     package_style: Literal["nested", "flat"]
+
+
+class _AllAlgorithmsSentinel:
+    """Singleton type for the :data:`ALL` marker — pass
+    ``onnx_compatible_algorithms=ALL`` to ``@register_transparency_adapter`` /
+    ``@register_robustness_adapter`` to mark every algorithm in the adapter's
+    ``algorithm_registry`` as ONNX-compatible without re-listing them."""
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return "raitap.ALL"
+
+
+ALL: Final[_AllAlgorithmsSentinel] = _AllAlgorithmsSentinel()
 
 
 class _CommonRegKwargs(TypedDict, total=False):

@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 import torch
 
 from ..contracts import MethodKind, Objective, PerturbationNorm, ThreatModel
-from ..exceptions import AssessorBackendIncompatibilityError
 from ..semantics import AssessorSemanticsHints
 from .base_assessor import EmpiricalAttackAssessor, _prepare_inputs_for_forward
 from .registration import register_robustness_adapter
@@ -102,19 +101,6 @@ class TorchattacksAssessor(EmpiricalAttackAssessor):
     def __init__(self, algorithm: str, **init_kwargs: Any) -> None:
         self.algorithm = algorithm
         self.init_kwargs = dict(init_kwargs)
-
-    def check_backend_compat(self, backend: object) -> None:
-        if getattr(backend, "supports_torch_autograd", False):
-            return
-        raise AssessorBackendIncompatibilityError(
-            assessor=type(self).__name__,
-            backend=type(backend).__name__,
-            algorithm=self.algorithm,
-            reason=(
-                "torchattacks white-box methods require a backend that supports torch autograd. "
-                "Use a torch backend (e.g. torch-cpu / torch-cuda / torch-intel) rather than ONNX."
-            ),
-        )
 
     def generate_adversarial(
         self,

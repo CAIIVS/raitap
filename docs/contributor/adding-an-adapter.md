@@ -61,13 +61,9 @@ class SuperXAIExplainer(AttributionOnlyExplainer):
         self.algorithm = algorithm
         self.init_kwargs = init_kwargs
 
-    def check_backend_compat(self, backend: object) -> None:
-        # Optional override — default accepts any backend. Inspect attrs like
-        # `backend.supports_torch_autograd` and raise an explainer/assessor
-        # incompatibility error if your algorithm needs something the backend
-        # can't provide. See `CaptumExplainer.check_backend_compat` for the
-        # ONNX-allowlist pattern.
-        return
+    # check_backend_compat: default implementation enforces ONNX_COMPATIBLE_ALGORITHMS.
+    # Override only if your adapter's backend contract doesn't fit "autograd OR onnx
+    # allowlist" — e.g. MarabouAssessor overrides for per-call setup.
 
     def compute_attributions(
         self,

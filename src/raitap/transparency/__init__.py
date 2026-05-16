@@ -25,8 +25,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from raitap._adapters import ALL as ALL
+
 from .contracts import (
-    ALL,
     ExplainerAdapter,
     ExplainerCapability,
     ExplanationOutputSpace,

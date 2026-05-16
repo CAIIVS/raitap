@@ -55,9 +55,10 @@ _VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
 class BaseAssessor(AdapterMixin, ABC):
     """Root base class for all robustness assessors.
 
-    Concrete subclasses must declare ``algorithm_registry: ClassVar[Mapping[str,
-    AssessorSemanticsHints]]``. Validation runs at decoration time via
-    ``ROBUSTNESS.has_algorithm_registry=True``.
+    Concrete subclasses must declare ``algorithm_registry`` as a class-body
+    ClassVar — pyright errors at the decoration site if missing (the
+    ``@register_robustness_adapter`` decorator's ``algorithm_registry`` kwarg
+    is ``Required``).
     """
 
     algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]
@@ -73,9 +74,43 @@ class BaseAssessor(AdapterMixin, ABC):
     #: metadata always matches what the adapter executed.
     budget_kwarg_source: ClassVar[str] = "init_kwargs"
 
+    #: Adapter-specific; defaults to "no ONNX support". The
+    #: ``@register_robustness_adapter`` decorator overrides per-adapter.
+    ONNX_COMPATIBLE_ALGORITHMS: ClassVar[frozenset[str]] = frozenset()
+
     def check_backend_compat(self, backend: object) -> None:
-        del backend
-        return None
+        """Default: enforce the ONNX-allowlist contract.
+
+        Passes when the backend supports torch autograd, OR when the assessor's
+        selected algorithm is in ``ONNX_COMPATIBLE_ALGORITHMS`` (set by the
+        decorator's ``onnx_compatible_algorithms`` kwarg). Otherwise raises
+        :class:`AssessorBackendIncompatibilityError`. Override only if your
+        assessor has a backend contract that doesn't fit this pattern (e.g.
+        :class:`raitap.robustness.assessors.MarabouAssessor` uses this hook
+        for per-call setup rather than backend validation).
+        """
+        if getattr(backend, "supports_torch_autograd", False):
+            return
+        algorithm = getattr(self, "algorithm", "")
+        compatible: frozenset[str] = type(self).ONNX_COMPATIBLE_ALGORITHMS
+        if algorithm in compatible:
+            return
+        reason = (
+            f"{type(self).__name__} requires a backend that supports torch "
+            "autograd. Use a torch backend (e.g. torch-cpu / torch-cuda / "
+            "torch-intel) rather than ONNX."
+            if not compatible
+            else (
+                f"{type(self).__name__} algorithm {algorithm!r} is not in the "
+                f"ONNX-compatible set {sorted(compatible)!r}."
+            )
+        )
+        raise AssessorBackendIncompatibilityError(
+            assessor=type(self).__name__,
+            backend=type(backend).__name__,
+            algorithm=str(algorithm),
+            reason=reason,
+        )
 
 
 def _resolve_per_sample_target(

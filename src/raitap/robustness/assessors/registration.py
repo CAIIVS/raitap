@@ -10,7 +10,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypeVar, Unpack
 
-from raitap._adapters import FamilyConfig, _CommonRegKwargs, _register_core
+from raitap._adapters import (
+    ALL,
+    FamilyConfig,
+    _AllAlgorithmsSentinel,
+    _CommonRegKwargs,
+    _register_core,
+)
 from raitap.configs.schema import RobustnessConfig
 
 if TYPE_CHECKING:
@@ -31,16 +37,29 @@ T = TypeVar("T", bound="BaseAssessor")
 def register_robustness_adapter(
     *,
     algorithm_registry: Mapping[str, AssessorSemanticsHints],
+    onnx_compatible_algorithms: frozenset[str] | _AllAlgorithmsSentinel = frozenset(),
     **common: Unpack[_CommonRegKwargs],
 ) -> Callable[[type[T]], type[T]]:
     """Decorator: register a robustness assessor.
 
-    Required: ``registry_name`` and ``algorithm_registry`` (algorithms being a
-    core RAITAP concept for both transparency and robustness adapters).
+    Required:
+        ``registry_name`` and ``algorithm_registry`` (algorithms being a core
+        RAITAP concept for both transparency and robustness adapters).
+
+    Optional:
+        ``onnx_compatible_algorithms`` defaults to "none" (most attack
+        libraries require torch autograd, not ONNX). Pass an explicit
+        ``frozenset({"name1", "name2"})`` or :data:`raitap.robustness.ALL`
+        to enable all algorithms on ONNX backends.
     """
 
     def wrap(cls: type[T]) -> type[T]:
         cls.algorithm_registry = algorithm_registry  # type: ignore[misc]
+        cls.ONNX_COMPATIBLE_ALGORITHMS = (  # type: ignore[misc]
+            frozenset(algorithm_registry.keys())
+            if onnx_compatible_algorithms is ALL
+            else onnx_compatible_algorithms
+        )
         return _register_core(cls, family=ROBUSTNESS, **common)
 
     return wrap
