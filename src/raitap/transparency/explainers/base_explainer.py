@@ -50,6 +50,9 @@ class BaseExplainer(AdapterMixin, ABC):
     output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
     output_scope: ClassVar[ExplanationScope] = ExplanationScope.LOCAL
     algorithm_registry: ClassVar[Mapping[str, frozenset[MethodFamily]]]
+    # Adapter-specific; defaults to "no ONNX support". The
+    # ``@register_transparency_adapter`` decorator overrides per-adapter.
+    ONNX_COMPATIBLE_ALGORITHMS: ClassVar[frozenset[str]] = frozenset()
 
     def check_backend_compat(self, backend: object) -> None:
         del backend

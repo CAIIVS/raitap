@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
-from raitap.transparency.contracts import ExplanationPayloadKind, MethodFamily
+from raitap.transparency.contracts import MethodFamily
 from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
 from raitap.transparency.explainers.registration import register_transparency_adapter
 
 from .base_explainer import AttributionOnlyExplainer
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     import torch
     import torch.nn as nn
 
@@ -27,17 +25,7 @@ if TYPE_CHECKING:
     # is pure noise. Scope ``module=`` to captum so unrelated UserWarnings
     # with matching messages aren't accidentally hidden.
     suppress_warnings=[(r"Input Tensor.*required_grads", UserWarning, r"captum.*")],
-)
-class CaptumExplainer(AttributionOnlyExplainer):
-    """
-    Single wrapper for ALL Captum attribution methods.
-
-    Uses dynamic method loading - no need for class-per-method.
-    """
-
-    output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
-
-    algorithm_registry: ClassVar[Mapping[str, frozenset[MethodFamily]]] = {
+    algorithm_registry={
         "IntegratedGradients": frozenset({MethodFamily.GRADIENT}),
         "Saliency": frozenset({MethodFamily.GRADIENT}),
         "FeatureAblation": frozenset({MethodFamily.PERTURBATION}),
@@ -53,9 +41,8 @@ class CaptumExplainer(AttributionOnlyExplainer):
         ),
         "LayerGradCam": frozenset({MethodFamily.GRADIENT, MethodFamily.CAM}),
         "GuidedGradCam": frozenset({MethodFamily.GRADIENT, MethodFamily.CAM}),
-    }
-
-    ONNX_COMPATIBLE_ALGORITHMS: ClassVar[frozenset[str]] = frozenset(
+    },
+    onnx_compatible_algorithms=frozenset(
         {
             "FeatureAblation",
             "FeaturePermutation",
@@ -65,7 +52,14 @@ class CaptumExplainer(AttributionOnlyExplainer):
             "KernelShap",
             "Lime",
         }
-    )
+    ),
+)
+class CaptumExplainer(AttributionOnlyExplainer):
+    """
+    Single wrapper for ALL Captum attribution methods.
+
+    Uses dynamic method loading - no need for class-per-method.
+    """
 
     def __init__(self, algorithm: str, **init_kwargs):
         """

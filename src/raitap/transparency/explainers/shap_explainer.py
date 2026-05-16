@@ -3,21 +3,21 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import torch
 import torch.nn as nn
 
 from raitap import raitap_log
 from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
-from raitap.transparency.contracts import ExplanationPayloadKind, MethodFamily
+from raitap.transparency.contracts import MethodFamily
 from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
 from raitap.transparency.explainers.registration import register_transparency_adapter
 
 from .base_explainer import AttributionOnlyExplainer
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable
 
 
 def _normalise_target_indices(
@@ -79,6 +79,15 @@ def _select_target_attributions(
             "limitations. Use alternatives like GradientExplainer."
         ),
     },
+    algorithm_registry={
+        "GradientExplainer": frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+        "DeepExplainer": frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+        "KernelExplainer": frozenset(
+            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC}
+        ),
+        "TreeExplainer": frozenset({MethodFamily.SHAPLEY, MethodFamily.TREE}),
+    },
+    onnx_compatible_algorithms=frozenset({"KernelExplainer"}),
 )
 class ShapExplainer(AttributionOnlyExplainer):
     """
@@ -86,19 +95,6 @@ class ShapExplainer(AttributionOnlyExplainer):
 
     Uses dynamic explainer loading - no need for class-per-explainer.
     """
-
-    output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
-
-    algorithm_registry: ClassVar[Mapping[str, frozenset[MethodFamily]]] = {
-        "GradientExplainer": frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
-        "DeepExplainer": frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
-        "KernelExplainer": frozenset(
-            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC}
-        ),
-        "TreeExplainer": frozenset({MethodFamily.SHAPLEY, MethodFamily.TREE}),
-    }
-
-    ONNX_COMPATIBLE_ALGORITHMS: ClassVar[frozenset[str]] = frozenset({"KernelExplainer"})
 
     def __init__(self, algorithm: str, **init_kwargs):
         """

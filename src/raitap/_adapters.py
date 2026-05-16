@@ -53,15 +53,9 @@ THIRD_PARTY_LIBS: dict[str, set[str]] = {}
 class FamilyConfig:
     """Per-family registration constants. One instance per top-level RAITAP family
     (transparency, robustness, metrics, reporting, tracking). Owned by the family
-    decorator, not the adapter site.
-
-    ``has_algorithm_registry`` flips on the family-level guarantee that every
-    concrete adapter declares a class-body ``algorithm_registry`` mapping
-    (algorithms being a core RAITAP concept for transparency + robustness, absent
-    for metrics/reporting/tracking). Validated at decoration time by
-    :func:`_register_core` — fails fast with a clear message if missing,
-    replacing the ``WithAlgorithmRegistry`` ``__init_subclass__`` validator
-    mixin in :mod:`raitap._registry_base`."""
+    decorator, not the adapter site. Family-specific required adapter metadata
+    (e.g. ``algorithm_registry``) lives as typed kwargs on the family decorator
+    itself — pyright errors at the decoration site if missing."""
 
     group: str
     schema: type
@@ -69,7 +63,6 @@ class FamilyConfig:
     # ``dict[str, Config]`` so multiple named entries can coexist. ``"flat"`` →
     # package=``"<group>"``; the schema field is a single config, names compete.
     package_style: Literal["nested", "flat"]
-    has_algorithm_registry: bool = False
 
 
 class _CommonRegKwargs(TypedDict, total=False):
@@ -216,16 +209,6 @@ def _register_core(
     if suppress_warnings:
         for pattern, category, module in suppress_warnings:
             raitap_log.suppress(message=pattern, category=category, module=module or "")
-
-    if (
-        family is not None
-        and family.has_algorithm_registry
-        and not getattr(cls, "algorithm_registry", None)
-    ):
-        raise TypeError(
-            f"{cls.__name__} must declare a non-empty class-body "
-            f"``algorithm_registry`` (required by the {family.group} family)."
-        )
 
     try:
         if family is not None:

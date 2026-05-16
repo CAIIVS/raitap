@@ -3,7 +3,7 @@ under the robustness group."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import torch
 
@@ -18,8 +18,6 @@ from raitap.robustness.contracts import (
 from raitap.robustness.semantics import AssessorSemanticsHints
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from torch import nn
 
 
@@ -28,12 +26,7 @@ def test_register_robustness_adapter_registers_under_robustness_group() -> None:
         registry_name="_stub_attack",
         extra="_stub_extra",
         library="_stub_lib",
-    )
-    class _StubAssessor(EmpiricalAttackAssessor):
-        # Family-required class-body attr — validated at decoration time via
-        # ROBUSTNESS.has_algorithm_registry. Decorator only carries cross-family
-        # kwargs; algorithms are a core RAITAP concept and stay class-body.
-        algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]] = {
+        algorithm_registry={
             "_stub_alg": AssessorSemanticsHints(
                 MethodKind.EMPIRICAL_ATTACK,
                 ThreatModel.WHITE_BOX,
@@ -41,8 +34,9 @@ def test_register_robustness_adapter_registers_under_robustness_group() -> None:
                 PerturbationNorm.LINF,
                 families=frozenset({"stub"}),
             ),
-        }
-
+        },
+    )
+    class _StubAssessor(EmpiricalAttackAssessor):
         def __init__(self, algorithm: str):
             super().__init__()
             self.algorithm = algorithm

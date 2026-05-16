@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import torch
 
@@ -13,8 +13,6 @@ from .base_assessor import EmpiricalAttackAssessor, _prepare_inputs_for_forward
 from .registration import register_robustness_adapter
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from torch import nn
 
 
@@ -22,23 +20,7 @@ if TYPE_CHECKING:
     registry_name="foolbox",
     extra="foolbox",
     library="foolbox",
-)
-class FoolboxAssessor(EmpiricalAttackAssessor):
-    """Single wrapper for foolbox attack classes.
-
-    Foolbox consumes the perturbation budget at *call time* (``attack(fmodel,
-    inputs, targets, epsilons=...)``), so the YAML budget keys belong under
-    ``call:``; we set ``budget_kwarg_source = "call_kwargs"`` so semantics
-    metadata reflects that.
-
-    Multi-epsilon sweeps (passing a list to ``epsilons`` so foolbox returns a
-    per-eps list of tensors) are intentionally **not** supported in this adapter
-    — they would change the result tensor shape across configurations and break
-    the uniform ``RobustnessResult`` contract.
-    A future ``MultiEpsilonAssessor`` will own that surface.
-    """
-
-    algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]] = {
+    algorithm_registry={
         "LinfPGD": AssessorSemanticsHints(
             MethodKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
@@ -88,7 +70,23 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
             PerturbationNorm.L2,
             families=frozenset({"decision_boundary", "query_efficient"}),
         ),
-    }
+    },
+)
+class FoolboxAssessor(EmpiricalAttackAssessor):
+    """Single wrapper for foolbox attack classes.
+
+    Foolbox consumes the perturbation budget at *call time* (``attack(fmodel,
+    inputs, targets, epsilons=...)``), so the YAML budget keys belong under
+    ``call:``; we set ``budget_kwarg_source = "call_kwargs"`` so semantics
+    metadata reflects that.
+
+    Multi-epsilon sweeps (passing a list to ``epsilons`` so foolbox returns a
+    per-eps list of tensors) are intentionally **not** supported in this adapter
+    — they would change the result tensor shape across configurations and break
+    the uniform ``RobustnessResult`` contract.
+    A future ``MultiEpsilonAssessor`` will own that surface.
+    """
+
     budget_kwarg_source = "call_kwargs"
 
     def __init__(

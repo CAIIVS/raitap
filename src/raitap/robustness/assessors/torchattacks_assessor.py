@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import torch
 
@@ -13,8 +13,6 @@ from .base_assessor import EmpiricalAttackAssessor, _prepare_inputs_for_forward
 from .registration import register_robustness_adapter
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from torch import nn
 
 
@@ -22,14 +20,7 @@ if TYPE_CHECKING:
     registry_name="torchattacks",
     extra="torchattacks",
     library="torchattacks",
-)
-class TorchattacksAssessor(EmpiricalAttackAssessor):
-    """Single wrapper for ALL torchattacks methods.
-
-    Uses dynamic method loading - no need for class-per-method.
-    """
-
-    algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]] = {
+    algorithm_registry={
         "FGSM": AssessorSemanticsHints(
             MethodKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
@@ -100,7 +91,13 @@ class TorchattacksAssessor(EmpiricalAttackAssessor):
             PerturbationNorm.L0,
             families=frozenset({"score_based", "evolutionary"}),
         ),
-    }
+    },
+)
+class TorchattacksAssessor(EmpiricalAttackAssessor):
+    """Single wrapper for ALL torchattacks methods.
+
+    Uses dynamic method loading - no need for class-per-method.
+    """
 
     def __init__(self, algorithm: str, **init_kwargs: Any) -> None:
         self.algorithm = algorithm
