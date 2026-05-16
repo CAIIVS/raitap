@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
 @register_transparency_adapter(
     registry_name="superxai",      # CLI `+transparency=superxai` / Python `from raitap.transparency import superxai`
-    extra="superxai",              # uv extra name (see pyproject.toml below)
+    # extra="superxai",            # uv extra name; defaults to `registry_name` (omit unless they differ — see metrics for an exception)
     library="superxai-lib",        # real PyPI package name; drives `self._lazy_import()`
     error_patterns={               # rewrite cryptic upstream errors at call sites
         re.compile(r"some library footgun"): "Do X instead.",
@@ -81,7 +81,7 @@ class SuperXAIExplainer(AttributionOnlyExplainer):
 
 - **Base class.** `AttributionOnlyExplainer` provides batching, artefact persistence, and `explain()` orchestration. Other families use other bases (`EmpiricalAttackAssessor` for robustness, `BaseMetricComputer` for metrics, etc.) — find them in files starting with `base_`. The concrete adapter is just a normal class; nothing flags it as abstract (the old `abstract=True` workaround was removed).
 - **Decorator.** `@register_transparency_adapter(...)` is the sole entry point for registration. `registry_name` is required and pyright-checked at the decoration site via `Required[str]`. Each family has its own decorator (`register_robustness_adapter`, `register_metrics_adapter`, `register_reporter`, `register_tracker`, `register_transparency_visualiser`, `register_robustness_visualiser`) — pick the one matching your base class.
-- **Registration kwargs.** `extra` and `library` are required whenever you wrap a third-party package (the usual case): `library` is the pip name powering `self._lazy_import()`, `extra` is the uv extra surfaced in install hints and scanned by `raitap.deps.inference`. `error_patterns` and `suppress_warnings` are optional polish.
+- **Registration kwargs.** `library` is the pip name powering `self._lazy_import()` — pass it when you wrap a third-party package (the usual case). `extra` is the uv extra surfaced in install hints and scanned by `raitap.deps.inference`; it **defaults to `registry_name`** so you only need to set it explicitly when they differ (e.g. `classification_metrics` + `detection_metrics` both share `extra="metrics"`). `error_patterns` and `suppress_warnings` are optional polish.
 - **`algorithm_registry` (decorator kwarg).** Transparency and robustness only. Maps algorithm name → method families (or `AssessorSemanticsHints` for robustness) RAITAP tracks and reports on. **Required** — pyright errors at the decoration site if you omit it. Missing or misnamed entries make algorithms unselectable. The decorator assigns it onto the class so `type(self).algorithm_registry` still works at runtime.
 - **`output_payload_kind` (decorator kwarg).** Transparency only. Tells the report renderer what artefact shape the explainer emits (`ATTRIBUTIONS`, `SALIENCY_MAP`, ...). Defaults to `ExplanationPayloadKind.ATTRIBUTIONS` — only pass it if your explainer emits something else.
 - **`onnx_compatible_algorithms` (decorator kwarg).** Transparency only. Optional — defaults to "none compatible" (ONNX support is rare). Pass an explicit `frozenset({"name1", "name2"})` to enable a subset, or `from raitap.transparency import ALL; onnx_compatible_algorithms=ALL` to mark every algorithm in `algorithm_registry` ONNX-compatible without re-listing them. The decorator resolves the sentinel and assigns the final frozenset onto the class as `type(self).ONNX_COMPATIBLE_ALGORITHMS` for use inside `check_backend_compat`.
