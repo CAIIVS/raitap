@@ -27,7 +27,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 # Base protocol and result type
-from .base_metric import BaseMetricComputer, MetricResult, scalar_metrics_for_tracking
+from .base_metric_computer import BaseMetricComputer, MetricResult, scalar_metrics_for_tracking
 
 # Concrete metric implementations
 from .classification_metrics import ClassificationMetrics

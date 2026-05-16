@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from raitap.types import Task
 from raitap.utils.lazy import lazy_import
 
-from .base_metric import BaseMetricComputer, MetricResult
+from .base_metric_computer import BaseMetricComputer, MetricResult
 from .utils import tensor_to_python
 
 if TYPE_CHECKING:

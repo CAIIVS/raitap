@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from raitap.metrics.base_metric import MetricResult
+from raitap.metrics.base_metric_computer import MetricResult
 from raitap.metrics.visualizers import MetricsVisualizer
 
 

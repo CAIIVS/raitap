@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
-    from .base_metric import MetricResult
+    from .base_metric_computer import MetricResult
 
 logger = logging.getLogger(__name__)
 
