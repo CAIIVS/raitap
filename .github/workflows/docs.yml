@@ -47,6 +47,9 @@ jobs:
       - name: Install documentation dependencies
         run: uv sync --group docs
 
+      - name: Check LLM-friendly frontmatter + code-fence normalisation
+        run: uv run python scripts/llmify_docs.py --check
+
       - name: Build documentation
         run: uv run sphinx-build -b html -n -W --keep-going docs docs/_build/html
 

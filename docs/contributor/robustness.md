@@ -1,3 +1,11 @@
+---
+title: "Contributing to the robustness module"
+description: "This page describes the internal robustness architecture and how to extend it with new algorithms, frameworks, and visualisers."
+myst:
+  html_meta:
+    "description": "This page describes the internal robustness architecture and how to extend it with new algorithms, frameworks, and visualisers."
+---
+
 # Contributing to the robustness module
 
 This page describes the internal robustness architecture and how to extend it

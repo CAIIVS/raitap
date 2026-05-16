@@ -1075,6 +1075,8 @@ dev = [
     { name = "sphinx-autobuild", marker = "python_full_version >= '3.13'", specifier = ">=2025.8.25" },
     { name = "sphinx-copybutton", marker = "python_full_version >= '3.13'", specifier = ">=0.5.2" },
     { name = "sphinx-design", marker = "python_full_version >= '3.13'", specifier = ">=0.6.1" },
+    { name = "sphinx-llms-txt", marker = "python_full_version >= '3.13'", specifier = ">=0.2.0" },
+    { name = "sphinx-sitemap", marker = "python_full_version >= '3.13'", specifier = ">=2.6.0" },
     { name = "sphinxcontrib-mermaid", marker = "python_full_version >= '3.13'", specifier = ">=1.0.0" },
 ]
 docs = [
@@ -1084,6 +1086,8 @@ docs = [
     { name = "sphinx-autobuild", marker = "python_full_version >= '3.13'", specifier = ">=2025.8.25" },
     { name = "sphinx-copybutton", marker = "python_full_version >= '3.13'", specifier = ">=0.5.2" },
     { name = "sphinx-design", marker = "python_full_version >= '3.13'", specifier = ">=0.6.1" },
+    { name = "sphinx-llms-txt", marker = "python_full_version >= '3.13'", specifier = ">=0.2.0" },
+    { name = "sphinx-sitemap", marker = "python_full_version >= '3.13'", specifier = ">=2.6.0" },
     { name = "sphinxcontrib-mermaid", marker = "python_full_version >= '3.13'", specifier = ">=1.0.0" },
 ]
 lint = [

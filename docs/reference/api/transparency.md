@@ -1,3 +1,11 @@
+---
+title: "raitap.transparency"
+description: ".. autoclass:: raitap.transparency.explainers.baseexplainer.AttributionOnlyExplainer :members: :show-inheritance:"
+myst:
+  html_meta:
+    "description": ".. autoclass:: raitap.transparency.explainers.baseexplainer.AttributionOnlyExplainer :members: :show-inheritance:"
+---
+
 # `raitap.transparency`
 
 ```{eval-rst}

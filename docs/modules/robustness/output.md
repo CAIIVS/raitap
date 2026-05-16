@@ -1,3 +1,11 @@
+---
+title: "Output"
+description: "If an assessor uses more than one visualiser, RAITAP writes one PNG per visualiser using the pattern <VisualiserClassName>_<index>.png. These standalone PNGs remain self-contained even when the PDF report uses a compact robustness layout."
+myst:
+  html_meta:
+    "description": "If an assessor uses more than one visualiser, RAITAP writes one PNG per visualiser using the pattern <VisualiserClassName><index>.png. These standalone PNGs remain self-contained even when the PDF report uses a compact robustness layout. Th"
+---
+
 # Output
 
 ```text

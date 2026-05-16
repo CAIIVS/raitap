@@ -1,3 +1,11 @@
+---
+title: "Using your own data or built-in samples"
+description: "RAITAP can load your own data by pointing data.source to a local file or directory."
+myst:
+  html_meta:
+    "description": "RAITAP can load your own data by pointing data.source to a local file or directory."
+---
+
 # Using your own data or built-in samples
 
 ## Your own data

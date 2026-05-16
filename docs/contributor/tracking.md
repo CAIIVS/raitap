@@ -1,3 +1,11 @@
+---
+title: "Contributing to the tracking module"
+description: "This page describes the internal tracking architecture and the current MLflow integration."
+myst:
+  html_meta:
+    "description": "This page describes the internal tracking architecture and the current MLflow integration."
+---
+
 # Contributing to the tracking module
 
 This page describes the internal tracking architecture and the current MLflow

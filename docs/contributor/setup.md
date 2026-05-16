@@ -1,3 +1,11 @@
+---
+title: "Development environment setup"
+description: "By default, RAITAP will sync the correct dev whenever you run a config. However, you can override them using the --custom-deps flag. Then, it is up to you to manage them as described below. This is useful when testing and adding new librari"
+myst:
+  html_meta:
+    "description": "By default, RAITAP will sync the correct dev whenever you run a config. However, you can override them using the --custom-deps flag. Then, it is up to you to manage them as described below. This is useful when testing and adding new librari"
+---
+
 # Development environment setup
 
 ## Setup steps

@@ -1,3 +1,11 @@
+---
+title: "Data"
+description: "The data module handles loading your data in a way that makes it usable to RAITAP."
+myst:
+  html_meta:
+    "description": "The data module handles loading your data in a way that makes it usable to RAITAP."
+---
+
 # Data
 
 The data module handles loading your data in a way that makes it usable to RAITAP.

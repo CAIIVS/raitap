@@ -1,3 +1,11 @@
+---
+title: "Using job launchers (Slurm...)"
+description: "RAITAP supports launcher-based remote execution via Hydra's Submitit plugin."
+myst:
+  html_meta:
+    "description": "RAITAP supports launcher-based remote execution via Hydra's Submitit plugin."
+---
+
 # Using job launchers (Slurm...)
 
 RAITAP supports launcher-based remote execution via [Hydra's Submitit plugin](https://hydra.cc/docs/plugins/submitit_launcher/).

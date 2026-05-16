@@ -1,3 +1,11 @@
+---
+title: "Configuration"
+description: "Inside the robustness key, you can configure one or more named assessors. See {ref}modules-robustness-configuration-examples for the config shape."
+myst:
+  html_meta:
+    "description": "Inside the robustness key, you can configure one or more named assessors. See {ref}modules-robustness-configuration-examples for the config shape."
+---
+
 ```{config-page}
 :intro: This page describes how to configure the robustness module that probes
   how the model behaves under input perturbations.

@@ -1,3 +1,7 @@
+---
+title: "Output"
+---
+
 # Output
 
 ```text

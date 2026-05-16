@@ -1,3 +1,11 @@
+---
+title: "Contributing to the data module"
+description: "This page describes how to add new built-in sample datasets to RAITAP."
+myst:
+  html_meta:
+    "description": "This page describes how to add new built-in sample datasets to RAITAP."
+---
+
 # Contributing to the data module
 
 This page describes how to add new built-in sample datasets to RAITAP.

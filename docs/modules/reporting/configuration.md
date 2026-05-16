@@ -1,3 +1,11 @@
+---
+title: "Configuration"
+description: "This page describes how to configure the reporting module that generates reports from pipeline outputs."
+myst:
+  html_meta:
+    "description": "This page describes how to configure the reporting module that generates reports from pipeline outputs."
+---
+
 ```{config-page}
 :intro: This page describes how to configure the reporting module that generates reports from pipeline outputs.
 

@@ -1,3 +1,11 @@
+---
+title: "Global configuration"
+description: "This section describes options that impact all modules."
+myst:
+  html_meta:
+    "description": "This section describes options that impact all modules."
+---
+
 # Global configuration
 
 This section describes options that impact all modules.

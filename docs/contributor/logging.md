@@ -1,3 +1,11 @@
+---
+title: "Logging and warnings"
+description: "raitap exposes a single facade — raitap_log — for everything that would otherwise reach for logging.getLogger(_name_), warnings.warn, or a logger = logging.getLogger(...) boilerplate line. Use it."
+myst:
+  html_meta:
+    "description": "raitap exposes a single facade — raitaplog — for everything that would otherwise reach for logging.getLogger(name), warnings.warn, or a logger = logging.getLogger(...) boilerplate line. Use it. Don't import logging or warnings in feature co"
+---
+
 # Logging and warnings
 
 raitap exposes a single facade — `raitap_log` — for everything that would

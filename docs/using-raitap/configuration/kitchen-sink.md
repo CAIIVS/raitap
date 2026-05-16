@@ -1,3 +1,11 @@
+---
+title: "Kitchen-sink example"
+description: "The example below shows a complete configuration with all top-level modules populated."
+myst:
+  html_meta:
+    "description": "The example below shows a complete configuration with all top-level modules populated."
+---
+
 # Kitchen-sink example
 
 The example below shows a complete configuration with all top-level modules populated.

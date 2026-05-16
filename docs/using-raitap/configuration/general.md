@@ -1,3 +1,11 @@
+---
+title: "General configuration guide"
+description: "RAITAP is built on top of Hydra, a powerful configuration framework for Python. These docs will explain just enough about Hydra to use RAITAP effectively. However, you might want to dive deeper into the Hydra documentation."
+myst:
+  html_meta:
+    "description": "RAITAP is built on top of Hydra, a powerful configuration framework for Python. These docs will explain just enough about Hydra to use RAITAP effectively. However, you might want to dive deeper into the Hydra documentation."
+---
+
 # General configuration guide
 
 RAITAP is built on top of [Hydra](https://hydra.cc/), a powerful configuration framework for Python. These docs will explain just enough about Hydra to use RAITAP effectively. However, you might want to dive deeper into the [Hydra documentation](https://hydra.cc/docs/intro/).

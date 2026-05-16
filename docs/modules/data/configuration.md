@@ -1,3 +1,11 @@
+---
+title: "Configuration"
+description: "For tabular models whose backend expects an unusual per-sample layout (such as ACAS Xu, a Torch network whose forward takes (N, 1, 1, 5)), supply input_metadata.shape explicitly so the pipeline reshapes the flat feature vectors before the…"
+myst:
+  html_meta:
+    "description": "For tabular models whose backend expects an unusual per-sample layout (such as ACAS Xu, a Torch network whose forward takes (N, 1, 1, 5)), supply inputmetadata.shape explicitly so the pipeline reshapes the flat feature vectors before the fo"
+---
+
 ```{config-page}
 :intro: This page describes how to configure the data used to assess the model.
 

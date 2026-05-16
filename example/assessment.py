@@ -4,37 +4,28 @@ Run with::
 
     uv run python assessment.py
 
-Uses raw schema dataclasses + ``_target_`` strings rather than the
-:mod:`raitap.<module>` hydra-zen builders. Reason: builders live next to
-their wrapped third-party library (``classification`` lives in
-``raitap.metrics.classification_metrics``, which imports ``torchmetrics``),
-so importing a builder requires the very extras :func:`install_raitap_deps`
-is about to install. The schema dataclass + ``_target_`` form is the only
-import-free way to express the config before the first install. The
-builder shape (see ``docs/using-raitap/configuration/python-api.md``) is
-fine for everyday scripts where extras are already pinned.
+Mirrors ``assessment.yaml`` field-for-field via the per-module hydra-zen
+builders (see ``docs/using-raitap/configuration/python-api.md``). The two
+paths drive identical pipelines (modulo PyTorch determinism).
+
+Adapter modules use lazy imports of their wrapped libraries
+(``raitap.utils.lazy.lazy_import``), so this file can be imported in a venv
+that has only the base raitap dep — ``install_raitap_deps`` walks the cfg
+and installs the missing extras on first run, then re-execs the script.
 """
 
 from __future__ import annotations
 
 import logging
 
-# All imports below are intentionally light — none of them pull a wrapped
-# adapter library (torch / Captum / torchattacks / ...). This is what lets
-# ``install_raitap_deps`` walk the config and install the missing extras on
-# first run before the heavy imports happen.
-from raitap.configs.schema import (
-    AppConfig,
-    DataConfig,
-    LabelsConfig,
-    MetricsConfig,
-    ModelConfig,
-    ReportingConfig,
-    RobustnessConfig,
-    TransparencyConfig,
-)
+from raitap import AppConfig, Hardware, run
+from raitap.data import DataConfig, LabelsConfig
 from raitap.deps import install_raitap_deps
-from raitap.types import Hardware, Task
+from raitap.metrics import Task, classification
+from raitap.models import ModelConfig
+from raitap.reporting import html
+from raitap.robustness import image_pair, torchattacks
+from raitap.transparency import captum, captum_image
 
 
 def build_config() -> AppConfig:
@@ -52,24 +43,22 @@ def build_config() -> AppConfig:
                 column="label",
             ),
         ),
-        metrics=MetricsConfig(_target_="ClassificationMetrics", task=Task.multiclass),
+        metrics=classification(task=Task.multiclass),
         transparency={
-            "default": TransparencyConfig(
-                _target_="CaptumExplainer",
+            "default": captum(
                 algorithm="IntegratedGradients",
                 call={"target": 0},
-                visualisers=[{"_target_": "CaptumImageVisualiser"}],
+                visualisers=[captum_image()],
             ),
         },
         robustness={
-            "pgd": RobustnessConfig(
-                _target_="TorchattacksAssessor",
+            "pgd": torchattacks(
                 algorithm="PGD",
                 constructor={"eps": 0.03, "alpha": 0.005, "steps": 10},
-                visualisers=[{"_target_": "ImagePairVisualiser"}],
+                visualisers=[image_pair()],
             ),
         },
-        reporting=ReportingConfig(_target_="HTMLReporter", filename="report"),
+        reporting=html(filename="report"),
     )
 
 
@@ -79,19 +68,13 @@ if __name__ == "__main__":
 
     # ``raitap.run`` delegates step-by-step progress to Python ``logging`` —
     # without a handler the run is silent apart from the summary panel.
-    # Configure the root logger before ``run`` to see per-explainer / per-
-    # assessor messages.
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-
-    # Deferred so adapter backends are pulled only after the bootstrap has
-    # installed them.
-    from raitap import run
 
     outputs = run(cfg)
 
-    # ``outputs`` is a ``RunOutputs`` dataclass (see
-    # ``raitap.pipeline.outputs``). All artefacts the report consumes are
-    # already in memory — no need to re-read the files under ``outputs/``.
+    # Programmatic access demo — ``outputs`` is a ``RunOutputs`` dataclass
+    # (see ``raitap.pipeline.outputs``). All artefacts the report consumes
+    # are already in memory.
     print("\n--- programmatic access demo -----------------------------------")
     print(f"explanations:          {len(outputs.explanations)}")
     print(f"robustness results:    {len(outputs.robustness_results)}")
@@ -103,21 +86,17 @@ if __name__ == "__main__":
         for name, value in sorted(scalars.items()):
             print(f"  {name:30s} {value:.4f}")
 
-    # Per-sample predictions: each entry carries (index, predicted_class,
-    # confidence, sample_id, target_class, correct).
     correct = sum(1 for p in outputs.prediction_summaries if p.correct)
     total = len(outputs.prediction_summaries)
     if total:
         print(f"accuracy (recomputed): {correct}/{total} = {correct / total:.2%}")
 
-    # Robustness: how often the PGD attack succeeded per assessor run.
     for rr in outputs.robustness_results:
         rate = rr.metrics.attack_success_rate
         if rate is not None:
             print(f"{rr.assessor_name or rr.algorithm:22s} attack success: {rate:.2%}")
 
-    # Dummy downstream op: average attribution magnitude per sample.
     for er in outputs.explanations:
         attrs = er.attributions  # torch.Tensor, shape (N, C, H, W) for images
-        magnitudes = attrs.abs().flatten(1).mean(dim=1)  # per-sample mean |attr|
+        magnitudes = attrs.abs().flatten(1).mean(dim=1)
         print(f"mean |attr| per sample: {[round(m.item(), 4) for m in magnitudes]}")

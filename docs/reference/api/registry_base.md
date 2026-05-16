@@ -1,3 +1,11 @@
+---
+title: "raitap.registry_base"
+description: "Cross-module interface declared by every adapter that publishes an algorithm-name → typed-hints registry. Used by both the transparency explainer adapters and the robustness assessor adapters."
+myst:
+  html_meta:
+    "description": "Cross-module interface declared by every adapter that publishes an algorithm-name → typed-hints registry. Used by both the transparency explainer adapters and the robustness assessor adapters."
+---
+
 # `raitap.registry_base`
 
 Cross-module interface declared by every adapter that publishes an

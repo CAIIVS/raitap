@@ -1,3 +1,11 @@
+---
+title: "Adding an adapter"
+description: "Adapters (explainers, assessors, metrics, reporters, trackers) self-register via raitap.adapters.AdapterMixin. Adding a new one is one file plus optional pyproject.toml + test + docs entries. No central registry to edit."
+myst:
+  html_meta:
+    "description": "Adapters (explainers, assessors, metrics, reporters, trackers) self-register via raitap.adapters.AdapterMixin. Adding a new one is one file plus optional pyproject.toml + test + docs entries. No central registry to edit."
+---
+
 # Adding an adapter
 
 Adapters (explainers, assessors, metrics, reporters, trackers) self-register via

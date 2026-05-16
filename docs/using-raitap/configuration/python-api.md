@@ -1,5 +1,10 @@
 ---
 orphan: true
+title: "Python API"
+description: "RAITAP can be driven from Python directly, without YAML files or the CLI. The Python entry point shares the orchestrator, schema, and side-effects with raitap --config-name ...; only the front door differs."
+myst:
+  html_meta:
+    "description": "RAITAP can be driven from Python directly, without YAML files or the CLI. The Python entry point shares the orchestrator, schema, and side-effects with raitap --config-name ...; only the front door differs."
 ---
 
 # Python API
@@ -104,66 +109,35 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 ### Auto-installing extras from Python
 
-The `raitap` CLI walks the composed Hydra config before any heavy import, then installs the matching extras via `uv add` / `uv sync` (the `--allow-project-edit` / `-y` flow). The Python entry point gets the same flow via `raitap.deps.install_raitap_deps`.
-
-**Use the schema-dataclass + `_target_` form for the pre-install phase, not builders.** The hydra-zen builders (`classification`, `captum`, `torchattacks`, ...) live next to the adapter classes they wrap — importing `classification` imports `classification_metrics.py`, which imports `torchmetrics`, which is exactly the extra you're trying to install. The raw `MetricsConfig(_target_="ClassificationMetrics", ...)` form is the only import-free way to express the config before its extras are pinned:
+The `raitap` CLI walks the composed Hydra config before any heavy import, then installs the matching extras via `uv add` / `uv sync` (the `--allow-project-edit` / `-y` flow). The Python entry point gets the same flow via `raitap.deps.install_raitap_deps` — and uses the **same builder form** as everyday scripts:
 
 ```python
-# Light imports only — schema dataclasses + enums, no adapter modules.
-from raitap.configs.schema import (
-    AppConfig,
-    MetricsConfig,
-    ModelConfig,
-    ReportingConfig,
-    RobustnessConfig,
-    TransparencyConfig,
-)
+from raitap import AppConfig, Hardware, run
+from raitap.data import DataConfig, LabelsConfig
 from raitap.deps import install_raitap_deps
-from raitap.types import Hardware, Task
+from raitap.metrics import Task, classification
+from raitap.models import ModelConfig
+from raitap.reporting import html
+from raitap.robustness import image_pair, torchattacks
+from raitap.transparency import captum, captum_image
 
 cfg = AppConfig(
     hardware=Hardware.gpu,
     model=ModelConfig(source="vit_b_32"),
-    metrics=MetricsConfig(_target_="ClassificationMetrics", task=Task.multiclass),
-    transparency={
-        "default": TransparencyConfig(
-            _target_="CaptumExplainer",
-            algorithm="IntegratedGradients",
-            call={"target": 0},
-            visualisers=[{"_target_": "CaptumImageVisualiser"}],
-        ),
-    },
-    robustness={
-        "pgd": RobustnessConfig(
-            _target_="TorchattacksAssessor",
-            algorithm="PGD",
-            constructor={"eps": 0.03, "alpha": 0.005, "steps": 10},
-            visualisers=[{"_target_": "ImagePairVisualiser"}],
-        ),
-    },
-    reporting=ReportingConfig(_target_="HTMLReporter", filename="report"),
+    metrics=classification(task=Task.multiclass),
+    transparency={"default": captum(algorithm="IntegratedGradients", call={"target": 0}, visualisers=[captum_image()])},
+    robustness={"pgd": torchattacks(algorithm="PGD", constructor={"eps": 0.03}, visualisers=[image_pair()])},
+    reporting=html(filename="report"),
 )
 install_raitap_deps(cfg, allow_project_edit=True)
-
-# Defer the heavy import — adapter backends are pulled here, after
-# install_raitap_deps has pinned their extras into pyproject.toml.
-from raitap import run
-
 run(cfg)
 ```
 
-Why the deferred `from raitap import run`: top-level access to `run` triggers the lazy import chain (`raitap.api → raitap.pipeline.orchestrator → raitap.models → ...`), which in turn pulls every adapter backend the config references. Keeping the heavy imports below the bootstrap call mirrors what the CLI does via `os.execv`.
+Why this works in a venv with **no extras installed yet**: every adapter module wraps its third-party library imports in `raitap.utils.lazy.lazy_import`, so importing `from raitap.metrics import classification` does not pull `torchmetrics` at module load — only when you later instantiate the wrapped class. `install_raitap_deps` walks the cfg, infers the extras (it reads `_target_` strings the builders bake in), installs them, then re-execs the script so the freshly-installed packages are visible when `run(cfg)` actually invokes them.
 
 `install_raitap_deps` is idempotent — after the re-exec it returns immediately on the next call (a sentinel env var short-circuits the second pass), so it is safe to leave at the top of the script unconditionally.
 
 `allow_project_edit=True` consents to `uv add` modifying your `pyproject.toml`. Without it, the function prints the planned command and exits non-zero, letting you run it yourself. `exec_global=True` plays the same role for the bare-`pip install` fallback when no venv is active.
-
-#### Builders vs schema dataclasses
-
-| Form | When to use |
-| --- | --- |
-| Hydra-zen builders (`classification(task=...)`, `captum(algorithm=...)`, …) | Everyday scripts and notebooks **after** extras are installed. Better autocomplete on adapter-specific kwargs. |
-| Schema dataclasses + `_target_` strings (`MetricsConfig(_target_="...", task=...)`) | Scripts that call `install_raitap_deps` on first run. Light imports only, works in a partial-extras venv. Identical at runtime — Hydra reads both shapes the same way. |
 
 `raitap.deps.install_raitap_deps` is the only Python-side surface for auto-deps; YAML / CLI users keep the existing `--allow-project-edit` / `-y` flag on the `raitap` invocation.
 
@@ -450,8 +424,6 @@ outputs = run(cfg)
 | `MISSING` defaults | Builder kwargs are required-or-optional based on the wrapped constructor signature; your editor surfaces the missing ones. |
 | CLI overrides (`+foo.bar=baz`) | Mutate the dataclass: `cfg.transparency["my_run"].call["target"] = 1`. Builders return dataclasses, so attribute assignment works. |
 
-The builders are the only supported Python surface for new code. Raw `TransparencyConfig(_target_="…")` / `{"_target_": "…"}` dict forms still parse (Hydra reads them the same way), but they shouldn't appear in new snippets — they exist only because Hydra YAML composition produces them under the hood.
-
 (type-safety-map)=
 
 ## Type safety map
@@ -470,6 +442,8 @@ The schema is a deliberate mix of strict and forwarded. Knowing which fields are
 - `RobustnessConfig.constructor` / `.call` / `.raitap` — same story for torchattacks / Foolbox / Marabou.
 
 The hydra-zen builders in `raitap.api` (`captum`, `shap`, `torchattacks`, `foolbox`, `classification_metrics`) inherit the corresponding schema dataclass via `builds_bases=`, so they accept every field on `TransparencyConfig` / `RobustnessConfig` / `MetricsConfig` (`algorithm`, `constructor`, `call`, `raitap`, `visualisers`). `classification_metrics` additionally uses `populate_full_signature=True` to surface the full `ClassificationMetrics.__init__` signature (`average`, `num_labels`, `ignore_index`). For Captum / SHAP / torchattacks / Foolbox, the underlying constructor takes `**kwargs`, so per-library kwargs (`eps=`, `steps=`, `target=`) stay inside the `constructor` / `call` dict — your editor autocompletes the schema fields, not the library kwargs.
+
+(runoutputs-shape)=
 
 ## RunOutputs shape
 

@@ -1,0 +1,51 @@
+# RAITAP documentation — robots policy.
+# Explicit allowlist for AI crawlers (training + search/agent variants).
+# Without these lines GitHub Pages' default is allow-all, but explicit
+# entries make the policy auditable and let us tighten later.
+
+User-agent: *
+Allow: /
+
+# Anthropic
+User-agent: ClaudeBot
+Allow: /
+User-agent: Claude-SearchBot
+Allow: /
+User-agent: Claude-User
+Allow: /
+User-agent: anthropic-ai
+Allow: /
+
+# OpenAI
+User-agent: GPTBot
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+
+# Google AI overviews + Gemini training
+User-agent: Google-Extended
+Allow: /
+
+# Perplexity
+User-agent: PerplexityBot
+Allow: /
+User-agent: Perplexity-User
+Allow: /
+
+# Common Crawl (LLM training corpus)
+User-agent: CCBot
+Allow: /
+
+# Other agent crawlers
+User-agent: Applebot-Extended
+Allow: /
+User-agent: Bytespider
+Allow: /
+User-agent: cohere-ai
+Allow: /
+User-agent: DiffbotBot
+Allow: /
+
+Sitemap: https://caiivs.github.io/raitap/sitemap.xml

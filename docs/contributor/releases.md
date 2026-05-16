@@ -1,3 +1,11 @@
+---
+title: "Releases"
+description: "This project supports two ways to get a version onto PyPI. You only need one of them per release."
+myst:
+  html_meta:
+    "description": "This project supports two ways to get a version onto PyPI. You only need one of them per release."
+---
+
 # Releases
 
 This project supports two ways to get a version onto PyPI. You only need one of them per release.

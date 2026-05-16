@@ -1,3 +1,11 @@
+---
+title: "Architecture"
+description: "The page explains the high level architecture of the raitap package. RAITAP is built to be modular."
+myst:
+  html_meta:
+    "description": "The page explains the high level architecture of the raitap package. RAITAP is built to be modular."
+---
+
 # Architecture
 
 The page explains the high level architecture of the `raitap` package. RAITAP is built to be modular.
@@ -7,6 +15,9 @@ The user launches RAITAP via the CLI. The `cli` module handles parsing, and pass
 ## Data flow
 
 ```{mermaid}
+:alt: Data flow from CLI entry through deps bootstrap, Hydra composition, and the pipeline phases to reporting and tracking.
+:caption: RAITAP data-flow — CLI to reporting.
+
 flowchart TB
   A[uv run raitap …] --> B[raitap.cli.main]
   B -->|tracking stop?| Z[run_stop_command]
@@ -22,6 +33,8 @@ flowchart TB
   G --> H[forward · metrics · transparency · robustness]
   H --> I[reporting + tracking]
 ```
+
+In prose: the CLI entry (`raitap.cli.main`) routes to either the tracking-stop subcommand or the standard flow. The standard flow loads the demo config (`--demo`) or parses user args, then calls `raitap.deps.bootstrap.maybe_bootstrap` to install missing extras and re-exec if needed. Once extras are pinned, control passes to `raitap.pipeline.__main__` (a `@hydra.main` entry that composes the config) then to `raitap.pipeline.pipeline.run`, which executes the forward / metrics / transparency / robustness phases in order before handing off to reporting and tracking.
 
 ## Directory structure
 

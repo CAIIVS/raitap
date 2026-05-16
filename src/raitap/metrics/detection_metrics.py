@@ -2,13 +2,20 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
-from torchmetrics.detection.mean_ap import MeanAveragePrecision
+from raitap.utils.lazy import lazy_import
 
 from .base_metric import BaseMetricComputer, MetricResult
 from .utils import tensor_to_python
 
 if TYPE_CHECKING:
     import torch
+    from torchmetrics.detection import mean_ap as _tm_detection_mean_ap
+else:
+    # Deferred so partial-extras venvs (no ``metrics`` extra) can still import
+    # this module — needed by ``install_raitap_deps`` and the AST adapter scan.
+    # Bind the proxy itself (not ``.MeanAveragePrecision``) so attribute access
+    # happens at instantiation time inside ``__init__``, not at module load.
+    _tm_detection_mean_ap = lazy_import("torchmetrics.detection.mean_ap")
 
 BoxFormat = Literal["xyxy", "xywh"]  # torchvision outputs xyxy
 IoUType = Literal["bbox", "segm"] | tuple[Literal["bbox", "segm"], ...]
@@ -45,7 +52,7 @@ class DetectionMetrics(BaseMetricComputer, registry_name="detection", extra="met
         backend: Backend = "faster_coco_eval",
         **kwargs: Any,
     ):
-        self.metric = MeanAveragePrecision(
+        self.metric = _tm_detection_mean_ap.MeanAveragePrecision(
             box_format=box_format,
             iou_type=iou_type,
             iou_thresholds=iou_thresholds,

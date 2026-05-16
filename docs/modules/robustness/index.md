@@ -1,3 +1,11 @@
+---
+title: "Robustness"
+description: "The robustness module configures the assessors and visualisers that probe how a model behaves under input perturbations."
+myst:
+  html_meta:
+    "description": "The robustness module configures the assessors and visualisers that probe how a model behaves under input perturbations."
+---
+
 # Robustness
 
 The robustness module configures the assessors and visualisers that probe how a

@@ -1,3 +1,11 @@
+---
+title: "Visualisers"
+description: "Each visualiser renders one figure per call. All of them are declared per-explainer in YAML:"
+myst:
+  html_meta:
+    "description": "Each visualiser renders one figure per call. All of them are declared per-explainer in YAML:"
+---
+
 # Visualisers
 
 Each visualiser renders one figure per call. All of them are declared per-explainer in YAML:

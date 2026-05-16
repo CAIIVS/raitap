@@ -1,3 +1,11 @@
+---
+title: "Contributing to the metrics module"
+description: "This page describes the internal metrics architecture and how to extend it with new metric computers."
+myst:
+  html_meta:
+    "description": "This page describes the internal metrics architecture and how to extend it with new metric computers."
+---
+
 # Contributing to the metrics module
 
 This page describes the internal metrics architecture and how to extend it with new metric computers.
