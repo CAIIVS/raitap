@@ -146,6 +146,12 @@ class AdapterMixin:
     ) -> None:
         super().__init_subclass__(**kwargs)
 
+        # Short-circuit: if a family decorator already registered this class via
+        # ``_register_core``, skip the legacy path so we don't double-register.
+        # Removed in the same commit that deletes ``__init_subclass__`` entirely.
+        if getattr(cls, "_REGISTERED_VIA_DECORATOR", False):
+            return
+
         # Inherit / override family metadata from the abstract base.
         if group is not None:
             cls._ADAPTER_GROUP = group
@@ -375,6 +381,9 @@ def _register_core(
         ADAPTER_EXTRAS[cls.__name__] = extra
     if library and family is not None:
         THIRD_PARTY_LIBS.setdefault(family.group, set()).add(library)
+    # Tells legacy __init_subclass__ to skip this class (it ran first when the
+    # decorator was applied to a subclass of an AdapterMixin family base).
+    cls._REGISTERED_VIA_DECORATOR = True
     return cls
 
 
