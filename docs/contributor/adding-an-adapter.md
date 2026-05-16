@@ -72,8 +72,8 @@ class SuperXAIExplainer(AttributionOnlyExplainer):
         backend=None,
         **call_kwargs,
     ) -> torch.Tensor:
-        superxai = self._lazy_import()       # no try/except boilerplate
-        with self._rethrow():                # rewrites errors using `error_patterns`
+        superxai = self._lazy_import()
+        with self._rethrow():
             return getattr(superxai, self.algorithm)(model, **self.init_kwargs).attribute(
                 inputs, **call_kwargs
             )
