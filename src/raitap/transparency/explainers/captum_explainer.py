@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
 from raitap.transparency.contracts import ExplanationPayloadKind, MethodFamily
@@ -12,6 +12,8 @@ from raitap.transparency.explainers.registration import register_transparency_ad
 from .base_explainer import AttributionOnlyExplainer
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     import torch
     import torch.nn as nn
 
@@ -25,8 +27,17 @@ if TYPE_CHECKING:
     # is pure noise. Scope ``module=`` to captum so unrelated UserWarnings
     # with matching messages aren't accidentally hidden.
     suppress_warnings=[(r"Input Tensor.*required_grads", UserWarning, r"captum.*")],
-    output_payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
-    algorithm_registry={
+)
+class CaptumExplainer(AttributionOnlyExplainer):
+    """
+    Single wrapper for ALL Captum attribution methods.
+
+    Uses dynamic method loading - no need for class-per-method.
+    """
+
+    output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
+
+    algorithm_registry: ClassVar[Mapping[str, frozenset[MethodFamily]]] = {
         "IntegratedGradients": frozenset({MethodFamily.GRADIENT}),
         "Saliency": frozenset({MethodFamily.GRADIENT}),
         "FeatureAblation": frozenset({MethodFamily.PERTURBATION}),
@@ -42,8 +53,9 @@ if TYPE_CHECKING:
         ),
         "LayerGradCam": frozenset({MethodFamily.GRADIENT, MethodFamily.CAM}),
         "GuidedGradCam": frozenset({MethodFamily.GRADIENT, MethodFamily.CAM}),
-    },
-    onnx_compatible_algorithms=frozenset(
+    }
+
+    ONNX_COMPATIBLE_ALGORITHMS: ClassVar[frozenset[str]] = frozenset(
         {
             "FeatureAblation",
             "FeaturePermutation",
@@ -53,14 +65,7 @@ if TYPE_CHECKING:
             "KernelShap",
             "Lime",
         }
-    ),
-)
-class CaptumExplainer(AttributionOnlyExplainer, abstract=True):
-    """
-    Single wrapper for ALL Captum attribution methods.
-
-    Uses dynamic method loading - no need for class-per-method.
-    """
+    )
 
     def __init__(self, algorithm: str, **init_kwargs):
         """

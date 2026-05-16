@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import torch
 import torch.nn as nn
@@ -17,7 +17,7 @@ from raitap.transparency.explainers.registration import register_transparency_ad
 from .base_explainer import AttributionOnlyExplainer
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
 
 def _normalise_target_indices(
@@ -79,23 +79,26 @@ def _select_target_attributions(
             "limitations. Use alternatives like GradientExplainer."
         ),
     },
-    output_payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
-    algorithm_registry={
+)
+class ShapExplainer(AttributionOnlyExplainer):
+    """
+    Single wrapper for ALL SHAP explainer types.
+
+    Uses dynamic explainer loading - no need for class-per-explainer.
+    """
+
+    output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
+
+    algorithm_registry: ClassVar[Mapping[str, frozenset[MethodFamily]]] = {
         "GradientExplainer": frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
         "DeepExplainer": frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
         "KernelExplainer": frozenset(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC}
         ),
         "TreeExplainer": frozenset({MethodFamily.SHAPLEY, MethodFamily.TREE}),
-    },
-    onnx_compatible_algorithms=frozenset({"KernelExplainer"}),
-)
-class ShapExplainer(AttributionOnlyExplainer, abstract=True):
-    """
-    Single wrapper for ALL SHAP explainer types.
+    }
 
-    Uses dynamic explainer loading - no need for class-per-explainer.
-    """
+    ONNX_COMPATIBLE_ALGORITHMS: ClassVar[frozenset[str]] = frozenset({"KernelExplainer"})
 
     def __init__(self, algorithm: str, **init_kwargs):
         """
