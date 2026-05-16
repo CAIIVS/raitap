@@ -41,11 +41,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from config_tabs import create_tab_item
 from docutils import nodes
 from sphinx.util.docutils import SphinxDirective
 from sphinx_design.shared import create_component
-
-from config_tabs import create_tab_item
 
 if TYPE_CHECKING:
     from sphinx.application import Sphinx

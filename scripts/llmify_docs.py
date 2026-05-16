@@ -26,7 +26,10 @@ FENCE_HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^\s*defaults\s*:", re.MULTILINE), "yaml"),
     (re.compile(r"^\s*hydra\s*:", re.MULTILINE), "yaml"),
     (re.compile(r"^\s*_target_\s*:", re.MULTILINE), "yaml"),
-    (re.compile(r"^\s*(transparency|robustness|metrics|reporting|tracking)\s*:", re.MULTILINE), "yaml"),
+    (
+        re.compile(r"^\s*(transparency|robustness|metrics|reporting|tracking)\s*:", re.MULTILINE),
+        "yaml",
+    ),
     (re.compile(r"^from\s+\w[\w.]*\s+import\b", re.MULTILINE), "python"),
     (re.compile(r"^import\s+\w", re.MULTILINE), "python"),
     (re.compile(r"^\s*(def|class|@\w)", re.MULTILINE), "python"),
@@ -73,12 +76,8 @@ CODE_BLOCK_RE = re.compile(r"```.*?```", re.DOTALL)
 # overview written for humans — perfect for the ``description`` slot. The intro
 # can wrap across lines until the next ``:option:`` / ``:yaml:`` / ``:python:``
 # / ``:cli:`` field marker.
-INTRO_RE = re.compile(
-    r"^:intro:\s*(.+?)(?=^:\w+:|^```$)", re.MULTILINE | re.DOTALL
-)
-SUMMARY_RE = re.compile(
-    r"^:summary:\s*(.+?)(?=^:\w+:|^```$)", re.MULTILINE | re.DOTALL
-)
+INTRO_RE = re.compile(r"^:intro:\s*(.+?)(?=^:\w+:|^```$)", re.MULTILINE | re.DOTALL)
+SUMMARY_RE = re.compile(r"^:summary:\s*(.+?)(?=^:\w+:|^```$)", re.MULTILINE | re.DOTALL)
 
 
 def directive_intro(text: str) -> str:
@@ -172,14 +171,12 @@ def looks_like_bad_description(desc: str) -> bool:
     if desc.endswith(("the", "a", "an", "of", "in", "to", "for")):
         return True
     last_word = desc.rsplit(" ", 1)[-1] if " " in desc else desc
-    if last_word and last_word[-1].isalpha() and len(last_word) < 4 and not desc.endswith("."):
-        return True
-    return False
+    return bool(
+        last_word and last_word[-1].isalpha() and len(last_word) < 4 and not desc.endswith(".")
+    )
 
 
-TOP_LEVEL_HTML_META_RE = re.compile(
-    r"^html_meta:\n((?:[ \t]+.+\n)+)", re.MULTILINE
-)
+TOP_LEVEL_HTML_META_RE = re.compile(r"^html_meta:\n((?:[ \t]+.+\n)+)", re.MULTILINE)
 
 
 def migrate_top_level_html_meta(block: str) -> str:
@@ -238,8 +235,7 @@ def ensure_frontmatter(text: str, fallback_title: str) -> tuple[str, bool]:
         lines = block.splitlines()
         if bad_title and title:
             lines = [
-                line if not line.startswith("title:") else f'title: "{title}"'
-                for line in lines
+                line if not line.startswith("title:") else f'title: "{title}"' for line in lines
             ]
         if bad_desc and description:
             lines = [
