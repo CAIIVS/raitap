@@ -860,9 +860,7 @@ class TestModelPreprocessingWrap:
         assert isinstance(out, torch.Tensor)
         assert out.shape == (1, 1000)
 
-    def test_custom_file_wraps_with_user_module(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_custom_file_wraps_with_user_module(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
 
         monkeypatch.delenv("RAITAP_ALLOW_PREPROCESSING_EXEC", raising=False)
