@@ -3,7 +3,9 @@ under the robustness group."""
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
+
+import torch
 
 from raitap.robustness.assessors.base_assessor import EmpiricalAttackAssessor
 from raitap.robustness.assessors.registration import register_robustness_adapter
@@ -14,6 +16,11 @@ from raitap.robustness.contracts import (
     ThreatModel,
 )
 from raitap.robustness.semantics import AssessorSemanticsHints
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from torch import nn
 
 
 def test_register_robustness_adapter_registers_under_robustness_group() -> None:
@@ -26,7 +33,7 @@ def test_register_robustness_adapter_registers_under_robustness_group() -> None:
         # Family-required class-body attr — validated at decoration time via
         # ROBUSTNESS.has_algorithm_registry. Decorator only carries cross-family
         # kwargs; algorithms are a core RAITAP concept and stay class-body.
-        algorithm_registry: ClassVar[dict[str, AssessorSemanticsHints]] = {
+        algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]] = {
             "_stub_alg": AssessorSemanticsHints(
                 MethodKind.EMPIRICAL_ATTACK,
                 ThreatModel.WHITE_BOX,
@@ -43,9 +50,17 @@ def test_register_robustness_adapter_registers_under_robustness_group() -> None:
         def check_backend_compat(self, backend: object) -> None:
             del backend
 
-        def generate_adversarial(self, model, inputs, targets, *, backend=None, **kw):
-            del model, inputs, targets, backend, kw
-            return None  # type: ignore[return-value]
+        def generate_adversarial(
+            self,
+            model: nn.Module,
+            inputs: torch.Tensor,
+            targets: torch.Tensor,
+            *,
+            backend: object | None = None,
+            **kwargs: Any,
+        ) -> torch.Tensor:
+            del model, inputs, targets, backend, kwargs
+            return torch.zeros(0)
 
     from raitap._adapters import _BUILDERS, ADAPTER_EXTRAS
 

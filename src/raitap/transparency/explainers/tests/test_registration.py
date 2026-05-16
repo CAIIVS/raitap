@@ -3,7 +3,7 @@ under the transparency group and pass the algorithm/payload metadata through."""
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 import torch
 import torch.nn as nn
@@ -11,6 +11,9 @@ import torch.nn as nn
 from raitap.transparency.contracts import ExplanationPayloadKind, MethodFamily
 from raitap.transparency.explainers.base_explainer import AttributionOnlyExplainer
 from raitap.transparency.explainers.registration import register_transparency_adapter
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 def test_register_transparency_adapter_registers_and_assigns_classvars() -> None:
@@ -25,7 +28,7 @@ def test_register_transparency_adapter_registers_and_assigns_classvars() -> None
         # The decorator itself only carries cross-family kwargs
         # (registry_name / extra / library / error_patterns / suppress_warnings).
         output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
-        algorithm_registry: ClassVar[dict[str, frozenset[MethodFamily]]] = {
+        algorithm_registry: ClassVar[Mapping[str, frozenset[MethodFamily]]] = {
             "alg": frozenset({MethodFamily.GRADIENT}),
         }
 

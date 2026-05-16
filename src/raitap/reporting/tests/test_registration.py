@@ -3,8 +3,16 @@ under the reporting group."""
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import TYPE_CHECKING
+
 from raitap.reporting.base_reporter import BaseReporter
 from raitap.reporting.registration import register_reporter
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from raitap.reporting.base_reporter import ReportSection
 
 
 def test_register_reporter_registers_under_reporting_group() -> None:
@@ -14,12 +22,17 @@ def test_register_reporter_registers_under_reporting_group() -> None:
         library="_stub_lib",
     )
     class _StubReporter(BaseReporter):
-        def __init__(self, config=None):
+        def __init__(self, config: object = None) -> None:
             self.config = config
 
-        def generate(self, sections, *, report_dir=None):
+        def generate(
+            self,
+            sections: Sequence[ReportSection],
+            *,
+            report_dir: Path | None = None,
+        ) -> Path:
             del sections, report_dir
-            return None  # type: ignore[return-value]
+            return Path()
 
     from raitap._adapters import _BUILDERS, ADAPTER_EXTRAS
 
