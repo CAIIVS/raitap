@@ -171,7 +171,15 @@ def test_fully_qualified_target_still_resolves() -> None:
 
 
 def test_mapping_table_lists_all_known_targets() -> None:
-    assert set(ADAPTER_EXTRAS) == {
+    # The canonical class-name → extra map is now sourced from the AST scanner
+    # (:mod:`raitap.deps.static_scan`) so the deps bootstrap stays usable in
+    # partial-extras venvs. Runtime ``ADAPTER_EXTRAS`` is still populated
+    # lazily by ``AdapterMixin.__init_subclass__`` but can be partial when an
+    # adapter module fails to import — see
+    # ``raitap.deps.tests.test_static_scan`` for the scanner-side guard.
+    from raitap.deps.static_scan import scan_adapter_extras
+
+    assert set(scan_adapter_extras()) == {
         "CaptumExplainer",
         "ShapExplainer",
         "TorchattacksAssessor",

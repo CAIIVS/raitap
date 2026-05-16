@@ -108,9 +108,9 @@ reporting:
   show_redundant_robustness_panels: false
 
 :python:
-from raitap import AppConfig
-from raitap.data import DataConfig, LabelsConfig
-from raitap.metrics import classification as classification_metrics
+from raitap import AppConfig, Hardware
+from raitap.data import DataConfig, LabelEncoding, LabelsConfig
+from raitap.metrics import Task, classification as classification_metrics
 from raitap.models import ModelConfig
 from raitap.reporting import html as html_report
 from raitap.robustness import foolbox, image_pair, perturbation_heatmap, torchattacks
@@ -118,7 +118,7 @@ from raitap.tracking import mlflow
 from raitap.transparency import captum, captum_image, shap, shap_image
 
 config = AppConfig(
-    hardware="gpu",
+    hardware=Hardware.gpu,
     experiment_name="My Experiment",
     model=ModelConfig(source="./models/my-model.onnx"),
     data=DataConfig(
@@ -130,7 +130,7 @@ config = AppConfig(
             source="./data/labels.csv",
             id_column="image",
             column="label",
-            encoding="index",
+            encoding=LabelEncoding.index,
         ),
     ),
     transparency={
@@ -180,7 +180,7 @@ config = AppConfig(
         ),
     },
     metrics=classification_metrics(
-        task="multiclass",
+        task=Task.multiclass,
         num_classes=7,
     ),
     tracking=mlflow(

@@ -112,7 +112,7 @@ data:
 :cli: data.source="./data/images" data.labels.source="./data/labels.csv" data.labels.column=label
 
 :python:
-from raitap.data import DataConfig, LabelsConfig
+from raitap.data import DataConfig, IdStrategy, LabelEncoding, LabelsConfig
 
 data = DataConfig(
     name="my-dataset",
@@ -123,8 +123,8 @@ data = DataConfig(
         source="./data/labels.csv",
         id_column="image",
         column="label",
-        encoding="index",
-        id_strategy="auto",
+        encoding=LabelEncoding.index,
+        id_strategy=IdStrategy.auto,
     ),
 )
 ```

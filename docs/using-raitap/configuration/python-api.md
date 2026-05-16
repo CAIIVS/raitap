@@ -48,15 +48,15 @@ All names load lazily via :pep:`562` ``__getattr__`` so ``import raitap`` does n
 The Python equivalent of `raitap --demo` is roughly twenty lines. Build an `AppConfig`, pass it to `run`, read the structured `RunOutputs` (`raitap.pipeline.outputs.RunOutputs`) back:
 
 ```python
-from raitap import AppConfig, run
+from raitap import AppConfig, Hardware, run
 from raitap.data import DataConfig, LabelsConfig
-from raitap.metrics import classification
+from raitap.metrics import Task, classification
 from raitap.models import ModelConfig
 from raitap.robustness import image_pair, torchattacks
 from raitap.transparency import captum, captum_image
 
 cfg = AppConfig(
-    hardware="cpu",
+    hardware=Hardware.cpu,
     experiment_name="demo",
     model=ModelConfig(source="vit_b_32"),
     data=DataConfig(
@@ -69,7 +69,7 @@ cfg = AppConfig(
             column="label",
         ),
     ),
-    metrics=classification(task="multiclass"),
+    metrics=classification(task=Task.multiclass),
     transparency={
         "captum_ig": captum(
             algorithm="IntegratedGradients",
@@ -93,6 +93,79 @@ metric_values = outputs.metrics.result.metrics if outputs.metrics else {}
 ```
 
 `verbose=False` suppresses the rich console summary panel but does not silence Python `logging`; configure the root logger yourself if you want quiet output.
+
+Conversely, with `verbose=True` (the default) only the summary panel renders — per-step progress messages flow through Python `logging` and stay silent until you attach a handler. The CLI configures one via Hydra; the Python path leaves logging to you. A one-liner near the top of the script is enough:
+
+```python
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+```
+
+### Auto-installing extras from Python
+
+The `raitap` CLI walks the composed Hydra config before any heavy import, then installs the matching extras via `uv add` / `uv sync` (the `--allow-project-edit` / `-y` flow). The Python entry point gets the same flow via `raitap.deps.install_raitap_deps`.
+
+**Use the schema-dataclass + `_target_` form for the pre-install phase, not builders.** The hydra-zen builders (`classification`, `captum`, `torchattacks`, ...) live next to the adapter classes they wrap — importing `classification` imports `classification_metrics.py`, which imports `torchmetrics`, which is exactly the extra you're trying to install. The raw `MetricsConfig(_target_="ClassificationMetrics", ...)` form is the only import-free way to express the config before its extras are pinned:
+
+```python
+# Light imports only — schema dataclasses + enums, no adapter modules.
+from raitap.configs.schema import (
+    AppConfig,
+    MetricsConfig,
+    ModelConfig,
+    ReportingConfig,
+    RobustnessConfig,
+    TransparencyConfig,
+)
+from raitap.deps import install_raitap_deps
+from raitap.types import Hardware, Task
+
+cfg = AppConfig(
+    hardware=Hardware.gpu,
+    model=ModelConfig(source="vit_b_32"),
+    metrics=MetricsConfig(_target_="ClassificationMetrics", task=Task.multiclass),
+    transparency={
+        "default": TransparencyConfig(
+            _target_="CaptumExplainer",
+            algorithm="IntegratedGradients",
+            call={"target": 0},
+            visualisers=[{"_target_": "CaptumImageVisualiser"}],
+        ),
+    },
+    robustness={
+        "pgd": RobustnessConfig(
+            _target_="TorchattacksAssessor",
+            algorithm="PGD",
+            constructor={"eps": 0.03, "alpha": 0.005, "steps": 10},
+            visualisers=[{"_target_": "ImagePairVisualiser"}],
+        ),
+    },
+    reporting=ReportingConfig(_target_="HTMLReporter", filename="report"),
+)
+install_raitap_deps(cfg, allow_project_edit=True)
+
+# Defer the heavy import — adapter backends are pulled here, after
+# install_raitap_deps has pinned their extras into pyproject.toml.
+from raitap import run
+
+run(cfg)
+```
+
+Why the deferred `from raitap import run`: top-level access to `run` triggers the lazy import chain (`raitap.api → raitap.pipeline.orchestrator → raitap.models → ...`), which in turn pulls every adapter backend the config references. Keeping the heavy imports below the bootstrap call mirrors what the CLI does via `os.execv`.
+
+`install_raitap_deps` is idempotent — after the re-exec it returns immediately on the next call (a sentinel env var short-circuits the second pass), so it is safe to leave at the top of the script unconditionally.
+
+`allow_project_edit=True` consents to `uv add` modifying your `pyproject.toml`. Without it, the function prints the planned command and exits non-zero, letting you run it yourself. `exec_global=True` plays the same role for the bare-`pip install` fallback when no venv is active.
+
+#### Builders vs schema dataclasses
+
+| Form | When to use |
+| --- | --- |
+| Hydra-zen builders (`classification(task=...)`, `captum(algorithm=...)`, …) | Everyday scripts and notebooks **after** extras are installed. Better autocomplete on adapter-specific kwargs. |
+| Schema dataclasses + `_target_` strings (`MetricsConfig(_target_="...", task=...)`) | Scripts that call `install_raitap_deps` on first run. Light imports only, works in a partial-extras venv. Identical at runtime — Hydra reads both shapes the same way. |
+
+`raitap.deps.install_raitap_deps` is the only Python-side surface for auto-deps; YAML / CLI users keep the existing `--allow-project-edit` / `-y` flag on the `raitap` invocation.
 
 Each module exposes [hydra-zen `builds`](https://mit-ll-responsible-ai.github.io/hydra-zen/) factories — one per adapter — derived automatically from the class declaration. Import them from the relevant module:
 
@@ -166,9 +239,9 @@ metrics:
   average: "macro"
 
 :python:
-from raitap.metrics import classification
+from raitap.metrics import Task, classification
 
-metrics = classification(task="multiclass", num_classes=7, average="macro")
+metrics = classification(task=Task.multiclass, num_classes=7, average="macro")
 ```
 
 The hydra-zen builder is the recommended path here because `ClassificationMetrics` exposes many optional kwargs (`average`, `ignore_index`, …) that `MetricsConfig` does not type explicitly. `populate_full_signature=True` lifts the full constructor signature onto the dataclass, so your editor will autocomplete every kwarg.
@@ -350,10 +423,10 @@ tracking = mlflow(
 ### Putting it together
 
 ```python
-from raitap import AppConfig, run
+from raitap import AppConfig, Hardware, run
 
 cfg = AppConfig(
-    hardware="gpu",
+    hardware=Hardware.gpu,
     experiment_name="My Experiment",
     model=model,
     data=data,
@@ -387,7 +460,7 @@ The schema is a deliberate mix of strict and forwarded. Knowing which fields are
 
 **Fully typed**
 
-- `hardware: Hardware`, `data.labels.encoding: LabelEncoding`, `data.labels.id_strategy: IdStrategy`, `metrics.task: Task` — all four are `enum.StrEnum` subclasses. Imports follow the module-ownership rule: `from raitap import Hardware`, `from raitap.data import LabelEncoding, IdStrategy`, `from raitap.metrics import Task`. Pass either the enum member (`Hardware.cpu`) or its string value (`"cpu"`); OmegaConf validates the latter against the member name.
+- `hardware: Hardware`, `data.labels.encoding: LabelEncoding`, `data.labels.id_strategy: IdStrategy`, `metrics.task: Task` — all four are `enum.StrEnum` subclasses. Imports follow the module-ownership rule: `from raitap import Hardware`, `from raitap.data import LabelEncoding, IdStrategy`, `from raitap.metrics import Task`. **Pass the enum member** (`Hardware.cpu`) — typos like `Hardware.cpuu` fail at import time and Pyright/your editor catch them immediately. The raw string form (`"cpu"`) still parses at runtime via OmegaConf coercion, but it bypasses static type-checking — defeating the main reason to use the Python path over YAML.
 - The nested dataclass dicts on `AppConfig.transparency` and `AppConfig.robustness` — keys are arbitrary user-chosen strings, values must be `TransparencyConfig` / `RobustnessConfig` instances (or dicts with the right keys).
 - All scalar fields on `ModelConfig`, `DataConfig`, `LabelsConfig`, `MetricsConfig`, `TrackingConfig`, `ReportingConfig` are checked by OmegaConf's structured-config validation when the orchestrator boots.
 

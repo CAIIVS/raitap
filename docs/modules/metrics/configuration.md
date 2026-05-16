@@ -98,10 +98,10 @@ metrics:
 :cli: +metrics=detection +metrics.class_metrics=true +metrics.extended_summary=true
 
 :python:
-from raitap.metrics import classification
+from raitap.metrics import Task, classification
 
 metrics = classification(
-    task="multiclass",
+    task=Task.multiclass,
     num_classes=7,
 )
 ```

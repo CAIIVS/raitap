@@ -57,7 +57,7 @@ data:
     # id_strategy: "auto"   # default — relative paths auto-detected
 
 :python:
-from raitap.data import DataConfig, LabelsConfig
+from raitap.data import DataConfig, IdStrategy, LabelsConfig
 
 data = DataConfig(
     source="./data/test",
@@ -65,7 +65,7 @@ data = DataConfig(
         source="./data/labels.csv",
         id_column="image",
         column="label",
-        # id_strategy="auto",  # default — relative paths auto-detected
+        # id_strategy=IdStrategy.auto,  # default — relative paths auto-detected
     ),
 )
 ```

@@ -123,11 +123,11 @@ robustness:
 
 :python:
 from raitap import AppConfig
-from raitap.metrics import classification
+from raitap.metrics import Task, classification
 from raitap.robustness import image_pair, torchattacks
 
 config = AppConfig(
-    metrics=classification(task="multiclass"),
+    metrics=classification(task=Task.multiclass),
     robustness={
         "pgd": torchattacks(
             algorithm="PGD",
@@ -209,15 +209,15 @@ data:
   source: ./my-dataset
 
 :python:
-from raitap import AppConfig
+from raitap import AppConfig, Hardware
 from raitap.data import DataConfig
-from raitap.metrics import classification
+from raitap.metrics import Task, classification
 from raitap.models import ModelConfig
 from raitap.transparency import shap, shap_image
 
 config = AppConfig(
     experiment_name="my-exp",
-    hardware="cpu",
+    hardware=Hardware.cpu,
     model=ModelConfig(source="resnet50"),
     data=DataConfig(source="./my-dataset"),
     transparency={
@@ -227,7 +227,7 @@ config = AppConfig(
             visualisers=[shap_image()],
         ),
     },
-    metrics=classification(task="multiclass"),
+    metrics=classification(task=Task.multiclass),
 )
 ```
 
