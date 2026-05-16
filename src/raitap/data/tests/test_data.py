@@ -273,12 +273,12 @@ class TestDataPreprocessing:
         from torch import nn
 
         from raitap.configs.schema import AppConfig, DataConfig, LabelsConfig, ModelConfig
-        from raitap.data.samples import _CACHE_DIR, SAMPLE_SOURCES
+        from raitap.data.samples import SAMPLE_SOURCES
 
         # Stage a fake sample at varied native sizes so the test would fail
         # if the loader fell back to the legacy 224x224 PIL squash.
-        sample_dir = _CACHE_DIR / "fake_native_samples"
-        sample_dir.mkdir(parents=True, exist_ok=True)
+        sample_dir = tmp_path / "fake_native_samples"
+        sample_dir.mkdir()
         for name, w, h in [("a.jpg", 451, 800), ("b.jpg", 533, 800), ("c.jpg", 440, 780)]:
             _write_image(sample_dir / name, w, h)
 
@@ -292,7 +292,10 @@ class TestDataPreprocessing:
                     calls.append(tuple(x.shape))
                     return torch.zeros(3, 224, 224)
 
-            with patch("raitap.data.data.resolve_preprocessing") as resolve_preprocessing_mock:
+            with (
+                patch("raitap.data.samples._CACHE_DIR", tmp_path),
+                patch("raitap.data.data.resolve_preprocessing") as resolve_preprocessing_mock,
+            ):
                 from raitap.data.preprocessing import ResolvedPreprocessing
 
                 resolve_preprocessing_mock.return_value = ResolvedPreprocessing(
@@ -319,9 +322,6 @@ class TestDataPreprocessing:
         finally:
             SAMPLE_SOURCES.clear()
             SAMPLE_SOURCES.update(original)
-            for f in sample_dir.iterdir():
-                f.unlink()
-            sample_dir.rmdir()
 
         assert data.tensor.shape == (3, 3, 224, 224)
         # The spy must see three per-image calls at NATIVE resolution
