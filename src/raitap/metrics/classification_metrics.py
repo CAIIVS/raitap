@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     import torchmetrics
 else:
     # Deferred so this module can be imported in a venv without the
-    # ``metrics`` extra installed (e.g. during ``install_raitap_deps``).
+    # ``metrics`` extra installed (e.g. during ``raitap.run(..., auto_install=True)``).
     torchmetrics = lazy_import("torchmetrics")
 
 __all__ = ["Average", "ClassificationMetrics", "Task"]

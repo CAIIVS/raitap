@@ -2,12 +2,12 @@
 its wrapped third-party libraries are not installed.
 
 This is what unlocks the programmatic-API auto-deps flow — see
-:func:`raitap.deps.install_raitap_deps` and the ``Builders vs schema
-dataclasses`` discussion in ``docs/using-raitap/configuration/python-api.md``.
-A maintainer who adds a new adapter and forgets the
-:func:`raitap.utils.lazy.lazy_import` pattern (adding a top-level
-``import torchmetrics`` instead) breaks the partial-extras-venv contract;
-this test fails immediately with the exact module that regressed.
+``raitap.run(..., auto_install=True)`` in
+``docs/using-raitap/configuration/python-api.md``. A maintainer who adds a
+new adapter and forgets the :func:`raitap.utils.lazy.lazy_import` pattern
+(adding a top-level ``import torchmetrics`` instead) breaks the
+partial-extras-venv contract; this test fails immediately with the exact
+module that regressed.
 """
 
 from __future__ import annotations

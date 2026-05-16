@@ -1,15 +1,15 @@
 ---
-title: "ImageNet · Captum IG · Torchattacks PGD"
-description: "ImageNet samples on vit_b_32, Captum Integrated Gradients for transparency, Torchattacks PGD for robustness, classification metrics, HTML report."
+title: "Multi-explainer · Captum IG + Saliency"
+description: "Two transparency explainers under one run — Captum Integrated Gradients and Captum Saliency side by side, each producing its own attribution + visualisation row in the HTML report."
 myst:
   html_meta:
-    "description": "ImageNet samples on vit_b_32, Captum Integrated Gradients for transparency, Torchattacks PGD for robustness, classification metrics, HTML report."
+    "description": "Two transparency explainers under one run — Captum Integrated Gradients and Captum Saliency side by side, each producing its own attribution + visualisation row in the HTML report."
 ---
 
-# ImageNet · Captum IG · Torchattacks PGD
+# Multi-explainer · Captum IG + Saliency
 
 ```{recipe}
-:summary: ImageNet samples on `vit_b_32`, Captum Integrated Gradients for transparency, Torchattacks PGD for robustness, classification metrics, HTML report.
+:summary: Two transparency explainers under one run — Captum Integrated Gradients and Captum Saliency side by side, each producing its own attribution + visualisation row in the HTML report.
 
 :yaml:
 defaults:
@@ -19,7 +19,7 @@ defaults:
   - metrics: classification
 
 hardware: gpu
-experiment_name: example
+experiment_name: multi-explainer
 
 model:
   source: vit_b_32
@@ -34,24 +34,20 @@ data:
     column: label
 
 transparency:
-  default:
+  ig:
     _target_: CaptumExplainer
     algorithm: IntegratedGradients
     call:
       target: 0
     visualisers:
       - _target_: CaptumImageVisualiser
-
-robustness:
-  pgd:
-    _target_: TorchattacksAssessor
-    algorithm: PGD
-    constructor:
-      eps: 0.03
-      alpha: 0.005
-      steps: 10
+  saliency:
+    _target_: CaptumExplainer
+    algorithm: Saliency
+    call:
+      target: 0
     visualisers:
-      - _target_: ImagePairVisualiser
+      - _target_: CaptumImageVisualiser
 
 :python:
 from raitap import AppConfig, Hardware, run
@@ -59,12 +55,11 @@ from raitap.data import DataConfig, LabelsConfig
 from raitap.metrics import Task, classification
 from raitap.models import ModelConfig
 from raitap.reporting import html
-from raitap.robustness import image_pair, torchattacks
 from raitap.transparency import captum, captum_image
 
 cfg = AppConfig(
     hardware=Hardware.gpu,
-    experiment_name="example",
+    experiment_name="multi-explainer",
     model=ModelConfig(source="vit_b_32"),
     data=DataConfig(
         name="imagenet_samples",
@@ -78,17 +73,15 @@ cfg = AppConfig(
     ),
     metrics=classification(task=Task.multiclass),
     transparency={
-        "default": captum(
+        "ig": captum(
             algorithm="IntegratedGradients",
             call={"target": 0},
             visualisers=[captum_image()],
         ),
-    },
-    robustness={
-        "pgd": torchattacks(
-            algorithm="PGD",
-            constructor={"eps": 0.03, "alpha": 0.005, "steps": 10},
-            visualisers=[image_pair()],
+        "saliency": captum(
+            algorithm="Saliency",
+            call={"target": 0},
+            visualisers=[captum_image()],
         ),
     },
     reporting=html(filename="report"),
@@ -98,7 +91,8 @@ outputs = run(cfg, auto_install=True)
 :output:
 outputs/<date>/<time>/
 ├── metrics/{metrics.json, artifacts.json, metadata.json, metrics_overview.png}
-├── transparency/default/{attributions.pt, CaptumImageVisualiser_0.png, metadata.json}
-├── robustness/pgd/{robustness_data.pt, ImagePairVisualiser_0.png, metadata.json}
+├── transparency/
+│   ├── ig/{attributions.pt, CaptumImageVisualiser_0.png, metadata.json}
+│   └── saliency/{attributions.pt, CaptumImageVisualiser_0.png, metadata.json}
 └── reports/{report.html, report.zip, _assets/…}
 ```

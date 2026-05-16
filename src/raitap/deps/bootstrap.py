@@ -48,8 +48,9 @@ class BootstrapCase(Enum):
     """Install-context dispatch for the auto-deps flow.
 
     Picked by ``(_is_dev_install(), _uv_available())``; consumed by
-    :func:`maybe_bootstrap` and :func:`install_raitap_deps` to route to
-    the matching install command + refusal hint.
+    :func:`maybe_bootstrap` (CLI) and :func:`install_raitap_deps`
+    (consumed by :func:`raitap.run` under ``auto_install=True``) to route
+    to the matching install command + refusal hint.
     """
 
     DEV_WITH_UV = "dev_with_uv"        # uv sync + uv run relaunch
@@ -115,18 +116,19 @@ def _strip_deps_flags(argv: list[str]) -> tuple[list[str], _DepFlags]:
     flags = _DepFlags()
     keep: list[str] = []
     for a in argv:
-        if a == "--dry-run":
-            flags.dry_run = True
-        elif a == "--sync-only":
-            flags.sync_only = True
-        elif a == "--custom-deps":
-            flags.custom = True
-        elif a in ("--allow-project-edit", "-y"):
-            flags.allow_project_edit = True
-        elif a == "--exec-global":
-            flags.exec_global = True
-        else:
-            keep.append(a)
+        match a:
+            case "--dry-run":
+                flags.dry_run = True
+            case "--sync-only":
+                flags.sync_only = True
+            case "--custom-deps":
+                flags.custom = True
+            case "--allow-project-edit" | "-y":
+                flags.allow_project_edit = True
+            case "--exec-global":
+                flags.exec_global = True
+            case _:
+                keep.append(a)
     return keep, flags
 
 
@@ -337,8 +339,10 @@ def _python_refusal_note_blocks(case: BootstrapCase, extras: set[str]) -> list:
                 ),
                 Text.assemble(("- Run it yourself: ", warn), (cmd, white)),
                 Text.assemble(
-                    ("- Call ", warn),
-                    ("install_raitap_deps(cfg, allow_project_edit=True)", white),
+                    ("- Pass ", warn),
+                    ("auto_install=True", white),
+                    (" to ", warn),
+                    ("raitap.run(cfg, ...)", white),
                     (" to consent.", warn),
                 ),
             ]
@@ -356,8 +360,12 @@ def _python_refusal_note_blocks(case: BootstrapCase, extras: set[str]) -> list:
                 Text.assemble(("- Activate a venv and rerun.", warn)),
                 Text.assemble(("- Run it yourself: ", warn), (pip_cmd, white)),
                 Text.assemble(
-                    ("- Call ", warn),
-                    ("install_raitap_deps(cfg, exec_global=True)", white),
+                    ("- Pass ", warn),
+                    ("exec_global=True", white),
+                    (" alongside ", warn),
+                    ("auto_install=True", white),
+                    (" on ", warn),
+                    ("raitap.run(...)", white),
                     (" to consent.", warn),
                 ),
             ]
@@ -394,16 +402,13 @@ def install_raitap_deps(
 ) -> None:
     """Bootstrap raitap extras inferred from a Python ``AppConfig``.
 
-    Programmatic analogue of the CLI auto-deps flow run by
-    :func:`maybe_bootstrap`. Call this **before** importing
-    :func:`raitap.run` (or any other raitap submodule that pulls adapter
-    backends) — the function walks the config, picks the matching extras
-    for the host, invokes ``uv``/``pip`` to install them, and re-execs
-    the current script so the freshly-installed packages are visible.
-
-    Idempotent: once a re-exec has happened the sentinel env var
-    short-circuits subsequent calls, so the function is safe to invoke
-    unconditionally at the top of a script.
+    Internal — the public surface is :func:`raitap.run` called with
+    ``auto_install=True`` (and optionally ``exec_global=True``). The
+    function walks the config, picks the matching extras for the host,
+    invokes ``uv``/``pip`` to install them, and re-execs the current
+    script so the freshly-installed packages are visible. Idempotent:
+    once a re-exec has happened the sentinel env var short-circuits
+    subsequent calls.
 
     Args:
         config: An ``AppConfig`` instance (or pre-converted ``Mapping``).
@@ -411,22 +416,12 @@ def install_raitap_deps(
             ``robustness`` / ``metrics`` / ``reporting`` / ``tracking``
             plus ``model.source`` to pick a backend extra.
         allow_project_edit: Consent to ``uv add`` modifying the caller's
-            ``pyproject.toml``. Without it, the function prints
-            the planned command and exits non-zero.
+            ``pyproject.toml``. Without it, the function prints the
+            planned command and exits non-zero. ``raitap.run`` hard-codes
+            ``True`` here when the caller passed ``auto_install=True``.
         exec_global: Consent to ``pip install`` against the base
-            interpreter when no venv is active
-
-    Example::
-
-        from raitap import AppConfig, Hardware
-        from raitap.deps import install_raitap_deps
-
-        cfg = AppConfig(hardware=Hardware.gpu, ...)
-        install_raitap_deps(cfg, allow_project_edit=True)
-
-        # Imports below pull adapter backends — safe now extras are pinned.
-        from raitap import run
-        run(cfg)
+            interpreter when no venv is active. Plumbed through from
+            ``raitap.run(..., exec_global=...)``.
     """
     if os.environ.get(_SENTINEL) == "1":
         return

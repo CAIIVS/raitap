@@ -10,7 +10,7 @@ venvs — i.e. before the very libraries it is about to install have been
 installed. The runtime ``ADAPTER_EXTRAS`` dict populated by
 :meth:`raitap._adapters.AdapterMixin.__init_subclass__` is still the
 authoritative source whenever it is populated; this scanner is a safety
-net for ``install_raitap_deps`` and the CLI bootstrap.
+net for ``raitap.run(..., auto_install=True)`` and the CLI bootstrap.
 
 Preserves the "adding a new adapter = single-file add" invariant:
 nothing here is hand-maintained, and a new adapter's ``extra="..."``

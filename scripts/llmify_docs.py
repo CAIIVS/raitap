@@ -76,16 +76,24 @@ CODE_BLOCK_RE = re.compile(r"```.*?```", re.DOTALL)
 INTRO_RE = re.compile(
     r"^:intro:\s*(.+?)(?=^:\w+:|^```$)", re.MULTILINE | re.DOTALL
 )
+SUMMARY_RE = re.compile(
+    r"^:summary:\s*(.+?)(?=^:\w+:|^```$)", re.MULTILINE | re.DOTALL
+)
 
 
 def directive_intro(text: str) -> str:
-    match = INTRO_RE.search(text)
+    """Pull a description out of a ``{config-page}`` ``:intro:`` or a
+    ``{recipe}`` ``:summary:`` field — both serve the "one-paragraph
+    overview" role even though they live inside MyST directive blocks that
+    :func:`first_paragraph` deliberately strips.
+    """
+    match = INTRO_RE.search(text) or SUMMARY_RE.search(text)
     if not match:
         return ""
     cleaned = " ".join(match.group(1).split())
-    cleaned = re.sub(r"[`*_]", "", cleaned)
+    cleaned = re.sub(r"[`*]", "", cleaned)
     cleaned = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", cleaned)
-    return cleaned[:240].rstrip()
+    return _truncate_at_word_boundary(cleaned, 240)
 
 
 def first_paragraph(text: str) -> str:

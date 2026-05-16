@@ -10,8 +10,9 @@ paths drive identical pipelines (modulo PyTorch determinism).
 
 Adapter modules use lazy imports of their wrapped libraries
 (``raitap.utils.lazy.lazy_import``), so this file can be imported in a venv
-that has only the base raitap dep — ``install_raitap_deps`` walks the cfg
-and installs the missing extras on first run, then re-execs the script.
+that has only the base raitap dep — ``run(cfg, auto_install=True)`` walks
+the cfg and installs the missing extras on first run, then re-execs the
+script (same flow as the CLI's ``--allow-project-edit`` / ``-y``).
 """
 
 from __future__ import annotations
@@ -20,7 +21,6 @@ import logging
 
 from raitap import AppConfig, Hardware, run
 from raitap.data import DataConfig, LabelsConfig
-from raitap.deps import install_raitap_deps
 from raitap.metrics import Task, classification
 from raitap.models import ModelConfig
 from raitap.reporting import html
@@ -64,13 +64,15 @@ def build_config() -> AppConfig:
 
 if __name__ == "__main__":
     cfg = build_config()
-    install_raitap_deps(cfg, allow_project_edit=True)
 
     # ``raitap.run`` delegates step-by-step progress to Python ``logging`` —
     # without a handler the run is silent apart from the summary panel.
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-    outputs = run(cfg)
+    # ``auto_install=True`` runs the same auto-deps flow as the CLI's
+    # ``--allow-project-edit`` / ``-y``: walk the cfg, install missing
+    # extras via ``uv add`` (or ``pip install``), re-exec the script.
+    outputs = run(cfg, auto_install=True)
 
     # Programmatic access demo — ``outputs`` is a ``RunOutputs`` dataclass
     # (see ``raitap.pipeline.outputs``). All artefacts the report consumes

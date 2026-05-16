@@ -52,6 +52,8 @@ def run(
     *,
     verbose: bool = True,
     output_root: str | Path | None = None,
+    auto_install: bool = False,
+    exec_global: bool = False,
 ) -> RunOutputs:
     """Run the full pipeline programmatically.
 
@@ -61,7 +63,31 @@ def run(
     Outputs (metrics, reports, transparency artefacts) are written under
     ``output_root``. When ``None``, mirrors Hydra's default and writes to
     ``./outputs/<YYYY-MM-DD>/<HH-MM-SS>/`` so the caller's cwd stays clean.
+
+    Pass ``auto_install=True`` to opt into the same auto-deps flow the
+    ``raitap`` CLI uses behind ``--allow-project-edit`` / ``-y``: the call
+    walks ``config`` for adapter ``_target_`` references, infers the
+    matching extras, runs ``uv add raitap[<extras>]`` (or ``pip install``
+    when uv is absent), and re-execs the current Python process so the
+    freshly-installed packages are visible. ``exec_global=True`` consents
+    to ``pip install`` against the base interpreter when no venv is
+    active (the pip-side analogue of ``--exec-global``). Idempotent: a
+    sentinel env var short-circuits the second pass after the re-exec.
+
+    Without either flag, ``run`` assumes the extras the config needs are
+    already installed (the typical case after the CLI bootstrap or a
+    manual ``uv sync``); a missing adapter library surfaces as the usual
+    ``ModuleNotFoundError`` from the adapter import chain.
     """
+    if auto_install:
+        # Lazy import so callers who do not opt in don't pay for the
+        # bootstrap module's imports.
+        from raitap.deps.bootstrap import install_raitap_deps
+
+        install_raitap_deps(
+            config, allow_project_edit=True, exec_global=exec_global
+        )
+
     try:
         existing_root = config._output_root  # type: ignore[attr-defined]
     except Exception:

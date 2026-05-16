@@ -12,16 +12,16 @@ uv run raitap --config-name assessment                           # subsequent ru
 ```
 
 Or run the equivalent Python entrypoint — it triggers the same auto-deps
-flow via `raitap.deps.install_raitap_deps`, then re-execs the script:
+flow by passing `auto_install=True` to `raitap.run`:
 
 ```bash
 uv run python assessment.py
 ```
 
-The script calls `install_raitap_deps(cfg, allow_project_edit=True)` before
-importing `raitap.run`. First run: walks the config, infers extras, `uv add`s
-them into this `pyproject.toml`, re-execs. Subsequent runs are no-ops on
-the bootstrap and proceed straight to `run(cfg)`.
+The script calls `run(cfg, auto_install=True)`. First run: walks the config,
+infers extras, `uv add`s them into this `pyproject.toml`, re-execs.
+Subsequent runs short-circuit the bootstrap and proceed straight to the
+pipeline.
 
 First-run behaviour: raitap walks `assessment.yaml`, infers which extras the
 declared targets need (`captum`, `html`, `metrics`, `torchattacks`, plus a
@@ -38,11 +38,11 @@ the dependency line evolves automatically as you change the config.
   `metrics=classification`) plus inline `model`, `data`, `transparency`,
   `robustness`. Inherits `raitap_schema` for dataclass defaults.
 - `assessment.py` — programmatic equivalent of `assessment.yaml` using
-  `raitap.AppConfig` + `raitap.run(...)`. Same pipeline, no Hydra CLI. Uses
-  schema dataclasses + `_target_` strings (rather than the hydra-zen
-  builders documented under `docs/using-raitap/configuration/python-api.md`)
-  so the imports stay light and `install_raitap_deps` can populate the
-  extras on first run before any adapter backend is touched.
+  `raitap.AppConfig` + `raitap.run(..., auto_install=True)`. Same pipeline,
+  no Hydra CLI. Adapter modules use lazy imports of their wrapped libraries,
+  so this file can be imported and run in a venv that has only the base
+  `raitap` dep — `auto_install=True` walks the cfg, pins the extras, and
+  re-execs.
 - Reports land under `outputs/<date>/<time>/`.
 
 ## Notes
