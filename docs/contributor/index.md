@@ -20,6 +20,8 @@ pull-requests
 releases
 logging
 Adding an adapter <adding-an-adapter>
+Adding an algorithm <adding-an-algorithm>
+Adding a module <adding-a-module>
 Data module <data>
 Metrics module <metrics>
 Tracking module <tracking>
