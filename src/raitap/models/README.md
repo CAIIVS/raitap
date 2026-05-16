@@ -16,17 +16,20 @@ Order of attempts when `model.source` points at a `.pt` or `.pth` file:
 2. **state_dict** — if `torch.load` returns a `dict`, RAITAP instantiates
    a torchvision architecture from `model.arch` + `model.num_classes`,
    then calls `load_state_dict(strict=True)`.
-3. **Pickled `nn.Module`** — if `torch.load` returns an `nn.Module`,
-   RAITAP returns it directly and emits a `DeprecationWarning`. This path
-   is supported but discouraged: pickled modules embed fully-qualified
-   class paths, so renames or torchvision version bumps break unpickling.
+3. **Pickled `nn.Module`** — if `torch.load` with `weights_only=True`
+   rejects the checkpoint, RAITAP refuses it unless
+   `model.allow_unsafe_pickle: true` is set. With that explicit opt-in,
+   RAITAP reloads with `weights_only=False`, returns the module directly,
+   and emits a `DeprecationWarning`. This path executes arbitrary code
+   embedded in the file and should only be used for fully trusted sources.
 
 ## Config examples
 
 ```yaml
-# A — full pickled nn.Module (deprecated):
+# A — full pickled nn.Module (deprecated, requires explicit opt-in):
 model:
   source: "model.pth"
+  allow_unsafe_pickle: true
 
 # B — state_dict + arch (recommended):
 model:

@@ -911,3 +911,37 @@ class TestModelPreprocessingWrap:
         )
         with pytest.raises(NotImplementedError, match="ONNX"):
             _apply_preprocessing(backend, cfg)
+
+
+def test_resnet_state_dict_with_model_bundled_preprocessing_keeps_gradcam_path(
+    tmp_path: Path,
+) -> None:
+    from torchvision import models as tv_models
+    from torchvision.models.resnet import ResNet
+    from torchvision.transforms import v2
+
+    from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
+
+    ref = tv_models.resnet50(weights=None, num_classes=7)
+    path = tmp_path / "lwise_ham10000_inner_resnet50_state_dict.pt"
+    torch.save(ref.state_dict(), path)
+    cfg = cast(
+        "AppConfig",
+        AppConfig(
+            model=ModelConfig(source=str(path), arch="resnet50", num_classes=7),
+            data=DataConfig(preprocessing="model-bundled"),
+            hardware="cpu",
+        ),
+    )
+
+    model = Model(cfg)
+
+    assert cfg.model.allow_unsafe_pickle is False
+    assert model.resolved_preprocessing.origin == "model-bundled"
+    assert isinstance(model.resolved_preprocessing.model_module, v2.Normalize)
+    assert isinstance(model.backend, TorchBackend)
+    assert isinstance(model.backend.model, nn.Sequential)
+    children = list(model.backend.model.children())
+    assert len(children) == 2
+    assert isinstance(children[1], ResNet)
+    assert children[1].layer4[2].conv3 is not None
