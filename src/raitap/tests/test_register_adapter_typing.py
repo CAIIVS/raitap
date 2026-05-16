@@ -16,9 +16,12 @@ import json
 import shutil
 import subprocess
 import textwrap
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 pyright = shutil.which("pyright")
 pytestmark = pytest.mark.skipif(pyright is None, reason="pyright not on PATH")

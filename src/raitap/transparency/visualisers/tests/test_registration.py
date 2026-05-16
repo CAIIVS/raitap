@@ -3,14 +3,17 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import torch
 from matplotlib.figure import Figure
 
-from raitap.transparency.contracts import VisualisationContext
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
 from raitap.transparency.visualisers.registration import register_transparency_visualiser
+
+if TYPE_CHECKING:
+    import torch
+
+    from raitap.transparency.contracts import VisualisationContext
 
 
 # Defined at module scope so ``hydra_zen.builds(...)`` can resolve the class's

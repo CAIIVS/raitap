@@ -59,17 +59,21 @@ class BootstrapCase(Enum):
     USER_WITH_PIP = "user_with_pip"  # pip install (needs --exec-global outside a venv)
 
 
-from raitap.deps.availability import (
+# Imports below the BootstrapCase enum (declared earlier in the file) keep
+# the top-of-file public surface clean — the sentinel re-exec logic in
+# ``maybe_bootstrap`` depends on the enum being importable without dragging
+# in the heavier deps modules. E402 is intentional here.
+from raitap.deps.availability import (  # noqa: E402
     ExtraUnavailableError,
     check_platform_availability,
 )
-from raitap.deps.command import render_command
-from raitap.deps.conflicts import ExtrasConflictError, validate_conflicts
-from raitap.deps.frame import print_deps_error_frame, print_deps_frame
-from raitap.deps.inference import infer_extras
-from raitap.deps.probe import detect_hardware
-from raitap.deps.python_version import pick_python_version
-from raitap.utils.diagnostics import is_dev_install
+from raitap.deps.command import render_command  # noqa: E402
+from raitap.deps.conflicts import ExtrasConflictError, validate_conflicts  # noqa: E402
+from raitap.deps.frame import print_deps_error_frame, print_deps_frame  # noqa: E402
+from raitap.deps.inference import infer_extras  # noqa: E402
+from raitap.deps.probe import detect_hardware  # noqa: E402
+from raitap.deps.python_version import pick_python_version  # noqa: E402
+from raitap.utils.diagnostics import is_dev_install  # noqa: E402
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -298,7 +302,8 @@ def _refusal_note_blocks(case: BootstrapCase, extras: set[str], cleaned: list[st
             hint = _hint_invocation(cleaned, "--exec-global")
             return [
                 Text(
-                    "Running pip install would target the base interpreter (no venv detected). Either:",
+                    "Running pip install would target the base interpreter "
+                    "(no venv detected). Either:",
                     style=warn,
                 ),
                 Text.assemble(("- Activate a venv and rerun.", warn)),
@@ -351,7 +356,8 @@ def _python_refusal_note_blocks(case: BootstrapCase, extras: set[str]) -> list:
             )
             return [
                 Text(
-                    "Running pip install would target the base interpreter (no venv detected). Either:",
+                    "Running pip install would target the base interpreter "
+                    "(no venv detected). Either:",
                     style=warn,
                 ),
                 Text.assemble(("- Activate a venv and rerun.", warn)),

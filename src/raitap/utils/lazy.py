@@ -36,8 +36,10 @@ maintainer who forgets the pattern and adds a top-level
 from __future__ import annotations
 
 import importlib
-from types import ModuleType
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 
 class _LazyModule:

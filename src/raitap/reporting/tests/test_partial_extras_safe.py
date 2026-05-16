@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import importlib
 import sys
-from collections.abc import Iterator
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 import pytest
 
