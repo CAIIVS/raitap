@@ -137,7 +137,7 @@ def _mlflow_summary_params(config_dict: dict[str, Any]) -> dict[str, str]:
     return out
 
 
-@register_tracker(registry_name="mlflow", extra="mlflow")
+@register_tracker(registry_name="mlflow")
 class MLFlowTracker(BaseTracker):
     @classmethod
     def stop_detached(cls, timeout: float = 5.0) -> tuple[int, int]:

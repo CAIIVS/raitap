@@ -209,7 +209,14 @@ def _register_core(
     from raitap.utils.log import raitap_log
 
     registry_name = common["registry_name"]
+    # ``extra`` defaults to ``registry_name`` for schema-backed adapters (family
+    # is set) — covers 8/10 of the in-tree adapters; metrics overrides to share
+    # ``extra="metrics"`` across two metric adapters. Visualisers (family=None)
+    # don't get an auto-extra — they ship with their parent adapter's extra and
+    # have no standalone uv extra of their own.
     extra = common.get("extra")
+    if extra is None and family is not None:
+        extra = registry_name
     library = common.get("library")
     error_patterns = common.get("error_patterns")
     suppress_warnings = common.get("suppress_warnings")

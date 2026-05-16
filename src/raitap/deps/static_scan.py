@@ -1,10 +1,13 @@
 """Best-effort static scan of adapter ``extra=`` declarations.
 
 Walks the installed raitap source tree with :mod:`ast` and harvests every
-``@register_<family>_adapter(..., extra="bar")`` (or
-``@register_<family>_visualiser(..., extra="bar")``) decorator above a
-``class`` def, without importing the module (and therefore without pulling
-the wrapped third-party library).
+``@register_<family>_adapter(...)`` (or ``@register_<family>_visualiser(...)``)
+decorator above a ``class`` def, without importing the module (and therefore
+without pulling the wrapped third-party library).
+
+Mirrors :func:`raitap._adapters._register_core`'s defaulting: when the
+decorator omits ``extra=``, the runtime defaults it to ``registry_name``, so
+the scanner does the same.
 
 Used by :func:`raitap.deps.inference._extra_for_target` so the deps
 bootstrap can resolve ``_target_`` → extra mappings in partial-extras
@@ -70,17 +73,30 @@ def scan_adapter_extras() -> dict[str, str]:
             if not isinstance(node, ast.ClassDef):
                 continue
             for deco in node.decorator_list:
-                if not _is_register_decorator(_decorator_name(deco)):
+                name = _decorator_name(deco)
+                if not _is_register_decorator(name):
                     continue
                 assert isinstance(deco, ast.Call)  # narrowed by _decorator_name
-                for kw in deco.keywords:
+                kwargs = {
+                    kw.arg: kw.value.value
+                    for kw in deco.keywords
                     if (
-                        kw.arg == "extra"
+                        kw.arg is not None
                         and isinstance(kw.value, ast.Constant)
                         and isinstance(kw.value.value, str)
-                    ):
-                        found[node.name] = kw.value.value
-                        break
-                if node.name in found:
-                    break
+                    )
+                }
+                # ``extra`` defaults to ``registry_name`` at runtime for every
+                # schema-backed decorator (``register_*_adapter``,
+                # ``register_reporter``, ``register_tracker``); visualiser
+                # decorators (``register_*_visualiser``) don't get an
+                # auto-extra — they ship with their parent adapter's extra.
+                explicit_extra = kwargs.get("extra")
+                if explicit_extra:
+                    found[node.name] = explicit_extra
+                elif name is not None and not name.endswith("_visualiser"):
+                    registry_name = kwargs.get("registry_name")
+                    if registry_name:
+                        found[node.name] = registry_name
+                break
     return found

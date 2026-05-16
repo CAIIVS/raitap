@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from .sections import ReportSection
 
 
-@register_reporter(registry_name="html", extra="html")
+@register_reporter(registry_name="html")
 class HTMLReporter(BaseReporter):
     """Narrative HTML report generator using Jinja2."""
 

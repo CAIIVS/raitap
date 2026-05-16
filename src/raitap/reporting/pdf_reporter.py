@@ -212,7 +212,7 @@ def _image_limits_for_figures(
     return max_w, max_h
 
 
-@register_reporter(registry_name="pdf", extra="pdf")
+@register_reporter(registry_name="pdf")
 class PDFReporter(BaseReporter):
     """PDF report generator using borb library."""
 

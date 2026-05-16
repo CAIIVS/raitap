@@ -69,7 +69,6 @@ logger = logging.getLogger(__name__)
 
 @register_robustness_adapter(
     registry_name="marabou",
-    extra="marabou",
     library="maraboupy",
     error_patterns=_MARABOUPY_ERROR_MESSAGES,
     algorithm_registry={

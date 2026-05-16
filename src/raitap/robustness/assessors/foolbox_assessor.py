@@ -17,7 +17,6 @@ if TYPE_CHECKING:
 
 @register_robustness_adapter(
     registry_name="foolbox",
-    extra="foolbox",
     library="foolbox",
     algorithm_registry={
         "LinfPGD": AssessorSemanticsHints(

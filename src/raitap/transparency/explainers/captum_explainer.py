@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 @register_transparency_adapter(
     registry_name="captum",
-    extra="captum",
     library="captum",
     # Captum emits the ``required_grads`` UserWarning on every run when inputs
     # don't already require gradients; it auto-fixes the issue so the warning

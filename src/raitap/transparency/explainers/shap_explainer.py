@@ -65,7 +65,6 @@ def _select_target_attributions(
 
 @register_transparency_adapter(
     registry_name="shap",
-    extra="shap",
     library="shap",
     error_patterns={
         re.compile(

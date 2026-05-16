@@ -17,7 +17,6 @@ if TYPE_CHECKING:
 
 @register_robustness_adapter(
     registry_name="torchattacks",
-    extra="torchattacks",
     library="torchattacks",
     algorithm_registry={
         "FGSM": AssessorSemanticsHints(
