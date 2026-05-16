@@ -16,6 +16,7 @@ from raitap.models.backend import (
     _resolve_onnx_expected_shape,
 )
 from raitap.models.runtime import resolve_onnx_providers, resolve_torch_device
+from raitap.types import Hardware
 from raitap.utils.errors import ModelInputShapeError
 
 if TYPE_CHECKING:
@@ -928,7 +929,7 @@ def test_resnet_state_dict_with_model_bundled_preprocessing_keeps_gradcam_path(
         AppConfig(
             model=ModelConfig(source=str(path), arch="resnet50", num_classes=7),
             data=DataConfig(preprocessing="model-bundled"),
-            hardware="cpu",
+            hardware=Hardware.cpu,
         ),
     )
 

@@ -13,6 +13,7 @@ releases
 logging
 Adding an adapter <adding-an-adapter>
 Data module <data>
+Preprocessing <preprocessing>
 Metrics module <metrics>
 Tracking module <tracking>
 Transparency module <transparency>

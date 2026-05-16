@@ -25,6 +25,7 @@ from raitap.data.data import (
     load_tensor_from_source,
 )
 from raitap.data.samples import SAMPLE_SOURCES, _load_sample, _resolve_sample
+from raitap.types import Hardware
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -207,7 +208,7 @@ class TestDataPreprocessing:
                     acknowledge_preprocessing_off=True,
                     labels=LabelsConfig(),
                 ),
-                hardware="cpu",
+                hardware=Hardware.cpu,
             ),
         )
 
@@ -315,7 +316,7 @@ class TestDataPreprocessing:
                             preprocessing="model-bundled",
                             labels=LabelsConfig(),
                         ),
-                        hardware="cpu",
+                        hardware=Hardware.cpu,
                     ),
                 )
                 data = Data(cfg)
