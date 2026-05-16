@@ -26,7 +26,7 @@ from raitap import raitap_log
 from raitap._adapters import AdapterMixin
 from raitap.configs import resolve_run_dir
 from raitap.configs.schema import RobustnessConfig
-from raitap.registry_base import WithAlgorithmRegistry
+from raitap._registry_base import WithAlgorithmRegistry
 
 from ..contracts import (
     MethodKind,
@@ -72,7 +72,7 @@ class BaseAssessor(
 
     Concrete subclasses must declare ``algorithm_registry: ClassVar[Mapping[str,
     AssessorSemanticsHints]]`` per the
-    :class:`raitap.registry_base.WithAlgorithmRegistry` contract.
+    :class:`raitap._registry_base.WithAlgorithmRegistry` contract.
     Intermediate abstract classes opt out via ``abstract=True``.
     """
 

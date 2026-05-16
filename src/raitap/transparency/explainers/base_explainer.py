@@ -12,7 +12,7 @@ import torch
 from raitap._adapters import AdapterMixin
 from raitap.configs import resolve_run_dir
 from raitap.configs.schema import TransparencyConfig
-from raitap.registry_base import WithAlgorithmRegistry
+from raitap._registry_base import WithAlgorithmRegistry
 
 from ..contracts import (
     ExplanationOutputSpace,
