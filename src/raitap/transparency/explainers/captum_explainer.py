@@ -2,23 +2,21 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
 from raitap.transparency.contracts import ExplanationPayloadKind, MethodFamily
 from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
+from raitap.transparency.explainers.registration import register_transparency_adapter
 
 from .base_explainer import AttributionOnlyExplainer
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     import torch
     import torch.nn as nn
 
 
-class CaptumExplainer(
-    AttributionOnlyExplainer,
+@register_transparency_adapter(
     registry_name="captum",
     extra="captum",
     library="captum",
@@ -26,17 +24,9 @@ class CaptumExplainer(
     # don't already require gradients; it auto-fixes the issue so the warning
     # is pure noise. Scope ``module=`` to captum so unrelated UserWarnings
     # with matching messages aren't accidentally hidden.
-    suppress_warnings=((r"Input Tensor.*required_grads", UserWarning, r"captum.*"),),
-):
-    """
-    Single wrapper for ALL Captum attribution methods.
-
-    Uses dynamic method loading - no need for class-per-method.
-    """
-
-    output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
-
-    algorithm_registry: ClassVar[Mapping[str, frozenset[MethodFamily]]] = {
+    suppress_warnings=[(r"Input Tensor.*required_grads", UserWarning, r"captum.*")],
+    output_payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
+    algorithm_registry={
         "IntegratedGradients": frozenset({MethodFamily.GRADIENT}),
         "Saliency": frozenset({MethodFamily.GRADIENT}),
         "FeatureAblation": frozenset({MethodFamily.PERTURBATION}),
@@ -52,9 +42,8 @@ class CaptumExplainer(
         ),
         "LayerGradCam": frozenset({MethodFamily.GRADIENT, MethodFamily.CAM}),
         "GuidedGradCam": frozenset({MethodFamily.GRADIENT, MethodFamily.CAM}),
-    }
-
-    ONNX_COMPATIBLE_ALGORITHMS: frozenset[str] = frozenset(
+    },
+    onnx_compatible_algorithms=frozenset(
         {
             "FeatureAblation",
             "FeaturePermutation",
@@ -64,7 +53,14 @@ class CaptumExplainer(
             "KernelShap",
             "Lime",
         }
-    )
+    ),
+)
+class CaptumExplainer(AttributionOnlyExplainer, abstract=True):
+    """
+    Single wrapper for ALL Captum attribution methods.
+
+    Uses dynamic method loading - no need for class-per-method.
+    """
 
     def __init__(self, algorithm: str, **init_kwargs):
         """

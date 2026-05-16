@@ -38,6 +38,7 @@ from ..contracts import (
 from ..exceptions import AssessorBackendIncompatibilityError
 from ..semantics import AssessorSemanticsHints
 from .base_assessor import FormalVerificationAssessor
+from .registration import register_robustness_adapter
 
 # Curated error patterns for confusing maraboupy errors. Matched against
 # ``str(exc)``; first hit wins. See :func:`raitap.utils.errors.rethrow`.
@@ -66,13 +67,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class MarabouAssessor(
-    FormalVerificationAssessor,
+@register_robustness_adapter(
     registry_name="marabou",
     extra="marabou",
     library="maraboupy",
     error_patterns=_MARABOUPY_ERROR_MESSAGES,
-):
+)
+class MarabouAssessor(FormalVerificationAssessor):
     """Marabou-backed L∞ formal-verification adapter.
 
     Only ``algorithm="linf-box"`` is supported in v1: per-input box bounds

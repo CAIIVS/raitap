@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
+from raitap.metrics.registration import register_metrics_adapter
 from raitap.utils.lazy import lazy_import
 
 from .base_metric_computer import BaseMetricComputer, MetricResult
@@ -23,7 +24,8 @@ Backend = Literal["pycocotools", "faster_coco_eval"]
 Average = Literal["macro", "micro"]
 
 
-class DetectionMetrics(BaseMetricComputer, registry_name="detection", extra="metrics"):
+@register_metrics_adapter(registry_name="detection", extra="metrics")
+class DetectionMetrics(BaseMetricComputer):
     """
     Calculates and manages detection metrics for evaluating
     the performance of object detection models.

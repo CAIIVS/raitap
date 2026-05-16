@@ -10,6 +10,7 @@ from ..contracts import MethodKind, Objective, PerturbationNorm, ThreatModel
 from ..exceptions import AssessorBackendIncompatibilityError
 from ..semantics import AssessorSemanticsHints
 from .base_assessor import EmpiricalAttackAssessor, _prepare_inputs_for_forward
+from .registration import register_robustness_adapter
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -17,12 +18,12 @@ if TYPE_CHECKING:
     from torch import nn
 
 
-class TorchattacksAssessor(
-    EmpiricalAttackAssessor,
+@register_robustness_adapter(
     registry_name="torchattacks",
     extra="torchattacks",
     library="torchattacks",
-):
+)
+class TorchattacksAssessor(EmpiricalAttackAssessor):
     """Single wrapper for ALL torchattacks methods.
 
     Uses dynamic method loading - no need for class-per-method.

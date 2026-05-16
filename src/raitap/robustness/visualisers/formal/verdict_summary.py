@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import matplotlib.pyplot as plt
 import numpy as np
 
+from raitap.robustness.visualisers.registration import register_robustness_visualiser
+
 from ...contracts import MethodKind, RobustnessVerdict
 from ..base_visualiser import BaseRobustnessVisualiser
 
@@ -42,6 +44,7 @@ _VERDICT_COLORS = {
 }
 
 
+@register_robustness_visualiser(registry_name="verdict_summary")
 class VerdictSummaryVisualiser(BaseRobustnessVisualiser):
     """Bar chart of verdict counts plus a runtime histogram."""
 

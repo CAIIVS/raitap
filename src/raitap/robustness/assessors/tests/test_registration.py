@@ -3,8 +3,17 @@ under the robustness group."""
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from raitap.robustness.assessors.base_assessor import EmpiricalAttackAssessor
 from raitap.robustness.assessors.registration import register_robustness_adapter
+from raitap.robustness.contracts import (
+    MethodKind,
+    Objective,
+    PerturbationNorm,
+    ThreatModel,
+)
+from raitap.robustness.semantics import AssessorSemanticsHints
 
 
 def test_register_robustness_adapter_registers_under_robustness_group() -> None:
@@ -13,10 +22,20 @@ def test_register_robustness_adapter_registers_under_robustness_group() -> None:
         extra="_stub_extra",
         library="_stub_lib",
     )
-    # abstract=True skips both WithAlgorithmRegistry and AdapterMixin pre-validation
-    # / registration. The decorator is the sole registrar — assertions only pass if
-    # `register_robustness_adapter` actually ran.
-    class _StubAssessor(EmpiricalAttackAssessor, abstract=True):
+    class _StubAssessor(EmpiricalAttackAssessor):
+        # Family-required class-body attr — validated at decoration time via
+        # ROBUSTNESS.has_algorithm_registry. Decorator only carries cross-family
+        # kwargs; algorithms are a core RAITAP concept and stay class-body.
+        algorithm_registry: ClassVar[dict[str, AssessorSemanticsHints]] = {
+            "_stub_alg": AssessorSemanticsHints(
+                MethodKind.EMPIRICAL_ATTACK,
+                ThreatModel.WHITE_BOX,
+                Objective.UNTARGETED,
+                PerturbationNorm.LINF,
+                families=frozenset({"stub"}),
+            ),
+        }
+
         def __init__(self, algorithm: str):
             super().__init__()
             self.algorithm = algorithm

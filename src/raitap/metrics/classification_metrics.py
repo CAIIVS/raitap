@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
+from raitap.metrics.registration import register_metrics_adapter
 from raitap.types import Task
 from raitap.utils.lazy import lazy_import
 
@@ -21,7 +22,8 @@ __all__ = ["Average", "ClassificationMetrics", "Task"]
 Average = Literal["micro", "macro", "weighted", "none"]
 
 
-class ClassificationMetrics(BaseMetricComputer, registry_name="classification", extra="metrics"):
+@register_metrics_adapter(registry_name="classification", extra="metrics")
+class ClassificationMetrics(BaseMetricComputer):
     """
     Classification metrics using torchmetrics
 

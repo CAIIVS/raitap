@@ -13,6 +13,7 @@ from matplotlib.figure import (
 from raitap.transparency.contracts import ExplanationScope, VisualisationContext
 
 from .base_visualiser import BaseVisualiser
+from .registration import register_transparency_visualiser
 
 
 def _to_numpy(x: Any) -> np.ndarray:
@@ -61,6 +62,7 @@ def _display_image(ax: Any, image: np.ndarray) -> None:
     ax.imshow(image, cmap="gray" if image.ndim == 2 else None)
 
 
+@register_transparency_visualiser(registry_name="input_thumbnail")
 class InputThumbnailVisualiser(BaseVisualiser):
     """Render a compact preview of the original input for report sample headers."""
 

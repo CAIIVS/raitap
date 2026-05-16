@@ -24,6 +24,7 @@ ROBUSTNESS = FamilyConfig(
     schema=RobustnessConfig,
     package_style="nested",
     strip_suffixes=("Assessor",),
+    has_algorithm_registry=True,
 )
 
 T = TypeVar("T", bound="BaseAssessor")
@@ -34,10 +35,8 @@ def register_robustness_adapter(
 ) -> Callable[[type[T]], type[T]]:
     """Decorator: register a robustness assessor.
 
-    ``registry_name`` is required. Robustness has no per-family required
-    metadata beyond the common kwargs (no equivalent to transparency's
-    ``output_payload_kind`` / ``algorithm_registry`` — assessor-level
-    algorithm validation lives on the base class).
+    Adapter class body must declare ``algorithm_registry`` (enforced at
+    decoration time via ``ROBUSTNESS.required_classvars``).
     """
 
     def wrap(cls: type[T]) -> type[T]:

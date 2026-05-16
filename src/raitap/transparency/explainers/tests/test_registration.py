@@ -3,6 +3,8 @@ under the transparency group and pass the algorithm/payload metadata through."""
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import torch
 import torch.nn as nn
 
@@ -16,13 +18,18 @@ def test_register_transparency_adapter_registers_and_assigns_classvars() -> None
         registry_name="_stub_xai",
         extra="_stub_extra",
         library="_stub_lib",
-        output_payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
-        algorithm_registry={"alg": frozenset({MethodFamily.GRADIENT})},
     )
-    # abstract=True skips WithAlgorithmRegistry and AdapterMixin pre-validation/
-    # registration so the decorator is the SOLE registrar — the assertions below
-    # only pass if `register_transparency_adapter` actually ran.
-    class _StubExplainer(AttributionOnlyExplainer, abstract=True):
+    class _StubExplainer(AttributionOnlyExplainer):
+        # Family-required class-body attrs — validated at decoration time by
+        # _register_core against TRANSPARENCY.required_classvars. The decorator
+        # itself only carries cross-family kwargs (registry_name/extra/library/...).
+        output_payload_kind: ClassVar[ExplanationPayloadKind] = (
+            ExplanationPayloadKind.ATTRIBUTIONS
+        )
+        algorithm_registry: ClassVar[dict[str, frozenset[MethodFamily]]] = {
+            "alg": frozenset({MethodFamily.GRADIENT}),
+        }
+
         def __init__(self, algorithm: str):
             super().__init__()
             self.algorithm = algorithm
@@ -45,6 +52,4 @@ def test_register_transparency_adapter_registers_and_assigns_classvars() -> None
     assert "_stub_xai" in _BUILDERS["transparency"]
     assert ADAPTER_EXTRAS["_StubExplainer"] == "_stub_extra"
     assert _StubExplainer.output_payload_kind is ExplanationPayloadKind.ATTRIBUTIONS
-    assert _StubExplainer.algorithm_registry == {
-        "alg": frozenset({MethodFamily.GRADIENT})
-    }
+    assert _StubExplainer.algorithm_registry == {"alg": frozenset({MethodFamily.GRADIENT})}

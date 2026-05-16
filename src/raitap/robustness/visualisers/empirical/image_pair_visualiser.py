@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
+from raitap.robustness.visualisers.registration import register_robustness_visualiser
 from raitap.transparency.contracts import InputKind
 
 from ...contracts import MethodKind
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from ...results import RobustnessResult
 
 
+@register_robustness_visualiser(registry_name="image_pair")
 class ImagePairVisualiser(BaseRobustnessVisualiser):
     """Render N rows by 3 columns: clean, perturbed, signed perturbation."""
 

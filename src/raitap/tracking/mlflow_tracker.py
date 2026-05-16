@@ -14,6 +14,7 @@ from raitap.models.backend import OnnxBackend, TorchBackend
 from raitap.utils.diagnostics import Module
 
 from .base_tracker import BaseTracker
+from .registration import register_tracker
 from .process_registry import (
     announce_stop_hint,
     pop_entries_for_tracker,
@@ -136,7 +137,8 @@ def _mlflow_summary_params(config_dict: dict[str, Any]) -> dict[str, str]:
     return out
 
 
-class MLFlowTracker(BaseTracker, registry_name="mlflow", extra="mlflow"):
+@register_tracker(registry_name="mlflow", extra="mlflow")
+class MLFlowTracker(BaseTracker):
     @classmethod
     def stop_detached(cls, timeout: float = 5.0) -> tuple[int, int]:
         """Kill the local MLflow server/UI tree this user has spawned or reused.

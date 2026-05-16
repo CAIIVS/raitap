@@ -8,6 +8,7 @@ from raitap.configs import resolve_run_dir
 
 from .base_reporter import BaseReporter
 from .filenames import report_output_filename
+from .registration import register_reporter
 from .template_filters import as_dict, asr_band, bucket_class, fmt_num, fmt_pct, slug
 from .view_model import build_view
 
@@ -18,7 +19,8 @@ if TYPE_CHECKING:
     from .sections import ReportSection
 
 
-class HTMLReporter(BaseReporter, registry_name="html", extra="html"):
+@register_reporter(registry_name="html", extra="html")
+class HTMLReporter(BaseReporter):
     """Narrative HTML report generator using Jinja2."""
 
     def generate(
