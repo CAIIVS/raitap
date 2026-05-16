@@ -24,12 +24,13 @@ import inspect
 import pkgutil
 import re
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Literal, Required, TypedDict, Unpack
 
 from hydra_zen import ZenStore, builds
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Mapping
+    from collections.abc import Iterator, Mapping, Sequence
     from types import ModuleType
 
 # Our own ``overwrite_ok=True`` store so re-importing a module — or pytest
@@ -44,6 +45,30 @@ ADAPTER_EXTRAS: dict[str, str] = {}
 # group -> set of wrapped third-party library names; used by
 # :mod:`raitap.utils.diagnostics` to mark a "via <lib>" chip on log messages.
 THIRD_PARTY_LIBS: dict[str, set[str]] = {}
+
+
+@dataclass(frozen=True, slots=True)
+class FamilyConfig:
+    """Per-family registration constants. One instance per top-level RAITAP family
+    (transparency, robustness, metrics, reporting, tracking). Owned by the family
+    decorator, not the adapter site."""
+
+    group: str
+    schema: type
+    package_style: Literal["nested", "flat"]
+    strip_suffixes: tuple[str, ...]
+
+
+class _CommonRegKwargs(TypedDict, total=False):
+    """Cross-family registration kwargs. Forwarded into every family decorator
+    via ``**common: Unpack[_CommonRegKwargs]`` so each decorator declares only
+    its own family-specific required kwargs."""
+
+    registry_name: Required[str]
+    extra: str
+    library: str
+    error_patterns: "Mapping[re.Pattern[str], str]"
+    suppress_warnings: "Sequence[tuple[str, type[Warning], str | None]]"
 
 
 def _to_snake(name: str) -> str:
