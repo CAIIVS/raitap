@@ -80,8 +80,8 @@ class _CommonRegKwargs(TypedDict, total=False):
     registry_name: Required[str]
     extra: str
     library: str
-    error_patterns: "Mapping[re.Pattern[str], str]"
-    suppress_warnings: "Sequence[tuple[str, type[Warning], str | None]]"
+    error_patterns: Mapping[re.Pattern[str], str]
+    suppress_warnings: Sequence[tuple[str, type[Warning], str | None]]
 
 
 class AdapterMixin:
@@ -94,18 +94,18 @@ class AdapterMixin:
     not by inheritance.
     """
 
-    registry_name: "str | None" = None
-    extra: "str | None" = None
+    registry_name: str | None = None
+    extra: str | None = None
     # Wrapped third-party library (pip name). Set by ``_register_core``;
     # drives :meth:`_lazy_import` and :meth:`_rethrow`.
-    library: "str | None" = None
+    library: str | None = None
     # Hydra config group ("transparency" / "robustness" / ...). Set by
     # ``_register_core`` and read by :meth:`_rethrow` to scope error chips.
-    _adapter_group: "str | None" = None
+    _adapter_group: str | None = None
     # Regex → friendly-message map applied automatically by :meth:`_rethrow`.
-    error_patterns: "Mapping[re.Pattern[str], str]" = {}  # noqa: RUF012
+    error_patterns: Mapping[re.Pattern[str], str] = {}
 
-    def _lazy_import(self, submodule: "str | None" = None) -> "ModuleType":
+    def _lazy_import(self, submodule: str | None = None) -> ModuleType:
         """Import the wrapped third-party library lazily.
 
         Raises a clear, install-hint-bearing :class:`ImportError` when the
@@ -126,7 +126,7 @@ class AdapterMixin:
             ) from exc
 
     @contextmanager
-    def _rethrow(self, *, base_exc: type[BaseException] = Exception) -> "Iterator[None]":
+    def _rethrow(self, *, base_exc: type[BaseException] = Exception) -> Iterator[None]:
         """Wrap a third-party call so curated error patterns get rewritten.
 
         Equivalent to ``rethrow(module=Module(<group>), third_party_lib=<library>,
@@ -185,7 +185,7 @@ def _build_schema_adapter(cls: type, schema: type) -> type:
 def _register_core(
     cls: type,
     *,
-    family: "FamilyConfig | None",
+    family: FamilyConfig | None,
     **common: Unpack[_CommonRegKwargs],
 ) -> type:
     """Cross-family registration mechanics. Returns ``cls`` unchanged.
@@ -217,12 +217,15 @@ def _register_core(
         for pattern, category, module in suppress_warnings:
             raitap_log.suppress(message=pattern, category=category, module=module or "")
 
-    if family is not None and family.has_algorithm_registry:
-        if not getattr(cls, "algorithm_registry", None):
-            raise TypeError(
-                f"{cls.__name__} must declare a non-empty class-body "
-                f"``algorithm_registry`` (required by the {family.group} family)."
-            )
+    if (
+        family is not None
+        and family.has_algorithm_registry
+        and not getattr(cls, "algorithm_registry", None)
+    ):
+        raise TypeError(
+            f"{cls.__name__} must declare a non-empty class-body "
+            f"``algorithm_registry`` (required by the {family.group} family)."
+        )
 
     try:
         if family is not None:

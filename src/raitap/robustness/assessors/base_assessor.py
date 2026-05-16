@@ -60,7 +60,7 @@ class BaseAssessor(AdapterMixin, ABC):
     ``ROBUSTNESS.has_algorithm_registry=True``.
     """
 
-    algorithm_registry: ClassVar["Mapping[str, AssessorSemanticsHints]"]
+    algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]
     method_kind: ClassVar[MethodKind]
     threat_model_default: ClassVar[ThreatModel] = ThreatModel.WHITE_BOX
     objective_default: ClassVar[Objective] = Objective.UNTARGETED

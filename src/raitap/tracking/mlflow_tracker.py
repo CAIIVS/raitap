@@ -14,7 +14,6 @@ from raitap.models.backend import OnnxBackend, TorchBackend
 from raitap.utils.diagnostics import Module
 
 from .base_tracker import BaseTracker
-from .registration import register_tracker
 from .process_registry import (
     announce_stop_hint,
     pop_entries_for_tracker,
@@ -22,6 +21,7 @@ from .process_registry import (
     reinsert_entries,
     watch_port,
 )
+from .registration import register_tracker
 
 DEFAULT_MLFLOW_BACKEND_STORE_URI = "sqlite:///mlflow/mlflow.db"
 DEFAULT_MLFLOW_ARTIFACT_ROOT = "./mlflow/artifacts"

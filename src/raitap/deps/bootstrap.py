@@ -53,10 +53,11 @@ class BootstrapCase(Enum):
     to the matching install command + refusal hint.
     """
 
-    DEV_WITH_UV = "dev_with_uv"        # uv sync + uv run relaunch
+    DEV_WITH_UV = "dev_with_uv"  # uv sync + uv run relaunch
     DEV_WITHOUT_UV = "dev_without_uv"  # abort with "install uv" error
-    USER_WITH_UV = "user_with_uv"      # uv add (needs --allow-project-edit consent)
-    USER_WITH_PIP = "user_with_pip"    # pip install (needs --exec-global outside a venv)
+    USER_WITH_UV = "user_with_uv"  # uv add (needs --allow-project-edit consent)
+    USER_WITH_PIP = "user_with_pip"  # pip install (needs --exec-global outside a venv)
+
 
 from raitap.deps.availability import (
     ExtraUnavailableError,
@@ -275,9 +276,7 @@ def _refusal_note_blocks(case: BootstrapCase, extras: set[str], cleaned: list[st
 
     match case:
         case BootstrapCase.USER_WITH_UV:
-            cmd = (
-                f"uv add raitap[{','.join(sorted(extras))}]" if extras else "uv add raitap"
-            )
+            cmd = f"uv add raitap[{','.join(sorted(extras))}]" if extras else "uv add raitap"
             hint = _hint_invocation(cleaned, "-y")
             return [
                 Text(
@@ -329,9 +328,7 @@ def _python_refusal_note_blocks(case: BootstrapCase, extras: set[str]) -> list:
 
     match case:
         case BootstrapCase.USER_WITH_UV:
-            cmd = (
-                f"uv add raitap[{','.join(sorted(extras))}]" if extras else "uv add raitap"
-            )
+            cmd = f"uv add raitap[{','.join(sorted(extras))}]" if extras else "uv add raitap"
             return [
                 Text(
                     "Running the uv add command would modify your project file. Either:",
@@ -389,8 +386,7 @@ def _config_to_mapping(config: Any) -> Mapping[str, Any]:
     if dataclasses.is_dataclass(config) and not isinstance(config, type):
         return dataclasses.asdict(config)
     raise TypeError(
-        "install_raitap_deps expected an AppConfig (or Mapping), got "
-        f"{type(config).__name__}."
+        f"install_raitap_deps expected an AppConfig (or Mapping), got {type(config).__name__}."
     )
 
 
@@ -600,9 +596,7 @@ def maybe_bootstrap(argv: list[str]) -> list[str]:
     # exec (USER_WITH_UV without --allow-project-edit, USER_WITH_PIP outside a
     # venv without --exec-global).
     refusal = (
-        kind is BootstrapCase.USER_WITH_UV
-        and not flags.allow_project_edit
-        and not flags.dry_run
+        kind is BootstrapCase.USER_WITH_UV and not flags.allow_project_edit and not flags.dry_run
     ) or (
         kind is BootstrapCase.USER_WITH_PIP
         and not _in_venv()

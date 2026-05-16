@@ -47,7 +47,7 @@ def test_register_robustness_adapter_registers_under_robustness_group() -> None:
             del model, inputs, targets, backend, kw
             return None  # type: ignore[return-value]
 
-    from raitap._adapters import ADAPTER_EXTRAS, _BUILDERS
+    from raitap._adapters import _BUILDERS, ADAPTER_EXTRAS
 
     assert "_stub_attack" in _BUILDERS["robustness"]
     assert ADAPTER_EXTRAS["_StubAssessor"] == "_stub_extra"

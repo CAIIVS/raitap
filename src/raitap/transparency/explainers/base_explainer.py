@@ -46,7 +46,7 @@ class BaseExplainer(AdapterMixin, ABC):
 
     output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
     output_scope: ClassVar[ExplanationScope] = ExplanationScope.LOCAL
-    algorithm_registry: ClassVar["Mapping[str, frozenset[MethodFamily]]"]
+    algorithm_registry: ClassVar[Mapping[str, frozenset[MethodFamily]]]
 
     def check_backend_compat(self, backend: object) -> None:
         del backend

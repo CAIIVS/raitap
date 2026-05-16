@@ -40,15 +40,13 @@ def test_register_tracker_registers_under_tracking_group() -> None:
         ) -> None:
             del source_directory, target_subdirectory
 
-        def log_metrics(
-            self, metrics: dict[str, float], prefix: str = "performance"
-        ) -> None:
+        def log_metrics(self, metrics: dict[str, float], prefix: str = "performance") -> None:
             del metrics, prefix
 
         def terminate(self, successfully: bool = True) -> None:
             del successfully
 
-    from raitap._adapters import ADAPTER_EXTRAS, _BUILDERS
+    from raitap._adapters import _BUILDERS, ADAPTER_EXTRAS
 
     assert "_stub_tracker" in _BUILDERS["tracking"]
     assert ADAPTER_EXTRAS["_StubTracker"] == "_stub_extra"

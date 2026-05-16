@@ -61,7 +61,7 @@ def _extra_for_target(target: str) -> str:
     if extra is None:
         raise UnknownAdapterTargetError(
             f"Unknown adapter _target_ '{target}' — declare the wrapped library "
-            "extra via the ``extra=\"...\"`` class kwarg on the adapter so the "
+            'extra via the ``extra="..."`` class kwarg on the adapter so the '
             "deps inference can pick it up."
         )
     return extra

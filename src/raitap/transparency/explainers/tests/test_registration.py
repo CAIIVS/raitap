@@ -20,12 +20,11 @@ def test_register_transparency_adapter_registers_and_assigns_classvars() -> None
         library="_stub_lib",
     )
     class _StubExplainer(AttributionOnlyExplainer):
-        # Family-required class-body attrs — validated at decoration time by
-        # _register_core against TRANSPARENCY.required_classvars. The decorator
-        # itself only carries cross-family kwargs (registry_name/extra/library/...).
-        output_payload_kind: ClassVar[ExplanationPayloadKind] = (
-            ExplanationPayloadKind.ATTRIBUTIONS
-        )
+        # Family-required class-body attrs — algorithm_registry validated at
+        # decoration time via TRANSPARENCY.has_algorithm_registry=True.
+        # The decorator itself only carries cross-family kwargs
+        # (registry_name / extra / library / error_patterns / suppress_warnings).
+        output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
         algorithm_registry: ClassVar[dict[str, frozenset[MethodFamily]]] = {
             "alg": frozenset({MethodFamily.GRADIENT}),
         }
@@ -47,7 +46,7 @@ def test_register_transparency_adapter_registers_and_assigns_classvars() -> None
             del model, inputs, backend, kw
             return torch.zeros(0)
 
-    from raitap._adapters import ADAPTER_EXTRAS, _BUILDERS
+    from raitap._adapters import _BUILDERS, ADAPTER_EXTRAS
 
     assert "_stub_xai" in _BUILDERS["transparency"]
     assert ADAPTER_EXTRAS["_StubExplainer"] == "_stub_extra"

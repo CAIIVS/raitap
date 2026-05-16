@@ -23,9 +23,10 @@ def test_family_config_is_frozen_slotted_dataclass() -> None:
 def test_family_config_package_style_literal_enforced_at_runtime() -> None:
     from raitap._adapters import FamilyConfig
 
-    # Runtime acceptance — typing-level enforcement is verified separately by pyright.
-    FamilyConfig(group="g", schema=object, package_style="flat")
-    FamilyConfig(group="g", schema=object, package_style="nested")
+    # Runtime acceptance check for both ``Literal`` values — typing-level
+    # enforcement is verified separately by pyright on real FamilyConfig sites.
+    FamilyConfig(group="_test", schema=object, package_style="flat")
+    FamilyConfig(group="_test", schema=object, package_style="nested")
 
 
 # Module-scope fixtures so hydra-zen's ``builds()`` can resolve their importable
@@ -48,10 +49,10 @@ def test_register_core_with_family_populates_builders_and_extras() -> None:
     """_register_core should run the same mechanics as __init_subclass__: hydra-zen
     builder in _BUILDERS, ADAPTER_EXTRAS entry, library tracked in THIRD_PARTY_LIBS."""
     from raitap._adapters import (
-        ADAPTER_EXTRAS,
-        FamilyConfig,
-        THIRD_PARTY_LIBS,
         _BUILDERS,
+        ADAPTER_EXTRAS,
+        THIRD_PARTY_LIBS,
+        FamilyConfig,
         _register_core,
     )
 

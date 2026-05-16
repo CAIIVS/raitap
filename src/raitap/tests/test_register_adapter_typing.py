@@ -69,8 +69,7 @@ def test_missing_registry_name_is_pyright_error_for_every_family_decorator(
             "register_transparency_visualiser()",
         ),
         (
-            "from raitap.robustness.visualisers.registration import "
-            "register_robustness_visualiser",
+            "from raitap.robustness.visualisers.registration import register_robustness_visualiser",
             "register_robustness_visualiser()",
         ),
     ]:
@@ -84,6 +83,5 @@ def test_missing_registry_name_is_pyright_error_for_every_family_decorator(
             tmp_path,
         )
         assert any("registry_name" in e for e in errors), (
-            f"{decorator_call} did not produce a registry_name pyright error. "
-            f"Got: {errors}"
+            f"{decorator_call} did not produce a registry_name pyright error. Got: {errors}"
         )

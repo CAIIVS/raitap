@@ -84,9 +84,7 @@ def run(
         # bootstrap module's imports.
         from raitap.deps.bootstrap import install_raitap_deps
 
-        install_raitap_deps(
-            config, allow_project_edit=True, exec_global=exec_global
-        )
+        install_raitap_deps(config, allow_project_edit=True, exec_global=exec_global)
 
     try:
         existing_root = config._output_root  # type: ignore[attr-defined]

@@ -21,7 +21,7 @@ def test_register_reporter_registers_under_reporting_group() -> None:
             del sections, report_dir
             return None  # type: ignore[return-value]
 
-    from raitap._adapters import ADAPTER_EXTRAS, _BUILDERS
+    from raitap._adapters import _BUILDERS, ADAPTER_EXTRAS
 
     assert "_stub_reporter" in _BUILDERS["reporting"]
     assert ADAPTER_EXTRAS["_StubReporter"] == "_stub_extra"
