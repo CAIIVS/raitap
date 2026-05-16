@@ -203,8 +203,11 @@ mental models. Use `raitap_log`.
   `warnings.formatwarning` (frames at warn time) to the rich handler
   (panels at emit time).
 - `src/raitap/utils/diagnostics.py` — `Module` enum, frame-walking
-  classifier, third-party library detection (libs declared in each
-  module's `__init__.py` as `THIRD_PARTY_LIBS`).
+  classifier, third-party library detection. The library set is
+  auto-populated by `_register_core` from each `@register_*_adapter(...,
+  library="...")` decoration and stored at `raitap._adapters.THIRD_PARTY_LIBS`
+  (grouped by adapter family); module `__init__.py` files no longer maintain
+  it manually.
 - `src/raitap/utils/errors.py` — `RaitapError`, `AdapterError`,
   traceback-walking diagnostic resolver, and the `rethrow` context manager
   that adapters use to rewrap confusing third-party errors.

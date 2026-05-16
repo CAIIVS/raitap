@@ -12,15 +12,15 @@ This page describes how to add new built-in sample datasets to RAITAP.
 
 ## Overview
 
-RAITAP ships a small set of named sample bundles (e.g. `imagenet_samples`,
-`mnist_samples`) that can be referenced by name in `data.source`. The registration lives in `src/raitap/data/samples.py` as plain
-Python dicts:
+RAITAP ships named sample bundles (e.g. `imagenet_samples`, `mnist_samples`)
+referenceable by name in `data.source`. Registration lives in
+`src/raitap/data/samples.py` as plain dicts:
 
-- `SAMPLE_SOURCES` — name → list of `(url, filename)` pairs to download into
+- `SAMPLE_SOURCES` — name → list of `(url, filename)` pairs, downloaded into
   the per-user cache (`~/.cache/raitap/<name>/`).
-- `SAMPLE_LABELS` (optional) — name → `{filename: class_index}` map that gets
-  materialised as `labels.csv` alongside the images, so `data.labels.source: <name>`
-  resolves automatically.
+- `SAMPLE_LABELS` (optional) — name → `{filename: class_index}` map,
+  materialised as `labels.csv` alongside the images so
+  `data.labels.source: <name>` resolves automatically.
 
 ## Adding a built-in sample dataset
 
@@ -34,8 +34,8 @@ Python dicts:
     ]
     ```
 
-2. **(Optional) Register labels** if the dataset has a known ground truth that
-   matches the model's class space:
+2. **(Optional) Register labels** if the dataset has a known ground truth
+   matching the model's class space:
 
     ```python
     SAMPLE_LABELS["cifar10_samples"] = {
@@ -66,24 +66,24 @@ Python dicts:
 4. **Add custom loading logic** in `src/raitap/data/data.py` or `samples.py`
    only if the bundle needs more than the default image/tabular loader.
 
-5. **Update documentation** — add the new sample name to
+5. **Update docs** — add the new sample name to
    `docs/modules/data/own-vs-built-in.md`.
 
 ## Sample discovery and label alignment
 
-`data.source` directories are walked **recursively** (`Path.rglob`) and
-sample ids are computed as posix-style paths relative to the source root
-(e.g. `NORMAL/IM-0001.jpeg`). This supports nested `ImageFolder`-style
-layouts where filename stems may collide across class subdirs.
+`data.source` directories are walked **recursively** (`Path.rglob`); sample
+ids are posix-style paths relative to the source root (e.g.
+`NORMAL/IM-0001.jpeg`). Supports nested `ImageFolder`-style layouts where
+filename stems collide across class subdirs.
 
 Label alignment is governed by `data.labels.id_strategy`:
 
 - `"auto"` (default) — inspects the id column once. If any value contains
   `/` or `\`, switches to `"relative_path"`; otherwise `"stem"`.
-- `"relative_path"` — strips only the file extension during comparison;
-  directory components are retained.
+- `"relative_path"` — strips only the file extension; directory components
+  retained.
 - `"stem"` — legacy flat-dir behaviour (`Path(id).stem`).
 
-Both sides (sample ids from disk + label ids from the file) are normalised
-the same way before lookup. Duplicate normalised label ids raise a
-warning and disable label-based metrics for that run.
+Both sides (disk sample ids + file label ids) are normalised the same way
+before lookup. Duplicate normalised label ids raise a warning and disable
+label-based metrics for that run.
