@@ -87,7 +87,10 @@ Add a unit test next to the adapter (`src/raitap/<module>/<subdir>/tests/test_<a
 
 If the algorithm has unusual kwargs (e.g. a custom `baselines=` shape), add an edge-case test for those too.
 
-The family E2E matrix (`src/raitap/<module>/tests/test_e2e_*.py`) usually parametrises over algorithm names — add `"NewMethod"` to the parametrize list if you want full-pipeline coverage.
+The family E2E matrix parametrises over algorithm names — add an entry to keep coverage complete:
+
+- **Transparency**: `src/raitap/transparency/tests/e2e_case_matrix.py::MATRIX_CASES`. Add a `MatrixCase(id="...", framework=..., algorithm="NewMethod", ...)`.
+- **Robustness**: `src/raitap/robustness/tests/e2e_assessor_matrix.py::MATRIX_CASES`. Add an `AssessorMatrixCase(id="...", family=..., algorithm="NewAlgo", needs_extra=..., constructor_kwargs={...})`. Keep `constructor_kwargs` minimal (low `steps`, low `n_queries`) — the matrix is a wire-up smoke test, not a behaviour-sensitivity test. Each case must finish in under ~5s on CI.
 
 ## 5. Docs
 
