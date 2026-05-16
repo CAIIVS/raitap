@@ -23,7 +23,7 @@ T = TypeVar("T", bound="BaseVisualiser")
 
 def register_transparency_visualiser(
     **common: Unpack[_CommonRegKwargs],
-) -> "Callable[[type[T]], type[T]]":
+) -> Callable[[type[T]], type[T]]:
     """Decorator: register a transparency visualiser.
 
     ``registry_name`` is required (enforced via ``Required[str]`` in

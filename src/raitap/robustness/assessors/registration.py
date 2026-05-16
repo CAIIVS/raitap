@@ -31,7 +31,7 @@ T = TypeVar("T", bound="BaseAssessor")
 
 def register_robustness_adapter(
     **common: Unpack[_CommonRegKwargs],
-) -> "Callable[[type[T]], type[T]]":
+) -> Callable[[type[T]], type[T]]:
     """Decorator: register a robustness assessor.
 
     ``registry_name`` is required. Robustness has no per-family required

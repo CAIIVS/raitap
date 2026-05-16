@@ -31,11 +31,11 @@ T = TypeVar("T", bound="BaseExplainer")
 
 def register_transparency_adapter(
     *,
-    output_payload_kind: "ExplanationPayloadKind",
-    algorithm_registry: "Mapping[str, frozenset[MethodFamily]]",
+    output_payload_kind: ExplanationPayloadKind,
+    algorithm_registry: Mapping[str, frozenset[MethodFamily]],
     onnx_compatible_algorithms: frozenset[str] = frozenset(),
     **common: Unpack[_CommonRegKwargs],
-) -> "Callable[[type[T]], type[T]]":
+) -> Callable[[type[T]], type[T]]:
     """Decorator: register a transparency explainer.
 
     ``registry_name`` is required (enforced via ``Required[str]`` in
