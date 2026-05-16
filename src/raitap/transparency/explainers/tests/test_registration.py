@@ -3,6 +3,7 @@ under the transparency group and pass the algorithm/payload metadata through."""
 
 from __future__ import annotations
 
+import torch
 import torch.nn as nn
 
 from raitap.transparency.contracts import ExplanationPayloadKind, MethodFamily
@@ -18,6 +19,9 @@ def test_register_transparency_adapter_registers_and_assigns_classvars() -> None
         output_payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
         algorithm_registry={"alg": frozenset({MethodFamily.GRADIENT})},
     )
+    # abstract=True skips WithAlgorithmRegistry and AdapterMixin pre-validation/
+    # registration so the decorator is the SOLE registrar — the assertions below
+    # only pass if `register_transparency_adapter` actually ran.
     class _StubExplainer(AttributionOnlyExplainer, abstract=True):
         def __init__(self, algorithm: str):
             super().__init__()
@@ -29,12 +33,12 @@ def test_register_transparency_adapter_registers_and_assigns_classvars() -> None
         def compute_attributions(
             self,
             model: nn.Module,
-            inputs,
-            backend=None,
-            **kw,
-        ):
+            inputs: torch.Tensor,
+            backend: object | None = None,
+            **kw: object,
+        ) -> torch.Tensor:
             del model, inputs, backend, kw
-            return None  # type: ignore[return-value]
+            return torch.zeros(0)
 
     from raitap._adapters import ADAPTER_EXTRAS, _BUILDERS
 
