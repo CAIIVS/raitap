@@ -34,7 +34,13 @@ flowchart TB
   H --> I[reporting + tracking]
 ```
 
-In prose: the CLI entry (`raitap.cli.main`) routes to either the tracking-stop subcommand or the standard flow. The standard flow loads the demo config (`--demo`) or parses user args, then calls `raitap.deps.bootstrap.maybe_bootstrap` to install missing extras and re-exec if needed. Once extras are pinned, control passes to `raitap.pipeline.__main__` (a `@hydra.main` entry that composes the config) then to `raitap.pipeline.pipeline.run`, which executes the forward / metrics / transparency / robustness phases in order before handing off to reporting and tracking.
+In prose: the CLI entry (`raitap.cli.main`) routes to either the tracking-stop subcommand or the standard flow. The standard flow loads the demo config (`--demo`) or parses user args, then calls `raitap.deps.bootstrap.maybe_bootstrap` to install missing extras and re-exec if needed. Once extras are pinned, control passes to `raitap.pipeline.__main__` (a `@hydra.main` entry that composes the config) then to `raitap.pipeline.orchestrator.run`, which executes the forward / metrics / transparency / robustness phases in order before handing off to reporting and tracking. Programmatic callers skip the CLI + bootstrap and call `raitap.run(cfg, ...)` (defined in `raitap.api`) directly.
+
+## Adapter registration
+
+Every concrete adapter (explainer, assessor, metric, reporter, tracker, visualiser) self-registers via a family decorator (`@register_transparency_adapter`, `@register_robustness_adapter`, `@register_metrics_adapter`, `@register_reporter`, `@register_tracker`, `@register_transparency_visualiser`, `@register_robustness_visualiser`). The decorator lives in `<module>/registration.py`; it delegates to `raitap._adapters._register_core`, which builds the hydra-zen builder, registers it with the `ConfigStore`, and populates `_BUILDERS` / `ADAPTER_EXTRAS` / `THIRD_PARTY_LIBS`. Lazy `__getattr__` on each family package resolves `raitap.<family>.<name>` via `raitap._adapters.lookup`.
+
+See {doc}`adding-an-adapter` / {doc}`adding-an-algorithm` / {doc}`adding-a-module` for the contributor workflow.
 
 ## Directory structure
 
@@ -43,14 +49,22 @@ src/
 ├── hydra_plugins/                  # Hydra-discovery namespace package
 │   └── raitap_search_path.py       # re-exports RaitapSearchPathPlugin so Hydra finds it at import time
 └── raitap/
+    ├── __init__.py                 # lazy `__getattr__` resolves `raitap.<family>.<name>` via `_adapters.lookup`
+    ├── __about__.py                # version + metadata constants
+    ├── api.py                      # programmatic entry: `run(cfg, *, auto_install=False, ...)`
     ├── cli.py                      # console-script entry; tracking-stop subcommand, --demo, help frame, then deps bootstrap
     ├── docs_preview.py             # `docs-preview` console-script: serves built Sphinx output for local preview
-    ├── registry_base.py            # WithAlgorithmRegistry generic + base hooks shared by transparency/robustness
+    ├── types.py                    # `Hardware` enum + small shared types
+    ├── _adapters.py                # registration core: `AdapterMixin` (instance helpers), `FamilyConfig`,
+    │                               # `_CommonRegKwargs` TypedDict, `_register_core`, `_BUILDERS`,
+    │                               # `ADAPTER_EXTRAS`, `THIRD_PARTY_LIBS`, `ALL` sentinel, `discover`, `lookup`
     │
     ├── configs/                    # Hydra config tree shipped with the wheel
     │   ├── schema.py               # AppConfig + nested dataclasses; MISSING-typed required fields
     │   ├── searchpath.py           # RaitapSearchPathPlugin impl (appends pkg://raitap.configs)
     │   ├── utils.py                # ConfigStore registration of `raitap_schema`; resolve_run_dir helpers
+    │   ├── zen.py                  # `register_zen_groups()`: hydra-zen ConfigStore writes for shapes
+    │   │                           # the decorator can't express (`_target_: null`, `# @package _global_`)
     │   ├── adapter_factory.py      # short-name → full-target resolution (HTMLReporter, CaptumExplainer, …)
     │   ├── demo.yaml               # self-contained demo invoked by `raitap --demo`
     │   ├── reporting/{html,pdf,disabled}.yaml
@@ -93,6 +107,8 @@ src/
     │
     ├── metrics/                    # metrics adapters (currently torchmetrics-backed)
     │   ├── factory.py              # metrics_run_enabled, evaluate(), instantiation via adapter_factory
+    │   ├── registration.py         # `register_metrics_adapter` family decorator
+    │   ├── base_metric_computer.py # `BaseMetricComputer` ABC + `MetricResult` dataclass
     │   ├── classification_metrics.py
     │   └── inputs.py               # target/prediction alignment, fallbacks when labels missing
     │
@@ -100,15 +116,22 @@ src/
     │   ├── factory.py              # create_explainer / create_visualisers; runtime kwargs resolution
     │   ├── contracts.py            # ExplanationPayloadKind, InputSpec, MethodFamily, …
     │   ├── results.py              # ExplanationResult + Explanation orchestration object
-    │   ├── explainers/             # CaptumExplainer, ShapExplainer (subclass of base_explainer)
-    │   └── visualisers/            # CaptumImageVisualiser, ShapImageVisualiser, InputThumbnailVisualiser, …
+    │   ├── explainers/             # CaptumExplainer, ShapExplainer + `registration.py`
+    │   │                           # (`register_transparency_adapter`) + `base_explainer.py`
+    │   └── visualisers/            # CaptumImageVisualiser, ShapImageVisualiser, … + `registration.py`
+    │                               # (`register_transparency_visualiser`) + `base_visualiser.py`
     │
     ├── robustness/                 # adversarial-attack + formal-verification adapters
     │   ├── factory.py              # create_assessor; raitap-key migration warnings
-    │   ├── assessors/              # TorchattacksAssessor, FoolboxAssessor, MarabouAssessor
-    │   └── visualisers/            # ImagePairVisualiser, PerturbationHeatmapVisualiser, formal/*
+    │   ├── assessors/              # TorchattacksAssessor, FoolboxAssessor, MarabouAssessor +
+    │   │                           # `registration.py` (`register_robustness_adapter`) +
+    │   │                           # `base_assessor.py`
+    │   └── visualisers/            # ImagePairVisualiser, PerturbationHeatmapVisualiser, formal/* +
+    │                               # `registration.py` (`register_robustness_visualiser`)
     │
     ├── reporting/                  # HTML + PDF report builders + multirun aggregation
+    │   ├── registration.py         # `register_reporter` family decorator
+    │   ├── base_reporter.py        # `BaseReporter` ABC
     │   ├── builder.py              # build_report(): assembles sections from RunOutputs
     │   ├── html_reporter.py        # Jinja2-backed HTML renderer
     │   ├── pdf_reporter.py         # borb-backed PDF renderer
@@ -118,6 +141,7 @@ src/
     │   └── templates/              # Jinja templates
     │
     ├── tracking/                   # experiment-tracking adapters
+    │   ├── registration.py         # `register_tracker` family decorator
     │   ├── base_tracker.py         # BaseTracker abstract class + stop_detached hook
     │   ├── mlflow_tracker.py       # MLflow adapter
     │   ├── process_registry.py     # ~/.raitap/tracking_processes.json (used by `tracking stop`)
