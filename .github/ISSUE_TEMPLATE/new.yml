@@ -1,0 +1,103 @@
+name: New... adapter / algorithm / visualiser / backend / module
+description: Propose any code addition that extends RAITAP (new algorithm, adapter, visualiser, model backend, or whole new module).
+title: "Implement ..."
+labels: ["unsure"]
+type: Feature
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Propose a new library, algorithm, visualiser, model backend, module...
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      description: |
+        - **Algorithm in existing library adapter**: enable usage of an algorithm in an already supported library
+        - **Library version**: library got updated and RAITAP should upgrade
+        - **Library**: add support for a new third-party library
+        - **Visualiser**: new visualiser for an existing explainer / assessor
+        - **Model backend**: new `ModelBackend` subclass (JAX, TF, ONNX-runtime variant, …)
+        - **Module / dimension**: brand-new top-level module (fairness, privacy, …)
+      options:
+        - Algorithm in existing library
+        - Library version
+        - Library
+        - Visualiser
+        - Model backend
+        - Module / dimension
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Target module(s)
+      description: Which RAITAP module(s) this change touches. If requesting a new module, choose `new (specify below)`.
+      multiple: true
+      options:
+        - transparency
+        - robustness
+        - metrics
+        - reporting
+        - tracking
+        - data
+        - model
+        - pipeline
+        - configs
+        - deps
+        - new (specify below)
+        - unsure
+    validations:
+      required: true
+
+  - type: input
+    id: name
+    attributes:
+      label: Name / class
+      description: |
+        Algorithm: registry key (`KernelShap`, `FGSM`).
+        Library/adapter: proposed `registry_name` + class (`superxai` / `SuperXAIExplainer`).
+        Visualiser: class name (`ShapWaterfallVisualiser`) and `registry_name` (`shap_waterfall`).
+        Backend: class name (`JaxBackend`).
+        Module: snake_case module name (`fairness`).
+      placeholder: "e.g. KernelShap  /  superxai / SuperXAIExplainer  /  JaxBackend  /  fairness"
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: |
+        Why does this belong in RAITAP? What's not covered today?
+        Library/adapter & Visualiser: compare against existing adapters/visualisers in the same family — drive-by duplicates get closed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References (paper / docs / repo / license)
+      description: |
+        Algorithm: paper URL.
+        Library/adapter: library docs URL, source repo URL
+        Backend: framework version, docs URL.
+        Visualiser: underlying library function (if any).
+        License: license the library/code is under, if new
+      placeholder: |
+        paper:   https://arxiv.org/abs/...
+        docs:    https://...
+        repo:    https://github.com/...
+        license: MIT
+    validations:
+      required: true
+
+  - type: textarea
+    id: misc
+    attributes:
+      label: Miscellaneous details
+      description: |
+        Additional details, ideas for the implementation designs, important notes...
+    validations:
+      required: false

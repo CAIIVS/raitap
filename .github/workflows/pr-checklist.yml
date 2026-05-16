@@ -1,0 +1,23 @@
+# Required status check for branch protection on `main`: workflow "PR checklist", job `require-checklist`.
+# Parses the PR body and fails if any non-optional checkbox in `.github/pull_request_template.md` is unchecked.
+name: PR checklist
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  require-checklist:
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: mheap/require-checklist-action@v2
+        with:
+          # Only items under headings whose name is NOT in this list are required.
+          # Keeps the existing "## Optional" section in pull_request_template.md non-blocking.
+          ignoreHeadings: "Optional"
+          requireChecklist: true

@@ -1,0 +1,22 @@
+transparency:
+  - '### (?:Target m|M)odule\(s\)\s*\n+(?=[^#\n])[^\n]*\btransparency\b'
+robustness:
+  - '### (?:Target m|M)odule\(s\)\s*\n+(?=[^#\n])[^\n]*\brobustness\b'
+metrics:
+  - '### (?:Target m|M)odule\(s\)\s*\n+(?=[^#\n])[^\n]*\bmetrics\b'
+reporting:
+  - '### (?:Target m|M)odule\(s\)\s*\n+(?=[^#\n])[^\n]*\breporting\b'
+tracking:
+  - '### (?:Target m|M)odule\(s\)\s*\n+(?=[^#\n])[^\n]*\btracking\b'
+data:
+  - '### (?:Target m|M)odule\(s\)\s*\n+(?=[^#\n])[^\n]*\bdata\b'
+model:
+  - '### (?:Target m|M)odule\(s\)\s*\n+(?=[^#\n])[^\n]*\bmodel\b'
+pipeline:
+  - '### (?:Target m|M)odule\(s\)\s*\n+(?=[^#\n])[^\n]*\bpipeline\b'
+configs:
+  - '### (?:Target m|M)odule\(s\)\s*\n+(?=[^#\n])[^\n]*\bconfigs\b'
+deps:
+  - '### (?:Target m|M)odule\(s\)\s*\n+(?=[^#\n])[^\n]*\bdeps\b'
+unsure:
+  - '### (?:Target m|M)odule\(s\)\s*\n+(?=[^#\n])[^\n]*\bunsure\b'

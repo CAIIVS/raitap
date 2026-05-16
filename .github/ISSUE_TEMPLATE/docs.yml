@@ -1,7 +1,8 @@
 name: Docs issue
 description: Broken link, wrong content, YAML/Python tab mismatch, missing or outdated section.
-title: "docs: <short description>"
+title: "Docs: ..."
 labels: ["docs"]
+type: Task
 body:
   - type: dropdown
     id: kind
@@ -18,27 +19,48 @@ body:
     validations:
       required: true
 
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module(s)
+      description: Which module(s) does this docs page concern? Skip / pick `unsure` if cross-cutting.
+      multiple: true
+      options:
+        - transparency
+        - robustness
+        - metrics
+        - reporting
+        - tracking
+        - data
+        - model
+        - pipeline
+        - configs
+        - deps
+        - unsure
+    validations:
+      required: false
+
   - type: input
     id: page
     attributes:
       label: Page
-      description: Path under `docs/` or rendered URL.
-      placeholder: "docs/modules/transparency/visualisers.md  /  https://caiivs.github.io/raitap/..."
+      description: Docs URL or path to file
+      placeholder: "https://caiivs.github.io/raitap/ or docs/modules/transparency/visualisers.md"
     validations:
       required: true
 
   - type: textarea
     id: problem
     attributes:
-      label: What is wrong
-      description: Quote the offending text or paste the broken link. For tab mismatches, paste both tabs.
+      label: What is wrong or missing
+      description: Quote the offending text, or describe what is missing.
     validations:
       required: true
 
   - type: textarea
     id: suggestion
     attributes:
-      label: Suggested fix
+      label: Suggested text/fix
       description: Optional, but speeds things up.
     validations:
       required: false
