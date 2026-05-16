@@ -30,7 +30,7 @@ T = TypeVar("T", bound="BaseTracker")
 
 def register_tracker(
     **common: Unpack[_CommonRegKwargs],
-) -> "Callable[[type[T]], type[T]]":
+) -> Callable[[type[T]], type[T]]:
     """Decorator: register a tracker.
 
     ``registry_name`` is required. Tracking has no per-family required

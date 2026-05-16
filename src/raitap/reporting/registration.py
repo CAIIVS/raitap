@@ -30,7 +30,7 @@ T = TypeVar("T", bound="BaseReporter")
 
 def register_reporter(
     **common: Unpack[_CommonRegKwargs],
-) -> "Callable[[type[T]], type[T]]":
+) -> Callable[[type[T]], type[T]]:
     """Decorator: register a reporter.
 
     ``registry_name`` is required. Reporting has no per-family required
