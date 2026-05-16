@@ -19,6 +19,8 @@ gated behind the ``e2e`` marker (declared in ``[tool.pytest.ini_options]``)
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, TypedDict
+
 import pytest
 
 pytest.importorskip("torchattacks")  # the multi-assessor recipe needs it
@@ -33,8 +35,23 @@ from raitap.pipeline.outputs import RunOutputs
 from raitap.robustness import image_pair, torchattacks
 from raitap.transparency import captum, captum_image
 
+if TYPE_CHECKING:
+    from raitap.configs.schema import MetricsConfig, ReportingConfig
 
-def _base_kwargs(experiment_name: str) -> dict[str, object]:
+
+class _BaseKwargs(TypedDict):
+    """Typed shape so ``**_base_kwargs(...)`` keeps pyright happy at unpack
+    sites — without this, the dict-of-object would erase every field's type."""
+
+    hardware: Hardware
+    experiment_name: str
+    model: ModelConfig
+    data: DataConfig
+    metrics: MetricsConfig | None
+    reporting: ReportingConfig | None
+
+
+def _base_kwargs(experiment_name: str) -> _BaseKwargs:
     return {
         "hardware": Hardware.cpu,  # CI may have no GPU; recipes show ``gpu`` but tests use cpu
         "experiment_name": experiment_name,
