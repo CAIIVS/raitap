@@ -37,6 +37,12 @@ def _make_config(
                 pretrained=pretrained,
                 allow_unsafe_pickle=allow_unsafe_pickle,
             ),
+            data=SimpleNamespace(
+                preprocessing=None,
+                acknowledge_preprocessing_off=True,
+                acknowledge_preprocessing_exec=False,
+                input_metadata=None,
+            ),
             hardware=hardware,
         ),
     )

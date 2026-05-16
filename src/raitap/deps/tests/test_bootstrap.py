@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 from typing import Any
 from unittest.mock import MagicMock
@@ -271,3 +272,43 @@ def test_hydra_overrides_skips_config_flags() -> None:
 def test_hydra_overrides_skips_eq_form() -> None:
     argv = ["--config-dir=/tmp/x", "--config-name=config", "data=x"]
     assert bootstrap._hydra_overrides(argv) == ["data=x"]
+
+
+def test_strip_deps_flags_strips_allow_preprocessing_exec(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("RAITAP_ALLOW_PREPROCESSING_EXEC", raising=False)
+    cleaned, flags = bootstrap._strip_deps_flags(["raitap", "--demo", "--allow-preprocessing-exec"])
+    assert cleaned == ["raitap", "--demo"]
+    assert flags.allow_preprocessing_exec is True
+
+
+def test_strip_deps_flags_strips_yp_alias(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("RAITAP_ALLOW_PREPROCESSING_EXEC", raising=False)
+    cleaned, flags = bootstrap._strip_deps_flags(["raitap", "--demo", "-yp"])
+    assert cleaned == ["raitap", "--demo"]
+    assert flags.allow_preprocessing_exec is True
+
+
+def test_strip_deps_flags_exports_preprocessing_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("RAITAP_ALLOW_PREPROCESSING_EXEC", raising=False)
+    bootstrap._strip_deps_flags(["raitap", "-yp"])
+    assert os.environ["RAITAP_ALLOW_PREPROCESSING_EXEC"] == "1"
+
+
+def test_strip_deps_flags_does_not_export_when_flag_absent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("RAITAP_ALLOW_PREPROCESSING_EXEC", raising=False)
+    bootstrap._strip_deps_flags(["raitap", "--demo"])
+    assert "RAITAP_ALLOW_PREPROCESSING_EXEC" not in os.environ
+
+
+def test_strip_deps_flags_combines_y_and_yp(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("RAITAP_ALLOW_PREPROCESSING_EXEC", raising=False)
+    cleaned, flags = bootstrap._strip_deps_flags(["raitap", "-y", "-yp"])
+    assert cleaned == ["raitap"]
+    assert flags.allow_project_edit is True
+    assert flags.allow_preprocessing_exec is True

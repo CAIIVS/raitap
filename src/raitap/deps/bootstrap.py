@@ -55,6 +55,7 @@ if TYPE_CHECKING:
     from typing import Any
 
 _SENTINEL = "_RAITAP_DEPS_BOOTSTRAPPED"
+_PREPROCESSING_EXEC_ENV_VAR = "RAITAP_ALLOW_PREPROCESSING_EXEC"
 _PYPROJECT = Path(__file__).resolve().parents[3] / "pyproject.toml"
 _DEFAULT_CONFIG_DIR = Path(__file__).resolve().parents[1] / "configs"
 _DEFAULT_CONFIG_NAME = "demo"
@@ -82,7 +83,14 @@ def _split_error_message(msg: str) -> list[str]:
 
 
 class _DepFlags:
-    __slots__ = ("allow_project_edit", "custom", "dry_run", "exec_global", "sync_only")
+    __slots__ = (
+        "allow_preprocessing_exec",
+        "allow_project_edit",
+        "custom",
+        "dry_run",
+        "exec_global",
+        "sync_only",
+    )
 
     def __init__(self) -> None:
         self.dry_run = False
@@ -90,6 +98,7 @@ class _DepFlags:
         self.custom = False
         self.allow_project_edit = False
         self.exec_global = False
+        self.allow_preprocessing_exec = False
 
 
 def _strip_deps_flags(argv: list[str]) -> tuple[list[str], _DepFlags]:
@@ -106,8 +115,15 @@ def _strip_deps_flags(argv: list[str]) -> tuple[list[str], _DepFlags]:
             flags.allow_project_edit = True
         elif a == "--exec-global":
             flags.exec_global = True
+        elif a in ("--allow-preprocessing-exec", "-yp"):
+            flags.allow_preprocessing_exec = True
         else:
             keep.append(a)
+    # Surface CLI consent to the post-Hydra resolver in data/preprocessing.py.
+    # Re-exec via subprocess inherits os.environ, so this propagates through
+    # cases A/C/D without modifying ``_exec``.
+    if flags.allow_preprocessing_exec:
+        os.environ[_PREPROCESSING_EXEC_ENV_VAR] = "1"
     return keep, flags
 
 

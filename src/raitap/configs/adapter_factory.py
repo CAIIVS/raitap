@@ -48,6 +48,7 @@ __all__ = [
     "instantiate_adapter",
     "instantiate_visualisers",
     "parse_adapter_config",
+    "per_image_transform_from_config",
     "raw_config_dict",
     "resolve_call_data_sources",
 ]
@@ -393,8 +394,31 @@ def instantiate_visualisers(
 # ---------------------------------------------------------------------------
 
 
+def per_image_transform_from_config(config: Any) -> Any:
+    """Return the shape-half preprocessing callable for *config*, or ``None``.
+
+    Shared helper for factory entry points that need to apply the same
+    per-image transform to auxiliary call-data tensors that
+    :class:`raitap.data.data.Data` applies to the primary input. Defensive:
+    returns ``None`` when the config lacks ``model`` (legacy test mocks) or
+    the resolver short-circuits to the off branch.
+    """
+    from raitap.data.data import _module_as_per_image_callable
+    from raitap.data.preprocessing import resolve_preprocessing
+
+    model_cfg = getattr(config, "model", None)
+    data_cfg = getattr(config, "data", None)
+    if model_cfg is None or data_cfg is None:
+        return None
+    resolved = resolve_preprocessing(model_cfg, data_cfg)
+    return _module_as_per_image_callable(resolved.data_module)
+
+
 def resolve_call_data_sources(
-    call_kwargs: dict[str, Any], *, log_label: str = "call"
+    call_kwargs: dict[str, Any],
+    *,
+    log_label: str = "call",
+    per_image_transform: Any = None,
 ) -> dict[str, Any]:
     """Replace ``call:`` values matching ``{source, n_samples}`` with loaded tensors.
 
@@ -408,6 +432,11 @@ def resolve_call_data_sources(
         background_data:
           source: "imagenet_samples"
           n_samples: 50
+
+    When ``per_image_transform`` is supplied (typically the shape half of the
+    pipeline's ``data.preprocessing`` setup), it is applied per-image so that
+    auxiliary tensors (SHAP background, baselines, …) share the same shape as
+    the primary ``Data.tensor``.
     """
     resolved: dict[str, Any] = {}
     for key, value in call_kwargs.items():
@@ -425,7 +454,11 @@ def resolve_call_data_sources(
                 source,
                 n_samples,
             )
-            resolved[key] = load_tensor_from_source(str(source), n_samples=n_samples)
+            resolved[key] = load_tensor_from_source(
+                str(source),
+                n_samples=n_samples,
+                per_image_transform=per_image_transform,
+            )
         else:
             resolved[key] = value
     return resolved

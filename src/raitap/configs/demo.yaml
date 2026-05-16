@@ -14,6 +14,7 @@ data:
   name: imagenet_samples
   source: imagenet_samples
   forward_batch_size: 4
+  preprocessing: model-bundled   # use the model's bundled preprocessing (Resize + CenterCrop + Normalize)
   labels:
     source: imagenet_samples    # resolves to the bundled labels.csv for this sample
     id_column: image

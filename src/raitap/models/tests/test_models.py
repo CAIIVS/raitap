@@ -88,6 +88,16 @@ def _make_config(
                         "allow_unsafe_pickle": allow_unsafe_pickle,
                     },
                 )(),
+                "data": type(
+                    "DataConfig",
+                    (),
+                    {
+                        "preprocessing": None,
+                        "acknowledge_preprocessing_off": True,
+                        "acknowledge_preprocessing_exec": False,
+                        "input_metadata": None,
+                    },
+                )(),
                 "hardware": hardware,
             },
         )(),
@@ -761,3 +771,143 @@ class TestModelInputShapeAdapter:
 
         prepared = backend._prepare_inputs(torch.randn(3, 5))
         assert prepared.shape == (3, 1, 1, 5)
+
+
+class TestModelPreprocessingWrap:
+    """``Model._load_model`` + ``_apply_preprocessing`` integration.
+
+    Verifies that the preprocessing option resolved from the config is
+    wrapped around the backbone the way the rest of the pipeline expects:
+    off leaves the backend untouched, model-bundled / custom-file replace
+    ``backend.model`` with ``nn.Sequential(preprocessing, original)``, and
+    ONNX backends with an active preprocessing raise loudly instead of
+    silently dropping it.
+    """
+
+    @staticmethod
+    def _fixture_path() -> Path:
+        from pathlib import Path as _Path
+
+        return (
+            _Path(__file__).resolve().parents[2]
+            / "data"
+            / "tests"
+            / "fixtures"
+            / "preproc_imagenet.py"
+        )
+
+    def test_off_leaves_backbone_untouched(self) -> None:
+        from torchvision.models.resnet import ResNet
+
+        from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
+
+        cfg = cast(
+            "AppConfig",
+            AppConfig(model=ModelConfig(source="resnet18"), data=DataConfig()),
+        )
+        model = Model(cfg)
+
+        assert model.resolved_preprocessing.origin == "off"
+        assert model.resolved_preprocessing.data_module is None
+        assert model.resolved_preprocessing.model_module is None
+        assert isinstance(model.backend, TorchBackend)
+        assert not isinstance(model.backend.model, nn.Sequential)
+        assert isinstance(model.backend.model, ResNet)
+
+    def test_model_bundled_wraps_backbone_with_sequential(self) -> None:
+        from torchvision.models.resnet import ResNet
+        from torchvision.transforms import v2
+
+        from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
+
+        cfg = cast(
+            "AppConfig",
+            AppConfig(
+                model=ModelConfig(source="resnet18"),
+                data=DataConfig(preprocessing="model-bundled"),
+            ),
+        )
+        model = Model(cfg)
+
+        assert model.resolved_preprocessing.origin == "model-bundled"
+        # data_module (Resize + CenterCrop) lives in the loader, not in the
+        # model wrap. The wrap only carries the value half.
+        assert model.resolved_preprocessing.data_module is not None
+        assert isinstance(model.resolved_preprocessing.model_module, v2.Normalize)
+        assert isinstance(model.backend, TorchBackend)
+        assert isinstance(model.backend.model, nn.Sequential)
+        children = list(model.backend.model.children())
+        assert len(children) == 2
+        # child[0] is Normalize, child[1] is the original backbone.
+        assert isinstance(children[0], v2.Normalize)
+        assert isinstance(children[1], ResNet)
+
+    def test_model_bundled_wrap_consumes_raw_input(self) -> None:
+        from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
+
+        cfg = cast(
+            "AppConfig",
+            AppConfig(
+                model=ModelConfig(source="resnet18"),
+                data=DataConfig(preprocessing="model-bundled"),
+            ),
+        )
+        model = Model(cfg)
+
+        raw = torch.rand(1, 3, 256, 256)
+        with torch.no_grad():
+            out = model.backend(raw)
+        assert isinstance(out, torch.Tensor)
+        assert out.shape == (1, 1000)
+
+    def test_custom_file_wraps_with_user_module(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
+
+        monkeypatch.delenv("RAITAP_ALLOW_PREPROCESSING_EXEC", raising=False)
+        fixture = self._fixture_path()
+        assert fixture.exists(), f"fixture missing: {fixture}"
+
+        cfg = cast(
+            "AppConfig",
+            AppConfig(
+                model=ModelConfig(source="resnet18"),
+                data=DataConfig(
+                    preprocessing=str(fixture),
+                    acknowledge_preprocessing_exec=True,
+                ),
+            ),
+        )
+        model = Model(cfg)
+
+        assert model.resolved_preprocessing.origin == "custom-file"
+        assert isinstance(model.backend, TorchBackend)
+        assert isinstance(model.backend.model, nn.Sequential)
+        assert model.resolved_preprocessing.file_sha256 is not None
+        assert len(model.resolved_preprocessing.file_sha256) == 64
+
+    def test_onnx_backend_with_active_preprocessing_raises(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
+        from raitap.models.model import _apply_preprocessing
+
+        monkeypatch.delenv("RAITAP_ALLOW_PREPROCESSING_EXEC", raising=False)
+
+        backend = OnnxBackend(
+            _as_inference_session(_FakeOnnxSession()),
+            providers=["CPUExecutionProvider"],
+        )
+        # arch is required so the model-bundled resolver can find weights
+        # before the ONNX check fires; otherwise the test would fail on a
+        # different (unrelated) error path.
+        cfg = cast(
+            "AppConfig",
+            AppConfig(
+                model=ModelConfig(source="resnet18", arch="resnet18"),
+                data=DataConfig(preprocessing="model-bundled"),
+            ),
+        )
+        with pytest.raises(NotImplementedError, match="ONNX"):
+            _apply_preprocessing(backend, cfg)

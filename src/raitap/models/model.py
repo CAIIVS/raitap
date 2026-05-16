@@ -11,6 +11,7 @@ from torchvision import models
 from raitap import raitap_log
 from raitap.configs import cfg_to_dict
 from raitap.data.metadata import shape_tuple
+from raitap.data.preprocessing import ResolvedPreprocessing, resolve_preprocessing
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 
 from .backend import ModelBackend, OnnxBackend, TorchBackend
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
 class Model(Trackable):
     def __init__(self, config: AppConfig) -> None:
         self.backend = self._load_model(config)
+        self.resolved_preprocessing = _apply_preprocessing(self.backend, config)
         shape_override = _resolve_shape_override(config)
         if shape_override is not None:
             self.backend.expected_input_shape = shape_override
@@ -56,6 +58,41 @@ class Model(Trackable):
 
     def log(self, tracker: BaseTracker, **kwargs: Any) -> None:
         tracker.log_model(self.backend)
+
+
+def _apply_preprocessing(backend: ModelBackend, config: AppConfig) -> ResolvedPreprocessing:
+    """Resolve ``data.preprocessing`` and wrap the backend's model in-place
+    with the value half (Normalize).
+
+    The shape half (Resize / CenterCrop) is applied per-image by
+    :func:`raitap.data.data._load_data` before stacking, so by the time we
+    see the model, inputs already have a uniform shape.
+
+    ONNX models are not wrapped here — the resolver still reports the chosen
+    option for transparency, but a non-None ``model_module`` on an ONNX
+    backend raises so the user knows to pre-normalize externally.
+    """
+    resolved = resolve_preprocessing(config.model, config.data)
+
+    if resolved.model_module is not None:
+        if isinstance(backend, OnnxBackend):
+            raise NotImplementedError(
+                "data.preprocessing is not yet supported for ONNX models. "
+                "Pre-normalize your inputs externally, or convert the model "
+                "to PyTorch (.pt / .pth / TorchScript)."
+            )
+        if isinstance(backend, TorchBackend):
+            model_module = resolved.model_module.to(backend.device)
+            model_module.eval()
+            backend.model = nn.Sequential(model_module, backend.model)
+
+    for warning in resolved.warnings:
+        raitap_log.warn(warning)
+
+    if resolved.is_active:
+        raitap_log.info(f"Preprocessing: {resolved.description}")
+
+    return resolved
 
 
 def _resolve_shape_override(config: Any) -> tuple[int | None, ...] | None:

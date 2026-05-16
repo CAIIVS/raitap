@@ -121,6 +121,7 @@ def _mlflow_summary_params(config_dict: dict[str, Any]) -> dict[str, str]:
     if data is not None:
         put("data.name", data.get("name"))
         put("data.source", data.get("source"))
+        put("data.preprocessing", data.get("preprocessing"))
 
     transparency = _nested_dict(config_dict.get("transparency"))
     if transparency:

@@ -28,6 +28,27 @@
   This does not control explainer attribution batching; use
   `transparency.<explainer>.raitap.batch_size` for that.
 
+:option: preprocessing
+:allowed: null, "model-bundled", path string
+:default: null
+:description: Image preprocessing applied before the forward pass. `null`
+  forwards inputs unchanged with a warning; `"model-bundled"` uses the
+  model's pretrained Resize/CenterCrop/Normalize; a `.py` path runs your
+  `make_preprocessing()` factory. See {doc}`preprocessing` for details.
+
+:option: acknowledge_preprocessing_off
+:allowed: bool
+:default: false
+:description: Silences the "preprocessing is OFF" warning when `null` is
+  intentional. See {doc}`preprocessing`.
+
+:option: acknowledge_preprocessing_exec
+:allowed: bool
+:default: false
+:description: Opt-in for `preprocessing: <path>.py` (executes arbitrary
+  code). CLI alias: `--allow-preprocessing-exec` / `-yp`. See
+  {doc}`preprocessing`.
+
 :option: labels.source
 :allowed: string, null
 :default: null
@@ -102,6 +123,7 @@ data:
   description: "Internal validation set"
   source: "./data/images"
   forward_batch_size: 32
+  preprocessing: model-bundled
   labels:
     source: "./data/labels.csv"
     id_column: "image"
@@ -109,7 +131,7 @@ data:
     encoding: "index"
     id_strategy: "auto"
 
-:cli: data.source="./data/images" data.labels.source="./data/labels.csv" data.labels.column=label
+:cli: data.source="./data/images" data.preprocessing=model-bundled data.labels.source="./data/labels.csv" data.labels.column=label
 
 :python:
 from raitap.data import DataConfig, LabelsConfig
@@ -119,6 +141,7 @@ data = DataConfig(
     description="Internal validation set",
     source="./data/images",
     forward_batch_size=32,
+    preprocessing="model-bundled",
     labels=LabelsConfig(
         source="./data/labels.csv",
         id_column="image",

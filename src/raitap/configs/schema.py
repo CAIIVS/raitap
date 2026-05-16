@@ -60,6 +60,26 @@ class DataConfig:
     source: str | None = None
     # Optional model-forward batch size for predictions/metrics. None uses the pipeline default.
     forward_batch_size: int | None = None
+    # Preprocessing applied to inputs before they reach the model. Three values:
+    #   - ``None`` (default): no preprocessing; loud warn at startup so users
+    #     don't silently feed unnormalized images to pretrained models.
+    #   - ``"model-bundled"``: use the bundled preprocessing of the
+    #     resolved torchvision arch (``Weights.transforms()``).
+    #   - path to a ``.py`` file: load a user-supplied ``make_preprocessing()``
+    #     factory; gated by ``acknowledge_preprocessing_exec`` (Python API)
+    #     or ``--allow-preprocessing-exec``/``-yp`` (CLI).
+    preprocessing: str | None = None
+    # Suppresses the "preprocessing is off" warn for users who have already
+    # normalized their data, or for non-image modalities. Suppression also
+    # auto-applies when ``input_metadata.kind != "image"``.
+    acknowledge_preprocessing_off: bool = False
+    # Opt-in consent for the ``preprocessing: <path>.py`` option. Loading a
+    # user-supplied file executes arbitrary Python code and MUST only be
+    # enabled for files from a fully trusted source. Mirrors
+    # ``model.allow_unsafe_pickle``. CLI users may instead pass
+    # ``--allow-preprocessing-exec``/``-yp`` which routes through the same
+    # consent check via an env var.
+    acknowledge_preprocessing_exec: bool = False
     # Optional input-modality metadata (``kind``, ``feature_names``, ``layout``, ...).
     # Forwarded to ``infer_input_spec`` so semantics and visualisers see the correct
     # modality for non-image data such as ACAS Xu's 5-feature tabular vector.

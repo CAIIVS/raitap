@@ -13,6 +13,7 @@ from raitap.configs.adapter_factory import (
     instantiate_adapter,
     instantiate_visualisers,
     parse_adapter_config,
+    per_image_transform_from_config,
     raw_config_dict,
     resolve_call_data_sources,
 )
@@ -199,7 +200,9 @@ class Explanation:
                 raitap_cfg["input_metadata"] = input_metadata
 
             merged_kwargs = resolve_call_data_sources(
-                {**call_from_config, **kwargs}, log_label="call"
+                {**call_from_config, **kwargs},
+                log_label="call",
+                per_image_transform=per_image_transform_from_config(config),
             )
             merged_kwargs = backend._prepare_kwargs(merged_kwargs)
 

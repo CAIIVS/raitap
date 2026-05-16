@@ -5,13 +5,19 @@ These are curated small datasets downloaded on first use to ``~/.cache/raitap/``
 This file is intentionally separate from core data-loading logic — it exists only
 to make the tool runnable out-of-the-box without any local data.
 
-Preprocessing (resize to a fixed square) is applied here because demo images have
-inconsistent source sizes. This does not affect consumer data, which is loaded raw.
+When no preprocessing is configured, ``_load_sample`` falls back to a hard
+resize to ``_DEMO_SIZE`` so heterogeneous images can be stacked. When the
+caller supplies a per-image transform (the shape half of
+``data.preprocessing``), images are loaded at their native resolution and
+the transform does the shape work — the pretrained Resize/CenterCrop sees
+the original image, not a pre-squashed one. This does not affect consumer
+data, which is loaded by :mod:`raitap.data.data` directly.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -19,6 +25,9 @@ from PIL import Image
 
 from raitap import raitap_log
 from raitap.data.utils import download_file
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 # ---------------------------------------------------------------------------
 # Registry of named demo datasets
@@ -188,23 +197,39 @@ def resolve_sample_labels_path(name: str) -> Path | None:
 _DEMO_SIZE = 224
 
 
-def _load_sample(name: str, size: int = _DEMO_SIZE) -> tuple[torch.Tensor, list[str]]:
+def _load_sample(
+    name: str,
+    size: int = _DEMO_SIZE,
+    *,
+    per_image_transform: Callable[[torch.Tensor], torch.Tensor] | None = None,
+) -> tuple[torch.Tensor, list[str]]:
     """
-    Load a named demo dataset as a resized tensor plus per-row sample IDs.
+    Load a named demo dataset as a stacked tensor plus per-row sample IDs.
 
-    Downloads files if needed, then resizes each image to ``(size, size)`` so
-    they can be stacked into a batch. **Only used for demo samples** — consumer
-    data is returned raw by :func:`~raitap.data.loader.load_data`.
+    Downloads files if needed.
+
+    Two shape strategies:
+
+    - ``per_image_transform`` supplied (typical when ``data.preprocessing``
+      is active): each image is loaded at its native resolution, the
+      transform runs on the per-image ``(C, H, W)`` tensor, then the results
+      are stacked. The transform is responsible for producing a uniform
+      shape; ``torch.stack`` raises if it doesn't.
+    - ``per_image_transform`` is ``None`` (legacy / preprocessing OFF):
+      each image is hard-resized to ``(size, size)`` via PIL ``BILINEAR``
+      so heterogeneous demo images can be stacked at all.
 
     Args:
         name: A key from ``SAMPLE_SOURCES`` (e.g. ``"imagenet_samples"``).
-        size: Edge length to resize images to (default 224).
+        size: Edge length for the PIL fallback when no transform is given.
+        per_image_transform: Optional shape-normalising transform applied
+            per-image. When set, the PIL pre-resize is skipped.
 
     Returns:
-        Tuple of ``(tensor, sample_ids)`` where ``tensor`` is float32 with
-        shape ``(N, 3, size, size)`` in ``[0, 1]`` and ``sample_ids`` lists
-        the source filenames in the same row order, so ``data.labels.source``
-        can align labels by filename.
+        Tuple of ``(tensor, sample_ids)`` where ``tensor`` is float32 in
+        ``[0, 1]`` and ``sample_ids`` lists the source filenames in the
+        same row order, so ``data.labels.source`` can align labels by
+        filename.
     """
     directory = _resolve_sample(name)
     if directory is None:
@@ -217,7 +242,12 @@ def _load_sample(name: str, size: int = _DEMO_SIZE) -> tuple[torch.Tensor, list[
     )
     tensors = []
     for f in files:
-        img = Image.open(f).convert("RGB").resize((size, size), Image.Resampling.BILINEAR)
+        img = Image.open(f).convert("RGB")
+        if per_image_transform is None:
+            img = img.resize((size, size), Image.Resampling.BILINEAR)
         arr = np.array(img)
-        tensors.append(torch.from_numpy(arr).permute(2, 0, 1).float() / 255.0)
+        tensor = torch.from_numpy(arr).permute(2, 0, 1).float() / 255.0
+        if per_image_transform is not None:
+            tensor = per_image_transform(tensor)
+        tensors.append(tensor)
     return torch.stack(tensors), [f.name for f in files]
