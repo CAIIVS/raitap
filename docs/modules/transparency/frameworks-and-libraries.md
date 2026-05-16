@@ -12,7 +12,8 @@ Visualisers continue to support `constructor` and `call` only.
 
 This keeps the boundary clear for users: `call` is what Captum or SHAP sees, while `raitap` is what RAITAP itself consumes. Example:
 
-```yaml
+```{config-tabs}
+:yaml:
 transparency:
   my_first_explainer:
     _target_: "ShapExplainer"
@@ -29,6 +30,22 @@ transparency:
       - _target_: "ShapImageVisualiser"
         call:
           max_samples: 1
+
+:python:
+from raitap.transparency import shap, shap_image
+
+transparency = {
+    "my_first_explainer": shap(
+        algorithm="GradientExplainer",
+        constructor={"local_smoothing": 0.0},
+        call={
+            "target": 0,
+            "background_data": {"source": "imagenet_samples"},
+        },
+        raitap={"batch_size": 1},
+        visualisers=[shap_image(call={"max_samples": 1})],
+    ),
+}
 ```
 
 ## Typed semantics and visualiser compatibility
@@ -71,7 +88,8 @@ documented in {doc}`../../contributor/transparency`.
 
 `CaptumExplainer` gives access to [all Captum explainers](https://captum.ai/api/).
 
-```yaml
+```{config-tabs}
+:yaml:
 transparency:
   my_captum_explainer:
     _target_: CaptumExplainer
@@ -79,6 +97,16 @@ transparency:
     constructor: {}
     call:
       target: 0
+
+:python:
+from raitap.transparency import captum
+
+transparency = {
+    "my_captum_explainer": captum(
+        algorithm="IntegratedGradients",
+        call={"target": 0},
+    ),
+}
 ```
 
 #### ONNX compatibility
@@ -117,7 +145,8 @@ validated.
 
 `ShapExplainer` gives access to [all SHAP explainers](https://shap.readthedocs.io/en/latest/api.html#explainers).
 
-```yaml
+```{config-tabs}
+:yaml:
 transparency:
   my_shap_explainer:
     _target_: ShapExplainer
@@ -129,6 +158,20 @@ transparency:
         source: imagenet_samples
     raitap:
       batch_size: 1
+
+:python:
+from raitap.transparency import shap
+
+transparency = {
+    "my_shap_explainer": shap(
+        algorithm="GradientExplainer",
+        call={
+            "target": 0,
+            "background_data": {"source": "imagenet_samples"},
+        },
+        raitap={"batch_size": 1},
+    ),
+}
 ```
 
 `GradientExplainer`, `DeepExplainer`, and `KernelExplainer` usually require
@@ -212,7 +255,8 @@ differently.
 
 ##### Configuration example
 
-```yaml
+```{config-tabs}
+:yaml:
 transparency:
   my_shap_explainer:
     _target_: "ShapExplainer"
@@ -231,7 +275,7 @@ transparency:
       - _target_: "ShapImageVisualiser"
         constructor:
           max_samples: 1
-      
+
       # Full configuration with all options
       - _target_: "ShapImageVisualiser"
         constructor:
@@ -243,6 +287,39 @@ transparency:
           overlay_alpha: 0.65
         call:
           show_sample_names: true
+
+:python:
+from raitap.transparency import shap, shap_image
+
+transparency = {
+    "my_shap_explainer": shap(
+        algorithm="GradientExplainer",
+        constructor={"local_smoothing": 0.0},
+        call={
+            "target": 0,
+            "background_data": {
+                "source": "imagenet_samples",
+                "n_samples": 50,
+            },
+        },
+        raitap={"batch_size": 1},
+        visualisers=[
+            # Minimal configuration.
+            shap_image(max_samples=1),
+            # Full configuration — builder takes flat constructor kwargs
+            # directly; ``call=`` carries render-time options.
+            shap_image(
+                max_samples=2,
+                title="Tumour attribution",
+                include_original_image=True,
+                show_colorbar=True,
+                cmap="coolwarm",
+                overlay_alpha=0.65,
+                call={"show_sample_names": True},
+            ),
+        ],
+    ),
+}
 ```
 
 **Note:** `ShapImageVisualiser` requires pixel-level SHAP values from `GradientExplainer` or `DeepExplainer`. Other SHAP visualisers are intended for tabular or interpretable feature outputs and are treated as cohort summaries when they aggregate the selected batch.

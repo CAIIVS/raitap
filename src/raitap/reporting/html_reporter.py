@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from .sections import ReportSection
 
 
-class HTMLReporter(BaseReporter):
+class HTMLReporter(BaseReporter, registry_name="html", extra="html"):
     """Narrative HTML report generator using Jinja2."""
 
     def generate(

@@ -1,0 +1,108 @@
+name: New visualiser
+description: Propose a new visualiser for an existing explainer / assessor.
+title: "feat(<module>): add <name> visualiser"
+labels: ["enhancement", "visualiser"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Visualisers render one figure per call and are declared per-adapter under `visualisers:`.
+        See `docs/modules/transparency/visualisers.md` for examples and the
+        `BaseVisualiser` / `BaseRobustnessVisualiser` contract.
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module
+      options:
+        - transparency
+        - robustness
+    validations:
+      required: true
+
+  - type: input
+    id: class-name
+    attributes:
+      label: Proposed class name
+      placeholder: "e.g. ShapWaterfallVisualiser"
+    validations:
+      required: true
+
+  - type: input
+    id: registry-name
+    attributes:
+      label: Proposed registry_name
+      description: The handle exposed via `raitap.<module>.<name>` and `_target_`.
+      placeholder: "e.g. shap_waterfall"
+    validations:
+      required: true
+
+  - type: textarea
+    id: pairs-with
+    attributes:
+      label: Pairs with which adapters?
+      description: List the existing adapters whose outputs this visualiser can render. If the visualiser only makes sense for a not-yet-merged adapter, link that issue.
+      placeholder: "e.g. CaptumExplainer, ShapExplainer (when algorithm ∈ {TreeShap, KernelShap})"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: ExplanationScope
+      description: For transparency visualisers. Pick `n/a` for robustness.
+      options:
+        - LOCAL
+        - GLOBAL
+        - both
+        - n/a
+    validations:
+      required: true
+
+  - type: textarea
+    id: output-spaces
+    attributes:
+      label: Supported output spaces / method families
+      description: |
+        Which `OutputSpace` values does this visualiser accept (e.g. `INPUT_FEATURES`, `IMAGE_SPATIAL_MAP`, `TOKEN_SEQUENCE`)?
+        Which `MethodFamily` values (e.g. `SHAPLEY`, `GRADIENT`, `PERTURBATION`)?
+        The factory rejects mismatches at YAML parse time, so be precise.
+    validations:
+      required: true
+
+  - type: textarea
+    id: figure
+    attributes:
+      label: What the figure looks like
+      description: Sketch, screenshot from the underlying library, or short description. One figure per call — clarify whether it's one panel per sample, one panel per class, etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: kwargs
+    attributes:
+      label: Tunable kwargs
+      description: List the constructor kwargs with defaults and what they do (the same shape as the table in `docs/modules/transparency/visualisers.md`).
+      placeholder: |
+        | Kwarg | Default | Meaning |
+        |---|---|---|
+        | `method` | `"blended_heat_map"` | … |
+    validations:
+      required: true
+
+  - type: textarea
+    id: backend-library
+    attributes:
+      label: Underlying library / function
+      description: Which third-party call does it wrap (if any)? E.g. `captum.attr.visualization.visualize_image_attr`. New optional dependency? Note it here.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Contributor checklist
+      options:
+        - label: Class under `src/raitap/<module>/visualisers/`, inheriting the correct base, declaring `registry_name`.
+        - label: Tests covering registry membership, scope/output-space gating, and one render happy path.
+        - label: Documentation entry under `docs/modules/<module>/visualisers.md` with kwarg table and `{config-tabs}` example.

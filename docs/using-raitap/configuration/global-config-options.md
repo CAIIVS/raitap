@@ -26,13 +26,25 @@ This section describes options that impact all modules.
 
 ## YAML example
 
-```yaml
+```{config-tabs}
+:yaml:
 hydra:
   run:
     dir: "./custom-outputs-dir"
 
 hardware: "gpu"
 experiment_name: "My Experiment"
+
+:python:
+from raitap import AppConfig
+
+# Python users construct AppConfig directly and call ``run(config)``;
+# ``hydra.run.dir`` is a CLI/YAML-only knob (set the output directory in
+# your own code instead).
+config = AppConfig(
+    hardware="gpu",
+    experiment_name="My Experiment",
+)
 ```
 
 ## CLI override example

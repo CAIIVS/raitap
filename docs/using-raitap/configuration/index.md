@@ -9,6 +9,7 @@ This section explains high level configuration principles for your use case.
 general
 kitchen-sink
 global-config-options
+python-api
 ```
 
 (module-specific-configurations)=

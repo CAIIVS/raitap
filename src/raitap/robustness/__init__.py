@@ -19,6 +19,8 @@ Visualiser classes (``_target_`` values; live under ``raitap.robustness.visualis
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
 from .contracts import (
     VERDICT_CODES,
     VERDICT_FROM_CODE,
@@ -46,12 +48,6 @@ from .semantics import (
     assessor_semantics,
     hints_for_assessor,
 )
-
-# Third-party robustness libraries this module wraps. Consumed by
-# :mod:`raitap.utils.diagnostics` to attribute warnings/errors emitted from
-# inside these packages to a "via <lib>" chip and the frameworks-and-libraries
-# docs page. **When adding a new wrapped library, append its import name here.**
-THIRD_PARTY_LIBS: frozenset[str] = frozenset({"foolbox", "torchattacks"})
 
 
 class _UnavailableOptionalDependency:
@@ -123,8 +119,26 @@ except ModuleNotFoundError as error:
     PerturbationHeatmapVisualiser = _unavailable("PerturbationHeatmapVisualiser", "torch")
 
 
+if TYPE_CHECKING:
+    from raitap.configs.schema import RobustnessConfig
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve hydra-zen builders (assessors + visualisers) by registry name,
+    plus the schema dataclass (:class:`~raitap.configs.schema.RobustnessConfig`)
+    re-exported here so the module owns both the type and its instances."""
+    if name == "RobustnessConfig":
+        from raitap.configs.schema import RobustnessConfig
+
+        return RobustnessConfig
+    from raitap._adapters import lookup
+
+    return lookup("robustness", name)
+
+
 __all__ = [  # noqa: RUF022
-    "THIRD_PARTY_LIBS",
+    # Schema dataclass (lazy)
+    "RobustnessConfig",
     # Assessor classes
     "BaseAssessor",
     "EmpiricalAttackAssessor",

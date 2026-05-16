@@ -24,7 +24,7 @@ metrics:
   task: multiclass
 
 transparency:
-  default:
+  my_integrated_gradients_explainer:
     _target_: CaptumExplainer
     algorithm: IntegratedGradients
     call:
@@ -33,7 +33,7 @@ transparency:
       - _target_: CaptumImageVisualiser
 
 robustness:
-  pgd:
+  my_pgd_attacker:
     _target_: TorchattacksAssessor
     algorithm: PGD
     constructor:

@@ -1,0 +1,199 @@
+# L-WISE HAM10000 demo for RAITAP.
+#
+# Expected model file:
+#   A local eager PyTorch wrapper of the L-WISE HAM10000 classifier with a
+#   simple forward(images) -> logits interface. The wrapper is used for this
+#   presentation preset because Grad-CAM needs PyTorch forward hooks, which
+#   TorchScript modules do not support. Override with:
+#   LWISE_HAM10000_MODEL=/path/to/lwise_ham10000_eager.pt
+
+experiment_name: lwise-ham10000-dermoscopy-demo
+hardware: gpu
+
+model:
+  source: ${oc.env:LWISE_HAM10000_MODEL,${hydra:runtime.cwd}/examples/lwise-ham10000/artifacts/lwise_ham10000_eager.pt}
+
+data:
+  name: ham10000-presentation-balanced
+  description: Balanced 21-image HAM10000 presentation subset, three dermoscopy samples per diagnosis class.
+  source: ${hydra:runtime.cwd}/examples/lwise-ham10000/artifacts/ham10000-presentation-224
+  forward_batch_size: 4
+  labels:
+    source: ${hydra:runtime.cwd}/examples/lwise-ham10000/artifacts/ham10000-presentation-labels.csv
+    id_column: image
+    column: label
+
+metrics:
+  _target_: ClassificationMetrics
+  task: multiclass
+  num_classes: 7
+
+transparency:
+  gradcam_localisation:
+    _target_: CaptumExplainer
+    algorithm: LayerGradCam
+    constructor:
+      layer_path: 1.layer4.2.conv3
+    call:
+      target: auto_pred
+      relu_attributions: true
+    raitap:
+      batch_size: 1
+      input_metadata:
+        kind: image
+        layout: NCHW
+      show_sample_names: true
+    visualisers:
+      - _target_: CaptumImageVisualiser
+        constructor:
+          method: heat_map
+          sign: positive
+          show_colorbar: true
+          include_original_image: false
+          title: "Grad-CAM lesion localisation"
+        call:
+          max_samples: 4
+
+  saliency_evidence:
+    _target_: CaptumExplainer
+    algorithm: Saliency
+    call:
+      target: auto_pred
+      abs: true
+    raitap:
+      batch_size: 1
+      input_metadata:
+        kind: image
+        layout: NCHW
+      show_sample_names: true
+    visualisers:
+      - _target_: CaptumImageVisualiser
+        constructor:
+          method: blended_heat_map
+          sign: positive
+          show_colorbar: true
+          include_original_image: false
+          title: "Positive lesion evidence"
+        call:
+          max_samples: 4
+      - _target_: CaptumImageVisualiser
+        constructor:
+          method: masked_image
+          sign: positive
+          show_colorbar: false
+          include_original_image: false
+          title: "Evidence-masked dermoscopy view"
+        call:
+          max_samples: 4
+
+  occlusion_check:
+    _target_: CaptumExplainer
+    algorithm: Occlusion
+    call:
+      target: auto_pred
+      sliding_window_shapes: [3, 56, 56]
+      strides: [3, 56, 56]
+      baselines: 0
+    raitap:
+      batch_size: 1
+      input_metadata:
+        kind: image
+        layout: NCHW
+      show_sample_names: true
+    visualisers:
+      - _target_: CaptumImageVisualiser
+        constructor:
+          method: heat_map
+          sign: absolute_value
+          show_colorbar: true
+          include_original_image: false
+          title: "Occlusion sensitivity check"
+        call:
+          max_samples: 4
+
+  integrated_evidence_detail:
+    _target_: CaptumExplainer
+    algorithm: IntegratedGradients
+    call:
+      target: auto_pred
+      n_steps: 8
+      internal_batch_size: 1
+    raitap:
+      batch_size: 1
+      input_metadata:
+        kind: image
+        layout: NCHW
+      show_sample_names: true
+    visualisers:
+      - _target_: CaptumImageVisualiser
+        constructor:
+          method: blended_heat_map
+          sign: absolute_value
+          show_colorbar: true
+          include_original_image: false
+          title: "Integrated evidence detail"
+        call:
+          max_samples: 4
+
+robustness:
+  fgsm_linf_fast:
+    _target_: TorchattacksAssessor
+    algorithm: FGSM
+    constructor:
+      eps: 0.03
+    raitap:
+      batch_size: 1
+      input_metadata:
+        kind: image
+        layout: NCHW
+      show_sample_names: true
+    visualisers:
+      - _target_: ImagePairVisualiser
+        constructor:
+          max_samples: 4
+      - _target_: PerturbationHeatmapVisualiser
+        constructor:
+          max_samples: 4
+
+  pgd_linf_small:
+    _target_: TorchattacksAssessor
+    algorithm: PGD
+    constructor:
+      eps: 0.03
+      alpha: 0.01
+      steps: 3
+    raitap:
+      batch_size: 1
+      input_metadata:
+        kind: image
+        layout: NCHW
+      show_sample_names: true
+    visualisers:
+      - _target_: ImagePairVisualiser
+        constructor:
+          max_samples: 4
+      - _target_: PerturbationHeatmapVisualiser
+        constructor:
+          max_samples: 4
+  marabou_linf:
+    _target_: MarabouAssessor
+    algorithm: linf-box
+    constructor:
+      epsilon: 0.05
+      norm: Linf
+      timeout_s: 300
+    visualisers:
+      - _target_: VerdictSummaryVisualiser
+
+
+reporting:
+  _target_: HTMLReporter
+  filename: lwise_ham10000_report.pdf
+  include_config: true
+  include_metadata: true
+  multirun_report: false
+  sample_selection:
+    - ISIC_0024693
+    - ISIC_0025030
+    - ISIC_0026769
+    - ISIC_0034093.jpg

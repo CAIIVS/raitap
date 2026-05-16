@@ -23,7 +23,9 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import torch
 
 from raitap import raitap_log
+from raitap._adapters import AdapterMixin
 from raitap.configs import resolve_run_dir
+from raitap.configs.schema import RobustnessConfig
 from raitap.registry_base import WithAlgorithmRegistry
 
 from ..contracts import (
@@ -58,7 +60,14 @@ if TYPE_CHECKING:
 _VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
 
 
-class BaseAssessor(WithAlgorithmRegistry["AssessorSemanticsHints"], abstract=True):
+class BaseAssessor(
+    WithAlgorithmRegistry["AssessorSemanticsHints"],
+    AdapterMixin,
+    abstract=True,
+    group="robustness",
+    schema=RobustnessConfig,
+    strip_suffixes=("Assessor",),
+):
     """Root base class for all robustness assessors.
 
     Concrete subclasses must declare ``algorithm_registry: ClassVar[Mapping[str,
@@ -140,7 +149,7 @@ class EmpiricalAttackAssessor(BaseAssessor, ABC, abstract=True):
         *,
         backend: object | None = None,
         run_dir: str | Path | None = None,
-        output_root: str | Path = ".",
+        output_root: str | Path | None = None,
         experiment_name: str | None = None,
         assessor_target: str | None = None,
         assessor_name: str | None = None,
@@ -320,7 +329,7 @@ class FormalVerificationAssessor(BaseAssessor, ABC, abstract=True):
         *,
         backend: object | None = None,
         run_dir: str | Path | None = None,
-        output_root: str | Path = ".",
+        output_root: str | Path | None = None,
         experiment_name: str | None = None,
         assessor_target: str | None = None,
         assessor_name: str | None = None,

@@ -3,6 +3,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
+from raitap._adapters import AdapterMixin
+from raitap.configs.schema import ReportingConfig
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
@@ -12,7 +15,15 @@ if TYPE_CHECKING:
     from .sections import ReportSection
 
 
-class BaseReporter(ABC):
+class BaseReporter(
+    ABC,
+    AdapterMixin,
+    abstract=True,
+    group="reporting",
+    schema=ReportingConfig,
+    package_style="flat",
+    strip_suffixes=("Reporter",),
+):
     """Abstract base class for report generators."""
 
     def __init__(self, config: AppConfig) -> None:

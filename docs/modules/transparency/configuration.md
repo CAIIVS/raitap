@@ -2,7 +2,7 @@
 :intro: This page describes how to configure the transparency module that
   computes and visualises attributions.
 
-  Inside the `transparency` key, you can configure one or more explainers. See {ref}`modules-transparency-configuration-yaml-example` for the config shape.
+  Inside the `transparency` key, you can configure one or more explainers. See {ref}`modules-transparency-configuration-examples` for the config shape.
 
   See {doc}`frameworks-and-libraries` for the backend behaviour behind
   `_target_`, `algorithm`, and visualiser compatibility.
@@ -139,4 +139,35 @@ transparency:
       - _target_: "ShapBarVisualiser"
 
 :cli: transparency.captum_ig.algorithm=GradientShap
+
+:python:
+from raitap.transparency import captum, captum_image, shap, shap_bar
+
+transparency = {
+    "my_first_explainer": captum(
+        algorithm="IntegratedGradients",
+        call={"target": 0},
+        raitap={"input_metadata": {"kind": "image", "layout": "NCHW"}},
+        visualisers=[captum_image(call={"max_samples": 1})],
+    ),
+    "my_second_explainer": shap(
+        algorithm="KernelExplainer",
+        call={
+            "target": 0,
+            "background_data": {
+                "source": "./data/background",
+                "n_samples": 32,
+            },
+        },
+        raitap={
+            "batch_size": 1,
+            "input_metadata": {
+                "kind": "tabular",
+                "layout": "(B,F)",
+                "feature_names": ["age", "income", "score"],
+            },
+        },
+        visualisers=[shap_bar()],
+    ),
+}
 ```

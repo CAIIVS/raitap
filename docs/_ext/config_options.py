@@ -12,8 +12,9 @@ if TYPE_CHECKING:
     from sphinx.application import Sphinx
 
 CONFIG_OPTION_FIELDS = ("option", "allowed", "default", "description")
-CONFIG_PAGE_FIELDS = ("intro", "yaml", "cli")
+CONFIG_PAGE_FIELDS = ("intro", "yaml", "cli", "python")
 TABLE_HEADERS = ("Name", "Allowed", "Default", "Description")
+CONFIG_TABS_SYNC_KEY = "raitap-config"
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,7 @@ class ConfigPage:
     yaml: str
     cli: str
     options: list[ConfigOption]
+    python: str = ""
 
 
 def normalise_inline_value(lines: list[str]) -> str:
@@ -205,7 +207,8 @@ def parse_config_page_content(lines: list[str]) -> ConfigPage:
         if current_entry is None or current_option_field is None:
             raise ValueError(
                 "`config-page` content must start with a page field like "
-                "`:intro:`, `:yaml:`, `:cli:`, or an option entry beginning with `:option:`."
+                "`:intro:`, `:yaml:`, `:cli:`, `:python:`, "
+                "or an option entry beginning with `:option:`."
             )
 
         current_entry[current_option_field].append(stripped_line)
@@ -220,6 +223,7 @@ def parse_config_page_content(lines: list[str]) -> ConfigPage:
     intro = normalise_block_value(page_fields["intro"])
     yaml_content = normalise_block_value(page_fields["yaml"])
     cli_override = normalise_inline_value(page_fields["cli"])
+    python_snippet = normalise_block_value(page_fields["python"])
 
     missing_fields = [
         field
@@ -239,6 +243,7 @@ def parse_config_page_content(lines: list[str]) -> ConfigPage:
         yaml=yaml_content,
         cli=cli_override,
         options=options,
+        python=python_snippet,
     )
 
 
@@ -308,14 +313,59 @@ def build_section_label(docname: str, section_name: str) -> str:
     return f"{doc_label}-{section_label}"
 
 
+def build_config_tab_set_lines(page: ConfigPage) -> list[str]:
+    lines: list[str] = [
+        "`````{tab-set}",
+        f":sync-group: {CONFIG_TABS_SYNC_KEY}",
+        "",
+        "````{tab-item} YAML",
+        ":sync: yaml",
+        "",
+        "```yaml",
+    ]
+    lines.extend(page.yaml.splitlines())
+    lines.extend(
+        [
+            "```",
+            "````",
+            "",
+            "````{tab-item} Python",
+            ":sync: python",
+            "",
+            "```python",
+        ]
+    )
+    lines.extend(page.python.splitlines())
+    lines.extend(
+        [
+            "```",
+            "````",
+            "",
+            "````{tab-item} CLI",
+            ":sync: cli",
+            "",
+        ]
+    )
+    lines.extend(build_install_tabs_lines(page.cli))
+    lines.extend(["````", "`````"])
+    return lines
+
+
 def build_config_page_lines(page: ConfigPage, *, docname: str) -> list[str]:
     options_label = build_section_label(docname, "options")
-    yaml_label = build_section_label(docname, "yaml-example")
-    cli_label = build_section_label(docname, "cli-override-example")
     lines = ["# Configuration", ""]
     lines.extend(page.intro.splitlines())
     lines.extend(["", f"({options_label})=", "## Options", ""])
     lines.extend(build_markdown_table_lines(page.options))
+
+    if page.python:
+        examples_label = build_section_label(docname, "examples")
+        lines.extend(["", f"({examples_label})=", "## Examples", ""])
+        lines.extend(build_config_tab_set_lines(page))
+        return lines
+
+    yaml_label = build_section_label(docname, "yaml-example")
+    cli_label = build_section_label(docname, "cli-override-example")
     lines.extend(["", f"({yaml_label})=", "## YAML example", "", "```yaml"])
     lines.extend(page.yaml.splitlines())
     lines.extend(["```", "", f"({cli_label})=", "## CLI override example", ""])

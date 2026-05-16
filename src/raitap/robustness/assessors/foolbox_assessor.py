@@ -6,22 +6,23 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import torch
 
-from raitap.utils.diagnostics import Module
-from raitap.utils.errors import rethrow
-
 from ..contracts import MethodKind, Objective, PerturbationNorm, ThreatModel
 from ..exceptions import AssessorBackendIncompatibilityError
 from ..semantics import AssessorSemanticsHints
 from .base_assessor import EmpiricalAttackAssessor, _prepare_inputs_for_forward
 
 if TYPE_CHECKING:
-    import re
     from collections.abc import Mapping
 
     from torch import nn
 
 
-class FoolboxAssessor(EmpiricalAttackAssessor):
+class FoolboxAssessor(
+    EmpiricalAttackAssessor,
+    registry_name="foolbox",
+    extra="foolbox",
+    library="foolbox",
+):
     """Single wrapper for foolbox attack classes.
 
     Foolbox consumes the perturbation budget at *call time* (``attack(fmodel,
@@ -89,10 +90,6 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
     }
     budget_kwarg_source = "call_kwargs"
 
-    # Curated patterns for confusing foolbox errors. Seed empty; extend as we
-    # observe confusing errors in practice. See :func:`raitap.utils.errors.rethrow`.
-    error_messages: ClassVar[Mapping[re.Pattern[str], str]] = {}
-
     def __init__(
         self,
         algorithm: str,
@@ -129,14 +126,7 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
         backend: object | None = None,
         **kwargs: Any,
     ) -> torch.Tensor:
-        try:
-            import foolbox  # pyright: ignore[reportMissingImports]
-        except ImportError as error:
-            raise ImportError(
-                "FoolboxAssessor requires the optional dependency 'foolbox'. "
-                "Install it with `uv sync --extra foolbox` (or `--extra robustness`)."
-            ) from error
-
+        foolbox = self._lazy_import()
         attacks_module = foolbox.attacks
         try:
             attack_class = getattr(attacks_module, self.algorithm)
@@ -166,11 +156,7 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
             preprocessing=self.preprocessing,
         )
 
-        with rethrow(
-            module=Module.robustness,
-            third_party_lib="foolbox",
-            message_map=type(self).error_messages,
-        ):
+        with self._rethrow():
             raw, clipped, success = attack(fmodel, inputs_dev, targets_dev, epsilons=eps)
         del raw  # unclipped — we keep the clipped tensor only
         if isinstance(clipped, list):

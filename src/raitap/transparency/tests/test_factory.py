@@ -1396,7 +1396,11 @@ def test_shap_explainer_allows_kernel_explainer_on_non_autograd_backend() -> Non
     explainer.check_backend_compat(_BackendStub(torch.nn.Identity(), supports_torch_autograd=False))
 
 
-def test_create_visualisers_rejects_unknown_keys() -> None:
+def test_create_visualisers_accepts_flat_constructor_kwargs() -> None:
+    """Flat hydra-zen builder shape: kwargs outside the ``{_target_, constructor,
+    call}`` envelope are folded into ``constructor``. This is what
+    ``captum_image(method="heat_map")`` expands to.
+    """
     config = OmegaConf.create(
         {
             "visualisers": [
@@ -1407,8 +1411,9 @@ def test_create_visualisers_rejects_unknown_keys() -> None:
             ],
         }
     )
-    with pytest.raises(ValueError, match="Unknown keys in visualiser config"):
-        create_visualisers(config)
+    visualisers = create_visualisers(config)
+    assert len(visualisers) == 1
+    assert visualisers[0].visualiser.method == "heat_map"  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_create_visualisers_splits_constructor_and_call(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -6,6 +6,9 @@ from typing import Any
 
 import torch
 
+from raitap._adapters import AdapterMixin
+from raitap.configs.schema import MetricsConfig
+
 
 @dataclass
 class MetricResult:
@@ -21,7 +24,15 @@ def scalar_metrics_for_tracking(result: MetricResult) -> dict[str, float | int |
     }
 
 
-class BaseMetricComputer(ABC):
+class BaseMetricComputer(
+    ABC,
+    AdapterMixin,
+    abstract=True,
+    group="metrics",
+    schema=MetricsConfig,
+    package_style="flat",
+    strip_suffixes=("Metrics", "MetricComputer"),
+):
     def _prepare_inputs(self, predictions: Any, targets: Any) -> tuple[Any, Any]:
         device = _first_tensor_device(predictions)
         if device is None:

@@ -30,6 +30,12 @@ Use Hydra's `submitit_slurm` launcher for multi-runs: each combination of config
 
 Compose the sweep, launcher selection, and Slurm resources in one experiment YAML. Use Hydra's `defaults` list to choose the dataset, transparency presets, and the `submitit_slurm` launcher; see {ref}`composing-yaml-files`. Submitit's Slurm resource fields live under `hydra.launcher`.
 
+```{note}
+Slurm launching is CLI-only — the `hydra.launcher` / `hydra.sweep` blocks
+shown on this page are Hydra-plugin configuration with no Python-API
+equivalent. Python users would invoke `subprocess` directly to submit jobs.
+```
+
 ```yaml
 # assessment.yaml
 defaults:
@@ -122,6 +128,7 @@ If you run sweeps across several experiments on the same cluster, extract the `h
 
 ```yaml
 # my_launcher.yaml
+
 # @package hydra.launcher
 defaults:
   - submitit_slurm

@@ -160,7 +160,7 @@ class AssessorAdapter(Protocol):
         *,
         backend: object | None = None,
         run_dir: str | Path | None = None,
-        output_root: str | Path = ".",
+        output_root: str | Path | None = None,
         experiment_name: str | None = None,
         assessor_target: str | None = None,
         assessor_name: str | None = None,

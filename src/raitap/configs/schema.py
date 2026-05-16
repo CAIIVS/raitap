@@ -5,6 +5,9 @@ from typing import Any
 
 from omegaconf import MISSING
 
+from raitap.data.types import IdStrategy, LabelEncoding
+from raitap.types import Hardware, Task
+
 
 @dataclass
 class ModelConfig:
@@ -40,13 +43,13 @@ class LabelsConfig:
     # Optional class-label column; when omitted, one-hot numeric columns are used via argmax.
     column: str | None = None
     # Optional parsing strategy for labels: "index", "one_hot", or "argmax".
-    encoding: str | None = None
+    encoding: LabelEncoding | None = None
     # Strategy for matching label-file ids to discovered sample files. One of:
     #   "auto"          — pick "relative_path" if any id contains "/" or "\\"; else "stem".
     #   "relative_path" — ids are resolved as posix-style paths relative to ``data.source``
     #                     (supports nested ImageFolder layouts with colliding stems).
     #   "stem"          — legacy flat-dir behaviour: match by ``Path(id).stem`` only.
-    id_strategy: str = "auto"
+    id_strategy: IdStrategy = IdStrategy.auto
 
 
 @dataclass
@@ -62,6 +65,22 @@ class DataConfig:
     # modality for non-image data such as ACAS Xu's 5-feature tabular vector.
     input_metadata: dict[str, Any] | None = None
     labels: LabelsConfig = field(default_factory=LabelsConfig)
+
+
+@dataclass
+class VisualiserConfig:
+    """Schema base for visualiser list entries.
+
+    Used as ``builds_bases=`` for hydra-zen visualiser builders so they accept
+    a ``call=`` kwarg alongside their flat init kwargs. The adapter factory
+    accepts either this flat shape (``image_pair(max_samples=4, call={...})``)
+    or the historical YAML shape (``{"_target_": ..., "constructor": {...},
+    "call": {...}}``).
+    """
+
+    _target_: str = MISSING
+    call: dict[str, Any] = field(default_factory=dict)
+    raitap: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -122,7 +141,7 @@ class RobustnessConfig:
 @dataclass
 class MetricsConfig:
     _target_: str = MISSING
-    task: str = "multiclass"
+    task: Task = Task.multiclass
     num_classes: int | None = None
 
 
@@ -156,10 +175,10 @@ class ReportingConfig:
 class AppConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     data: DataConfig = field(default_factory=DataConfig)
-    transparency: dict[str, Any] = field(default_factory=dict)
-    robustness: dict[str, Any] = field(default_factory=dict)
+    transparency: dict[str, TransparencyConfig] = field(default_factory=dict)
+    robustness: dict[str, RobustnessConfig] = field(default_factory=dict)
     metrics: MetricsConfig | None = None
     tracking: TrackingConfig | None = None
     reporting: ReportingConfig | None = None  # Optional, null by default
-    hardware: str = "gpu"
+    hardware: Hardware = Hardware.gpu
     experiment_name: str = "Experiment"

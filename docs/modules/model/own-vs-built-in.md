@@ -29,11 +29,21 @@ Set the `source` option to the path of your model file (see
 {doc}`configuration`). For state-dict loading also set `arch` and
 `num_classes`:
 
-```yaml
+```{config-tabs}
+:yaml:
 model:
   source: "weights.pth"
   arch: "resnet18"
   num_classes: 2
+
+:python:
+from raitap.models import ModelConfig
+
+model = ModelConfig(
+    source="weights.pth",
+    arch="resnet18",
+    num_classes=2,
+)
 ```
 
 Not all modules and underlying libraries support all formats. See each

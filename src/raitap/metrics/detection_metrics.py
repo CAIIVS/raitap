@@ -16,7 +16,7 @@ Backend = Literal["pycocotools", "faster_coco_eval"]
 Average = Literal["macro", "micro"]
 
 
-class DetectionMetrics(BaseMetricComputer):
+class DetectionMetrics(BaseMetricComputer, registry_name="detection", extra="metrics"):
     """
     Calculates and manages detection metrics for evaluating
     the performance of object detection models.

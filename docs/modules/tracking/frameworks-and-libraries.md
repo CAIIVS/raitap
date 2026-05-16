@@ -23,12 +23,22 @@ uv run raitap tracking stop
 
 ### Configuration
 
-```yaml
+```{config-tabs}
+:yaml:
 tracking:
   _target_: MLFlowTracker
   output_forwarding_url: http://127.0.0.1:5001
   log_model: true
   open_when_done: false
+
+:python:
+from raitap.tracking import mlflow
+
+tracking = mlflow(
+    output_forwarding_url="http://127.0.0.1:5001",
+    log_model=True,
+    open_when_done=False,
+)
 ```
 
 If `output_forwarding_url` is not set, MLflow uses

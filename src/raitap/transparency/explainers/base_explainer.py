@@ -9,7 +9,9 @@ from typing import Any, ClassVar, cast
 
 import torch
 
+from raitap._adapters import AdapterMixin
 from raitap.configs import resolve_run_dir
+from raitap.configs.schema import TransparencyConfig
 from raitap.registry_base import WithAlgorithmRegistry
 
 from ..contracts import (
@@ -30,7 +32,14 @@ from ..semantics import infer_input_spec, infer_output_space, method_families_fo
 _NON_BATCHABLE_KWARGS = frozenset({"background_data"})
 
 
-class BaseExplainer(WithAlgorithmRegistry["frozenset[MethodFamily]"], abstract=True):
+class BaseExplainer(
+    WithAlgorithmRegistry["frozenset[MethodFamily]"],
+    AdapterMixin,
+    abstract=True,
+    group="transparency",
+    schema=TransparencyConfig,
+    strip_suffixes=("Explainer",),
+):
     """
     Root base class for all explainer adapters.
 
@@ -69,7 +78,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC, abstract=True):
         *,
         backend: object | None = None,
         run_dir: str | Path | None = None,
-        output_root: str | Path = ".",
+        output_root: str | Path | None = None,
         experiment_name: str | None = None,
         explainer_target: str | None = None,
         explainer_name: str | None = None,

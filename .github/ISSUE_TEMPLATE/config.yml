@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Contributor guide
+    url: https://caiivs.github.io/raitap/contributor/index.html
+    about: Read this before proposing a new adapter, module, or visualiser.
+  - name: Adding an adapter
+    url: https://caiivs.github.io/raitap/contributor/adding-an-adapter.html
+    about: End-to-end checklist for wiring a new library into an existing module.

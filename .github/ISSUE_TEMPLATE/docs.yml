@@ -1,0 +1,44 @@
+name: Docs issue
+description: Broken link, wrong content, YAML/Python tab mismatch, missing or outdated section.
+title: "docs: <short description>"
+labels: ["docs"]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - Broken link / 404
+        - Wrong / outdated content
+        - YAML and Python tab disagree (`config-tabs`)
+        - Framework / library table out of date
+        - Missing section
+        - Typo / wording
+        - Build / Sphinx error
+    validations:
+      required: true
+
+  - type: input
+    id: page
+    attributes:
+      label: Page
+      description: Path under `docs/` or rendered URL.
+      placeholder: "docs/modules/transparency/visualisers.md  /  https://caiivs.github.io/raitap/..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong
+      description: Quote the offending text or paste the broken link. For tab mismatches, paste both tabs.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested fix
+      description: Optional, but speeds things up.
+    validations:
+      required: false

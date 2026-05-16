@@ -11,6 +11,7 @@ import torch
 from PIL import Image
 
 from raitap import raitap_log
+from raitap.data.types import IdStrategy, LabelEncoding
 from raitap.data.utils import download_file
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 
@@ -442,11 +443,14 @@ def _extract_class_labels(
     labels_encoding: str | None,
 ) -> list[int]:
     encoding = (labels_encoding or "").strip().lower()
-    if encoding and encoding not in {"index", "one_hot", "argmax"}:
-        raise ValueError(
-            "Unsupported data.labels.encoding "
-            f"{labels_encoding!r}. Use 'index', 'one_hot', or 'argmax'."
-        )
+    if encoding:
+        try:
+            LabelEncoding(encoding)
+        except ValueError as exc:
+            allowed = ", ".join(repr(member.value) for member in LabelEncoding)
+            raise ValueError(
+                f"Unsupported data.labels.encoding {labels_encoding!r}. Use {allowed}."
+            ) from exc
 
     if labels_column:
         if labels_column not in df.columns:
@@ -517,17 +521,20 @@ def _normalise_sample_id(value: object, strategy: str = "stem") -> str:
 
 
 def _resolve_id_strategy(strategy: str, raw_label_ids: pd.Series) -> str:
-    if strategy == "auto":
+    try:
+        resolved = IdStrategy(strategy)
+    except ValueError as exc:
+        allowed = ", ".join(repr(member.value) for member in IdStrategy)
+        raise ValueError(
+            f"Unsupported data.labels.id_strategy {strategy!r}. Use {allowed}."
+        ) from exc
+    if resolved is IdStrategy.auto:
         for raw in raw_label_ids.tolist():
             text = str(raw)
             if "/" in text or "\\" in text:
-                return "relative_path"
-        return "stem"
-    if strategy in {"relative_path", "stem"}:
-        return strategy
-    raise ValueError(
-        f"Unsupported data.labels.id_strategy {strategy!r}. Use 'auto', 'relative_path', or 'stem'."
-    )
+                return IdStrategy.relative_path.value
+        return IdStrategy.stem.value
+    return resolved.value
 
 
 def _column_as_series(df: pd.DataFrame, column_name: str) -> pd.Series:

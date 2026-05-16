@@ -2,13 +2,23 @@
 
 Each visualiser renders one figure per call. All of them are declared per-assessor in YAML:
 
-```yaml
+```{config-tabs}
+:yaml:
 robustness:
   marabou:
     _target_: "MarabouAssessor"
     visualisers:
       - _target_: "OutputBoundsCohortVisualiser"
       - _target_: "OutputBoundsMarginHeatmapVisualiser"
+
+:python:
+from raitap.robustness import marabou, output_bounds_cohort, output_bounds_margin_heatmap
+
+robustness = {
+    "marabou": marabou(
+        visualisers=[output_bounds_cohort(), output_bounds_margin_heatmap()],
+    ),
+}
 ```
 
 Visualisers declare which `MethodKind` they support; the factory rejects mismatches at YAML parse time.

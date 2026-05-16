@@ -2,7 +2,8 @@
 
 Each visualiser renders one figure per call. All of them are declared per-explainer in YAML:
 
-```yaml
+```{config-tabs}
+:yaml:
 transparency:
   captum_ig:
     _target_: "CaptumExplainer"
@@ -10,6 +11,16 @@ transparency:
     visualisers:
       - _target_: "CaptumImageVisualiser"
       - _target_: "TabularBarChartVisualiser"
+
+:python:
+from raitap.transparency import captum, captum_image, tabular_bar_chart
+
+transparency = {
+    "captum_ig": captum(
+        algorithm="IntegratedGradients",
+        visualisers=[captum_image(), tabular_bar_chart()],
+    ),
+}
 ```
 
 Visualisers declare which `ExplanationScope`, output space, and method families they support;

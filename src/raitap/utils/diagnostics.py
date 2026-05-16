@@ -98,22 +98,25 @@ class Diagnostic:
     third_party_lib: str | None
 
 
-@lru_cache(maxsize=1)
 def _third_party_libs() -> frozenset[str]:
-    """Aggregate ``THIRD_PARTY_LIBS`` from each module package.
+    """Aggregate wrapped third-party libraries across every adapter family.
 
-    Imported lazily so ``utils.diagnostics`` doesn't pay the cost (or pull in
-    optional dependencies) until the first warning needs classifying. Cached
-    after the first successful aggregation.
+    Reads :data:`raitap._adapters.THIRD_PARTY_LIBS`, which
+    :class:`raitap._adapters.AdapterMixin` populates from each concrete
+    adapter's ``library=`` class kwarg. Adapter modules are imported once
+    here so classes get a chance to register.
     """
-    libs: set[str] = set()
     for module_name in _THIRD_PARTY_LIB_PROVIDERS:
         try:
-            module = importlib.import_module(module_name)
+            importlib.import_module(module_name)
         except Exception:
             continue
-        libs |= getattr(module, "THIRD_PARTY_LIBS", frozenset())
-    return frozenset(libs)
+    from raitap._adapters import THIRD_PARTY_LIBS as _LIBS_BY_GROUP
+
+    aggregated: set[str] = set()
+    for libs in _LIBS_BY_GROUP.values():
+        aggregated |= libs
+    return frozenset(aggregated)
 
 
 def _detect_third_party(path: str) -> str | None:

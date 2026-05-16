@@ -136,7 +136,7 @@ def _mlflow_summary_params(config_dict: dict[str, Any]) -> dict[str, str]:
     return out
 
 
-class MLFlowTracker(BaseTracker):
+class MLFlowTracker(BaseTracker, registry_name="mlflow", extra="mlflow"):
     @classmethod
     def stop_detached(cls, timeout: float = 5.0) -> tuple[int, int]:
         """Kill the local MLflow server/UI tree this user has spawned or reused.

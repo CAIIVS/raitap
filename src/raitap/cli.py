@@ -126,6 +126,16 @@ def _print_help_frame() -> None:
     console.print()
 
 
+def _print_version() -> None:
+    """Print the installed raitap version. Short-circuits before deps bootstrap."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        print(f"raitap {version('raitap')}")
+    except PackageNotFoundError:
+        print("raitap (version unknown — not installed as a distribution)")
+
+
 def main() -> None:
     if sys.argv[1:2] == ["tracking", "stop"]:
         import logging
@@ -135,6 +145,10 @@ def main() -> None:
 
         setup_logging(level=logging.INFO)
         run_stop_command()
+        return
+
+    if sys.argv[1:2] in (["--version"], ["-V"]):
+        _print_version()
         return
 
     if _needs_help_frame(sys.argv[1:]):

@@ -11,6 +11,7 @@ architecture
 pull-requests
 releases
 logging
+Adding an adapter <adding-an-adapter>
 Data module <data>
 Metrics module <metrics>
 Tracking module <tracking>

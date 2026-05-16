@@ -17,7 +17,7 @@ as defined in [Towards the certification of AI-based systems](https://doi.org/10
 
 ## Where does it fit in my workflow?
 
-RAITAP is configured via YAML [Hydra](https://hydra.cc/) configs or CLI flags, and then ran via a CLI command.
+Drive RAITAP from the CLI with YAML [Hydra](https://hydra.cc/) configs or programmatically via the [Python API](using-raitap/configuration/python-api.md).
 
 This means it can be used either as:
 

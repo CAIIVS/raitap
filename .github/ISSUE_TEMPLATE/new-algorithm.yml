@@ -1,0 +1,90 @@
+name: New algorithm in existing adapter
+description: Add a single algorithm to an existing adapter's `algorithm_registry` — no new class.
+title: "feat(<module>): add <algorithm> to <adapter>"
+labels: ["enhancement", "algorithm"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Lightweight: one row in `algorithm_registry` on an existing adapter, plus a test and a docs row.
+
+        Wrapping a brand-new library? File **New library / adapter** instead.
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module
+      options:
+        - transparency
+        - robustness
+        - metrics
+    validations:
+      required: true
+
+  - type: input
+    id: adapter
+    attributes:
+      label: Target adapter class
+      description: The existing class that will receive the new `algorithm_registry` row.
+      placeholder: "e.g. CaptumExplainer, ShapExplainer, TorchattacksAssessor"
+    validations:
+      required: true
+
+  - type: input
+    id: algorithm-name
+    attributes:
+      label: Algorithm name
+      description: Exact string used as the registry key and `algorithm:` value in YAML.
+      placeholder: "e.g. KernelShap, DeepLift, FGSM"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: method-family
+    attributes:
+      label: MethodFamily
+      description: Which `MethodFamily` enum value does this algorithm belong to?
+      options:
+        - GRADIENT
+        - PERTURBATION
+        - SHAPLEY
+        - SURROGATE
+        - RULE_BASED
+        - other / unsure
+    validations:
+      required: true
+
+  - type: input
+    id: paper
+    attributes:
+      label: Reference (paper / docs)
+      placeholder: "https://arxiv.org/abs/..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: library-call
+    attributes:
+      label: How the algorithm is invoked in the wrapped library
+      description: The underlying library call. Helps reviewers confirm it slots into the existing adapter's `_compute` path.
+      placeholder: "captum.attr.KernelShap(model).attribute(inputs, ...)"
+      render: python
+    validations:
+      required: true
+
+  - type: textarea
+    id: backend-constraints
+    attributes:
+      label: Backend / input constraints
+      description: Anything narrower than the adapter's existing `check_backend_compat`? (e.g. tabular only, requires baseline, single-class only.)
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: Row added to `algorithm_registry`.
+        - label: Test for happy-path compute with the new algorithm.
+        - label: Row added to `docs/modules/<module>/frameworks-and-libraries.md`.

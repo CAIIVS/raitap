@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import matplotlib.pyplot as plt
 
+from raitap._adapters import AdapterMixin
 from raitap.transparency.contracts import (
     ExplanationOutputSpace,
     ExplanationPayloadKind,
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
 
-class BaseVisualiser(ABC):
+class BaseVisualiser(ABC, AdapterMixin, abstract=True, strip_suffixes=("Visualiser",)):
     """
     Abstract base class for all visualiser implementations.
 

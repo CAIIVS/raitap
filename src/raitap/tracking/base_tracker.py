@@ -6,7 +6,9 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from hydra.utils import instantiate
 
 from raitap import raitap_log
+from raitap._adapters import AdapterMixin
 from raitap.configs import cfg_to_dict, resolve_target
+from raitap.configs.schema import TrackingConfig
 
 _TRACKING_PREFIX = "raitap.tracking."
 
@@ -19,7 +21,15 @@ if TYPE_CHECKING:
     from raitap.models.backend import ModelBackend
 
 
-class BaseTracker(ABC):
+class BaseTracker(
+    ABC,
+    AdapterMixin,
+    abstract=True,
+    group="tracking",
+    schema=TrackingConfig,
+    package_style="flat",
+    strip_suffixes=("Tracker",),
+):
     @classmethod
     def tracker_name(cls) -> str:
         """Identity used by the process registry. Override if multiple classes

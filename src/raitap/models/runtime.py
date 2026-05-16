@@ -5,11 +5,12 @@ from typing import TYPE_CHECKING
 import torch
 
 from raitap import raitap_log
+from raitap.types import Hardware
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-_VALID_HARDWARE = frozenset({"cpu", "gpu"})
+_VALID_HARDWARE = frozenset(member.value for member in Hardware)
 _ONNX_RUNTIME_INSTALL_HINT = (
     "ONNX support is enabled but onnxruntime is not installed. "
     "Install it with `uv sync --extra onnx-cpu`, `uv sync --extra onnx-cuda`, "

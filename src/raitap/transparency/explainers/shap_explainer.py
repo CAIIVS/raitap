@@ -12,8 +12,6 @@ from raitap import raitap_log
 from raitap.transparency.algorithm_allowlist import ensure_algorithm_in_allowlist
 from raitap.transparency.contracts import ExplanationPayloadKind, MethodFamily
 from raitap.transparency.exceptions import ExplainerBackendIncompatibilityError
-from raitap.utils.diagnostics import Module
-from raitap.utils.errors import rethrow
 
 from .base_explainer import AttributionOnlyExplainer
 
@@ -66,7 +64,22 @@ def _select_target_attributions(
     return shap_values[batch_indices, ..., target_tensor]
 
 
-class ShapExplainer(AttributionOnlyExplainer):
+class ShapExplainer(
+    AttributionOnlyExplainer,
+    registry_name="shap",
+    extra="shap",
+    library="shap",
+    error_patterns={
+        re.compile(
+            r"Output \d+ of BackwardHookFunctionBackward is a view "
+            r"and is being modified inplace",
+        ): (
+            "DeepExplainer can fail on PyTorch models that use SiLU activations "
+            "(for example EfficientNet variants) due to autograd/in-place "
+            "limitations. Use alternatives like GradientExplainer."
+        ),
+    },
+):
     """
     Single wrapper for ALL SHAP explainer types.
 
@@ -85,19 +98,6 @@ class ShapExplainer(AttributionOnlyExplainer):
     }
 
     ONNX_COMPATIBLE_ALGORITHMS: frozenset[str] = frozenset({"KernelExplainer"})
-
-    # Curated patterns for confusing SHAP errors. Matched against ``str(exc)``;
-    # first hit wins. See :func:`raitap.utils.errors.rethrow`.
-    error_messages: ClassVar[Mapping[re.Pattern[str], str]] = {
-        re.compile(
-            r"Output \d+ of BackwardHookFunctionBackward is a view "
-            r"and is being modified inplace",
-        ): (
-            "DeepExplainer can fail on PyTorch models that use SiLU activations "
-            "(for example EfficientNet variants) due to autograd/in-place "
-            "limitations. Use alternatives like GradientExplainer."
-        ),
-    }
 
     def __init__(self, algorithm: str, **init_kwargs):
         """
@@ -150,13 +150,7 @@ class ShapExplainer(AttributionOnlyExplainer):
         Returns:
             SHAP values as torch.Tensor
         """
-        try:
-            import shap
-        except ImportError as e:
-            raise ImportError(
-                "SHAP explainer is enabled but shap is not installed. "
-                "Install it with `uv sync --extra shap`."
-            ) from e
+        shap = self._lazy_import()
 
         # Dynamically get the explainer class
         try:
@@ -207,11 +201,7 @@ class ShapExplainer(AttributionOnlyExplainer):
         # Compute SHAP values using unified SHAP API
         # GradientExplainer and DeepExplainer expect torch tensors
         # KernelExplainer and TreeExplainer expect numpy arrays
-        with rethrow(
-            module=Module.transparency,
-            third_party_lib="shap",
-            message_map=type(self).error_messages,
-        ):
+        with self._rethrow():
             if self.algorithm in ("GradientExplainer", "DeepExplainer"):
                 # Keep as tensor for PyTorch-based explainers
                 shap_values = explainer.shap_values(inputs, **shap_kwargs)

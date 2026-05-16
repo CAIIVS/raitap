@@ -28,8 +28,20 @@ if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
 
 
-def run(config: AppConfig) -> RunOutputs:
-    """Run the full assessment pipeline, including reporting and tracker logging."""
+def run(config: AppConfig, *, verbose: bool = True) -> RunOutputs:
+    """Run the full assessment pipeline, including reporting and tracker logging.
+
+    Parameters
+    ----------
+    config:
+        The fully-resolved application configuration.
+    verbose:
+        When ``True`` (the default), print the run summary panel and the
+        "Generating report..." status line. When ``False``, suppress both —
+        leaving phase-level progress logs under standard ``logging``
+        control. ``logging`` itself is not reconfigured; programmatic callers
+        wanting full silence should raise the root log level.
+    """
     # Defer warnings emitted during model + data construction so the
     # summary panel renders first; otherwise the rich handler interleaves
     # them above the banner and makes the run header look fragmented.
@@ -37,13 +49,15 @@ def run(config: AppConfig) -> RunOutputs:
         model = Model(config)
         data = Data(config)
     _validate_report_sample_selection(config, data)
-    print_summary(config, model)
+    if verbose:
+        print_summary(config, model)
 
     outputs = run_without_tracking(config, model, data)
 
     report_generation = None
     if reporting_enabled(config):
-        raitap_log.info("Generating report...")
+        if verbose:
+            raitap_log.info("Generating report...")
         report = build_report(config, outputs)
         report_generation = create_report(config=config, report=report)
 

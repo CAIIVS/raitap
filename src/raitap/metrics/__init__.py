@@ -24,6 +24,8 @@ DetectionMetrics
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
 # Base protocol and result type
 from .base_metric import BaseMetricComputer, MetricResult, scalar_metrics_for_tracking
 
@@ -40,7 +42,33 @@ from .factory import (
 from .inputs import metrics_prediction_pair, resolve_metric_targets
 from .visualizers import MetricsVisualizer
 
+if TYPE_CHECKING:
+    from raitap.configs.schema import MetricsConfig
+    from raitap.types import Task
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve hydra-zen builders by registry name, plus the schema dataclass
+    (:class:`~raitap.configs.schema.MetricsConfig`) and the
+    :class:`~raitap.types.Task` enum re-exported here so the module owns
+    both the type contract and the builder instances."""
+    if name == "MetricsConfig":
+        from raitap.configs.schema import MetricsConfig
+
+        return MetricsConfig
+    if name == "Task":
+        from raitap.types import Task
+
+        return Task
+    from raitap._adapters import lookup
+
+    return lookup("metrics", name)
+
+
 __all__ = [  # noqa: RUF022
+    # Schema dataclass + task enum (lazy)
+    "MetricsConfig",
+    "Task",
     # Base types
     "BaseMetricComputer",
     "MetricResult",
