@@ -94,7 +94,7 @@ log handler.
 
 `Data._load_data` (`src/raitap/data/data.py`) calls `resolve_preprocessing`,
 lifts `resolved.data_module` to a per-image callable via
-`_module_as_per_image_callable` (which runs in `torch.no_grad` + `eval()`),
+`module_as_per_image_callable` (which runs in `torch.no_grad` + `eval()`),
 and passes it into `_stack_images_numpy(files, per_image_transform=...)`.
 The transform runs on each `(C, H, W)` tensor before `np.stack`, so a
 directory of mixed-size JPEGs becomes a clean `(N, 3, 224, 224)` batch.
@@ -153,7 +153,7 @@ Downstream consumers:
 
 | Consumer                                           | Reads                                          |
 | -------------------------------------------------- | ---------------------------------------------- |
-| `Data._load_data`                                  | `data_module` (lifted via `_module_as_per_image_callable`) |
+| `Data._load_data`                                  | `data_module` (lifted via `module_as_per_image_callable`) |
 | `_apply_preprocessing` wrap + panel + warnings     | `model_module`, `description`, `warnings`      |
 | `_mlflow_summary_params` in `mlflow_tracker.py`    | `data.preprocessing` (logged as `data.preprocessing` param) |
 | Future HTML report card                            | All fields — same plain phrasing as the panel  |

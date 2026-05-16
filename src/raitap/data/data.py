@@ -11,7 +11,7 @@ import torch
 from PIL import Image
 
 from raitap import raitap_log
-from raitap.data.preprocessing import resolve_preprocessing
+from raitap.data.preprocessing import module_as_per_image_callable, resolve_preprocessing
 from raitap.data.types import IdStrategy, LabelEncoding
 from raitap.data.utils import download_file
 from raitap.tracking.base_tracker import BaseTracker, Trackable
@@ -83,7 +83,7 @@ class Data(Trackable):
             per_image_transform = None
         else:
             resolved = resolve_preprocessing(model_cfg, cfg.data)
-            per_image_transform = _module_as_per_image_callable(resolved.data_module)
+            per_image_transform = module_as_per_image_callable(resolved.data_module)
 
         # Demo samples need their own loader: source images have inconsistent
         # dimensions and ``_load_sample`` resizes them to a common shape so
@@ -469,23 +469,6 @@ def _load_images(
 ) -> torch.Tensor:
     """Load image files from a directory (or a single file) as raw (C, H, W) tensors."""
     return torch.from_numpy(_load_images_numpy(path, per_image_transform=per_image_transform))
-
-
-def _module_as_per_image_callable(
-    module: torch.nn.Module | None,
-) -> Callable[[torch.Tensor], torch.Tensor] | None:
-    """Lift an ``nn.Module`` into a per-image callable that runs in eval mode
-    with autograd disabled. Returns ``None`` for ``None`` so the caller can
-    pass it through unchanged."""
-    if module is None:
-        return None
-    module.eval()
-
-    def _apply(image: torch.Tensor) -> torch.Tensor:
-        with torch.no_grad():
-            return module(image)
-
-    return _apply
 
 
 def _load_tabular_numpy(path: Path) -> np.ndarray[Any, Any]:

@@ -45,6 +45,8 @@ from torchvision.transforms import v2
 from torchvision.transforms._presets import ImageClassification, SemanticSegmentation
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from raitap.configs.schema import DataConfig, ModelConfig
 
 _CONSENT_ENV_VAR = "RAITAP_ALLOW_PREPROCESSING_EXEC"
@@ -99,6 +101,27 @@ def resolve_preprocessing(
         return _resolve_model_bundled(model_cfg)
 
     return _resolve_custom_file(raw, data_cfg)
+
+
+def module_as_per_image_callable(
+    module: nn.Module | None,
+) -> Callable[[torch.Tensor], torch.Tensor] | None:
+    """Lift an ``nn.Module`` into a per-image callable for loader-side transforms.
+
+    The data half of preprocessing runs before images are stacked, so callers
+    need a single-image ``(C, H, W) -> Tensor`` callable. The module is put in
+    eval mode and run without autograd because shape preprocessing is outside
+    the attribution/attack graph by design.
+    """
+    if module is None:
+        return None
+    module.eval()
+
+    def _apply(image: torch.Tensor) -> torch.Tensor:
+        with torch.no_grad():
+            return module(image)
+
+    return _apply
 
 
 # ---------------------------------------------------------------------------

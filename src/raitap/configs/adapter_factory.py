@@ -41,6 +41,7 @@ from omegaconf.errors import MissingMandatoryValue
 from raitap import raitap_log
 from raitap.configs.utils import cfg_to_dict, resolve_target
 from raitap.data import load_tensor_from_source
+from raitap.data.preprocessing import module_as_per_image_callable, resolve_preprocessing
 
 __all__ = [
     "AdapterSchema",
@@ -403,15 +404,12 @@ def per_image_transform_from_config(config: Any) -> Any:
     returns ``None`` when the config lacks ``model`` (legacy test mocks) or
     the resolver short-circuits to the off branch.
     """
-    from raitap.data.data import _module_as_per_image_callable
-    from raitap.data.preprocessing import resolve_preprocessing
-
     model_cfg = getattr(config, "model", None)
     data_cfg = getattr(config, "data", None)
     if model_cfg is None or data_cfg is None:
         return None
     resolved = resolve_preprocessing(model_cfg, data_cfg)
-    return _module_as_per_image_callable(resolved.data_module)
+    return module_as_per_image_callable(resolved.data_module)
 
 
 def resolve_call_data_sources(
