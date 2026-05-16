@@ -24,7 +24,6 @@ import torch
 
 from raitap import raitap_log
 from raitap._adapters import AdapterMixin
-from raitap._registry_base import WithAlgorithmRegistry
 from raitap.configs import resolve_run_dir
 
 from ..contracts import (
@@ -43,35 +42,25 @@ from ..results import (
     RobustnessResult,
     encode_verdicts,
 )
-from ..semantics import assessor_semantics
+from ..semantics import AssessorSemanticsHints, assessor_semantics
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
 
     from torch import nn
-
-    # AssessorSemanticsHints is referenced as a string forward-ref in
-    # ``WithAlgorithmRegistry["AssessorSemanticsHints"]`` below. Pyright
-    # resolves string generics, so the symbol must be importable in this
-    # scope even though it is never used at runtime.
-    from ..semantics import AssessorSemanticsHints  # noqa: F401
 
 _VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
 
 
-class BaseAssessor(
-    WithAlgorithmRegistry["AssessorSemanticsHints"],
-    AdapterMixin,
-    abstract=True,
-):
+class BaseAssessor(AdapterMixin, ABC):
     """Root base class for all robustness assessors.
 
     Concrete subclasses must declare ``algorithm_registry: ClassVar[Mapping[str,
-    AssessorSemanticsHints]]`` per the
-    :class:`raitap._registry_base.WithAlgorithmRegistry` contract.
-    Intermediate abstract classes opt out via ``abstract=True``.
+    AssessorSemanticsHints]]``. Validation runs at decoration time via
+    ``ROBUSTNESS.has_algorithm_registry=True``.
     """
 
+    algorithm_registry: ClassVar["Mapping[str, AssessorSemanticsHints]"]
     method_kind: ClassVar[MethodKind]
     threat_model_default: ClassVar[ThreatModel] = ThreatModel.WHITE_BOX
     objective_default: ClassVar[Objective] = Objective.UNTARGETED
@@ -120,7 +109,7 @@ def _per_sample_norm(delta: torch.Tensor, norm: PerturbationNorm) -> torch.Tenso
     raise ValueError(f"Unsupported perturbation norm {norm!r}.")
 
 
-class EmpiricalAttackAssessor(BaseAssessor, ABC, abstract=True):
+class EmpiricalAttackAssessor(BaseAssessor, ABC):
     """Empirical attack adapter: subclass implements one method, framework does the rest."""
 
     method_kind: ClassVar[MethodKind] = MethodKind.EMPIRICAL_ATTACK
@@ -299,7 +288,7 @@ class EmpiricalAttackAssessor(BaseAssessor, ABC, abstract=True):
         return torch.cat(chunks, dim=0)
 
 
-class FormalVerificationAssessor(BaseAssessor, ABC, abstract=True):
+class FormalVerificationAssessor(BaseAssessor, ABC):
     """Formal-verification adapter: subclass implements per-sample ``verify_sample``."""
 
     method_kind: ClassVar[MethodKind] = MethodKind.FORMAL_VERIFICATION

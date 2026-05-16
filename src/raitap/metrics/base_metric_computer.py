@@ -23,7 +23,7 @@ def scalar_metrics_for_tracking(result: MetricResult) -> dict[str, float | int |
     }
 
 
-class BaseMetricComputer(ABC, AdapterMixin, abstract=True):
+class BaseMetricComputer(ABC, AdapterMixin):
     def _prepare_inputs(self, predictions: Any, targets: Any) -> tuple[Any, Any]:
         device = _first_tensor_device(predictions)
         if device is None:

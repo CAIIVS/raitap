@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from .sections import ReportSection
 
 
-class BaseReporter(ABC, AdapterMixin, abstract=True):
+class BaseReporter(ABC, AdapterMixin):
     """Abstract base class for report generators."""
 
     def __init__(self, config: AppConfig) -> None:

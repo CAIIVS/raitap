@@ -13,7 +13,6 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from raitap._registry_base import WithAlgorithmRegistry
 from raitap.transparency.contracts import InputSpec, SampleSelection
 from raitap.transparency.semantics import infer_input_spec
 
@@ -52,8 +51,8 @@ _TARGET_KWARG_KEYS: frozenset[str] = frozenset(
 def hints_for_assessor(assessor: object) -> AssessorSemanticsHints:
     """Resolve the registry hints for a configured assessor.
 
-    Reads the adapter's ``algorithm_registry`` ClassVar (enforced by the
-    :class:`raitap._registry_base.WithAlgorithmRegistry` interface).
+    Reads the adapter's ``algorithm_registry`` ClassVar (enforced by
+    ``ROBUSTNESS.has_algorithm_registry=True`` at decoration time).
     """
     algorithm = str(getattr(assessor, "algorithm", ""))
     if not algorithm:
@@ -61,12 +60,15 @@ def hints_for_assessor(assessor: object) -> AssessorSemanticsHints:
             f"Assessor {type(assessor).__name__!r} has no ``algorithm`` attribute. "
             "Set the YAML ``algorithm:`` field (e.g. ``algorithm: PGD``)."
         )
-    if not isinstance(assessor, WithAlgorithmRegistry):
+    registry: Mapping[str, AssessorSemanticsHints] | None = getattr(
+        type(assessor), "algorithm_registry", None
+    )
+    if not isinstance(registry, Mapping):
         raise TypeError(
-            f"Assessor {type(assessor).__name__!r} must extend WithAlgorithmRegistry "
-            "and declare an ``algorithm_registry`` ClassVar."
+            f"Assessor {type(assessor).__name__!r} must declare an "
+            "``algorithm_registry`` ClassVar (set by the @register_robustness_adapter "
+            "decoration contract)."
         )
-    registry: Mapping[str, AssessorSemanticsHints] = type(assessor).algorithm_registry
     try:
         return registry[algorithm]
     except KeyError as error:

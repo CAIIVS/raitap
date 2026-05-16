@@ -10,7 +10,6 @@ from typing import Any, ClassVar, cast
 import torch
 
 from raitap._adapters import AdapterMixin
-from raitap._registry_base import WithAlgorithmRegistry
 from raitap.configs import resolve_run_dir
 
 from ..contracts import (
@@ -20,7 +19,7 @@ from ..contracts import (
     ExplanationSemantics,
     ExplanationTarget,
     InputSpec,
-    MethodFamily,  # noqa: F401 — referenced via ``WithAlgorithmRegistry[...]`` string form.
+    MethodFamily,
     SampleSelection,
     ScopeDefinitionStep,
     explainer_output_scope,
@@ -31,16 +30,14 @@ from ..semantics import infer_input_spec, infer_output_space, method_families_fo
 _NON_BATCHABLE_KWARGS = frozenset({"background_data"})
 
 
-class BaseExplainer(
-    WithAlgorithmRegistry["frozenset[MethodFamily]"],
-    AdapterMixin,
-    abstract=True,
-):
+class BaseExplainer(AdapterMixin, ABC):
     """
     Root base class for all explainer adapters.
 
-    Owns the shared interface: ``output_payload_kind`` class variable (default
-    ``ATTRIBUTIONS``) and the ``check_backend_compat`` no-op default.
+    Owns the shared interface: ``output_payload_kind`` and ``algorithm_registry``
+    class variables (algorithm_registry is validated at decoration time by
+    ``TRANSPARENCY.has_algorithm_registry=True``) and the ``check_backend_compat``
+    no-op default.
 
     Extend via ``AttributionOnlyExplainer`` when the framework should manage the
     full ``explain`` pipeline and you only need to implement ``compute_attributions``,
@@ -49,13 +46,14 @@ class BaseExplainer(
 
     output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
     output_scope: ClassVar[ExplanationScope] = ExplanationScope.LOCAL
+    algorithm_registry: ClassVar["Mapping[str, frozenset[MethodFamily]]"]
 
     def check_backend_compat(self, backend: object) -> None:
         del backend
         return None
 
 
-class AttributionOnlyExplainer(BaseExplainer, ABC, abstract=True):
+class AttributionOnlyExplainer(BaseExplainer, ABC):
     """
     Explainer where you implement one step and the framework handles the rest.
 

@@ -23,7 +23,6 @@ ROBUSTNESS = FamilyConfig(
     group="robustness",
     schema=RobustnessConfig,
     package_style="nested",
-    strip_suffixes=("Assessor",),
     has_algorithm_registry=True,
 )
 

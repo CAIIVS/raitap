@@ -15,10 +15,7 @@ def test_register_metrics_adapter_registers_under_metrics_group() -> None:
         registry_name="_stub_metric",
         extra="_stub_extra",
     )
-    # abstract=True skips AdapterMixin pre-validation/registration so the
-    # decorator is the SOLE registrar — the assertion below only passes if
-    # `register_metrics_adapter` actually ran.
-    class _StubMetric(BaseMetricComputer, abstract=True):
+    class _StubMetric(BaseMetricComputer):
         def __init__(self) -> None: ...
 
         def reset(self) -> None:

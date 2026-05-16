@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
 
-class BaseVisualiser(ABC, AdapterMixin, abstract=True):
+class BaseVisualiser(ABC, AdapterMixin):
     """
     Abstract base class for all visualiser implementations.
 

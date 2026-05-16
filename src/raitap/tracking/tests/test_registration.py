@@ -21,9 +21,7 @@ def test_register_tracker_registers_under_tracking_group() -> None:
         registry_name="_stub_tracker",
         extra="_stub_extra",
     )
-    # abstract=True skips AdapterMixin pre-registration so the decorator is the
-    # SOLE registrar — the assertions below only pass if `register_tracker` ran.
-    class _StubTracker(BaseTracker, abstract=True):
+    class _StubTracker(BaseTracker):
         def __init__(self) -> None: ...
 
         def log_config(self) -> None:

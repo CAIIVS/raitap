@@ -22,7 +22,6 @@ TRACKING = FamilyConfig(
     group="tracking",
     schema=TrackingConfig,
     package_style="flat",
-    strip_suffixes=("Tracker",),
 )
 
 T = TypeVar("T", bound="BaseTracker")

@@ -25,7 +25,6 @@ TRANSPARENCY = FamilyConfig(
     group="transparency",
     schema=TransparencyConfig,
     package_style="nested",
-    strip_suffixes=("Explainer",),
     has_algorithm_registry=True,
 )
 

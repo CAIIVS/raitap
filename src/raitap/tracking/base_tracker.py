@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from raitap.models.backend import ModelBackend
 
 
-class BaseTracker(ABC, AdapterMixin, abstract=True):
+class BaseTracker(ABC, AdapterMixin):
     @classmethod
     def tracker_name(cls) -> str:
         """Identity used by the process registry. Override if multiple classes

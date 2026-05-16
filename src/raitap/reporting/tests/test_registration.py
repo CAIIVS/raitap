@@ -13,10 +13,7 @@ def test_register_reporter_registers_under_reporting_group() -> None:
         extra="_stub_extra",
         library="_stub_lib",
     )
-    # abstract=True skips AdapterMixin pre-validation / registration.
-    # The decorator is the sole registrar — assertions only pass if
-    # `register_reporter` actually ran.
-    class _StubReporter(BaseReporter, abstract=True):
+    class _StubReporter(BaseReporter):
         def __init__(self, config=None):
             self.config = config
 

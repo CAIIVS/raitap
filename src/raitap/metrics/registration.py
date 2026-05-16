@@ -22,7 +22,6 @@ METRICS = FamilyConfig(
     group="metrics",
     schema=MetricsConfig,
     package_style="flat",
-    strip_suffixes=("Metrics", "MetricComputer"),
 )
 
 T = TypeVar("T", bound="BaseMetricComputer")

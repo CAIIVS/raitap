@@ -22,7 +22,6 @@ REPORTING = FamilyConfig(
     group="reporting",
     schema=ReportingConfig,
     package_style="flat",
-    strip_suffixes=("Reporter",),
 )
 
 T = TypeVar("T", bound="BaseReporter")
