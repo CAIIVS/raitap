@@ -16,12 +16,41 @@ from collections.abc import Mapping, Sequence  # noqa: TC003
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path  # noqa: TC003
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Final, Protocol, runtime_checkable
 
 ConfiguredVisualiser = Any
 ExplanationResult = Any
 Module = Any
 Tensor = Any
+
+
+class _AllAlgorithmsSentinel:
+    """Singleton sentinel type for the :data:`ALL` marker — pass
+    ``onnx_compatible_algorithms=ALL`` to ``@register_transparency_adapter``
+    to mark every algorithm in the adapter's ``algorithm_registry`` as
+    ONNX-compatible without re-listing them."""
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return "raitap.transparency.ALL"
+
+
+ALL: Final[_AllAlgorithmsSentinel] = _AllAlgorithmsSentinel()
+"""Pass to ``onnx_compatible_algorithms=`` on ``@register_transparency_adapter``
+to declare every algorithm in ``algorithm_registry`` ONNX-compatible.
+
+Example::
+
+    from raitap.transparency import ALL
+
+    @register_transparency_adapter(
+        ...,
+        algorithm_registry={"FooMethod": ..., "BarMethod": ...},
+        onnx_compatible_algorithms=ALL,   # both algorithms work on ONNX backends
+    )
+    class FooExplainer(AttributionOnlyExplainer): ...
+"""
 
 
 class ExplanationPayloadKind(StrEnum):

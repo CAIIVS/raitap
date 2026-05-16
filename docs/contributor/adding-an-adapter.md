@@ -49,7 +49,10 @@ if TYPE_CHECKING:
     algorithm_registry={           # required kwarg, pyright errors at decoration if missing
         "supertreeshap": frozenset({MethodFamily.SHAPLEY}),
     },
-    onnx_compatible_algorithms=frozenset({"supertreeshap"}),  # optional; default frozenset()
+    # onnx_compatible_algorithms — optional, defaults to none (ONNX support is rare).
+    # Pass an explicit frozenset to enable a subset, or `ALL` for everything in
+    # algorithm_registry. See bullet below.
+    onnx_compatible_algorithms=frozenset({"supertreeshap"}),
     # output_payload_kind=ExplanationPayloadKind.ATTRIBUTIONS — optional, this is the default
 )
 class SuperXAIExplainer(AttributionOnlyExplainer):
@@ -85,7 +88,7 @@ class SuperXAIExplainer(AttributionOnlyExplainer):
 - **Registration kwargs.** `extra` and `library` are required whenever you wrap a third-party package (the usual case): `library` is the pip name powering `self._lazy_import()`, `extra` is the uv extra surfaced in install hints and scanned by `raitap.deps.inference`. `error_patterns` and `suppress_warnings` are optional polish.
 - **`algorithm_registry` (decorator kwarg).** Transparency and robustness only. Maps algorithm name → method families (or `AssessorSemanticsHints` for robustness) RAITAP tracks and reports on. **Required** — pyright errors at the decoration site if you omit it. Missing or misnamed entries make algorithms unselectable. The decorator assigns it onto the class so `type(self).algorithm_registry` still works at runtime.
 - **`output_payload_kind` (decorator kwarg).** Transparency only. Tells the report renderer what artefact shape the explainer emits (`ATTRIBUTIONS`, `SALIENCY_MAP`, ...). Defaults to `ExplanationPayloadKind.ATTRIBUTIONS` — only pass it if your explainer emits something else.
-- **`onnx_compatible_algorithms` (decorator kwarg).** Optional, defaults to `frozenset()`. Subset of `algorithm_registry` keys that work on ONNX-exported models. The decorator exposes it as `type(self).ONNX_COMPATIBLE_ALGORITHMS` for use inside `check_backend_compat`.
+- **`onnx_compatible_algorithms` (decorator kwarg).** Transparency only. Optional — defaults to "none compatible" (ONNX support is rare). Pass an explicit `frozenset({"name1", "name2"})` to enable a subset, or `from raitap.transparency import ALL; onnx_compatible_algorithms=ALL` to mark every algorithm in `algorithm_registry` ONNX-compatible without re-listing them. The decorator resolves the sentinel and assigns the final frozenset onto the class as `type(self).ONNX_COMPATIBLE_ALGORITHMS` for use inside `check_backend_compat`.
 - **`super().__init__()`.** Cooperative parent init — the base class allocates buffers the framework reads later (e.g. `self.attributions = None`). Forgetting raises `AttributeError` deep inside `explain()`. Always call first when overriding `__init__`.
 - **`self._lazy_import()`.** Inherited from `AdapterMixin`. Imports `library` (or `f"{library}.{submodule}"` if you pass `submodule=`) at call time, keeping `import raitap` cheap and letting users install RAITAP without every wrapped library. Raises a clear install-hint `ImportError` if the library is missing.
 - **`self._rethrow()`.** Inherited context manager. Catches exceptions from the wrapped library and rewrites known-cryptic ones using your `error_patterns` map.
