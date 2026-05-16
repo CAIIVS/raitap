@@ -1,15 +1,16 @@
 """Semantic builders for robustness assessors.
 
 Per-algorithm registries live on each adapter as
-``algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]`` —
-see :class:`raitap._registry_base.WithAlgorithmRegistry`. This module
-contains only the framework-agnostic mechanics that consume those
-registries.
+``algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]``,
+validated at decoration time via
+``ROBUSTNESS.has_algorithm_registry=True``. This module contains only the
+framework-agnostic mechanics that consume those registries.
 """
 
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -28,7 +29,7 @@ from .contracts import (
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Sequence
 
 
 @dataclass(frozen=True)

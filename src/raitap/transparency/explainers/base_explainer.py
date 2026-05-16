@@ -5,9 +5,12 @@ from __future__ import annotations
 import gc
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import torch
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 from raitap._adapters import AdapterMixin
 from raitap.configs import resolve_run_dir
