@@ -305,6 +305,79 @@ def _build_schema_adapter(cls: type, schema: type) -> type:
     )
 
 
+def _register_core(
+    cls: type,
+    *,
+    family: FamilyConfig | None,
+    **common: Unpack[_CommonRegKwargs],
+) -> type:
+    """Cross-family registration mechanics. Returns ``cls`` unchanged.
+
+    Mirrors the existing ``AdapterMixin.__init_subclass__`` logic but consumes
+    its inputs via explicit kwargs instead of class-kwargs. Side-effects:
+
+    - Sets ``cls.registry_name`` / ``cls.extra`` / ``cls.library`` /
+      ``cls.error_patterns`` from ``common``.
+    - Installs ``raitap_log.suppress(...)`` filters from
+      ``common["suppress_warnings"]``.
+    - Builds the hydra-zen builder via ``_build_schema_adapter`` when ``family``
+      is set, otherwise via signature-based ``builds(...)`` with
+      ``zen_meta={"call": {}, "raitap": {}}``.
+    - Stores under ``_BUILDERS[family.group][registry_name]`` or
+      ``_BUILDERS["_unscoped"][registry_name]``.
+    - Populates ``ADAPTER_EXTRAS`` and ``THIRD_PARTY_LIBS`` when applicable.
+    """
+    from raitap.utils.log import raitap_log
+
+    registry_name = common["registry_name"]
+    extra = common.get("extra")
+    library = common.get("library")
+    error_patterns = common.get("error_patterns")
+    suppress_warnings = common.get("suppress_warnings")
+
+    cls.registry_name = registry_name
+    if extra is not None:
+        cls.extra = extra
+    if library is not None:
+        cls.library = library
+    if error_patterns is not None:
+        cls.error_patterns = error_patterns
+    if suppress_warnings:
+        for pattern, category, module in suppress_warnings:
+            raitap_log.suppress(message=pattern, category=category, module=module or "")
+
+    try:
+        if family is not None:
+            cls._ADAPTER_GROUP = family.group
+            cls._ADAPTER_SCHEMA = family.schema
+            cls._ADAPTER_PACKAGE_STYLE = family.package_style
+            cls._ADAPTER_STRIP_SUFFIXES = family.strip_suffixes
+            builder = _build_schema_adapter(cls, family.schema)
+            package = (
+                f"{family.group}.{registry_name}"
+                if family.package_style == "nested"
+                else family.group
+            )
+            store(builder, group=family.group, name=registry_name, package=package)
+            _BUILDERS.setdefault(family.group, {})[registry_name] = builder
+        else:
+            builder = builds(
+                cls,
+                populate_full_signature=True,
+                zen_meta={"call": {}, "raitap": {}},
+            )
+            _BUILDERS.setdefault("_unscoped", {})[registry_name] = builder
+    except (ModuleNotFoundError, TypeError):
+        # Test fixtures: same swallow as legacy __init_subclass__.
+        return cls
+
+    if extra:
+        ADAPTER_EXTRAS[cls.__name__] = extra
+    if library and family is not None:
+        THIRD_PARTY_LIBS.setdefault(family.group, set()).add(library)
+    return cls
+
+
 def discover(package_path: list[str], package_name: str) -> None:
     """Import every submodule under ``package_name`` so ``__init_subclass__``
     fires for every adapter class declared anywhere in the tree.

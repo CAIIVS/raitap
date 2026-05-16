@@ -27,3 +27,62 @@ def test_family_config_package_style_literal_enforced_at_runtime() -> None:
     # Runtime acceptance — typing-level enforcement is verified separately by pyright.
     FamilyConfig(group="g", schema=object, package_style="flat", strip_suffixes=())
     FamilyConfig(group="g", schema=object, package_style="nested", strip_suffixes=())
+
+
+# Module-scope fixtures so hydra-zen's ``builds()`` can resolve their importable
+# qualname. Function-local classes fail with ``ModuleNotFoundError: <cls> is not
+# importable``, which the legacy ``__init_subclass__`` swallow would mask.
+@dataclasses.dataclass
+class _DummySchema:
+    _target_: str = ""
+
+
+class _DummyAdapter:
+    def __init__(self, **kwargs): ...
+
+
+class _DummyVisualiser:
+    def __init__(self, max_samples: int = 4): ...
+
+
+def test_register_core_with_family_populates_builders_and_extras() -> None:
+    """_register_core should run the same mechanics as __init_subclass__: hydra-zen
+    builder in _BUILDERS, ADAPTER_EXTRAS entry, library tracked in THIRD_PARTY_LIBS."""
+    from raitap._adapters import (
+        ADAPTER_EXTRAS,
+        FamilyConfig,
+        THIRD_PARTY_LIBS,
+        _BUILDERS,
+        _register_core,
+    )
+
+    fc = FamilyConfig(
+        group="_test_family",
+        schema=_DummySchema,
+        package_style="nested",
+        strip_suffixes=(),
+    )
+    _register_core(
+        _DummyAdapter,
+        family=fc,
+        registry_name="dummy",
+        extra="dummy-extra",
+        library="dummy-lib",
+    )
+    assert "_test_family" in _BUILDERS
+    assert "dummy" in _BUILDERS["_test_family"]
+    assert ADAPTER_EXTRAS["_DummyAdapter"] == "dummy-extra"
+    assert "dummy-lib" in THIRD_PARTY_LIBS["_test_family"]
+
+
+def test_register_core_without_family_uses_unscoped_pool() -> None:
+    """Visualiser path: family=None routes to _BUILDERS['_unscoped'] via the
+    signature-based builder."""
+    from raitap._adapters import _BUILDERS, _register_core
+
+    _register_core(
+        _DummyVisualiser,
+        family=None,
+        registry_name="dummy_visualiser",
+    )
+    assert "dummy_visualiser" in _BUILDERS["_unscoped"]
