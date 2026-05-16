@@ -24,16 +24,14 @@ Name the file after the library (e.g. `superxai_explainer.py`). Then:
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
-from raitap.transparency.contracts import ExplanationPayloadKind, MethodFamily
+from raitap.transparency.contracts import MethodFamily
 from raitap.transparency.explainers.registration import register_transparency_adapter
 
 from .base_explainer import AttributionOnlyExplainer
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     import torch
     import torch.nn as nn
 
@@ -48,20 +46,25 @@ if TYPE_CHECKING:
     suppress_warnings=[            # optional library-noise filters installed at decoration time
         (r"some noisy.*pattern", UserWarning, r"superxai.*"),
     ],
+    algorithm_registry={           # required kwarg, pyright errors at decoration if missing
+        "supertreeshap": frozenset({MethodFamily.SHAPLEY}),
+    },
+    onnx_compatible_algorithms=frozenset({"supertreeshap"}),  # optional; default frozenset()
+    # output_payload_kind=ExplanationPayloadKind.ATTRIBUTIONS — optional, this is the default
 )
 class SuperXAIExplainer(AttributionOnlyExplainer):
-    output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
-
-    algorithm_registry: ClassVar[Mapping[str, frozenset[MethodFamily]]] = {
-        "supertreeshap": frozenset({MethodFamily.SHAPLEY}),
-    }
-
-    ONNX_COMPATIBLE_ALGORITHMS: ClassVar[frozenset[str]] = frozenset({"supertreeshap"})
-
     def __init__(self, algorithm: str, **init_kwargs):
         super().__init__()
         self.algorithm = algorithm
         self.init_kwargs = init_kwargs
+
+    def check_backend_compat(self, backend: object) -> None:
+        # Optional override — default accepts any backend. Inspect attrs like
+        # `backend.supports_torch_autograd` and raise an explainer/assessor
+        # incompatibility error if your algorithm needs something the backend
+        # can't provide. See `CaptumExplainer.check_backend_compat` for the
+        # ONNX-allowlist pattern.
+        return
 
     def compute_attributions(
         self,
@@ -77,12 +80,12 @@ class SuperXAIExplainer(AttributionOnlyExplainer):
             )
 ```
 
-- **Base class.** `AttributionOnlyExplainer` provides batching, artefact persistence, and `explain()` orchestration. Other families use other bases (`EmpiricalAttackAssessor` for robustness, `BaseMetricComputer` for metrics, etc.) — find them in files starting with `base_`. The concrete adapter is **not** abstract; never pass `abstract=True` anywhere — that flag no longer exists.
+- **Base class.** `AttributionOnlyExplainer` provides batching, artefact persistence, and `explain()` orchestration. Other families use other bases (`EmpiricalAttackAssessor` for robustness, `BaseMetricComputer` for metrics, etc.) — find them in files starting with `base_`. The concrete adapter is just a normal class; nothing flags it as abstract (the old `abstract=True` workaround was removed).
 - **Decorator.** `@register_transparency_adapter(...)` is the sole entry point for registration. `registry_name` is required and pyright-checked at the decoration site via `Required[str]`. Each family has its own decorator (`register_robustness_adapter`, `register_metrics_adapter`, `register_reporter`, `register_tracker`, `register_transparency_visualiser`, `register_robustness_visualiser`) — pick the one matching your base class.
 - **Registration kwargs.** `extra` and `library` are required whenever you wrap a third-party package (the usual case): `library` is the pip name powering `self._lazy_import()`, `extra` is the uv extra surfaced in install hints and scanned by `raitap.deps.inference`. `error_patterns` and `suppress_warnings` are optional polish.
-- **`algorithm_registry` (ClassVar).** Transparency and robustness only. Maps algorithm name → method families (or `AssessorSemanticsHints` for robustness) RAITAP tracks and reports on. **Stays on the class body, not the decorator** — the family decorator validates its presence at decoration time via `FamilyConfig.has_algorithm_registry=True`. Missing or misnamed entries make algorithms unselectable.
-- **`output_payload_kind` (ClassVar).** Transparency only. Tells the report renderer what artefact shape the explainer emits (`ATTRIBUTIONS`, `SALIENCY_MAP`, ...) so visualisers and aggregators pick the right code path.
-- **`ONNX_COMPATIBLE_ALGORITHMS` (ClassVar).** Optional. Subset of `algorithm_registry` keys that work on ONNX-exported models.
+- **`algorithm_registry` (decorator kwarg).** Transparency and robustness only. Maps algorithm name → method families (or `AssessorSemanticsHints` for robustness) RAITAP tracks and reports on. **Required** — pyright errors at the decoration site if you omit it. Missing or misnamed entries make algorithms unselectable. The decorator assigns it onto the class so `type(self).algorithm_registry` still works at runtime.
+- **`output_payload_kind` (decorator kwarg).** Transparency only. Tells the report renderer what artefact shape the explainer emits (`ATTRIBUTIONS`, `SALIENCY_MAP`, ...). Defaults to `ExplanationPayloadKind.ATTRIBUTIONS` — only pass it if your explainer emits something else.
+- **`onnx_compatible_algorithms` (decorator kwarg).** Optional, defaults to `frozenset()`. Subset of `algorithm_registry` keys that work on ONNX-exported models. The decorator exposes it as `type(self).ONNX_COMPATIBLE_ALGORITHMS` for use inside `check_backend_compat`.
 - **`super().__init__()`.** Cooperative parent init — the base class allocates buffers the framework reads later (e.g. `self.attributions = None`). Forgetting raises `AttributeError` deep inside `explain()`. Always call first when overriding `__init__`.
 - **`self._lazy_import()`.** Inherited from `AdapterMixin`. Imports `library` (or `f"{library}.{submodule}"` if you pass `submodule=`) at call time, keeping `import raitap` cheap and letting users install RAITAP without every wrapped library. Raises a clear install-hint `ImportError` if the library is missing.
 - **`self._rethrow()`.** Inherited context manager. Catches exceptions from the wrapped library and rewrites known-cryptic ones using your `error_patterns` map.
@@ -108,7 +111,7 @@ Tests go in `tests/raitap/<module>/<subdir>/test_<name>_<entity>.py`. Also add a
 
 Cover at minimum: registry membership, `check_backend_compat`, decorator wiring (the class lands in `_BUILDERS["<group>"]["<name>"]` and in `ADAPTER_EXTRAS`), and one `compute_attributions` / `generate_adversarial` / `compute` happy path. CI enforces module coverage.
 
-Test stubs no longer need any `abstract=True` workaround — the `WithAlgorithmRegistry` mixin and `AdapterMixin.__init_subclass__` are gone. A stub adapter is just `@register_<family>_adapter(registry_name="_stub")` over a minimal subclass implementing the abstract methods.
+No stub workaround needed — concrete adapters are just concrete classes, and the decorator carries every family-required piece of metadata (`algorithm_registry`, `output_payload_kind`, `onnx_compatible_algorithms`). A test stub is just `@register_<family>_adapter(registry_name="_stub", algorithm_registry={...}, ...)` over a minimal subclass implementing the abstract methods.
 
 ## 5. Update the docs
 
@@ -127,7 +130,7 @@ Add a row to `docs/modules/<module>/frameworks-and-libraries.md` documenting the
 
 ## Adding a new algorithm to an existing adapter
 
-If the library already has an adapter and you just want to expose a new algorithm, edit that adapter's `algorithm_registry` ClassVar (and `ONNX_COMPATIBLE_ALGORITHMS` if it applies). No decorator change, no pyproject.toml change. Add a unit test that constructs the adapter with the new algorithm and asserts a successful happy-path call.
+If the library already has an adapter and you just want to expose a new algorithm, add an entry to that adapter's `algorithm_registry` decorator kwarg (and `onnx_compatible_algorithms` if it applies). No new file, no pyproject.toml change. Add a unit test that constructs the adapter with the new algorithm and asserts a successful happy-path call.
 
 ## When the registration decorators aren't enough
 
