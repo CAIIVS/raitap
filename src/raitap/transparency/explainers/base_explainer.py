@@ -10,9 +10,8 @@ from typing import Any, ClassVar, cast
 import torch
 
 from raitap._adapters import AdapterMixin
-from raitap.configs import resolve_run_dir
-from raitap.configs.schema import TransparencyConfig
 from raitap._registry_base import WithAlgorithmRegistry
+from raitap.configs import resolve_run_dir
 
 from ..contracts import (
     ExplanationOutputSpace,
@@ -36,9 +35,6 @@ class BaseExplainer(
     WithAlgorithmRegistry["frozenset[MethodFamily]"],
     AdapterMixin,
     abstract=True,
-    group="transparency",
-    schema=TransparencyConfig,
-    strip_suffixes=("Explainer",),
 ):
     """
     Root base class for all explainer adapters.

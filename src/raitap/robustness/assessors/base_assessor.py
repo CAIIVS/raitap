@@ -24,9 +24,8 @@ import torch
 
 from raitap import raitap_log
 from raitap._adapters import AdapterMixin
-from raitap.configs import resolve_run_dir
-from raitap.configs.schema import RobustnessConfig
 from raitap._registry_base import WithAlgorithmRegistry
+from raitap.configs import resolve_run_dir
 
 from ..contracts import (
     MethodKind,
@@ -64,9 +63,6 @@ class BaseAssessor(
     WithAlgorithmRegistry["AssessorSemanticsHints"],
     AdapterMixin,
     abstract=True,
-    group="robustness",
-    schema=RobustnessConfig,
-    strip_suffixes=("Assessor",),
 ):
     """Root base class for all robustness assessors.
 

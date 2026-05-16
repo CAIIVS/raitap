@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from ..results import RobustnessResult
 
 
-class BaseRobustnessVisualiser(ABC, AdapterMixin, abstract=True, strip_suffixes=("Visualiser",)):
+class BaseRobustnessVisualiser(ABC, AdapterMixin, abstract=True):
     """All robustness visualisers extend this class.
 
     Subclasses declare which method kinds they support via the
