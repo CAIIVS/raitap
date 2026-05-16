@@ -1,116 +1,140 @@
 ---
 title: "Adding an adapter"
-description: "Adapters (explainers, assessors, metrics, reporters, trackers) self-register via raitap.adapters.AdapterMixin. Adding a new one is one file plus optional pyproject.toml + test + docs entries. No central registry to edit."
+description: "Adapters (explainers, assessors, metrics, reporters, trackers, visualisers) self-register via a per-family decorator (@register_transparency_adapter, @register_robustness_adapter, ...). Adding one is a single file plus optional pyproject.toml + test + docs entries. No central registry to edit."
 myst:
   html_meta:
-    "description": "Adapters (explainers, assessors, metrics, reporters, trackers) self-register via raitap.adapters.AdapterMixin. Adding a new one is one file plus optional pyproject.toml + test + docs entries. No central registry to edit."
+    "description": "Adapters (explainers, assessors, metrics, reporters, trackers, visualisers) self-register via a per-family decorator (@register_transparency_adapter, @register_robustness_adapter, ...). Adding one is a single file plus optional pyproject.toml + test + docs entries. No central registry to edit."
 ---
 
 # Adding an adapter
 
-Adapters (explainers, assessors, metrics, reporters, trackers) allow RAITAP to delegate to other libraries. To add one, you simply need to create a new file, follow a few rules and then update some package files.
+Adapters let RAITAP delegate to other libraries. Each family (transparency, robustness, metrics, reporting, tracking, visualisers) exposes its own registration decorator; you drop that decorator on a class, implement the abstract methods, and you are done. There is no central registry file to edit — `registry_name` is the only required kwarg and pyright errors at the decoration site if you forget it.
 
-The following sections will guide you. We will imagine we adding a new explainer for the `superxai-lib` library.
+The walkthrough below uses a fictional `superxai-lib` transparency explainer.
 
 ## 1. Find the relevant module where to create the new adapter
 
-RAITAP is organised into modules, each containing a set of related adapters. The modules are located in the `src/raitap/` directory. Ideally, a library fits clearly into a single module. However, some libraries might span multiple. In such cases, you should create 2 separate adapters in each module, and carefully prevent one adapter from calling functions that fit into the other (e.g. using `algorithm_registry`, see below).
+RAITAP is organised into modules under `src/raitap/`, each owning the adapters for one family. Ideally a library fits into a single module. If it genuinely spans two, ship two adapters (one per module) and use `algorithm_registry` to keep their responsibilities disjoint.
 
 ## 2. Create the new adapter file
 
-1. Name your file by following the pattern exposed by other adapter files.
-2. Create a class as follows. We take the example of the transparency module:
+Name the file after the library (e.g. `superxai_explainer.py`). Then:
 
-    ```python
-    class SuperXAIExplainer(
-        AttributionOnlyExplainer,
-        registry_name="superxai",         # CLI `+transparency=superxai` / Python `from raitap.transparency import superxai`
-        extra="superxai",                 # uv extra as named in the pyproject.toml file, see below
-        library="superxai-lib",           # real PyPI package name
-        error_patterns={                  # mapping between cryptic original library errors and a more user-friendly RAITAP one
-            re.compile(r"some library footgun"): "Do X instead.",
-            re.compile(r"some other library footgun"): "Do Y instead.",
-        },
-        suppress_warnings=(               # optional library-noise filters applied at import
-            (r"some noisy.*pattern", UserWarning, r"superxai.*"),
-        ),
-    ):
-        algorithm_registry = {"supertreeshap": frozenset({MethodFamily.SHAPLEY})}
+```python
+from __future__ import annotations
 
-        def __init__(self, algorithm: str, **init_kwargs): ...
+import re
+from typing import TYPE_CHECKING, ClassVar
 
-        def _compute(self, model, inputs, **call_kwargs):
-            superxai = self._lazy_import()       # no try/except boilerplate
-            with self._rethrow():                # no rethrow(module=..., third_party_lib=..., ...) boilerplate
-                return getattr(superxai, self.algorithm)(model, **self.init_kwargs).attribute(inputs, **call_kwargs)
-    ```
+from raitap.transparency.contracts import ExplanationPayloadKind, MethodFamily
+from raitap.transparency.explainers.registration import register_transparency_adapter
 
-    - We inherit from the `AttributionOnlyExplainer` abstract base class. For other modules, the name might differ (e.g. `EmpiricalAttackAssessor` for the robustness module). You will usually find it in a file which name starts with `base_`.
-    - We set the required class-keyword arguments, as defined by `AdapterMixin`: `registry_name`, `extra`, `library`. Some are optional but useful, such as `error_patterns` and `suppress_warnings`.
-    - For modules that require the user specifying a specific algo (transparency, robustness,...), we declare the `algorithm_registry` class dictionary. It maps the algorithm name to the method families it supports., which is extremely important so RAITAp can track and report about the results.
-    - We implement the methods required by the abstract base class. For example, `AttributionOnlyExplainer` requires the user to implement the `compute_attributions` method.
+from .base_explainer import AttributionOnlyExplainer
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    import torch
+    import torch.nn as nn
+
+
+@register_transparency_adapter(
+    registry_name="superxai",      # CLI `+transparency=superxai` / Python `from raitap.transparency import superxai`
+    extra="superxai",              # uv extra name (see pyproject.toml below)
+    library="superxai-lib",        # real PyPI package name; drives `self._lazy_import()`
+    error_patterns={               # rewrite cryptic upstream errors at call sites
+        re.compile(r"some library footgun"): "Do X instead.",
+    },
+    suppress_warnings=[            # optional library-noise filters installed at decoration time
+        (r"some noisy.*pattern", UserWarning, r"superxai.*"),
+    ],
+)
+class SuperXAIExplainer(AttributionOnlyExplainer):
+    output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
+
+    algorithm_registry: ClassVar[Mapping[str, frozenset[MethodFamily]]] = {
+        "supertreeshap": frozenset({MethodFamily.SHAPLEY}),
+    }
+
+    ONNX_COMPATIBLE_ALGORITHMS: ClassVar[frozenset[str]] = frozenset({"supertreeshap"})
+
+    def __init__(self, algorithm: str, **init_kwargs):
+        super().__init__()
+        self.algorithm = algorithm
+        self.init_kwargs = init_kwargs
+
+    def compute_attributions(
+        self,
+        model: nn.Module,
+        inputs: torch.Tensor,
+        backend=None,
+        **call_kwargs,
+    ) -> torch.Tensor:
+        superxai = self._lazy_import()       # no try/except boilerplate
+        with self._rethrow():                # rewrites errors using `error_patterns`
+            return getattr(superxai, self.algorithm)(model, **self.init_kwargs).attribute(
+                inputs, **call_kwargs
+            )
+```
+
+- **Base class.** `AttributionOnlyExplainer` provides batching, artefact persistence, and `explain()` orchestration. Other families use other bases (`EmpiricalAttackAssessor` for robustness, `BaseMetricComputer` for metrics, etc.) — find them in files starting with `base_`. The concrete adapter is **not** abstract; never pass `abstract=True` anywhere — that flag no longer exists.
+- **Decorator.** `@register_transparency_adapter(...)` is the sole entry point for registration. `registry_name` is required and pyright-checked at the decoration site via `Required[str]`. Each family has its own decorator (`register_robustness_adapter`, `register_metrics_adapter`, `register_reporter`, `register_tracker`, `register_transparency_visualiser`, `register_robustness_visualiser`) — pick the one matching your base class.
+- **Registration kwargs.** `extra` and `library` are required whenever you wrap a third-party package (the usual case): `library` is the pip name powering `self._lazy_import()`, `extra` is the uv extra surfaced in install hints and scanned by `raitap.deps.inference`. `error_patterns` and `suppress_warnings` are optional polish.
+- **`algorithm_registry` (ClassVar).** Transparency and robustness only. Maps algorithm name → method families (or `AssessorSemanticsHints` for robustness) RAITAP tracks and reports on. **Stays on the class body, not the decorator** — the family decorator validates its presence at decoration time via `FamilyConfig.has_algorithm_registry=True`. Missing or misnamed entries make algorithms unselectable.
+- **`output_payload_kind` (ClassVar).** Transparency only. Tells the report renderer what artefact shape the explainer emits (`ATTRIBUTIONS`, `SALIENCY_MAP`, ...) so visualisers and aggregators pick the right code path.
+- **`ONNX_COMPATIBLE_ALGORITHMS` (ClassVar).** Optional. Subset of `algorithm_registry` keys that work on ONNX-exported models.
+- **`super().__init__()`.** Cooperative parent init — the base class allocates buffers the framework reads later (e.g. `self.attributions = None`). Forgetting raises `AttributeError` deep inside `explain()`. Always call first when overriding `__init__`.
+- **`self._lazy_import()`.** Inherited from `AdapterMixin`. Imports `library` (or `f"{library}.{submodule}"` if you pass `submodule=`) at call time, keeping `import raitap` cheap and letting users install RAITAP without every wrapped library. Raises a clear install-hint `ImportError` if the library is missing.
+- **`self._rethrow()`.** Inherited context manager. Catches exceptions from the wrapped library and rewrites known-cryptic ones using your `error_patterns` map.
+- **Abstract methods.** `AttributionOnlyExplainer` → `compute_attributions(...)`. `EmpiricalAttackAssessor` → `generate_adversarial(...)`. `BaseMetricComputer` → `compute() -> MetricResult`. Check the base file for exact signatures.
 
 ## 3. Update the pyproject.toml file
 
-1. Add the `superxai` extra to the `pyproject.toml` file. This is used to install the `superxai-lib` PyPI package when the user composes a config that needs it. Ensure the name you choose matches the values you set in the adapter class.
+Add the per-library extra and chain it into the module's compound extra. Use the extra name in the chain, not the PyPI name, if they differ.
 
-    ```toml
-    [project.optional-dependencies]
-    # ...
+```toml
+[project.optional-dependencies]
 
-    # Transparency module
-    # ...
-    superxai = ["superxai-lib"]
+# Transparency module
+# ...
+superxai = ["superxai-lib"]
 
-    # ...
-    ```
-
-2. Update the module's compound extra. Note that you should use the extra's name, not the PyPI package name, if they differ (like in our example).
-
-     ```toml
-    [project.optional-dependencies]
-    
-    # ...
-
-    # Transparency module
-    # ...
-
-    superxai = ["superxai-lib"]
-
-    # ...
-
-    transparency = ["raitap[shap,captum,superxai]"]
-
-    # ...
-    ```
+transparency = ["raitap[shap,captum,superxai]"]
+```
 
 ## 4. Update the tests
 
-Write tests for the new adapter. The tests should be located in the `tests/raitap/<module>/<subdir>/test_<name>_<entity>.py` file. Also create E2E tests, and if relevant for the modified module, update the E2E test matrix.
+Tests go in `tests/raitap/<module>/<subdir>/test_<name>_<entity>.py`. Also add an E2E test, and update the E2E test matrix if the module has one.
 
-Cover at minimum: registry membership, `check_backend_compat`, `__init_subclass__` wiring (the class lands in `_BUILDERS["<group>"]["<name>"]` and in `ADAPTER_EXTRAS`), and one `_compute` / `generate_adversarial` / `compute` happy path. CI enforces coverage on the module.
+Cover at minimum: registry membership, `check_backend_compat`, decorator wiring (the class lands in `_BUILDERS["<group>"]["<name>"]` and in `ADAPTER_EXTRAS`), and one `compute_attributions` / `generate_adversarial` / `compute` happy path. CI enforces module coverage.
+
+Test stubs no longer need any `abstract=True` workaround — the `WithAlgorithmRegistry` mixin and `AdapterMixin.__init_subclass__` are gone. A stub adapter is just `@register_<family>_adapter(registry_name="_stub")` over a minimal subclass implementing the abstract methods.
 
 ## 5. Update the docs
 
-Add a row to the `docs/modules/<module>/frameworks-and-libraries.md` file documenting the algorithms you support (or analogous page for non-adapter modules). YAML + Python tabs both required via `config-tabs`. This is what users see when they look up "does raitap support X?".
+Add a row to `docs/modules/<module>/frameworks-and-libraries.md` documenting the algorithms you support (or the analogous page for non-adapter modules). YAML + Python tabs both required via `config-tabs`. This is what users see when they look up "does raitap support X?".
 
 ## Adapter families and where to look
 
-| Module                 | Abstract base                                                                                                                               | Group              | Schema               |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | -------------------- |
-| Transparency explainer | `raitap.transparency.explainers.base_explainer.AttributionOnlyExplainer` / `FullExplainer`                                                  | `transparency`     | `TransparencyConfig` |
-| Robustness assessor    | `raitap.robustness.assessors.base_assessor.EmpiricalAttackAssessor` / `FormalVerificationAssessor`                                          | `robustness`       | `RobustnessConfig`   |
-| Metric                 | `raitap.metrics.base_metric.BaseMetricComputer`                                                                                             | `metrics`          | `MetricsConfig`      |
-| Reporter               | `raitap.reporting.base_reporter.BaseReporter`                                                                                               | `reporting`        | `ReportingConfig`    |
-| Tracker                | `raitap.tracking.base_tracker.BaseTracker`                                                                                                  | `tracking`         | `TrackingConfig`     |
-| Visualiser             | `raitap.transparency.visualisers.base_visualiser.BaseVisualiser` / `raitap.robustness.visualisers.base_visualiser.BaseRobustnessVisualiser` | — (no Hydra group) | —                    |
+| Module                 | Abstract base                                                                                                                               | Registration decorator                                                       | Group              | Schema               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------ | -------------------- |
+| Transparency explainer | `raitap.transparency.explainers.base_explainer.AttributionOnlyExplainer` / `FullExplainer`                                                  | `@register_transparency_adapter`                                             | `transparency`     | `TransparencyConfig` |
+| Robustness assessor    | `raitap.robustness.assessors.base_assessor.EmpiricalAttackAssessor` / `FormalVerificationAssessor`                                          | `@register_robustness_adapter`                                               | `robustness`       | `RobustnessConfig`   |
+| Metric                 | `raitap.metrics.base_metric_computer.BaseMetricComputer`                                                                                    | `@register_metrics_adapter`                                                  | `metrics`          | `MetricsConfig`      |
+| Reporter               | `raitap.reporting.base_reporter.BaseReporter`                                                                                               | `@register_reporter`                                                         | `reporting`        | `ReportingConfig`    |
+| Tracker                | `raitap.tracking.base_tracker.BaseTracker`                                                                                                  | `@register_tracker`                                                          | `tracking`         | `TrackingConfig`     |
+| Visualiser             | `raitap.transparency.visualisers.base_visualiser.BaseVisualiser` / `raitap.robustness.visualisers.base_visualiser.BaseRobustnessVisualiser` | `@register_transparency_visualiser` / `@register_robustness_visualiser`      | — (no Hydra group) | —                    |
 
-## When `AdapterMixin` isn't enough
+## Adding a new algorithm to an existing adapter
 
-A handful of Hydra shapes can't be expressed via `AdapterMixin` alone and live as direct `ConfigStore` writes in `src/raitap/configs/zen.py::register_zen_groups`:
+If the library already has an adapter and you just want to expose a new algorithm, edit that adapter's `algorithm_registry` ClassVar (and `ONNX_COMPATIBLE_ALGORITHMS` if it applies). No decorator change, no pyproject.toml change. Add a unit test that constructs the adapter with the new algorithm and asserts a successful happy-path call.
 
-- **`# @package _global_` injections** — e.g. the `reporting=html` / `reporting=pdf` entries push both the `reporting` node **and** a `hydra.callbacks.reporting_sweep` block into the root config so multirun report aggregation auto-wires. The mixin always writes under `package="<group>"` or `"<group>.<name>"`; it can't reach `_global_`.
-- **`_target_: null` variants** — e.g. `reporting=disabled` carries `_target_: null` + `multirun_report: false`. The mixin always targets a concrete class.
+## When the registration decorators aren't enough
+
+A handful of Hydra shapes can't be expressed via the registration decorators alone and live as direct `ConfigStore` writes in `src/raitap/configs/zen.py::register_zen_groups`:
+
+- **`# @package _global_` injections** — e.g. the `reporting=html` / `reporting=pdf` entries push both the `reporting` node **and** a `hydra.callbacks.reporting_sweep` block into the root config so multirun report aggregation auto-wires. The decorators always write under `package="<group>"` or `"<group>.<name>"`; they can't reach `_global_`.
+- **`_target_: null` variants** — e.g. `reporting=disabled` carries `_target_: null` + `multirun_report: false`. The decorators always target a concrete class.
 - **Anything that needs a custom hydra-zen `to_config=` or a non-dataclass node** — same escape hatch.
 
-If your new adapter only needs to set `_target_` + optional kwargs on its schema (the 95% case), don't touch `zen.py`. Use class kwargs, done. If you genuinely need one of the special shapes above, add a `cs.store(group=..., name=..., package=..., node=...)` block in `register_zen_groups` after the `store.add_to_hydra_store(...)` flush — that order lets your specialisation overwrite the mixin-generated entry.
+If your new adapter only needs to set `_target_` + optional kwargs on its schema (the 95% case), don't touch `zen.py`. Use the decorator, done. If you genuinely need one of the special shapes above, add a `cs.store(group=..., name=..., package=..., node=...)` block in `register_zen_groups` after the `store.add_to_hydra_store(...)` flush — that order lets your specialisation overwrite the decorator-generated entry.
