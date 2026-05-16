@@ -10,7 +10,7 @@ myst:
 
 The example below shows a complete configuration with all top-level modules populated.
 
-If you want to learn how to write such a config, see the {doc}`general` guide. The [Python API](python-api.md) page covers the equivalent programmatic surface.
+If you want to learn how to write such a config, see the {doc}`../configuration/general` guide. The {doc}`../configuration/python-api` page covers the equivalent programmatic surface.
 
 ```{config-tabs}
 :yaml:
@@ -204,3 +204,29 @@ config = AppConfig(
     ),
 )
 ```
+
+## Notes
+
+The kitchen-sink config references user-supplied artefacts
+(`./models/my-model.onnx`, `./data/images`, `./data/labels.csv`,
+`./data/baselines`, `./data/background`) and a local MLflow server at
+`127.0.0.1:5001`.
+
+## Expected output
+
+```text
+outputs/<date>/<time>/
+├── metrics/{metrics.json, artifacts.json, metadata.json, metrics_overview.png}
+├── transparency/
+│   ├── captum_ig/{attributions.pt, CaptumImageVisualiser_0.png, metadata.json}
+│   └── shap_gradient/{attributions.pt, ShapImageVisualiser_0.png, metadata.json}
+├── robustness/
+│   ├── pgd/{robustness_data.pt, ImagePairVisualiser_0.png, metadata.json}
+│   └── linf_pgd/{robustness_data.pt, PerturbationHeatmapVisualiser_0.png, metadata.json}
+├── tracking/{run_id.txt, mlflow.log}
+└── reports/{report.html, report.zip, _assets/…}
+```
+
+MLflow artefacts land on the tracking server itself
+(`http://127.0.0.1:5001`). The `tracking/` directory only carries the
+local hand-off metadata.

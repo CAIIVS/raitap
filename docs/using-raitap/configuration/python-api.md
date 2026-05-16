@@ -25,24 +25,24 @@ The Python API is laid out so each module is the single owner of *both* its type
 
 **Top-level — `from raitap import …`.** Orchestration-level only.
 
-| Name | Kind | Why top-level |
-| --- | --- | --- |
-| `run` | function | runs an `AppConfig` through the orchestrator |
-| `AppConfig` | dataclass | root schema; consumed by `run` |
-| `Hardware` | `StrEnum` | cross-cuts orchestrator + deps inference |
-| `raitap_log` | logger | unified info/warn singleton |
+| Name         | Kind      | Why top-level                                |
+| ------------ | --------- | -------------------------------------------- |
+| `run`        | function  | runs an `AppConfig` through the orchestrator |
+| `AppConfig`  | dataclass | root schema; consumed by `run`               |
+| `Hardware`   | `StrEnum` | cross-cuts orchestrator + deps inference     |
+| `raitap_log` | logger    | unified info/warn singleton                  |
 
 **Per-module — `from raitap.<module> import …`.** Each module exposes its schema dataclass, its adapter builders, and any module-local enum.
 
-| Module | Schema | Builders | Module enums |
-| --- | --- | --- | --- |
-| `raitap.models` | `ModelConfig` | — | — |
-| `raitap.data` | `DataConfig`, `LabelsConfig` | — | `LabelEncoding`, `IdStrategy` |
-| `raitap.metrics` | `MetricsConfig` | `classification`, `detection` | `Task` |
-| `raitap.transparency` | `TransparencyConfig` | `captum`, `shap`, `captum_image`, `captum_text`, `captum_time_series`, `shap_bar`, `shap_beeswarm`, `shap_force`, `shap_image`, `shap_waterfall`, `tabular_bar_chart` | — |
-| `raitap.robustness` | `RobustnessConfig` | `torchattacks`, `foolbox`, `marabou`, `image_pair`, `perturbation_heatmap`, `output_bounds_cohort`, `output_bounds_pinned`, `output_bounds_width_heatmap`, `output_bounds_margin_heatmap`, `verdict_summary` | — |
-| `raitap.reporting` | `ReportingConfig` | `html`, `pdf` | — |
-| `raitap.tracking` | `TrackingConfig` | `mlflow` | — |
+| Module                | Schema                       | Builders                                                                                                                                                                                                     | Module enums                  |
+| --------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| `raitap.models`       | `ModelConfig`                | —                                                                                                                                                                                                            | —                             |
+| `raitap.data`         | `DataConfig`, `LabelsConfig` | —                                                                                                                                                                                                            | `LabelEncoding`, `IdStrategy` |
+| `raitap.metrics`      | `MetricsConfig`              | `classification`, `detection`                                                                                                                                                                                | `Task`                        |
+| `raitap.transparency` | `TransparencyConfig`         | `captum`, `shap`, `captum_image`, `captum_text`, `captum_time_series`, `shap_bar`, `shap_beeswarm`, `shap_force`, `shap_image`, `shap_waterfall`, `tabular_bar_chart`                                        | —                             |
+| `raitap.robustness`   | `RobustnessConfig`           | `torchattacks`, `foolbox`, `marabou`, `image_pair`, `perturbation_heatmap`, `output_bounds_cohort`, `output_bounds_pinned`, `output_bounds_width_heatmap`, `output_bounds_margin_heatmap`, `verdict_summary` | —                             |
+| `raitap.reporting`    | `ReportingConfig`            | `html`, `pdf`                                                                                                                                                                                                | —                             |
+| `raitap.tracking`     | `TrackingConfig`             | `mlflow`                                                                                                                                                                                                     | —                             |
 
 Each builder is a hydra-zen `builds()` dataclass; calling it returns an instance the orchestrator `instantiate`s. See {ref}`type-safety-map` for what is statically typed vs forwarded.
 
@@ -149,7 +149,7 @@ These return *dataclass types* whose fields inherit the schema dataclass (`Trans
 
 ## Kitchen-sink translation
 
-The blocks below mirror, section by section, the YAML in {doc}`kitchen-sink`. Each `config-tabs` group renders the YAML on the left and the Python equivalent on the right.
+The blocks below mirror, section by section, the YAML in {doc}`../examples/kitchen-sink`. Each `config-tabs` group renders the YAML on the left and the Python equivalent on the right.
 
 ### Model
 
@@ -411,14 +411,14 @@ outputs = run(cfg)
 
 ## Translation rules
 
-| YAML pattern | Python builder |
-| --- | --- |
-| `_target_: CaptumExplainer` + `algorithm: IntegratedGradients` | `captum(algorithm="IntegratedGradients", ...)` (the `_target_` is baked in) |
-| `defaults: [raitap_schema, _self_]` | Not needed — `AppConfig` already *is* the schema. The defaults entry is a Hydra-only construct. |
-| Group/name selection (`transparency: captum` + dict key in YAML) | Use the dict key on the Python side too: `transparency={"my_run": captum(algorithm=...)}`. |
-| List of visualisers | One builder per visualiser (`captum_image`, `image_pair`, …): flat constructor kwargs, optional `call={...}` for render-time options. `visualisers=[captum_image(max_samples=4, call={"show_sample_names": True})]`. |
-| `MISSING` defaults | Builder kwargs are required-or-optional based on the wrapped constructor signature; your editor surfaces the missing ones. |
-| CLI overrides (`+foo.bar=baz`) | Mutate the dataclass: `cfg.transparency["my_run"].call["target"] = 1`. Builders return dataclasses, so attribute assignment works. |
+| YAML pattern                                                     | Python builder                                                                                                                                                                                                       |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `_target_: CaptumExplainer` + `algorithm: IntegratedGradients`   | `captum(algorithm="IntegratedGradients", ...)` (the `_target_` is baked in)                                                                                                                                          |
+| `defaults: [raitap_schema, _self_]`                              | Not needed — `AppConfig` already *is* the schema. The defaults entry is a Hydra-only construct.                                                                                                                      |
+| Group/name selection (`transparency: captum` + dict key in YAML) | Use the dict key on the Python side too: `transparency={"my_run": captum(algorithm=...)}`.                                                                                                                           |
+| List of visualisers                                              | One builder per visualiser (`captum_image`, `image_pair`, …): flat constructor kwargs, optional `call={...}` for render-time options. `visualisers=[captum_image(max_samples=4, call={"show_sample_names": True})]`. |
+| `MISSING` defaults                                               | Builder kwargs are required-or-optional based on the wrapped constructor signature; your editor surfaces the missing ones.                                                                                           |
+| CLI overrides (`+foo.bar=baz`)                                   | Mutate the dataclass: `cfg.transparency["my_run"].call["target"] = 1`. Builders return dataclasses, so attribute assignment works.                                                                                   |
 
 (type-safety-map)=
 
@@ -445,17 +445,17 @@ The hydra-zen builders in `raitap.api` (`captum`, `shap`, `torchattacks`, `foolb
 
 `raitap.run` returns a frozen `RunOutputs` dataclass:
 
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `explanations` | `list[ExplanationResult]` | One result per `(transparency_run, sample_batch)` pair; carries the attribution tensor and metadata. |
-| `visualisations` | `list[VisualisationResult]` | Rendered transparency outputs (images, HTML fragments) ready for reporting. |
-| `metrics` | `MetricsEvaluation \| None` | Aggregated classification metrics. `None` when `metrics` is unconfigured. |
-| `forward_output` | `torch.Tensor` | Raw output of `model(data)` — the source for both predictions and metric inputs. |
-| `sample_ids` | `list[str] \| None` | Stable ids aligned with `forward_output` rows; `None` when the data source doesn't supply them. |
-| `targets` | `torch.Tensor \| None` | Ground-truth labels when labels are configured. |
-| `prediction_summaries` | `tuple[PredictionSummary, ...]` | Per-sample `(index, predicted_class, confidence, sample_id, target_class, correct)`. |
-| `robustness_results` | `list[RobustnessResult]` | One per `(robustness_run, sample_batch)`; carries adversarial tensors and per-sample success flags. |
-| `robustness_visualisations` | `list[RobustnessVisualisationResult]` | Rendered robustness outputs (image pairs, heat maps). |
+| Field                       | Type                                  | Meaning                                                                                              |
+| --------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `explanations`              | `list[ExplanationResult]`             | One result per `(transparency_run, sample_batch)` pair; carries the attribution tensor and metadata. |
+| `visualisations`            | `list[VisualisationResult]`           | Rendered transparency outputs (images, HTML fragments) ready for reporting.                          |
+| `metrics`                   | `MetricsEvaluation \| None`           | Aggregated classification metrics. `None` when `metrics` is unconfigured.                            |
+| `forward_output`            | `torch.Tensor`                        | Raw output of `model(data)` — the source for both predictions and metric inputs.                     |
+| `sample_ids`                | `list[str] \| None`                   | Stable ids aligned with `forward_output` rows; `None` when the data source doesn't supply them.      |
+| `targets`                   | `torch.Tensor \| None`                | Ground-truth labels when labels are configured.                                                      |
+| `prediction_summaries`      | `tuple[PredictionSummary, ...]`       | Per-sample `(index, predicted_class, confidence, sample_id, target_class, correct)`.                 |
+| `robustness_results`        | `list[RobustnessResult]`              | One per `(robustness_run, sample_batch)`; carries adversarial tensors and per-sample success flags.  |
+| `robustness_visualisations` | `list[RobustnessVisualisationResult]` | Rendered robustness outputs (image pairs, heat maps).                                                |
 
 When `reporting` is configured these fields flow through `HTMLReporter` and end up on disk under the reporting output directory; when `tracking` is configured they are logged as MLflow artefacts. From Python you can read them straight out of the returned object without enabling either subsystem.
 

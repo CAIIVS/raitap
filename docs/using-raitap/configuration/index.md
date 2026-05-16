@@ -15,7 +15,6 @@ This section explains high level configuration principles for your use case.
 :caption: Configuration pages
 
 general
-kitchen-sink
 global-config-options
 python-api
 ```
