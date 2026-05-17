@@ -245,7 +245,7 @@ Downstream consumers:
 | -------------------------------------------------- | ---------------------------------------------- |
 | `Data._load_data`                                  | `data_module` (lifted via `module_as_per_image_callable`) |
 | `_apply_preprocessing` wrap + panel + warnings     | `model_module`, `description`, `warnings`      |
-| `_mlflow_summary_params` in `mlflow_tracker.py`    | `data.preprocessing` (logged as `data.preprocessing` param) |
+| `_mlflow_summary_params` in `mlflow_tracker.py`    | `data.preprocessing`, `data.preprocessing.origin`; plus `data.preprocessing.file_path` and `data.preprocessing.file_sha256` for custom files |
 | Future HTML report card                            | All fields — same plain phrasing as the panel  |
 
 The `origin` enum value is internal; user-facing renderings translate it
