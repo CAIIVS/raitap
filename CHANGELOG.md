@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.7.1](https://github.com/CAIIVS/raitap/compare/v0.7.0...v0.7.1) (2026-05-17)
+
+
+### Features
+
+* programmatic Python API + hydra-zen + typed schemas + docs tabs ([#168](https://github.com/CAIIVS/raitap/issues/168)) ([14a816a](https://github.com/CAIIVS/raitap/commit/14a816abf5b28b001180f12653c124d42fc22438))
+
+
+### Dependencies
+
+* **actions:** bump actions/download-artifact from 6 to 8 ([#169](https://github.com/CAIIVS/raitap/issues/169)) ([c593f54](https://github.com/CAIIVS/raitap/commit/c593f54e718d59d706edfb54b18c2761fefc30de))
+
+
+### Internal code refactoring
+
+* annotation system + python api fix + llm docs ([#174](https://github.com/CAIIVS/raitap/issues/174)) ([6b2ae75](https://github.com/CAIIVS/raitap/commit/6b2ae75c9aad9d68f4dd6987a8da9834bc7dc66c))
+
 ## [0.7.0](https://github.com/CAIIVS/raitap/compare/v0.6.2...v0.7.0) (2026-05-14)
 
 
