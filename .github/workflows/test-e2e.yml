@@ -79,3 +79,84 @@ jobs:
         # test modules whose deps (torchmetrics, etc.) aren't installed in
         # this minimal lane.
         run: uv run pytest src/raitap/robustness/tests/test_e2e_marabou_acas_xu.py -m e2e -v --tb=long
+
+  example-consumer-e2e-linux:
+    # Exercises the `example/` standalone-consumer seam end-to-end: bare
+    # `uv sync`, then the auto-deps bootstrap actually invoking `uv add`
+    # against the consumer's pyproject, re-execing under the sentinel, and
+    # finally driving the full pipeline through the `raitap` console-script
+    # entry. Covers the bootstrap+consumer-project bits the unit suite
+    # mocks out (subprocess in `test_bootstrap.py`, import-cleanliness
+    # only in `test_partial_extras_safe.py`).
+    name: "example/ consumer E2E (Linux)"
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      MPLBACKEND: Agg
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install uv (with wheel cache)
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "example/uv.lock"
+
+      - name: Cache torch hub weights + raitap sample data
+        # vit_b_32 weights (~350MB) + imagenet_samples (small) — both
+        # downloaded on first pipeline run, deterministic per cfg.
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/torch
+            ~/.cache/raitap
+          key: example-e2e-assets-v1-${{ hashFiles('example/assessment.yaml') }}
+          restore-keys: |
+            example-e2e-assets-v1-
+
+      - name: Prepare consumer pyproject for the CI host (runner-only)
+        # The committed `example/pyproject.toml` pins `torch-intel`
+        # (Intel-laptop default) plus the full extras set; that pin is
+        # right for end users but two things break it on a GPU-less x86
+        # GH runner:
+        #   1. `torch-intel` would pull ~200MB of IPEX wheels we never use
+        #      under `hardware=cpu`.
+        #   2. With every extra already pinned, the auto-deps bootstrap
+        #      diffs to an empty set and never invokes `uv add`/`os.execv`
+        #      — exactly the seam this job is meant to exercise.
+        # So: strip the extras + swap the torch backend in the workspace
+        # copy only. Never committed back.
+        working-directory: example
+        run: |
+          sed -i 's|"raitap\[.*\]"|"raitap"|' pyproject.toml
+          rm -f uv.lock
+          cat pyproject.toml
+
+      - name: Sync bare raitap into consumer venv
+        working-directory: example
+        run: uv sync
+
+      - name: Run example via console-script (auto-deps + re-exec live)
+        # `--allow-project-edit` consents to `uv add` mutating
+        # `example/pyproject.toml`; `hardware=cpu` is a Hydra override so
+        # we drive the CPU backend regardless of host probe. Tee logs so
+        # the next step can assert on bootstrap markers.
+        working-directory: example
+        run: |
+          set -o pipefail
+          uv run raitap --config-name assessment hardware=cpu --allow-project-edit 2>&1 | tee run.log
+
+      - name: Assert bootstrap actually fired
+        working-directory: example
+        run: |
+          grep -F "uv add" run.log
+          test -d outputs
+          find outputs -type f -name 'report*' | grep -q .
