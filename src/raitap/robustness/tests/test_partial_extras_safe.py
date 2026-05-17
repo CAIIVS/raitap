@@ -16,6 +16,9 @@ if TYPE_CHECKING:
 import pytest
 
 _WRAPPED_LIBS = (
+    "torch",
+    "torch.nn",
+    "torchvision",
     "torchattacks",
     "foolbox",
     "foolbox.attacks",

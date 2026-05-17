@@ -84,7 +84,23 @@ if TYPE_CHECKING:
 
 _SENTINEL = "_RAITAP_DEPS_BOOTSTRAPPED"
 _PREPROCESSING_EXEC_ENV_VAR = "RAITAP_ALLOW_PREPROCESSING_EXEC"
-_PYPROJECT = Path(__file__).resolve().parents[3] / "pyproject.toml"
+
+
+def _resolve_pyproject() -> Path:
+    # Two install layouts to support:
+    #   - Dev checkout: ``src/raitap/deps/bootstrap.py`` → parents[3] is the
+    #     repo root that owns ``pyproject.toml``.
+    #   - Wheel install: ``site-packages/raitap/deps/bootstrap.py`` → parents[3]
+    #     is ``Lib/`` (no pyproject). The wheel ships a copy at
+    #     ``raitap/_pyproject.toml`` (see the ``force-include`` block in the
+    #     top-level pyproject), so fall back to a package-relative path.
+    dev_path = Path(__file__).resolve().parents[3] / "pyproject.toml"
+    if dev_path.is_file():
+        return dev_path
+    return Path(__file__).resolve().parents[1] / "_pyproject.toml"
+
+
+_PYPROJECT = _resolve_pyproject()
 _DEFAULT_CONFIG_DIR = Path(__file__).resolve().parents[1] / "configs"
 _DEFAULT_CONFIG_NAME = "demo"
 

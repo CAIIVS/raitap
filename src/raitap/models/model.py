@@ -5,21 +5,26 @@ import pickle
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import torch
-from torch import nn
-from torchvision import models
-
 from raitap import raitap_log
 from raitap.configs import cfg_to_dict
 from raitap.data.metadata import shape_tuple
 from raitap.data.preprocessing import ResolvedPreprocessing, resolve_preprocessing
 from raitap.tracking.base_tracker import BaseTracker, Trackable
+from raitap.utils.lazy import lazy_import
 
 from .backend import ModelBackend, OnnxBackend, TorchBackend
 from .runtime import resolve_torch_device
 
 if TYPE_CHECKING:
+    import torch
+    from torch import nn
+    from torchvision import models
+
     from raitap.configs.schema import AppConfig
+else:
+    torch = lazy_import("torch")
+    nn = lazy_import("torch.nn")
+    models = lazy_import("torchvision.models")
 
 
 class Model(Trackable):

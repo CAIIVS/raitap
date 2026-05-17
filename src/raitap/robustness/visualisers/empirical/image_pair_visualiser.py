@@ -6,10 +6,15 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
 
 from raitap.robustness.visualisers.registration import register_robustness_visualiser
 from raitap.transparency.contracts import InputKind
+from raitap.utils.lazy import lazy_import
+
+if TYPE_CHECKING:
+    import torch
+else:
+    torch = lazy_import("torch")
 
 from ...contracts import MethodKind
 from ..base_visualiser import BaseRobustnessVisualiser

@@ -20,14 +20,18 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
-import torch
 from PIL import Image
 
 from raitap import raitap_log
 from raitap.data.utils import download_file
+from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    import torch
+else:
+    torch = lazy_import("torch")
 
 # ---------------------------------------------------------------------------
 # Registry of named demo datasets

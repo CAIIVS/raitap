@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
-import torch
+from typing import TYPE_CHECKING
 
 from raitap.pipeline.outputs import PredictionSummary
+from raitap.utils.lazy import lazy_import
+
+if TYPE_CHECKING:
+    import torch
+else:
+    torch = lazy_import("torch")
 
 
 def valid_targets_for_reporting(

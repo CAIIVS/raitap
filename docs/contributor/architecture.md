@@ -74,6 +74,11 @@ src/
     │   └── tracking/mlflow.yaml
     │
     ├── deps/                       # pre-pipeline dep inference + auto-sync (torch-free)
+    │   │                           # The "torch-free" promise is what unlocks bootstrap-from-zero
+    │   │                           # (bare `pip install raitap` → `raitap --demo`). It rests on
+    │   │                           # every adapter family `__init__` staying free of top-level
+    │   │                           # backend-lib imports — see `raitap.utils.lazy` for the contract
+    │   │                           # and `deps/tests/test_bootstrap_from_zero.py` for the guard.
     │   ├── bootstrap.py            # maybe_bootstrap(): top-level flow + case A/B/C/D dispatch
     │   ├── inference.py            # walks composed config, picks extras from `_target_` mapping
     │   ├── availability.py         # reads raitap pyproject for declared extras + platform markers

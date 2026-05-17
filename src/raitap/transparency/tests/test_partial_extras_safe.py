@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 import pytest
 
-_WRAPPED_LIBS = ("captum", "captum.attr", "shap")
+_WRAPPED_LIBS = ("torch", "torch.nn", "torchvision", "captum", "captum.attr", "shap")
 
 _ADAPTER_MODULES = (
     "raitap.transparency",

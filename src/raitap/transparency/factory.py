@@ -2,10 +2,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-import torch
 from hydra.utils import instantiate
 
 from raitap import raitap_log
+from raitap.utils.lazy import lazy_import
+
+if TYPE_CHECKING:
+    import torch
+else:
+    torch = lazy_import("torch")
 from raitap.configs import resolve_run_dir
 from raitap.configs.adapter_factory import (
     AdapterSchema,

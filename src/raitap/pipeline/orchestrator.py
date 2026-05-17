@@ -7,8 +7,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import torch
-
 from raitap import raitap_log
 from raitap.data import Data
 from raitap.data.preprocessing import resolve_preprocessing
@@ -24,10 +22,15 @@ from raitap.pipeline.ui import print_summary
 from raitap.reporting import build_report, create_report, reporting_enabled
 from raitap.reporting.sample_selection import resolve_report_sample_selection
 from raitap.tracking import BaseTracker
+from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
+    import torch
+
     from raitap.configs.schema import AppConfig
     from raitap.data.preprocessing import ResolvedPreprocessing
+else:
+    torch = lazy_import("torch")
 
 
 def run(config: AppConfig, *, verbose: bool = True) -> RunOutputs:

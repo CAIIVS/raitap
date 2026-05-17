@@ -38,16 +38,23 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-import torch
-from torch import nn
-from torchvision import models
-from torchvision.transforms import v2
-from torchvision.transforms._presets import ImageClassification, SemanticSegmentation
+from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    import torch
+    from torch import nn
+    from torchvision import models
+    from torchvision.transforms import _presets, v2
+
     from raitap.configs.schema import DataConfig, ModelConfig
+else:
+    torch = lazy_import("torch")
+    nn = lazy_import("torch.nn")
+    models = lazy_import("torchvision.models")
+    v2 = lazy_import("torchvision.transforms.v2")
+    _presets = lazy_import("torchvision.transforms._presets")
 
 _CONSENT_ENV_VAR = "RAITAP_ALLOW_PREPROCESSING_EXEC"
 _FACTORY_NAME = "make_preprocessing"
@@ -244,7 +251,7 @@ def _split_preset(preset: Any) -> tuple[nn.Module | None, nn.Module | None]:
       → both halves ``None``. Detection models normalise internally.
     - Anything else → fall back to model-side only.
     """
-    if isinstance(preset, ImageClassification):
+    if isinstance(preset, _presets.ImageClassification):
         data_half = nn.Sequential(
             v2.Resize(
                 list(preset.resize_size),
@@ -256,7 +263,7 @@ def _split_preset(preset: Any) -> tuple[nn.Module | None, nn.Module | None]:
         model_half = v2.Normalize(mean=list(preset.mean), std=list(preset.std))
         return data_half, model_half
 
-    if isinstance(preset, SemanticSegmentation):
+    if isinstance(preset, _presets.SemanticSegmentation):
         # Torchvision's segmentation preset stores ``resize_size`` as a
         # sequence (e.g. ``[520]``) which ``v2.Resize`` interprets as
         # shortest-edge resize that preserves aspect ratio. Pass it through
@@ -283,26 +290,37 @@ def _split_preset(preset: Any) -> tuple[nn.Module | None, nn.Module | None]:
     # Fallback for unrecognised presets — keep them at the model boundary so
     # behaviour at least matches the bundled preset, even if mixed-size dirs
     # would fail upstream.
-    return None, _PresetWrapper(preset)
+    return None, _preset_wrapper_cls()(preset)
 
 
 def _is_noop_preset(preset: Any) -> bool:
     return type(preset).__name__ == "ObjectDetection"
 
 
-class _PresetWrapper(nn.Module):
-    """Lift a torchvision transforms preset to an ``nn.Module``.
+_PRESET_WRAPPER_CLS: type | None = None
 
-    Subclassing ``nn.Module`` lets us compose with ``nn.Sequential(value,
-    backbone)`` so the wrap is invisible to autograd, attribution, and attacks.
-    """
 
-    def __init__(self, preset: Any) -> None:
-        super().__init__()
-        self.preset = preset
+def _preset_wrapper_cls() -> type:
+    # Lazy class factory — ``nn.Module`` as a base is evaluated at class-def
+    # time, which would force a real ``import torch`` at module load and break
+    # the partial-extras-venv contract (see ``raitap.utils.lazy``). The wrapper
+    # lifts a torchvision transforms preset to an ``nn.Module`` so it composes
+    # with ``nn.Sequential(value, backbone)``, transparent to autograd /
+    # attribution / attacks.
+    global _PRESET_WRAPPER_CLS
+    if _PRESET_WRAPPER_CLS is not None:
+        return _PRESET_WRAPPER_CLS
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.preset(x)
+    class _PresetWrapper(nn.Module):
+        def __init__(self, preset: Any) -> None:
+            super().__init__()
+            self.preset = preset
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            return self.preset(x)
+
+    _PRESET_WRAPPER_CLS = _PresetWrapper
+    return _PresetWrapper
 
 
 # ---------------------------------------------------------------------------

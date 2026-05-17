@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 import pytest
 
-_WRAPPED_LIBS = ("jinja2", "borb")
+_WRAPPED_LIBS = ("torch", "torch.nn", "torchvision", "jinja2", "borb")
 
 _ADAPTER_MODULES = (
     "raitap.reporting",

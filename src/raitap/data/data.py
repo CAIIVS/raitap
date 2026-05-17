@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
-import torch
 from PIL import Image
 
 from raitap import raitap_log
@@ -15,14 +14,19 @@ from raitap.data.preprocessing import module_as_per_image_callable, resolve_prep
 from raitap.data.types import IdStrategy, LabelEncoding
 from raitap.data.utils import download_file
 from raitap.tracking.base_tracker import BaseTracker, Trackable
+from raitap.utils.lazy import lazy_import
 
 from .samples import SAMPLE_SOURCES, _load_sample, resolve_sample_labels_path
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    import torch
+
     from raitap.configs.schema import AppConfig
     from raitap.data.preprocessing import ResolvedPreprocessing
+else:
+    torch = lazy_import("torch")
 
 
 _CACHE_DIR = Path.home() / ".cache" / "raitap"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-import torch
+from raitap.utils.lazy import lazy_import
 
 # Conservative default for prediction/metrics forwards. Transparency methods
 # have their own per-explainer ``transparency.*.raitap.batch_size`` controls.
@@ -12,7 +12,11 @@ _DEFAULT_FORWARD_BATCH_SIZE = 32
 
 
 if TYPE_CHECKING:
+    import torch
+
     from raitap.configs.schema import AppConfig
+else:
+    torch = lazy_import("torch")
 
 
 def _tensor_candidates_from_dict(
