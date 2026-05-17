@@ -265,6 +265,29 @@ def test_custom_file_data_factory_wrong_return_type(
         )
 
 
+def test_custom_file_rejects_factory_with_required_arguments(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """``make_preprocessing`` must be callable with no arguments. A factory
+    with required positional/keyword args is rejected before the import
+    side-effects are inherited by the model wrap.
+    """
+    monkeypatch.setenv(_ENV, "1")
+    fixture = tmp_path / "arity_mismatch.py"
+    fixture.write_text(
+        "from torch import nn\n"
+        "from torchvision.transforms import v2\n"
+        "\n"
+        "def make_preprocessing(arg) -> nn.Module:\n"
+        "    return v2.Normalize(mean=[0.0]*3, std=[1.0]*3)\n"
+    )
+    with pytest.raises(TypeError, match=r"must be callable with no arguments"):
+        resolve_preprocessing(
+            ModelConfig(source="resnet50"),
+            DataConfig(preprocessing=str(fixture)),
+        )
+
+
 def test_custom_file_rejects_shared_model_and_data_module(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

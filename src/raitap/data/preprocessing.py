@@ -35,10 +35,11 @@ from __future__ import annotations
 import functools
 import hashlib
 import importlib.util
+import inspect
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
 from raitap.data.types import Preprocessing
 from raitap.utils.lazy import lazy_import
@@ -66,6 +67,28 @@ _DATA_FACTORY_NAME = "make_data_preprocessing"
 _MODEL_BUNDLED_VALUE = Preprocessing.model_bundled.value
 
 Origin = Literal["off", "model-bundled", "custom-file"]
+
+
+@runtime_checkable
+class PreprocessingFactory(Protocol):
+    """Static contract for ``make_preprocessing`` / ``make_data_preprocessing``.
+
+    Users authoring a ``data.preprocessing: <path>.py`` file can annotate
+    their factory with this Protocol so type checkers catch
+    signature mistakes (extra positional args, wrong return type) before
+    the pipeline runs::
+
+        from raitap.data import PreprocessingFactory
+        from torch import nn
+
+        make_preprocessing: PreprocessingFactory = lambda: nn.Sequential(...)
+
+    The resolver also enforces the contract at runtime in
+    :func:`_build_user_factory`: zero required positional args + returns
+    an ``nn.Module``.
+    """
+
+    def __call__(self) -> nn.Module: ...
 
 
 @dataclass(frozen=True)
@@ -431,9 +454,43 @@ def _build_user_factory(
                 f"Export `def {factory_name}() -> nn.Module:` from the file."
             )
         return None
+    _validate_factory_signature(factory, factory_name=factory_name, path=path)
     result = factory()
     if not isinstance(result, nn.Module):
         raise TypeError(
             f"{path}: `{factory_name}()` must return an nn.Module, got {type(result).__name__}."
         )
     return result
+
+
+def _validate_factory_signature(factory: Any, *, factory_name: str, path: Path) -> None:
+    """Reject preprocessing factories that require positional arguments.
+
+    Builtins / C-extension callables raise ``ValueError`` from
+    ``inspect.signature`` — skip them; the subsequent ``factory()`` call
+    will surface any genuine arity mismatch with the underlying Python
+    ``TypeError``.
+    """
+    try:
+        signature = inspect.signature(factory)
+    except (TypeError, ValueError):
+        return
+    required = [
+        parameter
+        for parameter in signature.parameters.values()
+        if parameter.default is inspect.Parameter.empty
+        and parameter.kind
+        in {
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        }
+    ]
+    if required:
+        names = ", ".join(repr(parameter.name) for parameter in required)
+        raise TypeError(
+            f"{path}: `{factory_name}()` must be callable with no arguments, "
+            f"but it requires {names}. Drop the parameters (or give them defaults) "
+            f"and re-run. The factory is invoked by the pipeline as "
+            f"`{factory_name}()` — there is no place to thread arguments through."
+        )

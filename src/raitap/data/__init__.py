@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
     from .data import Data, load_numpy_from_source, load_tensor_from_source
     from .metadata import DataInputMetadata, infer_data_input_metadata
+    from .preprocessing import PreprocessingFactory
 
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     "LabelEncoding",
     "LabelsConfig",
     "Preprocessing",
+    "PreprocessingFactory",
     "infer_data_input_metadata",
     "load_numpy_from_source",
     "load_tensor_from_source",
@@ -45,6 +47,7 @@ _LAZY: dict[str, tuple[str, str]] = {
     "infer_data_input_metadata": ("raitap.data.metadata", "infer_data_input_metadata"),
     "DataConfig": ("raitap.configs.schema", "DataConfig"),
     "LabelsConfig": ("raitap.configs.schema", "LabelsConfig"),
+    "PreprocessingFactory": ("raitap.data.preprocessing", "PreprocessingFactory"),
 }
 
 
