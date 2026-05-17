@@ -339,3 +339,36 @@ def test_strip_deps_flags_does_not_export_acknowledge_off_when_absent(
     monkeypatch.delenv("RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF", raising=False)
     bootstrap._strip_deps_flags(["raitap", "--demo"])
     assert "RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF" not in os.environ
+
+
+def test_strip_deps_flags_strips_allow_unsafe_pickle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("RAITAP_ALLOW_UNSAFE_PICKLE", raising=False)
+    cleaned, flags = bootstrap._strip_deps_flags(
+        ["raitap", "--demo", "--allow-unsafe-pickle"]
+    )
+    assert cleaned == ["raitap", "--demo"]
+    assert flags.allow_unsafe_pickle is True
+
+
+def test_strip_deps_flags_exports_allow_unsafe_pickle_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("RAITAP_ALLOW_UNSAFE_PICKLE", raising=False)
+    bootstrap._strip_deps_flags(["raitap", "--allow-unsafe-pickle"])
+    try:
+        assert os.environ["RAITAP_ALLOW_UNSAFE_PICKLE"] == "1"
+    finally:
+        # ``_strip_deps_flags`` mutates ``os.environ`` directly; monkeypatch
+        # only tracks values it set, so clean up here to avoid leaking the
+        # consent into pickle-refusal tests elsewhere in the suite.
+        os.environ.pop("RAITAP_ALLOW_UNSAFE_PICKLE", None)
+
+
+def test_strip_deps_flags_does_not_export_allow_unsafe_pickle_when_absent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("RAITAP_ALLOW_UNSAFE_PICKLE", raising=False)
+    bootstrap._strip_deps_flags(["raitap", "--demo"])
+    assert "RAITAP_ALLOW_UNSAFE_PICKLE" not in os.environ

@@ -26,12 +26,6 @@ class ModelConfig:
     # before loading the state-dict. Usually ``False`` since weights come from
     # the state-dict itself.
     pretrained: bool = False
-    # Opt-in to loading checkpoints that require unsafe pickle deserialisation
-    # (i.e. pickled ``nn.Module`` files that fail ``weights_only=True``). This
-    # executes arbitrary code embedded in the file and MUST only be enabled for
-    # checkpoints from a fully trusted source. Default refuses such files and
-    # asks the user to re-save as a state-dict or TorchScript archive.
-    allow_unsafe_pickle: bool = False
 
 
 @dataclass

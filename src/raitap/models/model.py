@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import os
 import pickle
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -33,8 +34,9 @@ class Model(Trackable):
         config: AppConfig,
         *,
         resolved_preprocessing: ResolvedPreprocessing | None = None,
+        allow_unsafe_pickle: bool = False,
     ) -> None:
-        self.backend = self._load_model(config)
+        self.backend = self._load_model(config, allow_unsafe_pickle=allow_unsafe_pickle)
         self.resolved_preprocessing = _apply_preprocessing(
             self.backend,
             config,
@@ -44,7 +46,7 @@ class Model(Trackable):
         if shape_override is not None:
             self.backend.expected_input_shape = shape_override
 
-    def _load_model(self, config: AppConfig) -> ModelBackend:
+    def _load_model(self, config: AppConfig, *, allow_unsafe_pickle: bool = False) -> ModelBackend:
         source = config.model.source
         hardware = getattr(config, "hardware", "gpu")
         if not source:
@@ -58,7 +60,12 @@ class Model(Trackable):
         suffix = path.suffix.lower()
 
         if path.exists() or suffix:
-            return _load_from_path(path, model_cfg=config.model, hardware=hardware)
+            return _load_from_path(
+                path,
+                model_cfg=config.model,
+                hardware=hardware,
+                allow_unsafe_pickle=allow_unsafe_pickle,
+            )
 
         name = str(source).lower()
         if hasattr(models, name):
@@ -150,7 +157,13 @@ def _resolve_shape_override(config: Any) -> tuple[int | None, ...] | None:
     return (None, *non_batch)
 
 
-def _load_from_path(path: Path, *, model_cfg: Any, hardware: str) -> ModelBackend:
+def _load_from_path(
+    path: Path,
+    *,
+    model_cfg: Any,
+    hardware: str,
+    allow_unsafe_pickle: bool = False,
+) -> ModelBackend:
     """
     Load a model backend from a file path.
 
@@ -159,6 +172,9 @@ def _load_from_path(path: Path, *, model_cfg: Any, hardware: str) -> ModelBacken
         model_cfg: ``ModelConfig``-shaped object providing ``arch``,
             ``num_classes``, and ``pretrained`` for state-dict loading.
         hardware: Hardware label resolved into a device.
+        allow_unsafe_pickle: Explicit consent to deserialise a pickled
+            ``nn.Module`` checkpoint (executes arbitrary code embedded in
+            the file). Mirrors the ``--allow-unsafe-pickle`` CLI flag.
 
     Returns:
         Model backend ready for inference and explanation.
@@ -175,7 +191,12 @@ def _load_from_path(path: Path, *, model_cfg: Any, hardware: str) -> ModelBacken
 
     if path.suffix.lower() in {".pth", ".pt"}:
         device = resolve_torch_device(hardware)
-        module = _load_torch_module_from_path(path, model_cfg=model_cfg, device=device)
+        module = _load_torch_module_from_path(
+            path,
+            model_cfg=model_cfg,
+            device=device,
+            allow_unsafe_pickle=allow_unsafe_pickle,
+        )
         return TorchBackend(module, device=device)
 
     raise ValueError(
@@ -222,7 +243,13 @@ def _build_arch_from_config(model_cfg: Any) -> nn.Module:
     return factory(weights=weights, num_classes=num_classes)
 
 
-def _load_torch_module_from_path(path: Path, *, model_cfg: Any, device: torch.device) -> nn.Module:
+def _load_torch_module_from_path(
+    path: Path,
+    *,
+    model_cfg: Any,
+    device: torch.device,
+    allow_unsafe_pickle: bool = False,
+) -> nn.Module:
     scripted = _try_torchscript_load(path)
     if scripted is not None:
         scripted.to(device)
@@ -234,15 +261,19 @@ def _load_torch_module_from_path(path: Path, *, model_cfg: Any, device: torch.de
     # Pickled `nn.Module` checkpoints fail this with `pickle.UnpicklingError`
     # ("Weights only load failed ... Unsupported global ...") and require the
     # unsafe path, which executes arbitrary code embedded in the file. We
-    # refuse it unless the user has explicitly opted in via
-    # ``model.allow_unsafe_pickle``. Any other exception (corrupted archive,
-    # I/O error, version incompatibility) is re-raised as-is so the real
-    # failure mode is not masked by the unsafe-pickle guidance.
+    # refuse it unless the user has explicitly opted in via the
+    # ``allow_unsafe_pickle`` kwarg on :func:`raitap.run` (Python API) or the
+    # ``--allow-unsafe-pickle`` CLI flag (surfaced through the
+    # ``RAITAP_ALLOW_UNSAFE_PICKLE`` env var the bootstrap exports across
+    # re-exec). Any other exception (corrupted archive, I/O error, version
+    # incompatibility) is re-raised as-is so the real failure mode is not
+    # masked by the unsafe-pickle guidance.
+    consent = allow_unsafe_pickle or os.environ.get("RAITAP_ALLOW_UNSAFE_PICKLE") == "1"
     pickled_module = False
     try:
         obj: Any = torch.load(path, map_location="cpu", weights_only=True)
     except pickle.UnpicklingError as safe_load_error:
-        if not bool(getattr(model_cfg, "allow_unsafe_pickle", False)):
+        if not consent:
             raise ValueError(
                 f"Refusing to load {path}: the file requires unsafe pickle "
                 "deserialisation, which executes arbitrary code embedded in "
@@ -250,7 +281,8 @@ def _load_torch_module_from_path(path: Path, *, model_cfg: Any, device: torch.de
                 "(`torch.save(model.state_dict(), path)` plus model.arch + "
                 "model.num_classes in the config) or a TorchScript archive "
                 "(`torch.jit.save(scripted, path)`). If the source is fully "
-                "trusted, set `model.allow_unsafe_pickle: true` to override. "
+                "trusted, pass `allow_unsafe_pickle=True` to `raitap.run(...)` "
+                "or re-run the CLI with `--allow-unsafe-pickle`. "
                 f"Underlying error: {safe_load_error}"
             ) from safe_load_error
         pickled_module = True

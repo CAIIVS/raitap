@@ -37,21 +37,15 @@ myst:
   weights before loading the state-dict (`weights="DEFAULT"`). Usually
   `false` since the state-dict already supplies the weights.
 
-:option: allow_unsafe_pickle
-:allowed: bool
-:default: false
-:description: Opt in to loading checkpoints that require unsafe pickle
-  deserialisation (full `nn.Module` files saved via `torch.save(model, path)`).
-  This executes arbitrary code embedded in the file, so RAITAP refuses such
-  files by default. Only set `true` for checkpoints from a fully trusted
-  source. Prefer re-saving as a state-dict or TorchScript archive instead.
-
 :yaml:
 # Option A — full pickled nn.Module (deprecated, requires explicit opt-in;
-# only use for checkpoints from a fully trusted source):
+# only use for checkpoints from a fully trusted source). Loading such a
+# file executes arbitrary code embedded in the checkpoint, so consent must
+# be supplied at invocation time — there is no config key for it. Use the
+# `allow_unsafe_pickle=True` kwarg on `raitap.run(...)` (Python API) or
+# the `--allow-unsafe-pickle` CLI flag.
 model:
   source: "myModel.pth"
-  allow_unsafe_pickle: true
 
 # Option B — state_dict + arch (recommended):
 model:

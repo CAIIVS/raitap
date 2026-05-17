@@ -25,7 +25,6 @@ def _make_config(
     num_classes: int | None = None,
     pretrained: bool = False,
     hardware: str = "cpu",
-    allow_unsafe_pickle: bool = False,
 ) -> AppConfig:
     return cast(
         "AppConfig",
@@ -35,7 +34,6 @@ def _make_config(
                 arch=arch,
                 num_classes=num_classes,
                 pretrained=pretrained,
-                allow_unsafe_pickle=allow_unsafe_pickle,
             ),
             data=SimpleNamespace(
                 preprocessing=None,
@@ -60,20 +58,23 @@ class TestModelConstructor:
         model_path = tmp_path / "model.pth"
         torch.save(dummy_model, model_path)
 
-        config = _make_config(str(model_path), allow_unsafe_pickle=True)
+        config = _make_config(str(model_path))
         with pytest.warns(DeprecationWarning, match="pickled nn.Module"):
-            model = Model(config)
+            model = Model(config, allow_unsafe_pickle=True)
 
         assert isinstance(model.backend.as_model_for_explanation(), torch.nn.Module)
 
-    def test_model_refuses_pickled_module_without_opt_in(self, tmp_path: Path) -> None:
+    def test_model_refuses_pickled_module_without_opt_in(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("RAITAP_ALLOW_UNSAFE_PICKLE", raising=False)
         dummy_model = torch.nn.Linear(10, 5)
         model_path = tmp_path / "model.pth"
         torch.save(dummy_model, model_path)
 
         config = _make_config(str(model_path))
         with pytest.raises(ValueError, match=r"Refusing to load.*allow_unsafe_pickle"):
-            Model(config)
+            Model(config, allow_unsafe_pickle=False)
 
     def test_model_loads_from_state_dict(self, tmp_path: Path) -> None:
         from torchvision import models as tv_models

@@ -56,6 +56,7 @@ def run(
     exec_global: bool = False,
     acknowledge_preprocessing_off: bool = False,
     acknowledge_preprocessing_exec: bool = False,
+    allow_unsafe_pickle: bool = False,
 ) -> RunOutputs:
     """Run the full pipeline programmatically.
 
@@ -88,6 +89,9 @@ def run(
     ``acknowledge_preprocessing_exec=True`` is the explicit consent for
     ``data.preprocessing: <path>.py``, which executes arbitrary Python code
     from disk (CLI analogue: ``--allow-preprocessing-exec`` / ``-yp``).
+    ``allow_unsafe_pickle=True`` consents to loading pickled ``nn.Module``
+    checkpoints (executes arbitrary code embedded in the file; CLI
+    analogue: ``--allow-unsafe-pickle``).
     """
     if auto_install_deps:
         # Lazy import so callers who do not opt in don't pay for the
@@ -110,4 +114,5 @@ def run(
         verbose=verbose,
         acknowledge_preprocessing_off=acknowledge_preprocessing_off,
         acknowledge_preprocessing_exec=acknowledge_preprocessing_exec,
+        allow_unsafe_pickle=allow_unsafe_pickle,
     )

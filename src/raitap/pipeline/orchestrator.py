@@ -39,6 +39,7 @@ def run(
     verbose: bool = True,
     acknowledge_preprocessing_off: bool = False,
     acknowledge_preprocessing_exec: bool = False,
+    allow_unsafe_pickle: bool = False,
 ) -> RunOutputs:
     """Run the full assessment pipeline, including reporting and tracker logging.
 
@@ -52,9 +53,9 @@ def run(
         leaving phase-level progress logs under standard ``logging``
         control. ``logging`` itself is not reconfigured; programmatic callers
         wanting full silence should raise the root log level.
-    acknowledge_preprocessing_off / acknowledge_preprocessing_exec:
-        Forwarded to :func:`raitap.data.preprocessing.resolve_preprocessing`
-        — see :func:`raitap.run` for the user-facing semantics.
+    acknowledge_preprocessing_off / acknowledge_preprocessing_exec / allow_unsafe_pickle:
+        Forwarded to the preprocessing resolver and the :class:`Model`
+        loader — see :func:`raitap.run` for the user-facing semantics.
     """
     # Defer warnings emitted during model + data construction so the
     # summary panel renders first; otherwise the rich handler interleaves
@@ -66,7 +67,11 @@ def run(
             acknowledge_off=acknowledge_preprocessing_off,
             acknowledge_exec=acknowledge_preprocessing_exec,
         )
-        model = Model(config, resolved_preprocessing=resolved_preprocessing)
+        model = Model(
+            config,
+            resolved_preprocessing=resolved_preprocessing,
+            allow_unsafe_pickle=allow_unsafe_pickle,
+        )
         data = Data(config, resolved_preprocessing=resolved_preprocessing)
     _validate_report_sample_selection(config, data)
     if verbose:

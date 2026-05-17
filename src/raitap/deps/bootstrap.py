@@ -34,6 +34,8 @@ Flags consumed (and removed from ``sys.argv`` before Hydra sees it):
   config.
 - ``--acknowledge-preprocessing-off`` — silence the "preprocessing is OFF"
   warning when the caller has already normalised inputs upstream.
+- ``--allow-unsafe-pickle`` — consent to loading pickled ``nn.Module``
+  checkpoints, which executes arbitrary code embedded in the file.
 
 A sentinel env var prevents recursion when the re-exec'd process re-enters
 this module.
@@ -87,6 +89,7 @@ if TYPE_CHECKING:
 _SENTINEL = "_RAITAP_DEPS_BOOTSTRAPPED"
 _PREPROCESSING_EXEC_ENV_VAR = "RAITAP_ALLOW_PREPROCESSING_EXEC"
 _ACKNOWLEDGE_PREPROCESSING_OFF_ENV_VAR = "RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF"
+_ALLOW_UNSAFE_PICKLE_ENV_VAR = "RAITAP_ALLOW_UNSAFE_PICKLE"
 
 
 def _resolve_pyproject() -> Path:
@@ -134,6 +137,7 @@ class _DepFlags:
         "acknowledge_preprocessing_off",
         "allow_preprocessing_exec",
         "allow_project_edit",
+        "allow_unsafe_pickle",
         "custom",
         "dry_run",
         "exec_global",
@@ -148,6 +152,7 @@ class _DepFlags:
         self.exec_global = False
         self.allow_preprocessing_exec = False
         self.acknowledge_preprocessing_off = False
+        self.allow_unsafe_pickle = False
 
 
 def _strip_deps_flags(argv: list[str]) -> tuple[list[str], _DepFlags]:
@@ -169,15 +174,20 @@ def _strip_deps_flags(argv: list[str]) -> tuple[list[str], _DepFlags]:
                 flags.allow_preprocessing_exec = True
             case "--acknowledge-preprocessing-off":
                 flags.acknowledge_preprocessing_off = True
+            case "--allow-unsafe-pickle":
+                flags.allow_unsafe_pickle = True
             case _:
                 keep.append(a)
-    # Surface CLI consent to the post-Hydra resolver in data/preprocessing.py.
-    # Re-exec via subprocess inherits os.environ, so this propagates through
-    # cases A/C/D without modifying ``_exec``.
+    # Surface CLI consent to the post-Hydra resolver in data/preprocessing.py
+    # and the post-Hydra model loader in models/model.py. Re-exec via
+    # subprocess inherits os.environ, so this propagates through cases
+    # A/C/D without modifying ``_exec``.
     if flags.allow_preprocessing_exec:
         os.environ[_PREPROCESSING_EXEC_ENV_VAR] = "1"
     if flags.acknowledge_preprocessing_off:
         os.environ[_ACKNOWLEDGE_PREPROCESSING_OFF_ENV_VAR] = "1"
+    if flags.allow_unsafe_pickle:
+        os.environ[_ALLOW_UNSAFE_PICKLE_ENV_VAR] = "1"
     return keep, flags
 
 

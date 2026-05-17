@@ -358,7 +358,11 @@ def test_run_resolves_preprocessing_once_for_model_and_data(monkeypatch: MonkeyP
         acknowledge_off=False,
         acknowledge_exec=False,
     )
-    model_factory.assert_called_once_with(config, resolved_preprocessing=resolved_preprocessing)
+    model_factory.assert_called_once_with(
+        config,
+        resolved_preprocessing=resolved_preprocessing,
+        allow_unsafe_pickle=False,
+    )
     data_factory.assert_called_once_with(config, resolved_preprocessing=resolved_preprocessing)
     run_without_tracking.assert_called_once_with(
         config,
