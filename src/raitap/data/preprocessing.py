@@ -88,7 +88,8 @@ class PreprocessingFactory(Protocol):
     an ``nn.Module``.
     """
 
-    def __call__(self) -> nn.Module: ...
+    def __call__(self) -> nn.Module:
+        """Build and return the preprocessing module."""
 
 
 @dataclass(frozen=True)
