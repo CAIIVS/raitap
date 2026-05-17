@@ -120,7 +120,7 @@ Display names are not stable identity. RAITAP must not infer dataset, population
 
 ## Runtime flow
 
-Transparency runs after the forward pass in `src/raitap/pipeline/pipeline.py`. For each configured explainer:
+Transparency runs after the forward pass via `src/raitap/pipeline/phases/assess_transparency.py`. For each configured explainer:
 
 1. `Explanation(config, name, model, data)` instantiates the explainer and its visualisers via hydra-zen.
 2. `explainer.explain()` returns an `ExplanationResult` (for `AttributionOnlyExplainer`, after calling `compute_attributions()`).

@@ -46,7 +46,7 @@ metrics/
 
 ## Runtime flow
 
-`src/raitap/pipeline/pipeline.py` runs the forward pass, instantiates the configured metric computer, calls `update(predictions, targets)` per batch, then calls `compute()` and writes the three output files.
+`src/raitap/pipeline/phases/evaluate_metrics.py` runs after the forward pass, instantiates the configured metric computer via `src/raitap/metrics/factory.py::evaluate`, calls `update(predictions, targets)` per batch, then calls `compute()` and writes the three output files.
 
 ## Extension points
 

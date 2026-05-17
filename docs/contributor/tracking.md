@@ -21,7 +21,7 @@ Tracking is a backend plugin selected via the top-level `tracking._target_` fiel
 
 ## Runtime flow
 
-Tracking runs **after** the local assessment phase. In `src/raitap/pipeline/pipeline.py`, RAITAP first computes the forward pass, optional metrics, and optional transparency artifacts in the Hydra run directory. Only then, if tracking is enabled, it constructs the tracker and calls:
+Tracking runs **after** the local assessment phase. `src/raitap/pipeline/orchestrator.py` first runs the forward pass, optional metrics, and optional transparency artifacts in the Hydra run directory. Only then, if tracking is enabled, it constructs the tracker and calls:
 
 1. `log_config()`
 2. `log_model()` if `tracking.log_model=true`
