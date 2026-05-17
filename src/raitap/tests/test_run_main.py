@@ -352,9 +352,7 @@ def test_run_resolves_preprocessing_once_for_model_and_data(monkeypatch: MonkeyP
 
     assert result is fake_output
     resolve_preprocessing.assert_called_once_with(config.model, config.data)
-    model_factory.assert_called_once_with(
-        config, resolved_preprocessing=resolved_preprocessing
-    )
+    model_factory.assert_called_once_with(config, resolved_preprocessing=resolved_preprocessing)
     data_factory.assert_called_once_with(config, resolved_preprocessing=resolved_preprocessing)
     run_without_tracking.assert_called_once_with(
         config,

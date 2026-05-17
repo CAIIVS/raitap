@@ -1,3 +1,11 @@
+---
+title: "Image preprocessing"
+description: "Most pretrained image models expect their inputs to be normalized (resized, center-cropped, and rescaled with a model-specific mean and standard deviation)."
+myst:
+  html_meta:
+    "description": "Most pretrained image models expect their inputs to be normalized (resized, center-cropped, and rescaled with a model-specific mean and standard deviation)."
+---
+
 # Image preprocessing
 
 Most pretrained image models expect their inputs to be normalized (resized,
