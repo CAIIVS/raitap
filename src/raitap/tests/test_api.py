@@ -224,9 +224,7 @@ def test_model_accepts_externally_resolved_custom_file(
     cfg = _demo_app_config()
     cfg.data.preprocessing = str(FIXTURE)
 
-    resolved = resolve_preprocessing(
-        cfg.model, cfg.data, acknowledge_exec=True
-    )
+    resolved = resolve_preprocessing(cfg.model, cfg.data, acknowledge_exec=True)
     model = Model(cfg, resolved_preprocessing=resolved)
 
     assert model.resolved_preprocessing.origin == "custom-file"

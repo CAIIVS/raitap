@@ -345,9 +345,7 @@ def test_strip_deps_flags_strips_allow_unsafe_pickle(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("RAITAP_ALLOW_UNSAFE_PICKLE", raising=False)
-    cleaned, flags = bootstrap._strip_deps_flags(
-        ["raitap", "--demo", "--allow-unsafe-pickle"]
-    )
+    cleaned, flags = bootstrap._strip_deps_flags(["raitap", "--demo", "--allow-unsafe-pickle"])
     assert cleaned == ["raitap", "--demo"]
     assert flags.allow_unsafe_pickle is True
 

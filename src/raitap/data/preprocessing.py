@@ -175,9 +175,7 @@ def module_as_per_image_callable(
 # ---------------------------------------------------------------------------
 
 
-def _resolve_off(
-    data_cfg: DataConfig, *, acknowledge_off: bool = False
-) -> ResolvedPreprocessing:
+def _resolve_off(data_cfg: DataConfig, *, acknowledge_off: bool = False) -> ResolvedPreprocessing:
     warnings: list[str] = []
     if not _suppress_off_warning(data_cfg, acknowledge_off=acknowledge_off):
         warnings.append(_OFF_WARNING)

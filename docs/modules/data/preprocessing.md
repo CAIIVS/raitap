@@ -23,10 +23,16 @@ There are three options. Pick one.
 
 ## Option 1: Off (default)
 
-```yaml
+```{config-tabs}
+:yaml:
 data:
   source: ./data/images
   # no `preprocessing` key
+
+:python:
+from raitap.data import DataConfig
+
+data = DataConfig(source="./data/images")  # preprocessing defaults to None
 ```
 
 No preprocessing is applied; RAITAP forwards your images to the model
@@ -44,8 +50,12 @@ acknowledgement at invocation time — it is not a config-file option.
   `raitap.run(...)`.
 - **CLI**: re-run with `--acknowledge-preprocessing-off`:
 
-  ```bash
+  ```{install-tabs}
+  :uv:
   uv run raitap --config-name assessment --acknowledge-preprocessing-off
+
+  :pip:
+  raitap --config-name assessment --acknowledge-preprocessing-off
   ```
 
 **Requirement:** every image in your directory must already be the same
@@ -55,12 +65,23 @@ option 2 or option 3.
 
 ## Option 2: The model's bundled preprocessing
 
-```yaml
+```{config-tabs}
+:yaml:
 data:
   source: ./data/images
   preprocessing: model-bundled
 model:
   source: resnet50          # or any other built-in torchvision model
+
+:python:
+from raitap.data import DataConfig, Preprocessing
+from raitap.models import ModelConfig
+
+data = DataConfig(
+    source="./data/images",
+    preprocessing=Preprocessing.model_bundled,
+)
+model = ModelConfig(source="resnet50")  # or any other built-in torchvision model
 ```
 
 RAITAP looks up the preprocessing that ships with the model's pretrained
@@ -83,17 +104,30 @@ instead.
 
 ## Option 3: Your own preprocessing file
 
-```yaml
+```{config-tabs}
+:yaml:
 data:
   source: ./data/images
   preprocessing: ./preprocessing.py
+
+:python:
+from raitap.data import DataConfig
+
+data = DataConfig(
+    source="./data/images",
+    preprocessing="./preprocessing.py",
+)
 ```
 
 Then re-run with the consent flag (see the [Consent gate](#consent-gate)
 section below):
 
-```bash
+```{install-tabs}
+:uv:
 uv run raitap --config-name assessment --allow-preprocessing-exec
+
+:pip:
+raitap --config-name assessment --allow-preprocessing-exec
 ```
 
 RAITAP loads your Python file and calls its `make_preprocessing()` factory.
@@ -112,8 +146,12 @@ RAITAP refuses unless you opt in. Choose one:
   `raitap.run(...)`.
 - **CLI**: re-run with `--allow-preprocessing-exec` (short form `-yp`):
 
-  ```bash
+  ```{install-tabs}
+  :uv:
   uv run raitap --config-name assessment -yp
+
+  :pip:
+  raitap --config-name assessment -yp
   ```
 
 Without either, RAITAP refuses with a message pointing you back here.
@@ -146,6 +184,19 @@ The factory must:
   `v2.*` transforms. `Resize`, `CenterCrop`, and `Normalize` are the usual
   ingredients; the mean/std above are ImageNet values, replace them with
   your dataset's statistics if you trained on something else.
+
+The contract is also exposed as a `Protocol` so type checkers (Pyright,
+mypy) flag arity or return-type mistakes before the pipeline runs:
+
+```python
+from raitap.data import PreprocessingFactory
+
+_check: PreprocessingFactory = make_preprocessing
+```
+
+At runtime RAITAP enforces the same contract: a factory that declares
+required positional/keyword args, or returns something other than an
+`nn.Module`, raises `TypeError` before the module is wrapped.
 
 The example above reproduces standard ImageNet preprocessing — equivalent to
 option 2 for any ImageNet-pretrained model. Adapt it (different crop size,
