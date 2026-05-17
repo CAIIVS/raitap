@@ -90,6 +90,7 @@ class PreprocessingFactory(Protocol):
 
     def __call__(self) -> nn.Module:
         """Build and return the preprocessing module."""
+        raise NotImplementedError
 
 
 @dataclass(frozen=True)
