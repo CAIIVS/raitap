@@ -40,7 +40,7 @@ from omegaconf.errors import MissingMandatoryValue
 
 from raitap import raitap_log
 from raitap.configs.utils import cfg_to_dict, resolve_target
-from raitap.data import load_tensor_from_source
+from raitap.data.data import load_tensor_from_source
 from raitap.data.preprocessing import (
     ResolvedPreprocessing,
     module_as_per_image_callable,
