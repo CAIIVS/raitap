@@ -10,10 +10,10 @@ myst:
 
 Most pretrained image models expect their inputs to be normalized (resized,
 center-cropped, and rescaled with a model-specific mean and standard
-deviation). Raitap does **not** preprocess your images by default — if you
+deviation). RAITAP does **not** preprocess your images by default — if you
 hand a pretrained model raw `[0, 1]` tensors when it was trained on
 ImageNet-normalized inputs, accuracy can silently collapse. The
-`data.preprocessing` option lets you pick which preprocessing raitap applies
+`data.preprocessing` option lets you pick which preprocessing RAITAP applies
 before the model sees a sample.
 
 There are three options. Pick one.
@@ -26,7 +26,7 @@ data:
   # no `preprocessing` key
 ```
 
-No preprocessing is applied; raitap forwards your images to the model
+No preprocessing is applied; RAITAP forwards your images to the model
 unchanged. At startup you see a loud warning telling you metrics may be
 incorrect.
 
@@ -57,7 +57,7 @@ model:
   source: resnet50          # or any other built-in torchvision model
 ```
 
-Raitap looks up the preprocessing that ships with the model's pretrained
+RAITAP looks up the preprocessing that ships with the model's pretrained
 weights (Resize, CenterCrop, and Normalize with the mean/std the model was
 trained with) and applies it before every forward pass.
 
@@ -84,7 +84,7 @@ data:
   acknowledge_preprocessing_exec: true     # required (see below)
 ```
 
-Raitap loads your Python file and calls its `make_preprocessing()` factory.
+RAITAP loads your Python file and calls its `make_preprocessing()` factory.
 The returned module is applied before every forward pass.
 
 **Use this when** you need non-standard preprocessing — custom mean/std,
@@ -94,7 +94,7 @@ bundled preprocessing is unavailable.
 ### Consent gate
 
 Loading `./preprocessing.py` executes arbitrary Python code from disk, so
-raitap refuses unless you opt in. Choose one:
+RAITAP refuses unless you opt in. Choose one:
 
 - **Python API**: set `data.acknowledge_preprocessing_exec: true` on your
   config.
@@ -104,7 +104,7 @@ raitap refuses unless you opt in. Choose one:
   uv run raitap --config-name assessment -yp
   ```
 
-Without either, raitap refuses with a message pointing you back here.
+Without either, RAITAP refuses with a message pointing you back here.
 
 ### What your file must look like
 
@@ -140,7 +140,7 @@ option 2 for any ImageNet-pretrained model. Adapt it (different crop size,
 your own mean/std, extra augmentations turned off at eval time) to fit your
 model.
 
-Raitap records the path and a content hash of your file so changes between
+RAITAP records the path and a content hash of your file so changes between
 runs show up in your tracking history.
 
 ### Mixed-size folders with option 3
