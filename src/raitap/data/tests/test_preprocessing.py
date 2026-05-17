@@ -10,6 +10,7 @@ import torch
 from torch import nn
 
 from raitap.configs.schema import DataConfig, ModelConfig
+from raitap.data import Preprocessing
 from raitap.data.preprocessing import ResolvedPreprocessing, resolve_preprocessing
 
 FIXTURE = Path(__file__).parent / "fixtures" / "preproc_imagenet.py"
@@ -97,6 +98,23 @@ def test_model_bundled_via_arch(monkeypatch: pytest.MonkeyPatch) -> None:
     assert isinstance(result.model_module, nn.Module)
     assert "ResNet50_Weights" in result.description
     assert "DEFAULT" in result.description
+
+
+def test_model_bundled_accepts_preprocessing_enum_member(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Python API: ``DataConfig(preprocessing=Preprocessing.model_bundled)``
+    must resolve identically to the raw ``"model-bundled"`` string. Guards
+    that the enum value stays in sync with the resolver constant.
+    """
+    monkeypatch.delenv(_ENV, raising=False)
+    result = resolve_preprocessing(
+        ModelConfig(arch="resnet50"),
+        DataConfig(preprocessing=Preprocessing.model_bundled),
+    )
+    assert result.origin == "model-bundled"
+    assert isinstance(result.data_module, nn.Module)
+    assert isinstance(result.model_module, nn.Module)
     # data_module reshapes per-image: Resize(232) + CenterCrop(224).
     shaped = result.data_module(torch.zeros(3, 300, 400))
     assert shaped.shape == (3, 224, 224)

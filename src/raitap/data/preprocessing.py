@@ -40,6 +40,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
+from raitap.data.types import Preprocessing
 from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
@@ -62,7 +63,7 @@ _CONSENT_ENV_VAR = "RAITAP_ALLOW_PREPROCESSING_EXEC"
 _ACKNOWLEDGE_OFF_ENV_VAR = "RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF"
 _FACTORY_NAME = "make_preprocessing"
 _DATA_FACTORY_NAME = "make_data_preprocessing"
-_MODEL_BUNDLED_VALUE = "model-bundled"
+_MODEL_BUNDLED_VALUE = Preprocessing.model_bundled.value
 
 Origin = Literal["off", "model-bundled", "custom-file"]
 

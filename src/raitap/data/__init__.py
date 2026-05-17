@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from .types import IdStrategy, LabelEncoding
+from .types import IdStrategy, LabelEncoding, Preprocessing
 
 if TYPE_CHECKING:
     from raitap.configs.schema import DataConfig, LabelsConfig
@@ -29,6 +29,7 @@ __all__ = [
     "IdStrategy",
     "LabelEncoding",
     "LabelsConfig",
+    "Preprocessing",
     "infer_data_input_metadata",
     "load_numpy_from_source",
     "load_tensor_from_source",

@@ -134,14 +134,20 @@ data:
 :cli: data.source="./data/images" data.preprocessing=model-bundled data.labels.source="./data/labels.csv" data.labels.column=label
 
 :python:
-from raitap.data import DataConfig, IdStrategy, LabelEncoding, LabelsConfig
+from raitap.data import (
+    DataConfig,
+    IdStrategy,
+    LabelEncoding,
+    LabelsConfig,
+    Preprocessing,
+)
 
 data = DataConfig(
     name="my-dataset",
     description="Internal validation set",
     source="./data/images",
     forward_batch_size=32,
-    preprocessing="model-bundled",
+    preprocessing=Preprocessing.model_bundled,
     labels=LabelsConfig(
         source="./data/labels.csv",
         id_column="image",
