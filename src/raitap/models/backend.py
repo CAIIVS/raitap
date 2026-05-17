@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, overload
@@ -171,18 +172,13 @@ class TorchBackend(ModelBackend):
         return self.model
 
 
-_ONNX_EXPLANATION_MODULE_CLS: type | None = None
-
-
+@functools.cache
 def _onnx_explanation_module_cls() -> type:
     # Class definition is deferred: ``nn.Module`` as a base class is evaluated
     # at class-def time, which would trigger a real ``import torch`` and break
     # the partial-extras-venv contract (see ``raitap.utils.lazy``). Building it
     # lazily means the family ``__init__`` chain stays torch-free for the deps
     # bootstrap; the first ``OnnxBackend`` instance trips this factory once.
-    global _ONNX_EXPLANATION_MODULE_CLS
-    if _ONNX_EXPLANATION_MODULE_CLS is not None:
-        return _ONNX_EXPLANATION_MODULE_CLS
 
     class _OnnxExplanationModule(nn.Module):
         def __init__(self, backend: OnnxBackend) -> None:
@@ -198,7 +194,6 @@ def _onnx_explanation_module_cls() -> type:
                 )
             return output
 
-    _ONNX_EXPLANATION_MODULE_CLS = _OnnxExplanationModule
     return _OnnxExplanationModule
 
 

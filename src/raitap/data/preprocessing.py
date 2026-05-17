@@ -31,6 +31,7 @@ for emitting the user-facing panel / warning via ``raitap_log``.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import importlib.util
 import os
@@ -297,9 +298,7 @@ def _is_noop_preset(preset: Any) -> bool:
     return type(preset).__name__ == "ObjectDetection"
 
 
-_PRESET_WRAPPER_CLS: type | None = None
-
-
+@functools.cache
 def _preset_wrapper_cls() -> type:
     # Lazy class factory — ``nn.Module`` as a base is evaluated at class-def
     # time, which would force a real ``import torch`` at module load and break
@@ -307,9 +306,6 @@ def _preset_wrapper_cls() -> type:
     # lifts a torchvision transforms preset to an ``nn.Module`` so it composes
     # with ``nn.Sequential(value, backbone)``, transparent to autograd /
     # attribution / attacks.
-    global _PRESET_WRAPPER_CLS
-    if _PRESET_WRAPPER_CLS is not None:
-        return _PRESET_WRAPPER_CLS
 
     class _PresetWrapper(nn.Module):
         def __init__(self, preset: Any) -> None:
@@ -319,7 +315,6 @@ def _preset_wrapper_cls() -> type:
         def forward(self, x: torch.Tensor) -> torch.Tensor:
             return self.preset(x)
 
-    _PRESET_WRAPPER_CLS = _PresetWrapper
     return _PresetWrapper
 
 
