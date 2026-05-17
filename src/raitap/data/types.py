@@ -34,7 +34,7 @@ class IdStrategy(StrEnum):
 
 
 class Preprocessing(StrEnum):
-    """Named values for :attr:`raitap.configs.schema.DataConfig.preprocessing`.
+    """Named values for ``DataConfig.preprocessing``.
 
     Custom-file preprocessing is selected by passing a path string directly
     — it is not enumerated here. ``None`` (the default) means preprocessing

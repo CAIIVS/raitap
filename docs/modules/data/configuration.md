@@ -43,9 +43,9 @@ myst:
   forwards inputs unchanged with a warning; `"model-bundled"` uses the
   model's pretrained Resize/CenterCrop/Normalize; a `.py` path runs your
   `make_preprocessing()` factory. The "preprocessing is OFF" warning is
-  silenced via the `acknowledge_preprocessing_off` kwarg on
-  {py:func}`raitap.run` or the `--acknowledge-preprocessing-off` CLI flag;
-  the `.py` path requires the `acknowledge_preprocessing_exec` kwarg or the
+  silenced via the `acknowledge_preprocessing_off` kwarg on `raitap.run()`
+  or the `--acknowledge-preprocessing-off` CLI flag; the `.py` path
+  requires the `acknowledge_preprocessing_exec` kwarg or the
   `--allow-preprocessing-exec` / `-yp` CLI flag. See {doc}`preprocessing`
   for details.
 
