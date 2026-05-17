@@ -98,9 +98,10 @@ successfully (each image becomes 224×224 for the standard ImageNet preset).
 The Normalize step then runs at the model boundary on every forward pass.
 
 **Requirements:** either `model.arch` is set (e.g. `arch: resnet50`) or
-`model.source` is the name of a built-in torchvision model. For ONNX models
-or models loaded from a file with no torchvision lineage, use option 3
-instead.
+`model.source` is the name of a built-in torchvision model. Option 2 is
+torchvision-lineage only: it does not read preprocessing bundled into ONNX
+exports, and it is unsupported for ONNX models or model files with no
+torchvision lineage. Use option 3 instead.
 
 ## Option 3: Your own preprocessing file
 
@@ -136,6 +137,11 @@ The returned module is applied before every forward pass.
 **Use this when** you need non-standard preprocessing — custom mean/std,
 non-ImageNet inputs, a different crop size, extra steps, or a model whose
 bundled preprocessing is unavailable.
+
+For ONNX models, option 3 participates in RAITAP's normal tensor/model call
+path: the Python preprocessing module runs before RAITAP calls the ONNX
+backend. The low-level `OnnxBackend.forward_numpy(...)` API remains raw and
+does not apply Python preprocessing on its own.
 
 ### Consent gate
 

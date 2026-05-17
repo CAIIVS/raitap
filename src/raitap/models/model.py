@@ -95,9 +95,9 @@ def _apply_preprocessing(
     :func:`raitap.data.data._load_data` before stacking, so by the time we
     see the model, inputs already have a uniform shape.
 
-    ONNX models are not wrapped here — the resolver still reports the chosen
-    option for transparency, but a non-None ``model_module`` on an ONNX
-    backend raises so the user knows to pre-normalize externally.
+    ONNX custom-file modules are attached to the backend's tensor call path.
+    Model-bundled ONNX preprocessing remains unsupported because there is no
+    torchvision weights lineage to derive the preset from.
     """
     resolved = (
         resolved_preprocessing
@@ -107,12 +107,15 @@ def _apply_preprocessing(
 
     if resolved.model_module is not None:
         if isinstance(backend, OnnxBackend):
-            raise NotImplementedError(
-                "data.preprocessing is not yet supported for ONNX models. "
-                "Pre-normalize your inputs externally, or convert the model "
-                "to PyTorch (.pt / .pth / TorchScript)."
-            )
-        if isinstance(backend, TorchBackend):
+            if resolved.origin != "custom-file":
+                raise NotImplementedError(
+                    "data.preprocessing='model-bundled' is not yet supported "
+                    "for ONNX models. Use Option 3 with a custom-file, for "
+                    "example data.preprocessing: ./preprocessing.py."
+                )
+            model_module = copy.deepcopy(resolved.model_module)
+            backend.set_preprocessing(model_module)
+        elif isinstance(backend, TorchBackend):
             # ``to`` and ``eval`` mutate nn.Module instances; keep the
             # ResolvedPreprocessing record stable for later readers.
             model_module = copy.deepcopy(resolved.model_module).to(backend.device)
