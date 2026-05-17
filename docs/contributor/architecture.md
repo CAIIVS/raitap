@@ -29,7 +29,7 @@ flowchart TB
   D1 -->|re-exec| D
   D --> E[raitap.pipeline.__main__]
   E --> F["@hydra.main composes config"]
-  F --> G[raitap.pipeline.pipeline.run]
+  F --> G[raitap.pipeline.orchestrator.run]
   G --> H[forward · metrics · transparency · robustness]
   H --> I[reporting + tracking]
 ```
