@@ -51,7 +51,7 @@ class _BackendStub:
 def _run_config(**kwargs: object) -> SimpleNamespace:
     defaults: dict[str, object] = {
         "model": SimpleNamespace(source="resnet50"),
-        "data": SimpleNamespace(preprocessing=None, acknowledge_preprocessing_off=True),
+        "data": SimpleNamespace(preprocessing=None),
         "experiment_name": "test",
     }
     defaults.update(kwargs)
@@ -352,7 +352,12 @@ def test_run_resolves_preprocessing_once_for_model_and_data(monkeypatch: MonkeyP
     result = run_module.run(config)  # type: ignore[arg-type]
 
     assert result is fake_output
-    resolve_preprocessing.assert_called_once_with(config.model, config.data)
+    resolve_preprocessing.assert_called_once_with(
+        config.model,
+        config.data,
+        acknowledge_off=False,
+        acknowledge_exec=False,
+    )
     model_factory.assert_called_once_with(config, resolved_preprocessing=resolved_preprocessing)
     data_factory.assert_called_once_with(config, resolved_preprocessing=resolved_preprocessing)
     run_without_tracking.assert_called_once_with(

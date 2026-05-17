@@ -37,13 +37,16 @@ incorrect.
 your dataloader emits normalized tensors), or when your data is not images at
 all (tabular, time-series — the warning is auto-suppressed for these).
 
-To silence the warning for an already-preprocessed image dataset:
+To silence the warning for an already-preprocessed image dataset, pass the
+acknowledgement at invocation time — it is not a config-file option.
 
-```yaml
-data:
-  source: ./data/images
-  acknowledge_preprocessing_off: true
-```
+- **Python API**: pass `acknowledge_preprocessing_off=True` to
+  `raitap.run(...)`.
+- **CLI**: re-run with `--acknowledge-preprocessing-off`:
+
+  ```bash
+  uv run raitap --config-name assessment --acknowledge-preprocessing-off
+  ```
 
 **Requirement:** every image in your directory must already be the same
 height and width. The loader stacks them into a single batch tensor and
@@ -84,7 +87,13 @@ instead.
 data:
   source: ./data/images
   preprocessing: ./preprocessing.py
-  acknowledge_preprocessing_exec: true     # required (see below)
+```
+
+Then re-run with the consent flag (see the [Consent gate](#consent-gate)
+section below):
+
+```bash
+uv run raitap --config-name assessment --allow-preprocessing-exec
 ```
 
 RAITAP loads your Python file and calls its `make_preprocessing()` factory.
@@ -99,8 +108,8 @@ bundled preprocessing is unavailable.
 Loading `./preprocessing.py` executes arbitrary Python code from disk, so
 RAITAP refuses unless you opt in. Choose one:
 
-- **Python API**: set `data.acknowledge_preprocessing_exec: true` on your
-  config.
+- **Python API**: pass `acknowledge_preprocessing_exec=True` to
+  `raitap.run(...)`.
 - **CLI**: re-run with `--allow-preprocessing-exec` (short form `-yp`):
 
   ```bash

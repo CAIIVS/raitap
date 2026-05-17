@@ -39,8 +39,6 @@ def _make_config(
             ),
             data=SimpleNamespace(
                 preprocessing=None,
-                acknowledge_preprocessing_off=True,
-                acknowledge_preprocessing_exec=False,
                 input_metadata=None,
             ),
             hardware=hardware,

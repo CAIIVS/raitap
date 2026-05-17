@@ -54,6 +54,8 @@ def run(
     output_root: str | Path | None = None,
     auto_install_deps: bool = False,
     exec_global: bool = False,
+    acknowledge_preprocessing_off: bool = False,
+    acknowledge_preprocessing_exec: bool = False,
 ) -> RunOutputs:
     """Run the full pipeline programmatically.
 
@@ -78,6 +80,14 @@ def run(
     already installed (the typical case after the CLI bootstrap or a
     manual ``uv sync``); a missing adapter library surfaces as the usual
     ``ModuleNotFoundError`` from the adapter import chain.
+
+    ``acknowledge_preprocessing_off=True`` silences the "preprocessing is
+    OFF" warning when ``data.preprocessing`` is unset and the caller has
+    already normalised inputs upstream (CLI analogue:
+    ``--acknowledge-preprocessing-off``).
+    ``acknowledge_preprocessing_exec=True`` is the explicit consent for
+    ``data.preprocessing: <path>.py``, which executes arbitrary Python code
+    from disk (CLI analogue: ``--allow-preprocessing-exec`` / ``-yp``).
     """
     if auto_install_deps:
         # Lazy import so callers who do not opt in don't pay for the
@@ -95,4 +105,9 @@ def run(
         output_root = Path("outputs") / now.strftime("%Y-%m-%d") / now.strftime("%H-%M-%S")
     if output_root is not None:
         set_output_root(config, output_root)
-    return _orchestrator_run(config, verbose=verbose)
+    return _orchestrator_run(
+        config,
+        verbose=verbose,
+        acknowledge_preprocessing_off=acknowledge_preprocessing_off,
+        acknowledge_preprocessing_exec=acknowledge_preprocessing_exec,
+    )

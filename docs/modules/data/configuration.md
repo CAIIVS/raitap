@@ -42,20 +42,12 @@ myst:
 :description: Image preprocessing applied before the forward pass. `null`
   forwards inputs unchanged with a warning; `"model-bundled"` uses the
   model's pretrained Resize/CenterCrop/Normalize; a `.py` path runs your
-  `make_preprocessing()` factory. See {doc}`preprocessing` for details.
-
-:option: acknowledge_preprocessing_off
-:allowed: bool
-:default: false
-:description: Silences the "preprocessing is OFF" warning when `null` is
-  intentional. See {doc}`preprocessing`.
-
-:option: acknowledge_preprocessing_exec
-:allowed: bool
-:default: false
-:description: Opt-in for `preprocessing: <path>.py` (executes arbitrary
-  code). CLI alias: `--allow-preprocessing-exec` / `-yp`. See
-  {doc}`preprocessing`.
+  `make_preprocessing()` factory. The "preprocessing is OFF" warning is
+  silenced via the `acknowledge_preprocessing_off` kwarg on
+  {py:func}`raitap.run` or the `--acknowledge-preprocessing-off` CLI flag;
+  the `.py` path requires the `acknowledge_preprocessing_exec` kwarg or the
+  `--allow-preprocessing-exec` / `-yp` CLI flag. See {doc}`preprocessing`
+  for details.
 
 :option: labels.source
 :allowed: string, null

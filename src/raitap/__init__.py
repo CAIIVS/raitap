@@ -41,6 +41,8 @@ if TYPE_CHECKING:
         output_root: str | None = None,
         auto_install_deps: bool = False,
         exec_global: bool = False,
+        acknowledge_preprocessing_off: bool = False,
+        acknowledge_preprocessing_exec: bool = False,
     ) -> RunOutputs: ...
 
 

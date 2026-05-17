@@ -13,7 +13,8 @@ Three options (see :class:`raitap.configs.schema.DataConfig.preprocessing`):
                            and call its ``make_preprocessing()`` factory (model
                            side). Optionally also calls ``make_data_preprocessing()``
                            when the file exports it (data-loader side). Gated by
-                           ``data.acknowledge_preprocessing_exec`` (Python API) or
+                           the ``acknowledge_preprocessing_exec`` kwarg on
+                           :func:`raitap.run` (Python API) or
                            ``--allow-preprocessing-exec``/``-yp`` (CLI, surfaced
                            through the ``RAITAP_ALLOW_PREPROCESSING_EXEC`` env var).
 
@@ -58,6 +59,7 @@ else:
     _presets = lazy_import("torchvision.transforms._presets")
 
 _CONSENT_ENV_VAR = "RAITAP_ALLOW_PREPROCESSING_EXEC"
+_ACKNOWLEDGE_OFF_ENV_VAR = "RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF"
 _FACTORY_NAME = "make_preprocessing"
 _DATA_FACTORY_NAME = "make_data_preprocessing"
 _MODEL_BUNDLED_VALUE = "model-bundled"
@@ -89,15 +91,27 @@ class ResolvedPreprocessing:
 def resolve_preprocessing(
     model_cfg: ModelConfig,
     data_cfg: DataConfig,
+    *,
+    acknowledge_off: bool = False,
+    acknowledge_exec: bool = False,
 ) -> ResolvedPreprocessing:
     """Resolve ``data_cfg.preprocessing`` into a :class:`ResolvedPreprocessing`.
 
     No side effects. Callers emit the panel / warnings.
+
+    ``acknowledge_off`` silences the "preprocessing is OFF" warning for callers
+    who have already normalised inputs; mirrors the
+    ``--acknowledge-preprocessing-off`` CLI flag. ``acknowledge_exec`` is the
+    explicit consent for the ``preprocessing: <path>.py`` option; mirrors the
+    ``--allow-preprocessing-exec``/``-yp`` CLI flag. Either flag may also be
+    delivered through its env var (``RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF`` /
+    ``RAITAP_ALLOW_PREPROCESSING_EXEC``) — that is the bridge the CLI uses
+    across its bootstrap re-exec.
     """
     raw = getattr(data_cfg, "preprocessing", None)
 
     if raw is None or (isinstance(raw, str) and not raw.strip()):
-        return _resolve_off(data_cfg)
+        return _resolve_off(data_cfg, acknowledge_off=acknowledge_off)
 
     if not isinstance(raw, str):
         raise TypeError(
@@ -108,7 +122,7 @@ def resolve_preprocessing(
     if raw == _MODEL_BUNDLED_VALUE:
         return _resolve_model_bundled(model_cfg)
 
-    return _resolve_custom_file(raw, data_cfg)
+    return _resolve_custom_file(raw, data_cfg, acknowledge_exec=acknowledge_exec)
 
 
 def module_as_per_image_callable(
@@ -137,9 +151,11 @@ def module_as_per_image_callable(
 # ---------------------------------------------------------------------------
 
 
-def _resolve_off(data_cfg: DataConfig) -> ResolvedPreprocessing:
+def _resolve_off(
+    data_cfg: DataConfig, *, acknowledge_off: bool = False
+) -> ResolvedPreprocessing:
     warnings: list[str] = []
-    if not _suppress_off_warning(data_cfg):
+    if not _suppress_off_warning(data_cfg, acknowledge_off=acknowledge_off):
         warnings.append(_OFF_WARNING)
     return ResolvedPreprocessing(
         data_module=None,
@@ -150,8 +166,8 @@ def _resolve_off(data_cfg: DataConfig) -> ResolvedPreprocessing:
     )
 
 
-def _suppress_off_warning(data_cfg: DataConfig) -> bool:
-    if bool(getattr(data_cfg, "acknowledge_preprocessing_off", False)):
+def _suppress_off_warning(data_cfg: DataConfig, *, acknowledge_off: bool = False) -> bool:
+    if acknowledge_off or os.environ.get(_ACKNOWLEDGE_OFF_ENV_VAR) == "1":
         return True
     input_metadata = getattr(data_cfg, "input_metadata", None)
     if input_metadata is None:
@@ -174,7 +190,7 @@ def _suppress_off_warning(data_cfg: DataConfig) -> bool:
 
 _OFF_WARNING = (
     "Image preprocessing is OFF.\n"
-    "Raitap is forwarding your images to the model unchanged.\n"
+    "RAITAP is forwarding your images to the model unchanged.\n"
     "Most pretrained image models expect normalized inputs — without\n"
     "preprocessing, your accuracy results may be silently incorrect.\n"
     "\n"
@@ -186,8 +202,8 @@ _OFF_WARNING = (
     "      preprocessing: ./preprocessing.py        # supply your own\n"
     "\n"
     "If you've already preprocessed your images, silence this message:\n"
-    "    data:\n"
-    "      acknowledge_preprocessing_off: true"
+    "  - Python API:   pass acknowledge_preprocessing_off=True to raitap.run(...)\n"
+    "  - CLI:          re-run with --acknowledge-preprocessing-off"
 )
 
 
@@ -323,7 +339,9 @@ def _preset_wrapper_cls() -> type:
 # ---------------------------------------------------------------------------
 
 
-def _resolve_custom_file(raw_path: str, data_cfg: DataConfig) -> ResolvedPreprocessing:
+def _resolve_custom_file(
+    raw_path: str, data_cfg: DataConfig, *, acknowledge_exec: bool = False
+) -> ResolvedPreprocessing:
     path = Path(raw_path).expanduser().resolve()
     if not path.exists():
         raise FileNotFoundError(
@@ -336,14 +354,14 @@ def _resolve_custom_file(raw_path: str, data_cfg: DataConfig) -> ResolvedPreproc
             f"Use 'model-bundled' or a Python file path."
         )
 
-    if not _consent_given(data_cfg):
+    if not _consent_given(acknowledge_exec=acknowledge_exec):
         raise PermissionError(
             f"Refusing to run {raw_path} because it is arbitrary Python code.\n"
             "\n"
             "To allow it, choose one:\n"
             "  - CLI:          re-run with --allow-preprocessing-exec (short: -yp)\n"
-            "  - Python API:   set data.acknowledge_preprocessing_exec: true "
-            "on your config\n"
+            "  - Python API:   pass acknowledge_preprocessing_exec=True to "
+            "raitap.run(...)\n"
             "\n"
             "If you only need standard ImageNet preprocessing, use the model's\n"
             "bundled preprocessing instead:\n"
@@ -374,8 +392,8 @@ def _resolve_custom_file(raw_path: str, data_cfg: DataConfig) -> ResolvedPreproc
     )
 
 
-def _consent_given(data_cfg: DataConfig) -> bool:
-    if bool(getattr(data_cfg, "acknowledge_preprocessing_exec", False)):
+def _consent_given(*, acknowledge_exec: bool = False) -> bool:
+    if acknowledge_exec:
         return True
     return os.environ.get(_CONSENT_ENV_VAR) == "1"
 

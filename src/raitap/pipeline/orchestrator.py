@@ -33,7 +33,13 @@ else:
     torch = lazy_import("torch")
 
 
-def run(config: AppConfig, *, verbose: bool = True) -> RunOutputs:
+def run(
+    config: AppConfig,
+    *,
+    verbose: bool = True,
+    acknowledge_preprocessing_off: bool = False,
+    acknowledge_preprocessing_exec: bool = False,
+) -> RunOutputs:
     """Run the full assessment pipeline, including reporting and tracker logging.
 
     Parameters
@@ -46,12 +52,20 @@ def run(config: AppConfig, *, verbose: bool = True) -> RunOutputs:
         leaving phase-level progress logs under standard ``logging``
         control. ``logging`` itself is not reconfigured; programmatic callers
         wanting full silence should raise the root log level.
+    acknowledge_preprocessing_off / acknowledge_preprocessing_exec:
+        Forwarded to :func:`raitap.data.preprocessing.resolve_preprocessing`
+        — see :func:`raitap.run` for the user-facing semantics.
     """
     # Defer warnings emitted during model + data construction so the
     # summary panel renders first; otherwise the rich handler interleaves
     # them above the banner and makes the run header look fragmented.
     with raitap_log.deferred():
-        resolved_preprocessing = resolve_preprocessing(config.model, config.data)
+        resolved_preprocessing = resolve_preprocessing(
+            config.model,
+            config.data,
+            acknowledge_off=acknowledge_preprocessing_off,
+            acknowledge_exec=acknowledge_preprocessing_exec,
+        )
         model = Model(config, resolved_preprocessing=resolved_preprocessing)
         data = Data(config, resolved_preprocessing=resolved_preprocessing)
     _validate_report_sample_selection(config, data)

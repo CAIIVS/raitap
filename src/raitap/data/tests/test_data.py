@@ -205,7 +205,6 @@ class TestDataPreprocessing:
                     name="test",
                     source=source,
                     preprocessing=preprocessing,
-                    acknowledge_preprocessing_off=True,
                     labels=LabelsConfig(),
                 ),
                 hardware=Hardware.cpu,

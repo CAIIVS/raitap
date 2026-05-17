@@ -32,6 +32,8 @@ Flags consumed (and removed from ``sys.argv`` before Hydra sees it):
 - ``--allow-preprocessing-exec`` / ``-yp`` — consent to executing a
   user-supplied ``data.preprocessing`` Python file after Hydra composes the
   config.
+- ``--acknowledge-preprocessing-off`` — silence the "preprocessing is OFF"
+  warning when the caller has already normalised inputs upstream.
 
 A sentinel env var prevents recursion when the re-exec'd process re-enters
 this module.
@@ -84,6 +86,7 @@ if TYPE_CHECKING:
 
 _SENTINEL = "_RAITAP_DEPS_BOOTSTRAPPED"
 _PREPROCESSING_EXEC_ENV_VAR = "RAITAP_ALLOW_PREPROCESSING_EXEC"
+_ACKNOWLEDGE_PREPROCESSING_OFF_ENV_VAR = "RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF"
 
 
 def _resolve_pyproject() -> Path:
@@ -128,6 +131,7 @@ def _split_error_message(msg: str) -> list[str]:
 
 class _DepFlags:
     __slots__ = (
+        "acknowledge_preprocessing_off",
         "allow_preprocessing_exec",
         "allow_project_edit",
         "custom",
@@ -143,6 +147,7 @@ class _DepFlags:
         self.allow_project_edit = False
         self.exec_global = False
         self.allow_preprocessing_exec = False
+        self.acknowledge_preprocessing_off = False
 
 
 def _strip_deps_flags(argv: list[str]) -> tuple[list[str], _DepFlags]:
@@ -162,6 +167,8 @@ def _strip_deps_flags(argv: list[str]) -> tuple[list[str], _DepFlags]:
                 flags.exec_global = True
             case "--allow-preprocessing-exec" | "-yp":
                 flags.allow_preprocessing_exec = True
+            case "--acknowledge-preprocessing-off":
+                flags.acknowledge_preprocessing_off = True
             case _:
                 keep.append(a)
     # Surface CLI consent to the post-Hydra resolver in data/preprocessing.py.
@@ -169,6 +176,8 @@ def _strip_deps_flags(argv: list[str]) -> tuple[list[str], _DepFlags]:
     # cases A/C/D without modifying ``_exec``.
     if flags.allow_preprocessing_exec:
         os.environ[_PREPROCESSING_EXEC_ENV_VAR] = "1"
+    if flags.acknowledge_preprocessing_off:
+        os.environ[_ACKNOWLEDGE_PREPROCESSING_OFF_ENV_VAR] = "1"
     return keep, flags
 
 

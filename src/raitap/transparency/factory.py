@@ -18,9 +18,9 @@ from raitap.configs.adapter_factory import (
     instantiate_adapter,
     instantiate_visualisers,
     parse_adapter_config,
-    resolve_per_image_transform,
     raw_config_dict,
     resolve_call_data_sources,
+    resolve_per_image_transform,
 )
 from raitap.models.backend import ModelBackend
 

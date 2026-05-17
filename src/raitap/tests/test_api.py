@@ -171,8 +171,9 @@ def test_programmatic_custom_file_refuses_without_consent(
 
     The CLI bootstrap sets ``RAITAP_ALLOW_PREPROCESSING_EXEC`` from
     ``--allow-preprocessing-exec``; ``raitap.run(config)`` skips that
-    bootstrap, so consent must come from ``DataConfig.acknowledge_preprocessing_exec``.
-    With neither set, the resolver must raise rather than silently exec
+    bootstrap, so consent must come from the
+    ``acknowledge_preprocessing_exec`` kwarg on :func:`raitap.run`. With
+    neither set, the resolver must raise rather than silently exec
     arbitrary Python from disk.
     """
     monkeypatch.delenv("RAITAP_ALLOW_PREPROCESSING_EXEC", raising=False)
@@ -180,7 +181,6 @@ def test_programmatic_custom_file_refuses_without_consent(
         name="imagenet_samples",
         source="imagenet_samples",
         preprocessing=str(FIXTURE),
-        acknowledge_preprocessing_exec=False,
     )
     model_cfg = ModelConfig(source="vit_b_32")
 
@@ -189,42 +189,45 @@ def test_programmatic_custom_file_refuses_without_consent(
     assert "acknowledge_preprocessing_exec" in str(excinfo.value)
 
 
-def test_programmatic_custom_file_accepts_with_config_field(
+def test_programmatic_custom_file_accepts_with_kwarg(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``acknowledge_preprocessing_exec=True`` alone unlocks the custom-file path.
+    """``resolve_preprocessing(..., acknowledge_exec=True)`` unlocks the custom-file path.
 
     Guards parity with the CLI's env-var consent: the Python API must accept
-    consent expressed on the config object even when the env var is unset.
+    consent expressed via the explicit kwarg even when the env var is unset.
     """
     monkeypatch.delenv("RAITAP_ALLOW_PREPROCESSING_EXEC", raising=False)
     data_cfg = DataConfig(
         name="imagenet_samples",
         source="imagenet_samples",
         preprocessing=str(FIXTURE),
-        acknowledge_preprocessing_exec=True,
     )
     model_cfg = ModelConfig(source="vit_b_32")
 
-    resolved = resolve_preprocessing(model_cfg, data_cfg)
+    resolved = resolve_preprocessing(model_cfg, data_cfg, acknowledge_exec=True)
     assert resolved.origin == "custom-file"
 
 
-def test_programmatic_run_passes_consent_via_appconfig_field(
+def test_model_accepts_externally_resolved_custom_file(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """End-to-end: ``AppConfig.data.acknowledge_preprocessing_exec`` reaches the resolver.
+    """``Model`` accepts a :class:`ResolvedPreprocessing` built externally.
 
-    Smoke test that ``Model(cfg)`` — the entry point ``raitap.run`` drives —
-    honours the field on the user-facing config object, not just the
-    resolver's direct surface.
+    The orchestrator resolves preprocessing once with consent and hands the
+    result to :class:`Model`; this guards that ``Model(cfg,
+    resolved_preprocessing=…)`` honours the supplied resolution instead of
+    re-resolving without consent. Exercises the propagation surface
+    :func:`raitap.run` relies on.
     """
     monkeypatch.delenv("RAITAP_ALLOW_PREPROCESSING_EXEC", raising=False)
     cfg = _demo_app_config()
     cfg.data.preprocessing = str(FIXTURE)
-    cfg.data.acknowledge_preprocessing_exec = True
 
-    model = Model(cfg)
+    resolved = resolve_preprocessing(
+        cfg.model, cfg.data, acknowledge_exec=True
+    )
+    model = Model(cfg, resolved_preprocessing=resolved)
 
     assert model.resolved_preprocessing.origin == "custom-file"
     sha = model.resolved_preprocessing.file_sha256

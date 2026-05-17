@@ -33,11 +33,12 @@ def test_off_no_preprocessing_key_warns(monkeypatch: pytest.MonkeyPatch) -> None
     assert "preprocessing is OFF" in result.warnings[0]
 
 
-def test_off_suppression_via_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_off_suppression_via_kwarg(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(_ENV, raising=False)
     result = resolve_preprocessing(
         ModelConfig(source="resnet50"),
-        DataConfig(acknowledge_preprocessing_off=True),
+        DataConfig(),
+        acknowledge_off=True,
     )
     assert result.origin == "off"
     assert result.warnings == []
@@ -167,10 +168,7 @@ def test_custom_file_consent_via_env_var(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setenv(_ENV, "1")
     result = resolve_preprocessing(
         ModelConfig(source="resnet50"),
-        DataConfig(
-            preprocessing=str(FIXTURE),
-            acknowledge_preprocessing_exec=False,
-        ),
+        DataConfig(preprocessing=str(FIXTURE)),
     )
     assert result.origin == "custom-file"
     assert isinstance(result.model_module, nn.Module)
@@ -182,14 +180,12 @@ def test_custom_file_consent_via_env_var(monkeypatch: pytest.MonkeyPatch) -> Non
     assert result.file_path == FIXTURE.resolve()
 
 
-def test_custom_file_consent_via_config_field(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_custom_file_consent_via_kwarg(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(_ENV, raising=False)
     result = resolve_preprocessing(
         ModelConfig(source="resnet50"),
-        DataConfig(
-            preprocessing=str(FIXTURE),
-            acknowledge_preprocessing_exec=True,
-        ),
+        DataConfig(preprocessing=str(FIXTURE)),
+        acknowledge_exec=True,
     )
     assert result.origin == "custom-file"
     assert isinstance(result.model_module, nn.Module)

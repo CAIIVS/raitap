@@ -213,14 +213,16 @@ Two consent mechanisms exist, and `_consent_given()` accepts either:
 | Path         | Mechanism                                                                                                              |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------- |
 | CLI          | `--allow-preprocessing-exec` / `-yp` parsed by `_strip_deps_flags` in `src/raitap/deps/bootstrap.py`; on hit, bootstrap sets `os.environ["RAITAP_ALLOW_PREPROCESSING_EXEC"] = "1"` before Hydra |
-| Programmatic | `data.acknowledge_preprocessing_exec: bool = False` field on `DataConfig` (`src/raitap/configs/schema.py`)             |
+| Programmatic | `acknowledge_preprocessing_exec: bool = False` kwarg on `raitap.run` (`src/raitap/api.py`), threaded through the orchestrator to `resolve_preprocessing(..., acknowledge_exec=...)`            |
 
 Both are required because `raitap.run(config)` (`src/raitap/api.py`) bypasses
 the bootstrap layer entirely — a CLI-only gate would silently allow exec on
-the programmatic path. This mirrors `model.allow_unsafe_pickle` (PR #157),
-which is also schema-side for the same reason.
+the programmatic path. The off-warning suppressor mirrors this shape:
+`--acknowledge-preprocessing-off` on CLI (env var
+`RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF`), `acknowledge_preprocessing_off=True`
+kwarg on `raitap.run` programmatically.
 
-The env var is also re-exported through `_exec` so dep-bootstrap re-execs
+The env vars are also re-exported through `_exec` so dep-bootstrap re-execs
 preserve consent across the sub-process boundary.
 
 ### `ResolvedPreprocessing` shape

@@ -8,6 +8,7 @@ import pytest
 import torch
 import torch.nn as nn
 
+from raitap.data.preprocessing import resolve_preprocessing
 from raitap.models import Model, runtime
 from raitap.models.backend import (
     OnnxBackend,
@@ -94,8 +95,6 @@ def _make_config(
                     (),
                     {
                         "preprocessing": None,
-                        "acknowledge_preprocessing_off": True,
-                        "acknowledge_preprocessing_exec": False,
                         "input_metadata": None,
                     },
                 )(),
@@ -933,13 +932,11 @@ class TestModelPreprocessingWrap:
             "AppConfig",
             AppConfig(
                 model=ModelConfig(source="resnet18"),
-                data=DataConfig(
-                    preprocessing=str(fixture),
-                    acknowledge_preprocessing_exec=True,
-                ),
+                data=DataConfig(preprocessing=str(fixture)),
             ),
         )
-        model = Model(cfg)
+        resolved = resolve_preprocessing(cfg.model, cfg.data, acknowledge_exec=True)
+        model = Model(cfg, resolved_preprocessing=resolved)
 
         assert model.resolved_preprocessing.origin == "custom-file"
         assert isinstance(model.backend, TorchBackend)

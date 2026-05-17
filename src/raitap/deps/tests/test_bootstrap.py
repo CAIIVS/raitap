@@ -312,3 +312,30 @@ def test_strip_deps_flags_combines_y_and_yp(monkeypatch: pytest.MonkeyPatch) -> 
     assert cleaned == ["raitap"]
     assert flags.allow_project_edit is True
     assert flags.allow_preprocessing_exec is True
+
+
+def test_strip_deps_flags_strips_acknowledge_preprocessing_off(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF", raising=False)
+    cleaned, flags = bootstrap._strip_deps_flags(
+        ["raitap", "--demo", "--acknowledge-preprocessing-off"]
+    )
+    assert cleaned == ["raitap", "--demo"]
+    assert flags.acknowledge_preprocessing_off is True
+
+
+def test_strip_deps_flags_exports_acknowledge_off_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF", raising=False)
+    bootstrap._strip_deps_flags(["raitap", "--acknowledge-preprocessing-off"])
+    assert os.environ["RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF"] == "1"
+
+
+def test_strip_deps_flags_does_not_export_acknowledge_off_when_absent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF", raising=False)
+    bootstrap._strip_deps_flags(["raitap", "--demo"])
+    assert "RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF" not in os.environ
