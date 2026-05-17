@@ -84,10 +84,10 @@ class BaseAssessor(AdapterMixin, ABC):
         Passes when the backend supports torch autograd, OR when the assessor's
         selected algorithm is in ``ONNX_COMPATIBLE_ALGORITHMS`` (set by the
         decorator's ``onnx_compatible_algorithms`` kwarg). Otherwise raises
-        :class:`AssessorBackendIncompatibilityError`. Override only if your
-        assessor has a backend contract that doesn't fit this pattern (e.g.
-        :class:`raitap.robustness.assessors.MarabouAssessor` uses this hook
-        for per-call setup rather than backend validation).
+        :class:`raitap.robustness.exceptions.AssessorBackendIncompatibilityError`.
+        Override only if your assessor has a backend contract that doesn't fit
+        this pattern (e.g. ``MarabouAssessor`` uses this hook for per-call
+        setup rather than backend validation).
         """
         if getattr(backend, "supports_torch_autograd", False):
             return

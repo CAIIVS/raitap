@@ -60,7 +60,8 @@ class BaseExplainer(AdapterMixin, ABC):
         Passes when the backend supports torch autograd, OR when the explainer's
         selected algorithm is in ``ONNX_COMPATIBLE_ALGORITHMS`` (set by the
         decorator's ``onnx_compatible_algorithms`` kwarg). Otherwise raises
-        :class:`ExplainerBackendIncompatibilityError`. Override only if your
+        :class:`raitap.transparency.exceptions.ExplainerBackendIncompatibilityError`.
+        Override only if your
         explainer has a backend contract that doesn't fit this pattern.
         """
         from ..exceptions import ExplainerBackendIncompatibilityError
