@@ -1,3 +1,11 @@
+---
+title: "Supported tracking backends"
+description: "The tracking module logs experiment metadata, metrics, and artifacts to external backends."
+myst:
+  html_meta:
+    "description": "The tracking module logs experiment metadata, metrics, and artifacts to external backends."
+---
+
 # Supported tracking backends
 
 The tracking module logs experiment metadata, metrics, and artifacts to external backends.

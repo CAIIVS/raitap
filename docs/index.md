@@ -1,3 +1,15 @@
+---
+title: "RAITAP — Responsible AI Toolkit Assessment Pipeline"
+description: "RAITAP is a Python library to assess the responsibility level of AI models. It is designed to be easily integrated into existing MLOps workflows."
+myst:
+  html_meta:
+    "description": "RAITAP is a Python library to assess the responsibility level of AI models. It is designed to be easily integrated into existing MLOps workflows."
+    "keywords": "responsible AI, AI assessment, transparency, robustness, explainability, MLOps, Hydra, Captum, SHAP, torchattacks, Python"
+    "og:type": "website"
+    "og:title": "RAITAP — Responsible AI Toolkit Assessment Pipeline"
+    "og:description": "Python library to assess transparency and robustness of AI models in MLOps workflows."
+---
+
 <p>
   <img src="https://github.com/user-attachments/assets/9de86f66-f85d-47b4-9bce-7ca10bb14406" alt="RAITAP" width="400">
 </p>
@@ -41,6 +53,7 @@ using-raitap/configuration/index
 using-raitap/understanding-outputs
 using-raitap/installation
 using-raitap/job-launcher
+using-raitap/examples/index
 ```
 
 ```{toctree}

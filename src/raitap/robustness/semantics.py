@@ -1,19 +1,19 @@
 """Semantic builders for robustness assessors.
 
 Per-algorithm registries live on each adapter as
-``algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]`` —
-see :class:`raitap.registry_base.WithAlgorithmRegistry`. This module
-contains only the framework-agnostic mechanics that consume those
-registries.
+``algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]``,
+validated at decoration time via
+``ROBUSTNESS.has_algorithm_registry=True``. This module contains only the
+framework-agnostic mechanics that consume those registries.
 """
 
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from raitap.registry_base import WithAlgorithmRegistry
 from raitap.transparency.contracts import InputSpec, SampleSelection
 from raitap.transparency.semantics import infer_input_spec
 
@@ -29,7 +29,7 @@ from .contracts import (
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Sequence
 
 
 @dataclass(frozen=True)
@@ -52,8 +52,8 @@ _TARGET_KWARG_KEYS: frozenset[str] = frozenset(
 def hints_for_assessor(assessor: object) -> AssessorSemanticsHints:
     """Resolve the registry hints for a configured assessor.
 
-    Reads the adapter's ``algorithm_registry`` ClassVar (enforced by the
-    :class:`raitap.registry_base.WithAlgorithmRegistry` interface).
+    Reads the adapter's ``algorithm_registry`` ClassVar (enforced by
+    ``ROBUSTNESS.has_algorithm_registry=True`` at decoration time).
     """
     algorithm = str(getattr(assessor, "algorithm", ""))
     if not algorithm:
@@ -61,12 +61,15 @@ def hints_for_assessor(assessor: object) -> AssessorSemanticsHints:
             f"Assessor {type(assessor).__name__!r} has no ``algorithm`` attribute. "
             "Set the YAML ``algorithm:`` field (e.g. ``algorithm: PGD``)."
         )
-    if not isinstance(assessor, WithAlgorithmRegistry):
+    registry: Mapping[str, AssessorSemanticsHints] | None = getattr(
+        type(assessor), "algorithm_registry", None
+    )
+    if not isinstance(registry, Mapping):
         raise TypeError(
-            f"Assessor {type(assessor).__name__!r} must extend WithAlgorithmRegistry "
-            "and declare an ``algorithm_registry`` ClassVar."
+            f"Assessor {type(assessor).__name__!r} must declare an "
+            "``algorithm_registry`` ClassVar (set by the @register_robustness_adapter "
+            "decoration contract)."
         )
-    registry: Mapping[str, AssessorSemanticsHints] = type(assessor).algorithm_registry
     try:
         return registry[algorithm]
     except KeyError as error:

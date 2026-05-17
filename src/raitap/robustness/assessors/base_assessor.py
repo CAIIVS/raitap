@@ -25,8 +25,6 @@ import torch
 from raitap import raitap_log
 from raitap._adapters import AdapterMixin
 from raitap.configs import resolve_run_dir
-from raitap.configs.schema import RobustnessConfig
-from raitap.registry_base import WithAlgorithmRegistry
 
 from ..contracts import (
     MethodKind,
@@ -44,38 +42,26 @@ from ..results import (
     RobustnessResult,
     encode_verdicts,
 )
-from ..semantics import assessor_semantics
+from ..semantics import AssessorSemanticsHints, assessor_semantics
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
 
     from torch import nn
-
-    # AssessorSemanticsHints is referenced as a string forward-ref in
-    # ``WithAlgorithmRegistry["AssessorSemanticsHints"]`` below. Pyright
-    # resolves string generics, so the symbol must be importable in this
-    # scope even though it is never used at runtime.
-    from ..semantics import AssessorSemanticsHints  # noqa: F401
 
 _VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
 
 
-class BaseAssessor(
-    WithAlgorithmRegistry["AssessorSemanticsHints"],
-    AdapterMixin,
-    abstract=True,
-    group="robustness",
-    schema=RobustnessConfig,
-    strip_suffixes=("Assessor",),
-):
+class BaseAssessor(AdapterMixin, ABC):
     """Root base class for all robustness assessors.
 
-    Concrete subclasses must declare ``algorithm_registry: ClassVar[Mapping[str,
-    AssessorSemanticsHints]]`` per the
-    :class:`raitap.registry_base.WithAlgorithmRegistry` contract.
-    Intermediate abstract classes opt out via ``abstract=True``.
+    Concrete subclasses must declare ``algorithm_registry`` as a class-body
+    ClassVar — pyright errors at the decoration site if missing (the
+    ``@register_robustness_adapter`` decorator's ``algorithm_registry`` kwarg
+    is ``Required``).
     """
 
+    algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]
     method_kind: ClassVar[MethodKind]
     threat_model_default: ClassVar[ThreatModel] = ThreatModel.WHITE_BOX
     objective_default: ClassVar[Objective] = Objective.UNTARGETED
@@ -88,9 +74,43 @@ class BaseAssessor(
     #: metadata always matches what the adapter executed.
     budget_kwarg_source: ClassVar[str] = "init_kwargs"
 
+    #: Adapter-specific; defaults to "no ONNX support". The
+    #: ``@register_robustness_adapter`` decorator overrides per-adapter.
+    ONNX_COMPATIBLE_ALGORITHMS: ClassVar[frozenset[str]] = frozenset()
+
     def check_backend_compat(self, backend: object) -> None:
-        del backend
-        return None
+        """Default: enforce the ONNX-allowlist contract.
+
+        Passes when the backend supports torch autograd, OR when the assessor's
+        selected algorithm is in ``ONNX_COMPATIBLE_ALGORITHMS`` (set by the
+        decorator's ``onnx_compatible_algorithms`` kwarg). Otherwise raises
+        :class:`raitap.robustness.exceptions.AssessorBackendIncompatibilityError`.
+        Override only if your assessor has a backend contract that doesn't fit
+        this pattern (e.g. ``MarabouAssessor`` uses this hook for per-call
+        setup rather than backend validation).
+        """
+        if getattr(backend, "supports_torch_autograd", False):
+            return
+        algorithm = getattr(self, "algorithm", "")
+        compatible: frozenset[str] = type(self).ONNX_COMPATIBLE_ALGORITHMS
+        if algorithm in compatible:
+            return
+        reason = (
+            f"{type(self).__name__} requires a backend that supports torch "
+            "autograd. Use a torch backend (e.g. torch-cpu / torch-cuda / "
+            "torch-intel) rather than ONNX."
+            if not compatible
+            else (
+                f"{type(self).__name__} algorithm {algorithm!r} is not in the "
+                f"ONNX-compatible set {sorted(compatible)!r}."
+            )
+        )
+        raise AssessorBackendIncompatibilityError(
+            assessor=type(self).__name__,
+            backend=type(backend).__name__,
+            algorithm=str(algorithm),
+            reason=reason,
+        )
 
 
 def _resolve_per_sample_target(
@@ -124,7 +144,7 @@ def _per_sample_norm(delta: torch.Tensor, norm: PerturbationNorm) -> torch.Tenso
     raise ValueError(f"Unsupported perturbation norm {norm!r}.")
 
 
-class EmpiricalAttackAssessor(BaseAssessor, ABC, abstract=True):
+class EmpiricalAttackAssessor(BaseAssessor, ABC):
     """Empirical attack adapter: subclass implements one method, framework does the rest."""
 
     method_kind: ClassVar[MethodKind] = MethodKind.EMPIRICAL_ATTACK
@@ -303,7 +323,7 @@ class EmpiricalAttackAssessor(BaseAssessor, ABC, abstract=True):
         return torch.cat(chunks, dim=0)
 
 
-class FormalVerificationAssessor(BaseAssessor, ABC, abstract=True):
+class FormalVerificationAssessor(BaseAssessor, ABC):
     """Formal-verification adapter: subclass implements per-sample ``verify_sample``."""
 
     method_kind: ClassVar[MethodKind] = MethodKind.FORMAL_VERIFICATION

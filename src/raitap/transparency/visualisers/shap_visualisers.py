@@ -23,6 +23,7 @@ from raitap.transparency.contracts import (
 )
 
 from .base_visualiser import BaseVisualiser
+from .registration import register_transparency_visualiser
 
 if TYPE_CHECKING:
     import torch
@@ -210,6 +211,7 @@ class _TabularSummaryContractMixin(BaseVisualiser):
 # ---------------------------------------------------------------------------
 
 
+@register_transparency_visualiser(registry_name="shap_bar")
 class ShapBarVisualiser(_TabularSummaryContractMixin):
     """
     Mean absolute SHAP value bar chart via ``shap.summary_plot(plot_type='bar')``.
@@ -266,6 +268,7 @@ class ShapBarVisualiser(_TabularSummaryContractMixin):
         return fig
 
 
+@register_transparency_visualiser(registry_name="shap_beeswarm")
 class ShapBeeswarmVisualiser(_TabularSummaryContractMixin):
     """
     SHAP beeswarm summary plot via ``shap.summary_plot()``.
@@ -314,6 +317,7 @@ class ShapBeeswarmVisualiser(_TabularSummaryContractMixin):
         return fig
 
 
+@register_transparency_visualiser(registry_name="shap_waterfall")
 class ShapWaterfallVisualiser(BaseVisualiser):
     """
     Per-sample SHAP waterfall chart via ``shap.plots.waterfall``.
@@ -381,6 +385,7 @@ class ShapWaterfallVisualiser(BaseVisualiser):
         return _close_and_return(fig)
 
 
+@register_transparency_visualiser(registry_name="shap_force")
 class ShapForceVisualiser(BaseVisualiser):
     """
     Per-sample SHAP force plot via ``shap.plots.force`` (matplotlib backend).
@@ -443,6 +448,7 @@ class ShapForceVisualiser(BaseVisualiser):
 # ---------------------------------------------------------------------------
 
 
+@register_transparency_visualiser(registry_name="shap_image")
 class ShapImageVisualiser(BaseVisualiser):
     """
     Render image-level SHAP attributions with Matplotlib.

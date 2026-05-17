@@ -1,3 +1,7 @@
+---
+title: "raitap.models"
+---
+
 # `raitap.models`
 
 ```{eval-rst}

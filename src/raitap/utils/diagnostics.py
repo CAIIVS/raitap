@@ -16,10 +16,11 @@ Public surface:
 - :func:`docs_url` — module-driven docs URL for a diagnostic
 
 Third-party library detection lives here, but the *list* of wrapped libraries
-does not: each module package (``raitap.transparency``, ``raitap.robustness``,
-…) exposes a ``THIRD_PARTY_LIBS`` constant, aggregated lazily by
-:func:`_third_party_libs`. Adding a new wrapped library is a one-line edit in
-the relevant module ``__init__``, not here.
+does not: each ``@register_*_adapter(..., library="...")`` decoration auto-
+populates :data:`raitap._adapters.THIRD_PARTY_LIBS` at module-load time,
+keyed by adapter family. :func:`_third_party_libs` aggregates the dict
+lazily after importing every family root. Adding a new wrapped library is
+the same as adding the adapter — no edit here.
 """
 
 from __future__ import annotations
@@ -102,9 +103,9 @@ def _third_party_libs() -> frozenset[str]:
     """Aggregate wrapped third-party libraries across every adapter family.
 
     Reads :data:`raitap._adapters.THIRD_PARTY_LIBS`, which
-    :class:`raitap._adapters.AdapterMixin` populates from each concrete
-    adapter's ``library=`` class kwarg. Adapter modules are imported once
-    here so classes get a chance to register.
+    :func:`raitap._adapters._register_core` populates from each
+    ``@register_*_adapter(..., library="...")`` decoration. Adapter modules
+    are imported once here so the decorators get a chance to fire.
     """
     for module_name in _THIRD_PARTY_LIB_PROVIDERS:
         try:

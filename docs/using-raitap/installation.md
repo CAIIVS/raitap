@@ -1,3 +1,11 @@
+---
+title: "Manual dependencies installation"
+description: "This page explains how to manage config dependencies manually, without the automatic mode. It is recommended to use uv, but pip will also work."
+myst:
+  html_meta:
+    "description": "This page explains how to manage config dependencies manually, without the automatic mode. It is recommended to use uv, but pip will also work."
+---
+
 # Manual dependencies installation
 
 This page explains how to manage config dependencies manually, without the automatic mode. It is recommended to use `uv`, but `pip` will also work.

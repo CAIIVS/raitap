@@ -21,6 +21,7 @@ from .process_registry import (
     reinsert_entries,
     watch_port,
 )
+from .registration import register_tracker
 
 DEFAULT_MLFLOW_BACKEND_STORE_URI = "sqlite:///mlflow/mlflow.db"
 DEFAULT_MLFLOW_ARTIFACT_ROOT = "./mlflow/artifacts"
@@ -136,7 +137,8 @@ def _mlflow_summary_params(config_dict: dict[str, Any]) -> dict[str, str]:
     return out
 
 
-class MLFlowTracker(BaseTracker, registry_name="mlflow", extra="mlflow"):
+@register_tracker(registry_name="mlflow")
+class MLFlowTracker(BaseTracker):
     @classmethod
     def stop_detached(cls, timeout: float = 5.0) -> tuple[int, int]:
         """Kill the local MLflow server/UI tree this user has spawned or reused.

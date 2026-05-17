@@ -1,3 +1,11 @@
+---
+title: "Configuration"
+description: "This page describes how to configure the model that RAITAP will assess."
+myst:
+  html_meta:
+    "description": "This page describes how to configure the model that RAITAP will assess."
+---
+
 ```{config-page}
 :intro: This page describes how to configure the model that RAITAP will assess.
 

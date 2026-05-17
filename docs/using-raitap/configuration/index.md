@@ -1,3 +1,11 @@
+---
+title: "Creating & running your own configuration"
+description: "This section explains high level configuration principles for your use case."
+myst:
+  html_meta:
+    "description": "This section explains high level configuration principles for your use case."
+---
+
 # Creating & running your own configuration
 
 This section explains high level configuration principles for your use case.
@@ -7,7 +15,6 @@ This section explains high level configuration principles for your use case.
 :caption: Configuration pages
 
 general
-kitchen-sink
 global-config-options
 python-api
 ```

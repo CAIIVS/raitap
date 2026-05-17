@@ -1,5 +1,10 @@
 """raitap-deps: infer uv extras from a Hydra config and run uv for the user.
 
+The user-facing entry to the auto-deps flow is ``raitap.run(cfg,
+auto_install=True)`` for scripts and ``raitap --allow-project-edit`` (alias
+``-y``) for the CLI. The functions below are the building blocks both
+front-ends compose on top of.
+
 Public API:
     - :func:`infer_extras` — walk a composed Hydra config and return
       ``(set[str], dict[str, str])`` — extras to install plus per-extra origin.
@@ -7,8 +12,6 @@ Public API:
     - :func:`validate_conflicts` — assert a set of extras does not violate
       ``[tool.uv].conflicts`` declared in ``pyproject.toml``.
     - :func:`render_command` — render the final ``uv sync``/``uv add`` argv.
-
-CLI entry: ``raitap-deps`` (see :mod:`raitap.deps.__main__`).
 """
 
 from raitap.deps.availability import check_platform_availability

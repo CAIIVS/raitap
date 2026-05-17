@@ -1,8 +1,10 @@
 """Single point of truth for adapter registration.
 
 Every concrete adapter (explainer, assessor, metric computer, reporter,
-tracker, visualiser) inherits :class:`AdapterMixin` via its module's abstract
-base class. ``__init_subclass__`` does the wiring:
+tracker, visualiser) is registered via its family decorator (e.g.
+``@register_transparency_adapter``, ``@register_robustness_adapter``,
+``@register_transparency_visualiser``). The decorator delegates to
+:func:`_register_core` which:
 
 * generates the hydra-zen builder (``builds(...)``)
 * registers it with Hydra's ``ConfigStore`` (when the family owns a top-level
@@ -11,9 +13,9 @@ base class. ``__init_subclass__`` does the wiring:
   ``__getattr__`` on each module looks it up in :data:`_BUILDERS`)
 * records the ``extra`` dependency for :mod:`raitap.deps.inference`
 
-The abstract base of each family declares ``group`` + ``schema`` via class
-keyword arguments. Concrete adapters only declare ``registry_name`` (and
-optionally ``extra``); nothing else needs editing to wire a new adapter in.
+:class:`AdapterMixin` is now a pure instance-helper mixin
+(:meth:`_lazy_import`, :meth:`_rethrow`) — registration mechanics live in the
+decorators.
 """
 
 from __future__ import annotations
@@ -22,14 +24,15 @@ import dataclasses
 import importlib
 import inspect
 import pkgutil
-import re
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Final, Literal, Required, TypedDict, Unpack
 
 from hydra_zen import ZenStore, builds
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Mapping
+    import re
+    from collections.abc import Iterator, Mapping, Sequence
     from types import ModuleType
 
 # Our own ``overwrite_ok=True`` store so re-importing a module — or pytest
@@ -46,162 +49,69 @@ ADAPTER_EXTRAS: dict[str, str] = {}
 THIRD_PARTY_LIBS: dict[str, set[str]] = {}
 
 
-def _to_snake(name: str) -> str:
-    """``CaptumExplainer`` -> ``captum_explainer``, ``HTMLReporter`` -> ``html_reporter``."""
-    # Two passes so consecutive caps (``HTMLReporter``) collapse correctly.
-    s1 = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", name)
-    return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
+@dataclass(frozen=True, slots=True)
+class FamilyConfig:
+    """Per-family registration constants. One instance per top-level RAITAP family
+    (transparency, robustness, metrics, reporting, tracking). Owned by the family
+    decorator, not the adapter site. Family-specific required adapter metadata
+    (e.g. ``algorithm_registry``) lives as typed kwargs on the family decorator
+    itself — pyright errors at the decoration site if missing."""
+
+    group: str
+    schema: type
+    # ``"nested"`` → hydra package=``"<group>.<name>"``; the schema field is a
+    # ``dict[str, Config]`` so multiple named entries can coexist. ``"flat"`` →
+    # package=``"<group>"``; the schema field is a single config, names compete.
+    package_style: Literal["nested", "flat"]
 
 
-def _default_registry_name(cls: type, *, strip_suffixes: tuple[str, ...] = ()) -> str:
-    """Default registry name = snake-cased class name with adapter suffix stripped."""
-    name = cls.__name__
-    for suffix in strip_suffixes:
-        if name.endswith(suffix):
-            name = name[: -len(suffix)]
-            break
-    return _to_snake(name)
+class _AllAlgorithmsSentinel:
+    """Singleton type for the :data:`ALL` marker — pass
+    ``onnx_compatible_algorithms=ALL`` to ``@register_transparency_adapter`` /
+    ``@register_robustness_adapter`` to mark every algorithm in the adapter's
+    ``algorithm_registry`` as ONNX-compatible without re-listing them."""
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return "raitap.ALL"
+
+
+ALL: Final[_AllAlgorithmsSentinel] = _AllAlgorithmsSentinel()
+
+
+class _CommonRegKwargs(TypedDict, total=False):
+    """Cross-family registration kwargs. Forwarded into every family decorator
+    via ``**common: Unpack[_CommonRegKwargs]`` so each decorator declares only
+    its own family-specific required kwargs."""
+
+    registry_name: Required[str]
+    extra: str
+    library: str
+    error_patterns: Mapping[re.Pattern[str], str]
+    suppress_warnings: Sequence[tuple[str, type[Warning], str | None]]
 
 
 class AdapterMixin:
-    """Inherit on every adapter family's abstract base.
+    """Instance helpers shared across every adapter family.
 
-    Class-kwarg API:
-
-    * Abstract base declares the family contract once::
-
-        class AttributionOnlyExplainer(
-            BaseExplainer, AdapterMixin,
-            abstract=True,
-            group="transparency",
-            schema=TransparencyConfig,
-        ): ...
-
-    * Concrete adapter only states its own identity::
-
-        class SuperXAIExplainer(
-            AttributionOnlyExplainer,
-            registry_name="superxai",
-            extra="superxai",
-        ): ...
-
-      Or omit ``registry_name`` to use the auto-snake-cased class name
-      (``SuperXAIExplainer`` -> ``super_xai``).
+    Concrete adapters never inherit ``AdapterMixin`` directly — they extend
+    their family base class (e.g. ``AttributionOnlyExplainer``,
+    ``EmpiricalAttackAssessor``) which mixes in ``AdapterMixin``. Registration
+    is done by the family decorator (e.g. ``@register_transparency_adapter``),
+    not by inheritance.
     """
 
-    _ADAPTER_GROUP: str | None = None
-    _ADAPTER_SCHEMA: type | None = None
-    _ADAPTER_STRIP_SUFFIXES: tuple[str, ...] = ()
-    # ``"nested"`` (default) → package=``"<group>.<name>"``; the schema field is a
-    # ``dict[str, Config]`` so multiple named entries can coexist. ``"flat"`` →
-    # package=``"<group>"``; the schema field is a single config, names compete.
-    _ADAPTER_PACKAGE_STYLE: str = "nested"
     registry_name: str | None = None
     extra: str | None = None
-    # Wrapped third-party library (pip name). Drives ``self._lazy_import()``,
-    # ``self._rethrow()``, and module-level :data:`THIRD_PARTY_LIBS`.
+    # Wrapped third-party library (pip name). Set by ``_register_core``;
+    # drives :meth:`_lazy_import` and :meth:`_rethrow`.
     library: str | None = None
-    # Regex → friendly-message map applied automatically by ``self._rethrow()``.
-    error_patterns: Mapping[re.Pattern[str], str] | None = None
-
-    def __init_subclass__(
-        cls,
-        *,
-        abstract: bool = False,
-        group: str | None = None,
-        schema: type | None = None,
-        package_style: str | None = None,
-        strip_suffixes: tuple[str, ...] | None = None,
-        registry_name: str | None = None,
-        extra: str | None = None,
-        library: str | None = None,
-        error_patterns: Mapping[re.Pattern[str], str] | None = None,
-        suppress_warnings: tuple[tuple[str, type[Warning], str | None], ...] | None = None,
-        **kwargs: Any,
-    ) -> None:
-        super().__init_subclass__(**kwargs)
-
-        # Inherit / override family metadata from the abstract base.
-        if group is not None:
-            cls._ADAPTER_GROUP = group
-        if schema is not None:
-            cls._ADAPTER_SCHEMA = schema
-        if package_style is not None:
-            cls._ADAPTER_PACKAGE_STYLE = package_style
-        if strip_suffixes is not None:
-            cls._ADAPTER_STRIP_SUFFIXES = strip_suffixes
-        if registry_name is not None:
-            cls.registry_name = registry_name
-        if extra is not None:
-            cls.extra = extra
-        if library is not None:
-            cls.library = library
-        if error_patterns is not None:
-            cls.error_patterns = error_patterns
-
-        # Silence noisy library warnings once at class load. Declared via
-        # ``suppress_warnings=`` so each adapter file no longer needs a
-        # module-level ``raitap_log.suppress(...)`` block.
-        if suppress_warnings:
-            from raitap.utils.log import raitap_log
-
-            for pattern, category, module in suppress_warnings:
-                raitap_log.suppress(message=pattern, category=category, module=module or "")
-
-        if abstract or inspect.isabstract(cls):
-            # ABCs and intermediates with unimplemented ``@abstractmethod``s
-            # opt out automatically — only concrete leaves register.
-            return
-
-        name = cls.registry_name or _default_registry_name(
-            cls, strip_suffixes=cls._ADAPTER_STRIP_SUFFIXES
-        )
-
-        try:
-            if cls._ADAPTER_GROUP and cls._ADAPTER_SCHEMA:
-                builder = _build_schema_adapter(cls, cls._ADAPTER_SCHEMA)
-                if cls._ADAPTER_PACKAGE_STYLE == "nested":
-                    package = f"{cls._ADAPTER_GROUP}.{name}"
-                else:
-                    package = cls._ADAPTER_GROUP
-                store(
-                    builder,
-                    group=cls._ADAPTER_GROUP,
-                    name=name,
-                    package=package,
-                )
-                _BUILDERS.setdefault(cls._ADAPTER_GROUP, {})[name] = builder
-            else:
-                # Visualisers + anything without a top-level Hydra group. The
-                # signature-based builder gives users typed kwargs (constructor
-                # values) directly. ``zen_meta`` attaches ``call=`` / ``raitap=``
-                # as metadata fields not forwarded to ``__init__`` — the adapter
-                # factory peels them off and routes them to the render step.
-                # ``image_pair(max_samples=4, call={"show_sample_names": True})``
-                # becomes the canonical Python shape; no ``_target_`` strings
-                # needed at any usage site.
-                builder = builds(
-                    cls,
-                    populate_full_signature=True,
-                    zen_meta={"call": {}, "raitap": {}},
-                )
-                _BUILDERS.setdefault("_unscoped", {})[name] = builder
-        except (ModuleNotFoundError, TypeError):
-            # Test fixtures define classes inline (no importable path) which
-            # hydra-zen rejects. We silently skip — those classes aren't going
-            # to be looked up by ``raitap.<module>.<name>`` anyway.
-            return
-
-        if cls.extra:
-            ADAPTER_EXTRAS[cls.__name__] = cls.extra
-        if cls.library and cls._ADAPTER_GROUP:
-            THIRD_PARTY_LIBS.setdefault(cls._ADAPTER_GROUP, set()).add(cls.library)
-
-    # ------------------------------------------------------------------
-    # Instance helpers — concrete adapters use these instead of hand-rolling
-    # the ``Module()`` / ``rethrow(module=..., third_party_lib=..., ...)``
-    # boilerplate at every call site.
-    # ------------------------------------------------------------------
+    # Hydra config group ("transparency" / "robustness" / ...). Set by
+    # ``_register_core`` and read by :meth:`_rethrow` to scope error chips.
+    _adapter_group: str | None = None
+    # Regex → friendly-message map applied automatically by :meth:`_rethrow`.
+    error_patterns: Mapping[re.Pattern[str], str] = {}
 
     def _lazy_import(self, submodule: str | None = None) -> ModuleType:
         """Import the wrapped third-party library lazily.
@@ -229,14 +139,14 @@ class AdapterMixin:
 
         Equivalent to ``rethrow(module=Module(<group>), third_party_lib=<library>,
         message_map=<error_patterns>)`` but pulls all three from the adapter's
-        own class declaration.
+        own class declaration (set by the family decorator at registration time).
         """
         from raitap.utils.diagnostics import Module
         from raitap.utils.errors import rethrow
 
         cls = type(self)
         with rethrow(
-            module=Module(cls._ADAPTER_GROUP) if cls._ADAPTER_GROUP else Module.utils,
+            module=Module(cls._adapter_group) if cls._adapter_group else Module.utils,
             third_party_lib=cls.library,
             message_map=cls.error_patterns or {},
             base_exc=base_exc,
@@ -280,9 +190,82 @@ def _build_schema_adapter(cls: type, schema: type) -> type:
     )
 
 
+def _register_core(
+    cls: type,
+    *,
+    family: FamilyConfig | None,
+    **common: Unpack[_CommonRegKwargs],
+) -> type:
+    """Cross-family registration mechanics. Returns ``cls`` unchanged.
+
+    Sets identity attrs on ``cls``, installs warning filters, validates
+    family-required class-body attributes (e.g. ``algorithm_registry`` when
+    ``family.has_algorithm_registry``), builds the hydra-zen builder
+    (``_build_schema_adapter`` for schema-backed families, signature-based
+    ``builds(...)`` for visualisers), and registers under
+    ``_BUILDERS[family.group][registry_name]`` (or ``_BUILDERS["_unscoped"]``
+    when ``family is None``).
+    """
+    from raitap.utils.log import raitap_log
+
+    registry_name = common["registry_name"]
+    # ``extra`` defaults to ``registry_name`` for schema-backed adapters (family
+    # is set) — covers 8/10 of the in-tree adapters; metrics overrides to share
+    # ``extra="metrics"`` across two metric adapters. Visualisers (family=None)
+    # don't get an auto-extra — they ship with their parent adapter's extra and
+    # have no standalone uv extra of their own.
+    extra = common.get("extra")
+    if extra is None and family is not None:
+        extra = registry_name
+    library = common.get("library")
+    error_patterns = common.get("error_patterns")
+    suppress_warnings = common.get("suppress_warnings")
+
+    cls.registry_name = registry_name
+    if extra is not None:
+        cls.extra = extra
+    if library is not None:
+        cls.library = library
+    if error_patterns is not None:
+        cls.error_patterns = error_patterns
+    if suppress_warnings:
+        for pattern, category, module in suppress_warnings:
+            raitap_log.suppress(message=pattern, category=category, module=module or "")
+
+    try:
+        if family is not None:
+            cls._adapter_group = family.group
+            builder = _build_schema_adapter(cls, family.schema)
+            package = (
+                f"{family.group}.{registry_name}"
+                if family.package_style == "nested"
+                else family.group
+            )
+            store(builder, group=family.group, name=registry_name, package=package)
+            _BUILDERS.setdefault(family.group, {})[registry_name] = builder
+        else:
+            builder = builds(
+                cls,
+                populate_full_signature=True,
+                zen_meta={"call": {}, "raitap": {}},
+            )
+            _BUILDERS.setdefault("_unscoped", {})[registry_name] = builder
+    except (ModuleNotFoundError, TypeError):
+        # Test fixtures defining inline classes without an importable qualname
+        # — hydra-zen rejects them and we silently skip.
+        return cls
+
+    if extra:
+        ADAPTER_EXTRAS[cls.__name__] = extra
+    if library and family is not None:
+        THIRD_PARTY_LIBS.setdefault(family.group, set()).add(library)
+    return cls
+
+
 def discover(package_path: list[str], package_name: str) -> None:
-    """Import every submodule under ``package_name`` so ``__init_subclass__``
-    fires for every adapter class declared anywhere in the tree.
+    """Import every submodule under ``package_name`` so each module's
+    ``@register_*_adapter`` decorator fires for every adapter class declared
+    in the tree.
 
     Call from each module's ``__init__.py``::
 

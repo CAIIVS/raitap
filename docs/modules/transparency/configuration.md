@@ -1,3 +1,11 @@
+---
+title: "Configuration"
+description: "Inside the transparency key, you can configure one or more explainers. See {ref}modules-transparency-configuration-examples for the config shape."
+myst:
+  html_meta:
+    "description": "Inside the transparency key, you can configure one or more explainers. See {ref}modules-transparency-configuration-examples for the config shape."
+---
+
 ```{config-page}
 :intro: This page describes how to configure the transparency module that
   computes and visualises attributions.

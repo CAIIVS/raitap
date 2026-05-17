@@ -1,3 +1,11 @@
+---
+title: "Output"
+description: "RAITAP reports are compact summaries of the run, not a dump of every artifact written by the metrics, transparency, and robustness modules. The report builder first creates structured report content, then the default HTML renderer lays that"
+myst:
+  html_meta:
+    "description": "RAITAP reports are compact summaries of the run, not a dump of every artifact written by the metrics, transparency, and robustness modules. The report builder first creates structured report content, then the default HTML renderer lays that"
+---
+
 # Output
 
 RAITAP reports are compact summaries of the run, not a dump of every artifact

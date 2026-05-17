@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
 
 
-from .base_metric import BaseMetricComputer, MetricResult, scalar_metrics_for_tracking
+from .base_metric_computer import BaseMetricComputer, MetricResult, scalar_metrics_for_tracking
 from .visualizers import MetricsVisualizer
 
 _METRICS_PREFIX = "raitap.metrics."

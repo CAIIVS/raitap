@@ -1,3 +1,11 @@
+---
+title: "Supported libraries"
+description: "Assessors support three config buckets:"
+myst:
+  html_meta:
+    "description": "Assessors support three config buckets:"
+---
+
 # Supported libraries
 
 ## `constructor`, `call`, and `raitap` keys

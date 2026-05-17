@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from ..results import ConfiguredVisualiser, ExplanationResult
 
 
-class FullExplainer(BaseExplainer, ABC, abstract=True):
+class FullExplainer(BaseExplainer, ABC):
     """
     Explainer where you own the full ``explain`` pipeline end-to-end.
 

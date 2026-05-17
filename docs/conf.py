@@ -18,6 +18,7 @@ extensions = [
     "config_options",
     "config_tabs",
     "install_tabs",
+    "recipe",
     "myst_parser",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
@@ -25,6 +26,8 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx_copybutton",
     "sphinx_design",
+    "sphinx_llms_txt",
+    "sphinx_sitemap",
     "sphinxcontrib.mermaid",
 ]
 
@@ -109,6 +112,27 @@ intersphinx_mapping = {
 html_theme = "furo"
 html_title = "RAITAP Documentation"
 html_static_path = ["_static"]
+# Files served from the build root (``robots.txt``, future ``CNAME`` /
+# ``ads.txt`` etc.). Sphinx copies the *contents* of each ``html_extra_path``
+# directory into the build root, so ``_root/robots.txt`` ends up at ``/robots.txt``.
+html_extra_path = ["_root"]
+# sphinx-sitemap + canonical link rendering need an absolute base URL. Trailing
+# slash required so per-page relative URLs append cleanly.
+html_baseurl = "https://caiivs.github.io/raitap/"
+# Per-page ``<meta>`` tags come from MyST frontmatter ``html_meta:`` blocks
+# (managed by ``scripts/llmify_docs.py``). The root ``index.md`` carries the
+# site-wide description + keywords; sub-pages override with their own.
+# sphinx-llms-txt emits ``llms.txt`` + ``llms-full.txt`` into the build output.
+llms_txt_title = "RAITAP"
+llms_txt_summary = (
+    "RAITAP (Responsible AI Toolkit Assessment Pipeline) — Python library for "
+    "assessing transparency and robustness of AI models. Hydra-based YAML CLI "
+    "plus programmatic Python API."
+)
+llms_txt_full_max_size = None  # no size cap — concatenate the whole corpus
+# sphinx-sitemap settings (consumed by every search/LLM crawler).
+sitemap_url_scheme = "{link}"
+sitemap_filename = "sitemap.xml"
 html_css_files = ["custom.css"]
 html_logo = "_static/logo.png"
 # Hide the project name beside the logo (logo already contains the name).

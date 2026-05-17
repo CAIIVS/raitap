@@ -1,3 +1,11 @@
+---
+title: "Model"
+description: "The model module handles loading your model in a way that makes it usable to RAITAP. It is very simple and minimal."
+myst:
+  html_meta:
+    "description": "The model module handles loading your model in a way that makes it usable to RAITAP. It is very simple and minimal."
+---
+
 # Model
 
 The model module handles loading your model in a way that makes it usable to RAITAP. It is very simple and minimal.

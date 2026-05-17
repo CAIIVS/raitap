@@ -1,17 +1,18 @@
 name: Bug report
 description: Something is wrong — crash, wrong output, broken Hydra composition, install failure.
-title: "bug: <short description>"
-labels: ["bug"]
+title: "Fix ..."
+labels: ["unsure"]
 body:
   - type: markdown
     attributes:
       value: |
-        Before filing: search existing issues and try `git pull && uv sync` to rule out a stale checkout.
+        Before filing: search existing issues
 
   - type: dropdown
     id: bug-kind
     attributes:
-      label: Kind of bug
+      label: Type(s)
+      multiple: true
       options:
         - Runtime crash / traceback
         - Wrong / unexpected output
@@ -27,7 +28,8 @@ body:
   - type: dropdown
     id: module
     attributes:
-      label: Module
+      label: Module(s)
+      multiple: true
       options:
         - transparency
         - robustness
@@ -36,8 +38,9 @@ body:
         - tracking
         - data
         - model
-        - configs / Hydra
-        - CLI / packaging
+        - pipeline
+        - configs
+        - deps
         - unsure
     validations:
       required: true
@@ -53,6 +56,7 @@ body:
 
   - type: input
     id: python-version
+    description: Output of `python --version`
     attributes:
       label: Python version
       placeholder: "3.11.9"
@@ -82,21 +86,21 @@ body:
       required: true
 
   - type: textarea
-    id: repro-config
-    attributes:
-      label: Minimal repro config
-      description: YAML and/or Python that triggers the bug. Strip everything that isn't load-bearing.
-      render: yaml
-    validations:
-      required: true
-
-  - type: textarea
     id: command
     attributes:
       label: Command
       description: The exact invocation.
       placeholder: "uv run raitap +transparency=captum_ig data=mnist model=cnn"
       render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro-config
+    attributes:
+      label: Minimal repro config
+      description: YAML and/or Python that triggers the bug. Strip everything that isn't load-bearing.
+      render: yaml
     validations:
       required: true
 
@@ -114,7 +118,7 @@ body:
     attributes:
       label: Expected behaviour
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: extra-context

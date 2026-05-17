@@ -38,6 +38,7 @@ from ..contracts import (
 from ..exceptions import AssessorBackendIncompatibilityError
 from ..semantics import AssessorSemanticsHints
 from .base_assessor import FormalVerificationAssessor
+from .registration import register_robustness_adapter
 
 # Curated error patterns for confusing maraboupy errors. Matched against
 # ``str(exc)``; first hit wins. See :func:`raitap.utils.errors.rethrow`.
@@ -66,13 +67,21 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class MarabouAssessor(
-    FormalVerificationAssessor,
+@register_robustness_adapter(
     registry_name="marabou",
-    extra="marabou",
     library="maraboupy",
     error_patterns=_MARABOUPY_ERROR_MESSAGES,
-):
+    algorithm_registry={
+        "linf-box": AssessorSemanticsHints(
+            MethodKind.FORMAL_VERIFICATION,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,
+            families=frozenset({"smt", "complete", "sound"}),
+        ),
+    },
+)
+class MarabouAssessor(FormalVerificationAssessor):
     """Marabou-backed L∞ formal-verification adapter.
 
     Only ``algorithm="linf-box"`` is supported in v1: per-input box bounds
@@ -86,16 +95,6 @@ class MarabouAssessor(
     user sees a clear "Marabou cannot handle this graph" message instead of
     a torch traceback.
     """
-
-    algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]] = {
-        "linf-box": AssessorSemanticsHints(
-            MethodKind.FORMAL_VERIFICATION,
-            ThreatModel.WHITE_BOX,
-            Objective.UNTARGETED,
-            PerturbationNorm.LINF,
-            families=frozenset({"smt", "complete", "sound"}),
-        ),
-    }
 
     # Budget keys (epsilon, norm) live under ``constructor:`` in the YAML; the
     # adapter applies them at verify-time but they're configured at __init__.

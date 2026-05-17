@@ -5,14 +5,15 @@ from __future__ import annotations
 import gc
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import torch
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
 from raitap._adapters import AdapterMixin
 from raitap.configs import resolve_run_dir
-from raitap.configs.schema import TransparencyConfig
-from raitap.registry_base import WithAlgorithmRegistry
 
 from ..contracts import (
     ExplanationOutputSpace,
@@ -21,7 +22,7 @@ from ..contracts import (
     ExplanationSemantics,
     ExplanationTarget,
     InputSpec,
-    MethodFamily,  # noqa: F401 — referenced via ``WithAlgorithmRegistry[...]`` string form.
+    MethodFamily,
     SampleSelection,
     ScopeDefinitionStep,
     explainer_output_scope,
@@ -32,19 +33,14 @@ from ..semantics import infer_input_spec, infer_output_space, method_families_fo
 _NON_BATCHABLE_KWARGS = frozenset({"background_data"})
 
 
-class BaseExplainer(
-    WithAlgorithmRegistry["frozenset[MethodFamily]"],
-    AdapterMixin,
-    abstract=True,
-    group="transparency",
-    schema=TransparencyConfig,
-    strip_suffixes=("Explainer",),
-):
+class BaseExplainer(AdapterMixin, ABC):
     """
     Root base class for all explainer adapters.
 
-    Owns the shared interface: ``output_payload_kind`` class variable (default
-    ``ATTRIBUTIONS``) and the ``check_backend_compat`` no-op default.
+    Owns the shared interface: ``output_payload_kind`` and ``algorithm_registry``
+    class variables (algorithm_registry is validated at decoration time by
+    ``TRANSPARENCY.has_algorithm_registry=True``) and the ``check_backend_compat``
+    no-op default.
 
     Extend via ``AttributionOnlyExplainer`` when the framework should manage the
     full ``explain`` pipeline and you only need to implement ``compute_attributions``,
@@ -53,13 +49,38 @@ class BaseExplainer(
 
     output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
     output_scope: ClassVar[ExplanationScope] = ExplanationScope.LOCAL
+    algorithm_registry: ClassVar[Mapping[str, frozenset[MethodFamily]]]
+    # Adapter-specific; defaults to "no ONNX support". The
+    # ``@register_transparency_adapter`` decorator overrides per-adapter.
+    ONNX_COMPATIBLE_ALGORITHMS: ClassVar[frozenset[str]] = frozenset()
 
     def check_backend_compat(self, backend: object) -> None:
-        del backend
-        return None
+        """Default: enforce the ONNX-allowlist contract.
+
+        Passes when the backend supports torch autograd, OR when the explainer's
+        selected algorithm is in ``ONNX_COMPATIBLE_ALGORITHMS`` (set by the
+        decorator's ``onnx_compatible_algorithms`` kwarg). Otherwise raises
+        :class:`raitap.transparency.exceptions.ExplainerBackendIncompatibilityError`.
+        Override only if your
+        explainer has a backend contract that doesn't fit this pattern.
+        """
+        from ..exceptions import ExplainerBackendIncompatibilityError
+
+        if getattr(backend, "supports_torch_autograd", False):
+            return
+        algorithm = getattr(self, "algorithm", "")
+        compatible: frozenset[str] = type(self).ONNX_COMPATIBLE_ALGORITHMS
+        if algorithm in compatible:
+            return
+        raise ExplainerBackendIncompatibilityError(
+            explainer=type(self).__name__,
+            backend=type(backend).__name__,
+            algorithm=str(algorithm),
+            compatible_algorithms=sorted(compatible),
+        )
 
 
-class AttributionOnlyExplainer(BaseExplainer, ABC, abstract=True):
+class AttributionOnlyExplainer(BaseExplainer, ABC):
     """
     Explainer where you implement one step and the framework handles the rest.
 

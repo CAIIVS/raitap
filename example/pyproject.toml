@@ -5,7 +5,7 @@ description = "Standalone example project demonstrating raitap as a library depe
 requires-python = ">=3.11,<3.14"
 # Only the `raitap` dep is needed. It will add required extras automatically when a config is ran.
 dependencies = [
-  "raitap",
+  "raitap[captum,html,metrics,torch-intel,torchattacks]",
 ]
 
 [tool.uv]

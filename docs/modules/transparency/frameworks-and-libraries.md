@@ -1,3 +1,11 @@
+---
+title: "Supported libraries"
+description: "Explainers support three config buckets:"
+myst:
+  html_meta:
+    "description": "Explainers support three config buckets:"
+---
+
 # Supported libraries
 
 ## `constructor`, `call`, and `raitap` keys

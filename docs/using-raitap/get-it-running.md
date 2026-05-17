@@ -1,3 +1,11 @@
+---
+title: "Running a quick example"
+description: "This page explains how to install RAITAP itself and how to get it running quickly, with a simple demo example. If you want to see how to fully configure your own assessment, skip to the {doc}configuration/index page."
+myst:
+  html_meta:
+    "description": "This page explains how to install RAITAP itself and how to get it running quickly, with a simple demo example. If you want to see how to fully configure your own assessment, skip to the {doc}configuration/index page."
+---
+
 # Running a quick example
 
 This page explains how to install RAITAP itself and how to get it running quickly, with a **simple demo example**. If you want to see how to fully configure your own assessment, skip to the {doc}`configuration/index` page.

@@ -2,22 +2,28 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
-from torchmetrics import Accuracy, F1Score, Precision, Recall
-
+from raitap.metrics.registration import register_metrics_adapter
 from raitap.types import Task
+from raitap.utils.lazy import lazy_import
 
-from .base_metric import BaseMetricComputer, MetricResult
+from .base_metric_computer import BaseMetricComputer, MetricResult
 from .utils import tensor_to_python
 
 if TYPE_CHECKING:
     import torch
+    import torchmetrics
+else:
+    # Deferred so this module can be imported in a venv without the
+    # ``metrics`` extra installed (e.g. during ``raitap.run(..., auto_install=True)``).
+    torchmetrics = lazy_import("torchmetrics")
 
 __all__ = ["Average", "ClassificationMetrics", "Task"]
 
 Average = Literal["micro", "macro", "weighted", "none"]
 
 
-class ClassificationMetrics(BaseMetricComputer, registry_name="classification", extra="metrics"):
+@register_metrics_adapter(registry_name="classification", extra="metrics")
+class ClassificationMetrics(BaseMetricComputer):
     """
     Classification metrics using torchmetrics
 
@@ -81,10 +87,10 @@ class ClassificationMetrics(BaseMetricComputer, registry_name="classification", 
         self.task = task
         self.average = average
 
-        self.accuracy = Accuracy(**tm_task_kwargs, **avg_kwargs)
-        self.precision = Precision(**tm_task_kwargs, **avg_kwargs)
-        self.recall = Recall(**tm_task_kwargs, **avg_kwargs)
-        self.f1 = F1Score(**tm_task_kwargs, **avg_kwargs)
+        self.accuracy = torchmetrics.Accuracy(**tm_task_kwargs, **avg_kwargs)
+        self.precision = torchmetrics.Precision(**tm_task_kwargs, **avg_kwargs)
+        self.recall = torchmetrics.Recall(**tm_task_kwargs, **avg_kwargs)
+        self.f1 = torchmetrics.F1Score(**tm_task_kwargs, **avg_kwargs)
 
     def _move_to_device(self, device: torch.device | None) -> None:
         if device is None:

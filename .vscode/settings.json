@@ -32,12 +32,18 @@
         "captum",
         "cuda",
         "explainability",
+        "footgun",
+        "frozenset",
+        "getattr",
+        "kwargs",
         "MLOPs",
         "ONNX",
         "pyproject",
         "RAITAP",
         "Slurm",
         "Submitit",
+        "supertreeshap",
+        "superxai",
         "toctree",
         "torchvision"
     ]

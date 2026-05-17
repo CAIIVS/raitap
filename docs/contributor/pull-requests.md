@@ -1,3 +1,11 @@
+---
+title: "Pull requests and commit messages"
+description: "This project relies on Conventional Commits for automation: Release Please builds the changelog and release versions from what lands on main, and CI enforces the same rules on pull request titles."
+myst:
+  html_meta:
+    "description": "This project relies on Conventional Commits for automation: Release Please builds the changelog and release versions from what lands on main, and CI enforces the same rules on pull request titles."
+---
+
 # Pull requests and commit messages
 
 This project relies on **Conventional Commits** for automation: **Release Please** builds the changelog and release versions from what lands on `main`, and CI enforces the same rules on **pull request titles**.

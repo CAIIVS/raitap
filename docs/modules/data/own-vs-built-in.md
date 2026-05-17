@@ -1,3 +1,11 @@
+---
+title: "Using your own data or built-in samples"
+description: "RAITAP can load your own data by pointing data.source to a local file or directory."
+myst:
+  html_meta:
+    "description": "RAITAP can load your own data by pointing data.source to a local file or directory."
+---
+
 # Using your own data or built-in samples
 
 ## Your own data
@@ -57,7 +65,7 @@ data:
     # id_strategy: "auto"   # default — relative paths auto-detected
 
 :python:
-from raitap.data import DataConfig, LabelsConfig
+from raitap.data import DataConfig, IdStrategy, LabelsConfig
 
 data = DataConfig(
     source="./data/test",
@@ -65,7 +73,7 @@ data = DataConfig(
         source="./data/labels.csv",
         id_column="image",
         column="label",
-        # id_strategy="auto",  # default — relative paths auto-detected
+        # id_strategy=IdStrategy.auto,  # default — relative paths auto-detected
     ),
 )
 ```
