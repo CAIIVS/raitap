@@ -38,11 +38,13 @@ class _DummySchema:
 
 
 class _DummyAdapter:
-    def __init__(self, **kwargs): ...
+    def __init__(self, **kwargs):
+        pass
 
 
 class _DummyVisualiser:
-    def __init__(self, max_samples: int = 4): ...
+    def __init__(self, max_samples: int = 4):
+        pass
 
 
 def test_register_core_with_family_populates_builders_and_extras() -> None:

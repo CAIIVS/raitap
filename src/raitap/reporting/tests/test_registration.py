@@ -23,7 +23,7 @@ def test_register_reporter_registers_under_reporting_group() -> None:
     )
     class _StubReporter(BaseReporter):
         def __init__(self, config: object = None) -> None:
-            self.config = config
+            super().__init__(config)  # type: ignore[arg-type]  # stub: real BaseReporter expects AppConfig
 
         def generate(
             self,
