@@ -876,6 +876,34 @@ class TestModelPreprocessingWrap:
 
         assert model.resolved_preprocessing is resolved
 
+    def test_wrap_clones_model_preprocessing_before_device_mutation(self) -> None:
+        from raitap.data.preprocessing import ResolvedPreprocessing
+        from raitap.models.model import _apply_preprocessing
+
+        cfg = _make_config("resnet18")
+        backend = TorchBackend(nn.Identity(), device=torch.device("cpu"))
+        model_module = nn.Dropout()
+        assert model_module.training
+        resolved = ResolvedPreprocessing(
+            data_module=None,
+            model_module=model_module,
+            origin="custom-file",
+            description="supplied",
+        )
+
+        returned = _apply_preprocessing(
+            backend,
+            cfg,
+            resolved_preprocessing=resolved,
+        )
+
+        assert returned is resolved
+        assert model_module.training
+        assert isinstance(backend.model, nn.Sequential)
+        wrapped_preprocessing = backend.model[0]
+        assert wrapped_preprocessing is not model_module
+        assert not wrapped_preprocessing.training
+
     def test_model_bundled_wrap_consumes_raw_input(self) -> None:
         from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
 

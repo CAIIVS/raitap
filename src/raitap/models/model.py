@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import pickle
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -100,7 +101,9 @@ def _apply_preprocessing(
                 "to PyTorch (.pt / .pth / TorchScript)."
             )
         if isinstance(backend, TorchBackend):
-            model_module = resolved.model_module.to(backend.device)
+            # ``to`` and ``eval`` mutate nn.Module instances; keep the
+            # ResolvedPreprocessing record stable for later readers.
+            model_module = copy.deepcopy(resolved.model_module).to(backend.device)
             model_module.eval()
             backend.model = nn.Sequential(model_module, backend.model)
 
