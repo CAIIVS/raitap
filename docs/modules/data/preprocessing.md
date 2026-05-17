@@ -8,6 +8,9 @@ myst:
 
 # Image preprocessing
 
+This page describes how to configure the image preprocessing RAITAP applies
+before each forward pass.
+
 Most pretrained image models expect their inputs to be normalized (resized,
 center-cropped, and rescaled with a model-specific mean and standard
 deviation). RAITAP does **not** preprocess your images by default — if you
