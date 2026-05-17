@@ -1,7 +1,7 @@
 """Lazy-import proxy for adapter-wrapped third-party libraries.
 
 Adapter modules can be imported in partial-extras venvs (e.g. while
-:func:`raitap.run` with ``auto_install=True`` is still figuring out which
+:func:`raitap.run` with ``auto_install_deps=True`` is still figuring out which
 ``uv add`` to run) only if they do not pull their wrapped library at
 module-load time. The proxy here defers the real import until first
 attribute access — when the code inside an adapter method actually

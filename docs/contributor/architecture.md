@@ -51,7 +51,7 @@ src/
 └── raitap/
     ├── __init__.py                 # lazy `__getattr__` resolves `raitap.<family>.<name>` via `_adapters.lookup`
     ├── __about__.py                # version + metadata constants
-    ├── api.py                      # programmatic entry: `run(cfg, *, auto_install=False, ...)`
+    ├── api.py                      # programmatic entry: `run(cfg, *, auto_install_deps=False, ...)`
     ├── cli.py                      # console-script entry; tracking-stop subcommand, --demo, help frame, then deps bootstrap
     ├── docs_preview.py             # `docs-preview` console-script: serves built Sphinx output for local preview
     ├── types.py                    # `Hardware` enum + small shared types

@@ -2,7 +2,7 @@
 its wrapped third-party libraries are not installed.
 
 This is what unlocks the programmatic-API auto-deps flow — see
-``raitap.run(..., auto_install=True)`` in
+``raitap.run(..., auto_install_deps=True)`` in
 ``docs/using-raitap/configuration/python-api.md``. A maintainer who adds a
 new adapter and forgets the :func:`raitap.utils.lazy.lazy_import` pattern
 (adding a top-level ``import torchmetrics`` instead) breaks the

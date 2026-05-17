@@ -52,7 +52,7 @@ class BootstrapCase(Enum):
 
     Picked by ``(_is_dev_install(), _uv_available())``; consumed by
     :func:`maybe_bootstrap` (CLI) and :func:`install_raitap_deps`
-    (consumed by :func:`raitap.run` under ``auto_install=True``) to route
+    (consumed by :func:`raitap.run` under ``auto_install_deps=True``) to route
     to the matching install command + refusal hint.
     """
 
@@ -361,7 +361,7 @@ def _python_refusal_note_blocks(case: BootstrapCase, extras: set[str]) -> list:
                 Text.assemble(("- Run it yourself: ", warn), (cmd, white)),
                 Text.assemble(
                     ("- Pass ", warn),
-                    ("auto_install=True", white),
+                    ("auto_install_deps=True", white),
                     (" to ", warn),
                     ("raitap.run(cfg, ...)", white),
                     (" to consent.", warn),
@@ -385,7 +385,7 @@ def _python_refusal_note_blocks(case: BootstrapCase, extras: set[str]) -> list:
                     ("- Pass ", warn),
                     ("exec_global=True", white),
                     (" alongside ", warn),
-                    ("auto_install=True", white),
+                    ("auto_install_deps=True", white),
                     (" on ", warn),
                     ("raitap.run(...)", white),
                     (" to consent.", warn),
@@ -424,7 +424,7 @@ def install_raitap_deps(
     """Bootstrap raitap extras inferred from a Python ``AppConfig``.
 
     Internal — the public surface is :func:`raitap.run` called with
-    ``auto_install=True`` (and optionally ``exec_global=True``). The
+    ``auto_install_deps=True`` (and optionally ``exec_global=True``). The
     function walks the config, picks the matching extras for the host,
     invokes ``uv``/``pip`` to install them, and re-execs the current
     script so the freshly-installed packages are visible. Idempotent:
@@ -439,7 +439,7 @@ def install_raitap_deps(
         allow_project_edit: Consent to ``uv add`` modifying the caller's
             ``pyproject.toml``. Without it, the function prints the
             planned command and exits non-zero. ``raitap.run`` hard-codes
-            ``True`` here when the caller passed ``auto_install=True``.
+            ``True`` here when the caller passed ``auto_install_deps=True``.
         exec_global: Consent to ``pip install`` against the base
             interpreter when no venv is active. Plumbed through from
             ``raitap.run(..., exec_global=...)``.

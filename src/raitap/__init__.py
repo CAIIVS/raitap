@@ -39,7 +39,7 @@ if TYPE_CHECKING:
         *,
         verbose: bool = True,
         output_root: str | None = None,
-        auto_install: bool = False,
+        auto_install_deps: bool = False,
         exec_global: bool = False,
     ) -> RunOutputs: ...
 

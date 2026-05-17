@@ -93,7 +93,7 @@ cfg = AppConfig(
     },
     reporting=html(filename="report"),
 )
-outputs = run(cfg, auto_install=True)
+outputs = run(cfg, auto_install_deps=True)
 
 :output:
 outputs/<date>/<time>/

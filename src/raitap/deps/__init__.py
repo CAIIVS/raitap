@@ -1,7 +1,7 @@
 """raitap-deps: infer uv extras from a Hydra config and run uv for the user.
 
 The user-facing entry to the auto-deps flow is ``raitap.run(cfg,
-auto_install=True)`` for scripts and ``raitap --allow-project-edit`` (alias
+auto_install_deps=True)`` for scripts and ``raitap --allow-project-edit`` (alias
 ``-y``) for the CLI. The functions below are the building blocks both
 front-ends compose on top of.
 

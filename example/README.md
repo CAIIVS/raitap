@@ -12,13 +12,13 @@ uv run raitap --config-name assessment                           # subsequent ru
 ```
 
 Or run the equivalent Python entrypoint — it triggers the same auto-deps
-flow by passing `auto_install=True` to `raitap.run`:
+flow by passing `auto_install_deps=True` to `raitap.run`:
 
 ```bash
 uv run python assessment.py
 ```
 
-The script calls `run(cfg, auto_install=True)`. First run: walks the config,
+The script calls `run(cfg, auto_install_deps=True)`. First run: walks the config,
 infers extras, `uv add`s them into this `pyproject.toml`, re-execs.
 Subsequent runs short-circuit the bootstrap and proceed straight to the
 pipeline.
@@ -38,10 +38,10 @@ the dependency line evolves automatically as you change the config.
   `metrics=classification`) plus inline `model`, `data`, `transparency`,
   `robustness`. Inherits `raitap_schema` for dataclass defaults.
 - `assessment.py` — programmatic equivalent of `assessment.yaml` using
-  `raitap.AppConfig` + `raitap.run(..., auto_install=True)`. Same pipeline,
+  `raitap.AppConfig` + `raitap.run(..., auto_install_deps=True)`. Same pipeline,
   no Hydra CLI. Adapter modules use lazy imports of their wrapped libraries,
   so this file can be imported and run in a venv that has only the base
-  `raitap` dep — `auto_install=True` walks the cfg, pins the extras, and
+  `raitap` dep — `auto_install_deps=True` walks the cfg, pins the extras, and
   re-execs.
 - Reports land under `outputs/<date>/<time>/`.
 
