@@ -395,15 +395,22 @@ def instantiate_visualisers(
 # ---------------------------------------------------------------------------
 
 
-def per_image_transform_from_config(config: Any) -> Any:
+def per_image_transform_from_config(
+    config: Any,
+    *,
+    resolved_preprocessing: Any = None,
+) -> Any:
     """Return the shape-half preprocessing callable for *config*, or ``None``.
 
     Shared helper for factory entry points that need to apply the same
     per-image transform to auxiliary call-data tensors that
     :class:`raitap.data.data.Data` applies to the primary input. Defensive:
-    returns ``None`` when the config lacks ``model`` (legacy test mocks) or
-    the resolver short-circuits to the off branch.
+    returns ``None`` when no run-level resolution is supplied and the config
+    lacks ``model`` (legacy test mocks), or when preprocessing is off.
     """
+    if resolved_preprocessing is not None:
+        return module_as_per_image_callable(getattr(resolved_preprocessing, "data_module", None))
+
     model_cfg = getattr(config, "model", None)
     data_cfg = getattr(config, "data", None)
     if model_cfg is None or data_cfg is None:

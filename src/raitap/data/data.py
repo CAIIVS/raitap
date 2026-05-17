@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from raitap.configs.schema import AppConfig
+    from raitap.data.preprocessing import ResolvedPreprocessing
 
 
 _CACHE_DIR = Path.home() / ".cache" / "raitap"
@@ -37,13 +38,26 @@ class SourceKind(StrEnum):
 
 
 class Data(Trackable):
-    def __init__(self, cfg: AppConfig) -> None:
+    def __init__(
+        self,
+        cfg: AppConfig,
+        *,
+        resolved_preprocessing: ResolvedPreprocessing | None = None,
+    ) -> None:
         self.name = cfg.data.name
         self.source = cfg.data.source
-        self.tensor, self.sample_ids = self._load_data(cfg)
+        self.tensor, self.sample_ids = self._load_data(
+            cfg,
+            resolved_preprocessing=resolved_preprocessing,
+        )
         self.labels = self._load_labels(cfg)
 
-    def _load_data(self, cfg: AppConfig) -> tuple[torch.Tensor, list[str] | None]:
+    def _load_data(
+        self,
+        cfg: AppConfig,
+        *,
+        resolved_preprocessing: ResolvedPreprocessing | None = None,
+    ) -> tuple[torch.Tensor, list[str] | None]:
         """
         Load data from a specified source into a raw tensor.
 
@@ -69,21 +83,17 @@ class Data(Trackable):
                 "Use a local path or a named sample set, e.g.: data=imagenet_samples"
             )
 
-        # Resolve preprocessing once so the loader can apply the shape half
-        # (Resize / CenterCrop) per-image before stacking. The model half
-        # (Normalize) is applied later at the model boundary by ``Model``.
-        # Independent ``Model`` call to ``resolve_preprocessing`` will repeat
-        # this work; for the custom-file option that means the user file is
-        # imported twice. ``cfg.model`` may be absent in minimal test mocks —
-        # skip resolution entirely in that case so legacy tests don't need to
-        # fabricate a ``ModelConfig``.
-        model_cfg = getattr(cfg, "model", None)
-        if model_cfg is None:
-            resolved = None
-            per_image_transform = None
+        # Use the run-level resolution when the orchestrator supplies it. Direct
+        # ``Data(config)`` callers keep the legacy fallback path.
+        if resolved_preprocessing is not None:
+            per_image_transform = module_as_per_image_callable(resolved_preprocessing.data_module)
         else:
-            resolved = resolve_preprocessing(model_cfg, cfg.data)
-            per_image_transform = module_as_per_image_callable(resolved.data_module)
+            model_cfg = getattr(cfg, "model", None)
+            if model_cfg is None:
+                per_image_transform = None
+            else:
+                resolved = resolve_preprocessing(model_cfg, cfg.data)
+                per_image_transform = module_as_per_image_callable(resolved.data_module)
 
         # Demo samples need their own loader: source images have inconsistent
         # dimensions and ``_load_sample`` resizes them to a common shape so

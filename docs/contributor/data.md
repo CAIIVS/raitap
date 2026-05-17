@@ -146,12 +146,11 @@ DataConfig.preprocessing
   └─ <path>.py           → _resolve_custom_file      → data_module=make_data_preprocessing() (optional), model_module=make_preprocessing()
 ```
 
-Both `Data._load_data` and `Model._apply_preprocessing` call
-`resolve_preprocessing` independently and consume their own half. The
-resolver runs twice per pipeline; for the `custom-file` option that means
-the user file is imported twice. This is intentional — keeping each caller
-self-sufficient avoids threading a `ResolvedPreprocessing` through every
-signature, and user factories are expected to be cheap/idempotent.
+The normal pipeline resolves preprocessing once in
+`src/raitap/pipeline/orchestrator.py`, then passes the same
+`ResolvedPreprocessing` to `Model` and `Data`. Direct `Model(config)` and
+`Data(config)` callers still fall back to resolving internally for backward
+compatibility.
 
 `model-bundled` derives the torchvision arch from `model_cfg.arch`,
 falling back to `model_cfg.source` if it names a built-in
@@ -182,8 +181,9 @@ log handler.
 
 ### Loader integration
 
-`Data._load_data` (`src/raitap/data/data.py`) calls `resolve_preprocessing`,
-lifts `resolved.data_module` to a per-image callable via
+`Data._load_data` (`src/raitap/data/data.py`) receives the run-level
+`ResolvedPreprocessing` when called by the orchestrator, lifts
+`resolved.data_module` to a per-image callable via
 `module_as_per_image_callable` (which runs in `torch.no_grad` + `eval()`),
 and passes it into `_stack_images_numpy(files, per_image_transform=...)`.
 The transform runs on each `(C, H, W)` tensor before `np.stack`, so a

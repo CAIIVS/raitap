@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
     from raitap.configs.schema import AppConfig
     from raitap.data import Data
+    from raitap.data.preprocessing import ResolvedPreprocessing
     from raitap.models import Model
     from raitap.transparency.contracts import InputSpec
     from raitap.transparency.results import ExplanationResult, VisualisationResult
@@ -47,6 +48,7 @@ def assess_transparency(
     forward_output: torch.Tensor,
     *,
     input_metadata: InputSpec | None,
+    resolved_preprocessing: ResolvedPreprocessing | None = None,
 ) -> tuple[list[ExplanationResult], list[VisualisationResult]]:
     """Run every explainer declared under ``config.transparency``.
 
@@ -75,6 +77,7 @@ def assess_transparency(
             input_metadata=input_metadata,
             sample_ids=data.sample_ids,
             sample_names=data.sample_ids,
+            resolved_preprocessing=resolved_preprocessing,
             **runtime_kwargs,
         )
         explanations.append(explanation)

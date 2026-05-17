@@ -251,6 +251,27 @@ def test_custom_file_data_factory_wrong_return_type(
         )
 
 
+def test_custom_file_rejects_shared_model_and_data_module(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv(_ENV, "1")
+    fixture = tmp_path / "shared_module.py"
+    fixture.write_text(
+        "from torch import nn\n"
+        "_shared = nn.Identity()\n"
+        "def make_preprocessing() -> nn.Module:\n"
+        "    return _shared\n"
+        "def make_data_preprocessing() -> nn.Module:\n"
+        "    return _shared\n"
+    )
+
+    with pytest.raises(ValueError, match=r"separate nn\.Module instances"):
+        resolve_preprocessing(
+            ModelConfig(source="resnet50"),
+            DataConfig(preprocessing=str(fixture)),
+        )
+
+
 def test_custom_file_sha256_stability(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(_ENV, "1")
     data_cfg = DataConfig(preprocessing=str(FIXTURE))

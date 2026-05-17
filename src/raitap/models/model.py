@@ -22,9 +22,18 @@ if TYPE_CHECKING:
 
 
 class Model(Trackable):
-    def __init__(self, config: AppConfig) -> None:
+    def __init__(
+        self,
+        config: AppConfig,
+        *,
+        resolved_preprocessing: ResolvedPreprocessing | None = None,
+    ) -> None:
         self.backend = self._load_model(config)
-        self.resolved_preprocessing = _apply_preprocessing(self.backend, config)
+        self.resolved_preprocessing = _apply_preprocessing(
+            self.backend,
+            config,
+            resolved_preprocessing=resolved_preprocessing,
+        )
         shape_override = _resolve_shape_override(config)
         if shape_override is not None:
             self.backend.expected_input_shape = shape_override
@@ -60,7 +69,12 @@ class Model(Trackable):
         tracker.log_model(self.backend)
 
 
-def _apply_preprocessing(backend: ModelBackend, config: AppConfig) -> ResolvedPreprocessing:
+def _apply_preprocessing(
+    backend: ModelBackend,
+    config: AppConfig,
+    *,
+    resolved_preprocessing: ResolvedPreprocessing | None = None,
+) -> ResolvedPreprocessing:
     """Resolve ``data.preprocessing`` and wrap the backend's model in-place
     with the value half (Normalize).
 
@@ -72,7 +86,11 @@ def _apply_preprocessing(backend: ModelBackend, config: AppConfig) -> ResolvedPr
     option for transparency, but a non-None ``model_module`` on an ONNX
     backend raises so the user knows to pre-normalize externally.
     """
-    resolved = resolve_preprocessing(config.model, config.data)
+    resolved = (
+        resolved_preprocessing
+        if resolved_preprocessing is not None
+        else resolve_preprocessing(config.model, config.data)
+    )
 
     if resolved.model_module is not None:
         if isinstance(backend, OnnxBackend):

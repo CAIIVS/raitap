@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from raitap.models import Model
 
     from ..configs.schema import AppConfig
+    from ..data.preprocessing import ResolvedPreprocessing
     from .results import ExplanationResult
 
 _TRANSPARENCY_PREFIX = "raitap.transparency."
@@ -164,6 +165,8 @@ class Explanation:
         input_metadata: InputSpec | dict[str, Any] | None = None,
         sample_ids: list[str] | None = None,
         sample_names: list[str] | None = None,
+        *,
+        resolved_preprocessing: ResolvedPreprocessing | None = None,
         **kwargs: Any,
     ) -> ExplanationResult:
         explainer_config = config.transparency[explainer_name]
@@ -202,7 +205,10 @@ class Explanation:
             merged_kwargs = resolve_call_data_sources(
                 {**call_from_config, **kwargs},
                 log_label="call",
-                per_image_transform=per_image_transform_from_config(config),
+                per_image_transform=per_image_transform_from_config(
+                    config,
+                    resolved_preprocessing=resolved_preprocessing,
+                ),
             )
             merged_kwargs = backend._prepare_kwargs(merged_kwargs)
 

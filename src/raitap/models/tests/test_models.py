@@ -843,6 +843,39 @@ class TestModelPreprocessingWrap:
         assert isinstance(children[0], v2.Normalize)
         assert isinstance(children[1], ResNet)
 
+    def test_supplied_resolved_preprocessing_skips_resolution(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
+        from raitap.data.preprocessing import ResolvedPreprocessing
+
+        cfg = cast(
+            "AppConfig",
+            AppConfig(
+                model=ModelConfig(source="resnet18"),
+                data=DataConfig(preprocessing="model-bundled"),
+            ),
+        )
+        resolved = ResolvedPreprocessing(
+            data_module=None,
+            model_module=None,
+            origin="model-bundled",
+            description="supplied",
+        )
+        monkeypatch.setattr(
+            "raitap.models.model.resolve_preprocessing",
+            MagicMock(side_effect=AssertionError("should not resolve again")),
+        )
+        monkeypatch.setattr(
+            Model,
+            "_load_model",
+            lambda _self, _config: TorchBackend(nn.Identity(), device=torch.device("cpu")),
+        )
+
+        model = Model(cfg, resolved_preprocessing=resolved)
+
+        assert model.resolved_preprocessing is resolved
+
     def test_model_bundled_wrap_consumes_raw_input(self) -> None:
         from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
 

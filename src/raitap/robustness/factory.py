@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     import torch
 
     from raitap.configs.schema import AppConfig
+    from raitap.data.preprocessing import ResolvedPreprocessing
     from raitap.models import Model
 
     from .results import RobustnessResult
@@ -114,6 +115,8 @@ class RobustnessAssessment:
         input_metadata: Any | None = None,
         sample_ids: list[str] | None = None,
         sample_names: list[str] | None = None,
+        *,
+        resolved_preprocessing: ResolvedPreprocessing | None = None,
         **kwargs: Any,
     ) -> RobustnessResult:
         if targets is None:
@@ -142,7 +145,10 @@ class RobustnessAssessment:
             merged_kwargs = resolve_call_data_sources(
                 {**call_from_config, **kwargs},
                 log_label="robustness call",
-                per_image_transform=per_image_transform_from_config(config),
+                per_image_transform=per_image_transform_from_config(
+                    config,
+                    resolved_preprocessing=resolved_preprocessing,
+                ),
             )
             merged_kwargs = backend._prepare_kwargs(merged_kwargs)
 

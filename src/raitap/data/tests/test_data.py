@@ -235,6 +235,44 @@ class TestDataPreprocessing:
         data = Data(cfg)
         assert data.tensor.shape == (3, 3, 64, 64)
 
+    def test_supplied_resolved_preprocessing_skips_resolution(self, tmp_path: Path) -> None:
+        from torch import nn
+
+        from raitap.configs.schema import AppConfig, DataConfig, LabelsConfig, ModelConfig
+        from raitap.data.preprocessing import ResolvedPreprocessing
+
+        class _ShapeModule(nn.Module):
+            def forward(self, image: torch.Tensor) -> torch.Tensor:
+                return torch.zeros(3, 8, 8, dtype=image.dtype)
+
+        _write_image(tmp_path / "a.jpg", 32, 32)
+        cfg = cast(
+            "AppConfig",
+            AppConfig(
+                model=ModelConfig(source="resnet50"),
+                data=DataConfig(
+                    name="test",
+                    source=str(tmp_path),
+                    preprocessing="model-bundled",
+                    labels=LabelsConfig(),
+                ),
+                hardware=Hardware.cpu,
+            ),
+        )
+        resolved = ResolvedPreprocessing(
+            data_module=_ShapeModule(),
+            model_module=None,
+            origin="model-bundled",
+            description="supplied",
+        )
+
+        with patch("raitap.data.data.resolve_preprocessing") as resolve_preprocessing_mock:
+            resolve_preprocessing_mock.side_effect = AssertionError("should not resolve again")
+            data = Data(cfg, resolved_preprocessing=resolved)
+
+        assert data.tensor.shape == (1, 3, 8, 8)
+        resolve_preprocessing_mock.assert_not_called()
+
     def test_load_tensor_from_source_applies_per_image_transform(self, tmp_path: Path) -> None:
         """``load_tensor_from_source`` (used by ``resolve_call_data_sources``
         for SHAP background_data etc.) honours ``per_image_transform`` so

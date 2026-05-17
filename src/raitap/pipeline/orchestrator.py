@@ -11,6 +11,7 @@ import torch
 
 from raitap import raitap_log
 from raitap.data import Data
+from raitap.data.preprocessing import resolve_preprocessing
 from raitap.models import Model
 from raitap.pipeline.outputs import RunOutputs
 from raitap.pipeline.phases.assess_robustness import assess_robustness
@@ -26,6 +27,7 @@ from raitap.tracking import BaseTracker
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
+    from raitap.data.preprocessing import ResolvedPreprocessing
 
 
 def run(config: AppConfig, *, verbose: bool = True) -> RunOutputs:
@@ -46,13 +48,19 @@ def run(config: AppConfig, *, verbose: bool = True) -> RunOutputs:
     # summary panel renders first; otherwise the rich handler interleaves
     # them above the banner and makes the run header look fragmented.
     with raitap_log.deferred():
-        model = Model(config)
-        data = Data(config)
+        resolved_preprocessing = resolve_preprocessing(config.model, config.data)
+        model = Model(config, resolved_preprocessing=resolved_preprocessing)
+        data = Data(config, resolved_preprocessing=resolved_preprocessing)
     _validate_report_sample_selection(config, data)
     if verbose:
         print_summary(config, model)
 
-    outputs = run_without_tracking(config, model, data)
+    outputs = run_without_tracking(
+        config,
+        model,
+        data,
+        resolved_preprocessing=resolved_preprocessing,
+    )
 
     report_generation = None
     if reporting_enabled(config):
@@ -90,7 +98,13 @@ def run(config: AppConfig, *, verbose: bool = True) -> RunOutputs:
     return outputs
 
 
-def run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOutputs:
+def run_without_tracking(
+    config: AppConfig,
+    model: Model,
+    data: Data,
+    *,
+    resolved_preprocessing: ResolvedPreprocessing | None = None,
+) -> RunOutputs:
     """Compose every phase except tracker setup.
 
     Public helper for tests and embedded callers that want the pipeline output
@@ -113,6 +127,7 @@ def run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOutp
         data,
         forward_output,
         input_metadata=input_metadata,
+        resolved_preprocessing=resolved_preprocessing,
     )
     robustness_results, robustness_visualisations = assess_robustness(
         config,
@@ -121,6 +136,7 @@ def run_without_tracking(config: AppConfig, model: Model, data: Data) -> RunOutp
         forward_output,
         labels=data.labels,
         input_metadata=input_metadata,
+        resolved_preprocessing=resolved_preprocessing,
     )
 
     return RunOutputs(

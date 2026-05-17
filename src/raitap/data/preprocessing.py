@@ -343,6 +343,13 @@ def _resolve_custom_file(raw_path: str, data_cfg: DataConfig) -> ResolvedPreproc
 
     model_module = _build_user_factory(user_module, path, _FACTORY_NAME, required=True)
     data_module = _build_user_factory(user_module, path, _DATA_FACTORY_NAME, required=False)
+    if data_module is not None and data_module is model_module:
+        raise ValueError(
+            f"{path}: `{_FACTORY_NAME}()` and `{_DATA_FACTORY_NAME}()` must return "
+            "separate nn.Module instances. The model preprocessing module may be "
+            "moved to the model device, while the data preprocessing module runs "
+            "on CPU image tensors."
+        )
 
     return ResolvedPreprocessing(
         data_module=data_module,
