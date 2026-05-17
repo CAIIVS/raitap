@@ -41,7 +41,11 @@ from omegaconf.errors import MissingMandatoryValue
 from raitap import raitap_log
 from raitap.configs.utils import cfg_to_dict, resolve_target
 from raitap.data import load_tensor_from_source
-from raitap.data.preprocessing import module_as_per_image_callable, resolve_preprocessing
+from raitap.data.preprocessing import (
+    ResolvedPreprocessing,
+    module_as_per_image_callable,
+    resolve_preprocessing,
+)
 
 __all__ = [
     "AdapterSchema",
@@ -398,18 +402,23 @@ def instantiate_visualisers(
 def per_image_transform_from_config(
     config: Any,
     *,
-    resolved_preprocessing: Any = None,
+    resolved_preprocessing: ResolvedPreprocessing | None = None,
 ) -> Any:
     """Return the shape-half preprocessing callable for *config*, or ``None``.
 
     Shared helper for factory entry points that need to apply the same
     per-image transform to auxiliary call-data tensors that
-    :class:`raitap.data.data.Data` applies to the primary input. Defensive:
-    returns ``None`` when no run-level resolution is supplied and the config
-    lacks ``model`` (legacy test mocks), or when preprocessing is off.
+    :class:`raitap.data.data.Data` applies to the primary input.
+
+    The orchestrator path always supplies ``resolved_preprocessing`` so the
+    run-level :class:`ResolvedPreprocessing` is reused without re-importing
+    custom-file preprocessing. The fallback resolver branch is reachable only
+    from direct/legacy factory or helper use (e.g. ``Explanation(config, ...)``
+    constructed outside the pipeline) and from test mocks lacking ``model`` /
+    ``data``; it returns ``None`` in those cases or when preprocessing is off.
     """
     if resolved_preprocessing is not None:
-        return module_as_per_image_callable(getattr(resolved_preprocessing, "data_module", None))
+        return module_as_per_image_callable(resolved_preprocessing.data_module)
 
     model_cfg = getattr(config, "model", None)
     data_cfg = getattr(config, "data", None)
