@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 import raitap.pipeline.orchestrator as run_pipeline
 from raitap import pipeline as run_module
+from raitap.data.preprocessing import ResolvedPreprocessing
 from raitap.metrics import metrics_prediction_pair
 from raitap.pipeline import __main__ as run_entry
 from raitap.pipeline import extract_primary_tensor
@@ -689,7 +690,12 @@ def test_run_without_tracking_passes_resolved_preprocessing_to_explanation(
     data = SimpleNamespace(tensor=torch.randn(2, 3), sample_ids=None, labels=None)
     explanation = _FakeExplainerResult("exp")
     captured_kwargs: dict[str, object] = {}
-    resolved_preprocessing = object()
+    resolved_preprocessing = ResolvedPreprocessing(
+        data_module=None,
+        model_module=None,
+        origin="model-bundled",
+        description="test",
+    )
 
     def _fake_explanation(*_args: object, **kwargs: object) -> _FakeExplainerResult:
         captured_kwargs.update(kwargs)
@@ -705,11 +711,11 @@ def test_run_without_tracking_passes_resolved_preprocessing_to_explanation(
     monkeypatch.setattr("raitap.pipeline.phases.assess_transparency.Explanation", _fake_explanation)
 
     run_pipeline.run_without_tracking(
-        config,
-        model,
-        data,
+        config,  # type: ignore[arg-type]
+        model,  # type: ignore[arg-type]
+        data,  # type: ignore[arg-type]
         resolved_preprocessing=resolved_preprocessing,
-    )  # type: ignore[arg-type]
+    )
 
     assert captured_kwargs["resolved_preprocessing"] is resolved_preprocessing
 

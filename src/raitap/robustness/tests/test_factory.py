@@ -171,7 +171,7 @@ def test_robustness_uses_model_resolved_preprocessing_for_call_data(
     RobustnessAssessment(
         config,  # type: ignore[arg-type]
         "pgd",
-        model=model,
+        model=model,  # type: ignore[arg-type]
         inputs=torch.zeros(2, 3, 8, 8),
         targets=torch.tensor([0, 1]),
         resolved_preprocessing=resolved,

@@ -1645,12 +1645,12 @@ class TestResolveCallDataSources:
 
         model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
         Explanation(
-            config,
+            config,  # type: ignore[arg-type]
             "test_explainer",
-            model=model,
+            model=model,  # type: ignore[arg-type]
             inputs=sample_images,
             resolved_preprocessing=resolved,
-        )  # type: ignore[arg-type]
+        )
 
         bg_tensor = explainer.last_explain_kwargs["background_data"]
         assert isinstance(bg_tensor, torch.Tensor)
