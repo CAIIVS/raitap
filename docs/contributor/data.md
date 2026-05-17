@@ -67,7 +67,7 @@ referenceable by name in `data.source`. Registration lives in
    only if the bundle needs more than the default image/tabular loader.
 
 5. **Update docs** — add the new sample name to
-   `docs/modules/data/own-vs-built-in.md`.
+   {doc}`/modules/data/own-vs-built-in`.
 
 ## Sample discovery and label alignment
 
@@ -90,10 +90,10 @@ warning and disable label-based metrics for that run.
 
 ## Image preprocessing internals
 
-User-facing surface lives at `docs/modules/data/preprocessing.md` — that doc is the
-source of truth for vocabulary exposed to users (no class names, no internal
-mechanics). This section covers the implementation so maintainers can extend it
-without re-deriving the design.
+User-facing surface lives at {doc}`/modules/data/preprocessing` — that doc is
+the source of truth for vocabulary exposed to users (no class names, no
+internal mechanics). This section covers the implementation so maintainers can
+extend it without re-deriving the design.
 
 ### Three options
 
@@ -255,6 +255,6 @@ The `origin` enum value is internal; user-facing renderings translate it
 
 `src/raitap/data/tests/fixtures/preproc_imagenet.py` is the minimal
 custom-file factory exercised by `test_preprocessing.py` and `test_api.py`.
-It mirrors the example in `docs/modules/data/preprocessing.md` so the test doubles
-as documentation that the example works — keep them in sync when either
-changes.
+It mirrors the example in {doc}`/modules/data/preprocessing` so the test
+doubles as documentation that the example works — keep them in sync when
+either changes.
