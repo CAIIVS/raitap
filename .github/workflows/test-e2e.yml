@@ -145,17 +145,23 @@ jobs:
         working-directory: example
         run: uv sync
 
-      - name: Run example via console-script
-        # `hardware=cpu` Hydra override drives the CPU backend regardless of
-        # host probe. No `--allow-project-edit` needed: extras already pinned,
-        # bootstrap diffs to empty, falls through to the pipeline.
+      - name: Run example via console-script (bootstrap + re-exec live)
+        # `--allow-project-edit` consents to the inferred `uv add` call.
+        # Bootstrap always re-asserts the full inferred extras set (it
+        # doesn't diff against the currently-pinned set), so even with
+        # everything already pinned the call goes through — `uv add` is
+        # idempotent at the resolver level, but `os.execv` + the sentinel
+        # short-circuit + the post-relaunch pipeline import all execute.
+        # `hardware=cpu` Hydra override pins the CPU backend regardless of
+        # host probe.
         working-directory: example
         run: |
           set -o pipefail
-          uv run raitap --config-name assessment hardware=cpu 2>&1 | tee run.log
+          uv run raitap --config-name assessment hardware=cpu --allow-project-edit 2>&1 | tee run.log
 
-      - name: Assert pipeline produced outputs
+      - name: Assert bootstrap fired and pipeline produced outputs
         working-directory: example
         run: |
+          grep -F "uv add raitap[" run.log
           test -d outputs
           find outputs -type f -name 'report*' | grep -q .
