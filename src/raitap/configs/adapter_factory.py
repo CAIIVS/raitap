@@ -53,7 +53,7 @@ __all__ = [
     "instantiate_adapter",
     "instantiate_visualisers",
     "parse_adapter_config",
-    "per_image_transform_from_config",
+    "resolve_per_image_transform",
     "raw_config_dict",
     "resolve_call_data_sources",
 ]
@@ -399,7 +399,7 @@ def instantiate_visualisers(
 # ---------------------------------------------------------------------------
 
 
-def per_image_transform_from_config(
+def resolve_per_image_transform(
     config: Any,
     *,
     resolved_preprocessing: ResolvedPreprocessing | None = None,

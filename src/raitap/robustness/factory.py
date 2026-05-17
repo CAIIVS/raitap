@@ -13,7 +13,7 @@ from raitap.configs.adapter_factory import (
     instantiate_adapter,
     instantiate_visualisers,
     parse_adapter_config,
-    per_image_transform_from_config,
+    resolve_per_image_transform,
     raw_config_dict,
     resolve_call_data_sources,
 )
@@ -145,7 +145,7 @@ class RobustnessAssessment:
             merged_kwargs = resolve_call_data_sources(
                 {**call_from_config, **kwargs},
                 log_label="robustness call",
-                per_image_transform=per_image_transform_from_config(
+                per_image_transform=resolve_per_image_transform(
                     config,
                     resolved_preprocessing=resolved_preprocessing,
                 ),

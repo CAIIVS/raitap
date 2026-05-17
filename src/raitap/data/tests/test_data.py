@@ -277,7 +277,7 @@ class TestDataPreprocessing:
         """``load_tensor_from_source`` (used by ``resolve_call_data_sources``
         for SHAP background_data etc.) honours ``per_image_transform`` so
         mixed-size auxiliary directories load to a uniform shape."""
-        from raitap.configs.adapter_factory import per_image_transform_from_config
+        from raitap.configs.adapter_factory import resolve_per_image_transform
         from raitap.data import load_tensor_from_source
 
         _write_image(tmp_path / "a.jpg", 451, 800)
@@ -285,7 +285,7 @@ class TestDataPreprocessing:
         _write_image(tmp_path / "c.jpg", 440, 780)
 
         cfg = self._make_cfg(str(tmp_path), preprocessing="model-bundled")
-        per_image_transform = per_image_transform_from_config(cfg)
+        per_image_transform = resolve_per_image_transform(cfg)
         assert per_image_transform is not None
 
         tensor = load_tensor_from_source(str(tmp_path), per_image_transform=per_image_transform)
