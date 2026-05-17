@@ -32,11 +32,14 @@ from collections.abc import (  # noqa: TC003 — runtime import: typing.get_type
     Mapping,
 )
 from dataclasses import dataclass, field
-from typing import Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from omegaconf.errors import MissingMandatoryValue
+
+if TYPE_CHECKING:
+    import torch
 
 from raitap import raitap_log
 from raitap.configs.utils import cfg_to_dict, resolve_target
@@ -53,9 +56,9 @@ __all__ = [
     "instantiate_adapter",
     "instantiate_visualisers",
     "parse_adapter_config",
-    "resolve_per_image_transform",
     "raw_config_dict",
     "resolve_call_data_sources",
+    "resolve_per_image_transform",
 ]
 
 
@@ -403,7 +406,7 @@ def resolve_per_image_transform(
     config: Any,
     *,
     resolved_preprocessing: ResolvedPreprocessing | None = None,
-) -> Any:
+) -> Callable[[torch.Tensor], torch.Tensor] | None:
     """Return the shape-half preprocessing callable for *config*, or ``None``.
 
     Shared helper for factory entry points that need to apply the same
@@ -432,7 +435,7 @@ def resolve_call_data_sources(
     call_kwargs: dict[str, Any],
     *,
     log_label: str = "call",
-    per_image_transform: Any = None,
+    per_image_transform: Callable[[torch.Tensor], torch.Tensor] | None = None,
 ) -> dict[str, Any]:
     """Replace ``call:`` values matching ``{source, n_samples}`` with loaded tensors.
 
