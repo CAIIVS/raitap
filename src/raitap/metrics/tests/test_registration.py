@@ -16,7 +16,8 @@ def test_register_metrics_adapter_registers_under_metrics_group() -> None:
         extra="_stub_extra",
     )
     class _StubMetric(BaseMetricComputer):
-        def __init__(self) -> None: ...
+        def __init__(self) -> None:
+            pass
 
         def reset(self) -> None:
             return None

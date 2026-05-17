@@ -22,7 +22,8 @@ def test_register_tracker_registers_under_tracking_group() -> None:
         extra="_stub_extra",
     )
     class _StubTracker(BaseTracker):
-        def __init__(self) -> None: ...
+        def __init__(self) -> None:
+            pass
 
         def log_config(self) -> None:
             return None
