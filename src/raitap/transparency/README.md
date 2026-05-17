@@ -99,7 +99,7 @@ raitap:
     layout: NCHW         # one of: NCHW | (B,F) | (B,T,C) | TOKENS
 ```
 
-The full run pipeline (`raitap.pipeline.pipeline`) auto-infers `input_metadata` from `data.source` for common image and tabular layouts, so most users won't need to set this explicitly. Direct callers of `infer_output_space` (or runs where source-based inference can't determine the modality) must pass it — without it, the helper raises `ValueError: Output-space inference requires explicit input metadata; shape alone is ambiguous.` See the configuration docs for the full table.
+The full run pipeline (`raitap.pipeline.orchestrator`) auto-infers `input_metadata` from `data.source` for common image and tabular layouts, so most users won't need to set this explicitly. Direct callers of `infer_output_space` (or runs where source-based inference can't determine the modality) must pass it — without it, the helper raises `ValueError: Output-space inference requires explicit input metadata; shape alone is ambiguous.` See the configuration docs for the full table.
 
 ## Supported algorithms
 
