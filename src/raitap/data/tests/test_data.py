@@ -272,6 +272,54 @@ class TestDataPreprocessing:
         assert data.tensor.shape == (1, 3, 8, 8)
         resolve_preprocessing_mock.assert_not_called()
 
+    def test_onnx_custom_file_data_factory_drives_data_loading(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        from raitap.configs.schema import AppConfig, DataConfig, LabelsConfig, ModelConfig
+
+        _write_image(tmp_path / "a.jpg", 32, 48)
+        _write_image(tmp_path / "b.jpg", 40, 64)
+        model_path = tmp_path / "model.onnx"
+        model_path.write_bytes(b"fake onnx")
+        preprocessing_path = tmp_path / "preprocessing.py"
+        preprocessing_path.write_text(
+            "import torch\n"
+            "from torch import nn\n"
+            "\n"
+            "class _ModelOnly(nn.Module):\n"
+            "    def forward(self, image: torch.Tensor) -> torch.Tensor:\n"
+            "        raise AssertionError('model preprocessing should stay backend-side')\n"
+            "\n"
+            "class _DataOnly(nn.Module):\n"
+            "    def forward(self, image: torch.Tensor) -> torch.Tensor:\n"
+            "        return torch.zeros(3, 8, 8, dtype=image.dtype)\n"
+            "\n"
+            "def make_preprocessing() -> nn.Module:\n"
+            "    return _ModelOnly()\n"
+            "\n"
+            "def make_data_preprocessing() -> nn.Module:\n"
+            "    return _DataOnly()\n"
+        )
+        monkeypatch.setenv("RAITAP_ALLOW_PREPROCESSING_EXEC", "1")
+        cfg = cast(
+            "AppConfig",
+            AppConfig(
+                model=ModelConfig(source=str(model_path)),
+                data=DataConfig(
+                    name="test",
+                    source=str(tmp_path),
+                    preprocessing=str(preprocessing_path),
+                    labels=LabelsConfig(),
+                ),
+                hardware=Hardware.cpu,
+            ),
+        )
+
+        data = Data(cfg)
+
+        assert data.tensor.shape == (2, 3, 8, 8)
+        assert data.tensor.dtype == torch.float32
+
     def test_load_tensor_from_source_applies_per_image_transform(self, tmp_path: Path) -> None:
         """``load_tensor_from_source`` (used by ``resolve_call_data_sources``
         for SHAP background_data etc.) honours ``per_image_transform`` so

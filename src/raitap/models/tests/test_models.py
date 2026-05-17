@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -53,11 +53,24 @@ class _FakeOnnxValueInfo:
 
 
 class _FakeOnnxSession:
+    def __init__(self, *, shape: list[int | str | None] | None = None) -> None:
+        self._shape = shape
+
     def get_inputs(self) -> list[_FakeOnnxValueInfo]:
-        return [_FakeOnnxValueInfo("input")]
+        return [_FakeOnnxValueInfo("input", shape=self._shape)]
 
     def get_outputs(self) -> list[_FakeOnnxValueInfo]:
         return [_FakeOnnxValueInfo("output")]
+
+    def run(
+        self,
+        _output_names: list[str] | None,
+        feeds: dict[str, np.ndarray[Any, Any]],
+    ) -> list[np.ndarray[Any, Any]]:
+        batch = np.asarray(feeds["input"], dtype=np.float32).reshape(-1, 4)
+        weight = np.full((4, 2), 0.25, dtype=np.float32)
+        bias = np.array([0.1, -0.1], dtype=np.float32)
+        return [batch @ weight + bias]
 
 
 def _as_inference_session(session: _FakeOnnxSession) -> ort.InferenceSession:
@@ -71,6 +84,7 @@ def _make_config(
     arch: str | None = None,
     num_classes: int | None = None,
     pretrained: bool = False,
+    preprocessing: str | None = None,
 ) -> AppConfig:
     return cast(
         "AppConfig",
@@ -92,7 +106,7 @@ def _make_config(
                     "DataConfig",
                     (),
                     {
-                        "preprocessing": None,
+                        "preprocessing": preprocessing,
                         "input_metadata": None,
                     },
                 )(),
@@ -947,6 +961,137 @@ class TestModelPreprocessingWrap:
         assert model.resolved_preprocessing.file_sha256 is not None
         assert len(model.resolved_preprocessing.file_sha256) == 64
 
+    def test_onnx_custom_file_preprocessing_affects_tensor_backend_output(
+        self, tmp_path: Path
+    ) -> None:
+        from raitap.models.model import _apply_preprocessing
+
+        preprocessing_file = tmp_path / "onnx_preprocessing.py"
+        preprocessing_file.write_text(
+            """
+import torch
+from torch import nn
+
+
+class AddOne(nn.Module):
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        return inputs + 1
+
+
+def make_preprocessing() -> nn.Module:
+    return AddOne()
+""".lstrip(),
+            encoding="utf-8",
+        )
+        cfg = _make_config(
+            "model.onnx",
+            hardware="cpu",
+            preprocessing=str(preprocessing_file),
+        )
+        resolved = resolve_preprocessing(cfg.model, cfg.data, acknowledge_exec=True)
+
+        backend = OnnxBackend(
+            _as_inference_session(_FakeOnnxSession()),
+            providers=["CPUExecutionProvider"],
+        )
+        _apply_preprocessing(backend, cfg, resolved_preprocessing=resolved)
+        output = backend(torch.zeros(2, 4, dtype=torch.float32))
+
+        expected = torch.tensor([[1.1, 0.9], [1.1, 0.9]], dtype=torch.float32)
+        torch.testing.assert_close(output, expected)
+
+    def test_onnx_forward_numpy_remains_raw_when_preprocessing_is_attached(
+        self, tmp_path: Path
+    ) -> None:
+        from raitap.models.model import _apply_preprocessing
+
+        preprocessing_file = tmp_path / "onnx_preprocessing.py"
+        preprocessing_file.write_text(
+            """
+import torch
+from torch import nn
+
+
+class AddOne(nn.Module):
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        return inputs + 1
+
+
+def make_preprocessing() -> nn.Module:
+    return AddOne()
+""".lstrip(),
+            encoding="utf-8",
+        )
+        cfg = _make_config(
+            "model.onnx",
+            hardware="cpu",
+            preprocessing=str(preprocessing_file),
+        )
+        resolved = resolve_preprocessing(cfg.model, cfg.data, acknowledge_exec=True)
+        backend = OnnxBackend(
+            _as_inference_session(_FakeOnnxSession()),
+            providers=["CPUExecutionProvider"],
+        )
+        _apply_preprocessing(backend, cfg, resolved_preprocessing=resolved)
+
+        raw = np.zeros((2, 4), dtype=np.float32)
+        tensor_output = backend(torch.from_numpy(raw))
+        numpy_output = backend.forward_numpy(raw)
+
+        torch.testing.assert_close(
+            tensor_output,
+            torch.tensor([[1.1, 0.9], [1.1, 0.9]], dtype=torch.float32),
+        )
+        np.testing.assert_allclose(
+            numpy_output,
+            np.array([[0.1, -0.1], [0.1, -0.1]], dtype=np.float32),
+            rtol=1e-5,
+            atol=1e-6,
+        )
+
+    def test_onnx_prepare_inputs_adapts_without_preprocessing_and_defers_with_it(
+        self, tmp_path: Path
+    ) -> None:
+        preprocessing_file = tmp_path / "onnx_preprocessing.py"
+        preprocessing_file.write_text(
+            """
+import torch
+from torch import nn
+
+
+class PreserveFlatInput(nn.Module):
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        return inputs.reshape(inputs.shape[0], 1, 1, 4)
+
+
+def make_preprocessing() -> nn.Module:
+    return PreserveFlatInput()
+""".lstrip(),
+            encoding="utf-8",
+        )
+        backend = OnnxBackend(
+            _as_inference_session(_FakeOnnxSession(shape=["batch", 1, 1, 4])),
+            providers=["CPUExecutionProvider"],
+        )
+        raw = torch.randn(2, 4)
+
+        prepared_without_preprocessing = backend._prepare_inputs(raw)
+        assert prepared_without_preprocessing.shape == (2, 1, 1, 4)
+
+        cfg = _make_config(
+            "model.onnx",
+            hardware="cpu",
+            preprocessing=str(preprocessing_file),
+        )
+        resolved = resolve_preprocessing(cfg.model, cfg.data, acknowledge_exec=True)
+        from raitap.models.model import _apply_preprocessing
+
+        _apply_preprocessing(backend, cfg, resolved_preprocessing=resolved)
+        prepared_with_preprocessing = backend._prepare_inputs(raw)
+
+        assert prepared_with_preprocessing is raw
+        assert prepared_with_preprocessing.shape == (2, 4)
+
     def test_onnx_backend_with_active_preprocessing_raises(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -969,8 +1114,13 @@ class TestModelPreprocessingWrap:
                 data=DataConfig(preprocessing="model-bundled"),
             ),
         )
-        with pytest.raises(NotImplementedError, match="ONNX"):
+        with pytest.raises(NotImplementedError) as exc_info:
             _apply_preprocessing(backend, cfg)
+        message = str(exc_info.value)
+        assert "ONNX" in message
+        assert "model-bundled" in message
+        assert "custom-file" in message
+        assert "data.preprocessing" in message
 
 
 def test_resnet_state_dict_with_model_bundled_preprocessing_keeps_gradcam_path(

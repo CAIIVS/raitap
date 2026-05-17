@@ -119,6 +119,10 @@ for the model boundary:
 | `data_module` | `Data._load_data`, per image   | Resize + CenterCrop (shape)           | Must run before `_stack_images_numpy` calls `np.stack` so mixed-size directories can be batched. No gradient → safe outside autograd. |
 | `model_module`| `Model._apply_preprocessing`   | Normalize (values)                    | Has gradient → must stay inside autograd for Captum / SHAP / torchattacks to attribute and attack on the user-facing `[0, 1]` space.  |
 
+For ONNX backends, `model_module` still belongs at the model boundary, but
+the autograd rationale is Torch-specific. Marabou-style formal verification
+reads the bare ONNX graph and does not see Python preprocessing modules.
+
 `model-bundled` calls `_split_preset(preset)` for the bundled torchvision
 presets (`ImageClassification`, `SemanticSegmentation`). `ObjectDetection`
 returns both halves as `None` — detection models normalise internally via
@@ -155,9 +159,11 @@ compatibility.
 `model-bundled` derives the torchvision arch from `model_cfg.arch`,
 falling back to `model_cfg.source` if it names a built-in
 (`hasattr(torchvision.models, name)`). Missing-arch lineage raises
-`ValueError` with a copy-pasteable fix. `custom-file` enforces `.py`
-extension, existence, presence of `make_preprocessing`, and that the factory
-returns an `nn.Module`; each failure raises a typed error.
+`ValueError` with a copy-pasteable fix. This path is intentionally
+torchvision-lineage only; RAITAP does not inspect or execute preprocessing
+that may have been bundled into an ONNX export. `custom-file` enforces
+`.py` extension, existence, presence of `make_preprocessing`, and that the
+factory returns an `nn.Module`; each failure raises a typed error.
 
 ### Wrap insertion
 
@@ -173,6 +179,12 @@ backend.model = nn.Sequential(model_module, backend.model)
 `nn.Sequential` keeps the wrap invisible to autograd, captum, shap, and
 torchattacks — gradients flow back through the normalize layer, attack
 budgets stay defined in the user-facing `[0, 1]` input space.
+
+When the backend is an `OnnxBackend`, `_apply_preprocessing` accepts only
+`custom-file` preprocessing. It deep-copies the resolved `model_module` and
+passes it to `backend.set_preprocessing(model_module)`, whose setter owns
+CPU placement and `eval()` mode. `model-bundled` stays unsupported for ONNX
+because there is no torchvision weights lineage to derive from.
 
 After wrapping, the helper emits each `resolved.warnings` entry via
 `raitap_log.warn` and (for active tiers) a single `raitap_log.info` line
@@ -197,13 +209,22 @@ and `per_image_transform = None`.
 
 ### ONNX path
 
-`_apply_preprocessing` raises `NotImplementedError` if the resolver is
-active on an `OnnxBackend` — wrapping a `torch.nn.Module` around an ONNX
-session is out of scope for issue #158. The resolver still runs (so the
-`off` warning still appears for ONNX-with-no-preprocessing setups), but
-`preprocessing: model-bundled` or `preprocessing: ./file.py` on an ONNX
-backend short-circuits with a message telling the user to pre-normalize
-externally.
+ONNX support is split by preprocessing origin:
+
+- `off`: unchanged; the resolver still runs so the off warning can be
+  emitted for ONNX-with-no-preprocessing setups.
+- `model-bundled`: unsupported. Option 2 is torchvision-lineage only and
+  does not apply preprocessing that may have been bundled into an ONNX
+  export.
+- `custom-file`: supported on RAITAP's normal tensor/model call path. The
+  Python `make_preprocessing()` module runs before the backend invocation,
+  so ONNX models get the same model-boundary value preprocessing semantics
+  as Torch models.
+
+The low-level `OnnxBackend.forward_numpy(...)` API remains raw by design: it
+executes the ONNX session on the array it is given and does not resolve or
+apply Python preprocessing. Callers that bypass `Model` / the orchestrator
+must apply preprocessing themselves.
 
 ### Consent surfaces
 

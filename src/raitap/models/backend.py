@@ -212,6 +212,7 @@ class OnnxBackend(ModelBackend):
         self.session = session
         self.providers = list(providers)
         self.model_path = model_path
+        self._preprocessing_module: nn.Module | None = None
         inputs = session.get_inputs()
         if len(inputs) != 1:
             raise ValueError(
@@ -228,6 +229,19 @@ class OnnxBackend(ModelBackend):
     def hardware_label(self) -> str:
         primary_provider = self.providers[0] if self.providers else "CPUExecutionProvider"
         return _onnx_hardware_label(primary_provider)
+
+    def set_preprocessing(self, module: nn.Module | None) -> None:
+        """Attach a preprocessing module for tensor calls."""
+        if module is not None:
+            module.cpu()
+            module.eval()
+        self._preprocessing_module = module
+
+    def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
+        """Leave shape adaptation to attached preprocessing when present."""
+        if self._preprocessing_module is not None:
+            return inputs
+        return super()._prepare_inputs(inputs)
 
     @classmethod
     def from_path(cls, path: Path, *, hardware: str = "gpu") -> OnnxBackend:
@@ -264,7 +278,17 @@ class OnnxBackend(ModelBackend):
                 f"OnnxBackend expected torch.Tensor inputs, got {type(inputs).__name__}."
             )
 
-        input_array = self._tensor_to_numpy(inputs)
+        prepared_inputs = inputs
+        if self._preprocessing_module is not None:
+            with torch.no_grad():
+                prepared_inputs = self._preprocessing_module(inputs.detach().cpu())
+            if not isinstance(prepared_inputs, torch.Tensor):
+                raise TypeError(
+                    "OnnxBackend preprocessing expected a torch.Tensor output, "
+                    f"got {type(prepared_inputs).__name__}."
+                )
+
+        input_array = self._tensor_to_numpy(prepared_inputs)
         primary = self.forward_numpy(input_array)
         return torch.from_numpy(np.asarray(primary))
 
