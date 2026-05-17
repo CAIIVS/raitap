@@ -2,33 +2,23 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import torch
 
 from ..contracts import MethodKind, Objective, PerturbationNorm, ThreatModel
-from ..exceptions import AssessorBackendIncompatibilityError
 from ..semantics import AssessorSemanticsHints
 from .base_assessor import EmpiricalAttackAssessor, _prepare_inputs_for_forward
+from .registration import register_robustness_adapter
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from torch import nn
 
 
-class TorchattacksAssessor(
-    EmpiricalAttackAssessor,
+@register_robustness_adapter(
     registry_name="torchattacks",
-    extra="torchattacks",
     library="torchattacks",
-):
-    """Single wrapper for ALL torchattacks methods.
-
-    Uses dynamic method loading - no need for class-per-method.
-    """
-
-    algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]] = {
+    algorithm_registry={
         "FGSM": AssessorSemanticsHints(
             MethodKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
@@ -99,24 +89,17 @@ class TorchattacksAssessor(
             PerturbationNorm.L0,
             families=frozenset({"score_based", "evolutionary"}),
         ),
-    }
+    },
+)
+class TorchattacksAssessor(EmpiricalAttackAssessor):
+    """Single wrapper for ALL torchattacks methods.
+
+    Uses dynamic method loading - no need for class-per-method.
+    """
 
     def __init__(self, algorithm: str, **init_kwargs: Any) -> None:
         self.algorithm = algorithm
         self.init_kwargs = dict(init_kwargs)
-
-    def check_backend_compat(self, backend: object) -> None:
-        if getattr(backend, "supports_torch_autograd", False):
-            return
-        raise AssessorBackendIncompatibilityError(
-            assessor=type(self).__name__,
-            backend=type(backend).__name__,
-            algorithm=self.algorithm,
-            reason=(
-                "torchattacks white-box methods require a backend that supports torch autograd. "
-                "Use a torch backend (e.g. torch-cpu / torch-cuda / torch-intel) rather than ONNX."
-            ),
-        )
 
     def generate_adversarial(
         self,

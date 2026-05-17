@@ -27,13 +27,17 @@ class UnknownAdapterTargetError(RuntimeError):
     """Raised when a ``_target_`` class is not in the adapter→extra map."""
 
 
-# Populated by :class:`raitap._adapters.AdapterMixin.__init_subclass__` at
-# class-creation time. ``register_zen_groups`` imports every adapter module so
-# the map is fully populated before this module reads it.
+# ``ADAPTER_EXTRAS`` is populated by ``AdapterMixin.__init_subclass__`` once an
+# adapter module has been imported — but importing adapter modules pulls their
+# wrapped third-party libraries (torch / torchmetrics / captum / ...), which is
+# precisely what is missing in the partial-extras venv that the deps bootstrap
+# is trying to repair. ``scan_adapter_extras`` is the import-free fallback: an
+# AST walk over the raitap source tree that harvests every
+# ``class Foo(..., extra="bar")`` declaration without executing the module.
+# Adding a new adapter therefore remains a single-file change — the AST scan
+# picks the new ``extra=`` kwarg up automatically.
 from raitap._adapters import ADAPTER_EXTRAS  # noqa: E402
-from raitap.configs.zen import register_zen_groups  # noqa: E402
-
-register_zen_groups()
+from raitap.deps.static_scan import scan_adapter_extras  # noqa: E402
 
 _HARDWARE_SUFFIX: dict[Hardware, str] = {"cuda": "cuda", "xpu": "intel", "cpu": "cpu"}
 
@@ -53,13 +57,14 @@ def backend_extra(model_source: str, hardware: Hardware) -> str:
 
 def _extra_for_target(target: str) -> str:
     cls = _class_name(target)
-    if cls not in ADAPTER_EXTRAS:
+    extra = ADAPTER_EXTRAS.get(cls) or scan_adapter_extras().get(cls)
+    if extra is None:
         raise UnknownAdapterTargetError(
-            f"Unknown adapter _target_ '{target}' — extend "
-            "raitap.deps.inference.ADAPTER_EXTRAS if you added a new "
-            "library-backed adapter."
+            f"Unknown adapter _target_ '{target}' — declare the wrapped library "
+            'extra via the ``extra="..."`` class kwarg on the adapter so the '
+            "deps inference can pick it up."
         )
-    return ADAPTER_EXTRAS[cls]
+    return extra
 
 
 def _add(extras: dict[str, str], name: str, origin: str) -> None:

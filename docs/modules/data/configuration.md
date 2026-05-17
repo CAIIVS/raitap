@@ -1,3 +1,11 @@
+---
+title: "Configuration"
+description: "For tabular models whose backend expects an unusual per-sample layout (such as ACAS Xu, a Torch network whose forward takes (N, 1, 1, 5)), supply input_metadata.shape explicitly so the pipeline reshapes the flat feature vectors before the…"
+myst:
+  html_meta:
+    "description": "For tabular models whose backend expects an unusual per-sample layout (such as ACAS Xu, a Torch network whose forward takes (N, 1, 1, 5)), supply inputmetadata.shape explicitly so the pipeline reshapes the flat feature vectors before the fo"
+---
+
 ```{config-page}
 :intro: This page describes how to configure the data used to assess the model.
 
@@ -134,7 +142,7 @@ data:
 :cli: data.source="./data/images" data.preprocessing=model-bundled data.labels.source="./data/labels.csv" data.labels.column=label
 
 :python:
-from raitap.data import DataConfig, LabelsConfig
+from raitap.data import DataConfig, IdStrategy, LabelEncoding, LabelsConfig
 
 data = DataConfig(
     name="my-dataset",
@@ -146,8 +154,8 @@ data = DataConfig(
         source="./data/labels.csv",
         id_column="image",
         column="label",
-        encoding="index",
-        id_strategy="auto",
+        encoding=LabelEncoding.index,
+        id_strategy=IdStrategy.auto,
     ),
 )
 ```

@@ -1,3 +1,11 @@
+---
+title: "Transparency"
+description: "The transparency module configures the explainers and visualisers that generate attributions for your model predictions."
+myst:
+  html_meta:
+    "description": "The transparency module configures the explainers and visualisers that generate attributions for your model predictions."
+---
+
 # Transparency
 
 The transparency module configures the explainers and visualisers that generate

@@ -1,3 +1,11 @@
+---
+title: "Releases"
+description: "This project supports two ways to get a version onto PyPI. You only need one of them per release."
+myst:
+  html_meta:
+    "description": "This project supports two ways to get a version onto PyPI. You only need one of them per release."
+---
+
 # Releases
 
 This project supports two ways to get a version onto PyPI. You only need one of them per release.
@@ -25,23 +33,23 @@ Coordinate with maintainers before using this path so you do not double-publish 
 
 This page explains what to change when the project moves from **major version 0** to **stable 1.0.0**.
 
-## 1. Release Please
+### 1. Release Please
 
 In **`release-please-config.json`**, under **`packages["."]`**, remove **`bump-minor-pre-major`** and **`bump-patch-for-minor-pre-major`**, or set both to **`false`**.
 
 After that, a **breaking** conventional commit (`feat!:`, `fix!:`, or a **`BREAKING CHANGE`** footer) will increase the **major** version as usual (for example **0.5.0 → 1.0.0**), and **`feat`** will bump **minor** again per normal SemVer.
 
-## 2. Commitizen
+### 2. Commitizen
 
 In **`pyproject.toml`**, under **`[tool.commitizen]`**, set **`major_version_zero = false`** (or remove the line; the default is **`false`**).
 
 Otherwise **`cz bump`** can keep treating breaking changes on **0.x** as minor bumps while Release Please does not, which is confusing.
 
-## 3. Update the contributor guide
+### 3. Update the contributor guide
 
 Delete this file and update {doc}`./index` to remove the `going-stable-1-0`toctree entry.
 
-## 4. Cutting 1.0.0
+### 4. Cutting 1.0.0
 
 Pick one approach:
 

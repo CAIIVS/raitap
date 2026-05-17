@@ -1,3 +1,11 @@
+---
+title: "Global configuration"
+description: "This section describes options that impact all modules."
+myst:
+  html_meta:
+    "description": "This section describes options that impact all modules."
+---
+
 # Global configuration
 
 This section describes options that impact all modules.
@@ -36,13 +44,13 @@ hardware: "gpu"
 experiment_name: "My Experiment"
 
 :python:
-from raitap import AppConfig
+from raitap import AppConfig, Hardware
 
 # Python users construct AppConfig directly and call ``run(config)``;
 # ``hydra.run.dir`` is a CLI/YAML-only knob (set the output directory in
 # your own code instead).
 config = AppConfig(
-    hardware="gpu",
+    hardware=Hardware.gpu,
     experiment_name="My Experiment",
 )
 ```

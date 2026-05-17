@@ -2,19 +2,23 @@
 
 Invoked by :mod:`raitap.cli` before Hydra (or any torch-heavy code)
 takes over. Walks the composed config, picks the right backend + adapter
-extras for the current host, then dispatches per install context:
+extras for the current host, then dispatches per install context
+(:class:`BootstrapCase`):
 
-============  ==========  =======================================
-``is_dev``    ``uv``      Action
-============  ==========  =======================================
-True          present     **Case A** — ``uv sync`` + ``uv run`` relaunch
-True          missing     **Case B** — abort with "install uv" error
-False         present     **Case C** — print ``uv add`` plan; only exec it when
-                          ``--allow-project-edit`` was passed (otherwise abort)
-False         missing     **Case D** — print ``pip install`` plan; auto-exec
-                          when running inside a venv, require ``--exec-global``
-                          when targeting the base interpreter
-============  ==========  =======================================
+==============================  ==========  ==========  ===========================
+``BootstrapCase``               ``is_dev``  ``uv``      Action
+==============================  ==========  ==========  ===========================
+``DEV_WITH_UV``                 True        present     ``uv sync`` + ``uv run`` relaunch
+``DEV_WITHOUT_UV``              True        missing     abort with "install uv" error
+``USER_WITH_UV``                False       present     print ``uv add`` plan; only exec
+                                                        when ``--allow-project-edit``
+                                                        was passed (otherwise abort)
+``USER_WITH_PIP``               False       missing     print ``pip install`` plan;
+                                                        auto-exec when running inside a
+                                                        venv, require ``--exec-global``
+                                                        when targeting the base
+                                                        interpreter
+==============================  ==========  ==========  ===========================
 
 Flags consumed (and removed from ``sys.argv`` before Hydra sees it):
 
@@ -25,6 +29,9 @@ Flags consumed (and removed from ``sys.argv`` before Hydra sees it):
   caller's ``pyproject.toml``.
 - ``--exec-global`` — Case D: consent to ``pip install`` against the base
   interpreter (not in a venv).
+- ``--allow-preprocessing-exec`` / ``-yp`` — consent to executing a
+  user-supplied ``data.preprocessing`` Python file after Hydra composes the
+  config.
 
 A sentinel env var prevents recursion when the re-exec'd process re-enters
 this module.
@@ -35,20 +42,41 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from raitap.deps.availability import (
+
+class BootstrapCase(Enum):
+    """Install-context dispatch for the auto-deps flow.
+
+    Picked by ``(_is_dev_install(), _uv_available())``; consumed by
+    :func:`maybe_bootstrap` (CLI) and :func:`install_raitap_deps`
+    (consumed by :func:`raitap.run` under ``auto_install=True``) to route
+    to the matching install command + refusal hint.
+    """
+
+    DEV_WITH_UV = "dev_with_uv"  # uv sync + uv run relaunch
+    DEV_WITHOUT_UV = "dev_without_uv"  # abort with "install uv" error
+    USER_WITH_UV = "user_with_uv"  # uv add (needs --allow-project-edit consent)
+    USER_WITH_PIP = "user_with_pip"  # pip install (needs --exec-global outside a venv)
+
+
+# Imports below the BootstrapCase enum (declared earlier in the file) keep
+# the top-of-file public surface clean — the sentinel re-exec logic in
+# ``maybe_bootstrap`` depends on the enum being importable without dragging
+# in the heavier deps modules. E402 is intentional here.
+from raitap.deps.availability import (  # noqa: E402
     ExtraUnavailableError,
     check_platform_availability,
 )
-from raitap.deps.command import render_command
-from raitap.deps.conflicts import ExtrasConflictError, validate_conflicts
-from raitap.deps.frame import print_deps_error_frame, print_deps_frame
-from raitap.deps.inference import infer_extras
-from raitap.deps.probe import detect_hardware
-from raitap.deps.python_version import pick_python_version
-from raitap.utils.diagnostics import is_dev_install
+from raitap.deps.command import render_command  # noqa: E402
+from raitap.deps.conflicts import ExtrasConflictError, validate_conflicts  # noqa: E402
+from raitap.deps.frame import print_deps_error_frame, print_deps_frame  # noqa: E402
+from raitap.deps.inference import infer_extras  # noqa: E402
+from raitap.deps.probe import detect_hardware  # noqa: E402
+from raitap.deps.python_version import pick_python_version  # noqa: E402
+from raitap.utils.diagnostics import is_dev_install  # noqa: E402
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -105,20 +133,21 @@ def _strip_deps_flags(argv: list[str]) -> tuple[list[str], _DepFlags]:
     flags = _DepFlags()
     keep: list[str] = []
     for a in argv:
-        if a == "--dry-run":
-            flags.dry_run = True
-        elif a == "--sync-only":
-            flags.sync_only = True
-        elif a == "--custom-deps":
-            flags.custom = True
-        elif a in ("--allow-project-edit", "-y"):
-            flags.allow_project_edit = True
-        elif a == "--exec-global":
-            flags.exec_global = True
-        elif a in ("--allow-preprocessing-exec", "-yp"):
-            flags.allow_preprocessing_exec = True
-        else:
-            keep.append(a)
+        match a:
+            case "--dry-run":
+                flags.dry_run = True
+            case "--sync-only":
+                flags.sync_only = True
+            case "--custom-deps":
+                flags.custom = True
+            case "--allow-project-edit" | "-y":
+                flags.allow_project_edit = True
+            case "--exec-global":
+                flags.exec_global = True
+            case "--allow-preprocessing-exec" | "-yp":
+                flags.allow_preprocessing_exec = True
+            case _:
+                keep.append(a)
     # Surface CLI consent to the post-Hydra resolver in data/preprocessing.py.
     # Re-exec via subprocess inherits os.environ, so this propagates through
     # cases A/C/D without modifying ``_exec``.
@@ -224,7 +253,8 @@ def _exec(argv: list[str], *, set_sentinel: bool = False) -> int:
     return int(completed.returncode)
 
 
-def _case_b_no_uv() -> None:
+def _handle_dev_without_uv() -> None:
+    """:attr:`BootstrapCase.DEV_WITHOUT_UV` — print error frame and abort."""
     print_deps_error_frame(
         label="Missing uv",
         message="Developer checkout requires uv but uv was not found on PATH.",
@@ -236,13 +266,15 @@ def _case_b_no_uv() -> None:
     sys.exit(2)
 
 
-def _case_c_uv_add(extras: set[str], python_version: str | None, flags: _DepFlags) -> int:
+def _run_uv_add(extras: set[str], python_version: str | None, flags: _DepFlags) -> int:
+    """:attr:`BootstrapCase.USER_WITH_UV` — invoke ``uv add`` for the inferred extras."""
     _check_pin_matches_host(python_version)
     add_argv, _ = render_command(mode="add", extras=extras, python_version=None)
     return _exec(add_argv, set_sentinel=True)
 
 
-def _case_d_pip(extras: set[str], python_version: str | None) -> int:
+def _run_pip_install(extras: set[str], python_version: str | None) -> int:
+    """:attr:`BootstrapCase.USER_WITH_PIP` — invoke ``pip install`` for the inferred extras."""
     _check_pin_matches_host(python_version)
     pip_argv, _ = render_command(mode="pip", extras=extras, python_version=None)
     return _exec(pip_argv, set_sentinel=True)
@@ -255,8 +287,8 @@ def _hint_invocation(cleaned: list[str], extra_flag: str) -> str:
     return f"{base} {tail} {extra_flag}".replace("  ", " ").strip()
 
 
-def _refusal_note_blocks(case: str, extras: set[str], cleaned: list[str]) -> list:
-    """Build the yellow/white note blocks for case C/D refusal."""
+def _refusal_note_blocks(case: BootstrapCase, extras: set[str], cleaned: list[str]) -> list:
+    """Build the yellow/white note blocks for refusal of CLI consent prompts."""
     from rich.style import Style
     from rich.text import Text
 
@@ -265,44 +297,242 @@ def _refusal_note_blocks(case: str, extras: set[str], cleaned: list[str]) -> lis
     warn = colour(Status.WARNING).base
     white = Style(color="white")
 
-    if case == "C":
-        cmd = f"uv add raitap[{','.join(sorted(extras))}]" if extras else "uv add raitap"
-        hint = _hint_invocation(cleaned, "-y")
-        return [
-            Text("Running the uv add command would modify your project file. Either:", style=warn),
-            Text.assemble(
-                ("- Run it yourself: ", warn),
-                (cmd, white),
-            ),
-            Text.assemble(
-                ("- Add the -y flag (alias of --allow-project-edit): ", warn),
-                (hint, white),
-            ),
-        ]
-    # Case D
-    pip_cmd = (
-        f"{sys.executable} -m pip install raitap[{','.join(sorted(extras))}]"
-        if extras
-        else f"{sys.executable} -m pip install raitap"
+    match case:
+        case BootstrapCase.USER_WITH_UV:
+            cmd = f"uv add raitap[{','.join(sorted(extras))}]" if extras else "uv add raitap"
+            hint = _hint_invocation(cleaned, "-y")
+            return [
+                Text(
+                    "Running the uv add command would modify your project file. Either:",
+                    style=warn,
+                ),
+                Text.assemble(("- Run it yourself: ", warn), (cmd, white)),
+                Text.assemble(
+                    ("- Add the -y flag (alias of --allow-project-edit): ", warn),
+                    (hint, white),
+                ),
+            ]
+        case BootstrapCase.USER_WITH_PIP:
+            pip_cmd = (
+                f"{sys.executable} -m pip install raitap[{','.join(sorted(extras))}]"
+                if extras
+                else f"{sys.executable} -m pip install raitap"
+            )
+            hint = _hint_invocation(cleaned, "--exec-global")
+            return [
+                Text(
+                    "Running pip install would target the base interpreter "
+                    "(no venv detected). Either:",
+                    style=warn,
+                ),
+                Text.assemble(("- Activate a venv and rerun.", warn)),
+                Text.assemble(("- Run it yourself: ", warn), (pip_cmd, white)),
+                Text.assemble(
+                    ("- Add the --exec-global flag: ", warn),
+                    (hint, white),
+                ),
+            ]
+        case _:
+            return []  # other cases never reach the refusal path
+
+
+def _python_refusal_note_blocks(case: BootstrapCase, extras: set[str]) -> list:
+    """Refusal frame body for :func:`install_raitap_deps` (Python entry point).
+
+    Mirrors :func:`_refusal_note_blocks` but the hint references the Python
+    function's kwarg, not a CLI flag.
+    """
+    from rich.style import Style
+    from rich.text import Text
+
+    from raitap.utils.colour import Status, colour
+
+    warn = colour(Status.WARNING).base
+    white = Style(color="white")
+
+    match case:
+        case BootstrapCase.USER_WITH_UV:
+            cmd = f"uv add raitap[{','.join(sorted(extras))}]" if extras else "uv add raitap"
+            return [
+                Text(
+                    "Running the uv add command would modify your project file. Either:",
+                    style=warn,
+                ),
+                Text.assemble(("- Run it yourself: ", warn), (cmd, white)),
+                Text.assemble(
+                    ("- Pass ", warn),
+                    ("auto_install=True", white),
+                    (" to ", warn),
+                    ("raitap.run(cfg, ...)", white),
+                    (" to consent.", warn),
+                ),
+            ]
+        case BootstrapCase.USER_WITH_PIP:
+            pip_cmd = (
+                f"{sys.executable} -m pip install raitap[{','.join(sorted(extras))}]"
+                if extras
+                else f"{sys.executable} -m pip install raitap"
+            )
+            return [
+                Text(
+                    "Running pip install would target the base interpreter "
+                    "(no venv detected). Either:",
+                    style=warn,
+                ),
+                Text.assemble(("- Activate a venv and rerun.", warn)),
+                Text.assemble(("- Run it yourself: ", warn), (pip_cmd, white)),
+                Text.assemble(
+                    ("- Pass ", warn),
+                    ("exec_global=True", white),
+                    (" alongside ", warn),
+                    ("auto_install=True", white),
+                    (" on ", warn),
+                    ("raitap.run(...)", white),
+                    (" to consent.", warn),
+                ),
+            ]
+        case _:
+            return []  # other cases never reach the refusal path
+
+
+def _config_to_mapping(config: Any) -> Mapping[str, Any]:
+    """Coerce an ``AppConfig`` (or pre-built Mapping) into a plain dict the
+    :mod:`raitap.deps.inference` walker can read.
+
+    ``dataclasses.asdict`` recurses through nested dataclasses (the hydra-zen
+    builders return dataclass instances) and preserves the ``_target_`` field
+    the walker keys on.
+    """
+    import dataclasses
+    from collections.abc import Mapping as _Mapping
+
+    if isinstance(config, _Mapping):
+        return config
+    if dataclasses.is_dataclass(config) and not isinstance(config, type):
+        return dataclasses.asdict(config)
+    raise TypeError(
+        f"install_raitap_deps expected an AppConfig (or Mapping), got {type(config).__name__}."
     )
-    hint = _hint_invocation(cleaned, "--exec-global")
-    return [
-        Text(
-            "Running pip install would target the base interpreter (no venv detected). Either:",
-            style=warn,
-        ),
-        Text.assemble(
-            ("- Activate a venv and rerun.", warn),
-        ),
-        Text.assemble(
-            ("- Run it yourself: ", warn),
-            (pip_cmd, white),
-        ),
-        Text.assemble(
-            ("- Add the --exec-global flag: ", warn),
-            (hint, white),
-        ),
-    ]
+
+
+def install_raitap_deps(
+    config: Any,
+    *,
+    allow_project_edit: bool = False,
+    exec_global: bool = False,
+) -> None:
+    """Bootstrap raitap extras inferred from a Python ``AppConfig``.
+
+    Internal — the public surface is :func:`raitap.run` called with
+    ``auto_install=True`` (and optionally ``exec_global=True``). The
+    function walks the config, picks the matching extras for the host,
+    invokes ``uv``/``pip`` to install them, and re-execs the current
+    script so the freshly-installed packages are visible. Idempotent:
+    once a re-exec has happened the sentinel env var short-circuits
+    subsequent calls.
+
+    Args:
+        config: An ``AppConfig`` instance (or pre-converted ``Mapping``).
+            The walker reads ``_target_`` strings from ``transparency`` /
+            ``robustness`` / ``metrics`` / ``reporting`` / ``tracking``
+            plus ``model.source`` to pick a backend extra.
+        allow_project_edit: Consent to ``uv add`` modifying the caller's
+            ``pyproject.toml``. Without it, the function prints the
+            planned command and exits non-zero. ``raitap.run`` hard-codes
+            ``True`` here when the caller passed ``auto_install=True``.
+        exec_global: Consent to ``pip install`` against the base
+            interpreter when no venv is active. Plumbed through from
+            ``raitap.run(..., exec_global=...)``.
+    """
+    if os.environ.get(_SENTINEL) == "1":
+        return
+
+    _ensure_utf8_stdout()
+
+    mapping = _config_to_mapping(config)
+
+    hardware = detect_hardware()
+    try:
+        extras, origins = infer_extras(mapping, hardware=hardware)
+        validate_conflicts(extras, _PYPROJECT, origins=origins)
+        check_platform_availability(_PYPROJECT, extras)
+    except (ExtrasConflictError, ExtraUnavailableError) as exc:
+        header, *bullets = _split_error_message(str(exc))
+        label = (
+            "Platform mismatch" if isinstance(exc, ExtraUnavailableError) else "Conflicting extras"
+        )
+        print_deps_error_frame(label=label, message=header, details=bullets)
+        sys.exit(2)
+    except Exception as exc:
+        print_deps_error_frame(
+            label="Inference error",
+            message="Deps inference failed.",
+            details=[str(exc)],
+        )
+        sys.exit(2)
+
+    python_version = pick_python_version(_PYPROJECT, extras)
+    dev = _is_dev_install()
+    uv_present = _uv_available()
+
+    sync_argv: list[str] = []
+    match (dev, uv_present):
+        case (True, True):
+            kind = BootstrapCase.DEV_WITH_UV
+            sync_argv, pretty = render_command(
+                mode="sync", extras=extras, python_version=python_version
+            )
+        case (True, False):
+            _handle_dev_without_uv()
+            return  # unreachable
+        case (False, True):
+            kind = BootstrapCase.USER_WITH_UV
+            _, pretty = render_command(mode="add", extras=extras, python_version=None)
+        case _:
+            kind = BootstrapCase.USER_WITH_PIP
+            _, pretty = render_command(mode="pip", extras=extras, python_version=None)
+
+    refusal = (kind is BootstrapCase.USER_WITH_UV and not allow_project_edit) or (
+        kind is BootstrapCase.USER_WITH_PIP and not _in_venv() and not exec_global
+    )
+    note_blocks = _python_refusal_note_blocks(kind, extras) if refusal else None
+
+    print_deps_frame(
+        hardware=hardware,
+        hardware_origin="probed",
+        python_version=python_version,
+        extras=sorted(extras),
+        pretty_command=pretty,
+        action="Install then re-exec script",
+        note_blocks=note_blocks,
+    )
+
+    if refusal:
+        sys.exit(1)
+
+    relaunch = [sys.executable, *sys.argv]
+    flags = _DepFlags()
+    flags.allow_project_edit = allow_project_edit
+    flags.exec_global = exec_global
+
+    match kind:
+        case BootstrapCase.DEV_WITH_UV:
+            rc = _exec(sync_argv)
+            if rc != 0:
+                sys.exit(rc)
+            sys.exit(_exec(relaunch, set_sentinel=True))
+        case BootstrapCase.USER_WITH_UV:
+            rc = _run_uv_add(extras, python_version, flags)
+            if rc != 0:
+                sys.exit(rc)
+            sys.exit(_exec(relaunch, set_sentinel=True))
+        case BootstrapCase.USER_WITH_PIP:
+            rc = _run_pip_install(extras, python_version)
+            if rc != 0:
+                sys.exit(rc)
+            sys.exit(_exec(relaunch, set_sentinel=True))
+        case BootstrapCase.DEV_WITHOUT_UV:  # unreachable — handled above
+            return
 
 
 def maybe_bootstrap(argv: list[str]) -> list[str]:
@@ -363,21 +593,22 @@ def maybe_bootstrap(argv: list[str]) -> list[str]:
 
     # Dispatch case → which install command to render in the preview frame.
     sync_argv: list[str] = []
-    if dev and uv_present:
-        case = "A"
-        sync_argv, pretty = render_command(
-            mode="sync", extras=extras, python_version=python_version
-        )
-    elif dev and not uv_present:
-        # Case B: nothing to render; abort before frame.
-        _case_b_no_uv()
-        return cleaned  # unreachable, keeps type checkers happy
-    elif not dev and uv_present:
-        case = "C"
-        _, pretty = render_command(mode="add", extras=extras, python_version=None)
-    else:
-        case = "D"
-        _, pretty = render_command(mode="pip", extras=extras, python_version=None)
+    match (dev, uv_present):
+        case (True, True):
+            kind = BootstrapCase.DEV_WITH_UV
+            sync_argv, pretty = render_command(
+                mode="sync", extras=extras, python_version=python_version
+            )
+        case (True, False):
+            # DEV_WITHOUT_UV: nothing to render; abort before frame.
+            _handle_dev_without_uv()
+            return cleaned  # unreachable, keeps type checkers happy
+        case (False, True):
+            kind = BootstrapCase.USER_WITH_UV
+            _, pretty = render_command(mode="add", extras=extras, python_version=None)
+        case _:
+            kind = BootstrapCase.USER_WITH_PIP
+            _, pretty = render_command(mode="pip", extras=extras, python_version=None)
 
     if flags.dry_run:
         action = "Dry-run preview"
@@ -387,12 +618,18 @@ def maybe_bootstrap(argv: list[str]) -> list[str]:
         action = "Sync then run"
 
     # Render frame with optional info note when the bootstrap will refuse to
-    # exec (case C without --allow-project-edit, case D global w/o --exec-global).
-    refusal = (case == "C" and not flags.allow_project_edit and not flags.dry_run) or (
-        case == "D" and not _in_venv() and not flags.exec_global and not flags.dry_run
+    # exec (USER_WITH_UV without --allow-project-edit, USER_WITH_PIP outside a
+    # venv without --exec-global).
+    refusal = (
+        kind is BootstrapCase.USER_WITH_UV and not flags.allow_project_edit and not flags.dry_run
+    ) or (
+        kind is BootstrapCase.USER_WITH_PIP
+        and not _in_venv()
+        and not flags.exec_global
+        and not flags.dry_run
     )
 
-    note_blocks = _refusal_note_blocks(case, extras, cleaned) if refusal else None
+    note_blocks = _refusal_note_blocks(kind, extras, cleaned) if refusal else None
 
     print_deps_frame(
         hardware=hardware,
@@ -411,32 +648,33 @@ def maybe_bootstrap(argv: list[str]) -> list[str]:
         # so callers can detect "did not run".
         sys.exit(1)
 
-    if case == "A":
-        if flags.sync_only:
-            sys.exit(_exec(sync_argv))
-        # Sync first so the parent process never sees a stale lockfile, then
-        # relaunch via ``uv run`` so the (possibly re-pinned) interpreter is
-        # the one that imports torch and runs Hydra.
-        rc = _exec(sync_argv)
-        if rc != 0:
-            sys.exit(rc)
-        relaunch = ["uv", "run"]
-        if python_version is not None:
-            relaunch += ["-p", python_version]
-        for x in sorted(extras):
-            relaunch += ["--extra", x]
-        relaunch += ["raitap", *cleaned[1:]]
-        sys.exit(_exec(relaunch, set_sentinel=True))
-
-    if case == "C":
-        rc = _case_c_uv_add(extras, python_version, flags)
-        if rc != 0 or flags.sync_only:
-            sys.exit(rc)
-        sys.exit(_exec([sys.executable, "-m", "raitap.cli", *cleaned[1:]], set_sentinel=True))
-
-    # Case D
-    rc = _case_d_pip(extras, python_version)
-    if rc != 0 or flags.sync_only:
-        sys.exit(rc)
-    sys.exit(_exec([sys.executable, "-m", "raitap.cli", *cleaned[1:]], set_sentinel=True))
+    match kind:
+        case BootstrapCase.DEV_WITH_UV:
+            if flags.sync_only:
+                sys.exit(_exec(sync_argv))
+            # Sync first so the parent process never sees a stale lockfile, then
+            # relaunch via ``uv run`` so the (possibly re-pinned) interpreter is
+            # the one that imports torch and runs Hydra.
+            rc = _exec(sync_argv)
+            if rc != 0:
+                sys.exit(rc)
+            relaunch = ["uv", "run"]
+            if python_version is not None:
+                relaunch += ["-p", python_version]
+            for x in sorted(extras):
+                relaunch += ["--extra", x]
+            relaunch += ["raitap", *cleaned[1:]]
+            sys.exit(_exec(relaunch, set_sentinel=True))
+        case BootstrapCase.USER_WITH_UV:
+            rc = _run_uv_add(extras, python_version, flags)
+            if rc != 0 or flags.sync_only:
+                sys.exit(rc)
+            sys.exit(_exec([sys.executable, "-m", "raitap.cli", *cleaned[1:]], set_sentinel=True))
+        case BootstrapCase.USER_WITH_PIP:
+            rc = _run_pip_install(extras, python_version)
+            if rc != 0 or flags.sync_only:
+                sys.exit(rc)
+            sys.exit(_exec([sys.executable, "-m", "raitap.cli", *cleaned[1:]], set_sentinel=True))
+        case BootstrapCase.DEV_WITHOUT_UV:  # unreachable — handled above
+            return cleaned
     return cleaned  # unreachable; satisfies static analysers that flag implicit return

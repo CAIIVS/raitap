@@ -1,3 +1,11 @@
+---
+title: "Configuration"
+description: "This page describes how to configure the metrics module used to score model predictions."
+myst:
+  html_meta:
+    "description": "This page describes how to configure the metrics module used to score model predictions."
+---
+
 ```{config-page}
 :intro: This page describes how to configure the metrics module used to score
   model predictions.
@@ -98,10 +106,10 @@ metrics:
 :cli: +metrics=detection +metrics.class_metrics=true +metrics.extended_summary=true
 
 :python:
-from raitap.metrics import classification
+from raitap.metrics import Task, classification
 
 metrics = classification(
-    task="multiclass",
+    task=Task.multiclass,
     num_classes=7,
 )
 ```

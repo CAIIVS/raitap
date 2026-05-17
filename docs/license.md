@@ -1,3 +1,11 @@
+---
+title: "License"
+description: "RAITAP is licensed under the GNU General Public License v3.0 (GPL-3.0). See here."
+myst:
+  html_meta:
+    "description": "RAITAP is licensed under the GNU General Public License v3.0 (GPL-3.0). See here."
+---
+
 # License
 
 RAITAP is licensed under the **GNU General Public License v3.0 (GPL-3.0)**. [See here](https://github.com/CAIIVS/raitap/blob/main/LICENSE).

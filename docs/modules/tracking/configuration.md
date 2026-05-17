@@ -1,3 +1,11 @@
+---
+title: "Configuration"
+description: "This page describes how to configure the tracking module that forwards the pipeline's output to a tracking backend."
+myst:
+  html_meta:
+    "description": "This page describes how to configure the tracking module that forwards the pipeline's output to a tracking backend."
+---
+
 ```{config-page}
 :intro: This page describes how to configure the tracking module that forwards the pipeline's output to a tracking backend.
 

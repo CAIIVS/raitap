@@ -1,3 +1,7 @@
+---
+title: "raitap.tracking"
+---
+
 # `raitap.tracking`
 
 ```{eval-rst}

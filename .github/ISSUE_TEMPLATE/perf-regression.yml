@@ -1,7 +1,8 @@
 name: Performance regression
 description: Something got slower, hungrier on memory, or eats more disk / GPU than it used to.
-title: "perf(<module>): <short description>"
-labels: ["performance", "regression"]
+title: "Perf: ..."
+labels: ["perf"]
+type: Bug
 body:
   - type: dropdown
     id: resource
@@ -19,7 +20,8 @@ body:
   - type: dropdown
     id: module
     attributes:
-      label: Module
+      label: Module(s)
+      multiple: true
       options:
         - transparency
         - robustness
@@ -28,7 +30,10 @@ body:
         - tracking
         - data
         - model
-        - CLI / packaging
+        - pipeline
+        - configs
+        - deps
+        - unsure
     validations:
       required: true
 

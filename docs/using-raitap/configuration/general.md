@@ -1,3 +1,11 @@
+---
+title: "General configuration guide"
+description: "RAITAP is built on top of Hydra, a powerful configuration framework for Python. These docs will explain just enough about Hydra to use RAITAP effectively. However, you might want to dive deeper into the Hydra documentation."
+myst:
+  html_meta:
+    "description": "RAITAP is built on top of Hydra, a powerful configuration framework for Python. These docs will explain just enough about Hydra to use RAITAP effectively. However, you might want to dive deeper into the Hydra documentation."
+---
+
 # General configuration guide
 
 RAITAP is built on top of [Hydra](https://hydra.cc/), a powerful configuration framework for Python. These docs will explain just enough about Hydra to use RAITAP effectively. However, you might want to dive deeper into the [Hydra documentation](https://hydra.cc/docs/intro/).
@@ -34,7 +42,8 @@ Then, you can add your own options. You may find useful to refer to:
 
 - the {doc}`global-config-options`
 - the {ref}`module-specific-configurations`
-- the {doc}`kitchen-sink`
+- the {doc}`../examples/kitchen-sink`
+- the {doc}`../examples/index`
 - the [showcase project in the `example/` directory of the RAITAP repository](https://github.com/CAIIVS/raitap/tree/main/example)
 
 If your workflow does not make it easy to use YAML files, you can rely 100% on a CLI command. See {ref}`cli-overriding` for more details.
@@ -123,11 +132,11 @@ robustness:
 
 :python:
 from raitap import AppConfig
-from raitap.metrics import classification
+from raitap.metrics import Task, classification
 from raitap.robustness import image_pair, torchattacks
 
 config = AppConfig(
-    metrics=classification(task="multiclass"),
+    metrics=classification(task=Task.multiclass),
     robustness={
         "pgd": torchattacks(
             algorithm="PGD",
@@ -209,15 +218,15 @@ data:
   source: ./my-dataset
 
 :python:
-from raitap import AppConfig
+from raitap import AppConfig, Hardware
 from raitap.data import DataConfig
-from raitap.metrics import classification
+from raitap.metrics import Task, classification
 from raitap.models import ModelConfig
 from raitap.transparency import shap, shap_image
 
 config = AppConfig(
     experiment_name="my-exp",
-    hardware="cpu",
+    hardware=Hardware.cpu,
     model=ModelConfig(source="resnet50"),
     data=DataConfig(source="./my-dataset"),
     transparency={
@@ -227,7 +236,7 @@ config = AppConfig(
             visualisers=[shap_image()],
         ),
     },
-    metrics=classification(task="multiclass"),
+    metrics=classification(task=Task.multiclass),
 )
 ```
 

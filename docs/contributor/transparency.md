@@ -1,103 +1,101 @@
+---
+title: "Contributing to the transparency module"
+description: "Transparency-specific architecture: the three-level explainer hierarchy, the BaseVisualiser semantic contract, and the ExplanationResult typed semantics."
+myst:
+  html_meta:
+    "description": "Transparency-specific architecture: the three-level explainer hierarchy, the BaseVisualiser semantic contract, and the ExplanationResult typed semantics."
+---
+
 # Contributing to the transparency module
 
-This page describes the internal transparency architecture and how to extend it with new algorithms, frameworks, and visualisers.
+Generic adapter mechanics are covered elsewhere:
 
-## Overview
+- New library wrapper → {doc}`adding-an-adapter`.
+- New algorithm on an existing wrapper → {doc}`adding-an-algorithm`.
+- New top-level module → {doc}`adding-a-module`.
 
-The transparency module wraps XAI frameworks (Captum, SHAP) behind a unified interface driven by Hydra `_target_` instantiation. Explainers produce an `ExplanationResult` with typed semantics; visualisers validate those semantics before rendering attribution tensors to PNG on disk.
+This page documents what's *specific* to transparency: the explainer hierarchy, the visualiser semantic contract, and the typed `ExplanationResult.semantics`.
+
+## Explainer hierarchy
 
 Explainers form a three-level hierarchy (see `src/raitap/transparency/explainers/base_explainer.py` and `full_explainer.py`):
 
 ```text
 BaseExplainer                       # root — owns output_payload_kind + check_backend_compat no-op
-├── AttributionOnlyExplainer            # you implement compute_attributions(); framework owns explain()
+├── AttributionOnlyExplainer            # you implement compute_attributions(); base owns explain()
 │   ├── CaptumExplainer
 │   └── ShapExplainer
 └── FullExplainer                       # you implement the full explain() pipeline end-to-end
 ```
 
 - **`BaseExplainer`** — root base class. Owns the shared contract: `output_payload_kind` class variable (default `ATTRIBUTIONS`) and the `check_backend_compat` no-op. Never subclass directly.
-- **`AttributionOnlyExplainer`** — extend this when the framework should manage the full `explain` pipeline. Subclasses implement only `compute_attributions(model, inputs, **kwargs) → Tensor`; batching, normalisation, result wrapping, and `write_artifacts` are handled by this class.
+- **`AttributionOnlyExplainer`** — extend this when the framework maps cleanly to a single `compute_attributions(model, inputs, **kwargs) -> torch.Tensor` call. Batching, normalisation, result wrapping, and `write_artifacts` are handled for you. Captum and SHAP both subclass this.
 - **`FullExplainer`** — extend this when you own the entire `explain` pipeline yourself (data conversion, model invocation, result construction, persistence).
 
-Each explainer class sets **`output_payload_kind: ClassVar[ExplanationPayloadKind]`** (default `ATTRIBUTIONS`). `ExplanationResult.semantics` records the payload kind together with scope, method families, sample selection, input metadata, and output-space metadata for downstream validation and reporting.
+`output_payload_kind: ClassVar[ExplanationPayloadKind]` (default `ATTRIBUTIONS`) records what artefact shape the explainer emits. It's set via the `@register_transparency_adapter` decorator kwarg.
 
-All visualisers implement `BaseVisualiser`, which defines:
+## Visualiser semantic contract
 
-- `visualise(attributions, inputs, **kwargs) -> Figure` (abstract, required)
-- `save(attributions, output_path, inputs, **kwargs) -> None` (optional, has default implementation)
-- `compatible_algorithms: frozenset[str]` (empty = all algorithms)
-- `supported_payload_kinds: ClassVar[frozenset[ExplanationPayloadKind]]` — payload categories the visualiser can render.
-- `supported_scopes: ClassVar[frozenset[ExplanationScope]]` — explanation scopes the visualiser can consume, such as local attribution artifacts.
-- `supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]]` — attribution coordinate spaces the visualiser can render.
-- `supported_method_families: ClassVar[frozenset[MethodFamily]]` — method families the visualiser understands.
-- `produces_scope: ClassVar[ExplanationScope | None]` — optional produced scope when the visualiser summarizes or otherwise changes the result scope.
-- `scope_definition_step: ClassVar[ScopeDefinitionStep | None]` — where the produced scope was defined when `produces_scope` is set.
-- `visual_summary: ClassVar[VisualSummarySpec | None]` — optional metadata for summary visualisations.
-- `embeds_original_input: ClassVar[bool]` — whether the visualiser's normal layout includes an original input panel alongside the rendered explanation.
-- `renders_attribution_only_when_original_hidden() -> bool` — instance-level hook for whether `include_original_input=False` still leaves a meaningful attribution figure.
+All visualisers extend `BaseVisualiser` (`src/raitap/transparency/visualisers/base_visualiser.py`). On top of `visualise(...) -> Figure` and the optional `save(...)`, each visualiser must declare its semantic compatibility via ClassVars — the runtime validates these against `ExplanationResult.semantics` before calling `visualise`.
+
+| ClassVar | Type | Purpose |
+| --- | --- | --- |
+| `supported_payload_kinds` | `frozenset[ExplanationPayloadKind]` | Payload categories the visualiser can render. |
+| `supported_scopes` | `frozenset[ExplanationScope]` | Explanation scopes the visualiser can consume (e.g. `LOCAL` for per-sample attributions). |
+| `supported_output_spaces` | `frozenset[ExplanationOutputSpace]` | Attribution coordinate spaces the visualiser handles. |
+| `supported_method_families` | `frozenset[MethodFamily]` | Method families the visualiser understands. |
+| `compatible_algorithms` | `frozenset[str]` | Optional algorithm allowlist; empty = all algorithms. |
+| `produces_scope` | `ExplanationScope \| None` | Set only when the visualiser *changes* the result scope (e.g. summarising local → cohort). Leave `None` to preserve the input scope. |
+| `scope_definition_step` | `ScopeDefinitionStep \| None` | Where the produced scope was defined; set when `produces_scope` is set. |
+| `visual_summary` | `VisualSummarySpec \| None` | Metadata for summary visualisations. |
+| `embeds_original_input` | `bool` | Whether the normal layout includes an original-input panel alongside the rendered explanation. |
+
+Plus two instance-level hooks:
+
+- `renders_attribution_only_when_original_hidden() -> bool` — whether `include_original_input=False` still yields a meaningful figure.
 - `validate_explanation(explanation, attributions, inputs) -> None` — render-time compatibility validation.
 
-Visualisers that preserve the explanation scope leave `produces_scope` unset.
-Visualisers that summarize local collections set it explicitly. For example,
-SHAP bar, SHAP beeswarm, and tabular bar visualisers consume local tabular or
-interpretable attributions and produce cohort visual summaries.
+**Rules of thumb**
 
-Image visualisers that set `embeds_original_input = True` must accept the
-runtime kwarg `include_original_input`. Reporting uses this library-agnostic
-contract to render one shared sample thumbnail and suppress repeated originals
-inside sample-major compact local report sections. Keep constructor
-configuration names backward-compatible; the built-in image visualisers still
-accept `include_original_image` in YAML constructors.
+- Per-sample renderers (heatmap, overlay): preserve scope — leave `produces_scope = None`.
+- Summary renderers (SHAP bar/beeswarm, tabular bar): consume local attributions and produce `COHORT` — set `produces_scope = ExplanationScope.COHORT` + `scope_definition_step = ScopeDefinitionStep.VISUALISER_SUMMARY`.
+- Don't promote arbitrary debug batches or representative montages to `GLOBAL`.
+- Image visualisers with `embeds_original_input = True` **must** accept the runtime kwarg `include_original_input`. Reporting uses this to render one shared sample thumbnail and suppress repeated originals in sample-major compact local report sections. Keep YAML constructor names backward-compatible (the built-in image visualisers still accept `include_original_image`).
 
-### Typed semantics contract
+For the decorator/registration scaffolding (`@register_transparency_visualiser`, `registry_name`, exports), see {doc}`adding-an-adapter`. The bullets above are the transparency-specific additions on top of that scaffolding.
 
-`ExplanationResult.semantics` describes the computed explanation artifact. It is
-a typed contract, not a narrative description. The contract records the artifact
-scope, scope definition step, payload kind, method families, target, sample
-selection, input metadata, and output-space metadata.
+## Typed semantics contract
 
-`ExplanationScope` describes the semantic breadth of an explanation or rendered
-visualisation:
+`ExplanationResult.semantics` describes the computed explanation artefact. It is a typed contract, not a narrative description. The contract records the artefact scope, scope definition step, payload kind, method families, target, sample selection, input metadata, and output-space metadata.
+
+### `ExplanationScope`
+
+Describes the semantic breadth of an explanation or rendered visualisation:
 
 | Scope | Meaning |
 | --- | --- |
-| `LOCAL` | Explains individual input samples. Current Captum and SHAP attribution explainers produce local explanation artifacts. |
-| `COHORT` | Summarizes the selected input batch or cohort. Current SHAP bar, SHAP beeswarm, and tabular bar visualisers produce cohort visual summaries when they aggregate local attributions. |
-| `GLOBAL` | Represents a dataset, population, or model-wide result. The enum keeps this report concept available, but current built-in visualisers do not promote arbitrary batches to global outputs. |
+| `LOCAL` | Explains individual input samples. Current Captum and SHAP attribution explainers produce local explanation artefacts. |
+| `COHORT` | Summarises the selected input batch or cohort. Current SHAP bar, SHAP beeswarm, and tabular bar visualisers produce cohort visual summaries when they aggregate local attributions. |
+| `GLOBAL` | Represents a dataset, population, or model-wide result. The enum keeps this concept available, but built-in visualisers do not promote arbitrary batches to global outputs. |
 
-The `COHORT` distinction is intentional. A SHAP plotting API may call a bar or
-beeswarm figure "global", but RAITAP only treats it as global when a first-class
-dataset, population, or model-level contract proves that scope.
+The `COHORT` distinction is intentional. A SHAP plotting API may call a bar or beeswarm figure "global", but RAITAP only treats it as global when a first-class dataset, population, or model-level contract proves that scope.
 
-`ScopeDefinitionStep` records where the scope was defined:
+### `ScopeDefinitionStep`
+
+Records where the scope was defined:
 
 | Step | Meaning |
 | --- | --- |
-| `EXPLAINER_OUTPUT` | The explainer produced an artifact with this scope. |
-| `VISUALISER_SUMMARY` | The visualiser changed the result scope by summarizing another explanation artifact. |
+| `EXPLAINER_OUTPUT` | The explainer produced an artefact with this scope. |
+| `VISUALISER_SUMMARY` | The visualiser changed the result scope by summarising another explanation artefact. |
 
-For example, an attribution explainer can produce local attributions with
-`EXPLAINER_OUTPUT`. A summary visualiser can consume those local attributions and
-produce a cohort figure with `VISUALISER_SUMMARY`.
+For example, an attribution explainer produces local attributions with `EXPLAINER_OUTPUT`. A summary visualiser consumes those local attributions and produces a cohort figure with `VISUALISER_SUMMARY`.
 
-`VisualisationResult.scope` describes what the rendered figure represents. A
-visualiser that preserves the explanation scope leaves the scope unchanged. A
-visualiser that summarizes a collection declares the produced scope explicitly.
-Reporting placement comes from this rendered visualisation scope, not from
-legacy report-placement strings.
+`VisualisationResult.scope` describes what the rendered figure represents. Reporting placement comes from this rendered visualisation scope, not from legacy report-placement strings.
 
-RAITAP separates stable sample identity from display labels:
+### `ExplanationOutputSpace`
 
-| Field | Purpose |
-| --- | --- |
-| `sample_ids` | Stable IDs from the data pipeline, when available. |
-| `sample_display_names` | Optional labels used for plot titles. |
-
-Display names are not stable identity. RAITAP must not infer dataset,
-population, or global semantics from sample names shown in plots.
-
-`ExplanationOutputSpace` describes what attribution values are aligned to:
+Describes what attribution values are aligned to:
 
 | Output space | Typical use |
 | --- | --- |
@@ -107,251 +105,37 @@ population, or global semantics from sample names shown in plots.
 | `IMAGE_SPATIAL_MAP` | CAM-style or spatial image maps that may need interpolation. |
 | `TOKEN_SEQUENCE` | Token-level text attributions. |
 
-Output-space inference relies on explicit input metadata and algorithm
-semantics. Shape alone is not enough to decide whether a tensor is tabular,
-token, image, or time-series data.
+Output-space inference relies on explicit input metadata and algorithm semantics. Shape alone is not enough to decide whether a tensor is tabular, token, image, or time-series data.
 
-## Important files
+### Sample identity vs display labels
 
-The `factory.py` module provides the `Explanation` class and helper functions, which use Hydra's `instantiate()` to build explainers and visualisers from `_target_` keys. Bare class names are automatically resolved to `raitap.transparency.*` paths.
+RAITAP separates stable sample identity from display labels:
+
+| Field | Purpose |
+| --- | --- |
+| `sample_ids` | Stable IDs from the data pipeline, when available. |
+| `sample_display_names` | Optional labels used for plot titles. |
+
+Display names are not stable identity. RAITAP must not infer dataset, population, or global semantics from sample names shown in plots.
 
 ## Runtime flow
 
-Transparency runs after the forward pass in `src/raitap/pipeline/pipeline.py`. For each configured explainer:
+Transparency runs after the forward pass via `src/raitap/pipeline/phases/assess_transparency.py`. For each configured explainer:
 
-1. `Explanation(config, name, model, data)` creates the explainer and visualisers using the factory functions
-2. The explainer's `explain()` method returns an `ExplanationResult` (for `AttributionOnlyExplainer`, after calling `compute_attributions()`)
-3. `ExplanationResult.write_artifacts()` saves attributions and typed metadata to disk
-4. `ExplanationResult.visualise()` iterates through configured visualisers, validates each one against the explanation semantics, calls `visualise()`, and saves the figures
+1. `Explanation(config, name, model, data)` instantiates the explainer and its visualisers via hydra-zen.
+2. `explainer.explain()` returns an `ExplanationResult` (for `AttributionOnlyExplainer`, after calling `compute_attributions()`).
+3. `ExplanationResult.write_artifacts()` persists attributions and typed semantics to disk.
+4. `ExplanationResult.visualise()` iterates the configured visualisers, validates each one against the explanation semantics, calls `visualise()`, and saves the figures.
 
-Each explainer writes to its own subdirectory under the Hydra run folder. See {doc}`../using-raitap/understanding-outputs` for more details.
+Each explainer writes to its own subdirectory under the Hydra run folder. See {doc}`../using-raitap/understanding-outputs` for the on-disk layout.
 
-## Adding a new algorithm
+## Important files
 
-Captum and SHAP wrappers dispatch to algorithms dynamically via `getattr`, so most new methods require no code changes. Override the algorithm on a specific explainer entry in your transparency config:
+- `src/raitap/transparency/contracts.py` — `ExplanationScope`, `ScopeDefinitionStep`, `ExplanationPayloadKind`, `ExplanationOutputSpace`, `MethodFamily`, `VisualisationContext`, `VisualSummarySpec`.
+- `src/raitap/transparency/results.py` — `ExplanationResult` (semantics, `write_artifacts`, `visualise`) and `VisualisationResult`.
+- `src/raitap/transparency/factory.py` — the `Explanation` class and helpers that turn config into live explainer + visualiser instances.
+- `src/raitap/transparency/explainers/base_explainer.py` — `BaseExplainer` + `AttributionOnlyExplainer`.
+- `src/raitap/transparency/explainers/full_explainer.py` — `FullExplainer`.
+- `src/raitap/transparency/visualisers/base_visualiser.py` — `BaseVisualiser` and the semantic-contract ClassVars.
 
-```bash
-uv run raitap +transparency=captum transparency.captum.algorithm=Saliency
-uv run raitap +transparency=shap transparency.shap.algorithm=GradientShap
-```
-
-(`+transparency=captum` / `+transparency=shap` nest under
-`transparency.captum` / `transparency.shap` via the bundled preset's
-`# @package transparency.<name>` directive.)
-
-Add an integration test to confirm the method works end-to-end. Reference `src/raitap/transparency/explainers/tests/test_captum_explainer.py` for examples.
-
-Some SHAP methods require special init logic. Check `src/raitap/transparency/explainers/shap_explainer.py` for conditionals and add a branch if needed.
-
-## Adding a new framework
-
-To integrate a new explainability framework:
-
-1. **Implement the wrapper**
-
-    Prefer `AttributionOnlyExplainer` when the library maps to `compute_attributions(model, inputs, ...) -> torch.Tensor`. Otherwise subclass `FullExplainer` and implement `explain(...)` end-to-end.
-
-    Create a new explainer class under `src/raitap/transparency/explainers/`:
-
-    ```python
-    # src/raitap/transparency/explainers/new_framework_explainer.py
-    from .base_explainer import AttributionOnlyExplainer
-    import torch
-
-    class NewFrameworkExplainer(AttributionOnlyExplainer):
-        # Optional: Define ONNX-compatible algorithms
-        ONNX_COMPATIBLE_ALGORITHMS: frozenset[str] = frozenset({...})
-
-        def __init__(self, algorithm: str, **init_kwargs):
-            super().__init__()
-            self.algorithm = algorithm
-            self.init_kwargs = init_kwargs
-
-        def check_backend_compat(self, backend: object) -> None:
-            """Optional: Validate algorithm compatibility with backend (e.g., ONNX)."""
-            # See CaptumExplainer for reference implementation
-            pass
-
-        def compute_attributions(
-            self,
-            model: torch.nn.Module,
-            inputs: torch.Tensor,
-            backend: object | None = None,
-            **kwargs
-        ) -> torch.Tensor:
-            """Required: Compute attributions and return torch.Tensor."""
-            # Your implementation here
-            pass
-    ```
-
-    Reference `src/raitap/transparency/explainers/captum_explainer.py` or `shap_explainer.py` for complete examples.
-
-2. **Export from `__init__.py`**
-
-    Export the class from both the explainers package and the top-level transparency package:
-
-    ```python
-    # src/raitap/transparency/explainers/__init__.py
-    from .new_framework_explainer import NewFrameworkExplainer
-
-    __all__ = [..., "NewFrameworkExplainer"]
-    ```
-
-    ```python
-    # src/raitap/transparency/__init__.py
-    from .explainers import NewFrameworkExplainer
-
-    __all__ = [..., "NewFrameworkExplainer"]
-    ```
-
-    Also append the library's import name to `THIRD_PARTY_LIBS` in
-    `src/raitap/transparency/__init__.py`. `raitap.utils.diagnostics`
-    consumes that set to attribute warnings/errors emitted from inside
-    the library to a "via &lt;lib&gt;" chip and the frameworks-and-libraries
-    docs page.
-
-3. **Create a config preset**
-
-    Add a config file under `src/raitap/configs/transparency/`:
-
-    ```yaml
-    # src/raitap/configs/transparency/new_framework.yaml
-    my_explainer:
-      _target_: NewFrameworkExplainer
-      algorithm: SomeAlgorithm
-      visualisers:
-        - _target_: CaptumImageVisualiser
-    ```
-
-4. **Use it**
-
-    ```bash
-    uv run raitap transparency=new_framework
-    uv run raitap transparency=new_framework transparency.my_explainer.algorithm=AnotherAlgorithm
-    ```
-
-5. **Update documentation**
-
-    Add the new framework to `docs/modules/transparency/frameworks-and-libraries.md` with supported algorithms, ONNX compatibility notes, and visualiser compatibility.
-
-## Adding a visualiser
-
-To add a new visualiser:
-
-1. **Implement the visualiser**
-
-    Create a new visualiser class that extends `BaseVisualiser` in `src/raitap/transparency/visualisers/`:
-
-    ```python
-    # src/raitap/transparency/visualisers/new_visualiser.py
-    from pathlib import Path
-    from typing import Any
-
-    import torch
-    from matplotlib.figure import Figure
-
-    from raitap.transparency.contracts import (
-        ExplanationOutputSpace,
-        ExplanationPayloadKind,
-        ExplanationScope,
-        MethodFamily,
-        VisualisationContext,
-    )
-
-    from .base_visualiser import BaseVisualiser
-
-    class NewVisualiser(BaseVisualiser):
-        # Optional: Restrict to specific algorithms (empty = compatible with all)
-        compatible_algorithms: frozenset[str] = frozenset()
-        # Declare typed semantic compatibility for the explanation artifacts
-        # this visualiser can render.
-        supported_payload_kinds = frozenset({ExplanationPayloadKind.ATTRIBUTIONS})
-        supported_scopes = frozenset({ExplanationScope.LOCAL})
-        supported_output_spaces = frozenset({ExplanationOutputSpace.INPUT_FEATURES})
-        supported_method_families = frozenset({MethodFamily.GRADIENT})
-        produces_scope = None
-        scope_definition_step = None
-        visual_summary = None
-        
-        def __init__(self, **config_kwargs):
-            super().__init__()
-            # Store configuration
-
-        def visualise(
-            self,
-            attributions: torch.Tensor,
-            inputs: torch.Tensor | None = None,
-            *,
-            context: VisualisationContext | None = None,
-            **kwargs: Any,
-        ) -> Figure:
-            """Required: Create and return a matplotlib Figure."""
-            del context, kwargs
-            # Your implementation here
-            pass
-        
-        def save(
-            self,
-            attributions: torch.Tensor,
-            output_path: str | Path,
-            inputs: torch.Tensor | None = None,
-            *,
-            context: VisualisationContext | None = None,
-            **kwargs: Any,
-        ) -> None:
-            """Optional: Override for custom save logic (default uses visualise())."""
-            # Default implementation in BaseVisualiser usually sufficient
-            super().save(attributions, output_path, inputs, context=context, **kwargs)
-    ```
-
-    Reference `src/raitap/transparency/visualisers/captum_visualisers.py` or `shap_visualisers.py` for complete examples.
-
-    Reporting placement comes from the rendered `VisualisationResult.scope`.
-    Preserve the input explanation scope for per-sample renderers. Set
-    `produces_scope` only when the renderer changes the semantic breadth of the
-    result, such as summarizing a local batch into a cohort figure. Do not mark
-    representative local montages or arbitrary debug batches as global.
-
-2. **Export from `__init__.py`**
-
-    Export the class from both the visualisers package and the top-level transparency package:
-
-    ```python
-    # src/raitap/transparency/visualisers/__init__.py
-    from .new_visualiser import NewVisualiser
-
-    __all__ = [..., "NewVisualiser"]
-    ```
-
-    ```python
-    # src/raitap/transparency/__init__.py
-    from .visualisers import NewVisualiser
-
-    __all__ = [..., "NewVisualiser"]
-    ```
-
-3. **Use it**
-
-    Override the visualisers list on the CLI:
-
-    ```bash
-    uv run raitap "transparency.my_explainer.visualisers=[{_target_: NewVisualiser}]"
-    ```
-
-    Or embed it in a custom transparency config:
-
-    ```yaml
-    # src/raitap/configs/transparency/custom.yaml
-    _target_: CaptumExplainer
-    algorithm: IntegratedGradients
-    visualisers:
-      - _target_: NewVisualiser
-    ```
-
-    ```bash
-    uv run raitap transparency=custom
-    ```
-
-## Extension points
-
-To add dataset configs, see the data module contributor documentation. Dataset handling is separate from transparency.
+**Name resolution.** Bare class names in YAML `_target_` keys (e.g. `_target_: CaptumExplainer`) are resolved through the `@register_transparency_adapter` / `@register_transparency_visualiser` decorators and `raitap._adapters.lookup("transparency", name)` — *not* via the legacy class-kwarg path. To make a new class addressable by bare name, decorate it; that's the only requirement.

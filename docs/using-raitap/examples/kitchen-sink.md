@@ -1,8 +1,16 @@
+---
+title: "Kitchen-sink example"
+description: "The example below shows a complete configuration with all top-level modules populated."
+myst:
+  html_meta:
+    "description": "The example below shows a complete configuration with all top-level modules populated."
+---
+
 # Kitchen-sink example
 
 The example below shows a complete configuration with all top-level modules populated.
 
-If you want to learn how to write such a config, see the {doc}`general` guide. The [Python API](python-api.md) page covers the equivalent programmatic surface.
+If you want to learn how to write such a config, see the {doc}`../configuration/general` guide. The {doc}`../configuration/python-api` page covers the equivalent programmatic surface.
 
 ```{config-tabs}
 :yaml:
@@ -108,9 +116,9 @@ reporting:
   show_redundant_robustness_panels: false
 
 :python:
-from raitap import AppConfig
-from raitap.data import DataConfig, LabelsConfig
-from raitap.metrics import classification as classification_metrics
+from raitap import AppConfig, Hardware
+from raitap.data import DataConfig, LabelEncoding, LabelsConfig
+from raitap.metrics import Task, classification as classification_metrics
 from raitap.models import ModelConfig
 from raitap.reporting import html as html_report
 from raitap.robustness import foolbox, image_pair, perturbation_heatmap, torchattacks
@@ -118,7 +126,7 @@ from raitap.tracking import mlflow
 from raitap.transparency import captum, captum_image, shap, shap_image
 
 config = AppConfig(
-    hardware="gpu",
+    hardware=Hardware.gpu,
     experiment_name="My Experiment",
     model=ModelConfig(source="./models/my-model.onnx"),
     data=DataConfig(
@@ -130,7 +138,7 @@ config = AppConfig(
             source="./data/labels.csv",
             id_column="image",
             column="label",
-            encoding="index",
+            encoding=LabelEncoding.index,
         ),
     ),
     transparency={
@@ -180,7 +188,7 @@ config = AppConfig(
         ),
     },
     metrics=classification_metrics(
-        task="multiclass",
+        task=Task.multiclass,
         num_classes=7,
     ),
     tracking=mlflow(
@@ -196,3 +204,29 @@ config = AppConfig(
     ),
 )
 ```
+
+## Notes
+
+The kitchen-sink config references user-supplied artefacts
+(`./models/my-model.onnx`, `./data/images`, `./data/labels.csv`,
+`./data/baselines`, `./data/background`) and a local MLflow server at
+`127.0.0.1:5001`.
+
+## Expected output
+
+```text
+outputs/<date>/<time>/
+├── metrics/{metrics.json, artifacts.json, metadata.json, metrics_overview.png}
+├── transparency/
+│   ├── captum_ig/{attributions.pt, CaptumImageVisualiser_0.png, metadata.json}
+│   └── shap_gradient/{attributions.pt, ShapImageVisualiser_0.png, metadata.json}
+├── robustness/
+│   ├── pgd/{robustness_data.pt, ImagePairVisualiser_0.png, metadata.json}
+│   └── linf_pgd/{robustness_data.pt, PerturbationHeatmapVisualiser_0.png, metadata.json}
+├── tracking/{run_id.txt, mlflow.log}
+└── reports/{report.html, report.zip, _assets/…}
+```
+
+MLflow artefacts land on the tracking server itself
+(`http://127.0.0.1:5001`). The `tracking/` directory only carries the
+local hand-off metadata.

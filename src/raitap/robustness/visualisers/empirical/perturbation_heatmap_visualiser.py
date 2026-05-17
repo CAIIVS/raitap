@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
+from raitap.robustness.visualisers.registration import register_robustness_visualiser
+
 from ...contracts import MethodKind
 from ..base_visualiser import BaseRobustnessVisualiser
 from .image_pair_visualiser import _require_image_modality, _signed_perturbation_heatmap
@@ -22,6 +24,7 @@ if TYPE_CHECKING:
 _SUPPORTED_MODES = frozenset({"signed_dominant", "mean_abs", "mean", "max_abs"})
 
 
+@register_robustness_visualiser(registry_name="perturbation_heatmap")
 class PerturbationHeatmapVisualiser(BaseRobustnessVisualiser):
     """Render the perturbation tensor as a heatmap.
 

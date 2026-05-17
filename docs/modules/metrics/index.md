@@ -1,3 +1,11 @@
+---
+title: "Metrics"
+description: "The metrics module scores model predictions against available targets and produces aggregated evaluation results."
+myst:
+  html_meta:
+    "description": "The metrics module scores model predictions against available targets and produces aggregated evaluation results."
+---
+
 # Metrics
 
 The metrics module scores model predictions against available targets and

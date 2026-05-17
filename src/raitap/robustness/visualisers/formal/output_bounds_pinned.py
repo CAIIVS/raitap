@@ -26,6 +26,8 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import matplotlib.pyplot as plt
 import numpy as np
 
+from raitap.robustness.visualisers.registration import register_robustness_visualiser
+
 from ...contracts import MethodKind
 from ..base_visualiser import BaseRobustnessVisualiser
 
@@ -51,6 +53,7 @@ def _placeholder_figure(message: str) -> Figure:
     return fig
 
 
+@register_robustness_visualiser(registry_name="output_bounds_pinned")
 class OutputBoundsPinnedVisualiser(BaseRobustnessVisualiser):
     """Per-pinned-sample plot of ``[lower_k, upper_k]`` certified intervals."""
 

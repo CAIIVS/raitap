@@ -1,3 +1,11 @@
+---
+title: "Underlying libraries"
+description: "The current metrics module relies on:"
+myst:
+  html_meta:
+    "description": "The current metrics module relies on:"
+---
+
 # Underlying libraries
 
 The current metrics module relies on:

@@ -2,6 +2,7 @@ name: Release / version bump
 description: Track a release. Most releases ride the automated release-please PR — file this only for non-routine cases.
 title: "chore(infra): release <version>"
 labels: ["release"]
+type: Task
 body:
   - type: markdown
     attributes:

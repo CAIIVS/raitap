@@ -1,3 +1,11 @@
+---
+title: "raitap.robustness"
+description: ".. autoclass:: raitap.robustness.assessors.baseassessor.EmpiricalAttackAssessor :members: :show-inheritance:"
+myst:
+  html_meta:
+    "description": ".. autoclass:: raitap.robustness.assessors.baseassessor.EmpiricalAttackAssessor :members: :show-inheritance:"
+---
+
 # `raitap.robustness`
 
 ```{eval-rst}

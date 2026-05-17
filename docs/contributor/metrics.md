@@ -1,29 +1,33 @@
+---
+title: "Contributing to the metrics module"
+description: "Internal metrics architecture: BaseMetricComputer interface, MetricResult shape, and output file layout."
+myst:
+  html_meta:
+    "description": "Internal metrics architecture: BaseMetricComputer interface, MetricResult shape, and output file layout."
+---
+
 # Contributing to the metrics module
 
-This page describes the internal metrics architecture and how to extend it with new metric computers.
+Metric computers wrap evaluation libraries (torchmetrics, faster-coco-eval, ...) behind a unified interface driven by Hydra `_target_` instantiation.
 
-## Overview
+## `BaseMetricComputer` interface
 
-The metrics module evaluates model predictions against ground-truth targets. Metric computers wrap underlying libraries (torchmetrics, faster-coco-eval) behind a unified interface driven by Hydra `_target_` instantiation.
+All metric computers implement three methods:
 
-All metric computers implement `BaseMetricComputer`, which defines:
+- `reset() -> None` — clear internal state.
+- `update(predictions, targets) -> None` — accumulate a batch.
+- `compute() -> MetricResult` — finalise and return results.
 
-- `reset() -> None`
-- `update(predictions, targets) -> None`
-- `compute() -> MetricResult`
+## `MetricResult` shape
 
-The `MetricResult` dataclass contains:
+```python
+@dataclass
+class MetricResult:
+    metrics: dict[str, float]      # scalar values → metrics.json
+    artifacts: dict[str, Any]      # structured outputs → artifacts.json
+```
 
-- `metrics: dict[str, float]` — scalar metrics written to `metrics.json`
-- `artifacts: dict[str, Any]` — structured outputs written to `artifacts.json`
-
-## Important files
-
-The `factory.py` module provides the `evaluate()` entry point, which uses Hydra's `instantiate()` to build metric computers from `_target_` keys. Bare class names are automatically resolved to `raitap.metrics.*` paths.
-
-## Runtime flow
-
-Metrics run after the forward pass in `src/raitap/pipeline/pipeline.py`. RAITAP instantiates the configured metric computer, calls `update(predictions, targets)`, then calls `compute()` to generate the final results.
+## Output file layout
 
 The metrics module writes three files under the Hydra run folder:
 
@@ -34,82 +38,20 @@ metrics/
 └── metadata.json     # config and experiment metadata
 ```
 
-## Adding a new metric computer
+## Important files
 
-To add a new metric type:
+- `src/raitap/metrics/base_metric_computer.py` — `BaseMetricComputer` and `MetricResult`.
+- `src/raitap/metrics/factory.py` — `evaluate()` entry point; uses Hydra `instantiate()` and resolves bare class names to `raitap.metrics.*`.
+- `src/raitap/metrics/classification_metrics.py`, `detection_metrics.py` — reference implementations.
 
-1. **Implement the metric computer**
+## Runtime flow
 
-    Create a new metric computer class that extends `BaseMetricComputer` in `src/raitap/metrics/`:
-
-    ```python
-    # src/raitap/metrics/new_metrics.py
-    from .base_metric import BaseMetricComputer, MetricResult
-    import torch
-
-    class NewMetrics(BaseMetricComputer):
-        def __init__(self, **config_kwargs):
-            # Store configuration
-            pass
-
-        def reset(self) -> None:
-            """Required: Reset internal state."""
-            pass
-
-        def update(self, predictions: torch.Tensor, targets: torch.Tensor) -> None:
-            """Required: Update internal state with a batch of predictions and targets."""
-            predictions, targets = self._prepare_inputs(predictions, targets)
-            # Your update logic here
-            pass
-
-        def compute(self) -> MetricResult:
-            """Required: Compute final metrics and return MetricResult."""
-            return MetricResult(
-                metrics={"metric_name": 0.0},  # Scalar metrics
-                artifacts={}  # Structured outputs
-            )
-    ```
-
-    Reference `src/raitap/metrics/classification_metrics.py` or `detection_metrics.py` for complete examples.
-
-2. **Export from `__init__.py`**
-
-    Export the class from the metrics package:
-
-    ```python
-    # src/raitap/metrics/__init__.py
-    from .new_metrics import NewMetrics
-
-    __all__ = [..., "NewMetrics"]
-    ```
-
-3. **Create a config preset**
-
-    Add a config file under `src/raitap/configs/metrics/`:
-
-    ```yaml
-    # src/raitap/configs/metrics/new_metrics.yaml
-    _target_: NewMetrics
-    # Add configuration parameters here
-    ```
-
-4. **Use it**
-
-    ```bash
-    uv run raitap metrics=new_metrics
-    uv run raitap metrics=new_metrics metrics.some_param=value
-    ```
-
-5. **Add tests**
-
-    Create unit tests in `src/raitap/metrics/tests/` following the patterns in `test_classification_metrics.py` or `test_detection_metrics.py`.
-
-6. **Update documentation**
-
-    Add the new metric type to `docs/modules/metrics/frameworks-and-libraries.md` with usage examples and parameter descriptions.
+`src/raitap/pipeline/phases/evaluate_metrics.py` runs after the forward pass, instantiates the configured metric computer via `src/raitap/metrics/factory.py::evaluate`, calls `update(predictions, targets)` per batch, then calls `compute()` and writes the three output files.
 
 ## Extension points
 
-Metric computers can wrap any evaluation library. The base class handles device management through `_prepare_inputs()`, which moves predictions and targets to the appropriate device before calling `update()`.
+The base class handles device management through `_prepare_inputs(predictions, targets)`, which moves tensors to the appropriate device before `update()` sees them. Override it only when your library needs a different input layout. For metrics that maintain internal state (torchmetrics classes etc.), store the underlying object as an instance attribute, forward to its `update()` from yours, and translate its `compute()` output into the `MetricResult` structure.
 
-For metrics that maintain internal state (like torchmetrics classes), store them as instance attributes and update them in `update()`. Call their `compute()` method in your `compute()` implementation and map results to the `MetricResult` structure.
+## Adding a new metric computer
+
+See {doc}`adding-an-adapter`.

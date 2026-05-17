@@ -51,7 +51,7 @@ jobs:
           enable-cache: true
           cache-dependency-glob: uv.lock
       - name: Download built dist
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: raitap-dist
           path: dist/

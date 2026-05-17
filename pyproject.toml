@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "raitap"
-version = "0.7.0"
+version = "0.7.1"
 authors = [
   { name = "Stanislas Laurent", email = "lauresta@students.zhaw.ch" },
   { name = "Jonas Vonderhagen", email = "vondejon@students.zhaw.ch" },
@@ -152,6 +152,8 @@ docs = [
   "sphinx-design>=0.6.1; python_full_version >= '3.13'",
   "sphinx-autobuild>=2025.8.25; python_full_version >= '3.13'",
   "sphinxcontrib-mermaid>=1.0.0; python_full_version >= '3.13'",
+  "sphinx-llms-txt>=0.2.0; python_full_version >= '3.13'",
+  "sphinx-sitemap>=2.6.0; python_full_version >= '3.13'",
 ]
 dev = [
   { include-group = "lint" },

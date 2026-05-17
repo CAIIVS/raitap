@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 from raitap.configs import set_output_root
 from raitap.configs.schema import AppConfig, MetricsConfig
 from raitap.metrics import MetricsEvaluation, evaluate, metrics_run_enabled
-from raitap.metrics.base_metric import BaseMetricComputer, MetricResult
+from raitap.metrics.base_metric_computer import BaseMetricComputer, MetricResult
 from raitap.types import Task
 
 

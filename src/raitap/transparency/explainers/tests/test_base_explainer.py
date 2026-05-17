@@ -16,7 +16,7 @@ from raitap.transparency.contracts import (
 from raitap.transparency.explainers.base_explainer import AttributionOnlyExplainer
 
 
-class _StrictExplainer(AttributionOnlyExplainer, abstract=True):
+class _StrictExplainer(AttributionOnlyExplainer):
     algorithm = "Saliency"
 
     def __init__(self) -> None:
@@ -35,11 +35,11 @@ class _StrictExplainer(AttributionOnlyExplainer, abstract=True):
         return inputs
 
 
-class _GlobalScopeExplainer(_StrictExplainer, abstract=True):
+class _GlobalScopeExplainer(_StrictExplainer):
     output_scope = ExplanationScope.GLOBAL
 
 
-class _UnknownAlgorithmExplainer(AttributionOnlyExplainer, abstract=True):
+class _UnknownAlgorithmExplainer(AttributionOnlyExplainer):
     algorithm = "UnregisteredAlgorithm"
 
     def __init__(self) -> None:
@@ -57,7 +57,7 @@ class _UnknownAlgorithmExplainer(AttributionOnlyExplainer, abstract=True):
         return inputs
 
 
-class _BatchRecordingExplainer(AttributionOnlyExplainer, abstract=True):
+class _BatchRecordingExplainer(AttributionOnlyExplainer):
     algorithm = "IntegratedGradients"
 
     def __init__(self) -> None:
@@ -86,7 +86,7 @@ class _BatchRecordingExplainer(AttributionOnlyExplainer, abstract=True):
         return inputs
 
 
-class _GradTrackingExplainer(AttributionOnlyExplainer, abstract=True):
+class _GradTrackingExplainer(AttributionOnlyExplainer):
     algorithm = "Saliency"
 
     def compute_attributions(
@@ -100,7 +100,7 @@ class _GradTrackingExplainer(AttributionOnlyExplainer, abstract=True):
         return source * 2
 
 
-class _TupleExplainer(AttributionOnlyExplainer, abstract=True):
+class _TupleExplainer(AttributionOnlyExplainer):
     algorithm = "Saliency"
 
     def compute_attributions(
@@ -113,7 +113,7 @@ class _TupleExplainer(AttributionOnlyExplainer, abstract=True):
         return inputs, torch.zeros(inputs.shape[0])
 
 
-class _ListExplainer(AttributionOnlyExplainer, abstract=True):
+class _ListExplainer(AttributionOnlyExplainer):
     algorithm = "Saliency"
 
     def compute_attributions(

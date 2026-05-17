@@ -16,6 +16,7 @@ from raitap.transparency.contracts import (
 )
 
 from .base_visualiser import BaseVisualiser
+from .registration import register_transparency_visualiser
 
 if TYPE_CHECKING:
     import torch
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
     from raitap.transparency.contracts import VisualisationContext
 
 
+@register_transparency_visualiser(registry_name="tabular_bar_chart")
 class TabularBarChartVisualiser(BaseVisualiser):
     """
     Visualise attributions for tabular data as bar charts.

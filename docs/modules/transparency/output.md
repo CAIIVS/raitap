@@ -1,3 +1,11 @@
+---
+title: "Output"
+description: "If an explainer uses more than one visualiser, RAITAP writes one PNG per visualiser using the pattern <VisualiserClassName><index>.png."
+myst:
+  html_meta:
+    "description": "If an explainer uses more than one visualiser, RAITAP writes one PNG per visualiser using the pattern <VisualiserClassName><index>.png."
+---
+
 # Output
 
 ```text

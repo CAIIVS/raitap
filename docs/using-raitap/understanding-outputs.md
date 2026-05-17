@@ -1,3 +1,11 @@
+---
+title: "Understanding outputs"
+description: "RAITAP writes its outputs to the Hydra run directory. By default, this is a timestamped folder under ./outputs relative to the directory where you launched RAITAP."
+myst:
+  html_meta:
+    "description": "RAITAP writes its outputs to the Hydra run directory. By default, this is a timestamped folder under ./outputs relative to the directory where you launched RAITAP."
+---
+
 # Understanding outputs
 
 RAITAP writes its outputs to the Hydra run directory. By default, this is a

@@ -1,3 +1,11 @@
+---
+title: "Using your own model or built-in models"
+description: "RAITAP allows you to use your own model in any of the following supported formats:"
+myst:
+  html_meta:
+    "description": "RAITAP allows you to use your own model in any of the following supported formats:"
+---
+
 # Using your own model or built-in models
 
 ## Own model
