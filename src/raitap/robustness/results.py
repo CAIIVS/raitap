@@ -364,14 +364,15 @@ class RobustnessResult(Trackable):
         sample_names_value = merged_call.pop("sample_names", self.kwargs.get("sample_names"))
         sample_names = _normalise_sample_names(sample_names_value)
 
+        if sample_names and len(sample_names) != batch_size:
+            raise SampleNamesLengthError(
+                got=len(sample_names),
+                expected=batch_size,
+                source="RobustnessResult.render",
+            )
+
         if sample_index is None:
             result_for_render = self
-            if sample_names and len(sample_names) != batch_size:
-                raise SampleNamesLengthError(
-                    got=len(sample_names),
-                    expected=batch_size,
-                    source="RobustnessResult.render",
-                )
         else:
             result_for_render = RobustnessResult(
                 clean_inputs=_slice_sample_tensor(self.clean_inputs, sample_index),
@@ -411,12 +412,6 @@ class RobustnessResult(Trackable):
                 ),
                 semantics=self.semantics,
             )
-            if sample_names and len(sample_names) != batch_size:
-                raise SampleNamesLengthError(
-                    got=len(sample_names),
-                    expected=batch_size,
-                    source="RobustnessResult.render",
-                )
             sample_names = [sample_names[sample_index]] if sample_names else []
 
         context = RobustnessVisualisationContext(
