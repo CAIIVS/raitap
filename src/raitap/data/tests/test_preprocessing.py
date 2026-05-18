@@ -125,6 +125,26 @@ def test_model_bundled_accepts_preprocessing_enum_member(
     assert torch.all(normed < 0)
 
 
+def test_preprocessing_yaml_values_survive_structured_config_merge() -> None:
+    from omegaconf import OmegaConf
+
+    structured = OmegaConf.structured(DataConfig)
+
+    model_bundled = OmegaConf.to_object(
+        OmegaConf.merge(structured, OmegaConf.create({"preprocessing": "model-bundled"}))
+    )
+    assert isinstance(model_bundled, DataConfig)
+    assert model_bundled.preprocessing == "model-bundled"
+    assert type(model_bundled.preprocessing) is str
+
+    custom_file = OmegaConf.to_object(
+        OmegaConf.merge(structured, OmegaConf.create({"preprocessing": "./preprocessing.py"}))
+    )
+    assert isinstance(custom_file, DataConfig)
+    assert custom_file.preprocessing == "./preprocessing.py"
+    assert type(custom_file.preprocessing) is str
+
+
 def test_model_bundled_via_source(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(_ENV, raising=False)
     result = resolve_preprocessing(
@@ -190,8 +210,9 @@ def test_custom_file_consent_via_env_var(monkeypatch: pytest.MonkeyPatch) -> Non
     )
     assert result.origin == "custom-file"
     assert isinstance(result.model_module, nn.Module)
-    # The bundled fixture only exports ``make_preprocessing`` (no data factory).
-    assert result.data_module is None
+    assert isinstance(result.data_module, nn.Identity)
+    assert len(result.warnings) == 1
+    assert "data preprocessing" in result.warnings[0]
     assert result.file_sha256 is not None
     assert len(result.file_sha256) == 64
     int(result.file_sha256, 16)  # is hex
@@ -207,7 +228,9 @@ def test_custom_file_consent_via_kwarg(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     assert result.origin == "custom-file"
     assert isinstance(result.model_module, nn.Module)
-    assert result.data_module is None
+    assert isinstance(result.data_module, nn.Identity)
+    assert len(result.warnings) == 1
+    assert "data preprocessing" in result.warnings[0]
     assert result.file_sha256 is not None
     assert len(result.file_sha256) == 64
     int(result.file_sha256, 16)
@@ -217,17 +240,23 @@ def test_custom_file_consent_via_kwarg(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_custom_file_data_factory_escape_hatch(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """User files may export ``make_data_preprocessing`` for the loader side."""
+    """User files may decorate arbitrary names for both preprocessing modules."""
     monkeypatch.setenv(_ENV, "1")
     fixture = tmp_path / "user_preproc.py"
     fixture.write_text(
         "from torch import nn\n"
         "from torchvision.transforms import v2\n"
+        "from raitap.data import (\n"
+        "    raitap_model_input_transformation_factory,\n"
+        "    raitap_preprocessing_factory,\n"
+        ")\n"
         "\n"
-        "def make_preprocessing() -> nn.Module:\n"
+        "@raitap_model_input_transformation_factory\n"
+        "def normalize_for_model() -> nn.Module:\n"
         "    return v2.Normalize(mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0])\n"
         "\n"
-        "def make_data_preprocessing() -> nn.Module:\n"
+        "@raitap_preprocessing_factory\n"
+        "def resize_for_batching() -> nn.Module:\n"
         "    return nn.Sequential(\n"
         "        v2.Resize([232, 232], antialias=True),\n"
         "        v2.CenterCrop([224, 224]),\n"
@@ -239,8 +268,35 @@ def test_custom_file_data_factory_escape_hatch(
     )
     assert isinstance(result.model_module, nn.Module)
     assert isinstance(result.data_module, nn.Module)
+    assert result.warnings == []
     shaped = result.data_module(torch.zeros(3, 300, 400))
     assert shaped.shape == (3, 224, 224)
+
+
+def test_custom_file_data_only_uses_identity_model_input_transformation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv(_ENV, "1")
+    fixture = tmp_path / "data_only.py"
+    fixture.write_text(
+        "from torch import nn\n"
+        "from torchvision.transforms import v2\n"
+        "from raitap.data import raitap_preprocessing_factory\n"
+        "\n"
+        "@raitap_preprocessing_factory\n"
+        "def resize_for_batching() -> nn.Module:\n"
+        "    return v2.CenterCrop([8, 8])\n"
+    )
+
+    result = resolve_preprocessing(
+        ModelConfig(source="resnet50"),
+        DataConfig(preprocessing=str(fixture)),
+    )
+
+    assert isinstance(result.data_module, nn.Module)
+    assert isinstance(result.model_module, nn.Identity)
+    assert len(result.warnings) == 1
+    assert "model input transformation" in result.warnings[0]
 
 
 def test_custom_file_data_factory_wrong_return_type(
@@ -250,12 +306,10 @@ def test_custom_file_data_factory_wrong_return_type(
     fixture = tmp_path / "bad_data_factory.py"
     fixture.write_text(
         "from torch import nn\n"
-        "from torchvision.transforms import v2\n"
+        "from raitap.data import raitap_preprocessing_factory\n"
         "\n"
-        "def make_preprocessing() -> nn.Module:\n"
-        "    return v2.Normalize(mean=[0.0]*3, std=[1.0]*3)\n"
-        "\n"
-        "def make_data_preprocessing():\n"
+        "@raitap_preprocessing_factory\n"
+        "def resize_for_batching():\n"
         "    return 'not a module'\n"
     )
     with pytest.raises(TypeError, match=r"nn\.Module"):
@@ -268,7 +322,7 @@ def test_custom_file_data_factory_wrong_return_type(
 def test_custom_file_rejects_factory_with_required_arguments(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """``make_preprocessing`` must be callable with no arguments. A factory
+    """Decorated factories must be callable with no arguments. A factory
     with required positional/keyword args is rejected before the import
     side-effects are inherited by the model wrap.
     """
@@ -277,8 +331,10 @@ def test_custom_file_rejects_factory_with_required_arguments(
     fixture.write_text(
         "from torch import nn\n"
         "from torchvision.transforms import v2\n"
+        "from raitap.data import raitap_model_input_transformation_factory\n"
         "\n"
-        "def make_preprocessing(arg) -> nn.Module:\n"
+        "@raitap_model_input_transformation_factory\n"
+        "def normalize_for_model(arg) -> nn.Module:\n"
         "    return v2.Normalize(mean=[0.0]*3, std=[1.0]*3)\n"
     )
     with pytest.raises(TypeError, match=r"must be callable with no arguments"):
@@ -295,10 +351,16 @@ def test_custom_file_rejects_shared_model_and_data_module(
     fixture = tmp_path / "shared_module.py"
     fixture.write_text(
         "from torch import nn\n"
+        "from raitap.data import (\n"
+        "    raitap_model_input_transformation_factory,\n"
+        "    raitap_preprocessing_factory,\n"
+        ")\n"
         "_shared = nn.Identity()\n"
-        "def make_preprocessing() -> nn.Module:\n"
+        "@raitap_model_input_transformation_factory\n"
+        "def normalize_for_model() -> nn.Module:\n"
         "    return _shared\n"
-        "def make_data_preprocessing() -> nn.Module:\n"
+        "@raitap_preprocessing_factory\n"
+        "def resize_for_batching() -> nn.Module:\n"
         "    return _shared\n"
     )
 
@@ -343,7 +405,22 @@ def test_custom_file_factory_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     monkeypatch.setenv(_ENV, "1")
     bad = tmp_path / "no_factory.py"
     bad.write_text("x = 1\n")
-    with pytest.raises(AttributeError, match="make_preprocessing"):
+    with pytest.raises(AttributeError, match="decorated"):
+        resolve_preprocessing(
+            ModelConfig(source="resnet50"),
+            DataConfig(preprocessing=str(bad)),
+        )
+
+
+def test_custom_file_fixed_name_factories_require_decorators(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv(_ENV, "1")
+    bad = tmp_path / "old_factory.py"
+    bad.write_text(
+        "from torch import nn\ndef make_preprocessing() -> nn.Module:\n    return nn.Identity()\n"
+    )
+    with pytest.raises(AttributeError, match="decorator"):
         resolve_preprocessing(
             ModelConfig(source="resnet50"),
             DataConfig(preprocessing=str(bad)),
@@ -355,8 +432,35 @@ def test_custom_file_factory_returns_non_module(
 ) -> None:
     monkeypatch.setenv(_ENV, "1")
     bad = tmp_path / "bad_factory.py"
-    bad.write_text("def make_preprocessing():\n    return 42\n")
+    bad.write_text(
+        "from raitap.data import raitap_model_input_transformation_factory\n"
+        "@raitap_model_input_transformation_factory\n"
+        "def normalize_for_model():\n"
+        "    return 42\n"
+    )
     with pytest.raises(TypeError, match=r"nn\.Module"):
+        resolve_preprocessing(
+            ModelConfig(source="resnet50"),
+            DataConfig(preprocessing=str(bad)),
+        )
+
+
+def test_custom_file_duplicate_decorated_factories_raise(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv(_ENV, "1")
+    bad = tmp_path / "duplicates.py"
+    bad.write_text(
+        "from torch import nn\n"
+        "from raitap.data import raitap_model_input_transformation_factory\n"
+        "@raitap_model_input_transformation_factory\n"
+        "def normalize_a() -> nn.Module:\n"
+        "    return nn.Identity()\n"
+        "@raitap_model_input_transformation_factory\n"
+        "def normalize_b() -> nn.Module:\n"
+        "    return nn.Identity()\n"
+    )
+    with pytest.raises(ValueError, match="multiple model input transformation"):
         resolve_preprocessing(
             ModelConfig(source="resnet50"),
             DataConfig(preprocessing=str(bad)),

@@ -27,7 +27,7 @@ from raitap.configs.schema import (
     TrackingConfig,
     TransparencyConfig,
 )
-from raitap.pipeline.orchestrator import run as _orchestrator_run
+from raitap.pipeline.orchestrator import _run_pipeline
 
 if TYPE_CHECKING:
     from raitap.pipeline.outputs import RunOutputs
@@ -109,7 +109,7 @@ def run(
         output_root = Path("outputs") / now.strftime("%Y-%m-%d") / now.strftime("%H-%M-%S")
     if output_root is not None:
         set_output_root(config, output_root)
-    return _orchestrator_run(
+    return _run_pipeline(
         config,
         verbose=verbose,
         acknowledge_preprocessing_off=acknowledge_preprocessing_off,

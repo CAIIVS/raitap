@@ -49,6 +49,8 @@ def test_static_scan_finds_canonical_set() -> None:
         "HTMLReporter",
         "PDFReporter",
         "MLFlowTracker",
-        "ClassificationMetrics",
+        "BinaryClassificationMetrics",
+        "MulticlassClassificationMetrics",
+        "MultilabelClassificationMetrics",
         "DetectionMetrics",
     }, f"Scanner missed canonical adapters. Found: {sorted(scanned)!r}."

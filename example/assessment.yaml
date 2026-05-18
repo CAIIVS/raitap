@@ -1,8 +1,8 @@
 defaults:
   - raitap_schema      # required to bind the schema, must come first
-  - _self_
   - reporting: html
-  - metrics: classification
+  - metrics: multiclass_classification
+  - _self_
 
 hardware: gpu
 experiment_name: example
@@ -18,6 +18,9 @@ data:
     source: imagenet_samples    # bundled labels.csv for this sample
     id_column: image
     column: label
+
+metrics:
+  num_classes: 1000
 
 transparency:
   default:

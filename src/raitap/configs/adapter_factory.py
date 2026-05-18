@@ -450,10 +450,10 @@ def resolve_call_data_sources(
           source: "imagenet_samples"
           n_samples: 50
 
-    When ``per_image_transform`` is supplied (typically the shape half of the
-    pipeline's ``data.preprocessing`` setup), it is applied per-image so that
-    auxiliary tensors (SHAP background, baselines, …) share the same shape as
-    the primary ``Data.tensor``.
+    When ``per_image_transform`` is supplied (typically the pipeline's data
+    preprocessing transform), it is applied per-image so that auxiliary
+    tensors (SHAP background, baselines, …) share the same shape as the
+    primary ``Data.tensor``.
     """
     resolved: dict[str, Any] = {}
     for key, value in call_kwargs.items():

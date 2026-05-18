@@ -5,7 +5,25 @@ from typing import Any
 import pytest
 import torch
 
+from raitap.configs.schema import IoUConfig
 from raitap.metrics import DetectionMetrics
+
+
+class TestDetectionMetricsIoUNesting:
+    def test_iou_as_dataclass(self) -> None:
+        m = DetectionMetrics(iou=IoUConfig(type="bbox", thresholds=[0.5, 0.75]))
+        assert m.metric.iou_thresholds == [0.5, 0.75]
+
+    def test_iou_as_dict(self) -> None:
+        m = DetectionMetrics(iou={"type": "bbox", "thresholds": [0.25]})
+        assert m.metric.iou_thresholds == [0.25]
+
+    def test_iou_defaults_use_coco_thresholds(self) -> None:
+        m = DetectionMetrics()
+        # torchmetrics fills COCO defaults when our iou_thresholds=None reaches it.
+        assert m.metric.iou_thresholds[0] == pytest.approx(0.5)
+        assert m.metric.iou_thresholds[-1] == pytest.approx(0.95)
+        assert len(m.metric.iou_thresholds) == 10
 
 
 class _DeviceAwareMapSpy:
@@ -26,12 +44,12 @@ class TestDetectionMetricsInitialization:
             {},
             {"box_format": "xyxy"},
             {"box_format": "xywh"},
-            {"iou_type": "bbox"},
-            {"iou_type": "segm"},
-            {"iou_type": ("bbox", "segm")},
-            {"iou_thresholds": [0.5, 0.75]},
-            {"rec_thresholds": [0.0, 0.5, 1.0]},
-            {"max_detection_thresholds": [1, 10, 100]},
+            {"iou": {"type": "bbox"}},
+            {"iou": {"type": "segm"}},
+            {"iou": {"type": ("bbox", "segm")}},
+            {"iou": {"thresholds": [0.5, 0.75]}},
+            {"iou": {"rec_thresholds": [0.0, 0.5, 1.0]}},
+            {"iou": {"max_detection_thresholds": [1, 10, 100]}},
             {"class_metrics": True},
             {"extended_summary": True},
             {"average": "macro"},
@@ -41,14 +59,7 @@ class TestDetectionMetricsInitialization:
     )
     def test_initialization(self, kwargs: dict[str, Any]) -> None:
         """Test initialization with various valid parameters."""
-        # Ensure thresholds are always None unless specified to avoid mixing
-        full_kwargs: dict[str, Any] = {
-            "iou_thresholds": None,
-            "rec_thresholds": None,
-            "max_detection_thresholds": None,
-        }
-        full_kwargs.update(kwargs)
-        metrics = DetectionMetrics(**full_kwargs)
+        metrics = DetectionMetrics(**kwargs)
         assert metrics.metric is not None
 
 
@@ -58,9 +69,7 @@ class TestDetectionMetricsUpdate:
     @pytest.fixture
     def detection_metrics(self) -> DetectionMetrics:
         """Create a detection metrics instance."""
-        return DetectionMetrics(
-            iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
-        )
+        return DetectionMetrics()
 
     def test_update_with_valid_data(self, detection_metrics: DetectionMetrics) -> None:
         """Test update with valid predictions and targets."""
@@ -84,9 +93,7 @@ class TestDetectionMetricsUpdate:
     def test_prepare_inputs_moves_metric_state_and_nested_targets_to_prediction_device(
         self,
     ) -> None:
-        detection_metrics = DetectionMetrics(
-            iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
-        )
+        detection_metrics = DetectionMetrics()
         metric_spy = _DeviceAwareMapSpy()
         detection_metrics.metric = metric_spy  # type: ignore[assignment]
 
@@ -263,9 +270,7 @@ class TestDetectionMetricsCompute:
     @pytest.fixture
     def detection_metrics(self) -> DetectionMetrics:
         """Create a detection metrics instance."""
-        return DetectionMetrics(
-            iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
-        )
+        return DetectionMetrics()
 
     def test_compute_returns_metric_result(self, detection_metrics: DetectionMetrics) -> None:
         """Test that compute returns a MetricResult object."""
@@ -346,12 +351,7 @@ class TestDetectionMetricsCompute:
 
     def test_compute_with_multiple_classes(self) -> None:
         """Test compute with multiple object classes."""
-        metrics = DetectionMetrics(
-            class_metrics=True,
-            iou_thresholds=None,
-            rec_thresholds=None,
-            max_detection_thresholds=None,
-        )
+        metrics = DetectionMetrics(class_metrics=True)
 
         predictions = [
             {
@@ -404,9 +404,7 @@ class TestDetectionMetricsReset:
     @pytest.fixture
     def detection_metrics(self) -> DetectionMetrics:
         """Create a detection metrics instance."""
-        return DetectionMetrics(
-            iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
-        )
+        return DetectionMetrics()
 
     def test_reset_clears_state(self, detection_metrics: DetectionMetrics) -> None:
         """Test that reset clears accumulated state."""
@@ -456,9 +454,7 @@ class TestDetectionMetricsEdgeCases:
 
     def test_single_detection_single_target(self) -> None:
         """Test with a single detection and single target."""
-        metrics = DetectionMetrics(
-            iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
-        )
+        metrics = DetectionMetrics()
 
         predictions = [
             {
@@ -482,9 +478,7 @@ class TestDetectionMetricsEdgeCases:
 
     def test_multiple_detections_per_image(self) -> None:
         """Test with multiple detections in a single image."""
-        metrics = DetectionMetrics(
-            iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
-        )
+        metrics = DetectionMetrics()
 
         predictions = [
             {
@@ -518,12 +512,7 @@ class TestDetectionMetricsEdgeCases:
 
     def test_xywh_box_format(self) -> None:
         """Test with xywh box format."""
-        metrics = DetectionMetrics(
-            box_format="xywh",
-            iou_thresholds=None,
-            rec_thresholds=None,
-            max_detection_thresholds=None,
-        )
+        metrics = DetectionMetrics(box_format="xywh")
 
         # xywh format: [x_center, y_center, width, height]
         predictions = [
@@ -547,9 +536,7 @@ class TestDetectionMetricsEdgeCases:
 
     def test_large_batch(self) -> None:
         """Test with a large batch of images."""
-        metrics = DetectionMetrics(
-            iou_thresholds=None, rec_thresholds=None, max_detection_thresholds=None
-        )
+        metrics = DetectionMetrics()
 
         num_images = 100
         predictions = []

@@ -29,9 +29,9 @@ def main() -> None:
 
 
 def run(*args: Any, **kwargs: Any) -> RunOutputs:
-    from raitap.pipeline.orchestrator import run as _run
+    from raitap.pipeline.orchestrator import _run_pipeline
 
-    return _run(*args, **kwargs)
+    return _run_pipeline(*args, **kwargs)
 
 
 def run_without_tracking(*args: Any, **kwargs: Any) -> RunOutputs:

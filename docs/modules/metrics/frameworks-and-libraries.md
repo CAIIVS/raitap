@@ -18,24 +18,24 @@ To tweak specific options via the RAITAP config, you might need to refer to the 
 
 ## Classification metrics
 
-`ClassificationMetrics` is ideal for classification models. It wraps the following TorchMetrics classes:
+`BinaryClassificationMetrics`, `MulticlassClassificationMetrics`, and `MultilabelClassificationMetrics` are the task-specific adapters for classification models. They each wrap the following TorchMetrics classes (instantiated for the matching task):
 
 - [`Accuracy`](https://lightning.ai/docs/torchmetrics/stable/classification/accuracy.html)
 - [`Precision`](https://lightning.ai/docs/torchmetrics/stable/classification/precision.html)
 - [`Recall`](https://lightning.ai/docs/torchmetrics/stable/classification/recall.html)
 - [`F1Score`](https://lightning.ai/docs/torchmetrics/stable/classification/f1_score.html)
 
-It supports the task types exposed by TorchMetrics that RAITAP currently uses:
+The adapters map to the task types exposed by TorchMetrics that RAITAP currently uses:
 
-- [`binary`](https://lightning.ai/docs/torchmetrics/stable/classification/accuracy.html#binaryaccuracy)
-- [`multiclass`](https://lightning.ai/docs/torchmetrics/stable/classification/accuracy.html#multiclassaccuracy)
-- [`multilabel`](https://lightning.ai/docs/torchmetrics/stable/classification/accuracy.html#multilabelaccuracy)
+- `BinaryClassificationMetrics` → [`binary`](https://lightning.ai/docs/torchmetrics/stable/classification/accuracy.html#binaryaccuracy)
+- `MulticlassClassificationMetrics` → [`multiclass`](https://lightning.ai/docs/torchmetrics/stable/classification/accuracy.html#multiclassaccuracy)
+- `MultilabelClassificationMetrics` → [`multilabel`](https://lightning.ai/docs/torchmetrics/stable/classification/accuracy.html#multilabelaccuracy)
 
 RAITAP adds a thin layer of validation and conventions around these metrics. In
 particular:
 
-- `multiclass` requires `num_classes`
-- `multilabel` uses `num_labels` internally and also accepts `num_classes` as an alias. It defaults to a threshold of `0.5` if none is provided
+- `MulticlassClassificationMetrics` requires `num_classes`
+- `MultilabelClassificationMetrics` requires `num_labels` and defaults to a threshold of `0.5` if none is provided
 - `average="none"` stores per-class or per-label values in `artifacts.json`
   instead of flattening them into scalar metrics
 

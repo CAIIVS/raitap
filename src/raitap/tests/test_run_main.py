@@ -161,7 +161,7 @@ def test_hydra_main_composes_default_config(monkeypatch: MonkeyPatch, tmp_path: 
     def fake_run(config: object) -> None:
         captured["config"] = config
 
-    monkeypatch.setattr(run_entry, "run", fake_run)
+    monkeypatch.setattr(run_entry, "_run_pipeline", fake_run)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -177,7 +177,8 @@ def test_hydra_main_composes_default_config(monkeypatch: MonkeyPatch, tmp_path: 
     cfg = cast("AppConfig", captured["config"])
     assert cfg.model.source == "vit_b_32"
     assert cfg.metrics is not None
-    assert cfg.metrics._target_ == "ClassificationMetrics"
+    expected = "raitap.metrics.classification_metrics.MulticlassClassificationMetrics"
+    assert cfg.metrics._target_ == expected
     assert cfg.transparency
 
 
@@ -191,7 +192,7 @@ def test_hydra_main_prefers_packaged_default_over_local_config(
 
     (tmp_path / "config.yaml").write_text("experiment_name: local-shadow\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(run_entry, "run", fake_run)
+    monkeypatch.setattr(run_entry, "_run_pipeline", fake_run)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -232,7 +233,7 @@ def test_hydra_main_loads_custom_config_name_from_cwd_and_keeps_packaged_default
         encoding="utf-8",
     )
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(run_entry, "run", fake_run)
+    monkeypatch.setattr(run_entry, "_run_pipeline", fake_run)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -252,7 +253,8 @@ def test_hydra_main_loads_custom_config_name_from_cwd_and_keeps_packaged_default
     assert cfg.hardware == "cpu"
     assert cfg.model.source == "vit_b_32"
     assert cfg.metrics is not None
-    assert cfg.metrics._target_ == "ClassificationMetrics"
+    expected = "raitap.metrics.classification_metrics.MulticlassClassificationMetrics"
+    assert cfg.metrics._target_ == expected
     assert cfg.transparency
 
 

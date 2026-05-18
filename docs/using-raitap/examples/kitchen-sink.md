@@ -95,10 +95,8 @@ robustness:
       - _target_: "PerturbationHeatmapVisualiser"
 
 metrics:
-  _target_: "ClassificationMetrics"
-  task: "multiclass"
+  _target_: "MulticlassClassificationMetrics"
   num_classes: 7
-  num_labels: null
   average: "macro"
   ignore_index: null
 
@@ -118,7 +116,7 @@ reporting:
 :python:
 from raitap import AppConfig, Hardware
 from raitap.data import DataConfig, LabelEncoding, LabelsConfig
-from raitap.metrics import Task, classification as classification_metrics
+from raitap.metrics import multiclass_classification
 from raitap.models import ModelConfig
 from raitap.reporting import html as html_report
 from raitap.robustness import foolbox, image_pair, perturbation_heatmap, torchattacks
@@ -187,8 +185,7 @@ config = AppConfig(
             visualisers=[perturbation_heatmap()],
         ),
     },
-    metrics=classification_metrics(
-        task=Task.multiclass,
+    metrics=multiclass_classification(
         num_classes=7,
     ),
     tracking=mlflow(

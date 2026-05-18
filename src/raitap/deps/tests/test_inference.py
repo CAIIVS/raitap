@@ -116,7 +116,7 @@ def test_tracking_mlflow() -> None:
 def test_metrics_block_adds_extra() -> None:
     cfg = {
         "model": {"source": "x.pt"},
-        "metrics": {"_target_": "ClassificationMetrics", "task": "multiclass"},
+        "metrics": {"_target_": "MulticlassClassificationMetrics", "num_classes": 3},
     }
     extras, _ = infer_extras(cfg, hardware="cpu")
     assert "metrics" in extras
@@ -187,6 +187,8 @@ def test_mapping_table_lists_all_known_targets() -> None:
         "HTMLReporter",
         "PDFReporter",
         "MLFlowTracker",
-        "ClassificationMetrics",
+        "BinaryClassificationMetrics",
+        "MulticlassClassificationMetrics",
+        "MultilabelClassificationMetrics",
         "DetectionMetrics",
     }

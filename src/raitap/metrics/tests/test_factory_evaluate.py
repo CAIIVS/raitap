@@ -11,10 +11,13 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 from raitap.configs import set_output_root
-from raitap.configs.schema import AppConfig, MetricsConfig
+from raitap.configs.schema import (
+    AppConfig,
+    MetricsConfig,
+    MulticlassClassificationMetricsConfig,
+)
 from raitap.metrics import MetricsEvaluation, evaluate, metrics_run_enabled
 from raitap.metrics.base_metric_computer import BaseMetricComputer, MetricResult
-from raitap.types import Task
 
 
 def test_metrics_run_enabled_respects_empty_target(tmp_path: Path) -> None:
@@ -23,18 +26,14 @@ def test_metrics_run_enabled_respects_empty_target(tmp_path: Path) -> None:
     assert not metrics_run_enabled(cfg)  # metrics is None by default
     cfg.metrics = MetricsConfig(_target_="")
     assert not metrics_run_enabled(cfg)
-    cfg.metrics = MetricsConfig(_target_="ClassificationMetrics")
+    cfg.metrics = MetricsConfig(_target_="MulticlassClassificationMetrics")
     assert metrics_run_enabled(cfg)
 
 
 def _config(tmp_path: Path) -> AppConfig:
     cfg = AppConfig(experiment_name="test")
     set_output_root(cfg, tmp_path)
-    cfg.metrics = MetricsConfig(
-        _target_="ClassificationMetrics",
-        task=Task.multiclass,
-        num_classes=3,
-    )
+    cfg.metrics = MulticlassClassificationMetricsConfig(num_classes=3)
     return cfg
 
 
@@ -57,7 +56,7 @@ def test_evaluate_writes_outputs(tmp_path: Path) -> None:
     metadata = json.loads((run_dir / "metadata.json").read_text(encoding="utf-8"))
 
     assert "accuracy" in metrics
-    assert metadata["target"] == "raitap.metrics.ClassificationMetrics"
+    assert metadata["target"] == "raitap.metrics.MulticlassClassificationMetrics"
 
 
 def test_evaluate_bad_target_raises(tmp_path: Path) -> None:

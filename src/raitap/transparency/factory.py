@@ -5,12 +5,6 @@ from typing import TYPE_CHECKING, Any
 from hydra.utils import instantiate
 
 from raitap import raitap_log
-from raitap.utils.lazy import lazy_import
-
-if TYPE_CHECKING:
-    import torch
-else:
-    torch = lazy_import("torch")
 from raitap.configs import resolve_run_dir
 from raitap.configs.adapter_factory import (
     AdapterSchema,
@@ -23,6 +17,8 @@ from raitap.configs.adapter_factory import (
     resolve_per_image_transform,
 )
 from raitap.models.backend import ModelBackend
+from raitap.utils.errors import SampleNamesLengthError
+from raitap.utils.lazy import lazy_import
 
 from .algorithm_allowlist import ensure_algorithm_in_allowlist
 from .contracts import (
@@ -46,6 +42,8 @@ if TYPE_CHECKING:
     from ..configs.schema import AppConfig
     from ..data.preprocessing import ResolvedPreprocessing
     from .results import ExplanationResult
+else:
+    torch = lazy_import("torch")
 
 _TRANSPARENCY_PREFIX = "raitap.transparency."
 
@@ -206,6 +204,17 @@ class Explanation:
                 raitap_cfg["sample_ids"] = sample_ids
             if input_metadata is not None:
                 raitap_cfg["input_metadata"] = input_metadata
+
+            resolved_sample_names = raitap_cfg.get("sample_names")
+            if resolved_sample_names is not None:
+                resolved_list = list(resolved_sample_names)
+                if resolved_list and len(resolved_list) != int(inputs.shape[0]):
+                    source = "runtime kwarg" if sample_names is not None else "raitap.sample_names"
+                    raise SampleNamesLengthError(
+                        got=len(resolved_list),
+                        expected=int(inputs.shape[0]),
+                        source=source,
+                    )
 
             merged_kwargs = resolve_call_data_sources(
                 {**call_from_config, **kwargs},

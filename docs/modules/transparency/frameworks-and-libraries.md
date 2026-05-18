@@ -247,7 +247,10 @@ name for YAML compatibility.
 Override these via the visualiser `call` key or at runtime:
 
 `sample_names` usually comes from the explainer's `raitap.sample_names` metadata, but
-you can still override it directly on the visualiser call when needed.
+you can still override it directly on the visualiser call when needed. When set, the
+list length must equal the number of input samples `N`; a mismatch raises
+`raitap.utils.errors.SampleNamesLengthError` at factory entry. Omit `sample_names`
+to fall back to auto-derived sample ids from the data loader.
 `show_sample_names` follows the same pattern: set the shared default under
 `raitap.show_sample_names` on the explainer, then override it per visualiser
 via `visualisers[].call.show_sample_names` when one renderer should behave

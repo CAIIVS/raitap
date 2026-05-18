@@ -102,22 +102,22 @@ The three `DataConfig.preprocessing` values resolve as follows:
 | `origin`           | Config value                  | Resolver                           | Behaviour                                                     |
 | ------------------ | ----------------------------- | ---------------------------------- | ------------------------------------------------------------- |
 | `off`              | `None` / `""` (absent)        | `_resolve_off`                     | No wrap; warn unless suppressed                               |
-| `model-bundled` | `"model-bundled"`          | `_resolve_model_bundled`        | Split `Weights.DEFAULT.transforms()` into shape + value halves |
-| `custom-file`      | path to a `.py` file          | `_resolve_custom_file`             | Import file, call `make_preprocessing()` (and optionally `make_data_preprocessing()`); gate on consent |
+| `model-bundled` | `"model-bundled"`          | `_resolve_model_bundled`        | Split `Weights.DEFAULT.transforms()` into data preprocessing + model input transformation |
+| `custom-file`      | path to a `.py` file          | `_resolve_custom_file`             | Import file, discover RAITAP-decorated factories; gate on consent |
 
 `origin` matches the literal stored on `ResolvedPreprocessing.origin` —
 contributor docs and tests use these names directly so there is no parallel
 shorthand to keep in sync.
 
-### Split: data half vs model half
+### Split: data preprocessing vs model input transformation
 
-The resolved preprocessing has two halves, one for the data loader and one
+The resolved preprocessing has two modules, one for the data loader and one
 for the model boundary:
 
-| Half          | Where                          | What                                  | Why                                                                                                                                   |
-| ------------- | ------------------------------ | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `data_module` | `Data._load_data`, per image   | Resize + CenterCrop (shape)           | Must run before `_stack_images_numpy` calls `np.stack` so mixed-size directories can be batched. No gradient → safe outside autograd. |
-| `model_module`| `Model._apply_preprocessing`   | Normalize (values)                    | Has gradient → must stay inside autograd for Captum / SHAP / torchattacks to attribute and attack on the user-facing `[0, 1]` space.  |
+| Half           | Where                        | What                        | Why                                                                                                                                  |
+| -------------- | ---------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `data_module`  | `Data._load_data`, per image | Data preprocessing          | Must run before `_stack_images_numpy` calls `np.stack` so mixed-size directories can be batched. No gradient → safe outside autograd. |
+| `model_module` | `Model._apply_preprocessing` | Model input transformation | Has gradient → must stay inside autograd for Captum / SHAP / torchattacks to attribute and attack on the user-facing `[0, 1]` space. |
 
 For ONNX backends, `model_module` still belongs at the model boundary, but
 the autograd rationale is Torch-specific. Marabou-style formal verification
@@ -125,16 +125,17 @@ reads the bare ONNX graph and does not see Python preprocessing modules.
 
 `model-bundled` calls `_split_preset(preset)` for the bundled torchvision
 presets (`ImageClassification`, `SemanticSegmentation`). `ObjectDetection`
-returns both halves as `None` — detection models normalise internally via
+returns both modules as `None` — detection models normalise internally via
 `GeneralizedRCNNTransform`.
 
-`custom-file` defaults to model-side only (`data_module=None`,
-`model_module=user_factory()`). Users who need shape preprocessing for
-mixed-size folders can additionally export `make_data_preprocessing()` from
-their file; `_build_user_factory` imports it with `required=False`. See the
-user doc for the recommended split.
+`custom-file` scans the imported module for callables decorated with
+`@raitap_preprocessing_factory` and
+`@raitap_model_input_transformation_factory`. At least one decorated factory
+is required. Missing modules are filled with `nn.Identity()` and a warning;
+multiple factories for the same module raise an ambiguity error. See the user
+doc for the recommended split.
 
-`off` returns both halves as `None`.
+`off` returns both modules as `None`.
 
 ### Resolver flow
 
@@ -147,7 +148,7 @@ panel rendering / warning emission to its caller.
 DataConfig.preprocessing
   ├─ None / ""           → _resolve_off              → data_module=None, model_module=None, warnings=[OFF_WARNING] (unless suppressed)
   ├─ "model-bundled"  → _resolve_model_bundled → _split_preset(weights.transforms()) → (Resize+CenterCrop, Normalize)
-  └─ <path>.py           → _resolve_custom_file      → data_module=make_data_preprocessing() (optional), model_module=make_preprocessing()
+  └─ <path>.py           → _resolve_custom_file      → decorated data preprocessing and/or model input transformation factories
 ```
 
 The normal pipeline resolves preprocessing once in
@@ -162,15 +163,16 @@ falling back to `model_cfg.source` if it names a built-in
 `ValueError` with a copy-pasteable fix. This path is intentionally
 torchvision-lineage only; RAITAP does not inspect or execute preprocessing
 that may have been bundled into an ONNX export. `custom-file` enforces
-`.py` extension, existence, presence of `make_preprocessing`, and that the
-factory returns an `nn.Module`; each failure raises a typed error.
+`.py` extension, existence, decorated factory discovery, zero-arg factory
+signatures, and `nn.Module` return values; each failure raises a typed error.
 
 ### Wrap insertion
 
 `Model.__init__` calls `_apply_preprocessing(self.backend, config)` in
 `src/raitap/models/model.py`. When `resolved.model_module is not None` and
-the backend is a `TorchBackend`, the helper moves the module to the
-backend's device, switches it to `eval()`, and rebinds:
+the backend is a `TorchBackend`, the helper moves the model input
+transformation to the backend's device, switches it to `eval()`, and
+rebinds:
 
 ```python
 backend.model = nn.Sequential(model_module, backend.model)
@@ -201,7 +203,7 @@ and passes it into `_stack_images_numpy(files, per_image_transform=...)`.
 The transform runs on each `(C, H, W)` tensor before `np.stack`, so a
 directory of mixed-size JPEGs becomes a clean `(N, 3, 224, 224)` batch.
 
-Sample-source paths (`SAMPLE_SOURCES`) get the data half applied to the
+Sample-source paths (`SAMPLE_SOURCES`) get data preprocessing applied to the
 already-stacked tensor returned by `_load_sample` — torchvision presets
 accept batched tensors so this works identically. Defensive: if `cfg.model`
 is absent (minimal test mocks), preprocessing resolution is skipped entirely
@@ -217,9 +219,9 @@ ONNX support is split by preprocessing origin:
   does not apply preprocessing that may have been bundled into an ONNX
   export.
 - `custom-file`: supported on RAITAP's normal tensor/model call path. The
-  Python `make_preprocessing()` module runs before the backend invocation,
-  so ONNX models get the same model-boundary value preprocessing semantics
-  as Torch models.
+  decorated model input transformation runs before the backend invocation,
+  so ONNX models get the same model-boundary transformation semantics as
+  Torch models.
 
 The low-level `OnnxBackend.forward_numpy(...)` API remains raw by design: it
 executes the ONNX session on the array it is given and does not resolve or
@@ -251,8 +253,8 @@ preserve consent across the sub-process boundary.
 ```python
 @dataclass(frozen=True)
 class ResolvedPreprocessing:
-    data_module: nn.Module | None     # Shape — applied per-image in the loader
-    model_module: nn.Module | None    # Value — wrapped at the model boundary
+    data_module: nn.Module | None     # Data preprocessing — per-image in loader
+    model_module: nn.Module | None    # Model input transformation — model boundary
     origin: Literal["off", "model-bundled", "custom-file"]
     description: str
     file_path: Path | None = None     # custom-file only
@@ -260,7 +262,7 @@ class ResolvedPreprocessing:
     warnings: list[str] = field(default_factory=list)
 ```
 
-`is_active` is `True` if either half is non-None.
+`is_active` is `True` if either module is non-None.
 
 Downstream consumers:
 
@@ -272,12 +274,13 @@ Downstream consumers:
 | Future HTML report card                            | All fields — same plain phrasing as the panel  |
 
 The `origin` enum value is internal; user-facing renderings translate it
-("Off", "Model-bundled (ResNet50 IMAGENET1K_V2)", "Custom file: ./…").
+("Off", "Model-bundled (ResNet50 IMAGENET1K_V2)", "Custom preprocessing file: ./…").
 
 ### Test fixture
 
 `src/raitap/data/tests/fixtures/preproc_imagenet.py` is the minimal
-custom-file factory exercised by `test_preprocessing.py` and `test_api.py`.
+custom-file model input transformation exercised by `test_preprocessing.py`
+and `test_api.py`.
 It mirrors the example in {doc}`/modules/data/preprocessing` so the test
 doubles as documentation that the example works — keep them in sync when
 either changes.

@@ -189,7 +189,7 @@ class TestLoadImages:
 
 
 class TestDataPreprocessing:
-    """``Data._load_data`` resolves preprocessing and applies the shape half
+    """``Data._load_data`` resolves preprocessing and applies data preprocessing
     per-image before stacking, so mixed-size directories load successfully
     when ``data.preprocessing: model-bundled`` is set."""
 
@@ -285,19 +285,25 @@ class TestDataPreprocessing:
         preprocessing_path.write_text(
             "import torch\n"
             "from torch import nn\n"
+            "from raitap.data import (\n"
+            "    raitap_model_input_transformation_factory,\n"
+            "    raitap_preprocessing_factory,\n"
+            ")\n"
             "\n"
             "class _ModelOnly(nn.Module):\n"
             "    def forward(self, image: torch.Tensor) -> torch.Tensor:\n"
-            "        raise AssertionError('model preprocessing should stay backend-side')\n"
+            "        raise AssertionError('model input transformation should stay backend-side')\n"
             "\n"
             "class _DataOnly(nn.Module):\n"
             "    def forward(self, image: torch.Tensor) -> torch.Tensor:\n"
             "        return torch.zeros(3, 8, 8, dtype=image.dtype)\n"
             "\n"
-            "def make_preprocessing() -> nn.Module:\n"
+            "@raitap_model_input_transformation_factory\n"
+            "def model_input_transform() -> nn.Module:\n"
             "    return _ModelOnly()\n"
             "\n"
-            "def make_data_preprocessing() -> nn.Module:\n"
+            "@raitap_preprocessing_factory\n"
+            "def data_preprocessing() -> nn.Module:\n"
             "    return _DataOnly()\n"
         )
         monkeypatch.setenv("RAITAP_ALLOW_PREPROCESSING_EXEC", "1")

@@ -30,7 +30,7 @@ class _BackendStub:
 def _minimal_run_config() -> SimpleNamespace:
     return SimpleNamespace(
         transparency={"default": {}},
-        metrics=SimpleNamespace(_target_="ClassificationMetrics", num_classes=None),
+        metrics=SimpleNamespace(_target_="MulticlassClassificationMetrics", num_classes=3),
     )
 
 

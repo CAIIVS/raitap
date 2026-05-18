@@ -7,11 +7,11 @@ to make the tool runnable out-of-the-box without any local data.
 
 When no preprocessing is configured, ``_load_sample`` falls back to a hard
 resize to ``_DEMO_SIZE`` so heterogeneous images can be stacked. When the
-caller supplies a per-image transform (the shape half of
-``data.preprocessing``), images are loaded at their native resolution and
-the transform does the shape work — the pretrained Resize/CenterCrop sees
-the original image, not a pre-squashed one. This does not affect consumer
-data, which is loaded by :mod:`raitap.data.data` directly.
+caller supplies a per-image data preprocessing transform, images are loaded
+at their native resolution and the transform does the shape work — the
+pretrained Resize/CenterCrop sees the original image, not a pre-squashed one.
+This does not affect consumer data, which is loaded by
+:mod:`raitap.data.data` directly.
 """
 
 from __future__ import annotations
