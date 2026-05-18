@@ -81,6 +81,10 @@ myst:
 :description: Optional per-sample names for downstream visualisers. This can be
   injected at runtime from the data pipeline. If runtime sample names
   are provided, they take precedence over `raitap.sample_names` from config.
+  The list length must equal the number of input samples `N`; a mismatch
+  raises `raitap.utils.errors.SampleNamesLengthError` at factory entry.
+  Omit `sample_names` to fall back to auto-derived sample ids from the
+  data loader.
 
 :option: raitap.show_sample_names
 :allowed: bool

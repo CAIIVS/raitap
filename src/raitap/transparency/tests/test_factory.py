@@ -31,6 +31,7 @@ from raitap.transparency.factory import (
 )
 from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
+from raitap.utils.errors import SampleNamesLengthError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -354,12 +355,22 @@ def test_explanation_passes_sample_ids_display_names_and_input_metadata(
         model=model,  # type: ignore[arg-type]
         inputs=sample_images,
         input_metadata={"kind": "image", "shape": sample_images.shape, "layout": "NCHW"},
-        sample_ids=["stable-1", "stable-2"],
-        sample_names=["Display 1", "Display 2"],
+        sample_ids=["stable-1", "stable-2", "stable-3", "stable-4"],
+        sample_names=["Display 1", "Display 2", "Display 3", "Display 4"],
     )
 
-    assert explainer.last_raitap_kwargs["sample_ids"] == ["stable-1", "stable-2"]
-    assert explainer.last_raitap_kwargs["sample_names"] == ["Display 1", "Display 2"]
+    assert explainer.last_raitap_kwargs["sample_ids"] == [
+        "stable-1",
+        "stable-2",
+        "stable-3",
+        "stable-4",
+    ]
+    assert explainer.last_raitap_kwargs["sample_names"] == [
+        "Display 1",
+        "Display 2",
+        "Display 3",
+        "Display 4",
+    ]
     assert explainer.last_raitap_kwargs["input_metadata"]["kind"] == "image"
     assert explainer.last_raitap_kwargs["input_metadata"]["layout"] == "NCHW"
     assert explainer.last_raitap_kwargs["show_sample_names"] is True
@@ -1037,12 +1048,12 @@ def test_explanation_runtime_sample_names_override_raitap_config(
             "test_explainer",
             model=model,  # type: ignore[arg-type]
             inputs=sample_images,
-            sample_names=["from_runtime_1", "from_runtime_2"],
+            sample_names=["from_runtime_1", "from_runtime_2", "from_runtime_3", "from_runtime_4"],
         )
 
     assert explainer.last_explain_kwargs["raitap_kwargs"] == {
         "show_sample_names": True,
-        "sample_names": ["from_runtime_1", "from_runtime_2"],
+        "sample_names": ["from_runtime_1", "from_runtime_2", "from_runtime_3", "from_runtime_4"],
     }
     assert "override raitap.sample_names from config" in caplog.text
 
@@ -1112,7 +1123,7 @@ def test_explanation_warns_once_on_misplaced_raitap_call_keys(
             {
                 "_target_": "raitap.transparency.CaptumExplainer",
                 "algorithm": "Saliency",
-                "call": {"sample_names": ["cfg_a", "cfg_b"]},
+                "call": {"sample_names": ["cfg_a", "cfg_b", "cfg_c", "cfg_d"]},
                 "visualisers": [],
             }
         ),
@@ -1572,3 +1583,191 @@ class TestResolveCallDataSources:
         bg_tensor = explainer.last_explain_kwargs["background_data"]
         assert isinstance(bg_tensor, torch.Tensor)
         assert bg_tensor.shape[0] == 2
+
+
+# ---------------------------------------------------------------------------
+# sample_names length validation — Task B1
+# ---------------------------------------------------------------------------
+
+
+def _make_stub_explainer() -> Any:
+    class _StubExplainer:
+        algorithm = "Saliency"
+
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+
+        def explain(self, *_args: Any, **_kwargs: Any) -> ExplanationResult:
+            return MagicMock(spec=ExplanationResult)
+
+    return _StubExplainer()
+
+
+def test_explanation_raises_when_runtime_sample_names_longer_than_batch(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    stub = _make_stub_explainer()
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "visualisers": [],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (stub, "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
+
+    inputs = torch.zeros(2, 3, 8, 8)
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    with pytest.raises(SampleNamesLengthError) as info:
+        Explanation(
+            config,
+            "test_explainer",
+            model=model,  # type: ignore[arg-type]
+            inputs=inputs,
+            sample_names=["a", "b", "c"],
+        )
+    assert info.value.got == 3
+    assert info.value.expected == 2
+    assert "runtime kwarg" in str(info.value)
+
+
+def test_explanation_raises_when_runtime_sample_names_shorter_than_batch(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    stub = _make_stub_explainer()
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "visualisers": [],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (stub, "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
+
+    inputs = torch.zeros(3, 3, 8, 8)
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    with pytest.raises(SampleNamesLengthError):
+        Explanation(
+            config,
+            "test_explainer",
+            model=model,  # type: ignore[arg-type]
+            inputs=inputs,
+            sample_names=["only-one"],
+        )
+
+
+def test_explanation_raises_when_yaml_sample_names_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """YAML raitap.sample_names = ['x', 'y'] but inputs have 3 samples — no runtime kwarg."""
+    stub = _make_stub_explainer()
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "raitap": {"sample_names": ["x", "y"]},
+                "visualisers": [],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (stub, "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
+
+    inputs = torch.zeros(3, 3, 8, 8)
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    with pytest.raises(SampleNamesLengthError) as info:
+        Explanation(
+            config,
+            "test_explainer",
+            model=model,  # type: ignore[arg-type]
+            inputs=inputs,
+        )
+    assert "raitap.sample_names" in str(info.value)
+
+
+def test_explanation_does_not_raise_when_sample_names_is_none(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    stub = _make_stub_explainer()
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "visualisers": [],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (stub, "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
+
+    inputs = torch.zeros(2, 3, 8, 8)
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    # Should not raise SampleNamesLengthError.
+    Explanation(
+        config,
+        "test_explainer",
+        model=model,  # type: ignore[arg-type]
+        inputs=inputs,
+        sample_names=None,
+    )
+
+
+def test_explanation_does_not_raise_when_sample_names_length_matches(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    stub = _make_stub_explainer()
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "Saliency",
+                "visualisers": [],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (stub, "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
+
+    inputs = torch.zeros(2, 3, 8, 8)
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    # Should not raise.
+    Explanation(
+        config,
+        "test_explainer",
+        model=model,  # type: ignore[arg-type]
+        inputs=inputs,
+        sample_names=["a", "b"],
+    )

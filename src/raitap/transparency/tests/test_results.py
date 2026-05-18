@@ -32,6 +32,7 @@ from raitap.transparency.results import (
 )
 from raitap.transparency.visualisers import ShapImageVisualiser
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
+from raitap.utils.errors import SampleNamesLengthError
 
 if TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch
@@ -466,30 +467,9 @@ def test_explanation_visualise_uses_explainer_level_show_sample_names_default(
     assert vis.last_sample_names == ["ISIC_1", "ISIC_2"]
 
 
-def test_explanation_visualise_trims_sample_names_for_shorter_batch(tmp_path: Path) -> None:
-    class _SampleNameVisualiser(BaseVisualiser):
-        def __init__(self) -> None:
-            self.received_names: list[str] = []
-
-        def visualise(
-            self,
-            attributions: torch.Tensor,
-            inputs: torch.Tensor | None = None,
-            *,
-            context: VisualisationContext | None = None,
-            **kw: Any,
-        ) -> Figure:
-            del attributions, inputs, kw
-            sample_names = context.sample_names if context is not None else None
-            show_sample_names = context.show_sample_names if context is not None else False
-            self.received_names = [] if sample_names is None else list(sample_names)
-            fig, _ax = plt.subplots(figsize=(1, 1))
-            if show_sample_names and self.received_names:
-                fig.suptitle(self.received_names[0])
-            return fig
-
+def test_explanation_visualise_raises_when_sample_names_longer_than_batch(tmp_path: Path) -> None:
+    """Providing more sample_names than batch samples raises SampleNamesLengthError."""
     run_dir = tmp_path / "exp_trim_names"
-    vis = _SampleNameVisualiser()
     explanation = ExplanationResult(
         attributions=torch.randn(1, 3, 4, 4),
         inputs=torch.randn(1, 3, 4, 4),
@@ -500,7 +480,7 @@ def test_explanation_visualise_trims_sample_names_for_shorter_batch(tmp_path: Pa
         semantics=_semantics(),
         visualisers=[
             ConfiguredVisualiser(
-                visualiser=vis,
+                visualiser=MagicMock(spec=BaseVisualiser),
                 call_kwargs={"show_sample_names": True},
             )
         ],
@@ -508,9 +488,10 @@ def test_explanation_visualise_trims_sample_names_for_shorter_batch(tmp_path: Pa
     )
     explanation.write_artifacts()
 
-    explanation.visualise()
-
-    assert vis.received_names == ["ISIC_1"]
+    with pytest.raises(SampleNamesLengthError) as info:
+        explanation.visualise()
+    assert info.value.got == 3
+    assert info.value.expected == 1
 
 
 def test_report_visualisation_resets_visualiser_sample_index_for_sliced_batch(
@@ -791,3 +772,119 @@ def test_explanation_visualise_forwards_algorithm_to_shap_subclasses(tmp_path: P
 
     titles = [ax.get_title() for ax in result.figure.axes if ax.get_title()]
     assert titles == ["Original Image", "DeepExplainer (SHAP)"]
+
+
+# ---------------------------------------------------------------------------
+# sample_names length validation — Task B3
+# ---------------------------------------------------------------------------
+
+
+def test_explanation_result_visualise_raises_on_mismatched_sample_names(tmp_path: Path) -> None:
+    """visualise() raises SampleNamesLengthError when sample_names count != batch size."""
+    run_dir = tmp_path / "exp_mismatch"
+    explanation = ExplanationResult(
+        attributions=torch.randn(2, 3, 4, 4),
+        inputs=torch.randn(2, 3, 4, 4),
+        run_dir=run_dir,
+        experiment_name="e",
+        explainer_target="t",
+        algorithm="a",
+        semantics=_semantics(),
+        visualisers=[
+            ConfiguredVisualiser(
+                visualiser=MagicMock(spec=BaseVisualiser),
+                call_kwargs={},
+            )
+        ],
+        kwargs={"sample_names": ["a", "b", "c"]},
+    )
+    explanation.write_artifacts()
+
+    with pytest.raises(SampleNamesLengthError) as info:
+        explanation.visualise()
+    assert info.value.got == 3
+    assert info.value.expected == 2
+
+
+def test_explanation_result_visualise_passes_with_matching_sample_names(tmp_path: Path) -> None:
+    """visualise() does not raise when sample_names length matches batch size."""
+    run_dir = tmp_path / "exp_match"
+    explanation = ExplanationResult(
+        attributions=torch.randn(2, 3, 4, 4),
+        inputs=torch.randn(2, 3, 4, 4),
+        run_dir=run_dir,
+        experiment_name="e",
+        explainer_target="t",
+        algorithm="a",
+        semantics=_semantics(),
+        visualisers=[
+            ConfiguredVisualiser(
+                visualiser=MagicMock(spec=BaseVisualiser),
+                call_kwargs={},
+            )
+        ],
+        kwargs={"sample_names": ["a", "b"]},
+    )
+    explanation.write_artifacts()
+    # Should not raise.
+    explanation.visualise()
+
+
+def test_explanation_result_visualise_passes_with_none_sample_names(tmp_path: Path) -> None:
+    """visualise() does not raise when sample_names is None."""
+    run_dir = tmp_path / "exp_none_names"
+    explanation = ExplanationResult(
+        attributions=torch.randn(2, 3, 4, 4),
+        inputs=torch.randn(2, 3, 4, 4),
+        run_dir=run_dir,
+        experiment_name="e",
+        explainer_target="t",
+        algorithm="a",
+        semantics=_semantics(),
+        visualisers=[
+            ConfiguredVisualiser(
+                visualiser=MagicMock(spec=BaseVisualiser),
+                call_kwargs={},
+            )
+        ],
+        kwargs={},
+    )
+    explanation.write_artifacts()
+    # Should not raise.
+    explanation.visualise()
+
+
+def test_render_visualisation_for_scope_raises_on_mismatched_sample_names(
+    tmp_path: Path,
+) -> None:
+    class _StubVisualiser(BaseVisualiser):
+        def visualise(
+            self,
+            attributions: torch.Tensor,
+            inputs: torch.Tensor | None = None,
+            *,
+            context: VisualisationContext | None = None,
+            **kw: Any,
+        ) -> Figure:
+            del inputs, context, kw
+            fig, _ax = plt.subplots(figsize=(1, 1))
+            return fig
+
+    explanation = ExplanationResult(
+        attributions=torch.zeros(2, 3, 4, 4),
+        inputs=torch.zeros(2, 3, 4, 4),
+        run_dir=tmp_path / "exp_render_mismatch",
+        experiment_name="e",
+        explainer_target="t",
+        algorithm="a",
+        semantics=_semantics(),
+        kwargs={"sample_names": ["a", "b", "c"], "show_sample_names": True},
+        visualisers=[
+            ConfiguredVisualiser(visualiser=_StubVisualiser(), call_kwargs={}),
+        ],
+    )
+
+    with pytest.raises(SampleNamesLengthError) as info:
+        explanation.render_visualisation_for_scope(0, scope="local")
+    assert info.value.got == 3
+    assert info.value.expected == 2

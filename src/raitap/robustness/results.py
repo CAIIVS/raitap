@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import torch
 
 from raitap.tracking.base_tracker import BaseTracker, Trackable
+from raitap.utils.errors import SampleNamesLengthError
 from raitap.utils.serialization import to_json_serialisable
 
 from .contracts import (
@@ -285,7 +286,12 @@ class RobustnessResult(Trackable):
             sample_names = _normalise_sample_names(sample_names_value)
 
             limit = int(self.clean_inputs.shape[0])
-            sample_names = sample_names[:limit]
+            if sample_names and len(sample_names) != limit:
+                raise SampleNamesLengthError(
+                    got=len(sample_names),
+                    expected=limit,
+                    source="RobustnessResult.visualise",
+                )
 
             context = RobustnessVisualisationContext(
                 algorithm=self.algorithm,
@@ -360,7 +366,12 @@ class RobustnessResult(Trackable):
 
         if sample_index is None:
             result_for_render = self
-            sample_names = sample_names[:batch_size]
+            if sample_names and len(sample_names) != batch_size:
+                raise SampleNamesLengthError(
+                    got=len(sample_names),
+                    expected=batch_size,
+                    source="RobustnessResult.render",
+                )
         else:
             result_for_render = RobustnessResult(
                 clean_inputs=_slice_sample_tensor(self.clean_inputs, sample_index),
@@ -400,7 +411,13 @@ class RobustnessResult(Trackable):
                 ),
                 semantics=self.semantics,
             )
-            sample_names = [sample_names[sample_index]] if sample_index < len(sample_names) else []
+            if sample_names and len(sample_names) != batch_size:
+                raise SampleNamesLengthError(
+                    got=len(sample_names),
+                    expected=batch_size,
+                    source="RobustnessResult.render",
+                )
+            sample_names = [sample_names[sample_index]] if sample_names else []
 
         context = RobustnessVisualisationContext(
             algorithm=self.algorithm,
