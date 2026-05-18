@@ -94,6 +94,27 @@ class ModelInputShapeError(RaitapError):
         super().__init__(message, diagnostic=diagnostic)
 
 
+class SampleNamesLengthError(RaitapError):
+    """Raised when ``raitap.sample_names`` length does not match batch size N.
+
+    Surfaces at factory entry (``Explanation`` / ``RobustnessAssessment``) and
+    as a defensive check in ``ExplanationResult`` / ``RobustnessResult``
+    visualisation paths. ``None`` / empty lists are not errors (they mean
+    "no labels"); only length mismatch raises.
+    """
+
+    def __init__(self, *, got: int, expected: int, source: str) -> None:
+        self.got = got
+        self.expected = expected
+        message = (
+            f"`raitap.sample_names` length mismatch: got {got} name(s), "
+            f"expected {expected} (one per input sample). Source: {source}. "
+            f"Either supply a list of length {expected} or omit "
+            f"`sample_names` to use auto-derived sample ids."
+        )
+        super().__init__(message)
+
+
 def resolve_diagnostic_from_traceback(
     tb: TracebackType | None,
     *,
@@ -212,6 +233,7 @@ __all__ = [
     "AdapterError",
     "ModelInputShapeError",
     "RaitapError",
+    "SampleNamesLengthError",
     "resolve_diagnostic_from_traceback",
     "rethrow",
 ]

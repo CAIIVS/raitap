@@ -20,16 +20,19 @@ from raitap.robustness.factory import (
 )
 from raitap.robustness.results import ConfiguredRobustnessVisualiser, RobustnessResult
 from raitap.robustness.visualisers.base_visualiser import BaseRobustnessVisualiser
+from raitap.utils.errors import SampleNamesLengthError
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 
 class _BackendStub(ModelBackend):
+    """Minimal ModelBackend stub used by factory tests."""
+
     supports_torch_autograd = True
 
-    def __init__(self, model: torch.nn.Module) -> None:
-        self._model = model
+    def __init__(self, model: torch.nn.Module | None = None) -> None:
+        self._model = torch.nn.Identity() if model is None else model
 
     @property
     def hardware_label(self) -> str:
@@ -53,6 +56,52 @@ class _OnlyFormalVisualiser(BaseRobustnessVisualiser):
 
     def visualise(self, result, *, context, **kwargs) -> Any:  # noqa: ANN001
         raise NotImplementedError
+
+
+def _make_model_stub() -> Any:
+    """Return an object whose .backend satisfies _require_model_backend."""
+    return SimpleNamespace(backend=_BackendStub())
+
+
+def _make_minimal_config(*, visualisers: list[Any] | None = None, tmp_path: Any = None) -> Any:
+    """Build a minimal AppConfig-like namespace for PGD with no visualisers."""
+    return SimpleNamespace(
+        experiment_name="test_sample_names",
+        _output_root=str(tmp_path) if tmp_path else "/tmp",
+        transparency={},
+        robustness={
+            "pgd": OmegaConf.create(
+                {
+                    "_target_": "raitap.robustness.TorchattacksAssessor",
+                    "algorithm": "PGD",
+                    "constructor": {"eps": 0.03, "alpha": 0.01, "steps": 1},
+                    "call": {},
+                    "visualisers": visualisers or [],
+                }
+            )
+        },
+    )
+
+
+def _make_yaml_names_config(*, sample_names: list[str], tmp_path: Any = None) -> Any:
+    """Build a config whose raitap.sample_names is set in the config."""
+    return SimpleNamespace(
+        experiment_name="test_yaml_sample_names",
+        _output_root=str(tmp_path) if tmp_path else "/tmp",
+        transparency={},
+        robustness={
+            "pgd": OmegaConf.create(
+                {
+                    "_target_": "raitap.robustness.TorchattacksAssessor",
+                    "algorithm": "PGD",
+                    "constructor": {"eps": 0.03, "alpha": 0.01, "steps": 1},
+                    "call": {},
+                    "raitap": {"sample_names": sample_names},
+                    "visualisers": [],
+                }
+            )
+        },
+    )
 
 
 def test_parse_validates_top_level_keys() -> None:
@@ -180,3 +229,104 @@ def test_robustness_uses_model_resolved_preprocessing_for_call_data(
     bg_tensor = assessor.last_assess_kwargs["background_data"]
     assert isinstance(bg_tensor, torch.Tensor)
     assert bg_tensor.shape == (2, 3, 5, 5)
+
+
+def test_robustness_raises_when_runtime_sample_names_longer_than_batch(
+    tmp_path: Any,
+) -> None:
+    config = _make_minimal_config(tmp_path=tmp_path)
+    model = _make_model_stub()
+    inputs = torch.zeros(2, 3, 8, 8)
+    targets = torch.zeros(2, dtype=torch.long)
+    with pytest.raises(SampleNamesLengthError) as info:
+        RobustnessAssessment(
+            config,
+            "pgd",
+            model,
+            inputs,
+            targets,
+            sample_names=["a", "b", "c"],
+        )
+    assert info.value.got == 3
+    assert info.value.expected == 2
+    assert "runtime kwarg" in str(info.value)
+
+
+def test_robustness_raises_when_runtime_sample_names_shorter_than_batch(
+    tmp_path: Any,
+) -> None:
+    config = _make_minimal_config(tmp_path=tmp_path)
+    model = _make_model_stub()
+    inputs = torch.zeros(3, 3, 8, 8)
+    targets = torch.zeros(3, dtype=torch.long)
+    with pytest.raises(SampleNamesLengthError):
+        RobustnessAssessment(
+            config,
+            "pgd",
+            model,
+            inputs,
+            targets,
+            sample_names=["only-one"],
+        )
+
+
+def test_robustness_raises_when_yaml_sample_names_mismatch(
+    tmp_path: Any,
+) -> None:
+    config = _make_yaml_names_config(sample_names=["x", "y"], tmp_path=tmp_path)
+    model = _make_model_stub()
+    inputs = torch.zeros(3, 3, 8, 8)
+    targets = torch.zeros(3, dtype=torch.long)
+    with pytest.raises(SampleNamesLengthError) as info:
+        RobustnessAssessment(
+            config,
+            "pgd",
+            model,
+            inputs,
+            targets,
+        )
+    assert "raitap.sample_names" in str(info.value)
+
+
+def test_robustness_does_not_raise_when_sample_names_is_none(
+    tmp_path: Any,
+) -> None:
+    config = _make_minimal_config(tmp_path=tmp_path)
+    model = _make_model_stub()
+    inputs = torch.zeros(2, 3, 8, 8)
+    targets = torch.zeros(2, dtype=torch.long)
+    try:
+        RobustnessAssessment(
+            config,
+            "pgd",
+            model,
+            inputs,
+            targets,
+            sample_names=None,
+        )
+    except SampleNamesLengthError:
+        pytest.fail("SampleNamesLengthError raised unexpectedly for sample_names=None")
+    except Exception:
+        pass  # other errors (e.g. from assessor) are out of scope
+
+
+def test_robustness_does_not_raise_when_sample_names_length_matches(
+    tmp_path: Any,
+) -> None:
+    config = _make_minimal_config(tmp_path=tmp_path)
+    model = _make_model_stub()
+    inputs = torch.zeros(2, 3, 8, 8)
+    targets = torch.zeros(2, dtype=torch.long)
+    try:
+        RobustnessAssessment(
+            config,
+            "pgd",
+            model,
+            inputs,
+            targets,
+            sample_names=["a", "b"],
+        )
+    except SampleNamesLengthError:
+        pytest.fail("SampleNamesLengthError raised unexpectedly for matching sample_names")
+    except Exception:
+        pass  # other errors (e.g. from assessor) are out of scope
