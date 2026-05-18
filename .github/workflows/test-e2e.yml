@@ -48,6 +48,83 @@ jobs:
       - name: Run transparency E2E tests
         run: uv run pytest -m e2e -v --tb=long --mpl
 
+  detection-e2e-linux:
+    # Drives the bundled ``contributor-configs/fasterrcnn-udacity/`` config
+    # end-to-end: torchvision ``fasterrcnn_resnet50_fpn_v2`` on four Udacity
+    # dashcam frames, per-box Integrated Gradients with the ``detection_image``
+    # visualiser, HTMLReporter output. Catches regressions in the detection
+    # task family (TorchBackend autodetect, per-box explain phase, detection
+    # visualiser, DetectionMetrics) at the integrated pipeline level.
+    name: "Detection E2E (Linux)"
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MPLBACKEND: Agg
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up environment
+        uses: ./.github/actions/setup-raitap-env
+        with:
+          python-version: "3.13"
+          # Mirror ``contributor-configs/fasterrcnn-udacity/run.sh`` so this
+          # job exercises the same extras set a contributor gets locally.
+          sync-command: uv sync --group dev --extra torch-cpu --extra captum --extra metrics --extra reporting
+
+      - name: Cache torch hub weights + raitap sample data
+        # fasterrcnn_resnet50_fpn_v2 weights (~170MB) + UdacitySelfDriving
+        # samples (small) — both downloaded on first pipeline run,
+        # deterministic per cfg. Key on pyproject.toml + the assessment.yaml
+        # so a torchvision bump or cfg change cleanly invalidates.
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/torch
+            ~/.cache/raitap
+          key: detection-e2e-assets-v1-${{ hashFiles('pyproject.toml', 'contributor-configs/fasterrcnn-udacity/assessment.yaml') }}
+          restore-keys: |
+            detection-e2e-assets-v1-
+
+      - name: Pre-fetch Udacity sample images
+        # Warm ~/.cache/raitap before the pipeline runs so a cache miss on the
+        # samples download surfaces as its own failing step rather than
+        # masquerading as a pipeline error.
+        run: uv run python -c "from raitap.data.samples import _load_sample; _load_sample('UdacitySelfDriving')"
+
+      - name: Run detection E2E pipeline
+        # --acknowledge-preprocessing-off: torchvision detection models do
+        # their own internal resize/normalise; a RAITAP-level preprocessing
+        # step would break box-coord alignment. Mirrors run.sh.
+        run: |
+          set -o pipefail
+          uv run raitap \
+            --config-dir contributor-configs/fasterrcnn-udacity \
+            --config-name assessment \
+            --acknowledge-preprocessing-off 2>&1 | tee detection-run.log
+
+      - name: Assert DetectionMetrics resolved
+        run: grep -F "DetectionMetrics" detection-run.log
+
+      - name: Assert outputs directory exists
+        run: test -d outputs
+
+      - name: Assert detection-image PNG produced
+        run: find outputs -type f -name "*.png" | head | grep -q .
+
+      - name: Assert HTMLReporter output exists
+        run: find outputs -type f -name "report.html" | grep -q .
+
+      - name: Upload outputs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: detection-e2e-outputs
+          path: outputs
+          retention-days: 7
+
   marabou-e2e-linux:
     name: "Marabou formal-verification E2E (Linux)"
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
