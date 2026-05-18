@@ -4,6 +4,7 @@ MLFlow tracking implementation for RAITAP
 
 from __future__ import annotations
 
+import hashlib
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -96,6 +97,31 @@ def _tracking_dict(config: Any) -> dict[str, Any]:
     return dict(raw)
 
 
+def _sha256_of_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _preprocessing_side_params(raw_value: Any, knob: str) -> dict[str, str]:
+    raw = _param_str(raw_value)
+    if raw is None:
+        return {}
+    if raw == "model-bundled":
+        return {f"data.{knob}.origin": "model-bundled"}
+
+    path = Path(raw).expanduser().resolve()
+    params = {
+        f"data.{knob}.origin": "custom-file",
+        f"data.{knob}.file_path": str(path),
+    }
+    if path.is_file():
+        params[f"data.{knob}.file_sha256"] = _sha256_of_file(path)
+    return params
+
+
 def _mlflow_summary_params(config_dict: dict[str, Any]) -> dict[str, str]:
     """
     Build a flat string map of high-signal run parameters for MLflow search and comparison.
@@ -122,6 +148,14 @@ def _mlflow_summary_params(config_dict: dict[str, Any]) -> dict[str, str]:
     if data is not None:
         put("data.name", data.get("name"))
         put("data.source", data.get("source"))
+        put("data.preprocessing", data.get("preprocessing"))
+        put("data.model_input_transformation", data.get("model_input_transformation"))
+        out.update(_preprocessing_side_params(data.get("preprocessing"), "preprocessing"))
+        out.update(
+            _preprocessing_side_params(
+                data.get("model_input_transformation"), "model_input_transformation"
+            )
+        )
 
     transparency = _nested_dict(config_dict.get("transparency"))
     if transparency:

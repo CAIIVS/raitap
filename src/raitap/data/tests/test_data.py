@@ -25,6 +25,7 @@ from raitap.data.data import (
     load_tensor_from_source,
 )
 from raitap.data.samples import SAMPLE_SOURCES, _load_sample, _resolve_sample
+from raitap.types import Hardware
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -187,6 +188,244 @@ class TestLoadImages:
         assert tensor.shape[0] == 1
 
 
+class TestDataPreprocessing:
+    """``Data._load_data`` resolves preprocessing and applies data preprocessing
+    per-image before stacking, so mixed-size directories load successfully
+    when ``data.preprocessing: model-bundled`` is set."""
+
+    @staticmethod
+    def _make_cfg(source: str, *, preprocessing: str | None) -> AppConfig:
+        from raitap.configs.schema import AppConfig, DataConfig, LabelsConfig, ModelConfig
+
+        return cast(
+            "AppConfig",
+            AppConfig(
+                model=ModelConfig(source="resnet50"),
+                data=DataConfig(
+                    name="test",
+                    source=source,
+                    preprocessing=preprocessing,
+                    labels=LabelsConfig(),
+                ),
+                hardware=Hardware.cpu,
+            ),
+        )
+
+    def test_mixed_size_dir_with_model_bundled_loads(self, tmp_path: Path) -> None:
+        _write_image(tmp_path / "a.jpg", 451, 800)
+        _write_image(tmp_path / "b.jpg", 533, 800)
+        _write_image(tmp_path / "c.jpg", 440, 780)
+        cfg = self._make_cfg(str(tmp_path), preprocessing="model-bundled")
+        data = Data(cfg)
+        assert data.tensor.shape == (3, 3, 224, 224)
+        assert data.tensor.dtype == torch.float32
+
+    def test_mixed_size_dir_without_preprocessing_raises(self, tmp_path: Path) -> None:
+        _write_image(tmp_path / "a.jpg", 451, 800)
+        _write_image(tmp_path / "b.jpg", 533, 800)
+        cfg = self._make_cfg(str(tmp_path), preprocessing=None)
+        with pytest.raises(ValueError, match="inconsistent shapes"):
+            Data(cfg)
+
+    def test_uniform_dir_without_preprocessing_still_loads(self, tmp_path: Path) -> None:
+        for i in range(3):
+            _write_image(tmp_path / f"img{i}.jpg", 64, 64)
+        cfg = self._make_cfg(str(tmp_path), preprocessing=None)
+        data = Data(cfg)
+        assert data.tensor.shape == (3, 3, 64, 64)
+
+    def test_supplied_resolved_preprocessing_skips_resolution(self, tmp_path: Path) -> None:
+        from torch import nn
+
+        from raitap.configs.schema import AppConfig, DataConfig, LabelsConfig, ModelConfig
+        from raitap.data.preprocessing import ResolvedPreprocessing
+
+        class _ShapeModule(nn.Module):
+            def forward(self, image: torch.Tensor) -> torch.Tensor:
+                return torch.zeros(3, 8, 8, dtype=image.dtype)
+
+        _write_image(tmp_path / "a.jpg", 32, 32)
+        cfg = cast(
+            "AppConfig",
+            AppConfig(
+                model=ModelConfig(source="resnet50"),
+                data=DataConfig(
+                    name="test",
+                    source=str(tmp_path),
+                    preprocessing="model-bundled",
+                    labels=LabelsConfig(),
+                ),
+                hardware=Hardware.cpu,
+            ),
+        )
+        resolved = ResolvedPreprocessing(
+            data_module=_ShapeModule(),
+            model_module=None,
+            data_origin="model-bundled",
+            model_origin="off",
+            description="supplied",
+        )
+
+        with patch("raitap.data.data.resolve_preprocessing") as resolve_preprocessing_mock:
+            resolve_preprocessing_mock.side_effect = AssertionError("should not resolve again")
+            data = Data(cfg, resolved_preprocessing=resolved)
+
+        assert data.tensor.shape == (1, 3, 8, 8)
+        resolve_preprocessing_mock.assert_not_called()
+
+    def test_onnx_custom_file_data_factory_drives_data_loading(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        from raitap.configs.schema import AppConfig, DataConfig, LabelsConfig, ModelConfig
+
+        _write_image(tmp_path / "a.jpg", 32, 48)
+        _write_image(tmp_path / "b.jpg", 40, 64)
+        model_path = tmp_path / "model.onnx"
+        model_path.write_bytes(b"fake onnx")
+        preprocessing_path = tmp_path / "preprocessing.py"
+        preprocessing_path.write_text(
+            "import torch\n"
+            "from torch import nn\n"
+            "from raitap.data import (\n"
+            "    raitap_model_input_transformation_factory,\n"
+            "    raitap_preprocessing_factory,\n"
+            ")\n"
+            "\n"
+            "class _ModelOnly(nn.Module):\n"
+            "    def forward(self, image: torch.Tensor) -> torch.Tensor:\n"
+            "        raise AssertionError('model input transformation should stay backend-side')\n"
+            "\n"
+            "class _DataOnly(nn.Module):\n"
+            "    def forward(self, image: torch.Tensor) -> torch.Tensor:\n"
+            "        return torch.zeros(3, 8, 8, dtype=image.dtype)\n"
+            "\n"
+            "@raitap_model_input_transformation_factory\n"
+            "def model_input_transform() -> nn.Module:\n"
+            "    return _ModelOnly()\n"
+            "\n"
+            "@raitap_preprocessing_factory\n"
+            "def data_preprocessing() -> nn.Module:\n"
+            "    return _DataOnly()\n"
+        )
+        monkeypatch.setenv("RAITAP_ALLOW_PREPROCESSING_EXEC", "1")
+        cfg = cast(
+            "AppConfig",
+            AppConfig(
+                model=ModelConfig(source=str(model_path)),
+                data=DataConfig(
+                    name="test",
+                    source=str(tmp_path),
+                    preprocessing=str(preprocessing_path),
+                    labels=LabelsConfig(),
+                ),
+                hardware=Hardware.cpu,
+            ),
+        )
+
+        data = Data(cfg)
+
+        assert data.tensor.shape == (2, 3, 8, 8)
+        assert data.tensor.dtype == torch.float32
+
+    def test_load_tensor_from_source_applies_per_image_transform(self, tmp_path: Path) -> None:
+        """``load_tensor_from_source`` (used by ``resolve_call_data_sources``
+        for SHAP background_data etc.) honours ``per_image_transform`` so
+        mixed-size auxiliary directories load to a uniform shape."""
+        from raitap.configs.adapter_factory import resolve_per_image_transform
+        from raitap.data import load_tensor_from_source
+
+        _write_image(tmp_path / "a.jpg", 451, 800)
+        _write_image(tmp_path / "b.jpg", 533, 800)
+        _write_image(tmp_path / "c.jpg", 440, 780)
+
+        cfg = self._make_cfg(str(tmp_path), preprocessing="model-bundled")
+        per_image_transform = resolve_per_image_transform(cfg)
+        assert per_image_transform is not None
+
+        tensor = load_tensor_from_source(str(tmp_path), per_image_transform=per_image_transform)
+        assert tensor.shape == (3, 3, 224, 224)
+
+    def test_load_tensor_from_source_without_transform_raises_on_mixed_sizes(
+        self, tmp_path: Path
+    ) -> None:
+        """Regression: confirms the helper is the actual choke point when no
+        transform is supplied — same failure mode as the primary loader."""
+        from raitap.data import load_tensor_from_source
+
+        _write_image(tmp_path / "a.jpg", 451, 800)
+        _write_image(tmp_path / "b.jpg", 533, 800)
+        with pytest.raises(ValueError, match="inconsistent shapes"):
+            load_tensor_from_source(str(tmp_path))
+
+    def test_sample_source_loads_native_resolution_then_transforms(self, tmp_path: Path) -> None:
+        """Regression for the demo pre-resize bug: sample sources must load
+        images at their native resolution and let ``per_image_transform``
+        do the shape work. Otherwise the bundled Resize/CenterCrop sees an
+        already-squashed image instead of the original — which silently
+        breaks pretrained-weight accuracy on `raitap --demo`."""
+        from torch import nn
+
+        from raitap.configs.schema import AppConfig, DataConfig, LabelsConfig, ModelConfig
+        from raitap.data.samples import SAMPLE_SOURCES
+
+        # Stage a fake sample at varied native sizes so the test would fail
+        # if the loader fell back to the legacy 224x224 PIL squash.
+        sample_dir = tmp_path / "fake_native_samples"
+        sample_dir.mkdir()
+        for name, w, h in [("a.jpg", 451, 800), ("b.jpg", 533, 800), ("c.jpg", 440, 780)]:
+            _write_image(sample_dir / name, w, h)
+
+        original = SAMPLE_SOURCES.copy()
+        SAMPLE_SOURCES["fake_native_samples"] = []
+        try:
+            calls: list[tuple[int, ...]] = []
+
+            class _SpyModule(nn.Module):
+                def forward(self, x: torch.Tensor) -> torch.Tensor:
+                    calls.append(tuple(x.shape))
+                    return torch.zeros(3, 224, 224)
+
+            with (
+                patch("raitap.data.samples._CACHE_DIR", tmp_path),
+                patch("raitap.data.data.resolve_preprocessing") as resolve_preprocessing_mock,
+            ):
+                from raitap.data.preprocessing import ResolvedPreprocessing
+
+                resolve_preprocessing_mock.return_value = ResolvedPreprocessing(
+                    data_module=_SpyModule(),
+                    model_module=None,
+                    data_origin="model-bundled",
+                    model_origin="off",
+                    description="spy",
+                )
+
+                cfg = cast(
+                    "AppConfig",
+                    AppConfig(
+                        model=ModelConfig(source="resnet50"),
+                        data=DataConfig(
+                            name="fake_native_samples",
+                            source="fake_native_samples",
+                            preprocessing="model-bundled",
+                            labels=LabelsConfig(),
+                        ),
+                        hardware=Hardware.cpu,
+                    ),
+                )
+                data = Data(cfg)
+        finally:
+            SAMPLE_SOURCES.clear()
+            SAMPLE_SOURCES.update(original)
+
+        assert data.tensor.shape == (3, 3, 224, 224)
+        # The spy must see three per-image calls at NATIVE resolution
+        # (the PIL pre-squash to 224x224 must NOT happen when a transform
+        # is supplied). Shapes are (C, H, W) in PIL height/width order.
+        assert len(calls) == 3
+        native_shapes = {(3, 800, 451), (3, 800, 533), (3, 780, 440)}
+        assert set(calls) == native_shapes
+
+
 # ---------------------------------------------------------------------------
 # _load_tabular / _load_tabular_dir
 # ---------------------------------------------------------------------------
@@ -337,6 +576,59 @@ class TestLoadData:
         )
         with pytest.raises(ValueError, match="Cannot infer data type"):
             Data(cfg)
+
+    def test_tabular_applies_data_module(self, tmp_path: Path) -> None:
+        from torch import nn
+
+        from raitap.configs.schema import AppConfig, DataConfig, LabelsConfig, ModelConfig
+        from raitap.data.preprocessing import ResolvedPreprocessing
+
+        class _ScaleModule(nn.Module):
+            def forward(self, batch: torch.Tensor) -> torch.Tensor:
+                return batch * 10.0
+
+        p = tmp_path / "rows.csv"
+        _write_csv(p, rows=4, cols=3)
+        cfg = cast(
+            "AppConfig",
+            AppConfig(
+                model=ModelConfig(source="resnet50"),
+                data=DataConfig(
+                    name="tab",
+                    source=str(p),
+                    preprocessing="./scale.py",
+                    labels=LabelsConfig(),
+                ),
+                hardware=Hardware.cpu,
+            ),
+        )
+        resolved = ResolvedPreprocessing(
+            data_module=_ScaleModule(),
+            model_module=None,
+            data_origin="custom-file",
+            model_origin="off",
+            description="supplied",
+        )
+        baseline = _load_tabular(p)
+
+        data = Data(cfg, resolved_preprocessing=resolved)
+
+        assert data.tensor.shape == baseline.shape
+        torch.testing.assert_close(data.tensor, baseline * 10.0)
+
+    def test_tabular_no_data_module_passes_through(self, tmp_path: Path) -> None:
+        p = tmp_path / "rows.csv"
+        _write_csv(p, rows=2, cols=3)
+        cfg = cast(
+            "AppConfig",
+            type(
+                "AppConfig",
+                (),
+                {"data": type("DataConfig", (), {"source": str(p), "name": "tab"})},
+            )(),
+        )
+        data = Data(cfg)
+        torch.testing.assert_close(data.tensor, _load_tabular(p))
 
     def test_invalid_source_raises(self) -> None:
         cfg = cast(

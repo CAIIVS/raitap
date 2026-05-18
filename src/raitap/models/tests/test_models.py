@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -8,6 +8,7 @@ import pytest
 import torch
 import torch.nn as nn
 
+from raitap.data.preprocessing import resolve_preprocessing
 from raitap.models import Model, runtime
 from raitap.models.backend import (
     OnnxBackend,
@@ -16,6 +17,7 @@ from raitap.models.backend import (
     _resolve_onnx_expected_shape,
 )
 from raitap.models.runtime import resolve_onnx_providers, resolve_torch_device
+from raitap.types import Hardware
 from raitap.utils.errors import ModelInputShapeError
 
 if TYPE_CHECKING:
@@ -51,11 +53,24 @@ class _FakeOnnxValueInfo:
 
 
 class _FakeOnnxSession:
+    def __init__(self, *, shape: list[int | str | None] | None = None) -> None:
+        self._shape = shape
+
     def get_inputs(self) -> list[_FakeOnnxValueInfo]:
-        return [_FakeOnnxValueInfo("input")]
+        return [_FakeOnnxValueInfo("input", shape=self._shape)]
 
     def get_outputs(self) -> list[_FakeOnnxValueInfo]:
         return [_FakeOnnxValueInfo("output")]
+
+    def run(
+        self,
+        _output_names: list[str] | None,
+        feeds: dict[str, np.ndarray[Any, Any]],
+    ) -> list[np.ndarray[Any, Any]]:
+        batch = np.asarray(feeds["input"], dtype=np.float32).reshape(-1, 4)
+        weight = np.full((4, 2), 0.25, dtype=np.float32)
+        bias = np.array([0.1, -0.1], dtype=np.float32)
+        return [batch @ weight + bias]
 
 
 def _as_inference_session(session: _FakeOnnxSession) -> ort.InferenceSession:
@@ -69,7 +84,8 @@ def _make_config(
     arch: str | None = None,
     num_classes: int | None = None,
     pretrained: bool = False,
-    allow_unsafe_pickle: bool = False,
+    preprocessing: str | None = None,
+    model_input_transformation: str | None = None,
 ) -> AppConfig:
     return cast(
         "AppConfig",
@@ -85,7 +101,15 @@ def _make_config(
                         "arch": arch,
                         "num_classes": num_classes,
                         "pretrained": pretrained,
-                        "allow_unsafe_pickle": allow_unsafe_pickle,
+                    },
+                )(),
+                "data": type(
+                    "DataConfig",
+                    (),
+                    {
+                        "preprocessing": preprocessing,
+                        "model_input_transformation": model_input_transformation,
+                        "input_metadata": None,
                     },
                 )(),
                 "hardware": hardware,
@@ -154,26 +178,29 @@ def saved_onnx(tmp_path: Path) -> Path:
 
 class TestLoadModelFromPath:
     def test_loads_pth_file(self, saved_pth: Path) -> None:
-        cfg = _make_config(str(saved_pth), allow_unsafe_pickle=True)
+        cfg = _make_config(str(saved_pth))
         with pytest.warns(DeprecationWarning, match="pickled nn.Module"):
-            model = Model(cfg)
+            model = Model(cfg, allow_unsafe_pickle=True)
         assert isinstance(model.backend, TorchBackend)
         assert isinstance(model.backend.as_model_for_explanation(), nn.Module)
 
     def test_loads_pt_file(self, saved_pt: Path) -> None:
-        cfg = _make_config(str(saved_pt), allow_unsafe_pickle=True)
+        cfg = _make_config(str(saved_pt))
         with pytest.warns(DeprecationWarning, match="pickled nn.Module"):
-            model = Model(cfg)
+            model = Model(cfg, allow_unsafe_pickle=True)
         assert isinstance(model.backend, TorchBackend)
         assert isinstance(model.backend.as_model_for_explanation(), nn.Module)
 
     def test_returns_eval_mode(self, saved_pth: Path) -> None:
-        cfg = _make_config(str(saved_pth), allow_unsafe_pickle=True)
+        cfg = _make_config(str(saved_pth))
         with pytest.warns(DeprecationWarning, match="pickled nn.Module"):
-            model = Model(cfg).backend.as_model_for_explanation()
+            model = Model(cfg, allow_unsafe_pickle=True).backend.as_model_for_explanation()
         assert not model.training
 
-    def test_pickled_module_load_refused_without_opt_in(self, saved_pth: Path) -> None:
+    def test_pickled_module_load_refused_without_opt_in(
+        self, saved_pth: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("RAITAP_ALLOW_UNSAFE_PICKLE", raising=False)
         cfg = _make_config(str(saved_pth))
         with pytest.raises(ValueError, match=r"Refusing to load.*allow_unsafe_pickle"):
             Model(cfg)
@@ -231,12 +258,12 @@ class TestLoadModelFromPath:
         torch.testing.assert_close(loaded(x), ref(x))
 
     def test_pickled_module_load_emits_deprecation_warning(self, saved_pth: Path) -> None:
-        cfg = _make_config(str(saved_pth), allow_unsafe_pickle=True)
+        cfg = _make_config(str(saved_pth))
         with pytest.warns(
             DeprecationWarning,
             match=r"Loading pickled nn\.Module.*Prefer.*state_dict",
         ):
-            Model(cfg)
+            Model(cfg, allow_unsafe_pickle=True)
 
     def test_non_module_object_raises_value_error(self, tmp_path: Path) -> None:
         path = tmp_path / "tensor.pth"
@@ -274,10 +301,10 @@ class TestLoadModelFromPath:
             Model(cfg)
 
     def test_torch_hardware_cpu_sets_cpu_device(self, saved_pth: Path) -> None:
-        cfg = _make_config(str(saved_pth), hardware="cpu", allow_unsafe_pickle=True)
+        cfg = _make_config(str(saved_pth), hardware="cpu")
 
         with pytest.warns(DeprecationWarning, match="pickled nn.Module"):
-            model = Model(cfg)
+            model = Model(cfg, allow_unsafe_pickle=True)
 
         assert isinstance(model.backend, TorchBackend)
         assert model.backend.device == torch.device("cpu")
@@ -521,10 +548,10 @@ class TestLoadModelFromPath:
     @pytest.mark.cuda
     @pytest.mark.skipif(_cuda_not_available(), reason="CUDA is not available")
     def test_torch_gpu_uses_real_cuda_backend(self, saved_pth: Path) -> None:
-        cfg = _make_config(str(saved_pth), hardware="gpu", allow_unsafe_pickle=True)
+        cfg = _make_config(str(saved_pth), hardware="gpu")
 
         with pytest.warns(DeprecationWarning, match="pickled nn.Module"):
-            model = Model(cfg)
+            model = Model(cfg, allow_unsafe_pickle=True)
 
         assert isinstance(model.backend, TorchBackend)
         assert model.backend.device.type == "cuda"
@@ -761,3 +788,393 @@ class TestModelInputShapeAdapter:
 
         prepared = backend._prepare_inputs(torch.randn(3, 5))
         assert prepared.shape == (3, 1, 1, 5)
+
+
+class TestModelPreprocessingWrap:
+    """``Model._load_model`` + ``_apply_preprocessing`` integration.
+
+    Verifies that the preprocessing option resolved from the config is
+    wrapped around the backbone the way the rest of the pipeline expects:
+    off leaves the backend untouched, model-bundled / custom-file replace
+    ``backend.model`` with ``nn.Sequential(preprocessing, original)``, and
+    ONNX backends with an active preprocessing raise loudly instead of
+    silently dropping it.
+    """
+
+    @staticmethod
+    def _fixture_path() -> Path:
+        from pathlib import Path as _Path
+
+        return (
+            _Path(__file__).resolve().parents[2]
+            / "data"
+            / "tests"
+            / "fixtures"
+            / "preproc_imagenet.py"
+        )
+
+    def test_off_leaves_backbone_untouched(self) -> None:
+        from torchvision.models.resnet import ResNet
+
+        from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
+
+        cfg = cast(
+            "AppConfig",
+            AppConfig(model=ModelConfig(source="resnet18"), data=DataConfig()),
+        )
+        model = Model(cfg)
+
+        assert model.resolved_preprocessing.data_origin == "off"
+        assert model.resolved_preprocessing.model_origin == "off"
+        assert model.resolved_preprocessing.data_module is None
+        assert model.resolved_preprocessing.model_module is None
+        assert isinstance(model.backend, TorchBackend)
+        assert not isinstance(model.backend.model, nn.Sequential)
+        assert isinstance(model.backend.model, ResNet)
+
+    def test_model_bundled_wraps_backbone_with_sequential(self) -> None:
+        from torchvision.models.resnet import ResNet
+        from torchvision.transforms import v2
+
+        from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
+
+        cfg = cast(
+            "AppConfig",
+            AppConfig(
+                model=ModelConfig(source="resnet18"),
+                data=DataConfig(
+                    preprocessing="model-bundled",
+                    model_input_transformation="model-bundled",
+                ),
+            ),
+        )
+        model = Model(cfg)
+
+        assert model.resolved_preprocessing.data_origin == "model-bundled"
+        assert model.resolved_preprocessing.model_origin == "model-bundled"
+        # data_module (Resize + CenterCrop) lives in the loader. The model
+        # wrap only carries the model input transformation.
+        assert model.resolved_preprocessing.data_module is not None
+        assert isinstance(model.resolved_preprocessing.model_module, v2.Normalize)
+        assert isinstance(model.backend, TorchBackend)
+        assert isinstance(model.backend.model, nn.Sequential)
+        children = list(model.backend.model.children())
+        assert len(children) == 2
+        # child[0] is Normalize, child[1] is the original backbone.
+        assert isinstance(children[0], v2.Normalize)
+        assert isinstance(children[1], ResNet)
+
+    def test_supplied_resolved_preprocessing_skips_resolution(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
+        from raitap.data.preprocessing import ResolvedPreprocessing
+
+        cfg = cast(
+            "AppConfig",
+            AppConfig(
+                model=ModelConfig(source="resnet18"),
+                data=DataConfig(
+                    preprocessing="model-bundled",
+                    model_input_transformation="model-bundled",
+                ),
+            ),
+        )
+        resolved = ResolvedPreprocessing(
+            data_module=None,
+            model_module=None,
+            data_origin="model-bundled",
+            model_origin="model-bundled",
+            description="supplied",
+        )
+        monkeypatch.setattr(
+            "raitap.models.model.resolve_preprocessing",
+            MagicMock(side_effect=AssertionError("should not resolve again")),
+        )
+        monkeypatch.setattr(
+            Model,
+            "_load_model",
+            lambda _self, _config, **_kwargs: TorchBackend(
+                nn.Identity(), device=torch.device("cpu")
+            ),
+        )
+
+        model = Model(cfg, resolved_preprocessing=resolved)
+
+        assert model.resolved_preprocessing is resolved
+
+    def test_wrap_clones_model_preprocessing_before_device_mutation(self) -> None:
+        from raitap.data.preprocessing import ResolvedPreprocessing
+        from raitap.models.model import _apply_preprocessing
+
+        cfg = _make_config("resnet18")
+        backend = TorchBackend(nn.Identity(), device=torch.device("cpu"))
+        model_module = nn.Dropout()
+        assert model_module.training
+        resolved = ResolvedPreprocessing(
+            data_module=None,
+            model_module=model_module,
+            data_origin="off",
+            model_origin="custom-file",
+            description="supplied",
+        )
+
+        returned = _apply_preprocessing(
+            backend,
+            cfg,
+            resolved_preprocessing=resolved,
+        )
+
+        assert returned is resolved
+        assert model_module.training
+        assert isinstance(backend.model, nn.Sequential)
+        wrapped_preprocessing = backend.model[0]
+        assert wrapped_preprocessing is not model_module
+        assert not wrapped_preprocessing.training
+
+    def test_model_bundled_wrap_consumes_raw_input(self) -> None:
+        from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
+
+        cfg = cast(
+            "AppConfig",
+            AppConfig(
+                model=ModelConfig(source="resnet18"),
+                data=DataConfig(
+                    preprocessing="model-bundled",
+                    model_input_transformation="model-bundled",
+                ),
+            ),
+        )
+        model = Model(cfg)
+
+        raw = torch.rand(1, 3, 256, 256)
+        with torch.no_grad():
+            out = model.backend(raw)
+        assert isinstance(out, torch.Tensor)
+        assert out.shape == (1, 1000)
+
+    def test_custom_file_wraps_with_user_module(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
+
+        monkeypatch.delenv("RAITAP_ALLOW_PREPROCESSING_EXEC", raising=False)
+        fixture = self._fixture_path()
+        assert fixture.exists(), f"fixture missing: {fixture}"
+
+        cfg = cast(
+            "AppConfig",
+            AppConfig(
+                model=ModelConfig(source="resnet18"),
+                data=DataConfig(model_input_transformation=str(fixture)),
+            ),
+        )
+        resolved = resolve_preprocessing(cfg.model, cfg.data, acknowledge_exec=True)
+        model = Model(cfg, resolved_preprocessing=resolved)
+
+        assert model.resolved_preprocessing.model_origin == "custom-file"
+        assert isinstance(model.backend, TorchBackend)
+        assert isinstance(model.backend.model, nn.Sequential)
+        assert model.resolved_preprocessing.model_file_sha256 is not None
+        assert len(model.resolved_preprocessing.model_file_sha256) == 64
+
+    def test_onnx_custom_file_preprocessing_affects_tensor_backend_output(
+        self, tmp_path: Path
+    ) -> None:
+        from raitap.models.model import _apply_preprocessing
+
+        preprocessing_file = tmp_path / "onnx_preprocessing.py"
+        preprocessing_file.write_text(
+            """
+import torch
+from torch import nn
+from raitap.data import raitap_model_input_transformation_factory
+
+
+class AddOne(nn.Module):
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        return inputs + 1
+
+
+@raitap_model_input_transformation_factory
+def add_one_model_input_transform() -> nn.Module:
+    return AddOne()
+""".lstrip(),
+            encoding="utf-8",
+        )
+        cfg = _make_config(
+            "model.onnx",
+            hardware="cpu",
+            model_input_transformation=str(preprocessing_file),
+        )
+        resolved = resolve_preprocessing(cfg.model, cfg.data, acknowledge_exec=True)
+
+        backend = OnnxBackend(
+            _as_inference_session(_FakeOnnxSession()),
+            providers=["CPUExecutionProvider"],
+        )
+        _apply_preprocessing(backend, cfg, resolved_preprocessing=resolved)
+        output = backend(torch.zeros(2, 4, dtype=torch.float32))
+
+        expected = torch.tensor([[1.1, 0.9], [1.1, 0.9]], dtype=torch.float32)
+        torch.testing.assert_close(output, expected)
+
+    def test_onnx_forward_numpy_remains_raw_when_preprocessing_is_attached(
+        self, tmp_path: Path
+    ) -> None:
+        from raitap.models.model import _apply_preprocessing
+
+        preprocessing_file = tmp_path / "onnx_preprocessing.py"
+        preprocessing_file.write_text(
+            """
+import torch
+from torch import nn
+from raitap.data import raitap_model_input_transformation_factory
+
+
+class AddOne(nn.Module):
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        return inputs + 1
+
+
+@raitap_model_input_transformation_factory
+def add_one_model_input_transform() -> nn.Module:
+    return AddOne()
+""".lstrip(),
+            encoding="utf-8",
+        )
+        cfg = _make_config(
+            "model.onnx",
+            hardware="cpu",
+            model_input_transformation=str(preprocessing_file),
+        )
+        resolved = resolve_preprocessing(cfg.model, cfg.data, acknowledge_exec=True)
+        backend = OnnxBackend(
+            _as_inference_session(_FakeOnnxSession()),
+            providers=["CPUExecutionProvider"],
+        )
+        _apply_preprocessing(backend, cfg, resolved_preprocessing=resolved)
+
+        raw = np.zeros((2, 4), dtype=np.float32)
+        tensor_output = backend(torch.from_numpy(raw))
+        numpy_output = backend.forward_numpy(raw)
+
+        torch.testing.assert_close(
+            tensor_output,
+            torch.tensor([[1.1, 0.9], [1.1, 0.9]], dtype=torch.float32),
+        )
+        np.testing.assert_allclose(
+            numpy_output,
+            np.array([[0.1, -0.1], [0.1, -0.1]], dtype=np.float32),
+            rtol=1e-5,
+            atol=1e-6,
+        )
+
+    def test_onnx_prepare_inputs_adapts_without_preprocessing_and_defers_with_it(
+        self, tmp_path: Path
+    ) -> None:
+        preprocessing_file = tmp_path / "onnx_preprocessing.py"
+        preprocessing_file.write_text(
+            """
+import torch
+from torch import nn
+from raitap.data import raitap_model_input_transformation_factory
+
+
+class PreserveFlatInput(nn.Module):
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        return inputs.reshape(inputs.shape[0], 1, 1, 4)
+
+
+@raitap_model_input_transformation_factory
+def preserve_flat_model_input_transform() -> nn.Module:
+    return PreserveFlatInput()
+""".lstrip(),
+            encoding="utf-8",
+        )
+        backend = OnnxBackend(
+            _as_inference_session(_FakeOnnxSession(shape=["batch", 1, 1, 4])),
+            providers=["CPUExecutionProvider"],
+        )
+        raw = torch.randn(2, 4)
+
+        prepared_without_preprocessing = backend._prepare_inputs(raw)
+        assert prepared_without_preprocessing.shape == (2, 1, 1, 4)
+
+        cfg = _make_config(
+            "model.onnx",
+            hardware="cpu",
+            model_input_transformation=str(preprocessing_file),
+        )
+        resolved = resolve_preprocessing(cfg.model, cfg.data, acknowledge_exec=True)
+        from raitap.models.model import _apply_preprocessing
+
+        _apply_preprocessing(backend, cfg, resolved_preprocessing=resolved)
+        prepared_with_preprocessing = backend._prepare_inputs(raw)
+
+        assert prepared_with_preprocessing is raw
+        assert prepared_with_preprocessing.shape == (2, 4)
+
+    def test_onnx_backend_with_active_preprocessing_raises(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
+        from raitap.models.model import _apply_preprocessing
+
+        monkeypatch.delenv("RAITAP_ALLOW_PREPROCESSING_EXEC", raising=False)
+
+        backend = OnnxBackend(
+            _as_inference_session(_FakeOnnxSession()),
+            providers=["CPUExecutionProvider"],
+        )
+        # arch is required so the model-bundled resolver can find weights
+        # before the ONNX check fires; otherwise the test would fail on a
+        # different (unrelated) error path.
+        cfg = cast(
+            "AppConfig",
+            AppConfig(
+                model=ModelConfig(source="resnet18", arch="resnet18"),
+                data=DataConfig(model_input_transformation="model-bundled"),
+            ),
+        )
+        with pytest.raises(NotImplementedError) as exc_info:
+            _apply_preprocessing(backend, cfg)
+        message = str(exc_info.value)
+        assert "ONNX" in message
+        assert "model-bundled" in message
+        assert "data.model_input_transformation" in message
+
+
+def test_resnet_state_dict_with_model_bundled_preprocessing_keeps_gradcam_path(
+    tmp_path: Path,
+) -> None:
+    from torchvision import models as tv_models
+    from torchvision.models.resnet import ResNet
+    from torchvision.transforms import v2
+
+    from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
+
+    ref = tv_models.resnet50(weights=None, num_classes=7)
+    path = tmp_path / "lwise_ham10000_inner_resnet50_state_dict.pt"
+    torch.save(ref.state_dict(), path)
+    cfg = cast(
+        "AppConfig",
+        AppConfig(
+            model=ModelConfig(source=str(path), arch="resnet50", num_classes=7),
+            data=DataConfig(
+                preprocessing="model-bundled",
+                model_input_transformation="model-bundled",
+            ),
+            hardware=Hardware.cpu,
+        ),
+    )
+
+    model = Model(cfg)
+
+    assert model.resolved_preprocessing.data_origin == "model-bundled"
+    assert model.resolved_preprocessing.model_origin == "model-bundled"
+    assert isinstance(model.resolved_preprocessing.model_module, v2.Normalize)
+    assert isinstance(model.backend, TorchBackend)
+    assert isinstance(model.backend.model, nn.Sequential)
+    children = list(model.backend.model.children())
+    assert len(children) == 2
+    assert isinstance(children[1], ResNet)
+    assert children[1].layer4[2].conv3 is not None

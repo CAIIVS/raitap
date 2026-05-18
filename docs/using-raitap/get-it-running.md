@@ -43,7 +43,7 @@ uv run raitap --demo
 raitap --demo
 ```
 
-RAITAP does not ship with all the underlying dependencies by default, to avoid massive bloat. This means dependencies required for each specific config must be installed before the run. **RAITAP automatically infers** them from the config.
+RAITAP does not ship with all the underlying dependencies by default, to avoid massive bloat. This means dependencies required for each specific config must be installed before the run.
 
 In some specific setups, you might need to take action:
 

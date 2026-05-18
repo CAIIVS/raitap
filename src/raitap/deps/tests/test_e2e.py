@@ -14,7 +14,11 @@ from raitap.deps.inference import infer_extras
 _LWISE_ASSESSMENT: dict = {
     "experiment_name": "lwise-ham10000-dermoscopy-demo",
     "hardware": "gpu",
-    "model": {"source": "lwise_ham10000_eager.pt"},
+    "model": {
+        "source": "lwise_ham10000_inner_resnet50_state_dict.pt",
+        "arch": "resnet50",
+        "num_classes": 7,
+    },
     "data": {"name": "ham10000-presentation-balanced"},
     "metrics": {"_target_": "MulticlassClassificationMetrics", "num_classes": 7},
     "transparency": {

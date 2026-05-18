@@ -31,3 +31,14 @@ class IdStrategy(StrEnum):
     auto = "auto"
     relative_path = "relative_path"
     stem = "stem"
+
+
+class Preprocessing(StrEnum):
+    """Named values for ``DataConfig.preprocessing``.
+
+    Custom-file preprocessing is selected by passing a path string directly
+    — it is not enumerated here. ``None`` (the default) means preprocessing
+    is OFF.
+    """
+
+    model_bundled = "model-bundled"

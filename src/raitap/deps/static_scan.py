@@ -15,7 +15,7 @@ venvs — i.e. before the very libraries it is about to install have been
 installed. The runtime ``ADAPTER_EXTRAS`` dict populated by
 :func:`raitap._adapters._register_core` is still the authoritative source
 whenever it is populated; this scanner is a safety net for
-``raitap.run(..., auto_install=True)`` and the CLI bootstrap.
+``raitap.run(..., auto_install_deps=True)`` and the CLI bootstrap.
 
 Preserves the "adding a new adapter = single-file add" invariant:
 nothing here is hand-maintained, and a new adapter's

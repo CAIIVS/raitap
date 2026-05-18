@@ -23,8 +23,9 @@ RAITAP allows you to use your own model in any of the following supported format
   `torch.save(model, path)`). **Deprecated and refused by default** — this
   format requires unsafe pickle deserialisation, which executes arbitrary
   code embedded in the file. RAITAP refuses such checkpoints unless you
-  explicitly opt in by setting `model.allow_unsafe_pickle: true`, and only
-  do so for files from a fully trusted source. The pickle also embeds
+  explicitly opt in via the `allow_unsafe_pickle=True` kwarg on
+  `raitap.run(...)` (Python API) or the `--allow-unsafe-pickle` CLI flag,
+  and only do so for files from a fully trusted source. The pickle also embeds
   fully-qualified class paths so it breaks when classes are renamed or when
   torchvision is bumped. Migrate with one line (in a trusted environment):
   ```python

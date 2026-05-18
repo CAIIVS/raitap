@@ -29,11 +29,17 @@ from raitap.configs.schema import (
     RobustnessConfig,
     TransparencyConfig,
 )
+from raitap.data.preprocessing import resolve_preprocessing
 from raitap.metrics import multiclass_classification as classification_metrics
+from raitap.models.model import Model
 from raitap.pipeline.outputs import RunOutputs
 from raitap.robustness import foolbox, torchattacks
 from raitap.transparency import captum, shap
 from raitap.types import Hardware
+
+FIXTURE = (
+    Path(__file__).resolve().parents[1] / "data" / "tests" / "fixtures" / "preproc_imagenet.py"
+)
 
 
 def _configs_dir() -> Path:
@@ -156,6 +162,76 @@ def test_assessor_builders_accept_schema_fields() -> None:
     )
     assert foolbox_cfg.constructor["rel_stepsize"] == 0.025
     assert foolbox_cfg.call == {"eps": 0.03}
+
+
+def test_programmatic_custom_file_refuses_without_consent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Programmatic ``preprocessing: <path>.py`` must refuse without consent.
+
+    The CLI bootstrap sets ``RAITAP_ALLOW_PREPROCESSING_EXEC`` from
+    ``--allow-preprocessing-exec``; ``raitap.run(config)`` skips that
+    bootstrap, so consent must come from the
+    ``acknowledge_preprocessing_exec`` kwarg on :func:`raitap.run`. With
+    neither set, the resolver must raise rather than silently exec
+    arbitrary Python from disk.
+    """
+    monkeypatch.delenv("RAITAP_ALLOW_PREPROCESSING_EXEC", raising=False)
+    data_cfg = DataConfig(
+        name="imagenet_samples",
+        source="imagenet_samples",
+        model_input_transformation=str(FIXTURE),
+    )
+    model_cfg = ModelConfig(source="vit_b_32")
+
+    with pytest.raises(PermissionError) as excinfo:
+        resolve_preprocessing(model_cfg, data_cfg)
+    assert "acknowledge_preprocessing_exec" in str(excinfo.value)
+
+
+def test_programmatic_custom_file_accepts_with_kwarg(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``resolve_preprocessing(..., acknowledge_exec=True)`` unlocks the custom-file path.
+
+    Guards parity with the CLI's env-var consent: the Python API must accept
+    consent expressed via the explicit kwarg even when the env var is unset.
+    """
+    monkeypatch.delenv("RAITAP_ALLOW_PREPROCESSING_EXEC", raising=False)
+    data_cfg = DataConfig(
+        name="imagenet_samples",
+        source="imagenet_samples",
+        model_input_transformation=str(FIXTURE),
+    )
+    model_cfg = ModelConfig(source="vit_b_32")
+
+    resolved = resolve_preprocessing(model_cfg, data_cfg, acknowledge_exec=True)
+    assert resolved.model_origin == "custom-file"
+
+
+def test_model_accepts_externally_resolved_custom_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``Model`` accepts a :class:`ResolvedPreprocessing` built externally.
+
+    The orchestrator resolves preprocessing once with consent and hands the
+    result to :class:`Model`; this guards that ``Model(cfg,
+    resolved_preprocessing=…)`` honours the supplied resolution instead of
+    re-resolving without consent. Exercises the propagation surface
+    :func:`raitap.run` relies on.
+    """
+    monkeypatch.delenv("RAITAP_ALLOW_PREPROCESSING_EXEC", raising=False)
+    cfg = _demo_app_config()
+    cfg.data.preprocessing = None
+    cfg.data.model_input_transformation = str(FIXTURE)
+
+    resolved = resolve_preprocessing(cfg.model, cfg.data, acknowledge_exec=True)
+    model = Model(cfg, resolved_preprocessing=resolved)
+
+    assert model.resolved_preprocessing.model_origin == "custom-file"
+    sha = model.resolved_preprocessing.model_file_sha256
+    assert sha is not None and len(sha) == 64
+    assert all(c in "0123456789abcdef" for c in sha)
 
 
 @pytest.fixture(scope="module")

@@ -15,5 +15,6 @@ The data module handles loading your data in a way that makes it usable to RAITA
 :caption: Data module documentation
 
 configuration
+preprocessing
 own-vs-built-in
 ```

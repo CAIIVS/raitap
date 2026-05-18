@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from torchmetrics.detection import mean_ap as _tm_detection_mean_ap
 else:
     # Deferred so partial-extras venvs (no ``metrics`` extra) can still import
-    # this module — needed by ``raitap.run(..., auto_install=True)`` and the AST adapter scan.
+    # this module — needed by ``raitap.run(..., auto_install_deps=True)`` and the AST adapter scan.
     # Bind the proxy itself (not ``.MeanAveragePrecision``) so attribute access
     # happens at instantiation time inside ``__init__``, not at module load.
     _tm_detection_mean_ap = lazy_import("torchmetrics.detection.mean_ap")

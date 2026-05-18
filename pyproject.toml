@@ -266,6 +266,14 @@ include = [
 ]
 exclude = ["src/raitap/**/test_*.py", "src/raitap/**/conftest.py", "src/raitap/configs/zhaw/*.yaml", "src/raitap/configs/zhaw/*.yml"]
 
+[tool.hatch.build.targets.wheel.force-include]
+# Ship pyproject.toml inside the wheel so the auto-deps bootstrap can read
+# raitap's own extras / conflicts / python pin from any install layout
+# (dev checkout *and* PyPI wheel). Without this, the bootstrap-from-zero
+# path in ``raitap.deps.bootstrap`` resolves ``_PYPROJECT`` to ``Lib/``
+# under a wheel install and dies with a "No such file or directory" frame.
+"pyproject.toml" = "raitap/_pyproject.toml"
+
 [tool.hatch.build.targets.sdist]
 # Keep PyPI sdist focused on installable library code; everything else
 # (contributor-only assets, standalone example, docs) stays in the repo.

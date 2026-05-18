@@ -32,15 +32,23 @@ from collections.abc import (  # noqa: TC003 — runtime import: typing.get_type
     Mapping,
 )
 from dataclasses import dataclass, field
-from typing import Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from omegaconf.errors import MissingMandatoryValue
 
+if TYPE_CHECKING:
+    import torch
+
 from raitap import raitap_log
 from raitap.configs.utils import cfg_to_dict, resolve_target
-from raitap.data import load_tensor_from_source
+from raitap.data.data import load_tensor_from_source
+from raitap.data.preprocessing import (
+    ResolvedPreprocessing,
+    module_as_per_image_callable,
+    resolve_preprocessing,
+)
 
 __all__ = [
     "AdapterSchema",
@@ -50,6 +58,7 @@ __all__ = [
     "parse_adapter_config",
     "raw_config_dict",
     "resolve_call_data_sources",
+    "resolve_per_image_transform",
 ]
 
 
@@ -393,8 +402,40 @@ def instantiate_visualisers(
 # ---------------------------------------------------------------------------
 
 
+def resolve_per_image_transform(
+    config: Any,
+    *,
+    resolved_preprocessing: ResolvedPreprocessing | None = None,
+) -> Callable[[torch.Tensor], torch.Tensor] | None:
+    """Return the shape-half preprocessing callable for *config*, or ``None``.
+
+    Shared helper for factory entry points that need to apply the same
+    per-image transform to auxiliary call-data tensors that
+    :class:`raitap.data.data.Data` applies to the primary input.
+
+    The orchestrator path always supplies ``resolved_preprocessing`` so the
+    run-level :class:`ResolvedPreprocessing` is reused without re-importing
+    custom-file preprocessing. The fallback resolver branch is reachable only
+    from direct/legacy factory or helper use (e.g. ``Explanation(config, ...)``
+    constructed outside the pipeline) and from test mocks lacking ``model`` /
+    ``data``; it returns ``None`` in those cases or when preprocessing is off.
+    """
+    if resolved_preprocessing is not None:
+        return module_as_per_image_callable(resolved_preprocessing.data_module)
+
+    model_cfg = getattr(config, "model", None)
+    data_cfg = getattr(config, "data", None)
+    if model_cfg is None or data_cfg is None:
+        return None
+    resolved = resolve_preprocessing(model_cfg, data_cfg)
+    return module_as_per_image_callable(resolved.data_module)
+
+
 def resolve_call_data_sources(
-    call_kwargs: dict[str, Any], *, log_label: str = "call"
+    call_kwargs: dict[str, Any],
+    *,
+    log_label: str = "call",
+    per_image_transform: Callable[[torch.Tensor], torch.Tensor] | None = None,
 ) -> dict[str, Any]:
     """Replace ``call:`` values matching ``{source, n_samples}`` with loaded tensors.
 
@@ -408,6 +449,11 @@ def resolve_call_data_sources(
         background_data:
           source: "imagenet_samples"
           n_samples: 50
+
+    When ``per_image_transform`` is supplied (typically the pipeline's data
+    preprocessing transform), it is applied per-image so that auxiliary
+    tensors (SHAP background, baselines, …) share the same shape as the
+    primary ``Data.tensor``.
     """
     resolved: dict[str, Any] = {}
     for key, value in call_kwargs.items():
@@ -425,7 +471,11 @@ def resolve_call_data_sources(
                 source,
                 n_samples,
             )
-            resolved[key] = load_tensor_from_source(str(source), n_samples=n_samples)
+            resolved[key] = load_tensor_from_source(
+                str(source),
+                n_samples=n_samples,
+                per_image_transform=per_image_transform,
+            )
         else:
             resolved[key] = value
     return resolved

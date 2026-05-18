@@ -1,33 +1,52 @@
 from __future__ import annotations
 
+import copy
+import os
 import pickle
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import torch
-from torch import nn
-from torchvision import models
-
 from raitap import raitap_log
 from raitap.configs import cfg_to_dict
 from raitap.data.metadata import shape_tuple
+from raitap.data.preprocessing import ResolvedPreprocessing, resolve_preprocessing
 from raitap.tracking.base_tracker import BaseTracker, Trackable
+from raitap.utils.lazy import lazy_import
 
 from .backend import ModelBackend, OnnxBackend, TorchBackend
 from .runtime import resolve_torch_device
 
 if TYPE_CHECKING:
+    import torch
+    from torch import nn
+    from torchvision import models
+
     from raitap.configs.schema import AppConfig
+else:
+    torch = lazy_import("torch")
+    nn = lazy_import("torch.nn")
+    models = lazy_import("torchvision.models")
 
 
 class Model(Trackable):
-    def __init__(self, config: AppConfig) -> None:
-        self.backend = self._load_model(config)
+    def __init__(
+        self,
+        config: AppConfig,
+        *,
+        resolved_preprocessing: ResolvedPreprocessing | None = None,
+        allow_unsafe_pickle: bool = False,
+    ) -> None:
+        self.backend = self._load_model(config, allow_unsafe_pickle=allow_unsafe_pickle)
+        self.resolved_preprocessing = _apply_preprocessing(
+            self.backend,
+            config,
+            resolved_preprocessing=resolved_preprocessing,
+        )
         shape_override = _resolve_shape_override(config)
         if shape_override is not None:
             self.backend.expected_input_shape = shape_override
 
-    def _load_model(self, config: AppConfig) -> ModelBackend:
+    def _load_model(self, config: AppConfig, *, allow_unsafe_pickle: bool = False) -> ModelBackend:
         source = config.model.source
         hardware = getattr(config, "hardware", "gpu")
         if not source:
@@ -41,7 +60,12 @@ class Model(Trackable):
         suffix = path.suffix.lower()
 
         if path.exists() or suffix:
-            return _load_from_path(path, model_cfg=config.model, hardware=hardware)
+            return _load_from_path(
+                path,
+                model_cfg=config.model,
+                hardware=hardware,
+                allow_unsafe_pickle=allow_unsafe_pickle,
+            )
 
         name = str(source).lower()
         if hasattr(models, name):
@@ -56,6 +80,55 @@ class Model(Trackable):
 
     def log(self, tracker: BaseTracker, **kwargs: Any) -> None:
         tracker.log_model(self.backend)
+
+
+def _apply_preprocessing(
+    backend: ModelBackend,
+    config: AppConfig,
+    *,
+    resolved_preprocessing: ResolvedPreprocessing | None = None,
+) -> ResolvedPreprocessing:
+    """Resolve ``data.preprocessing`` and wrap the backend's model in-place
+    with the model input transformation, usually normalization.
+
+    Data preprocessing (Resize / CenterCrop) is applied per-image by
+    :func:`raitap.data.data._load_data` before stacking, so by the time we
+    see the model, inputs already have a uniform shape.
+
+    ONNX custom-file modules are attached to the backend's tensor call path.
+    Model-bundled ONNX preprocessing remains unsupported because there is no
+    torchvision weights lineage to derive the preset from.
+    """
+    resolved = (
+        resolved_preprocessing
+        if resolved_preprocessing is not None
+        else resolve_preprocessing(config.model, config.data)
+    )
+
+    if resolved.model_module is not None:
+        if isinstance(backend, OnnxBackend):
+            if resolved.model_origin != "custom-file":
+                raise NotImplementedError(
+                    "data.model_input_transformation='model-bundled' is not yet "
+                    "supported for ONNX models. Use a custom-file path, for "
+                    "example data.model_input_transformation: ./normalize.py."
+                )
+            model_module = copy.deepcopy(resolved.model_module)
+            backend.set_preprocessing(model_module)
+        elif isinstance(backend, TorchBackend):
+            # ``to`` and ``eval`` mutate nn.Module instances; keep the
+            # ResolvedPreprocessing record stable for later readers.
+            model_module = copy.deepcopy(resolved.model_module).to(backend.device)
+            model_module.eval()
+            backend.model = nn.Sequential(model_module, backend.model)
+
+    for warning in resolved.warnings:
+        raitap_log.warn(warning)
+
+    if resolved.is_active:
+        raitap_log.info(f"Preprocessing: {resolved.description}")
+
+    return resolved
 
 
 def _resolve_shape_override(config: Any) -> tuple[int | None, ...] | None:
@@ -87,7 +160,13 @@ def _resolve_shape_override(config: Any) -> tuple[int | None, ...] | None:
     return (None, *non_batch)
 
 
-def _load_from_path(path: Path, *, model_cfg: Any, hardware: str) -> ModelBackend:
+def _load_from_path(
+    path: Path,
+    *,
+    model_cfg: Any,
+    hardware: str,
+    allow_unsafe_pickle: bool = False,
+) -> ModelBackend:
     """
     Load a model backend from a file path.
 
@@ -96,6 +175,9 @@ def _load_from_path(path: Path, *, model_cfg: Any, hardware: str) -> ModelBacken
         model_cfg: ``ModelConfig``-shaped object providing ``arch``,
             ``num_classes``, and ``pretrained`` for state-dict loading.
         hardware: Hardware label resolved into a device.
+        allow_unsafe_pickle: Explicit consent to deserialise a pickled
+            ``nn.Module`` checkpoint (executes arbitrary code embedded in
+            the file). Mirrors the ``--allow-unsafe-pickle`` CLI flag.
 
     Returns:
         Model backend ready for inference and explanation.
@@ -112,7 +194,12 @@ def _load_from_path(path: Path, *, model_cfg: Any, hardware: str) -> ModelBacken
 
     if path.suffix.lower() in {".pth", ".pt"}:
         device = resolve_torch_device(hardware)
-        module = _load_torch_module_from_path(path, model_cfg=model_cfg, device=device)
+        module = _load_torch_module_from_path(
+            path,
+            model_cfg=model_cfg,
+            device=device,
+            allow_unsafe_pickle=allow_unsafe_pickle,
+        )
         return TorchBackend(module, device=device)
 
     raise ValueError(
@@ -159,7 +246,13 @@ def _build_arch_from_config(model_cfg: Any) -> nn.Module:
     return factory(weights=weights, num_classes=num_classes)
 
 
-def _load_torch_module_from_path(path: Path, *, model_cfg: Any, device: torch.device) -> nn.Module:
+def _load_torch_module_from_path(
+    path: Path,
+    *,
+    model_cfg: Any,
+    device: torch.device,
+    allow_unsafe_pickle: bool = False,
+) -> nn.Module:
     scripted = _try_torchscript_load(path)
     if scripted is not None:
         scripted.to(device)
@@ -171,15 +264,19 @@ def _load_torch_module_from_path(path: Path, *, model_cfg: Any, device: torch.de
     # Pickled `nn.Module` checkpoints fail this with `pickle.UnpicklingError`
     # ("Weights only load failed ... Unsupported global ...") and require the
     # unsafe path, which executes arbitrary code embedded in the file. We
-    # refuse it unless the user has explicitly opted in via
-    # ``model.allow_unsafe_pickle``. Any other exception (corrupted archive,
-    # I/O error, version incompatibility) is re-raised as-is so the real
-    # failure mode is not masked by the unsafe-pickle guidance.
+    # refuse it unless the user has explicitly opted in via the
+    # ``allow_unsafe_pickle`` kwarg on :func:`raitap.run` (Python API) or the
+    # ``--allow-unsafe-pickle`` CLI flag (surfaced through the
+    # ``RAITAP_ALLOW_UNSAFE_PICKLE`` env var the bootstrap exports across
+    # re-exec). Any other exception (corrupted archive, I/O error, version
+    # incompatibility) is re-raised as-is so the real failure mode is not
+    # masked by the unsafe-pickle guidance.
+    consent = allow_unsafe_pickle or os.environ.get("RAITAP_ALLOW_UNSAFE_PICKLE") == "1"
     pickled_module = False
     try:
         obj: Any = torch.load(path, map_location="cpu", weights_only=True)
     except pickle.UnpicklingError as safe_load_error:
-        if not bool(getattr(model_cfg, "allow_unsafe_pickle", False)):
+        if not consent:
             raise ValueError(
                 f"Refusing to load {path}: the file requires unsafe pickle "
                 "deserialisation, which executes arbitrary code embedded in "
@@ -187,7 +284,8 @@ def _load_torch_module_from_path(path: Path, *, model_cfg: Any, device: torch.de
                 "(`torch.save(model.state_dict(), path)` plus model.arch + "
                 "model.num_classes in the config) or a TorchScript archive "
                 "(`torch.jit.save(scripted, path)`). If the source is fully "
-                "trusted, set `model.allow_unsafe_pickle: true` to override. "
+                "trusted, pass `allow_unsafe_pickle=True` to `raitap.run(...)` "
+                "or re-run the CLI with `--allow-unsafe-pickle`. "
                 f"Underlying error: {safe_load_error}"
             ) from safe_load_error
         pickled_module = True

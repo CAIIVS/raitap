@@ -10,7 +10,7 @@ paths drive identical pipelines (modulo PyTorch determinism).
 
 Adapter modules use lazy imports of their wrapped libraries
 (``raitap.utils.lazy.lazy_import``), so this file can be imported in a venv
-that has only the base raitap dep — ``run(cfg, auto_install=True)`` walks
+that has only the base raitap dep — ``run(cfg, auto_install_deps=True)`` walks
 the cfg and installs the missing extras on first run, then re-execs the
 script (same flow as the CLI's ``--allow-project-edit`` / ``-y``).
 """
@@ -69,10 +69,10 @@ if __name__ == "__main__":
     # without a handler the run is silent apart from the summary panel.
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-    # ``auto_install=True`` runs the same auto-deps flow as the CLI's
+    # ``auto_install_deps=True`` runs the same auto-deps flow as the CLI's
     # ``--allow-project-edit`` / ``-y``: walk the cfg, install missing
     # extras via ``uv add`` (or ``pip install``), re-exec the script.
-    outputs = run(cfg, auto_install=True)
+    outputs = run(cfg, auto_install_deps=True)
 
     # Programmatic access demo — ``outputs`` is a ``RunOutputs`` dataclass
     # (see ``raitap.pipeline.outputs``). All artefacts the report consumes

@@ -29,6 +29,13 @@ Flags consumed (and removed from ``sys.argv`` before Hydra sees it):
   caller's ``pyproject.toml``.
 - ``--exec-global`` — Case D: consent to ``pip install`` against the base
   interpreter (not in a venv).
+- ``--allow-preprocessing-exec`` / ``-yp`` — consent to executing a
+  user-supplied ``data.preprocessing`` Python file after Hydra composes the
+  config.
+- ``--acknowledge-preprocessing-off`` — silence the "preprocessing is OFF"
+  warning when the caller has already normalised inputs upstream.
+- ``--allow-unsafe-pickle`` — consent to loading pickled ``nn.Module``
+  checkpoints, which executes arbitrary code embedded in the file.
 
 A sentinel env var prevents recursion when the re-exec'd process re-enters
 this module.
@@ -49,7 +56,7 @@ class BootstrapCase(Enum):
 
     Picked by ``(_is_dev_install(), _uv_available())``; consumed by
     :func:`maybe_bootstrap` (CLI) and :func:`install_raitap_deps`
-    (consumed by :func:`raitap.run` under ``auto_install=True``) to route
+    (consumed by :func:`raitap.run` under ``auto_install_deps=True``) to route
     to the matching install command + refusal hint.
     """
 
@@ -80,7 +87,26 @@ if TYPE_CHECKING:
     from typing import Any
 
 _SENTINEL = "_RAITAP_DEPS_BOOTSTRAPPED"
-_PYPROJECT = Path(__file__).resolve().parents[3] / "pyproject.toml"
+_PREPROCESSING_EXEC_ENV_VAR = "RAITAP_ALLOW_PREPROCESSING_EXEC"
+_ACKNOWLEDGE_PREPROCESSING_OFF_ENV_VAR = "RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF"
+_ALLOW_UNSAFE_PICKLE_ENV_VAR = "RAITAP_ALLOW_UNSAFE_PICKLE"
+
+
+def _resolve_pyproject() -> Path:
+    # Two install layouts to support:
+    #   - Dev checkout: ``src/raitap/deps/bootstrap.py`` → parents[3] is the
+    #     repo root that owns ``pyproject.toml``.
+    #   - Wheel install: ``site-packages/raitap/deps/bootstrap.py`` → parents[3]
+    #     is ``Lib/`` (no pyproject). The wheel ships a copy at
+    #     ``raitap/_pyproject.toml`` (see the ``force-include`` block in the
+    #     top-level pyproject), so fall back to a package-relative path.
+    dev_path = Path(__file__).resolve().parents[3] / "pyproject.toml"
+    if dev_path.is_file():
+        return dev_path
+    return Path(__file__).resolve().parents[1] / "_pyproject.toml"
+
+
+_PYPROJECT = _resolve_pyproject()
 _DEFAULT_CONFIG_DIR = Path(__file__).resolve().parents[1] / "configs"
 _DEFAULT_CONFIG_NAME = "demo"
 
@@ -107,7 +133,16 @@ def _split_error_message(msg: str) -> list[str]:
 
 
 class _DepFlags:
-    __slots__ = ("allow_project_edit", "custom", "dry_run", "exec_global", "sync_only")
+    __slots__ = (
+        "acknowledge_preprocessing_off",
+        "allow_preprocessing_exec",
+        "allow_project_edit",
+        "allow_unsafe_pickle",
+        "custom",
+        "dry_run",
+        "exec_global",
+        "sync_only",
+    )
 
     def __init__(self) -> None:
         self.dry_run = False
@@ -115,6 +150,9 @@ class _DepFlags:
         self.custom = False
         self.allow_project_edit = False
         self.exec_global = False
+        self.allow_preprocessing_exec = False
+        self.acknowledge_preprocessing_off = False
+        self.allow_unsafe_pickle = False
 
 
 def _strip_deps_flags(argv: list[str]) -> tuple[list[str], _DepFlags]:
@@ -132,8 +170,24 @@ def _strip_deps_flags(argv: list[str]) -> tuple[list[str], _DepFlags]:
                 flags.allow_project_edit = True
             case "--exec-global":
                 flags.exec_global = True
+            case "--allow-preprocessing-exec" | "-yp":
+                flags.allow_preprocessing_exec = True
+            case "--acknowledge-preprocessing-off":
+                flags.acknowledge_preprocessing_off = True
+            case "--allow-unsafe-pickle":
+                flags.allow_unsafe_pickle = True
             case _:
                 keep.append(a)
+    # Surface CLI consent to the post-Hydra resolver in data/preprocessing.py
+    # and the post-Hydra model loader in models/model.py. Re-exec via
+    # subprocess inherits os.environ, so this propagates through cases
+    # A/C/D without modifying ``_exec``.
+    if flags.allow_preprocessing_exec:
+        os.environ[_PREPROCESSING_EXEC_ENV_VAR] = "1"
+    if flags.acknowledge_preprocessing_off:
+        os.environ[_ACKNOWLEDGE_PREPROCESSING_OFF_ENV_VAR] = "1"
+    if flags.allow_unsafe_pickle:
+        os.environ[_ALLOW_UNSAFE_PICKLE_ENV_VAR] = "1"
     return keep, flags
 
 
@@ -342,7 +396,7 @@ def _python_refusal_note_blocks(case: BootstrapCase, extras: set[str]) -> list:
                 Text.assemble(("- Run it yourself: ", warn), (cmd, white)),
                 Text.assemble(
                     ("- Pass ", warn),
-                    ("auto_install=True", white),
+                    ("auto_install_deps=True", white),
                     (" to ", warn),
                     ("raitap.run(cfg, ...)", white),
                     (" to consent.", warn),
@@ -366,7 +420,7 @@ def _python_refusal_note_blocks(case: BootstrapCase, extras: set[str]) -> list:
                     ("- Pass ", warn),
                     ("exec_global=True", white),
                     (" alongside ", warn),
-                    ("auto_install=True", white),
+                    ("auto_install_deps=True", white),
                     (" on ", warn),
                     ("raitap.run(...)", white),
                     (" to consent.", warn),
@@ -405,7 +459,7 @@ def install_raitap_deps(
     """Bootstrap raitap extras inferred from a Python ``AppConfig``.
 
     Internal — the public surface is :func:`raitap.run` called with
-    ``auto_install=True`` (and optionally ``exec_global=True``). The
+    ``auto_install_deps=True`` (and optionally ``exec_global=True``). The
     function walks the config, picks the matching extras for the host,
     invokes ``uv``/``pip`` to install them, and re-execs the current
     script so the freshly-installed packages are visible. Idempotent:
@@ -420,7 +474,7 @@ def install_raitap_deps(
         allow_project_edit: Consent to ``uv add`` modifying the caller's
             ``pyproject.toml``. Without it, the function prints the
             planned command and exits non-zero. ``raitap.run`` hard-codes
-            ``True`` here when the caller passed ``auto_install=True``.
+            ``True`` here when the caller passed ``auto_install_deps=True``.
         exec_global: Consent to ``pip install`` against the base
             interpreter when no venv is active. Plumbed through from
             ``raitap.run(..., exec_global=...)``.

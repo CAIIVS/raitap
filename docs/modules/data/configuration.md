@@ -36,6 +36,35 @@ myst:
   This does not control explainer attribution batching; use
   `transparency.<explainer>.raitap.batch_size` for that.
 
+:option: preprocessing
+:allowed: null, "model-bundled", path string
+:default: null
+:description: Data-side preprocessing applied in the loader, before the
+  batch reaches the model. Per-image for image sources; per-batch on the
+  stacked `(N, F)` tensor for tabular sources. Typical contents: Resize +
+  CenterCrop for images; feature scaling or encoding for tabular. `null`
+  leaves the loader untouched; `"model-bundled"` pulls Resize + CenterCrop
+  from the model's bundled torchvision preset (image models only); a `.py`
+  path loads a factory decorated with `@raitap_preprocessing_factory`. The
+  `.py` path requires the `acknowledge_preprocessing_exec` kwarg or the
+  `--allow-preprocessing-exec` / `-yp` CLI flag. See {doc}`preprocessing`.
+
+:option: model_input_transformation
+:allowed: null, "model-bundled", path string
+:default: null
+:description: Transformation applied at the model boundary, on every
+  forward pass. Typical contents: Normalize. For Torch backends it stays
+  inside autograd so attribution and adversarial budgets see the
+  user-facing input space; for ONNX backends it runs on the tensor call
+  path before the ONNX session. `"model-bundled"` pulls Normalize from the
+  model's bundled torchvision preset (Torch backends only — ONNX has no
+  torchvision lineage to derive from); a `.py` path loads a factory
+  decorated with `@raitap_model_input_transformation_factory` and works
+  for both Torch and ONNX backends. When both this and `preprocessing` are
+  `null` and inputs are images, a loud warning fires — silence it with
+  `acknowledge_preprocessing_off` / `--acknowledge-preprocessing-off`.
+  See {doc}`preprocessing`.
+
 :option: labels.source
 :allowed: string, null
 :default: null
@@ -110,6 +139,8 @@ data:
   description: "Internal validation set"
   source: "./data/images"
   forward_batch_size: 32
+  preprocessing: model-bundled
+  model_input_transformation: model-bundled
   labels:
     source: "./data/labels.csv"
     id_column: "image"
@@ -117,16 +148,24 @@ data:
     encoding: "index"
     id_strategy: "auto"
 
-:cli: data.source="./data/images" data.labels.source="./data/labels.csv" data.labels.column=label
+:cli: data.source="./data/images" data.preprocessing=model-bundled data.model_input_transformation=model-bundled data.labels.source="./data/labels.csv" data.labels.column=label
 
 :python:
-from raitap.data import DataConfig, IdStrategy, LabelEncoding, LabelsConfig
+from raitap.data import (
+    DataConfig,
+    IdStrategy,
+    LabelEncoding,
+    LabelsConfig,
+    Preprocessing,
+)
 
 data = DataConfig(
     name="my-dataset",
     description="Internal validation set",
     source="./data/images",
     forward_batch_size=32,
+    preprocessing=Preprocessing.model_bundled,
+    model_input_transformation=Preprocessing.model_bundled,
     labels=LabelsConfig(
         source="./data/labels.csv",
         id_column="image",

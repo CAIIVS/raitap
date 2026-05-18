@@ -20,11 +20,15 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
-import torch
-
 from raitap import raitap_log
 from raitap._adapters import AdapterMixin
 from raitap.configs import resolve_run_dir
+from raitap.utils.lazy import lazy_import
+
+if TYPE_CHECKING:
+    import torch
+else:
+    torch = lazy_import("torch")
 
 from ..contracts import (
     MethodKind,

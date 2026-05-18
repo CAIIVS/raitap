@@ -2,7 +2,7 @@
 its wrapped third-party libraries are not installed.
 
 This is what unlocks the programmatic-API auto-deps flow — see
-``raitap.run(..., auto_install=True)`` in
+``raitap.run(..., auto_install_deps=True)`` in
 ``docs/using-raitap/configuration/python-api.md``. A maintainer who adds a
 new adapter and forgets the :func:`raitap.utils.lazy.lazy_import` pattern
 (adding a top-level ``import torchmetrics`` instead) breaks the
@@ -24,10 +24,16 @@ import pytest
 # Wrapped libraries that the ``metrics`` family of adapters consume *as
 # optional extras*. Any top-level import of one of these from within a module
 # under ``raitap.metrics`` is a contract violation — wrap it in
-# :func:`raitap.utils.lazy.lazy_import` instead. Base deps (``torch``,
-# ``matplotlib``, ``numpy``, ``pandas``) live in ``project.dependencies`` and
-# are always present, so they are intentionally not poisoned here.
-_WRAPPED_LIBS = ("torchmetrics",)
+# :func:`raitap.utils.lazy.lazy_import` instead.
+#
+# ``torch`` + ``torchvision`` are also poisoned here even though every torch
+# *backend* extra (torch-cpu/cuda/intel) provides them: the deps-bootstrap
+# composes the Hydra config and walks adapter imports BEFORE installing any
+# backend, so adapter modules must survive a torch-less venv long enough for
+# the bootstrap to infer + install the right backend. See
+# ``raitap.utils.lazy`` for the contract and ``raitap.deps.bootstrap`` for
+# the call path.
+_WRAPPED_LIBS = ("torch", "torch.nn", "torchvision", "torchmetrics")
 
 # Adapter / adapter-adjacent modules that must survive the contract. Listed by
 # hand (one entry per file) so adding a new adapter is a single-file change to

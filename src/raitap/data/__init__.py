@@ -13,25 +13,36 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from .types import IdStrategy, LabelEncoding
+from .types import IdStrategy, LabelEncoding, Preprocessing
 
 if TYPE_CHECKING:
     from raitap.configs.schema import DataConfig, LabelsConfig
 
     from .data import Data, load_numpy_from_source, load_tensor_from_source
     from .metadata import DataInputMetadata, infer_data_input_metadata
+    from .preprocessing import (
+        DataPreprocessingFactory,
+        ModelInputTransformationFactory,
+        raitap_model_input_transformation_factory,
+        raitap_preprocessing_factory,
+    )
 
 
 __all__ = [
     "Data",
     "DataConfig",
     "DataInputMetadata",
+    "DataPreprocessingFactory",
     "IdStrategy",
     "LabelEncoding",
     "LabelsConfig",
+    "ModelInputTransformationFactory",
+    "Preprocessing",
     "infer_data_input_metadata",
     "load_numpy_from_source",
     "load_tensor_from_source",
+    "raitap_model_input_transformation_factory",
+    "raitap_preprocessing_factory",
 ]
 
 
@@ -44,6 +55,19 @@ _LAZY: dict[str, tuple[str, str]] = {
     "infer_data_input_metadata": ("raitap.data.metadata", "infer_data_input_metadata"),
     "DataConfig": ("raitap.configs.schema", "DataConfig"),
     "LabelsConfig": ("raitap.configs.schema", "LabelsConfig"),
+    "DataPreprocessingFactory": ("raitap.data.preprocessing", "DataPreprocessingFactory"),
+    "ModelInputTransformationFactory": (
+        "raitap.data.preprocessing",
+        "ModelInputTransformationFactory",
+    ),
+    "raitap_model_input_transformation_factory": (
+        "raitap.data.preprocessing",
+        "raitap_model_input_transformation_factory",
+    ),
+    "raitap_preprocessing_factory": (
+        "raitap.data.preprocessing",
+        "raitap_preprocessing_factory",
+    ),
 }
 
 

@@ -27,7 +27,7 @@ from raitap.configs.schema import (
     TrackingConfig,
     TransparencyConfig,
 )
-from raitap.pipeline.orchestrator import run as _orchestrator_run
+from raitap.pipeline.orchestrator import _run_pipeline
 
 if TYPE_CHECKING:
     from raitap.pipeline.outputs import RunOutputs
@@ -52,8 +52,11 @@ def run(
     *,
     verbose: bool = True,
     output_root: str | Path | None = None,
-    auto_install: bool = False,
+    auto_install_deps: bool = False,
     exec_global: bool = False,
+    acknowledge_preprocessing_off: bool = False,
+    acknowledge_preprocessing_exec: bool = False,
+    allow_unsafe_pickle: bool = False,
 ) -> RunOutputs:
     """Run the full pipeline programmatically.
 
@@ -64,7 +67,7 @@ def run(
     ``output_root``. When ``None``, mirrors Hydra's default and writes to
     ``./outputs/<YYYY-MM-DD>/<HH-MM-SS>/`` so the caller's cwd stays clean.
 
-    Pass ``auto_install=True`` to opt into the same auto-deps flow the
+    Pass ``auto_install_deps=True`` to opt into the same auto-deps flow the
     ``raitap`` CLI uses behind ``--allow-project-edit`` / ``-y``: the call
     walks ``config`` for adapter ``_target_`` references, infers the
     matching extras, runs ``uv add raitap[<extras>]`` (or ``pip install``
@@ -78,8 +81,19 @@ def run(
     already installed (the typical case after the CLI bootstrap or a
     manual ``uv sync``); a missing adapter library surfaces as the usual
     ``ModuleNotFoundError`` from the adapter import chain.
+
+    ``acknowledge_preprocessing_off=True`` silences the "preprocessing is
+    OFF" warning when ``data.preprocessing`` is unset and the caller has
+    already normalised inputs upstream (CLI analogue:
+    ``--acknowledge-preprocessing-off``).
+    ``acknowledge_preprocessing_exec=True`` is the explicit consent for
+    ``data.preprocessing: <path>.py``, which executes arbitrary Python code
+    from disk (CLI analogue: ``--allow-preprocessing-exec`` / ``-yp``).
+    ``allow_unsafe_pickle=True`` consents to loading pickled ``nn.Module``
+    checkpoints (executes arbitrary code embedded in the file; CLI
+    analogue: ``--allow-unsafe-pickle``).
     """
-    if auto_install:
+    if auto_install_deps:
         # Lazy import so callers who do not opt in don't pay for the
         # bootstrap module's imports.
         from raitap.deps.bootstrap import install_raitap_deps
@@ -95,4 +109,10 @@ def run(
         output_root = Path("outputs") / now.strftime("%Y-%m-%d") / now.strftime("%H-%M-%S")
     if output_root is not None:
         set_output_root(config, output_root)
-    return _orchestrator_run(config, verbose=verbose)
+    return _run_pipeline(
+        config,
+        verbose=verbose,
+        acknowledge_preprocessing_off=acknowledge_preprocessing_off,
+        acknowledge_preprocessing_exec=acknowledge_preprocessing_exec,
+        allow_unsafe_pickle=allow_unsafe_pickle,
+    )

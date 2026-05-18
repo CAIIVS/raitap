@@ -1584,6 +1584,90 @@ class TestResolveCallDataSources:
         assert isinstance(bg_tensor, torch.Tensor)
         assert bg_tensor.shape[0] == 2
 
+    def test_explanation_uses_model_resolved_preprocessing_for_call_data(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        sample_images: torch.Tensor,
+    ) -> None:
+        """Auxiliary call-data should reuse the run-level preprocessing object."""
+
+        class _ShapeModule(torch.nn.Module):
+            def forward(self, image: torch.Tensor) -> torch.Tensor:
+                return torch.zeros(3, 5, 5, dtype=image.dtype)
+
+        class RecordingExplainer:
+            algorithm = "GradientExplainer"
+
+            def __init__(self) -> None:
+                self.last_explain_kwargs: dict[str, Any] = {}
+
+            def check_backend_compat(self, backend: object) -> None:
+                del backend
+
+            def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
+                self.last_explain_kwargs = dict(kwargs)
+                return MagicMock(spec=ExplanationResult)
+
+        from PIL import Image
+
+        from raitap.data.preprocessing import ResolvedPreprocessing
+
+        bg_dir = tmp_path / "bg"
+        bg_dir.mkdir()
+        for i in range(2):
+            Image.fromarray(torch.zeros(8, 8, 3, dtype=torch.uint8).numpy(), "RGB").save(
+                bg_dir / f"bg{i}.png"
+            )
+
+        explainer = RecordingExplainer()
+        config = _make_config(
+            tmp_path,
+            OmegaConf.create(
+                {
+                    "_target_": "raitap.transparency.ShapExplainer",
+                    "algorithm": "GradientExplainer",
+                    "call": {
+                        "target": 0,
+                        "background_data": {"source": str(bg_dir)},
+                    },
+                    "visualisers": [],
+                }
+            ),
+        )
+        config.model = SimpleNamespace(source="resnet50")  # type: ignore[attr-defined]
+        config.data = SimpleNamespace(preprocessing="model-bundled")  # type: ignore[attr-defined]
+        resolved = ResolvedPreprocessing(
+            data_module=_ShapeModule(),
+            model_module=None,
+            data_origin="model-bundled",
+            model_origin="off",
+            description="supplied",
+        )
+
+        monkeypatch.setattr(
+            "raitap.transparency.factory.create_explainer",
+            lambda _cfg: (explainer, "raitap.transparency.ShapExplainer"),
+        )
+        monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
+        monkeypatch.setattr(
+            "raitap.configs.adapter_factory.resolve_preprocessing",
+            MagicMock(side_effect=AssertionError("should not resolve again")),
+        )
+
+        model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+        Explanation(
+            config,  # type: ignore[arg-type]
+            "test_explainer",
+            model=model,  # type: ignore[arg-type]
+            inputs=sample_images,
+            resolved_preprocessing=resolved,
+        )
+
+        bg_tensor = explainer.last_explain_kwargs["background_data"]
+        assert isinstance(bg_tensor, torch.Tensor)
+        assert bg_tensor.shape == (2, 3, 5, 5)
+
 
 # ---------------------------------------------------------------------------
 # sample_names length validation — Task B1

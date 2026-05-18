@@ -2,11 +2,15 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any
-
-import torch
+from typing import TYPE_CHECKING, Any
 
 from raitap._adapters import AdapterMixin
+from raitap.utils.lazy import lazy_import
+
+if TYPE_CHECKING:
+    import torch
+else:
+    torch = lazy_import("torch")
 
 
 @dataclass

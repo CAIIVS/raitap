@@ -9,11 +9,16 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
-import torch
 
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 from raitap.utils.errors import SampleNamesLengthError
+from raitap.utils.lazy import lazy_import
 from raitap.utils.serialization import to_json_serialisable
+
+if TYPE_CHECKING:
+    import torch
+else:
+    torch = lazy_import("torch")
 
 from .contracts import (
     VERDICT_CODES,

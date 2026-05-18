@@ -79,3 +79,177 @@ jobs:
         # test modules whose deps (torchmetrics, etc.) aren't installed in
         # this minimal lane.
         run: uv run pytest src/raitap/robustness/tests/test_e2e_marabou_acas_xu.py -m e2e -v --tb=long
+
+  example-consumer-e2e-linux:
+    # Drives `example/` as a standalone consumer end-to-end: `uv sync` against
+    # the consumer pyproject, then full pipeline via the `raitap`
+    # console-script. Covers the bits that only show up at the
+    # consumer-project boundary: console-script entry, `RaitapSearchPathPlugin`
+    # discovering bundled groups from outside the raitap source tree,
+    # `tool.uv.package = false` + `tool.uv.sources` pattern, lazy_import
+    # contract under a real install, and the live auto-deps bootstrap
+    # (`uv add` + `os.execv` re-exec) with extras already pinned.
+    #
+    # The bootstrap-from-zero path (bare ``pip install raitap`` then
+    # ``raitap --demo``) is covered by ``bare-bootstrap-from-zero-linux``
+    # below.
+    name: "example/ consumer E2E (Linux)"
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      MPLBACKEND: Agg
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install uv (with wheel cache)
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "example/uv.lock"
+
+      - name: Cache torch hub weights + raitap sample data
+        # vit_b_32 weights (~350MB) + imagenet_samples (small) — both
+        # downloaded on first pipeline run, deterministic per cfg.
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/torch
+            ~/.cache/raitap
+          key: example-e2e-assets-v1-${{ hashFiles('example/assessment.yaml') }}
+          restore-keys: |
+            example-e2e-assets-v1-
+
+      - name: Swap torch backend for CI host (runner-only)
+        # Committed `example/pyproject.toml` pins `torch-intel` (the Intel-laptop
+        # default for this project). GH ubuntu runners have no XPU; pulling
+        # IPEX would waste ~200MB and never be used under `hardware=cpu`.
+        # Swap to `torch-cpu` in the workspace copy only — never committed.
+        working-directory: example
+        run: |
+          sed -i 's/torch-intel/torch-cpu/g' pyproject.toml
+          rm -f uv.lock
+          cat pyproject.toml
+
+      - name: Sync consumer venv
+        working-directory: example
+        run: uv sync
+
+      - name: Run example via console-script (bootstrap + re-exec live)
+        # `--allow-project-edit` consents to the inferred `uv add` call.
+        # Bootstrap always re-asserts the full inferred extras set (it
+        # doesn't diff against the currently-pinned set), so even with
+        # everything already pinned the call goes through — `uv add` is
+        # idempotent at the resolver level, but `os.execv` + the sentinel
+        # short-circuit + the post-relaunch pipeline import all execute.
+        # `hardware=cpu` Hydra override pins the CPU backend regardless of
+        # host probe.
+        working-directory: example
+        run: |
+          set -o pipefail
+          uv run raitap --config-name assessment hardware=cpu --allow-project-edit 2>&1 | tee run.log
+
+      - name: Assert bootstrap fired and pipeline produced outputs
+        working-directory: example
+        run: |
+          grep -F "uv add raitap[" run.log
+          test -d outputs
+          find outputs -type f -name 'report*' | grep -q .
+
+  bare-bootstrap-from-zero-linux:
+    # Proves the headline UX promise from ``docs/using-raitap/get-it-running.md``:
+    # ``pip install raitap`` (no extras), ``raitap --demo``, RAITAP figures out
+    # the rest. This exercises the bootstrap-from-zero path end-to-end:
+    #   - compose Hydra cfg on a venv with NO torch / torchvision / onnxruntime
+    #   - infer extras (host probe picks ``torch-cpu`` here)
+    #   - install via ``uv add raitap[<extras>]``
+    #   - ``os.execv`` re-exec under the sentinel
+    #   - second-pass compose with the freshly installed backend
+    #   - run the demo pipeline + reports
+    #
+    # Bootstrap composes the cfg by importing every adapter family
+    # ``__init__.py`` — the ``lazy_import`` contract in ``raitap.utils.lazy``
+    # is what lets that happen torch-free. A regression here means a
+    # contributor added a top-level ``import torch`` / ``import torchvision``
+    # somewhere in the registration chain. The per-family
+    # ``test_partial_extras_safe.py`` tests pinpoint the offender;
+    # ``deps/tests/test_bootstrap_from_zero.py`` covers the bootstrap call
+    # path itself. This job is the integrated proof.
+    name: "Bare bootstrap-from-zero (Linux)"
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      MPLBACKEND: Agg
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install uv (with wheel cache)
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Cache torch hub weights + raitap sample data
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/torch
+            ~/.cache/raitap
+          key: bare-bootstrap-assets-v1-${{ hashFiles('src/raitap/configs/demo.yaml') }}
+          restore-keys: |
+            bare-bootstrap-assets-v1-
+
+      - name: Create bare consumer project (outside the raitap repo)
+        # ``uv add`` needs a project pyproject.toml in cwd to operate. Build a
+        # throwaway one in /tmp that depends on bare ``raitap`` from the
+        # checkout — no extras pinned. This is the exact "first-time user"
+        # state the get-it-running docs imply.
+        run: |
+          mkdir -p /tmp/bare-consumer
+          cd /tmp/bare-consumer
+          cat > pyproject.toml <<EOF
+          [project]
+          name = "bare-consumer"
+          version = "0.0.0"
+          requires-python = ">=3.11,<3.14"
+          dependencies = ["raitap"]
+
+          [tool.uv]
+          package = false
+
+          [tool.uv.sources]
+          raitap = { path = "${GITHUB_WORKSPACE}", editable = false }
+          EOF
+          uv sync
+
+      - name: Run demo end-to-end via bootstrap-from-zero
+        # ``-y`` consents to ``uv add`` mutating the throwaway pyproject. The
+        # bootstrap probes the GH ubuntu host (no GPU) → infers ``torch-cpu``
+        # + adapter extras from the demo cfg → installs → re-execs → runs.
+        working-directory: /tmp/bare-consumer
+        run: |
+          set -o pipefail
+          uv run raitap --demo -y 2>&1 | tee run.log
+
+      - name: Assert bootstrap fired with torch-cpu + pipeline produced outputs
+        working-directory: /tmp/bare-consumer
+        run: |
+          grep -F "torch-cpu" run.log
+          grep -F "uv add raitap[" run.log
+          test -d outputs
+          find outputs -type f | head -20

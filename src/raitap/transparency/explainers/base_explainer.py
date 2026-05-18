@@ -7,13 +7,16 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-import torch
+from raitap._adapters import AdapterMixin
+from raitap.configs import resolve_run_dir
+from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-from raitap._adapters import AdapterMixin
-from raitap.configs import resolve_run_dir
+    import torch
+else:
+    torch = lazy_import("torch")
 
 from ..contracts import (
     ExplanationOutputSpace,

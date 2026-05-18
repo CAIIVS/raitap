@@ -55,12 +55,6 @@ class ModelConfig:
     # before loading the state-dict. Usually ``False`` since weights come from
     # the state-dict itself.
     pretrained: bool = False
-    # Opt-in to loading checkpoints that require unsafe pickle deserialisation
-    # (i.e. pickled ``nn.Module`` files that fail ``weights_only=True``). This
-    # executes arbitrary code embedded in the file and MUST only be enabled for
-    # checkpoints from a fully trusted source. Default refuses such files and
-    # asks the user to re-save as a state-dict or TorchScript archive.
-    allow_unsafe_pickle: bool = False
 
 
 @dataclass
@@ -89,6 +83,27 @@ class DataConfig:
     source: str | None = None
     # Optional model-forward batch size for predictions/metrics. None uses the pipeline default.
     forward_batch_size: int | None = None
+    # Data-side preprocessing applied per-image in the loader, before the
+    # batch is stacked. Typical contents: Resize, CenterCrop. Independent of
+    # ``model_input_transformation``. Accepts:
+    #   - ``None`` (default): no data preprocessing.
+    #   - ``Preprocessing.model_bundled`` (or the string ``"model-bundled"``):
+    #     pull Resize + CenterCrop from the resolved torchvision arch's bundled
+    #     preset (``Weights.transforms()``).
+    #   - path to a ``.py`` file with an ``@raitap_preprocessing_factory``.
+    # File loading is gated by ``acknowledge_preprocessing_exec`` (Python API)
+    # or ``--allow-preprocessing-exec`` / ``-yp`` (CLI).
+    preprocessing: str | None = None
+    # Transformation applied at the model boundary, on every forward pass.
+    # Stays inside autograd so attribution and adversarial budgets see the
+    # user-facing input space. Typical contents: Normalize. Independent of
+    # ``preprocessing``. Same accepted values as ``preprocessing`` but the
+    # file factory must be decorated with
+    # ``@raitap_model_input_transformation_factory``.
+    # When both knobs are ``None`` and inputs are images, a loud warning fires
+    # at startup; silence with ``acknowledge_preprocessing_off`` /
+    # ``--acknowledge-preprocessing-off``.
+    model_input_transformation: str | None = None
     # Optional input-modality metadata (``kind``, ``feature_names``, ``layout``, ...).
     # Forwarded to ``infer_input_spec`` so semantics and visualisers see the correct
     # modality for non-image data such as ACAS Xu's 5-feature tabular vector.

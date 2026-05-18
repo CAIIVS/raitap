@@ -16,15 +16,22 @@ Order of attempts when `model.source` points at a `.pt` or `.pth` file:
 2. **state_dict** — if `torch.load` returns a `dict`, RAITAP instantiates
    a torchvision architecture from `model.arch` + `model.num_classes`,
    then calls `load_state_dict(strict=True)`.
-3. **Pickled `nn.Module`** — if `torch.load` returns an `nn.Module`,
-   RAITAP returns it directly and emits a `DeprecationWarning`. This path
-   is supported but discouraged: pickled modules embed fully-qualified
-   class paths, so renames or torchvision version bumps break unpickling.
+3. **Pickled `nn.Module`** — if `torch.load` with `weights_only=True`
+   rejects the checkpoint, RAITAP refuses it unless the caller supplied
+   explicit consent at invocation time via the `allow_unsafe_pickle=True`
+   kwarg on `raitap.run(...)` (Python API) or the `--allow-unsafe-pickle`
+   CLI flag (surfaced through the `RAITAP_ALLOW_UNSAFE_PICKLE` env var the
+   bootstrap exports across re-exec). With that explicit opt-in, RAITAP
+   reloads with `weights_only=False`, returns the module directly, and
+   emits a `DeprecationWarning`. This path executes arbitrary code
+   embedded in the file and should only be used for fully trusted sources.
 
 ## Config examples
 
 ```yaml
-# A — full pickled nn.Module (deprecated):
+# A — full pickled nn.Module (deprecated). Consent is supplied at invocation
+# time, not in the config: pass `allow_unsafe_pickle=True` to
+# `raitap.run(...)` or re-run the CLI with `--allow-unsafe-pickle`.
 model:
   source: "model.pth"
 

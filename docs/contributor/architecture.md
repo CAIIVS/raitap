@@ -29,12 +29,12 @@ flowchart TB
   D1 -->|re-exec| D
   D --> E[raitap.pipeline.__main__]
   E --> F["@hydra.main composes config"]
-  F --> G[raitap.pipeline.orchestrator.run]
+  F --> G[raitap.pipeline.orchestrator._run_pipeline]
   G --> H[forward · metrics · transparency · robustness]
   H --> I[reporting + tracking]
 ```
 
-In prose: the CLI entry (`raitap.cli.main`) routes to either the tracking-stop subcommand or the standard flow. The standard flow loads the demo config (`--demo`) or parses user args, then calls `raitap.deps.bootstrap.maybe_bootstrap` to install missing extras and re-exec if needed. Once extras are pinned, control passes to `raitap.pipeline.__main__` (a `@hydra.main` entry that composes the config) then to `raitap.pipeline.orchestrator.run`, which executes the forward / metrics / transparency / robustness phases in order before handing off to reporting and tracking. Programmatic callers skip the CLI + bootstrap and call `raitap.run(cfg, ...)` (defined in `raitap.api`) directly.
+In prose: the CLI entry (`raitap.cli.main`) routes to either the tracking-stop subcommand or the standard flow. The standard flow loads the demo config (`--demo`) or parses user args, then calls `raitap.deps.bootstrap.maybe_bootstrap` to install missing extras and re-exec if needed. Once extras are pinned, control passes to `raitap.pipeline.__main__` (a `@hydra.main` entry that composes the config) then to `raitap.pipeline.orchestrator._run_pipeline`, which executes the forward / metrics / transparency / robustness phases in order before handing off to reporting and tracking. Programmatic callers skip the CLI + bootstrap and call `raitap.run(cfg, ...)` (defined in `raitap.api`) directly.
 
 ## Adapter registration
 
@@ -51,7 +51,7 @@ src/
 └── raitap/
     ├── __init__.py                 # lazy `__getattr__` resolves `raitap.<family>.<name>` via `_adapters.lookup`
     ├── __about__.py                # version + metadata constants
-    ├── api.py                      # programmatic entry: `run(cfg, *, auto_install=False, ...)`
+    ├── api.py                      # programmatic entry: `run(cfg, *, auto_install_deps=False, ...)`
     ├── cli.py                      # console-script entry; tracking-stop subcommand, --demo, help frame, then deps bootstrap
     ├── docs_preview.py             # `docs-preview` console-script: serves built Sphinx output for local preview
     ├── types.py                    # `Hardware` enum + small shared types
@@ -74,6 +74,11 @@ src/
     │   └── tracking/mlflow.yaml
     │
     ├── deps/                       # pre-pipeline dep inference + auto-sync (torch-free)
+    │   │                           # The "torch-free" promise is what unlocks bootstrap-from-zero
+    │   │                           # (bare `pip install raitap` → `raitap --demo`). It rests on
+    │   │                           # every adapter family `__init__` staying free of top-level
+    │   │                           # backend-lib imports — see `raitap.utils.lazy` for the contract
+    │   │                           # and `deps/tests/test_bootstrap_from_zero.py` for the guard.
     │   ├── bootstrap.py            # maybe_bootstrap(): top-level flow + case A/B/C/D dispatch
     │   ├── inference.py            # walks composed config, picks extras from `_target_` mapping
     │   ├── availability.py         # reads raitap pyproject for declared extras + platform markers
@@ -84,8 +89,8 @@ src/
     │   └── frame.py                # rich panels for deps status + error frames
     │
     ├── pipeline/                   # the assessment run, split by phase
-    │   ├── __main__.py             # @hydra.main entry; composes config (incl. raitap_schema) → orchestrator.run()
-    │   ├── orchestrator.py         # run() + run_without_tracking() — wires the phases together; tracker context
+    │   ├── __main__.py             # @hydra.main entry; composes config (incl. raitap_schema) → orchestrator._run_pipeline()
+    │   ├── orchestrator.py         # _run_pipeline() + run_without_tracking() — wires the phases together; tracker context
     │   ├── ui.py                   # print_summary() — the rich panel banner
     │   ├── outputs.py              # PredictionSummary + RunOutputs dataclasses (typed return)
     │   └── phases/                 # one file per phase; filename matches the public function

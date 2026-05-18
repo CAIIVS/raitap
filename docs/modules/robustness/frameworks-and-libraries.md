@@ -122,6 +122,15 @@ verification for L∞ box perturbations over static-shape ONNX MLPs. Verdicts
 land in `RobustnessResult.verdicts` (`VERIFIED` / `FALSIFIED` / `UNKNOWN` /
 `ERROR`) and counter-examples in `perturbed_inputs`.
 
+Marabou reads and reasons over the bare ONNX graph and bypasses every
+Python preprocessing module — `data.preprocessing` and
+`data.model_input_transformation` are skipped regardless of origin
+(custom-file modules that the ONNX tensor backend would normally apply
+are not invoked by Marabou). `model-bundled` preprocessing is not
+available for ONNX models at all. Preprocess inputs before export or
+encode the preprocessing directly in the ONNX graph if the formal
+property must include it.
+
 #### Algorithms
 
 | `algorithm` | Property |

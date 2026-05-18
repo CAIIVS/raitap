@@ -9,9 +9,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
-import torch
 
 from raitap import raitap_log
+from raitap.utils.lazy import lazy_import
+
+if TYPE_CHECKING:
+    import torch
+else:
+    torch = lazy_import("torch")
 from raitap.configs import resolve_run_dir
 from raitap.pipeline.outputs import PredictionSummary, RunOutputs
 from raitap.robustness.contracts import MethodKind

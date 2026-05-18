@@ -15,6 +15,7 @@ from raitap.configs.adapter_factory import (
     parse_adapter_config,
     raw_config_dict,
     resolve_call_data_sources,
+    resolve_per_image_transform,
 )
 from raitap.models.backend import ModelBackend
 from raitap.utils.errors import SampleNamesLengthError
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
     import torch
 
     from raitap.configs.schema import AppConfig
+    from raitap.data.preprocessing import ResolvedPreprocessing
     from raitap.models import Model
 
     from .results import RobustnessResult
@@ -114,6 +116,8 @@ class RobustnessAssessment:
         input_metadata: Any | None = None,
         sample_ids: list[str] | None = None,
         sample_names: list[str] | None = None,
+        *,
+        resolved_preprocessing: ResolvedPreprocessing | None = None,
         **kwargs: Any,
     ) -> RobustnessResult:
         if targets is None:
@@ -151,7 +155,12 @@ class RobustnessAssessment:
                     )
 
             merged_kwargs = resolve_call_data_sources(
-                {**call_from_config, **kwargs}, log_label="robustness call"
+                {**call_from_config, **kwargs},
+                log_label="robustness call",
+                per_image_transform=resolve_per_image_transform(
+                    config,
+                    resolved_preprocessing=resolved_preprocessing,
+                ),
             )
             merged_kwargs = backend._prepare_kwargs(merged_kwargs)
 

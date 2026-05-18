@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
     from raitap.configs.schema import AppConfig
     from raitap.data import Data
+    from raitap.data.preprocessing import ResolvedPreprocessing
     from raitap.models import Model
     from raitap.robustness.results import RobustnessResult, RobustnessVisualisationResult
     from raitap.transparency.contracts import InputSpec
@@ -57,6 +58,7 @@ def assess_robustness(
     *,
     labels: torch.Tensor | None,
     input_metadata: InputSpec | None,
+    resolved_preprocessing: ResolvedPreprocessing | None = None,
 ) -> tuple[list[RobustnessResult], list[RobustnessVisualisationResult]]:
     """Run every assessor declared under ``config.robustness``.
 
@@ -83,6 +85,7 @@ def assess_robustness(
             input_metadata=input_metadata,
             sample_ids=data.sample_ids,
             sample_names=data.sample_ids,
+            resolved_preprocessing=resolved_preprocessing,
         )
         results.append(result)
         visualisations.extend(result.visualise())

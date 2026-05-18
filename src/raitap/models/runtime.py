@@ -2,13 +2,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import torch
-
 from raitap import raitap_log
 from raitap.types import Hardware
+from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    import torch
+else:
+    torch = lazy_import("torch")
 
 _VALID_HARDWARE = frozenset(member.value for member in Hardware)
 _ONNX_RUNTIME_INSTALL_HINT = (

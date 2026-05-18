@@ -109,7 +109,7 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 ### Auto-installing extras from Python
 
-The `raitap` CLI walks the composed Hydra config before any heavy import, then installs the matching extras via `uv add` / `uv sync` (the `--allow-project-edit` / `-y` flow). The Python entry point gets the same flow by passing `auto_install=True` to `run`:
+The `raitap` CLI walks the composed Hydra config before any heavy import, then installs the matching extras via `uv add` / `uv sync` (the `--allow-project-edit` / `-y` flow). The Python entry point gets the same flow by passing `auto_install_deps=True` to `run`:
 
 ```python
 from raitap import AppConfig, Hardware, run
@@ -128,14 +128,14 @@ cfg = AppConfig(
     robustness={"pgd": torchattacks(algorithm="PGD", constructor={"eps": 0.03}, visualisers=[image_pair()])},
     reporting=html(filename="report"),
 )
-run(cfg, auto_install=True)
+run(cfg, auto_install_deps=True)
 ```
 
-Why this works in a venv with **no extras installed yet**: every adapter module wraps its third-party library imports in `raitap.utils.lazy.lazy_import`, so importing `from raitap.metrics import classification` does not pull `torchmetrics` at module load — only when you later instantiate the wrapped class. With `auto_install=True`, `run` walks the cfg, infers the extras (it reads `_target_` strings the builders bake in), runs `uv add raitap[<extras>]`, and re-execs the script so the freshly-installed packages are visible when the pipeline actually invokes them. Idempotent: a sentinel env var short-circuits the second pass after the re-exec, so the same script line runs once and then becomes a no-op on the relaunch.
+Why this works in a venv with **no extras installed yet**: every adapter module wraps its third-party library imports in `raitap.utils.lazy.lazy_import`, so importing `from raitap.metrics import classification` does not pull `torchmetrics` at module load — only when you later instantiate the wrapped class. With `auto_install_deps=True`, `run` walks the cfg, infers the extras (it reads `_target_` strings the builders bake in), runs `uv add raitap[<extras>]`, and re-execs the script so the freshly-installed packages are visible when the pipeline actually invokes them. Idempotent: a sentinel env var short-circuits the second pass after the re-exec, so the same script line runs once and then becomes a no-op on the relaunch.
 
-`auto_install` is opt-in. Without it `run(cfg)` assumes the extras the config references are already installed — the typical case after a CLI bootstrap or a manual `uv sync`. A missing adapter library surfaces as the usual `ModuleNotFoundError` from the adapter import chain.
+`auto_install_deps` is opt-in. Without it `run(cfg)` assumes the extras the config references are already installed — the typical case after a CLI bootstrap or a manual `uv sync`. A missing adapter library surfaces as the usual `ModuleNotFoundError` from the adapter import chain.
 
-Pass `exec_global=True` together with `auto_install=True` to consent to the bare-`pip install` fallback when no venv is active (the pip-side analogue of the CLI's `--exec-global`).
+Pass `exec_global=True` together with `auto_install_deps=True` to consent to the bare-`pip install` fallback when no venv is active (the pip-side analogue of the CLI's `--exec-global`).
 
 Each module exposes [hydra-zen `builds`](https://mit-ll-responsible-ai.github.io/hydra-zen/) factories — one per adapter — derived automatically from the class declaration. Import them from the relevant module:
 

@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 import pytest
 
-_WRAPPED_LIBS = ("mlflow",)
+_WRAPPED_LIBS = ("torch", "torch.nn", "torchvision", "mlflow")
 
 _ADAPTER_MODULES = (
     "raitap.tracking",

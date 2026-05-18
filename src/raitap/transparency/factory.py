@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-import torch
 from hydra.utils import instantiate
 
 from raitap import raitap_log
@@ -15,9 +14,11 @@ from raitap.configs.adapter_factory import (
     parse_adapter_config,
     raw_config_dict,
     resolve_call_data_sources,
+    resolve_per_image_transform,
 )
 from raitap.models.backend import ModelBackend
 from raitap.utils.errors import SampleNamesLengthError
+from raitap.utils.lazy import lazy_import
 
 from .algorithm_allowlist import ensure_algorithm_in_allowlist
 from .contracts import (
@@ -39,7 +40,10 @@ if TYPE_CHECKING:
     from raitap.models import Model
 
     from ..configs.schema import AppConfig
+    from ..data.preprocessing import ResolvedPreprocessing
     from .results import ExplanationResult
+else:
+    torch = lazy_import("torch")
 
 _TRANSPARENCY_PREFIX = "raitap.transparency."
 
@@ -164,6 +168,8 @@ class Explanation:
         input_metadata: InputSpec | dict[str, Any] | None = None,
         sample_ids: list[str] | None = None,
         sample_names: list[str] | None = None,
+        *,
+        resolved_preprocessing: ResolvedPreprocessing | None = None,
         **kwargs: Any,
     ) -> ExplanationResult:
         explainer_config = config.transparency[explainer_name]
@@ -211,7 +217,12 @@ class Explanation:
                     )
 
             merged_kwargs = resolve_call_data_sources(
-                {**call_from_config, **kwargs}, log_label="call"
+                {**call_from_config, **kwargs},
+                log_label="call",
+                per_image_transform=resolve_per_image_transform(
+                    config,
+                    resolved_preprocessing=resolved_preprocessing,
+                ),
             )
             merged_kwargs = backend._prepare_kwargs(merged_kwargs)
 

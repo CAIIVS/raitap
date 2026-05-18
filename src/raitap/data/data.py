@@ -7,18 +7,26 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
-import torch
 from PIL import Image
 
 from raitap import raitap_log
+from raitap.data.preprocessing import module_as_per_image_callable, resolve_preprocessing
 from raitap.data.types import IdStrategy, LabelEncoding
 from raitap.data.utils import download_file
 from raitap.tracking.base_tracker import BaseTracker, Trackable
+from raitap.utils.lazy import lazy_import
 
 from .samples import SAMPLE_SOURCES, _load_sample, resolve_sample_labels_path
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    import torch
+
     from raitap.configs.schema import AppConfig
+    from raitap.data.preprocessing import ResolvedPreprocessing
+else:
+    torch = lazy_import("torch")
 
 
 _CACHE_DIR = Path.home() / ".cache" / "raitap"
@@ -34,13 +42,26 @@ class SourceKind(StrEnum):
 
 
 class Data(Trackable):
-    def __init__(self, cfg: AppConfig) -> None:
+    def __init__(
+        self,
+        cfg: AppConfig,
+        *,
+        resolved_preprocessing: ResolvedPreprocessing | None = None,
+    ) -> None:
         self.name = cfg.data.name
         self.source = cfg.data.source
-        self.tensor, self.sample_ids = self._load_data(cfg)
+        self.tensor, self.sample_ids = self._load_data(
+            cfg,
+            resolved_preprocessing=resolved_preprocessing,
+        )
         self.labels = self._load_labels(cfg)
 
-    def _load_data(self, cfg: AppConfig) -> tuple[torch.Tensor, list[str] | None]:
+    def _load_data(
+        self,
+        cfg: AppConfig,
+        *,
+        resolved_preprocessing: ResolvedPreprocessing | None = None,
+    ) -> tuple[torch.Tensor, list[str] | None]:
         """
         Load data from a specified source into a raw tensor.
 
@@ -66,12 +87,29 @@ class Data(Trackable):
                 "Use a local path or a named sample set, e.g.: data=imagenet_samples"
             )
 
+        # Use the run-level resolution when the orchestrator supplies it. Direct
+        # ``Data(config)`` callers keep the legacy fallback path.
+        if resolved_preprocessing is not None:
+            data_module = resolved_preprocessing.data_module
+        else:
+            model_cfg = getattr(cfg, "model", None)
+            if model_cfg is None:
+                data_module = None
+            else:
+                resolved = resolve_preprocessing(model_cfg, cfg.data)
+                data_module = resolved.data_module
+        per_image_transform = module_as_per_image_callable(data_module)
+
         # Demo samples need their own loader: source images have inconsistent
         # dimensions and ``_load_sample`` resizes them to a common shape so
         # they can be stacked. The generic dir-loader expects pre-aligned
         # shapes and would fail on raw demo images.
         if source in SAMPLE_SOURCES:
-            return _load_sample(source)
+            # Forward the per-image transform so ``_load_sample`` loads images
+            # at their native resolution instead of pre-squashing them to
+            # ``_DEMO_SIZE`` before the bundled Resize/CenterCrop sees them.
+            tensor, sample_ids = _load_sample(source, per_image_transform=per_image_transform)
+            return tensor, sample_ids
 
         path = get_source_path(source, kind=SourceKind.DATA)
 
@@ -84,10 +122,13 @@ class Data(Trackable):
                     "Separate them into different directories."
                 )
             if image_files:
-                tensor = torch.from_numpy(_stack_images_numpy(image_files))
+                tensor = torch.from_numpy(
+                    _stack_images_numpy(image_files, per_image_transform=per_image_transform)
+                )
                 return tensor, _resolve_sample_ids(image_files, root=path)
             if tabular_files:
-                return torch.from_numpy(_concat_tabular_numpy(tabular_files)), None
+                tensor = torch.from_numpy(_concat_tabular_numpy(tabular_files))
+                return _apply_data_module_to_batch(data_module, tensor), None
             raise FileNotFoundError(
                 f"No supported files found in {path}.\n"
                 f"Supported image formats: {_IMAGE_EXTENSIONS}\n"
@@ -96,9 +137,12 @@ class Data(Trackable):
 
         suffix = path.suffix.lower()
         if suffix in _IMAGE_EXTENSIONS:
-            return _load_images(path), _resolve_sample_ids([path], root=path.parent)
+            return (
+                _load_images(path, per_image_transform=per_image_transform),
+                _resolve_sample_ids([path], root=path.parent),
+            )
         if suffix in _TABULAR_EXTENSIONS:
-            return _load_tabular(path), None
+            return _apply_data_module_to_batch(data_module, _load_tabular(path)), None
 
         raise ValueError(
             f"Cannot infer data type from extension {suffix!r}.\n"
@@ -187,17 +231,28 @@ class Data(Trackable):
         tracker.log_dataset(self.describe())
 
 
-def load_tensor_from_source(source: str, n_samples: int | None = None) -> torch.Tensor:
+def load_tensor_from_source(
+    source: str,
+    n_samples: int | None = None,
+    *,
+    per_image_transform: Callable[[torch.Tensor], torch.Tensor] | None = None,
+) -> torch.Tensor:
     """
     Load a raw tensor from a named demo sample, URL, or local path.
 
     This is the same loading logic used by :class:`Data`, but without label handling.
-    Useful for loading background data for SHAP explainers.
+    Useful for loading background data for SHAP explainers and other call-kwarg
+    data-source references resolved by ``resolve_call_data_sources``.
 
     Args:
         source: Named demo sample (e.g. ``"imagenet_samples"``), URL, or local path.
         n_samples: If set, randomly subsample *n_samples* rows from the loaded tensor.
             Useful for keeping background datasets small (e.g. for KernelExplainer).
+        per_image_transform: Optional shape-normalising transform (Resize +
+            CenterCrop) applied per-image so mixed-size image directories can
+            be stacked. Mirrors the data-side preprocessing applied to the
+            primary ``Data.tensor`` so explainer/assessor call-data tensors
+            match the assessed input shape.
 
     Returns:
         Raw tensor of shape ``(N, ...)`` where *N* is the number of samples.
@@ -207,9 +262,12 @@ def load_tensor_from_source(source: str, n_samples: int | None = None) -> torch.
             or the file type is not supported.
     """
     if source in SAMPLE_SOURCES:
-        tensor, _ = _load_sample(source)
+        tensor, _ = _load_sample(source, per_image_transform=per_image_transform)
     else:
-        tensor = _load_tensor_from_path(get_source_path(source, kind=SourceKind.DATA))
+        tensor = _load_tensor_from_path(
+            get_source_path(source, kind=SourceKind.DATA),
+            per_image_transform=per_image_transform,
+        )
 
     if n_samples is not None and tensor.shape[0] > n_samples:
         indices = torch.randperm(tensor.shape[0])[:n_samples]
@@ -218,7 +276,12 @@ def load_tensor_from_source(source: str, n_samples: int | None = None) -> torch.
     return tensor
 
 
-def load_numpy_from_source(source: str, n_samples: int | None = None) -> np.ndarray[Any, Any]:
+def load_numpy_from_source(
+    source: str,
+    n_samples: int | None = None,
+    *,
+    per_image_transform: Callable[[torch.Tensor], torch.Tensor] | None = None,
+) -> np.ndarray[Any, Any]:
     """
     Load data as a NumPy array using the same resolution rules as :func:`load_tensor_from_source`.
 
@@ -227,10 +290,13 @@ def load_numpy_from_source(source: str, n_samples: int | None = None) -> np.ndar
     all other paths are torch-free.
     """
     if source in SAMPLE_SOURCES:
-        sample_tensor, _ = _load_sample(source)
+        sample_tensor, _ = _load_sample(source, per_image_transform=per_image_transform)
         arr: np.ndarray[Any, Any] = sample_tensor.numpy()
     else:
-        arr = _load_numpy_from_path(get_source_path(source, kind=SourceKind.DATA))
+        arr = _load_numpy_from_path(
+            get_source_path(source, kind=SourceKind.DATA),
+            per_image_transform=per_image_transform,
+        )
 
     if n_samples is not None and arr.shape[0] > n_samples:
         rng = np.random.default_rng()
@@ -240,7 +306,11 @@ def load_numpy_from_source(source: str, n_samples: int | None = None) -> np.ndar
     return arr
 
 
-def _load_numpy_from_path(path: Path) -> np.ndarray[Any, Any]:
+def _load_numpy_from_path(
+    path: Path,
+    *,
+    per_image_transform: Callable[[torch.Tensor], torch.Tensor] | None = None,
+) -> np.ndarray[Any, Any]:
     """Load a numpy array from a single file or directory (no sample IDs returned)."""
     if path.is_dir():
         image_files = _list_images_recursive(path)
@@ -251,7 +321,7 @@ def _load_numpy_from_path(path: Path) -> np.ndarray[Any, Any]:
                 "Separate them into different directories."
             )
         if image_files:
-            return _stack_images_numpy(image_files)
+            return _stack_images_numpy(image_files, per_image_transform=per_image_transform)
         if tabular_files:
             return _concat_tabular_numpy(tabular_files)
         raise FileNotFoundError(
@@ -262,7 +332,7 @@ def _load_numpy_from_path(path: Path) -> np.ndarray[Any, Any]:
 
     suffix = path.suffix.lower()
     if suffix in _IMAGE_EXTENSIONS:
-        return _load_images_numpy(path)
+        return _load_images_numpy(path, per_image_transform=per_image_transform)
     if suffix in _TABULAR_EXTENSIONS:
         return _load_tabular_numpy(path)
     raise ValueError(
@@ -272,9 +342,13 @@ def _load_numpy_from_path(path: Path) -> np.ndarray[Any, Any]:
     )
 
 
-def _load_tensor_from_path(path: Path) -> torch.Tensor:
+def _load_tensor_from_path(
+    path: Path,
+    *,
+    per_image_transform: Callable[[torch.Tensor], torch.Tensor] | None = None,
+) -> torch.Tensor:
     """Load a tensor from a single file or a directory (no sample IDs returned)."""
-    return torch.from_numpy(_load_numpy_from_path(path))
+    return torch.from_numpy(_load_numpy_from_path(path, per_image_transform=per_image_transform))
 
 
 def get_source_path(source: str, *, kind: SourceKind = SourceKind.DATA) -> Path:
@@ -355,24 +429,45 @@ def _list_tabular_recursive(root: Path) -> list[Path]:
     return sorted(files, key=lambda p: p.relative_to(root).as_posix())
 
 
-def _stack_images_numpy(files: list[Path]) -> np.ndarray[Any, Any]:
-    """Stack pre-discovered image files into an NCHW float32 array in [0, 1]."""
+def _stack_images_numpy(
+    files: list[Path],
+    *,
+    per_image_transform: Callable[[torch.Tensor], torch.Tensor] | None = None,
+) -> np.ndarray[Any, Any]:
+    """Stack pre-discovered image files into an NCHW float32 array in [0, 1].
+
+    When ``per_image_transform`` is supplied, it runs on each per-image
+    ``(C, H, W)`` tensor before stacking — this is how the resolver's shape
+    half (Resize + CenterCrop) normalises mixed-size directories so they can
+    be batched.
+    """
     arrays = []
     for f in files:
         arr = np.array(Image.open(f).convert("RGB"))  # HWC uint8
-        arrays.append(arr.transpose(2, 0, 1).astype(np.float32) / 255.0)  # CHW float32
+        chw = arr.transpose(2, 0, 1).astype(np.float32) / 255.0  # CHW float32
+        if per_image_transform is not None:
+            chw = per_image_transform(torch.from_numpy(chw)).numpy()
+        arrays.append(chw)
 
     try:
         return np.stack(arrays)  # NCHW float32
     except ValueError:
         sizes = {arr.shape for arr in arrays}
+        hint = (
+            "Set `data.preprocessing: model-bundled` so the model's bundled "
+            "Resize/CenterCrop runs per-image before stacking, or pre-resize "
+            "your images externally."
+        )
         raise ValueError(
-            f"Images have inconsistent shapes: {sizes}. "
-            "Resize them to a common size before loading."
+            f"Images have inconsistent shapes after preprocessing: {sizes}. {hint}"
         ) from None
 
 
-def _load_images_numpy(path: Path) -> np.ndarray[Any, Any]:
+def _load_images_numpy(
+    path: Path,
+    *,
+    per_image_transform: Callable[[torch.Tensor], torch.Tensor] | None = None,
+) -> np.ndarray[Any, Any]:
     """Load image files from a directory (or a single file) as NCHW float32 arrays in [0, 1]."""
     if path.is_dir():
         files = _list_images_recursive(path)
@@ -380,12 +475,33 @@ def _load_images_numpy(path: Path) -> np.ndarray[Any, Any]:
             raise FileNotFoundError(f"No image files found in {path}")
     else:
         files = [path]
-    return _stack_images_numpy(files)
+    return _stack_images_numpy(files, per_image_transform=per_image_transform)
 
 
-def _load_images(path: Path) -> torch.Tensor:
+def _load_images(
+    path: Path,
+    *,
+    per_image_transform: Callable[[torch.Tensor], torch.Tensor] | None = None,
+) -> torch.Tensor:
     """Load image files from a directory (or a single file) as raw (C, H, W) tensors."""
-    return torch.from_numpy(_load_images_numpy(path))
+    return torch.from_numpy(_load_images_numpy(path, per_image_transform=per_image_transform))
+
+
+def _apply_data_module_to_batch(
+    module: Any | None,
+    tensor: torch.Tensor,
+) -> torch.Tensor:
+    """Apply ``data_module`` to an already-stacked tabular tensor.
+
+    Images go through ``per_image_transform`` while loading because mixed
+    sizes can only be stacked after a Resize step. Tabular rows are always
+    uniform, so the module is applied once on the whole ``(N, F)`` batch.
+    """
+    if module is None:
+        return tensor
+    module.eval()
+    with torch.no_grad():
+        return module(tensor)
 
 
 def _load_tabular_numpy(path: Path) -> np.ndarray[Any, Any]:

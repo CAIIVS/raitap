@@ -39,8 +39,11 @@ if TYPE_CHECKING:
         *,
         verbose: bool = True,
         output_root: str | None = None,
-        auto_install: bool = False,
+        auto_install_deps: bool = False,
         exec_global: bool = False,
+        acknowledge_preprocessing_off: bool = False,
+        acknowledge_preprocessing_exec: bool = False,
+        allow_unsafe_pickle: bool = False,
     ) -> RunOutputs: ...
 
 

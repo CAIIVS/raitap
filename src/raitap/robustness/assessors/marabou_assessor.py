@@ -24,7 +24,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-import torch
+
+from raitap.utils.lazy import lazy_import
+
+if TYPE_CHECKING:
+    import torch
+else:
+    torch = lazy_import("torch")
 
 from ..contracts import (
     MethodKind,

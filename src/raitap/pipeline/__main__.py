@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 import hydra
 
-from raitap.pipeline.orchestrator import run
+from raitap.pipeline.orchestrator import _run_pipeline
 from raitap.utils.console import (
     print_complete_panel,
     print_failure_panel,
@@ -73,7 +73,7 @@ def _hydra_main(config: AppConfig) -> None:
     setup_logging(level=logging.INFO)
     start_time = time.perf_counter()
     try:
-        run(config)
+        _run_pipeline(config)
     except Exception as exc:
         duration = _format_duration(time.perf_counter() - start_time)
         print_failure_panel(exc, duration)

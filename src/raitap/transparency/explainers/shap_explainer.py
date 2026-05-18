@@ -5,10 +5,15 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any, cast
 
-import torch
-import torch.nn as nn
-
 from raitap import raitap_log
+from raitap.utils.lazy import lazy_import
+
+if TYPE_CHECKING:
+    import torch
+    from torch import nn
+else:
+    torch = lazy_import("torch")
+    nn = lazy_import("torch.nn")
 from raitap.transparency.contracts import MethodFamily
 from raitap.transparency.explainers.registration import register_transparency_adapter
 
