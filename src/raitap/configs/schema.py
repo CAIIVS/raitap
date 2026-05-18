@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 from omegaconf import MISSING
 
 from raitap.data.types import IdStrategy, LabelEncoding
-from raitap.types import Hardware, Task
+from raitap.types import Hardware
 
 if TYPE_CHECKING:
     from raitap.metrics.classification_metrics import Average as ClassificationAverage
@@ -18,6 +18,20 @@ if TYPE_CHECKING:
         BoxFormat,
         IoUType,
     )
+else:
+    # Runtime aliases so omegaconf's ``get_type_hints()`` can resolve the
+    # string-form annotations on the dataclasses below without importing the
+    # metrics package (which would create a circular import: metrics modules
+    # depend on this schema for their typed configs). omegaconf does not
+    # natively support ``Literal`` types, so the runtime fallback widens to
+    # ``str``; the canonical narrow ``Literal`` definitions live in the
+    # respective metrics modules and are enforced by adapter ``__init__``
+    # validation.
+    ClassificationAverage = str
+    DetectionAverage = str
+    Backend = str
+    BoxFormat = str
+    IoUType = Any
 
 
 @dataclass
@@ -152,8 +166,6 @@ class RobustnessConfig:
 @dataclass
 class MetricsConfig:
     _target_: str = MISSING
-    task: Task = Task.multiclass
-    num_classes: int | None = None
 
 
 @dataclass
