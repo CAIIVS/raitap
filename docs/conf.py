@@ -99,6 +99,9 @@ nitpick_ignore_regex = [
     # Private adapter-registration mixin; intentionally not in the public API
     # reference but appears as an inherited base in autodoc class chains.
     (r"py:class", r"raitap\._adapters\.AdapterMixin"),
+    # Private mixin sharing torchmetrics quartet wiring across the three
+    # ClassificationMetrics task adapters; not a public class.
+    (r"py:class", r"raitap\.metrics\.classification_metrics\._ClassificationBase"),
     # WithAlgorithmRegistry[T] generic params + forward-string narrowings.
     (r"py:obj", r"raitap\.registry_base\.T"),
     (r"py:class", r"AssessorSemanticsHints"),

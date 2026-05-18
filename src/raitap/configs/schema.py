@@ -1,12 +1,41 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from omegaconf import MISSING
 
 from raitap.data.types import IdStrategy, LabelEncoding
-from raitap.types import Hardware, Task
+from raitap.types import Hardware
+
+if TYPE_CHECKING:
+    from raitap.metrics.classification_metrics import Average as ClassificationAverage
+    from raitap.metrics.detection_metrics import (
+        Average as DetectionAverage,
+    )
+    from raitap.metrics.detection_metrics import (
+        Backend,
+        BoxFormat,
+        IoUType,
+    )
+else:
+    # Runtime aliases so omegaconf's ``get_type_hints()`` can resolve the
+    # string-form annotations on the dataclasses below without importing the
+    # metrics package (which would create a circular import: metrics modules
+    # depend on this schema for their typed configs). omegaconf does not
+    # natively support ``Literal`` types, so the runtime fallback widens to
+    # ``str``; the canonical narrow ``Literal`` definitions live in the
+    # respective metrics modules and are enforced by adapter ``__init__``
+    # validation.
+    ClassificationAverage = str
+    DetectionAverage = str
+    Backend = str
+    BoxFormat = str
+    # ``IoUType`` real type is ``str | tuple[str, ...]`` — omegaconf rejects
+    # unions of primitives and containers ("Unions of containers are not
+    # supported"), so the runtime alias has to stay ``Any``. The narrow
+    # ``Literal`` definition lives in ``raitap.metrics.detection_metrics``.
+    IoUType = Any
 
 
 @dataclass
@@ -153,8 +182,49 @@ class RobustnessConfig:
 @dataclass
 class MetricsConfig:
     _target_: str = MISSING
-    task: Task = Task.multiclass
-    num_classes: int | None = None
+
+
+@dataclass
+class IoUConfig:
+    type: IoUType = "bbox"
+    thresholds: list[float] | None = None
+    rec_thresholds: list[float] | None = None
+    max_detection_thresholds: list[int] | None = None
+
+
+@dataclass
+class BinaryClassificationMetricsConfig(MetricsConfig):
+    _target_: str = "BinaryClassificationMetrics"
+    ignore_index: int | None = None
+    threshold: float = 0.5
+
+
+@dataclass
+class MulticlassClassificationMetricsConfig(MetricsConfig):
+    _target_: str = "MulticlassClassificationMetrics"
+    num_classes: int = MISSING
+    average: ClassificationAverage = "macro"
+    ignore_index: int | None = None
+
+
+@dataclass
+class MultilabelClassificationMetricsConfig(MetricsConfig):
+    _target_: str = "MultilabelClassificationMetrics"
+    num_labels: int = MISSING
+    average: ClassificationAverage = "macro"
+    ignore_index: int | None = None
+    threshold: float = 0.5
+
+
+@dataclass
+class DetectionMetricsConfig(MetricsConfig):
+    _target_: str = "DetectionMetrics"
+    box_format: BoxFormat = "xyxy"
+    iou: IoUConfig = field(default_factory=IoUConfig)
+    class_metrics: bool = False
+    extended_summary: bool = False
+    average: DetectionAverage = "macro"
+    backend: Backend = "faster_coco_eval"
 
 
 @dataclass

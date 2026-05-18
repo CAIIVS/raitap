@@ -203,18 +203,17 @@ data = DataConfig(
 ```{config-tabs}
 :yaml:
 metrics:
-  _target_: "ClassificationMetrics"
-  task: "multiclass"
+  _target_: "MulticlassClassificationMetrics"
   num_classes: 7
   average: "macro"
 
 :python:
-from raitap.metrics import Task, classification
+from raitap.metrics import multiclass_classification
 
-metrics = classification(task=Task.multiclass, num_classes=7, average="macro")
+metrics = multiclass_classification(num_classes=7, average="macro")
 ```
 
-The hydra-zen builder is the recommended path here because `ClassificationMetrics` exposes many optional kwargs (`average`, `ignore_index`, …) that `MetricsConfig` does not type explicitly. `populate_full_signature=True` lifts the full constructor signature onto the dataclass, so your editor will autocomplete every kwarg.
+The hydra-zen builder is the recommended path here because `MulticlassClassificationMetrics` exposes many optional kwargs (`average`, `ignore_index`, …) that the bare `MetricsConfig` discriminator does not type explicitly. `populate_full_signature=True` lifts the full constructor signature onto the dataclass, so your editor will autocomplete every kwarg. Pick the matching builder (`binary_classification`, `multiclass_classification`, `multilabel_classification`, `detection`) for the task you're configuring.
 
 ### Transparency
 
@@ -437,7 +436,7 @@ The schema is a deliberate mix of strict and forwarded. Knowing which fields are
 - `TransparencyConfig.constructor` / `.call` / `.raitap` — dicts forwarded verbatim to the underlying explainer library (Captum's `IntegratedGradients(...)`, SHAP's `GradientExplainer(...)`, the corresponding `.attribute()` / `.shap_values()` call).
 - `RobustnessConfig.constructor` / `.call` / `.raitap` — same story for torchattacks / Foolbox / Marabou.
 
-The hydra-zen builders in `raitap.api` (`captum`, `shap`, `torchattacks`, `foolbox`, `classification_metrics`) inherit the corresponding schema dataclass via `builds_bases=`, so they accept every field on `TransparencyConfig` / `RobustnessConfig` / `MetricsConfig` (`algorithm`, `constructor`, `call`, `raitap`, `visualisers`). `classification_metrics` additionally uses `populate_full_signature=True` to surface the full `ClassificationMetrics.__init__` signature (`average`, `num_labels`, `ignore_index`). For Captum / SHAP / torchattacks / Foolbox, the underlying constructor takes `**kwargs`, so per-library kwargs (`eps=`, `steps=`, `target=`) stay inside the `constructor` / `call` dict — your editor autocompletes the schema fields, not the library kwargs.
+The hydra-zen builders in `raitap.api` (`captum`, `shap`, `torchattacks`, `foolbox`, plus the per-task metrics builders `binary_classification`, `multiclass_classification`, `multilabel_classification`, `detection`) inherit the corresponding schema dataclass via `builds_bases=`, so they accept every field on `TransparencyConfig` / `RobustnessConfig` / `MetricsConfig` (`algorithm`, `constructor`, `call`, `raitap`, `visualisers`). The classification and detection builders additionally use `populate_full_signature=True` to surface the full adapter `__init__` signature (`average`, `num_labels`, `ignore_index`, `iou`, …). For Captum / SHAP / torchattacks / Foolbox, the underlying constructor takes `**kwargs`, so per-library kwargs (`eps=`, `steps=`, `target=`) stay inside the `constructor` / `call` dict — your editor autocompletes the schema fields, not the library kwargs.
 
 (runoutputs-shape)=
 

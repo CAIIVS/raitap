@@ -14,9 +14,14 @@ MetricResult
 
 Metric classes
 --------------
-ClassificationMetrics
-    Computes accuracy, precision, recall, and F1 score for binary, multiclass,
-    and multilabel classification tasks.
+BinaryClassificationMetrics
+    Accuracy, precision, recall, and F1 for two-class problems.
+
+MulticlassClassificationMetrics
+    Accuracy, precision, recall, and F1 for multiclass classification.
+
+MultilabelClassificationMetrics
+    Accuracy, precision, recall, and F1 for multilabel classification.
 
 DetectionMetrics
     Computes mean average precision (mAP) and related metrics for object detection tasks.
@@ -30,7 +35,11 @@ from typing import TYPE_CHECKING, Any
 from .base_metric_computer import BaseMetricComputer, MetricResult, scalar_metrics_for_tracking
 
 # Concrete metric implementations
-from .classification_metrics import ClassificationMetrics
+from .classification_metrics import (
+    BinaryClassificationMetrics,
+    MulticlassClassificationMetrics,
+    MultilabelClassificationMetrics,
+)
 from .detection_metrics import DetectionMetrics
 from .factory import (
     Metrics,
@@ -44,37 +53,32 @@ from .visualizers import MetricsVisualizer
 
 if TYPE_CHECKING:
     from raitap.configs.schema import MetricsConfig
-    from raitap.types import Task
 
 
 def __getattr__(name: str) -> Any:
     """Resolve hydra-zen builders by registry name, plus the schema dataclass
-    (:class:`~raitap.configs.schema.MetricsConfig`) and the
-    :class:`~raitap.types.Task` enum re-exported here so the module owns
-    both the type contract and the builder instances."""
+    (:class:`~raitap.configs.schema.MetricsConfig`) re-exported here so the
+    module owns both the type contract and the builder instances."""
     if name == "MetricsConfig":
         from raitap.configs.schema import MetricsConfig
 
         return MetricsConfig
-    if name == "Task":
-        from raitap.types import Task
-
-        return Task
     from raitap._adapters import lookup
 
     return lookup("metrics", name)
 
 
 __all__ = [  # noqa: RUF022
-    # Schema dataclass + task enum (lazy)
+    # Schema dataclass (lazy)
     "MetricsConfig",
-    "Task",
     # Base types
     "BaseMetricComputer",
     "MetricResult",
     "scalar_metrics_for_tracking",
     # Concrete implementations
-    "ClassificationMetrics",
+    "BinaryClassificationMetrics",
+    "MulticlassClassificationMetrics",
+    "MultilabelClassificationMetrics",
     "DetectionMetrics",
     # Factory API
     "Metrics",

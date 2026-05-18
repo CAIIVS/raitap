@@ -41,7 +41,9 @@ def evaluate_metrics(
         and forward_output.ndim == 2
         and forward_output.shape[1] >= 2
     ):
-        config.metrics.num_classes = int(forward_output.shape[1])
+        # ``MetricsConfig`` base only carries ``_target_``; ``num_classes``
+        # lives on the multiclass typed subclass at runtime.
+        config.metrics.num_classes = int(forward_output.shape[1])  # type: ignore[attr-defined]
     preds, _ = metrics_prediction_pair(forward_output)
     targs = resolve_metric_targets(preds, labels)
     return Metrics(config, preds, targs)

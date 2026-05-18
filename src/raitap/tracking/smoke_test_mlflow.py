@@ -11,13 +11,12 @@ from raitap.configs import set_output_root
 from raitap.configs.schema import (
     AppConfig,
     DataConfig,
-    MetricsConfig,
     ModelConfig,
+    MulticlassClassificationMetricsConfig,
     TrackingConfig,
     TransparencyConfig,
 )
 from raitap.pipeline import run
-from raitap.types import Task
 
 DEFAULT_TRACKING_URI = "http://127.0.0.1:5000"
 
@@ -102,9 +101,7 @@ def main() -> int:
                 visualisers=[{"_target_": "CaptumImageVisualiser"}],
             )
         },
-        metrics=MetricsConfig(
-            _target_="ClassificationMetrics",
-            task=Task.multiclass,
+        metrics=MulticlassClassificationMetricsConfig(
             num_classes=1000,
         ),
         tracking=TrackingConfig(

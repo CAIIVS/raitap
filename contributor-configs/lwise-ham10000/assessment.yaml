@@ -24,8 +24,7 @@ data:
     column: label
 
 metrics:
-  _target_: ClassificationMetrics
-  task: multiclass
+  _target_: MulticlassClassificationMetrics
   num_classes: 7
 
 transparency:
