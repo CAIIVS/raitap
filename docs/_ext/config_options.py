@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from sphinx.application import Sphinx
 
 CONFIG_OPTION_FIELDS = ("option", "allowed", "default", "description")
-CONFIG_PAGE_FIELDS = ("intro", "yaml", "cli", "python")
+CONFIG_PAGE_FIELDS = ("intro", "yaml", "cli", "python", "slug")
 TABLE_HEADERS = ("Name", "Allowed", "Default", "Description")
 CONFIG_TABS_SYNC_KEY = "raitap-config"
 
@@ -32,6 +32,7 @@ class ConfigPage:
     cli: str
     options: list[ConfigOption]
     python: str = ""
+    slug: str = ""
 
 
 def normalise_inline_value(lines: list[str]) -> str:
@@ -224,6 +225,7 @@ def parse_config_page_content(lines: list[str]) -> ConfigPage:
     yaml_content = normalise_block_value(page_fields["yaml"])
     cli_override = normalise_inline_value(page_fields["cli"])
     python_snippet = normalise_block_value(page_fields["python"])
+    slug = normalise_inline_value(page_fields["slug"])
 
     missing_fields = [
         field
@@ -244,6 +246,7 @@ def parse_config_page_content(lines: list[str]) -> ConfigPage:
         cli=cli_override,
         options=options,
         python=python_snippet,
+        slug=slug,
     )
 
 
@@ -352,23 +355,49 @@ def build_config_tab_set_lines(page: ConfigPage) -> list[str]:
 
 
 def build_config_page_lines(page: ConfigPage, *, docname: str) -> list[str]:
-    options_label = build_section_label(docname, "options")
-    lines = ["# Configuration", ""]
+    # When ``:slug:`` is given, the block is nested under a caller-owned H2:
+    # skip the auto ``# Configuration`` H1, drop the internal sub-headings
+    # (``## Options`` etc.) so MyST doesn't complain about the heading hierarchy,
+    # and scope every cross-reference label with the slug so multiple blocks can
+    # coexist on one page (cf. ``docs/modules/metrics/configuration.md``).
+    nested = bool(page.slug)
+    options_label = build_section_label(docname, f"{page.slug}-options" if nested else "options")
+    lines: list[str] = []
+    if not nested:
+        lines.extend(["# Configuration", ""])
     lines.extend(page.intro.splitlines())
-    lines.extend(["", f"({options_label})=", "## Options", ""])
+    if nested:
+        lines.extend(["", f"({options_label})=", "", "**Options**", ""])
+    else:
+        lines.extend(["", f"({options_label})=", "## Options", ""])
     lines.extend(build_markdown_table_lines(page.options))
 
     if page.python:
-        examples_label = build_section_label(docname, "examples")
-        lines.extend(["", f"({examples_label})=", "## Examples", ""])
+        examples_label = build_section_label(
+            docname, f"{page.slug}-examples" if nested else "examples"
+        )
+        if nested:
+            lines.extend(["", f"({examples_label})=", "", "**Examples**", ""])
+        else:
+            lines.extend(["", f"({examples_label})=", "## Examples", ""])
         lines.extend(build_config_tab_set_lines(page))
         return lines
 
-    yaml_label = build_section_label(docname, "yaml-example")
-    cli_label = build_section_label(docname, "cli-override-example")
-    lines.extend(["", f"({yaml_label})=", "## YAML example", "", "```yaml"])
+    yaml_label = build_section_label(
+        docname, f"{page.slug}-yaml-example" if nested else "yaml-example"
+    )
+    cli_label = build_section_label(
+        docname, f"{page.slug}-cli-override-example" if nested else "cli-override-example"
+    )
+    if nested:
+        lines.extend(["", f"({yaml_label})=", "", "**YAML example**", "", "```yaml"])
+    else:
+        lines.extend(["", f"({yaml_label})=", "## YAML example", "", "```yaml"])
     lines.extend(page.yaml.splitlines())
-    lines.extend(["```", "", f"({cli_label})=", "## CLI override example", ""])
+    if nested:
+        lines.extend(["```", "", f"({cli_label})=", "", "**CLI override example**", ""])
+    else:
+        lines.extend(["```", "", f"({cli_label})=", "## CLI override example", ""])
     lines.extend(build_install_tabs_lines(page.cli))
     return lines
 
