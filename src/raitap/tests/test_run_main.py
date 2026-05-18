@@ -704,7 +704,8 @@ def test_run_without_tracking_passes_resolved_preprocessing_to_explanation(
     resolved_preprocessing = ResolvedPreprocessing(
         data_module=None,
         model_module=None,
-        origin="model-bundled",
+        data_origin="model-bundled",
+        model_origin="model-bundled",
         description="test",
     )
 

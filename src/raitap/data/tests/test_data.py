@@ -261,7 +261,8 @@ class TestDataPreprocessing:
         resolved = ResolvedPreprocessing(
             data_module=_ShapeModule(),
             model_module=None,
-            origin="model-bundled",
+            data_origin="model-bundled",
+            model_origin="off",
             description="supplied",
         )
 
@@ -393,7 +394,8 @@ class TestDataPreprocessing:
                 resolve_preprocessing_mock.return_value = ResolvedPreprocessing(
                     data_module=_SpyModule(),
                     model_module=None,
-                    origin="model-bundled",
+                    data_origin="model-bundled",
+                    model_origin="off",
                     description="spy",
                 )
 

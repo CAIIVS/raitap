@@ -105,20 +105,20 @@ def _sha256_of_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _preprocessing_summary_params(raw_value: Any) -> dict[str, str]:
+def _preprocessing_side_params(raw_value: Any, knob: str) -> dict[str, str]:
     raw = _param_str(raw_value)
     if raw is None:
         return {}
     if raw == "model-bundled":
-        return {"data.preprocessing.origin": "model-bundled"}
+        return {f"data.{knob}.origin": "model-bundled"}
 
     path = Path(raw).expanduser().resolve()
     params = {
-        "data.preprocessing.origin": "custom-file",
-        "data.preprocessing.file_path": str(path),
+        f"data.{knob}.origin": "custom-file",
+        f"data.{knob}.file_path": str(path),
     }
     if path.is_file():
-        params["data.preprocessing.file_sha256"] = _sha256_of_file(path)
+        params[f"data.{knob}.file_sha256"] = _sha256_of_file(path)
     return params
 
 
@@ -149,7 +149,13 @@ def _mlflow_summary_params(config_dict: dict[str, Any]) -> dict[str, str]:
         put("data.name", data.get("name"))
         put("data.source", data.get("source"))
         put("data.preprocessing", data.get("preprocessing"))
-        out.update(_preprocessing_summary_params(data.get("preprocessing")))
+        put("data.model_input_transformation", data.get("model_input_transformation"))
+        out.update(_preprocessing_side_params(data.get("preprocessing"), "preprocessing"))
+        out.update(
+            _preprocessing_side_params(
+                data.get("model_input_transformation"), "model_input_transformation"
+            )
+        )
 
     transparency = _nested_dict(config_dict.get("transparency"))
     if transparency:

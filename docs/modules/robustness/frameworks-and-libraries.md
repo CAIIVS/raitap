@@ -123,10 +123,10 @@ land in `RobustnessResult.verdicts` (`VERIFIED` / `FALSIFIED` / `UNKNOWN` /
 `ERROR`) and counter-examples in `perturbed_inputs`.
 
 Marabou reads and reasons over the bare ONNX graph. It does not include
-RAITAP Python model input transformations from option 3 decorated factories,
-and option 2 model-bundled preprocessing is not available for ONNX models.
-Preprocess inputs before export or encode the preprocessing directly in the
-ONNX graph if the formal property must include it.
+the `data.model_input_transformation` module, and `model-bundled`
+preprocessing is not available for ONNX models. Preprocess inputs before
+export or encode the preprocessing directly in the ONNX graph if the formal
+property must include it.
 
 #### Algorithms
 

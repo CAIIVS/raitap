@@ -18,15 +18,16 @@ _ENV = "RAITAP_ALLOW_PREPROCESSING_EXEC"
 
 
 # ---------------------------------------------------------------------------
-# Off
+# Both off
 # ---------------------------------------------------------------------------
 
 
-def test_off_no_preprocessing_key_warns(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_both_off_no_keys_warns(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(_ENV, raising=False)
     result = resolve_preprocessing(ModelConfig(source="resnet50"), DataConfig())
     assert isinstance(result, ResolvedPreprocessing)
-    assert result.origin == "off"
+    assert result.data_origin == "off"
+    assert result.model_origin == "off"
     assert result.data_module is None
     assert result.model_module is None
     assert not result.is_active
@@ -34,28 +35,30 @@ def test_off_no_preprocessing_key_warns(monkeypatch: pytest.MonkeyPatch) -> None
     assert "preprocessing is OFF" in result.warnings[0]
 
 
-def test_off_suppression_via_kwarg(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_both_off_suppression_via_kwarg(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(_ENV, raising=False)
     result = resolve_preprocessing(
         ModelConfig(source="resnet50"),
         DataConfig(),
         acknowledge_off=True,
     )
-    assert result.origin == "off"
+    assert result.data_origin == "off"
+    assert result.model_origin == "off"
     assert result.warnings == []
 
 
-def test_off_suppression_via_non_image_kind(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_both_off_suppression_via_non_image_kind(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(_ENV, raising=False)
     result = resolve_preprocessing(
         ModelConfig(source="resnet50"),
         DataConfig(input_metadata={"kind": "tabular"}),
     )
-    assert result.origin == "off"
+    assert result.data_origin == "off"
+    assert result.model_origin == "off"
     assert result.warnings == []
 
 
-def test_off_suppression_via_non_image_kind_dictconfig(
+def test_both_off_suppression_via_non_image_kind_dictconfig(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Regression: when ``input_metadata`` is an OmegaConf ``DictConfig``
@@ -67,54 +70,105 @@ def test_off_suppression_via_non_image_kind_dictconfig(
     cfg = DataConfig()
     cfg.input_metadata = OmegaConf.create({"kind": "tabular"})  # type: ignore[assignment]
     result = resolve_preprocessing(ModelConfig(source="resnet50"), cfg)
-    assert result.origin == "off"
+    assert result.data_origin == "off"
     assert result.warnings == []
 
 
-def test_off_kind_explicit_none_still_warns(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_both_off_kind_explicit_none_still_warns(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(_ENV, raising=False)
     result = resolve_preprocessing(
         ModelConfig(source="resnet50"),
         DataConfig(input_metadata={"kind": None}),
     )
-    assert result.origin == "off"
+    assert result.data_origin == "off"
+    assert result.model_origin == "off"
     assert len(result.warnings) == 1
     assert "preprocessing is OFF" in result.warnings[0]
 
 
 # ---------------------------------------------------------------------------
-# Model-bundled
+# Model side off but data side set: separate warning fires (image data only)
 # ---------------------------------------------------------------------------
 
 
-def test_model_bundled_via_arch(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_model_input_transformation_off_warns_when_data_side_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv(_ENV, raising=False)
     result = resolve_preprocessing(
         ModelConfig(arch="resnet50"),
         DataConfig(preprocessing="model-bundled"),
     )
-    assert result.origin == "model-bundled"
+    assert result.data_origin == "model-bundled"
+    assert result.model_origin == "off"
+    assert result.data_module is not None
+    assert result.model_module is None
+    assert any("model_input_transformation is OFF" in w for w in result.warnings)
+
+
+def test_model_input_transformation_off_suppressed_for_tabular(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv(_ENV, raising=False)
+    result = resolve_preprocessing(
+        ModelConfig(arch="resnet50"),
+        DataConfig(
+            preprocessing="model-bundled",
+            input_metadata={"kind": "tabular"},
+        ),
+    )
+    assert result.warnings == []
+
+
+def test_data_off_with_model_set_no_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Already-uniform images with only Normalize at the boundary is legitimate."""
+    monkeypatch.delenv(_ENV, raising=False)
+    result = resolve_preprocessing(
+        ModelConfig(arch="resnet50"),
+        DataConfig(model_input_transformation="model-bundled"),
+    )
+    assert result.data_origin == "off"
+    assert result.model_origin == "model-bundled"
+    assert result.warnings == []
+
+
+# ---------------------------------------------------------------------------
+# Model-bundled (both sides)
+# ---------------------------------------------------------------------------
+
+
+def test_model_bundled_both_sides_via_arch(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(_ENV, raising=False)
+    result = resolve_preprocessing(
+        ModelConfig(arch="resnet50"),
+        DataConfig(
+            preprocessing="model-bundled",
+            model_input_transformation="model-bundled",
+        ),
+    )
+    assert result.data_origin == "model-bundled"
+    assert result.model_origin == "model-bundled"
     assert isinstance(result.data_module, nn.Module)
     assert isinstance(result.model_module, nn.Module)
     assert "ResNet50_Weights" in result.description
     assert "DEFAULT" in result.description
+    assert result.warnings == []
 
 
 def test_model_bundled_accepts_preprocessing_enum_member(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Python API: ``DataConfig(preprocessing=Preprocessing.model_bundled)``
-    must resolve identically to the raw ``"model-bundled"`` string. Guards
-    that the enum value stays in sync with the resolver constant.
-    """
+    """Python API: ``Preprocessing.model_bundled`` resolves like the raw string."""
     monkeypatch.delenv(_ENV, raising=False)
     result = resolve_preprocessing(
         ModelConfig(arch="resnet50"),
-        DataConfig(preprocessing=Preprocessing.model_bundled),
+        DataConfig(
+            preprocessing=Preprocessing.model_bundled,
+            model_input_transformation=Preprocessing.model_bundled,
+        ),
     )
-    assert result.origin == "model-bundled"
-    assert isinstance(result.data_module, nn.Module)
-    assert isinstance(result.model_module, nn.Module)
+    assert result.data_origin == "model-bundled"
+    assert result.model_origin == "model-bundled"
     # data_module reshapes per-image: Resize(232) + CenterCrop(224).
     shaped = result.data_module(torch.zeros(3, 300, 400))
     assert shaped.shape == (3, 224, 224)
@@ -130,48 +184,51 @@ def test_preprocessing_yaml_values_survive_structured_config_merge() -> None:
 
     structured = OmegaConf.structured(DataConfig)
 
-    model_bundled = OmegaConf.to_object(
-        OmegaConf.merge(structured, OmegaConf.create({"preprocessing": "model-bundled"}))
+    merged = OmegaConf.to_object(
+        OmegaConf.merge(
+            structured,
+            OmegaConf.create(
+                {
+                    "preprocessing": "model-bundled",
+                    "model_input_transformation": "./normalize.py",
+                }
+            ),
+        )
     )
-    assert isinstance(model_bundled, DataConfig)
-    assert model_bundled.preprocessing == "model-bundled"
-    assert type(model_bundled.preprocessing) is str
-
-    custom_file = OmegaConf.to_object(
-        OmegaConf.merge(structured, OmegaConf.create({"preprocessing": "./preprocessing.py"}))
-    )
-    assert isinstance(custom_file, DataConfig)
-    assert custom_file.preprocessing == "./preprocessing.py"
-    assert type(custom_file.preprocessing) is str
+    assert isinstance(merged, DataConfig)
+    assert merged.preprocessing == "model-bundled"
+    assert merged.model_input_transformation == "./normalize.py"
+    assert type(merged.preprocessing) is str
+    assert type(merged.model_input_transformation) is str
 
 
 def test_model_bundled_via_source(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(_ENV, raising=False)
     result = resolve_preprocessing(
         ModelConfig(source="resnet50"),
-        DataConfig(preprocessing="model-bundled"),
+        DataConfig(
+            preprocessing="model-bundled",
+            model_input_transformation="model-bundled",
+        ),
     )
-    assert result.origin == "model-bundled"
-    assert isinstance(result.data_module, nn.Module)
-    assert isinstance(result.model_module, nn.Module)
+    assert result.data_origin == "model-bundled"
+    assert result.model_origin == "model-bundled"
     assert "ResNet50_Weights" in result.description
 
 
 def test_model_bundled_semantic_segmentation_preset_splits_cleanly(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Regression: ``SemanticSegmentation.resize_size`` is a list (e.g.
-    ``[520]``) — the splitter must pass it through to ``v2.Resize`` as a
-    sequence, not coerce it to ``int``. Reproduces with ``fcn_resnet50``."""
     monkeypatch.delenv(_ENV, raising=False)
     result = resolve_preprocessing(
         ModelConfig(arch="fcn_resnet50"),
-        DataConfig(preprocessing="model-bundled"),
+        DataConfig(
+            preprocessing="model-bundled",
+            model_input_transformation="model-bundled",
+        ),
     )
-    assert result.origin == "model-bundled"
-    assert isinstance(result.data_module, nn.Module)
-    assert isinstance(result.model_module, nn.Module)
-    # Native preset semantics: shortest-edge resize, aspect ratio preserved.
+    assert result.data_origin == "model-bundled"
+    assert result.model_origin == "model-bundled"
     shaped = result.data_module(torch.zeros(3, 600, 800))
     assert shaped.shape == (3, 520, 693)
 
@@ -186,7 +243,33 @@ def test_model_bundled_no_arch_raises(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Custom file
+# Mixed: bundled on one knob, file on the other
+# ---------------------------------------------------------------------------
+
+
+def test_mixed_data_bundled_model_custom_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(_ENV, "1")
+    result = resolve_preprocessing(
+        ModelConfig(arch="resnet50"),
+        DataConfig(
+            preprocessing="model-bundled",
+            model_input_transformation=str(FIXTURE),
+        ),
+    )
+    assert result.data_origin == "model-bundled"
+    assert result.model_origin == "custom-file"
+    assert isinstance(result.data_module, nn.Module)
+    assert isinstance(result.model_module, nn.Module)
+    assert result.model_file_path == FIXTURE.resolve()
+    assert result.model_file_sha256 is not None
+    assert result.data_file_path is None
+    assert result.data_file_sha256 is None
+    assert "data: ResNet50_Weights" in result.description
+    assert "model: Custom model input transformation" in result.description
+
+
+# ---------------------------------------------------------------------------
+# Custom file (model side)
 # ---------------------------------------------------------------------------
 
 
@@ -195,7 +278,7 @@ def test_custom_file_refusal_without_consent(monkeypatch: pytest.MonkeyPatch) ->
     with pytest.raises(PermissionError) as exc_info:
         resolve_preprocessing(
             ModelConfig(source="resnet50"),
-            DataConfig(preprocessing=str(FIXTURE)),
+            DataConfig(model_input_transformation=str(FIXTURE)),
         )
     msg = str(exc_info.value)
     assert "--allow-preprocessing-exec" in msg
@@ -206,41 +289,63 @@ def test_custom_file_consent_via_env_var(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setenv(_ENV, "1")
     result = resolve_preprocessing(
         ModelConfig(source="resnet50"),
-        DataConfig(preprocessing=str(FIXTURE)),
+        DataConfig(model_input_transformation=str(FIXTURE)),
     )
-    assert result.origin == "custom-file"
+    assert result.model_origin == "custom-file"
     assert isinstance(result.model_module, nn.Module)
-    assert isinstance(result.data_module, nn.Identity)
-    assert len(result.warnings) == 1
-    assert "data preprocessing" in result.warnings[0]
-    assert result.file_sha256 is not None
-    assert len(result.file_sha256) == 64
-    int(result.file_sha256, 16)  # is hex
-    assert result.file_path == FIXTURE.resolve()
+    assert result.data_module is None
+    assert result.model_file_sha256 is not None
+    assert len(result.model_file_sha256) == 64
+    int(result.model_file_sha256, 16)
+    assert result.model_file_path == FIXTURE.resolve()
 
 
 def test_custom_file_consent_via_kwarg(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(_ENV, raising=False)
     result = resolve_preprocessing(
         ModelConfig(source="resnet50"),
-        DataConfig(preprocessing=str(FIXTURE)),
+        DataConfig(model_input_transformation=str(FIXTURE)),
         acknowledge_exec=True,
     )
-    assert result.origin == "custom-file"
+    assert result.model_origin == "custom-file"
     assert isinstance(result.model_module, nn.Module)
-    assert isinstance(result.data_module, nn.Identity)
-    assert len(result.warnings) == 1
-    assert "data preprocessing" in result.warnings[0]
-    assert result.file_sha256 is not None
-    assert len(result.file_sha256) == 64
-    int(result.file_sha256, 16)
-    assert result.file_path == FIXTURE.resolve()
+    assert result.model_file_sha256 is not None
+    assert result.model_file_path == FIXTURE.resolve()
 
 
-def test_custom_file_data_factory_escape_hatch(
+# ---------------------------------------------------------------------------
+# Custom file (data side, and both sides from same file)
+# ---------------------------------------------------------------------------
+
+
+def test_custom_file_data_side_only(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv(_ENV, "1")
+    fixture = tmp_path / "data_only.py"
+    fixture.write_text(
+        "from torch import nn\n"
+        "from torchvision.transforms import v2\n"
+        "from raitap.data import raitap_preprocessing_factory\n"
+        "\n"
+        "@raitap_preprocessing_factory\n"
+        "def resize_for_batching() -> nn.Module:\n"
+        "    return v2.CenterCrop([8, 8])\n"
+    )
+    result = resolve_preprocessing(
+        ModelConfig(source="resnet50"),
+        DataConfig(preprocessing=str(fixture)),
+    )
+    assert result.data_origin == "custom-file"
+    assert isinstance(result.data_module, nn.Module)
+    assert result.model_module is None
+    assert result.data_file_path == fixture.resolve()
+    # model side off + image data → warning about model side
+    assert any("model_input_transformation is OFF" in w for w in result.warnings)
+
+
+def test_custom_file_both_sides_from_same_file(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """User files may decorate arbitrary names for both preprocessing modules."""
+    """Single file with both decorators, pointed at both knobs. Hashed once."""
     monkeypatch.setenv(_ENV, "1")
     fixture = tmp_path / "user_preproc.py"
     fixture.write_text(
@@ -264,39 +369,41 @@ def test_custom_file_data_factory_escape_hatch(
     )
     result = resolve_preprocessing(
         ModelConfig(source="resnet50"),
-        DataConfig(preprocessing=str(fixture)),
+        DataConfig(
+            preprocessing=str(fixture),
+            model_input_transformation=str(fixture),
+        ),
     )
-    assert isinstance(result.model_module, nn.Module)
+    assert result.data_origin == "custom-file"
+    assert result.model_origin == "custom-file"
     assert isinstance(result.data_module, nn.Module)
+    assert isinstance(result.model_module, nn.Module)
+    assert result.data_file_path == fixture.resolve()
+    assert result.model_file_path == fixture.resolve()
+    assert result.data_file_sha256 == result.model_file_sha256
     assert result.warnings == []
     shaped = result.data_module(torch.zeros(3, 300, 400))
     assert shaped.shape == (3, 224, 224)
 
 
-def test_custom_file_data_only_uses_identity_model_input_transformation(
+def test_custom_file_missing_required_decorator(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """File with only the model decorator, pointed at the data knob, errors."""
     monkeypatch.setenv(_ENV, "1")
-    fixture = tmp_path / "data_only.py"
+    fixture = tmp_path / "model_only.py"
     fixture.write_text(
         "from torch import nn\n"
-        "from torchvision.transforms import v2\n"
-        "from raitap.data import raitap_preprocessing_factory\n"
-        "\n"
-        "@raitap_preprocessing_factory\n"
-        "def resize_for_batching() -> nn.Module:\n"
-        "    return v2.CenterCrop([8, 8])\n"
+        "from raitap.data import raitap_model_input_transformation_factory\n"
+        "@raitap_model_input_transformation_factory\n"
+        "def normalize_for_model() -> nn.Module:\n"
+        "    return nn.Identity()\n"
     )
-
-    result = resolve_preprocessing(
-        ModelConfig(source="resnet50"),
-        DataConfig(preprocessing=str(fixture)),
-    )
-
-    assert isinstance(result.data_module, nn.Module)
-    assert isinstance(result.model_module, nn.Identity)
-    assert len(result.warnings) == 1
-    assert "model input transformation" in result.warnings[0]
+    with pytest.raises(AttributeError, match="raitap_preprocessing_factory"):
+        resolve_preprocessing(
+            ModelConfig(source="resnet50"),
+            DataConfig(preprocessing=str(fixture)),
+        )
 
 
 def test_custom_file_data_factory_wrong_return_type(
@@ -322,10 +429,6 @@ def test_custom_file_data_factory_wrong_return_type(
 def test_custom_file_rejects_factory_with_required_arguments(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Decorated factories must be callable with no arguments. A factory
-    with required positional/keyword args is rejected before the import
-    side-effects are inherited by the model wrap.
-    """
     monkeypatch.setenv(_ENV, "1")
     fixture = tmp_path / "arity_mismatch.py"
     fixture.write_text(
@@ -340,11 +443,11 @@ def test_custom_file_rejects_factory_with_required_arguments(
     with pytest.raises(TypeError, match=r"must be callable with no arguments"):
         resolve_preprocessing(
             ModelConfig(source="resnet50"),
-            DataConfig(preprocessing=str(fixture)),
+            DataConfig(model_input_transformation=str(fixture)),
         )
 
 
-def test_custom_file_rejects_shared_model_and_data_module(
+def test_custom_file_rejects_shared_module_across_sides(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv(_ENV, "1")
@@ -363,22 +466,24 @@ def test_custom_file_rejects_shared_model_and_data_module(
         "def resize_for_batching() -> nn.Module:\n"
         "    return _shared\n"
     )
-
     with pytest.raises(ValueError, match=r"separate nn\.Module instances"):
         resolve_preprocessing(
             ModelConfig(source="resnet50"),
-            DataConfig(preprocessing=str(fixture)),
+            DataConfig(
+                preprocessing=str(fixture),
+                model_input_transformation=str(fixture),
+            ),
         )
 
 
 def test_custom_file_sha256_stability(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(_ENV, "1")
-    data_cfg = DataConfig(preprocessing=str(FIXTURE))
+    data_cfg = DataConfig(model_input_transformation=str(FIXTURE))
     r1 = resolve_preprocessing(ModelConfig(source="resnet50"), data_cfg)
     r2 = resolve_preprocessing(ModelConfig(source="resnet50"), data_cfg)
-    assert r1.file_sha256 == r2.file_sha256
+    assert r1.model_file_sha256 == r2.model_file_sha256
     expected = hashlib.sha256(FIXTURE.read_bytes()).hexdigest()
-    assert r1.file_sha256 == expected
+    assert r1.model_file_sha256 == expected
 
 
 def test_custom_file_missing_file(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -441,7 +546,7 @@ def test_custom_file_factory_returns_non_module(
     with pytest.raises(TypeError, match=r"nn\.Module"):
         resolve_preprocessing(
             ModelConfig(source="resnet50"),
-            DataConfig(preprocessing=str(bad)),
+            DataConfig(model_input_transformation=str(bad)),
         )
 
 
@@ -463,7 +568,7 @@ def test_custom_file_duplicate_decorated_factories_raise(
     with pytest.raises(ValueError, match="multiple model input transformation"):
         resolve_preprocessing(
             ModelConfig(source="resnet50"),
-            DataConfig(preprocessing=str(bad)),
+            DataConfig(model_input_transformation=str(bad)),
         )
 
 
@@ -472,10 +577,19 @@ def test_custom_file_duplicate_decorated_factories_raise(
 # ---------------------------------------------------------------------------
 
 
-def test_bad_type_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_bad_type_preprocessing_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(_ENV, raising=False)
-    with pytest.raises(TypeError, match="must be a string"):
+    with pytest.raises(TypeError, match=r"data\.preprocessing must be a string"):
         resolve_preprocessing(
             ModelConfig(source="resnet50"),
             DataConfig(preprocessing=42),  # type: ignore[arg-type]
+        )
+
+
+def test_bad_type_model_input_transformation_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(_ENV, raising=False)
+    with pytest.raises(TypeError, match=r"data\.model_input_transformation must be a string"):
+        resolve_preprocessing(
+            ModelConfig(source="resnet50"),
+            DataConfig(model_input_transformation=42),  # type: ignore[arg-type]
         )

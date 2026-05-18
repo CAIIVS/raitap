@@ -83,24 +83,27 @@ class DataConfig:
     source: str | None = None
     # Optional model-forward batch size for predictions/metrics. None uses the pipeline default.
     forward_batch_size: int | None = None
-    # Preprocessing applied to inputs before they reach the model. Three values:
-    #   - ``None`` (default): no preprocessing; loud warn at startup so users
-    #     don't silently feed unnormalized images to pretrained models.
+    # Data-side preprocessing applied per-image in the loader, before the
+    # batch is stacked. Typical contents: Resize, CenterCrop. Independent of
+    # ``model_input_transformation``. Accepts:
+    #   - ``None`` (default): no data preprocessing.
     #   - ``Preprocessing.model_bundled`` (or the string ``"model-bundled"``):
-    #     use the bundled preprocessing of the resolved torchvision arch
-    #     (``Weights.transforms()``).
-    #   - path to a ``.py`` file: load user-supplied factories decorated with
-    #     ``@raitap_preprocessing_factory`` and/or
-    #     ``@raitap_model_input_transformation_factory``; gated by the
-    #     ``acknowledge_preprocessing_exec`` kwarg on :func:`raitap.run`
-    #     (Python API) or ``--allow-preprocessing-exec`` / ``-yp`` (CLI).
-    #     The "preprocessing is off" warning can be silenced via the
-    #     ``acknowledge_preprocessing_off`` kwarg or the
-    #     ``--acknowledge-preprocessing-off`` CLI flag.
-    # Annotated as ``str | None`` because ``Preprocessing`` is a ``StrEnum``
-    # subclass — its members are valid wherever a ``str`` is — and because
-    # custom-file preprocessing is selected by passing a plain path string.
+    #     pull Resize + CenterCrop from the resolved torchvision arch's bundled
+    #     preset (``Weights.transforms()``).
+    #   - path to a ``.py`` file with an ``@raitap_preprocessing_factory``.
+    # File loading is gated by ``acknowledge_preprocessing_exec`` (Python API)
+    # or ``--allow-preprocessing-exec`` / ``-yp`` (CLI).
     preprocessing: str | None = None
+    # Transformation applied at the model boundary, on every forward pass.
+    # Stays inside autograd so attribution and adversarial budgets see the
+    # user-facing input space. Typical contents: Normalize. Independent of
+    # ``preprocessing``. Same accepted values as ``preprocessing`` but the
+    # file factory must be decorated with
+    # ``@raitap_model_input_transformation_factory``.
+    # When both knobs are ``None`` and inputs are images, a loud warning fires
+    # at startup; silence with ``acknowledge_preprocessing_off`` /
+    # ``--acknowledge-preprocessing-off``.
+    model_input_transformation: str | None = None
     # Optional input-modality metadata (``kind``, ``feature_names``, ``layout``, ...).
     # Forwarded to ``infer_input_spec`` so semantics and visualisers see the correct
     # modality for non-image data such as ACAS Xu's 5-feature tabular vector.

@@ -1,33 +1,26 @@
-"""Resolve the ``data.preprocessing`` config option into ready-to-wrap modules.
+"""Resolve the two preprocessing knobs into ready-to-wrap modules.
 
-Three options (see :class:`raitap.configs.schema.DataConfig.preprocessing`):
+Two independent options on :class:`raitap.configs.schema.DataConfig`:
 
-- ``None``            → no preprocessing; resolver returns both modules ``None``
-                        and a loud warning so the pipeline can surface it.
-- ``"model-bundled"`` → resolve via ``torchvision.models.get_model_weights(arch)``
-                           and split ``Weights.DEFAULT.transforms()`` into data
-                           preprocessing (Resize + CenterCrop, run per-image in
-                           the data loader) and a model input transformation
-                           (Normalize, wrapped at the model boundary).
-- path to a ``.py`` file → import it via ``importlib.util.spec_from_file_location``
-                           and discover factories decorated with RAITAP's
-                           custom-file decorators. Gated by the
-                           ``acknowledge_preprocessing_exec`` kwarg on
-                           :func:`raitap.run` (Python API) or
-                           ``--allow-preprocessing-exec``/``-yp`` (CLI, surfaced
-                           through the ``RAITAP_ALLOW_PREPROCESSING_EXEC`` env var).
+- ``data.preprocessing`` selects the data-side stage that runs per-image in
+  the loader, before the batch is stacked. Typical contents: Resize +
+  CenterCrop. No autograd — shape changes don't need gradients, and per-image
+  execution is what lets mixed-size folders stack at all.
+- ``data.model_input_transformation`` selects the stage applied at the model
+  boundary on every forward pass. Typical contents: Normalize. Stays inside
+  autograd so attribution and adversarial budgets see the user-facing input
+  space.
 
-Split rationale: data preprocessing (Resize, CenterCrop) must run per-image in
-the data loader so mixed-size directories can be stacked at all; it has no
-gradient so leaving it outside the autograd graph is safe. The model input
-transformation (Normalize) must stay inside autograd so attribution and
-adversarial budgets operate on the same ``[0, 1]`` input space the user sees.
+Each knob accepts ``None``, ``"model-bundled"``, or a path to a ``.py`` file
+with the matching RAITAP decorator
+(:func:`raitap_preprocessing_factory` for the data side,
+:func:`raitap_model_input_transformation_factory` for the model side).
 
-This module is side-effect-free: it returns a :class:`ResolvedPreprocessing`
-record. Callers (currently :class:`raitap.models.model.Model` for the model
-input transformation and :func:`raitap.data.data._load_data` for data
-preprocessing) are responsible for emitting the user-facing panel / warning
-via ``raitap_log``.
+When both knobs are ``None`` and inputs are images, a loud warning fires so
+users don't silently feed unnormalised images to pretrained models. The
+warning can be silenced for already-preprocessed datasets via
+``acknowledge_off``. Custom-file loading on either knob is gated by
+``acknowledge_exec``.
 """
 
 from __future__ import annotations
@@ -67,6 +60,7 @@ _MODEL_INPUT_TRANSFORMATION_FACTORY_ATTR = "__raitap_model_input_transformation_
 _MODEL_BUNDLED_VALUE = Preprocessing.model_bundled.value
 
 Origin = Literal["off", "model-bundled", "custom-file"]
+Side = Literal["data", "model"]
 _FactoryT = TypeVar("_FactoryT", bound=Callable[[], nn.Module])
 
 
@@ -116,15 +110,28 @@ class ResolvedPreprocessing:
 
     data_module: nn.Module | None
     model_module: nn.Module | None
-    origin: Origin
+    data_origin: Origin
+    model_origin: Origin
     description: str
-    file_path: Path | None = None
-    file_sha256: str | None = None
+    data_file_path: Path | None = None
+    data_file_sha256: str | None = None
+    model_file_path: Path | None = None
+    model_file_sha256: str | None = None
     warnings: list[str] = field(default_factory=list)
 
     @property
     def is_active(self) -> bool:
         return self.data_module is not None or self.model_module is not None
+
+
+@dataclass(frozen=True)
+class _SideResolved:
+    module: nn.Module | None
+    origin: Origin
+    description: str | None
+    file_path: Path | None = None
+    file_sha256: str | None = None
+    warnings: tuple[str, ...] = ()
 
 
 def resolve_preprocessing(
@@ -134,34 +141,74 @@ def resolve_preprocessing(
     acknowledge_off: bool = False,
     acknowledge_exec: bool = False,
 ) -> ResolvedPreprocessing:
-    """Resolve ``data_cfg.preprocessing`` into a :class:`ResolvedPreprocessing`.
+    """Resolve both preprocessing knobs into a :class:`ResolvedPreprocessing`.
 
     No side effects. Callers emit the panel / warnings.
 
     ``acknowledge_off`` silences the "preprocessing is OFF" warning for callers
     who have already normalised inputs; mirrors the
     ``--acknowledge-preprocessing-off`` CLI flag. ``acknowledge_exec`` is the
-    explicit consent for the ``preprocessing: <path>.py`` option; mirrors the
-    ``--allow-preprocessing-exec``/``-yp`` CLI flag. Either flag may also be
-    delivered through its env var (``RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF`` /
-    ``RAITAP_ALLOW_PREPROCESSING_EXEC``) — that is the bridge the CLI uses
+    explicit consent for any ``.py`` file path passed to either knob; mirrors
+    the ``--allow-preprocessing-exec``/``-yp`` CLI flag. Either flag may also
+    be delivered through its env var (``RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF``
+    / ``RAITAP_ALLOW_PREPROCESSING_EXEC``) — that is the bridge the CLI uses
     across its bootstrap re-exec.
     """
-    raw = getattr(data_cfg, "preprocessing", None)
+    data_raw = _normalise_raw(getattr(data_cfg, "preprocessing", None), "preprocessing")
+    model_raw = _normalise_raw(
+        getattr(data_cfg, "model_input_transformation", None), "model_input_transformation"
+    )
 
-    if raw is None or (isinstance(raw, str) and not raw.strip()):
-        return _resolve_off(data_cfg, acknowledge_off=acknowledge_off)
+    if data_raw is None and model_raw is None:
+        return _resolve_both_off(data_cfg, acknowledge_off=acknowledge_off)
 
-    if not isinstance(raw, str):
-        raise TypeError(
-            f"data.preprocessing must be a string or null, got {type(raw).__name__}. "
-            f"Use 'model-bundled' or a path to a .py file."
-        )
+    file_cache: dict[Path, Any] = {}
+    hash_cache: dict[Path, str] = {}
+    bundled_cache: dict[str, tuple[nn.Module | None, nn.Module | None, str]] = {}
 
-    if raw == _MODEL_BUNDLED_VALUE:
-        return _resolve_model_bundled(model_cfg)
+    data_side = _resolve_side(
+        data_raw,
+        side="data",
+        model_cfg=model_cfg,
+        acknowledge_exec=acknowledge_exec,
+        file_cache=file_cache,
+        hash_cache=hash_cache,
+        bundled_cache=bundled_cache,
+    )
+    model_side = _resolve_side(
+        model_raw,
+        side="model",
+        model_cfg=model_cfg,
+        acknowledge_exec=acknowledge_exec,
+        file_cache=file_cache,
+        hash_cache=hash_cache,
+        bundled_cache=bundled_cache,
+    )
 
-    return _resolve_custom_file(raw, data_cfg, acknowledge_exec=acknowledge_exec)
+    _reject_shared_module(data_side, model_side)
+
+    warnings: list[str] = []
+    warnings.extend(data_side.warnings)
+    warnings.extend(model_side.warnings)
+    if (
+        model_side.module is None
+        and data_side.module is not None
+        and not _suppress_off_warning(data_cfg, acknowledge_off=acknowledge_off)
+    ):
+        warnings.append(_MODEL_OFF_WARNING)
+
+    return ResolvedPreprocessing(
+        data_module=data_side.module,
+        model_module=model_side.module,
+        data_origin=data_side.origin,
+        model_origin=model_side.origin,
+        description=_compose_description(data_side, model_side),
+        data_file_path=data_side.file_path,
+        data_file_sha256=data_side.file_sha256,
+        model_file_path=model_side.file_path,
+        model_file_sha256=model_side.file_sha256,
+        warnings=warnings,
+    )
 
 
 def module_as_per_image_callable(
@@ -186,18 +233,63 @@ def module_as_per_image_callable(
 
 
 # ---------------------------------------------------------------------------
-# Off
+# Per-side dispatch
 # ---------------------------------------------------------------------------
 
 
-def _resolve_off(data_cfg: DataConfig, *, acknowledge_off: bool = False) -> ResolvedPreprocessing:
+def _normalise_raw(raw: Any, knob_name: str) -> str | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        raise TypeError(
+            f"data.{knob_name} must be a string or null, got {type(raw).__name__}. "
+            f"Use 'model-bundled' or a path to a .py file."
+        )
+    stripped = raw.strip()
+    return stripped or None
+
+
+def _resolve_side(
+    raw: str | None,
+    *,
+    side: Side,
+    model_cfg: ModelConfig,
+    acknowledge_exec: bool,
+    file_cache: dict[Path, Any],
+    hash_cache: dict[Path, str],
+    bundled_cache: dict[str, tuple[nn.Module | None, nn.Module | None, str]],
+) -> _SideResolved:
+    if raw is None:
+        return _SideResolved(module=None, origin="off", description=None)
+
+    if raw == _MODEL_BUNDLED_VALUE:
+        return _resolve_side_bundled(side=side, model_cfg=model_cfg, bundled_cache=bundled_cache)
+
+    return _resolve_side_custom_file(
+        raw,
+        side=side,
+        acknowledge_exec=acknowledge_exec,
+        file_cache=file_cache,
+        hash_cache=hash_cache,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Both off
+# ---------------------------------------------------------------------------
+
+
+def _resolve_both_off(
+    data_cfg: DataConfig, *, acknowledge_off: bool = False
+) -> ResolvedPreprocessing:
     warnings: list[str] = []
     if not _suppress_off_warning(data_cfg, acknowledge_off=acknowledge_off):
         warnings.append(_OFF_WARNING)
     return ResolvedPreprocessing(
         data_module=None,
         model_module=None,
-        origin="off",
+        data_origin="off",
+        model_origin="off",
         description="No preprocessing applied",
         warnings=warnings,
     )
@@ -231,16 +323,29 @@ _OFF_WARNING = (
     "Most pretrained image models expect normalized inputs — without\n"
     "preprocessing, your accuracy results may be silently incorrect.\n"
     "\n"
-    "Choose a preprocessing option in your config:\n"
+    "Set both knobs in your config:\n"
     "    data:\n"
-    "      preprocessing: model-bundled          # use the model's bundled preprocessing\n"
-    "    # OR\n"
+    "      preprocessing: model-bundled                    # data-side (Resize + CenterCrop)\n"
+    "      model_input_transformation: model-bundled       # model-side (Normalize)\n"
+    "    # OR mix in your own file(s):\n"
     "    data:\n"
-    "      preprocessing: ./preprocessing.py        # supply your own\n"
+    "      preprocessing: ./resize.py\n"
+    "      model_input_transformation: ./normalize.py\n"
     "\n"
     "If you've already preprocessed your images, silence this message:\n"
     "  - Python API:   pass acknowledge_preprocessing_off=True to raitap.run(...)\n"
     "  - CLI:          re-run with --acknowledge-preprocessing-off"
+)
+
+_MODEL_OFF_WARNING = (
+    "data.model_input_transformation is OFF.\n"
+    "Data-side preprocessing will run, but no transformation is applied at\n"
+    "the model boundary. Pretrained models that expect normalized inputs\n"
+    "(ImageNet mean/std, etc.) will produce silently incorrect predictions.\n"
+    "\n"
+    "Set the model-side knob:\n"
+    "    data:\n"
+    "      model_input_transformation: model-bundled    # or ./normalize.py"
 )
 
 
@@ -249,35 +354,41 @@ _OFF_WARNING = (
 # ---------------------------------------------------------------------------
 
 
-def _resolve_model_bundled(model_cfg: ModelConfig) -> ResolvedPreprocessing:
+def _resolve_side_bundled(
+    *,
+    side: Side,
+    model_cfg: ModelConfig,
+    bundled_cache: dict[str, tuple[nn.Module | None, nn.Module | None, str]],
+) -> _SideResolved:
     arch = _arch_from_model_cfg(model_cfg)
     if arch is None:
         raise ValueError(
-            "data.preprocessing: 'model-bundled' requires a torchvision "
+            f"data.{_knob_name(side)}: 'model-bundled' requires a torchvision "
             "arch. Set model.arch (e.g. resnet50) or model.source to a built-in "
-            "torchvision name. For ONNX or pickled models, use "
-            "data.preprocessing: ./your_preprocessing.py instead."
+            "torchvision name. For ONNX or pickled models, use a .py file path "
+            "instead."
         )
 
-    try:
-        weights_enum = models.get_model_weights(arch)
-    except (ValueError, KeyError) as exc:
-        raise ValueError(
-            f"data.preprocessing: 'model-bundled' could not resolve weights "
-            f"for arch {arch!r}: {exc}. Use a path to a .py file instead."
-        ) from exc
+    cached = bundled_cache.get(arch)
+    if cached is None:
+        try:
+            weights_enum = models.get_model_weights(arch)
+        except (ValueError, KeyError) as exc:
+            raise ValueError(
+                f"data.{_knob_name(side)}: 'model-bundled' could not resolve weights "
+                f"for arch {arch!r}: {exc}. Use a path to a .py file instead."
+            ) from exc
 
-    default = weights_enum["DEFAULT"]
-    preset = default.transforms()
-    data_module, model_module = _split_preset(preset)
-    description = f"{weights_enum.__name__}.DEFAULT ({default.name})"
+        default = weights_enum["DEFAULT"]
+        preset = default.transforms()
+        data_module, model_module = _split_preset(preset)
+        description = f"{weights_enum.__name__}.DEFAULT ({default.name})"
+        cached = (data_module, model_module, description)
+        bundled_cache[arch] = cached
 
-    return ResolvedPreprocessing(
-        data_module=data_module,
-        model_module=model_module,
-        origin="model-bundled",
-        description=description,
-    )
+    data_module, model_module, description = cached
+    module = data_module if side == "data" else model_module
+    return _SideResolved(module=module, origin="model-bundled", description=description)
 
 
 def _arch_from_model_cfg(model_cfg: ModelConfig) -> str | None:
@@ -376,19 +487,25 @@ def _preset_wrapper_cls() -> type:
 # ---------------------------------------------------------------------------
 
 
-def _resolve_custom_file(
-    raw_path: str, data_cfg: DataConfig, *, acknowledge_exec: bool = False
-) -> ResolvedPreprocessing:
+def _resolve_side_custom_file(
+    raw_path: str,
+    *,
+    side: Side,
+    acknowledge_exec: bool,
+    file_cache: dict[Path, Any],
+    hash_cache: dict[Path, str],
+) -> _SideResolved:
+    knob = _knob_name(side)
     path = Path(raw_path).expanduser().resolve()
     if not path.exists():
         raise FileNotFoundError(
-            f"data.preprocessing: file not found at {path}. "
-            "Provide a path to a .py file with at least one RAITAP-decorated "
-            "preprocessing factory."
+            f"data.{knob}: file not found at {path}. "
+            "Provide a path to a .py file with the matching RAITAP-decorated "
+            "factory."
         )
     if path.suffix.lower() != ".py":
         raise ValueError(
-            f"data.preprocessing: expected a .py file, got {path.suffix!r}. "
+            f"data.{knob}: expected a .py file, got {path.suffix!r}. "
             f"Use 'model-bundled' or a Python file path."
         )
 
@@ -404,64 +521,49 @@ def _resolve_custom_file(
             "If you only need standard ImageNet preprocessing, use the model's\n"
             "bundled preprocessing instead:\n"
             "    data:\n"
-            "      preprocessing: model-bundled"
+            f"      {knob}: model-bundled"
         )
 
-    file_sha256 = _sha256_of_file(path)
-    user_module = _import_user_module(path)
+    file_sha256 = hash_cache.get(path)
+    if file_sha256 is None:
+        file_sha256 = _sha256_of_file(path)
+        hash_cache[path] = file_sha256
 
-    _reject_legacy_undecorated_factories(user_module, path)
-    data_module = _build_decorated_user_factory(
+    user_module = file_cache.get(path)
+    if user_module is None:
+        user_module = _import_user_module(path)
+        file_cache[path] = user_module
+        _reject_legacy_undecorated_factories(user_module, path)
+
+    if side == "data":
+        marker_attr = _DATA_PREPROCESSING_FACTORY_ATTR
+        factory_kind = "data preprocessing"
+        decorator_name = "raitap_preprocessing_factory"
+    else:
+        marker_attr = _MODEL_INPUT_TRANSFORMATION_FACTORY_ATTR
+        factory_kind = "model input transformation"
+        decorator_name = "raitap_model_input_transformation_factory"
+
+    module = _build_decorated_user_factory(
         user_module,
         path,
-        marker_attr=_DATA_PREPROCESSING_FACTORY_ATTR,
-        factory_kind="data preprocessing",
-        decorator_name="raitap_preprocessing_factory",
+        marker_attr=marker_attr,
+        factory_kind=factory_kind,
+        decorator_name=decorator_name,
     )
-    model_module = _build_decorated_user_factory(
-        user_module,
-        path,
-        marker_attr=_MODEL_INPUT_TRANSFORMATION_FACTORY_ATTR,
-        factory_kind="model input transformation",
-        decorator_name="raitap_model_input_transformation_factory",
-    )
-    if data_module is None and model_module is None:
+    if module is None:
         raise AttributeError(
-            f"{path}: no decorated preprocessing factories found. Decorate at "
-            "least one zero-argument factory with `@raitap_preprocessing_factory` "
-            "or `@raitap_model_input_transformation_factory`."
-        )
-    if data_module is not None and data_module is model_module:
-        raise ValueError(
-            f"{path}: data preprocessing and model input transformation factories "
-            "must return separate nn.Module instances. The model input "
-            "transformation may be moved to the model device, while data "
-            "preprocessing runs on CPU image tensors."
-        )
-    warnings: list[str] = []
-    if data_module is None:
-        data_module = nn.Identity()
-        warnings.append(
-            "Custom preprocessing file does not define data preprocessing; "
-            "using nn.Identity() before batching. Mixed-size image folders still "
-            "need data preprocessing such as Resize or CenterCrop."
-        )
-    if model_module is None:
-        model_module = nn.Identity()
-        warnings.append(
-            "Custom preprocessing file does not define a model input transformation; "
-            "using nn.Identity() at the model boundary. Models that expect input "
-            "normalization must provide a model input transformation."
+            f"{path}: no factory decorated with `@{decorator_name}` found. "
+            f"Decorate one zero-argument factory that returns an nn.Module, "
+            f"or point data.{knob} elsewhere."
         )
 
-    return ResolvedPreprocessing(
-        data_module=data_module,
-        model_module=model_module,
+    return _SideResolved(
+        module=module,
         origin="custom-file",
-        description=f"Custom preprocessing file: {raw_path}",
+        description=f"Custom {factory_kind} file: {raw_path}",
         file_path=path,
         file_sha256=file_sha256,
-        warnings=warnings,
     )
 
 
@@ -580,3 +682,39 @@ def _validate_factory_signature(factory: Any, *, factory_name: str, path: Path) 
             f"and re-run. The factory is invoked by the pipeline as "
             f"`{factory_name}()` — there is no place to thread arguments through."
         )
+
+
+# ---------------------------------------------------------------------------
+# Composition helpers
+# ---------------------------------------------------------------------------
+
+
+def _knob_name(side: Side) -> str:
+    return "preprocessing" if side == "data" else "model_input_transformation"
+
+
+def _reject_shared_module(data_side: _SideResolved, model_side: _SideResolved) -> None:
+    if (
+        data_side.module is not None
+        and model_side.module is not None
+        and data_side.module is model_side.module
+    ):
+        path_hint = data_side.file_path or model_side.file_path
+        location = f" in {path_hint}" if path_hint is not None else ""
+        raise ValueError(
+            f"data preprocessing and model input transformation must return "
+            f"separate nn.Module instances{location}. The model input "
+            f"transformation may be moved to the model device, while data "
+            f"preprocessing runs on CPU image tensors."
+        )
+
+
+def _compose_description(data_side: _SideResolved, model_side: _SideResolved) -> str:
+    if data_side.origin == "off" and model_side.origin == "off":
+        return "No preprocessing applied"
+    parts: list[str] = []
+    if data_side.description is not None:
+        parts.append(f"data: {data_side.description}")
+    if model_side.description is not None:
+        parts.append(f"model: {model_side.description}")
+    return "; ".join(parts)

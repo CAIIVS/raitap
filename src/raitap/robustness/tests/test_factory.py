@@ -202,7 +202,8 @@ def test_robustness_uses_model_resolved_preprocessing_for_call_data(
     resolved = ResolvedPreprocessing(
         data_module=_ShapeModule(),
         model_module=None,
-        origin="model-bundled",
+        data_origin="model-bundled",
+        model_origin="off",
         description="supplied",
     )
 

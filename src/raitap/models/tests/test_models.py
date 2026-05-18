@@ -85,6 +85,7 @@ def _make_config(
     num_classes: int | None = None,
     pretrained: bool = False,
     preprocessing: str | None = None,
+    model_input_transformation: str | None = None,
 ) -> AppConfig:
     return cast(
         "AppConfig",
@@ -107,6 +108,7 @@ def _make_config(
                     (),
                     {
                         "preprocessing": preprocessing,
+                        "model_input_transformation": model_input_transformation,
                         "input_metadata": None,
                     },
                 )(),
@@ -822,7 +824,8 @@ class TestModelPreprocessingWrap:
         )
         model = Model(cfg)
 
-        assert model.resolved_preprocessing.origin == "off"
+        assert model.resolved_preprocessing.data_origin == "off"
+        assert model.resolved_preprocessing.model_origin == "off"
         assert model.resolved_preprocessing.data_module is None
         assert model.resolved_preprocessing.model_module is None
         assert isinstance(model.backend, TorchBackend)
@@ -839,12 +842,16 @@ class TestModelPreprocessingWrap:
             "AppConfig",
             AppConfig(
                 model=ModelConfig(source="resnet18"),
-                data=DataConfig(preprocessing="model-bundled"),
+                data=DataConfig(
+                    preprocessing="model-bundled",
+                    model_input_transformation="model-bundled",
+                ),
             ),
         )
         model = Model(cfg)
 
-        assert model.resolved_preprocessing.origin == "model-bundled"
+        assert model.resolved_preprocessing.data_origin == "model-bundled"
+        assert model.resolved_preprocessing.model_origin == "model-bundled"
         # data_module (Resize + CenterCrop) lives in the loader. The model
         # wrap only carries the model input transformation.
         assert model.resolved_preprocessing.data_module is not None
@@ -867,13 +874,17 @@ class TestModelPreprocessingWrap:
             "AppConfig",
             AppConfig(
                 model=ModelConfig(source="resnet18"),
-                data=DataConfig(preprocessing="model-bundled"),
+                data=DataConfig(
+                    preprocessing="model-bundled",
+                    model_input_transformation="model-bundled",
+                ),
             ),
         )
         resolved = ResolvedPreprocessing(
             data_module=None,
             model_module=None,
-            origin="model-bundled",
+            data_origin="model-bundled",
+            model_origin="model-bundled",
             description="supplied",
         )
         monkeypatch.setattr(
@@ -903,7 +914,8 @@ class TestModelPreprocessingWrap:
         resolved = ResolvedPreprocessing(
             data_module=None,
             model_module=model_module,
-            origin="custom-file",
+            data_origin="off",
+            model_origin="custom-file",
             description="supplied",
         )
 
@@ -927,7 +939,10 @@ class TestModelPreprocessingWrap:
             "AppConfig",
             AppConfig(
                 model=ModelConfig(source="resnet18"),
-                data=DataConfig(preprocessing="model-bundled"),
+                data=DataConfig(
+                    preprocessing="model-bundled",
+                    model_input_transformation="model-bundled",
+                ),
             ),
         )
         model = Model(cfg)
@@ -949,17 +964,17 @@ class TestModelPreprocessingWrap:
             "AppConfig",
             AppConfig(
                 model=ModelConfig(source="resnet18"),
-                data=DataConfig(preprocessing=str(fixture)),
+                data=DataConfig(model_input_transformation=str(fixture)),
             ),
         )
         resolved = resolve_preprocessing(cfg.model, cfg.data, acknowledge_exec=True)
         model = Model(cfg, resolved_preprocessing=resolved)
 
-        assert model.resolved_preprocessing.origin == "custom-file"
+        assert model.resolved_preprocessing.model_origin == "custom-file"
         assert isinstance(model.backend, TorchBackend)
         assert isinstance(model.backend.model, nn.Sequential)
-        assert model.resolved_preprocessing.file_sha256 is not None
-        assert len(model.resolved_preprocessing.file_sha256) == 64
+        assert model.resolved_preprocessing.model_file_sha256 is not None
+        assert len(model.resolved_preprocessing.model_file_sha256) == 64
 
     def test_onnx_custom_file_preprocessing_affects_tensor_backend_output(
         self, tmp_path: Path
@@ -988,7 +1003,7 @@ def add_one_model_input_transform() -> nn.Module:
         cfg = _make_config(
             "model.onnx",
             hardware="cpu",
-            preprocessing=str(preprocessing_file),
+            model_input_transformation=str(preprocessing_file),
         )
         resolved = resolve_preprocessing(cfg.model, cfg.data, acknowledge_exec=True)
 
@@ -1029,7 +1044,7 @@ def add_one_model_input_transform() -> nn.Module:
         cfg = _make_config(
             "model.onnx",
             hardware="cpu",
-            preprocessing=str(preprocessing_file),
+            model_input_transformation=str(preprocessing_file),
         )
         resolved = resolve_preprocessing(cfg.model, cfg.data, acknowledge_exec=True)
         backend = OnnxBackend(
@@ -1087,7 +1102,7 @@ def preserve_flat_model_input_transform() -> nn.Module:
         cfg = _make_config(
             "model.onnx",
             hardware="cpu",
-            preprocessing=str(preprocessing_file),
+            model_input_transformation=str(preprocessing_file),
         )
         resolved = resolve_preprocessing(cfg.model, cfg.data, acknowledge_exec=True)
         from raitap.models.model import _apply_preprocessing
@@ -1117,7 +1132,7 @@ def preserve_flat_model_input_transform() -> nn.Module:
             "AppConfig",
             AppConfig(
                 model=ModelConfig(source="resnet18", arch="resnet18"),
-                data=DataConfig(preprocessing="model-bundled"),
+                data=DataConfig(model_input_transformation="model-bundled"),
             ),
         )
         with pytest.raises(NotImplementedError) as exc_info:
@@ -1125,8 +1140,7 @@ def preserve_flat_model_input_transform() -> nn.Module:
         message = str(exc_info.value)
         assert "ONNX" in message
         assert "model-bundled" in message
-        assert "custom-file" in message
-        assert "data.preprocessing" in message
+        assert "data.model_input_transformation" in message
 
 
 def test_resnet_state_dict_with_model_bundled_preprocessing_keeps_gradcam_path(
@@ -1145,14 +1159,18 @@ def test_resnet_state_dict_with_model_bundled_preprocessing_keeps_gradcam_path(
         "AppConfig",
         AppConfig(
             model=ModelConfig(source=str(path), arch="resnet50", num_classes=7),
-            data=DataConfig(preprocessing="model-bundled"),
+            data=DataConfig(
+                preprocessing="model-bundled",
+                model_input_transformation="model-bundled",
+            ),
             hardware=Hardware.cpu,
         ),
     )
 
     model = Model(cfg)
 
-    assert model.resolved_preprocessing.origin == "model-bundled"
+    assert model.resolved_preprocessing.data_origin == "model-bundled"
+    assert model.resolved_preprocessing.model_origin == "model-bundled"
     assert isinstance(model.resolved_preprocessing.model_module, v2.Normalize)
     assert isinstance(model.backend, TorchBackend)
     assert isinstance(model.backend.model, nn.Sequential)

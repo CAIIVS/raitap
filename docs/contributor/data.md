@@ -95,19 +95,18 @@ the source of truth for vocabulary exposed to users (no class names, no
 internal mechanics). This section covers the implementation so maintainers can
 extend it without re-deriving the design.
 
-### Three options
+### Two independent knobs
 
-The three `DataConfig.preprocessing` values resolve as follows:
+`DataConfig` exposes two independent knobs, each accepting `None`,
+`"model-bundled"`, or a path to a `.py` file:
 
-| `origin`           | Config value                  | Resolver                           | Behaviour                                                     |
-| ------------------ | ----------------------------- | ---------------------------------- | ------------------------------------------------------------- |
-| `off`              | `None` / `""` (absent)        | `_resolve_off`                     | No wrap; warn unless suppressed                               |
-| `model-bundled` | `"model-bundled"`          | `_resolve_model_bundled`        | Split `Weights.DEFAULT.transforms()` into data preprocessing + model input transformation |
-| `custom-file`      | path to a `.py` file          | `_resolve_custom_file`             | Import file, discover RAITAP-decorated factories; gate on consent |
+| Knob                              | Side  | Typical contents      |
+| --------------------------------- | ----- | --------------------- |
+| `data.preprocessing`              | data  | Resize, CenterCrop    |
+| `data.model_input_transformation` | model | Normalize             |
 
-`origin` matches the literal stored on `ResolvedPreprocessing.origin` —
-contributor docs and tests use these names directly so there is no parallel
-shorthand to keep in sync.
+Per-knob origin (`off` / `model-bundled` / `custom-file`) is recorded on
+`ResolvedPreprocessing.data_origin` and `.model_origin`.
 
 ### Split: data preprocessing vs model input transformation
 
@@ -123,19 +122,26 @@ For ONNX backends, `model_module` still belongs at the model boundary, but
 the autograd rationale is Torch-specific. Marabou-style formal verification
 reads the bare ONNX graph and does not see Python preprocessing modules.
 
-`model-bundled` calls `_split_preset(preset)` for the bundled torchvision
-presets (`ImageClassification`, `SemanticSegmentation`). `ObjectDetection`
-returns both modules as `None` — detection models normalise internally via
+`model-bundled` on either knob calls `_split_preset(preset)` for the bundled
+torchvision presets (`ImageClassification`, `SemanticSegmentation`) and
+selects the relevant half — Resize+CenterCrop for the data side, Normalize
+for the model side. The preset is computed once per arch per
+`resolve_preprocessing` call (cached internally). `ObjectDetection` returns
+both halves as `None` — detection models normalise internally via
 `GeneralizedRCNNTransform`.
 
-`custom-file` scans the imported module for callables decorated with
-`@raitap_preprocessing_factory` and
-`@raitap_model_input_transformation_factory`. At least one decorated factory
-is required. Missing modules are filled with `nn.Identity()` and a warning;
-multiple factories for the same module raise an ambiguity error. See the user
-doc for the recommended split.
+`custom-file` on a knob imports the file (cached when the same path is used
+on both knobs, so one disk read + hash) and looks for the matching
+decorator: `@raitap_preprocessing_factory` for the data knob,
+`@raitap_model_input_transformation_factory` for the model knob. Missing
+the matching decorator raises `AttributeError`; multiple matching
+factories raise `ValueError`. A file with both decorators referenced by
+only one knob silently ignores the other (file reuse is the point).
 
-`off` returns both modules as `None`.
+`off` on a knob produces `module=None` for that side. If both knobs are
+`off` and inputs are images, `_OFF_WARNING` fires. If only the model knob
+is `off` with images, `_MODEL_OFF_WARNING` fires (the silent
+metric-corruption case).
 
 ### Resolver flow
 
@@ -145,17 +151,25 @@ inspects the config, returns a `ResolvedPreprocessing` record, and leaves
 panel rendering / warning emission to its caller.
 
 ```
-DataConfig.preprocessing
-  ├─ None / ""           → _resolve_off              → data_module=None, model_module=None, warnings=[OFF_WARNING] (unless suppressed)
-  ├─ "model-bundled"  → _resolve_model_bundled → _split_preset(weights.transforms()) → (Resize+CenterCrop, Normalize)
-  └─ <path>.py           → _resolve_custom_file      → decorated data preprocessing and/or model input transformation factories
+DataConfig.preprocessing                  (data side)
+  ├─ None / ""           → _SideResolved(module=None, origin="off", ...)
+  ├─ "model-bundled"     → _resolve_side_bundled → split_preset()[data half]
+  └─ <path>.py           → _resolve_side_custom_file → @raitap_preprocessing_factory
+
+DataConfig.model_input_transformation     (model side)
+  ├─ None / ""           → _SideResolved(module=None, origin="off", ...)
+  ├─ "model-bundled"     → _resolve_side_bundled → split_preset()[model half]
+  └─ <path>.py           → _resolve_side_custom_file → @raitap_model_input_transformation_factory
 ```
+
+The two sides are composed into a single `ResolvedPreprocessing`. Off
+warnings (both off, or model-only off with images) fire from the composer,
+not from per-side resolution.
 
 The normal pipeline resolves preprocessing once in
 `src/raitap/pipeline/orchestrator.py`, then passes the same
 `ResolvedPreprocessing` to `Model` and `Data`. Direct `Model(config)` and
-`Data(config)` callers still fall back to resolving internally for backward
-compatibility.
+`Data(config)` callers still fall back to resolving internally.
 
 `model-bundled` derives the torchvision arch from `model_cfg.arch`,
 falling back to `model_cfg.source` if it names a built-in
@@ -183,10 +197,12 @@ torchattacks — gradients flow back through the normalize layer, attack
 budgets stay defined in the user-facing `[0, 1]` input space.
 
 When the backend is an `OnnxBackend`, `_apply_preprocessing` accepts only
-`custom-file` preprocessing. It deep-copies the resolved `model_module` and
-passes it to `backend.set_preprocessing(model_module)`, whose setter owns
-CPU placement and `eval()` mode. `model-bundled` stays unsupported for ONNX
-because there is no torchvision weights lineage to derive from.
+a `custom-file` model-side resolution (`model_origin == "custom-file"`). It
+deep-copies the resolved `model_module` and passes it to
+`backend.set_preprocessing(model_module)`, whose setter owns CPU placement
+and `eval()` mode. `model_input_transformation: model-bundled` stays
+unsupported for ONNX because there is no torchvision weights lineage to
+derive from.
 
 After wrapping, the helper emits each `resolved.warnings` entry via
 `raitap_log.warn` and (for active tiers) a single `raitap_log.info` line
@@ -211,13 +227,13 @@ and `per_image_transform = None`.
 
 ### ONNX path
 
-ONNX support is split by preprocessing origin:
+ONNX support is split by `model_origin`:
 
 - `off`: unchanged; the resolver still runs so the off warning can be
   emitted for ONNX-with-no-preprocessing setups.
-- `model-bundled`: unsupported. Option 2 is torchvision-lineage only and
-  does not apply preprocessing that may have been bundled into an ONNX
-  export.
+- `model-bundled`: unsupported. The bundled split is torchvision-lineage
+  only and does not apply preprocessing that may have been bundled into an
+  ONNX export.
 - `custom-file`: supported on RAITAP's normal tensor/model call path. The
   decorated model input transformation runs before the backend invocation,
   so ONNX models get the same model-boundary transformation semantics as
@@ -253,12 +269,15 @@ preserve consent across the sub-process boundary.
 ```python
 @dataclass(frozen=True)
 class ResolvedPreprocessing:
-    data_module: nn.Module | None     # Data preprocessing — per-image in loader
-    model_module: nn.Module | None    # Model input transformation — model boundary
-    origin: Literal["off", "model-bundled", "custom-file"]
-    description: str
-    file_path: Path | None = None     # custom-file only
-    file_sha256: str | None = None    # custom-file only
+    data_module: nn.Module | None              # Data preprocessing — per-image in loader
+    model_module: nn.Module | None             # Model input transformation — model boundary
+    data_origin: Literal["off", "model-bundled", "custom-file"]
+    model_origin: Literal["off", "model-bundled", "custom-file"]
+    description: str                           # composite "data: …; model: …"
+    data_file_path: Path | None = None         # data side custom-file only
+    data_file_sha256: str | None = None        # data side custom-file only
+    model_file_path: Path | None = None        # model side custom-file only
+    model_file_sha256: str | None = None       # model side custom-file only
     warnings: list[str] = field(default_factory=list)
 ```
 
@@ -269,12 +288,9 @@ Downstream consumers:
 | Consumer                                           | Reads                                          |
 | -------------------------------------------------- | ---------------------------------------------- |
 | `Data._load_data`                                  | `data_module` (lifted via `module_as_per_image_callable`) |
-| `_apply_preprocessing` wrap + panel + warnings     | `model_module`, `description`, `warnings`      |
-| `_mlflow_summary_params` in `mlflow_tracker.py`    | `data.preprocessing`, `data.preprocessing.origin`; plus `data.preprocessing.file_path` and `data.preprocessing.file_sha256` for custom files |
+| `_apply_preprocessing` wrap + panel + warnings     | `model_module`, `model_origin`, `description`, `warnings` |
+| `_mlflow_summary_params` in `mlflow_tracker.py`    | `data.preprocessing` and `data.model_input_transformation`, each emitting `.origin` / `.file_path` / `.file_sha256` keys |
 | Future HTML report card                            | All fields — same plain phrasing as the panel  |
-
-The `origin` enum value is internal; user-facing renderings translate it
-("Off", "Model-bundled (ResNet50 IMAGENET1K_V2)", "Custom preprocessing file: ./…").
 
 ### Test fixture
 

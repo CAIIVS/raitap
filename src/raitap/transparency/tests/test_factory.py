@@ -1640,7 +1640,8 @@ class TestResolveCallDataSources:
         resolved = ResolvedPreprocessing(
             data_module=_ShapeModule(),
             model_module=None,
-            origin="model-bundled",
+            data_origin="model-bundled",
+            model_origin="off",
             description="supplied",
         )
 

@@ -180,7 +180,7 @@ def test_programmatic_custom_file_refuses_without_consent(
     data_cfg = DataConfig(
         name="imagenet_samples",
         source="imagenet_samples",
-        preprocessing=str(FIXTURE),
+        model_input_transformation=str(FIXTURE),
     )
     model_cfg = ModelConfig(source="vit_b_32")
 
@@ -201,12 +201,12 @@ def test_programmatic_custom_file_accepts_with_kwarg(
     data_cfg = DataConfig(
         name="imagenet_samples",
         source="imagenet_samples",
-        preprocessing=str(FIXTURE),
+        model_input_transformation=str(FIXTURE),
     )
     model_cfg = ModelConfig(source="vit_b_32")
 
     resolved = resolve_preprocessing(model_cfg, data_cfg, acknowledge_exec=True)
-    assert resolved.origin == "custom-file"
+    assert resolved.model_origin == "custom-file"
 
 
 def test_model_accepts_externally_resolved_custom_file(
@@ -222,13 +222,14 @@ def test_model_accepts_externally_resolved_custom_file(
     """
     monkeypatch.delenv("RAITAP_ALLOW_PREPROCESSING_EXEC", raising=False)
     cfg = _demo_app_config()
-    cfg.data.preprocessing = str(FIXTURE)
+    cfg.data.preprocessing = None
+    cfg.data.model_input_transformation = str(FIXTURE)
 
     resolved = resolve_preprocessing(cfg.model, cfg.data, acknowledge_exec=True)
     model = Model(cfg, resolved_preprocessing=resolved)
 
-    assert model.resolved_preprocessing.origin == "custom-file"
-    sha = model.resolved_preprocessing.file_sha256
+    assert model.resolved_preprocessing.model_origin == "custom-file"
+    sha = model.resolved_preprocessing.model_file_sha256
     assert sha is not None and len(sha) == 64
     assert all(c in "0123456789abcdef" for c in sha)
 

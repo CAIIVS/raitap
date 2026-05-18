@@ -1,84 +1,56 @@
 ---
 title: "Image preprocessing"
-description: "Most pretrained image models expect their inputs to be normalized (resized, center-cropped, and rescaled with a model-specific mean and standard deviation)."
+description: "Most pretrained image models expect their inputs to be resized, center-cropped, and normalized. RAITAP exposes two independent knobs so you can wire each stage where it makes sense."
 myst:
   html_meta:
-    "description": "Most pretrained image models expect their inputs to be normalized (resized, center-cropped, and rescaled with a model-specific mean and standard deviation)."
+    "description": "Most pretrained image models expect their inputs to be resized, center-cropped, and normalized. RAITAP exposes two independent knobs so you can wire each stage where it makes sense."
 ---
 
 # Image preprocessing
 
-This page describes how to configure the image preprocessing RAITAP applies
-before each forward pass.
+Pretrained image models usually expect their inputs Resized, CenterCropped,
+and Normalized with model-specific mean/std. RAITAP applies nothing by
+default — pass unnormalized tensors to an ImageNet-pretrained model and
+accuracy silently collapses.
 
-Most pretrained image models expect their inputs to be normalized (resized,
-center-cropped, and rescaled with a model-specific mean and standard
-deviation). RAITAP does **not** preprocess your images by default — if you
-hand a pretrained model raw `[0, 1]` tensors when it was trained on
-ImageNet-normalized inputs, accuracy can silently collapse. The
-`data.preprocessing` option lets you pick which preprocessing RAITAP applies
-before the model sees a sample.
+There are **two independent knobs**:
 
-There are three options. Pick one.
+| Knob | Where it runs | Typical contents |
+|---|---|---|
+| `data.preprocessing` | per-image in the loader, before the batch is stacked | Resize, CenterCrop |
+| `data.model_input_transformation` | at the model boundary, every forward pass | Normalize |
 
-## Option 1: Off (default)
+The split matters: shape changes must run per-image (so mixed-size folders
+can stack at all) and don't need gradients. Normalize must stay at the model
+boundary so Captum/SHAP attribution and PGD/FGSM attack budgets see the same
+input space you do.
 
-```{config-tabs}
-:yaml:
-data:
-  source: ./data/images
-  # no `preprocessing` key
+Each knob accepts the same three values, independently:
 
-:python:
-from raitap.data import DataConfig
+- **`null`** (default) — that stage is off.
+- **`model-bundled`** — pull the relevant half from the model's bundled
+  torchvision preset. Resize+CenterCrop on the data side, Normalize on the
+  model side.
+- **path to a `.py` file** — load a user-supplied factory decorated with the
+  matching RAITAP decorator. Gated by `--allow-preprocessing-exec` / `-yp`
+  (CLI) or `acknowledge_preprocessing_exec=True` (Python API).
 
-data = DataConfig(source="./data/images")  # preprocessing defaults to None
-```
+If both knobs are `null` and inputs are images, a loud warning fires at
+startup. If only the model-side knob is `null`, a separate warning fires
+(missing Normalize is the silent-metric-corruption case).
 
-No preprocessing is applied; RAITAP forwards your images to the model
-unchanged. At startup you see a loud warning telling you metrics may be
-incorrect.
+## Recipes
 
-**Use this when** you have already preprocessed your images upstream (e.g.
-your dataloader emits normalized tensors), or when your data is not images at
-all (tabular, time-series — the warning is auto-suppressed for these).
-
-To silence the warning for an already-preprocessed image dataset, pass the
-acknowledgement at invocation time — it is not a config-file option.
-
-::::{tab-set}
-:::{tab-item} CLI
-```shell
-uv run raitap --config-name assessment --acknowledge-preprocessing-off
-
-# If RAITAP is installed as a console script:
-raitap --config-name assessment --acknowledge-preprocessing-off
-```
-:::
-
-:::{tab-item} Python API
-```python
-from raitap import run
-
-run(config, acknowledge_preprocessing_off=True)
-```
-:::
-::::
-
-**Requirement:** every image in your directory must already be the same
-height and width. The loader stacks them into a single batch tensor and
-raises if shapes don't match. If your folder has mixed-size images, pick
-option 2 or option 3.
-
-## Option 2: The model's bundled preprocessing
+### Standard: torchvision model, bundled preprocessing
 
 ```{config-tabs}
 :yaml:
 data:
   source: ./data/images
   preprocessing: model-bundled
+  model_input_transformation: model-bundled
 model:
-  source: resnet50          # or any other built-in torchvision model
+  source: resnet50
 
 :python:
 from raitap.data import DataConfig, Preprocessing
@@ -87,36 +59,65 @@ from raitap.models import ModelConfig
 data = DataConfig(
     source="./data/images",
     preprocessing=Preprocessing.model_bundled,
+    model_input_transformation=Preprocessing.model_bundled,
 )
-model = ModelConfig(source="resnet50")  # or any other built-in torchvision model
+model = ModelConfig(source="resnet50")
 ```
 
-RAITAP looks up the preprocessing that ships with the model's pretrained
-weights (Resize, CenterCrop, and Normalize with the mean/std the model was
-trained with) and applies it before every forward pass.
+Handles mixed-size folders. Each image becomes 224×224 (for the standard
+ImageNet preset), then Normalize runs on every forward pass. This is the
+right default whenever `model.source` (or `model.arch`) names a built-in
+torchvision model.
 
-**Use this when** your model is a standard torchvision model. This is the
-right default for `--demo` and for any config where `model.source` names a
-built-in torchvision model.
+`model-bundled` is torchvision-lineage only: it does not read preprocessing
+bundled into ONNX exports. For ONNX, use a custom file on the model side.
 
-**Handles mixed-size folders.** Resize and CenterCrop run per-image as the
-loader stacks the batch, so a directory of varied-size JPEGs loads
-successfully (each image becomes 224×224 for the standard ImageNet preset).
-The Normalize step then runs at the model boundary on every forward pass.
+### Custom Normalize, bundled Resize/Crop
 
-**Requirements:** either `model.arch` is set (e.g. `arch: resnet50`) or
-`model.source` is the name of a built-in torchvision model. Option 2 is
-torchvision-lineage only: it does not read preprocessing bundled into ONNX
-exports, and it is unsupported for ONNX models or model files with no
-torchvision lineage. Use option 3 instead.
+Fine-tuned a torchvision model on non-ImageNet data? Keep the standard
+geometry, swap the normalization stats:
 
-## Option 3: Your own preprocessing file
+```{config-tabs}
+:yaml:
+data:
+  source: ./data/images
+  preprocessing: model-bundled
+  model_input_transformation: ./my_normalize.py
+model:
+  source: resnet50
+
+:python:
+from raitap.data import DataConfig, Preprocessing
+
+data = DataConfig(
+    source="./data/images",
+    preprocessing=Preprocessing.model_bundled,
+    model_input_transformation="./my_normalize.py",
+)
+```
+
+```python
+# my_normalize.py
+from torch import nn
+from torchvision.transforms import v2
+from raitap.data import raitap_model_input_transformation_factory
+
+
+@raitap_model_input_transformation_factory
+def normalize_for_my_domain() -> nn.Module:
+    return v2.Normalize(mean=[0.5, 0.5, 0.5], std=[0.2, 0.2, 0.2])
+```
+
+### Both sides custom
+
+For non-torchvision models, ONNX models, or fully custom pipelines:
 
 ```{config-tabs}
 :yaml:
 data:
   source: ./data/images
   preprocessing: ./preprocessing.py
+  model_input_transformation: ./preprocessing.py
 
 :python:
 from raitap.data import DataConfig
@@ -124,70 +125,15 @@ from raitap.data import DataConfig
 data = DataConfig(
     source="./data/images",
     preprocessing="./preprocessing.py",
+    model_input_transformation="./preprocessing.py",
 )
 ```
 
-Then re-run with the consent flag (see the [Consent gate](#consent-gate)
-section below):
-
-```{install-tabs}
-:uv:
-uv run raitap --config-name assessment --allow-preprocessing-exec
-
-:pip:
-raitap --config-name assessment --allow-preprocessing-exec
-```
-
-RAITAP loads your Python file and discovers factories marked with RAITAP
-decorators. Data preprocessing runs before batching; the model input
-transformation runs inside every model call.
-
-**Use this when** you need non-standard preprocessing — custom mean/std,
-non-ImageNet inputs, a different crop size, extra steps, or a model whose
-bundled preprocessing is unavailable.
-
-For ONNX models, option 3 participates in RAITAP's normal tensor/model call
-path: the model input transformation runs before RAITAP calls the ONNX
-backend. The low-level `OnnxBackend.forward_numpy(...)` API remains raw and
-does not apply Python preprocessing on its own.
-
-### Consent gate
-
-Loading `./preprocessing.py` executes arbitrary Python code from disk, so
-RAITAP refuses unless you opt in. Choose one:
-
-::::{tab-set}
-:::{tab-item} CLI
-```shell
-uv run raitap --config-name assessment -yp
-
-# If RAITAP is installed as a console script:
-raitap --config-name assessment -yp
-```
-:::
-
-:::{tab-item} Python API
 ```python
-from raitap import run
-
-run(config, acknowledge_preprocessing_exec=True)
-```
-:::
-::::
-
-Without either, RAITAP refuses with a message pointing you back here.
-
-### What your file must look like
-
-Create `preprocessing.py` next to your config and decorate at least one
-zero-argument factory that returns an `nn.Module`:
-
-```python
+# preprocessing.py
 from torch import nn
 from torchvision.transforms import v2
 from raitap.data import (
-    DataPreprocessingFactory,
-    ModelInputTransformationFactory,
     raitap_model_input_transformation_factory,
     raitap_preprocessing_factory,
 )
@@ -207,79 +153,82 @@ def normalize_for_model() -> nn.Module:
         mean=[0.485, 0.456, 0.406],
         std=[0.229, 0.224, 0.225],
     )
+```
 
+The same file can serve both knobs — it's imported and hashed once. Run with
+the consent flag:
+
+```{install-tabs}
+:uv:
+uv run raitap --config-name assessment -yp
+
+:pip:
+raitap --config-name assessment -yp
+```
+
+### Already preprocessed upstream
+
+Your dataloader emits normalized tensors? Leave both knobs unset and
+acknowledge the warning at invocation:
+
+::::{tab-set}
+:::{tab-item} CLI
+```shell
+uv run raitap --config-name assessment --acknowledge-preprocessing-off
+
+# Or if installed as a console script:
+raitap --config-name assessment --acknowledge-preprocessing-off
+```
+:::
+
+:::{tab-item} Python API
+```python
+from raitap import run
+
+run(config, acknowledge_preprocessing_off=True)
+```
+:::
+::::
+
+The warning is also auto-suppressed for non-image data
+(`input_metadata.kind` is `tabular`, `text`, or `time_series`).
+
+When both knobs are off, every image in your directory must already be the
+same height and width — the loader stacks them into one batch tensor and
+raises if shapes don't match.
+
+## Custom file rules
+
+A factory you decorate must:
+
+- be decorated with `@raitap_preprocessing_factory` (data side) or
+  `@raitap_model_input_transformation_factory` (model side),
+- take no required arguments,
+- return an `nn.Module`.
+
+A file may decorate one factory per side. If you point a knob at a file that
+has no matching decorator, RAITAP raises before the model is built. If a
+file defines more than one factory for the same side, RAITAP raises with the
+duplicate names.
+
+For static analysis, two `Protocol` types are exported:
+
+```python
+from raitap.data import DataPreprocessingFactory, ModelInputTransformationFactory
 
 _data_check: DataPreprocessingFactory = resize_and_crop
 _model_check: ModelInputTransformationFactory = normalize_for_model
 ```
 
-The factories must:
+RAITAP records each file's path and SHA-256 in tracking metadata so changes
+between runs surface in your history.
 
-- Be decorated with `@raitap_preprocessing_factory` for data preprocessing,
-  or `@raitap_model_input_transformation_factory` for the model input
-  transformation.
-- Take no required arguments.
-- Return an `nn.Module`. `Resize` and `CenterCrop` usually belong in data
-  preprocessing; `Normalize` usually belongs in the model input
-  transformation.
+## Mixed-size folders
 
-The `DataPreprocessingFactory` and `ModelInputTransformationFactory`
-protocols let type checkers (Pyright, mypy) flag arity or return-type
-mistakes before the pipeline runs.
+The loader stacks images into one batch tensor. Mixed heights/widths only
+work if the data-side stage reshapes each image first:
 
-At runtime RAITAP enforces the same contract: a factory that declares
-required positional/keyword args, or returns something other than an
-`nn.Module`, raises `TypeError` before the module is used. If a file defines
-more than one decorated factory for the same side, RAITAP raises an
-ambiguity error.
-
-You may provide only one side. RAITAP uses `nn.Identity()` for the missing
-side and emits a warning. The example above reproduces standard ImageNet
-preprocessing — equivalent to option 2 for any ImageNet-pretrained model.
-Adapt it (different crop size, your own mean/std, extra augmentations turned
-off at eval time) to fit your model.
-
-RAITAP records the path and a content hash of your file so changes between
-runs show up in your tracking history.
-
-### Mixed-size folders with option 3
-
-If you provide only a model input transformation, every image in your folder
-must already be the same height and width by the time the loader stacks them.
-If your folder has mixed-size images, do one of:
-
-- **Switch to option 2** — it handles mixed sizes for you (recommended for
-  ImageNet-style models).
-- **Pre-resize externally** — run a one-off script that resizes all images to
-  a uniform shape.
-- **Decorate a data preprocessing factory** — it runs per-image during
-  loading, before the batch is stacked. Put Resize and CenterCrop in this
-  factory, and leave Normalize in the model input transformation:
-
-  ```python
-  from raitap.data import (
-      raitap_model_input_transformation_factory,
-      raitap_preprocessing_factory,
-  )
-
-
-  @raitap_preprocessing_factory
-  def resize_and_crop() -> nn.Module:
-      return nn.Sequential(
-          v2.Resize(232, antialias=True),
-          v2.CenterCrop(224),
-      )
-
-
-  @raitap_model_input_transformation_factory
-  def normalize_for_model() -> nn.Module:
-      return v2.Normalize(
-          mean=[0.485, 0.456, 0.406],
-          std=[0.229, 0.224, 0.225],
-      )
-  ```
-
-  This mirrors what option 2 does internally: shape changes happen in the
-  loader, and input normalization happens at the model boundary so gradients
-  (for Captum, SHAP) and attack budgets (for PGD, FGSM) all stay in the
-  user-facing input space.
+- `data.preprocessing: model-bundled` — handles mixed sizes for any
+  torchvision arch (Resize + CenterCrop run per-image).
+- `data.preprocessing: ./resize.py` — your factory runs per-image.
+- `data.preprocessing: null` — every file must already be the same shape.

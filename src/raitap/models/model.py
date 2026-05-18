@@ -107,11 +107,11 @@ def _apply_preprocessing(
 
     if resolved.model_module is not None:
         if isinstance(backend, OnnxBackend):
-            if resolved.origin != "custom-file":
+            if resolved.model_origin != "custom-file":
                 raise NotImplementedError(
-                    "data.preprocessing='model-bundled' is not yet supported "
-                    "for ONNX models. Use Option 3 with a custom-file, for "
-                    "example data.preprocessing: ./preprocessing.py."
+                    "data.model_input_transformation='model-bundled' is not yet "
+                    "supported for ONNX models. Use a custom-file path, for "
+                    "example data.model_input_transformation: ./normalize.py."
                 )
             model_module = copy.deepcopy(resolved.model_module)
             backend.set_preprocessing(model_module)

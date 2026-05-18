@@ -39,16 +39,26 @@ myst:
 :option: preprocessing
 :allowed: null, "model-bundled", path string
 :default: null
-:description: Image preprocessing applied before the forward pass. `null`
-  forwards inputs unchanged with a warning; `"model-bundled"` uses the
-  pretrained preprocessing from built-in torchvision models. For ONNX models
-  and other custom files, provide a `.py` file with your own
-  RAITAP-decorated preprocessing factories. The "preprocessing is OFF"
-  warning is silenced via the `acknowledge_preprocessing_off` kwarg on
-  `raitap.run()` or the `--acknowledge-preprocessing-off` CLI flag; the
-  `.py` path requires the `acknowledge_preprocessing_exec` kwarg or the
-  `--allow-preprocessing-exec` / `-yp` CLI flag. See {doc}`preprocessing`
-  for details.
+:description: Data-side preprocessing applied per-image in the loader,
+  before the batch is stacked. Typical contents: Resize, CenterCrop. `null`
+  leaves the loader untouched; `"model-bundled"` pulls Resize + CenterCrop
+  from the model's bundled torchvision preset; a `.py` path loads a factory
+  decorated with `@raitap_preprocessing_factory`. The `.py` path requires
+  the `acknowledge_preprocessing_exec` kwarg or the
+  `--allow-preprocessing-exec` / `-yp` CLI flag. See {doc}`preprocessing`.
+
+:option: model_input_transformation
+:allowed: null, "model-bundled", path string
+:default: null
+:description: Transformation applied at the model boundary, on every
+  forward pass. Typical contents: Normalize. Stays inside autograd so
+  attribution and adversarial budgets see the user-facing input space.
+  `"model-bundled"` pulls Normalize from the model's bundled torchvision
+  preset; a `.py` path loads a factory decorated with
+  `@raitap_model_input_transformation_factory`. When both this and
+  `preprocessing` are `null` and inputs are images, a loud warning fires —
+  silence it with `acknowledge_preprocessing_off` /
+  `--acknowledge-preprocessing-off`. See {doc}`preprocessing`.
 
 :option: labels.source
 :allowed: string, null
@@ -125,6 +135,7 @@ data:
   source: "./data/images"
   forward_batch_size: 32
   preprocessing: model-bundled
+  model_input_transformation: model-bundled
   labels:
     source: "./data/labels.csv"
     id_column: "image"
@@ -132,7 +143,7 @@ data:
     encoding: "index"
     id_strategy: "auto"
 
-:cli: data.source="./data/images" data.preprocessing=model-bundled data.labels.source="./data/labels.csv" data.labels.column=label
+:cli: data.source="./data/images" data.preprocessing=model-bundled data.model_input_transformation=model-bundled data.labels.source="./data/labels.csv" data.labels.column=label
 
 :python:
 from raitap.data import (
@@ -149,6 +160,7 @@ data = DataConfig(
     source="./data/images",
     forward_batch_size=32,
     preprocessing=Preprocessing.model_bundled,
+    model_input_transformation=Preprocessing.model_bundled,
     labels=LabelsConfig(
         source="./data/labels.csv",
         id_column="image",
