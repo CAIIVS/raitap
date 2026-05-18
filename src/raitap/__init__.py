@@ -7,7 +7,7 @@ ownership is consistent across both type and value::
     from raitap import AppConfig, run, Hardware           # orchestration
     from raitap.models import ModelConfig
     from raitap.data import DataConfig, LabelsConfig, LabelEncoding, IdStrategy
-    from raitap.metrics import MetricsConfig, Task, classification
+    from raitap.metrics import MetricsConfig, multiclass_classification
     from raitap.transparency import TransparencyConfig, captum, captum_image
     from raitap.robustness import RobustnessConfig, torchattacks, image_pair
     from raitap.reporting import ReportingConfig, html

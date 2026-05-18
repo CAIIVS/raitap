@@ -10,12 +10,12 @@ needs the library — so::
     from raitap.utils.lazy import lazy_import
     torchmetrics = lazy_import("torchmetrics")
 
-    class ClassificationMetrics(...):
+    class MulticlassClassificationMetrics(...):
         def __init__(self) -> None:
             self.acc = torchmetrics.Accuracy(task="multiclass")
 
 …lets ``from raitap.metrics.classification_metrics import
-ClassificationMetrics`` succeed in a venv that has no ``torchmetrics``
+MulticlassClassificationMetrics`` succeed in a venv that has no ``torchmetrics``
 installed, as long as nobody actually constructs the class.
 
 Pair with a ``TYPE_CHECKING`` import so Pyright still sees the real
