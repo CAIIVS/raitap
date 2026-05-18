@@ -31,6 +31,10 @@ else:
     DetectionAverage = str
     Backend = str
     BoxFormat = str
+    # ``IoUType`` real type is ``str | tuple[str, ...]`` — omegaconf rejects
+    # unions of primitives and containers ("Unions of containers are not
+    # supported"), so the runtime alias has to stay ``Any``. The narrow
+    # ``Literal`` definition lives in ``raitap.metrics.detection_metrics``.
     IoUType = Any
 
 
