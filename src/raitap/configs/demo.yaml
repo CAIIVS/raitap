@@ -2,6 +2,7 @@
 # Inlines every value so it works without external group YAMLs.
 defaults:
   - raitap_schema     # binds AppConfig dataclass → unset fields inherit defaults
+  - metrics: multiclass_classification   # narrows metrics schema so num_classes is accepted
   - _self_
 
 hardware: cpu
@@ -20,8 +21,7 @@ data:
     column: label
 
 metrics:
-  _target_: ClassificationMetrics
-  task: multiclass
+  num_classes: 1000
 
 transparency:
   my_integrated_gradients_explainer:
