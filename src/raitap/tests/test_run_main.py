@@ -127,7 +127,9 @@ def test_forward_primary_tensor_batches_backend_calls() -> None:
     )
 
     assert backend.prepared_batch_sizes == [2, 2, 1]
-    assert torch.equal(output, torch.tensor([[1.0], [5.0], [9.0], [13.0], [17.0]]))
+    predictions_tensor = output.predictions_tensor
+    assert predictions_tensor is not None
+    assert torch.equal(predictions_tensor, torch.tensor([[1.0], [5.0], [9.0], [13.0], [17.0]]))
 
 
 class _FakeExplainerResult:

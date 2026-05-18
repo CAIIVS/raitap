@@ -233,3 +233,43 @@ accepted. Requires `(B, F)` tabular attributions; rejects image, text, and
 time-series modalities.
 
 ![TabularBarChartVisualiser preview](../../_static/visualisers/tabular_bar_chart_visualiser.png)
+
+## Detection
+
+### DetectionImageVisualiser
+
+Renders one figure per detected box for any backend whose `task_kind == detection`
+(torchvision Faster R-CNN / RetinaNet / SSD). Each figure shows the original
+image with the reference bounding box outlined and the per-pixel attribution
+heatmap overlaid; the title carries the label name (falls back to `class N`
+when no name is available) and the detection score plus the box's
+`display/raw` index pair for provenance.
+
+Compatible with all attribution method families that produce per-pixel maps
+(gradient, perturbation, shapley, cam, model-agnostic, surrogate).
+
+```yaml
+transparency:
+  my_ig_explainer:
+    _target_: CaptumExplainer
+    algorithm: IntegratedGradients
+    call:
+      target: 0                  # required — wrapper exposes one scalar channel
+    raitap:
+      detection:
+        score_threshold: 0.5     # default; drop detections below this
+        max_boxes: 5             # default; cap K per sample
+        iou_threshold: 0.5       # default; used by reference_match target
+    visualisers:
+      - _target_: detection_image
+```
+
+The pipeline emits one `ExplanationResult` per detected box (top-K after
+threshold filtering), each carrying a `DetectionBox` with the reference
+xyxy / score / label. Results from the same sample share
+`original_sample_index` so reporting groups them visually via the sample-id
+chip.
+
+Scope: `LOCAL`. Output space: `DETECTION_BOXES`. Supported task: `detection`.
+Requires `VisualisationContext.detection_box` to be set (populated
+automatically by the detection explain phase).

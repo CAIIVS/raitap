@@ -100,6 +100,7 @@ class TestDataConstructor:
         data = Data(config)
 
         assert data.labels is not None
+        assert isinstance(data.labels, torch.Tensor)
         assert data.labels.tolist() == [1, 0]
 
     def test_data_warns_and_uses_row_order_without_id_column(self, tmp_path: Path) -> None:
@@ -119,6 +120,7 @@ class TestDataConstructor:
             data = Data(config)
 
         assert data.labels is not None
+        assert isinstance(data.labels, torch.Tensor)
         assert data.labels.tolist() == [1, 0]
 
     def test_data_warns_and_drops_labels_if_filenames_missing(self, tmp_path: Path) -> None:
@@ -158,6 +160,7 @@ class TestDataConstructor:
         data = Data(config)
 
         assert data.labels is not None
+        assert isinstance(data.labels, torch.Tensor)
         assert data.labels.tolist() == [1, 0]
 
     def test_data_warns_and_drops_labels_for_duplicate_label_ids(self, tmp_path: Path) -> None:
@@ -201,6 +204,7 @@ class TestDataConstructor:
         assert data.tensor.shape[0] == 2
         assert data.labels is not None
         # Sample order is sorted by relative posix path: NORMAL/* < PNEUMONIA/*.
+        assert isinstance(data.labels, torch.Tensor)
         assert data.labels.tolist() == [0, 1]
 
     def test_data_auto_detects_relative_paths_from_separators(self, tmp_path: Path) -> None:
@@ -223,6 +227,7 @@ class TestDataConstructor:
         data = Data(config)
 
         assert data.labels is not None
+        assert isinstance(data.labels, torch.Tensor)
         assert data.labels.tolist() == [7, 8]
 
     def test_data_explicit_stem_strategy_with_nested_collisions_warns(self, tmp_path: Path) -> None:

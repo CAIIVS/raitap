@@ -1262,9 +1262,7 @@ class EdgecaseSelectorStrategy(SampleSelectionStrategy):
 
 
 def _batch_size(outputs: RunOutputs) -> int:
-    if outputs.forward_output.ndim > 0:
-        return int(outputs.forward_output.shape[0])
-    return 0
+    return outputs.forward_output.batch_size
 
 
 def _copy_asset(source: Path, *, assets_dir: Path, target_name: str) -> Path:

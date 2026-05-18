@@ -131,3 +131,64 @@ def test_evaluate_prepares_metric_inputs_before_update(
 
     assert fake_metric.prepare_called_with == (predictions, targets)
     assert fake_metric.update_called_with == ("prepared_predictions", "prepared_targets")
+
+
+def test_evaluate_metrics_dispatches_detection_metrics_on_forward_output(
+    tmp_path: Path,
+) -> None:
+    """ForwardOutput(detection) + list[dict] labels → DetectionMetrics computes mAP."""
+    from raitap.configs.schema import DetectionMetricsConfig
+    from raitap.pipeline.outputs import ForwardOutput
+    from raitap.pipeline.phases.evaluate_metrics import evaluate_metrics
+    from raitap.types import TaskKind
+
+    cfg = AppConfig(experiment_name="t")
+    set_output_root(cfg, tmp_path)
+    cfg.metrics = DetectionMetricsConfig()
+
+    detection_predictions = [
+        {
+            "boxes": torch.tensor([[0.0, 0.0, 10.0, 10.0]]),
+            "scores": torch.tensor([0.9]),
+            "labels": torch.tensor([1], dtype=torch.int64),
+        },
+    ]
+    labels = [
+        {
+            "boxes": torch.tensor([[0.0, 0.0, 10.0, 10.0]]),
+            "labels": torch.tensor([1], dtype=torch.int64),
+        },
+    ]
+    forward = ForwardOutput(
+        task_kind=TaskKind.detection,
+        batch_size=1,
+        detection_predictions=detection_predictions,
+    )
+
+    result = evaluate_metrics(cfg, forward, labels)
+    assert result is not None
+    assert result.resolved_target == "raitap.metrics.DetectionMetrics"
+
+
+def test_evaluate_metrics_skips_detection_without_labels(tmp_path: Path) -> None:
+    from raitap.configs.schema import DetectionMetricsConfig
+    from raitap.pipeline.outputs import ForwardOutput
+    from raitap.pipeline.phases.evaluate_metrics import evaluate_metrics
+    from raitap.types import TaskKind
+
+    cfg = AppConfig(experiment_name="t")
+    set_output_root(cfg, tmp_path)
+    cfg.metrics = DetectionMetricsConfig()
+
+    forward = ForwardOutput(
+        task_kind=TaskKind.detection,
+        batch_size=1,
+        detection_predictions=[
+            {
+                "boxes": torch.zeros(0, 4),
+                "scores": torch.zeros(0),
+                "labels": torch.zeros(0, dtype=torch.int64),
+            }
+        ],
+    )
+    assert evaluate_metrics(cfg, forward, None) is None

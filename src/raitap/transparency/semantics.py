@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from raitap.types import TaskKind
 from raitap.utils.diagnostics import Diagnostic, Module
 from raitap.utils.errors import RaitapError
 
@@ -100,7 +101,9 @@ def _explainer_algorithm(explainer: object) -> str:
     return str(raw)
 
 
-def explainer_capability(explainer: object) -> ExplainerCapability:
+def explainer_capability(
+    explainer: object, *, task_kind: TaskKind | None = None
+) -> ExplainerCapability:
     """Return broad pre-compute semantic capabilities for an explainer."""
 
     method_families = method_families_for_explainer(explainer)
@@ -109,7 +112,7 @@ def explainer_capability(explainer: object) -> ExplainerCapability:
         scope_definition_step=ScopeDefinitionStep.EXPLAINER_OUTPUT,
         payload_kind=explainer_output_kind(explainer),
         method_families=method_families,
-        candidate_output_spaces=_candidate_output_spaces(method_families),
+        candidate_output_spaces=_candidate_output_spaces(method_families, task_kind=task_kind),
     )
 
 
@@ -157,8 +160,20 @@ def infer_output_space(
     method_families: frozenset[MethodFamily] | None = None,
     layer_path: str | None = None,
     feature_names: Sequence[str] | None = None,
+    task_kind: TaskKind | None = None,
 ) -> OutputSpaceSpec:
     """Infer deterministic output-space metadata from input and method semantics."""
+
+    if task_kind is TaskKind.detection:
+        shape = _shape_tuple(getattr(attributions, "shape", None))
+        features = list(feature_names) if feature_names is not None else input_spec.feature_names
+        return OutputSpaceSpec(
+            space=ExplanationOutputSpace.DETECTION_BOXES,
+            shape=shape,
+            layout=input_spec.layout,
+            layer_path=layer_path,
+            feature_names=features,
+        )
 
     resolved_method_families = _resolve_method_families(
         method_families=method_families,
@@ -314,7 +329,10 @@ def _method_family_error(framework: str, algorithm: str) -> RaitapError:
 
 def _candidate_output_spaces(
     method_families: frozenset[MethodFamily],
+    task_kind: TaskKind | None = None,
 ) -> frozenset[ExplanationOutputSpace]:
+    if task_kind is TaskKind.detection:
+        return frozenset({ExplanationOutputSpace.DETECTION_BOXES})
     if MethodFamily.CAM in method_families:
         return frozenset(
             {

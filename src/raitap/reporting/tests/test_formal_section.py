@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 from raitap.configs import set_output_root
 from raitap.configs.schema import AppConfig, ReportingConfig
-from raitap.pipeline.outputs import RunOutputs
+from raitap.pipeline.outputs import ForwardOutput, RunOutputs
 from raitap.reporting.builder import build_report
 from raitap.robustness.contracts import (
     MethodKind,
@@ -23,6 +23,15 @@ from raitap.robustness.contracts import (
     ThreatModel,
 )
 from raitap.robustness.results import RobustnessMetrics, RobustnessResult, encode_verdicts
+from raitap.types import TaskKind
+
+
+def _fo(tensor: torch.Tensor) -> ForwardOutput:
+    return ForwardOutput(
+        task_kind=TaskKind.classification,
+        batch_size=int(tensor.shape[0]) if tensor.ndim > 0 else 0,
+        predictions_tensor=tensor,
+    )
 
 
 def _formal_result(run_dir: Path) -> RobustnessResult:
@@ -76,7 +85,7 @@ def test_build_report_renders_robustness_certification_section(tmp_path: Path) -
         explanations=[],
         visualisations=[],
         metrics=None,
-        forward_output=torch.zeros(3, 5),
+        forward_output=_fo(torch.zeros(3, 5)),
         sample_ids=None,
         robustness_results=[result],
         robustness_visualisations=[],
@@ -125,7 +134,7 @@ def test_build_report_includes_per_class_bound_rows_for_formal_results(
         explanations=[],
         visualisations=[],
         metrics=None,
-        forward_output=torch.zeros(3, 5),
+        forward_output=_fo(torch.zeros(3, 5)),
         sample_ids=None,
         robustness_results=[result],
         robustness_visualisations=[],
@@ -171,7 +180,7 @@ def test_build_report_excludes_rows_with_only_lower_bound(tmp_path: Path) -> Non
         explanations=[],
         visualisations=[],
         metrics=None,
-        forward_output=torch.zeros(3, 5),
+        forward_output=_fo(torch.zeros(3, 5)),
         sample_ids=None,
         robustness_results=[result],
         robustness_visualisations=[],
@@ -211,7 +220,7 @@ def test_build_report_skips_bound_rows_for_empirical_attack_results(
         explanations=[],
         visualisations=[],
         metrics=None,
-        forward_output=torch.zeros(3, 5),
+        forward_output=_fo(torch.zeros(3, 5)),
         sample_ids=None,
         robustness_results=[result],
         robustness_visualisations=[],

@@ -144,6 +144,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
             explainer=self,
             method_families=method_families,
             layer_path=_layer_path_for_explainer(self),
+            task_kind=getattr(backend, "task_kind", None),
         )
         _validate_output_space_shape(input_spec=input_spec, output_space=output_space)
         semantics = ExplanationSemantics(

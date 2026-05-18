@@ -488,3 +488,41 @@ def test_explain_rejects_invalid_batch_size_kwargs() -> None:
 
     with pytest.raises(ValueError, match="batch_size must be > 0"):
         explainer.explain(model, inputs, raitap_kwargs=_raitap_kwargs_for(inputs, batch_size=0))
+
+
+def test_explain_threads_backend_task_kind_into_infer_output_space() -> None:
+    """When backend.task_kind is detection, the inferred output space is
+    DETECTION_BOXES (DETECTION branch in infer_output_space)."""
+    from raitap.models.backend import TorchBackend
+    from raitap.transparency.contracts import ExplanationOutputSpace
+    from raitap.types import TaskKind
+
+    explainer = _StrictExplainer()
+    inputs = torch.zeros(1, 3, 4, 4)
+    model = torch.nn.Identity()
+    backend = TorchBackend(model, task_kind=TaskKind.detection)
+
+    result = explainer.explain(
+        model,
+        inputs,
+        backend=backend,
+        raitap_kwargs=_raitap_kwargs_for(inputs),
+    )
+    assert result.semantics.output_space.space is ExplanationOutputSpace.DETECTION_BOXES
+
+
+def test_explain_classification_unchanged_when_backend_has_no_task_kind() -> None:
+    """No backend → task_kind defaults to None → classification path stays
+    untouched (INPUT_FEATURES for an NCHW image input)."""
+    from raitap.transparency.contracts import ExplanationOutputSpace
+
+    explainer = _StrictExplainer()
+    inputs = torch.zeros(1, 3, 4, 4)
+    model = torch.nn.Identity()
+
+    result = explainer.explain(
+        model,
+        inputs,
+        raitap_kwargs=_raitap_kwargs_for(inputs),
+    )
+    assert result.semantics.output_space.space is ExplanationOutputSpace.INPUT_FEATURES

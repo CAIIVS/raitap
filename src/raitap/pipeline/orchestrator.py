@@ -165,7 +165,7 @@ def run_without_tracking(
         explanations=explanations,
         visualisations=visualisations,
         metrics=metrics_eval,
-        forward_output=forward_output.detach().cpu(),
+        forward_output=forward_output,
         sample_ids=data.sample_ids,
         targets=data.labels,
         prediction_summaries=prediction_summaries(

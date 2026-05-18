@@ -21,6 +21,7 @@ else:
     torch = lazy_import("torch")
 
 from .contracts import (
+    DetectionBox,
     ExplanationPayloadKind,
     ExplanationScope,
     ExplanationSemantics,
@@ -143,6 +144,8 @@ class ExplanationResult(Trackable):
     visualiser_targets: list[str] = field(default_factory=list)
     visualisers: list[ConfiguredVisualiser] = field(default_factory=list, repr=False)
     payload_kind: ExplanationPayloadKind = ExplanationPayloadKind.ATTRIBUTIONS
+    detection_box: DetectionBox | None = None
+    original_sample_index: int | None = None
     semantics: ExplanationSemantics = field(kw_only=True)
 
     def __post_init__(self) -> None:
@@ -217,6 +220,7 @@ class ExplanationResult(Trackable):
                 algorithm=self.algorithm,
                 sample_names=sample_names,
                 show_sample_names=show_sample_names,
+                detection_box=self.detection_box,
             )
 
             vis.validate_explanation(self, attributions, inputs)
@@ -341,7 +345,15 @@ class ExplanationResult(Trackable):
                 expected=batch_size,
                 source="ExplanationResult.render_visualisation_for_scope",
             )
-        if sample_index is not None:
+        if self.original_sample_index is not None:
+            # Single-sample detection result. The result already represents
+            # exactly one sample (attributions shape is (1, ...)); the caller
+            # iterates over global sample indices, so skip when the requested
+            # sample doesn't match this result's owner.
+            if sample_index is not None and sample_index != self.original_sample_index:
+                return None
+            # Match (or no specific sample requested) → use stored tensors as-is.
+        elif sample_index is not None:
             attributions = attributions[sample_index : sample_index + 1]
             inputs = inputs[sample_index : sample_index + 1]
             if sample_names:
@@ -351,6 +363,7 @@ class ExplanationResult(Trackable):
             algorithm=self.algorithm,
             sample_names=sample_names,
             show_sample_names=show_sample_names,
+            detection_box=self.detection_box,
         )
         vis.validate_explanation(self, attributions, inputs)
         original_visualiser_sample_index = getattr(vis, "sample_index", None)

@@ -12,6 +12,9 @@ from .captum_visualisers import (
     CaptumTextVisualiser,
     CaptumTimeSeriesVisualiser,
 )
+
+# Detection visualisers
+from .detection_image_visualiser import DetectionImageVisualiser
 from .input_thumbnail import InputThumbnailVisualiser
 
 # SHAP-native visualisers
@@ -33,6 +36,8 @@ __all__ = [  # noqa: RUF022
     "CaptumImageVisualiser",
     "CaptumTextVisualiser",
     "CaptumTimeSeriesVisualiser",
+    # Detection
+    "DetectionImageVisualiser",
     # SHAP
     "ShapBarVisualiser",
     "ShapBeeswarmVisualiser",

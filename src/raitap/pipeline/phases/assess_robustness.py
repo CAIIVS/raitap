@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from raitap import raitap_log
 from raitap.metrics import metrics_prediction_pair
 from raitap.robustness.factory import RobustnessAssessment
+from raitap.types import TaskKind
 
 if TYPE_CHECKING:
     import torch
@@ -15,6 +16,7 @@ if TYPE_CHECKING:
     from raitap.data import Data
     from raitap.data.preprocessing import ResolvedPreprocessing
     from raitap.models import Model
+    from raitap.pipeline.outputs import ForwardOutput
     from raitap.robustness.results import RobustnessResult, RobustnessVisualisationResult
     from raitap.transparency.contracts import InputSpec
 
@@ -22,7 +24,7 @@ if TYPE_CHECKING:
 def resolve_robustness_targets(
     *,
     labels: torch.Tensor | None,
-    forward_output: torch.Tensor,
+    forward_output: ForwardOutput,
 ) -> torch.Tensor | None:
     """Return per-sample reference labels for robustness assessors.
 
@@ -30,15 +32,19 @@ def resolve_robustness_targets(
     data pipeline supplies ground-truth labels we use them; otherwise we fall
     back to ``argmax(model(clean))`` so an untargeted attack still has a
     well-defined reference (the attack tries to push the model away from its
-    current decision). Returns ``None`` only when neither labels nor a usable
-    classification head are available, in which case the assessor will raise
-    :class:`MissingTargetsError`.
+    current decision). Detection backends don't expose a single per-sample
+    class — we always fall back to ``None`` for them; the assessor will raise
+    :class:`MissingTargetsError` if it needs labels.
     """
     if labels is not None:
         return labels
-    if forward_output.ndim != 2 or forward_output.shape[1] < 2:
+    if forward_output.task_kind is not TaskKind.classification:
         return None
-    predictions, _ = metrics_prediction_pair(forward_output)
+    predictions_tensor = forward_output.predictions_tensor
+    assert predictions_tensor is not None
+    if predictions_tensor.ndim != 2 or predictions_tensor.shape[1] < 2:
+        return None
+    predictions, _ = metrics_prediction_pair(predictions_tensor)
 
     from raitap.utils.diagnostics import Module
 
@@ -54,9 +60,9 @@ def assess_robustness(
     config: AppConfig,
     model: Model,
     data: Data,
-    forward_output: torch.Tensor,
+    forward_output: ForwardOutput,
     *,
-    labels: torch.Tensor | None,
+    labels: torch.Tensor | list[dict[str, torch.Tensor]] | None,
     input_metadata: InputSpec | None,
     resolved_preprocessing: ResolvedPreprocessing | None = None,
 ) -> tuple[list[RobustnessResult], list[RobustnessVisualisationResult]]:
@@ -69,10 +75,19 @@ def assess_robustness(
     if not assessors:
         return [], []
 
+    if forward_output.task_kind is not TaskKind.classification:
+        # Robustness against detection models is a Phase 4 deliverable
+        # (DetectionAdversarialLoss). Empirical / formal robustness in this
+        # phase supports classification only.
+        return [], []
+
     suffix = "s" if len(assessors) > 1 else ""
     raitap_log.info("Performing robustness assessment%s (%d)...", suffix, len(assessors))
 
-    targets = resolve_robustness_targets(labels=labels, forward_output=forward_output)
+    classification_labels = labels if not isinstance(labels, list) else None
+    targets = resolve_robustness_targets(
+        labels=classification_labels, forward_output=forward_output
+    )
     results: list[RobustnessResult] = []
     visualisations: list[RobustnessVisualisationResult] = []
     for name in assessors:
