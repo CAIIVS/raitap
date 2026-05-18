@@ -57,8 +57,11 @@ model = ModelConfig(source="resnet50")
 Handles mixed-size folders: Resize + CenterCrop run per-image as the loader
 stacks the batch; Normalize runs on every forward pass. Works whenever
 `model.source` (or `model.arch`) names a built-in torchvision model.
-`model-bundled` does **not** read preprocessing baked into ONNX exports —
-use a custom file on the model side for ONNX.
+`model-bundled` is Torch-only on both sides — it derives from torchvision
+weights lineage, which ONNX exports don't carry. For ONNX, set
+`model_input_transformation` to a `.py` path (custom-file model-side
+transformation is wired through the ONNX backend's tensor call path).
+Data-side preprocessing via `.py` works for ONNX too.
 
 ### Tabular model, custom feature scaling
 
