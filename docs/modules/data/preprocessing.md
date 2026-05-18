@@ -1,51 +1,46 @@
 ---
-title: "Image preprocessing"
-description: "Most pretrained image models expect their inputs to be resized, center-cropped, and normalized. RAITAP exposes two independent knobs so you can wire each stage where it makes sense."
+title: "Preprocessing"
+description: "Configure the two preprocessing stages RAITAP applies between your data and the model: data-side (in the loader) and model-side (at the forward pass)."
 myst:
   html_meta:
-    "description": "Most pretrained image models expect their inputs to be resized, center-cropped, and normalized. RAITAP exposes two independent knobs so you can wire each stage where it makes sense."
+    "description": "Configure the two preprocessing stages RAITAP applies between your data and the model: data-side (in the loader) and model-side (at the forward pass)."
 ---
 
-# Image preprocessing
+# Preprocessing
 
-Pretrained image models usually expect their inputs Resized, CenterCropped,
-and Normalized with model-specific mean/std. RAITAP applies nothing by
-default — pass unnormalized tensors to an ImageNet-pretrained model and
-accuracy silently collapses.
+RAITAP applies nothing by default. Pretrained image models that expect
+ImageNet normalization, or tabular models that expect z-scored features,
+will silently produce wrong outputs if you forget.
 
-There are **two independent knobs**:
+Two **independent knobs** sit on `data`:
 
-| Knob | Where it runs | Typical contents |
+| Knob | Where | Typical contents |
 |---|---|---|
-| `data.preprocessing` | in the loader, before the batch reaches the model | Resize, CenterCrop (images); feature scaling, encoding (tabular) |
-| `data.model_input_transformation` | at the model boundary, every forward pass | Normalize, learnable input scaling |
+| `data.preprocessing` | loader, before batch reaches model | Resize + CenterCrop (images), feature scaling (tabular) |
+| `data.model_input_transformation` | model boundary, every forward pass | Normalize, learnable input layers |
 
-The split matters: shape changes must run in the loader (for images, per-image
-— so mixed-size folders can stack at all) and don't need gradients. The
-model-side stage stays inside autograd so Captum/SHAP attribution and PGD/FGSM
-attack budgets see the same input space you do.
+Why split: data-side runs in the loader so mixed-size image folders can
+stack at all, and so the work is outside autograd. Model-side stays inside
+autograd so Captum/SHAP attribution and PGD/FGSM attacks operate on the same
+input space you do.
 
-Both knobs work for any modality. For images, the data-side module is lifted
-to a per-image callable and applied as each image is loaded. For tabular
-sources, the data-side module is applied once on the stacked `(N, F)` batch.
+Both knobs accept the same three values, independently:
 
-Each knob accepts the same three values, independently:
+- **`null`** (default) — stage off.
+- **`"model-bundled"`** — pull the relevant half from the resolved
+  torchvision arch's bundled preset. Image models only.
+- **path to a `.py` file** — load a user factory decorated with the matching
+  RAITAP decorator. Gated by `--allow-preprocessing-exec` / `-yp` (CLI) or
+  `acknowledge_preprocessing_exec=True` (Python API).
 
-- **`null`** (default) — that stage is off.
-- **`model-bundled`** — pull the relevant half from the model's bundled
-  torchvision preset. Resize+CenterCrop on the data side, Normalize on the
-  model side.
-- **path to a `.py` file** — load a user-supplied factory decorated with the
-  matching RAITAP decorator. Gated by `--allow-preprocessing-exec` / `-yp`
-  (CLI) or `acknowledge_preprocessing_exec=True` (Python API).
-
-If both knobs are `null` and inputs are images, a loud warning fires at
-startup. If only the model-side knob is `null`, a separate warning fires
-(missing Normalize is the silent-metric-corruption case).
+If both knobs are `null` and inputs are images, a loud warning fires. If
+only the model-side knob is `null` with images, a separate warning fires
+(silent metric corruption is the bug this guards against). Both warnings
+auto-suppress for `tabular` / `text` / `time_series` data.
 
 ## Recipes
 
-### Standard: torchvision model, bundled preprocessing
+### Torchvision image model, bundled both sides
 
 ```{config-tabs}
 :yaml:
@@ -68,18 +63,62 @@ data = DataConfig(
 model = ModelConfig(source="resnet50")
 ```
 
-Handles mixed-size folders. Each image becomes 224×224 (for the standard
-ImageNet preset), then Normalize runs on every forward pass. This is the
-right default whenever `model.source` (or `model.arch`) names a built-in
-torchvision model.
+Handles mixed-size folders: Resize + CenterCrop run per-image as the loader
+stacks the batch; Normalize runs on every forward pass. Works whenever
+`model.source` (or `model.arch`) names a built-in torchvision model.
+`model-bundled` does **not** read preprocessing baked into ONNX exports —
+use a custom file on the model side for ONNX.
 
-`model-bundled` is torchvision-lineage only: it does not read preprocessing
-bundled into ONNX exports. For ONNX, use a custom file on the model side.
+### Tabular model, custom feature scaling
 
-### Custom Normalize, bundled Resize/Crop
+```{config-tabs}
+:yaml:
+data:
+  source: ./data/features.csv
+  preprocessing: ./scale.py
+  input_metadata:
+    kind: tabular
 
-Fine-tuned a torchvision model on non-ImageNet data? Keep the standard
-geometry, swap the normalization stats:
+:python:
+from raitap.data import DataConfig
+
+data = DataConfig(
+    source="./data/features.csv",
+    preprocessing="./scale.py",
+    input_metadata={"kind": "tabular"},
+)
+```
+
+```python
+# scale.py
+import torch
+from torch import nn
+from raitap.data import raitap_preprocessing_factory
+
+
+class ZScore(nn.Module):
+    def __init__(self, mean: list[float], std: list[float]) -> None:
+        super().__init__()
+        self.register_buffer("mean", torch.tensor(mean))
+        self.register_buffer("std", torch.tensor(std))
+
+    def forward(self, x):  # x: (N, F)
+        return (x - self.mean) / self.std
+
+
+@raitap_preprocessing_factory
+def standardise() -> nn.Module:
+    return ZScore(mean=[0.0, 1.0, 2.0], std=[0.5, 0.5, 0.5])
+```
+
+The module is invoked once on the stacked `(N, F)` batch — rows are uniform
+so per-sample iteration would just waste work. Leave the model-side knob
+unset if your network handles its own input layer.
+
+### Bundled Resize/Crop + custom Normalize
+
+Fine-tuned a torchvision arch on non-ImageNet data. Keep the geometry,
+swap the stats:
 
 ```{config-tabs}
 :yaml:
@@ -112,9 +151,7 @@ def normalize_for_my_domain() -> nn.Module:
     return v2.Normalize(mean=[0.5, 0.5, 0.5], std=[0.2, 0.2, 0.2])
 ```
 
-### Both sides custom
-
-For non-torchvision models, ONNX models, or fully custom pipelines:
+### Both sides custom, single file
 
 ```{config-tabs}
 :yaml:
@@ -152,15 +189,15 @@ def resize_and_crop() -> nn.Module:
 
 
 @raitap_model_input_transformation_factory
-def normalize_for_model() -> nn.Module:
+def normalize() -> nn.Module:
     return v2.Normalize(
         mean=[0.485, 0.456, 0.406],
         std=[0.229, 0.224, 0.225],
     )
 ```
 
-The same file can serve both knobs — it's imported and hashed once. Run with
-the consent flag:
+Same file pointed at both knobs is imported and hashed once. Run with the
+consent flag:
 
 ```{install-tabs}
 :uv:
@@ -173,7 +210,7 @@ raitap --config-name assessment -yp
 ### Already preprocessed upstream
 
 Your dataloader emits normalized tensors? Leave both knobs unset and
-acknowledge the warning at invocation:
+acknowledge at invocation:
 
 ::::{tab-set}
 :::{tab-item} CLI
@@ -194,45 +231,43 @@ run(config, acknowledge_preprocessing_off=True)
 :::
 ::::
 
-The warning is also auto-suppressed for non-image data
-(`input_metadata.kind` is `tabular`, `text`, or `time_series`).
+Non-image kinds (`tabular`, `text`, `time_series` declared via
+`input_metadata.kind`) auto-suppress the warning.
 
-When both knobs are off, every image in your directory must already be the
-same height and width — the loader stacks them into one batch tensor and
-raises if shapes don't match.
+## Custom-file rules
 
-## Custom file rules
+A decorated factory must:
 
-A factory you decorate must:
-
-- be decorated with `@raitap_preprocessing_factory` (data side) or
+- carry `@raitap_preprocessing_factory` (data side) or
   `@raitap_model_input_transformation_factory` (model side),
 - take no required arguments,
 - return an `nn.Module`.
 
-A file may decorate one factory per side. If you point a knob at a file that
-has no matching decorator, RAITAP raises before the model is built. If a
-file defines more than one factory for the same side, RAITAP raises with the
-duplicate names.
+One factory per side per file. Pointing a knob at a file with no matching
+decorator raises before the model is built. Two matching factories raise
+with their names.
 
-For static analysis, two `Protocol` types are exported:
+Two `Protocol` types ship for static analysis:
 
 ```python
 from raitap.data import DataPreprocessingFactory, ModelInputTransformationFactory
 
 _data_check: DataPreprocessingFactory = resize_and_crop
-_model_check: ModelInputTransformationFactory = normalize_for_model
+_model_check: ModelInputTransformationFactory = normalize
 ```
 
 RAITAP records each file's path and SHA-256 in tracking metadata so changes
 between runs surface in your history.
 
-## Mixed-size folders
+## When does data-side run per-image?
 
-The loader stacks images into one batch tensor. Mixed heights/widths only
-work if the data-side stage reshapes each image first:
+Image sources (`.jpg`, `.png`, …) load per-image — the data-side module is
+lifted to a single-image `(C, H, W) → Tensor` callable and applied as each
+file is read. That's the only way a directory of varied-size images can be
+stacked into one batch.
 
-- `data.preprocessing: model-bundled` — handles mixed sizes for any
-  torchvision arch (Resize + CenterCrop run per-image).
-- `data.preprocessing: ./resize.py` — your factory runs per-image.
-- `data.preprocessing: null` — every file must already be the same shape.
+Tabular sources (`.csv`, `.tsv`, `.parquet`) load as `(N, F)` in one shot —
+the data-side module runs once on the full batch.
+
+If you set `data.preprocessing: null` on an image source, every file must
+already be the same height and width.
