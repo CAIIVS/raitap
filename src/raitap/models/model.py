@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     import torch
     from torch import nn
     from torchvision import models
+    from torchvision.models import detection as _detection_models
 
     from raitap.configs.schema import AppConfig
 else:

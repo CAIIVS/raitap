@@ -8,7 +8,8 @@ checking the file in as ``artifacts/udacity-boxes.json``.
 
 Usage::
 
-    uv run --extra torch-intel python contributor-configs/fasterrcnn-udacity/scripts/generate_candidate_labels.py
+    uv run --extra torch-intel python \\
+        contributor-configs/fasterrcnn-udacity/scripts/generate_candidate_labels.py
 
 The script writes ``artifacts/udacity-boxes.candidate.json`` next to the
 real labels file. Do NOT check the candidate file in — diff it against
@@ -26,7 +27,6 @@ from torchvision.models.detection import (
     FasterRCNN_ResNet50_FPN_V2_Weights,
     fasterrcnn_resnet50_fpn_v2,
 )
-
 
 SCORE_THRESHOLD = 0.5  # drop low-confidence candidates; tune as needed
 SAMPLES_DIR = Path.home() / ".cache" / "raitap" / "UdacitySelfDriving"
