@@ -602,6 +602,16 @@ class TestLoadModelFromName:
         with pytest.raises(ValueError, match="neither an existing path nor a known"):
             Model(cfg)
 
+    def test_loads_torchvision_detection_builder_by_name(self) -> None:
+        """``model.source: fasterrcnn_resnet50_fpn_v2`` resolves to the
+        detection namespace; ``TorchBackend`` auto-detects ``task_kind=detection``."""
+        from raitap.types import TaskKind
+
+        cfg = _make_config("fasterrcnn_resnet50_fpn_v2")
+        model = Model(cfg)
+        assert isinstance(model.backend, TorchBackend)
+        assert model.backend.task_kind is TaskKind.detection
+
 
 class TestModelLog:
     def test_log_calls_tracker_log_model(self) -> None:
