@@ -125,6 +125,26 @@ def test_model_bundled_accepts_preprocessing_enum_member(
     assert torch.all(normed < 0)
 
 
+def test_preprocessing_yaml_values_survive_structured_config_merge() -> None:
+    from omegaconf import OmegaConf
+
+    structured = OmegaConf.structured(DataConfig)
+
+    model_bundled = OmegaConf.to_object(
+        OmegaConf.merge(structured, OmegaConf.create({"preprocessing": "model-bundled"}))
+    )
+    assert isinstance(model_bundled, DataConfig)
+    assert model_bundled.preprocessing == "model-bundled"
+    assert type(model_bundled.preprocessing) is str
+
+    custom_file = OmegaConf.to_object(
+        OmegaConf.merge(structured, OmegaConf.create({"preprocessing": "./preprocessing.py"}))
+    )
+    assert isinstance(custom_file, DataConfig)
+    assert custom_file.preprocessing == "./preprocessing.py"
+    assert type(custom_file.preprocessing) is str
+
+
 def test_model_bundled_via_source(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(_ENV, raising=False)
     result = resolve_preprocessing(
