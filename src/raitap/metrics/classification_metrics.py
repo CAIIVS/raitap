@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
+from raitap.configs.schema import (
+    BinaryClassificationMetricsConfig,
+    MulticlassClassificationMetricsConfig,
+    MultilabelClassificationMetricsConfig,
+)
 from raitap.metrics.registration import register_metrics_adapter
-from raitap.types import Task
 from raitap.utils.lazy import lazy_import
 
 from .base_metric_computer import BaseMetricComputer, MetricResult
@@ -17,80 +21,24 @@ else:
     # ``metrics`` extra installed (e.g. during ``raitap.run(..., auto_install=True)``).
     torchmetrics = lazy_import("torchmetrics")
 
-__all__ = ["Average", "ClassificationMetrics", "Task"]
+__all__ = [
+    "Average",
+    "BinaryClassificationMetrics",
+    "MulticlassClassificationMetrics",
+    "MultilabelClassificationMetrics",
+]
 
 Average = Literal["micro", "macro", "weighted", "none"]
 
 
-@register_metrics_adapter(registry_name="classification", extra="metrics")
-class ClassificationMetrics(BaseMetricComputer):
-    """
-    Classification metrics using torchmetrics
+class _ClassificationBase(BaseMetricComputer):
+    """Shared update/compute/reset/device wiring; subclasses build the metric quartet."""
 
-    Supports:
-        - Task: binary, multiclass, multilabel
-        - Average: micro, macro, weighted, none
-
-    Notes:
-        - If average="none", metric outputs are per-class/per-label vectors
-            and are stored in artifacts.
-        - For multilabel, you may want to pass threshold=0.5 (default) in kwargs.
-    """
-
-    def __init__(
-        self,
-        *,
-        task: Task | str = Task.multiclass,
-        num_classes: int | None = None,
-        num_labels: int | None = None,
-        average: Average = "macro",
-        ignore_index: int | None = None,
-        **kwargs: Any,
-    ):
-        task = Task(task)
-        if task not in ["binary", "multiclass", "multilabel"]:
-            raise ValueError(f"Unknown task '{task}'. Use 'binary', 'multiclass' or 'multilabel'.")
-
-        # Start building arguments dictionary
-        tm_task_kwargs: dict[str, Any] = {"task": task, **kwargs}
-
-        if task == "multiclass":
-            if num_classes is None or num_classes <= 0:
-                raise ValueError("For task='multiclass', you must provide num_classes > 0.")
-            tm_task_kwargs["num_classes"] = num_classes
-            tm_task_kwargs["ignore_index"] = ignore_index
-
-        elif task == "multilabel":
-            # TorchMetrics uses num_labels for multilabel
-            if num_labels is None:
-                # allow num_classes as alias for num_labels
-                if num_classes is None:
-                    raise ValueError(
-                        "For task='multilabel', provide num_labels (or num_classes as alias)."
-                    )
-                num_labels = num_classes
-            if num_labels <= 0:
-                raise ValueError("For task='multilabel', num_labels must be > 0.")
-            tm_task_kwargs["num_labels"] = num_labels
-            tm_task_kwargs["ignore_index"] = ignore_index
-            # If no threshold is provided, use default of 0.5
-            tm_task_kwargs.setdefault("threshold", 0.5)
-        else:
-            # Binary task
-            tm_task_kwargs["ignore_index"] = ignore_index
-
-        # Handle average argument
-        avg_kwargs: dict[str, Any] = {}
-        if task in ("multiclass", "multilabel"):
-            avg_kwargs["average"] = average
-
-        self.task = task
-        self.average = average
-
-        self.accuracy = torchmetrics.Accuracy(**tm_task_kwargs, **avg_kwargs)
-        self.precision = torchmetrics.Precision(**tm_task_kwargs, **avg_kwargs)
-        self.recall = torchmetrics.Recall(**tm_task_kwargs, **avg_kwargs)
-        self.f1 = torchmetrics.F1Score(**tm_task_kwargs, **avg_kwargs)
+    accuracy: torchmetrics.Metric
+    precision: torchmetrics.Metric
+    recall: torchmetrics.Metric
+    f1: torchmetrics.Metric
+    average: Average | None
 
     def _move_to_device(self, device: torch.device | None) -> None:
         if device is None:
@@ -111,11 +59,8 @@ class ClassificationMetrics(BaseMetricComputer):
         prec = self.precision.compute()
         rec = self.recall.compute()
         f1 = self.f1.compute()
-
         metrics: dict[str, float] = {}
         artifacts: dict[str, Any] = {}
-
-        # When average ist "none", store per-class/per-label metrics in artifacts
         if self.average == "none":
             artifacts["accuracy"] = tensor_to_python(acc)
             artifacts["precision"] = tensor_to_python(prec)
@@ -133,3 +78,91 @@ class ClassificationMetrics(BaseMetricComputer):
         self.precision.reset()
         self.recall.reset()
         self.f1.reset()
+
+    def _init_quartet(self, **tm_kwargs: Any) -> None:
+        self.accuracy = torchmetrics.Accuracy(**tm_kwargs)
+        self.precision = torchmetrics.Precision(**tm_kwargs)
+        self.recall = torchmetrics.Recall(**tm_kwargs)
+        self.f1 = torchmetrics.F1Score(**tm_kwargs)
+
+
+@register_metrics_adapter(
+    registry_name="binary_classification",
+    extra="metrics",
+    schema=BinaryClassificationMetricsConfig,
+)
+class BinaryClassificationMetrics(_ClassificationBase):
+    """Binary classification metrics (accuracy, precision, recall, F1)."""
+
+    def __init__(
+        self,
+        *,
+        ignore_index: int | None = None,
+        threshold: float = 0.5,
+        **kwargs: Any,
+    ) -> None:
+        self.average = None
+        self._init_quartet(
+            task="binary",
+            ignore_index=ignore_index,
+            threshold=threshold,
+            **kwargs,
+        )
+
+
+@register_metrics_adapter(
+    registry_name="multiclass_classification",
+    extra="metrics",
+    schema=MulticlassClassificationMetricsConfig,
+)
+class MulticlassClassificationMetrics(_ClassificationBase):
+    """Multiclass classification metrics (accuracy, precision, recall, F1)."""
+
+    def __init__(
+        self,
+        *,
+        num_classes: int,
+        average: Average = "macro",
+        ignore_index: int | None = None,
+        **kwargs: Any,
+    ) -> None:
+        if num_classes <= 0:
+            raise ValueError("num_classes must be > 0.")
+        self.average = average
+        self._init_quartet(
+            task="multiclass",
+            num_classes=num_classes,
+            average=average,
+            ignore_index=ignore_index,
+            **kwargs,
+        )
+
+
+@register_metrics_adapter(
+    registry_name="multilabel_classification",
+    extra="metrics",
+    schema=MultilabelClassificationMetricsConfig,
+)
+class MultilabelClassificationMetrics(_ClassificationBase):
+    """Multilabel classification metrics (accuracy, precision, recall, F1)."""
+
+    def __init__(
+        self,
+        *,
+        num_labels: int,
+        average: Average = "macro",
+        ignore_index: int | None = None,
+        threshold: float = 0.5,
+        **kwargs: Any,
+    ) -> None:
+        if num_labels <= 0:
+            raise ValueError("num_labels must be > 0.")
+        self.average = average
+        self._init_quartet(
+            task="multilabel",
+            num_labels=num_labels,
+            average=average,
+            ignore_index=ignore_index,
+            threshold=threshold,
+            **kwargs,
+        )

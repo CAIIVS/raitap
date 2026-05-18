@@ -90,6 +90,7 @@ class _CommonRegKwargs(TypedDict, total=False):
     library: str
     error_patterns: Mapping[re.Pattern[str], str]
     suppress_warnings: Sequence[tuple[str, type[Warning], str | None]]
+    schema: type
 
 
 class AdapterMixin:
@@ -220,6 +221,7 @@ def _register_core(
     library = common.get("library")
     error_patterns = common.get("error_patterns")
     suppress_warnings = common.get("suppress_warnings")
+    schema_override = common.get("schema")
 
     cls.registry_name = registry_name
     if extra is not None:
@@ -235,7 +237,7 @@ def _register_core(
     try:
         if family is not None:
             cls._adapter_group = family.group
-            builder = _build_schema_adapter(cls, family.schema)
+            builder = _build_schema_adapter(cls, schema_override or family.schema)
             package = (
                 f"{family.group}.{registry_name}"
                 if family.package_style == "nested"

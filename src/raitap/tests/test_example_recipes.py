@@ -29,7 +29,7 @@ pytest.importorskip("torchmetrics")  # metrics adapter
 
 from raitap import AppConfig, Hardware, run
 from raitap.data import DataConfig, LabelsConfig
-from raitap.metrics import Task, classification
+from raitap.metrics import multiclass_classification as classification
 from raitap.models import ModelConfig
 from raitap.pipeline.outputs import RunOutputs
 from raitap.robustness import image_pair, torchattacks
@@ -66,7 +66,7 @@ def _base_kwargs(experiment_name: str) -> _BaseKwargs:
                 column="label",
             ),
         ),
-        "metrics": classification(task=Task.multiclass),
+        "metrics": classification(num_classes=1000),
         "reporting": None,  # skip report rendering for speed; recipes show ``html(...)``
     }
 

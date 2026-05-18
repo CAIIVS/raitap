@@ -10,23 +10,30 @@ from raitap.metrics.base_metric_computer import BaseMetricComputer, MetricResult
 from raitap.metrics.registration import register_metrics_adapter
 
 
+@register_metrics_adapter(
+    registry_name="_stub_metric",
+    extra="_stub_extra",
+)
+class _StubMetric(BaseMetricComputer):
+    def __init__(self) -> None:
+        pass
+
+    def reset(self) -> None:
+        return None
+
+    def update(self, predictions: Any, targets: Any) -> None:
+        del predictions, targets
+
+    def compute(self) -> MetricResult:
+        return MetricResult(metrics={})
+
+
+# Module-scope registration is required so hydra-zen's ``builds(...)`` can
+# resolve a stable qualname (function-local classes hit the TypeError fallback
+# in ``_register_core``). Drop the resulting ``ADAPTER_EXTRAS`` entry so the
+# static-scan guard stays honest — see ``test_runtime_extras_subset_of_static_scan``.
+ADAPTER_EXTRAS.pop("_StubMetric", None)
+
+
 def test_register_metrics_adapter_registers_under_metrics_group() -> None:
-    @register_metrics_adapter(
-        registry_name="_stub_metric",
-        extra="_stub_extra",
-    )
-    class _StubMetric(BaseMetricComputer):
-        def __init__(self) -> None:
-            pass
-
-        def reset(self) -> None:
-            return None
-
-        def update(self, predictions: Any, targets: Any) -> None:
-            del predictions, targets
-
-        def compute(self) -> MetricResult:
-            return MetricResult(metrics={})
-
     assert "_stub_metric" in _BUILDERS["metrics"]
-    assert ADAPTER_EXTRAS["_StubMetric"] == "_stub_extra"
