@@ -89,9 +89,9 @@ def _apply_preprocessing(
     resolved_preprocessing: ResolvedPreprocessing | None = None,
 ) -> ResolvedPreprocessing:
     """Resolve ``data.preprocessing`` and wrap the backend's model in-place
-    with the value half (Normalize).
+    with the model input transformation, usually normalization.
 
-    The shape half (Resize / CenterCrop) is applied per-image by
+    Data preprocessing (Resize / CenterCrop) is applied per-image by
     :func:`raitap.data.data._load_data` before stacking, so by the time we
     see the model, inputs already have a uniform shape.
 

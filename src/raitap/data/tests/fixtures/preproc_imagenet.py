@@ -1,4 +1,4 @@
-"""Custom-file option test fixture: a minimal user-provided preprocessing factory.
+"""Custom-file option test fixture: a minimal user-provided model input transform.
 
 Used by ``test_preprocessing.py`` and ``test_api.py`` to exercise the
 ``data.preprocessing: <path>.py`` code path. Mirrors the shape of the
@@ -11,8 +11,11 @@ from __future__ import annotations
 from torch import nn
 from torchvision.transforms import v2
 
+from raitap.data import raitap_model_input_transformation_factory
 
-def make_preprocessing() -> nn.Module:
+
+@raitap_model_input_transformation_factory
+def imagenet_model_input_transform() -> nn.Module:
     return nn.Sequential(
         v2.Resize(232, antialias=True),
         v2.CenterCrop(224),

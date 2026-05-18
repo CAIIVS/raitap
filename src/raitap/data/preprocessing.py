@@ -2,32 +2,32 @@
 
 Three options (see :class:`raitap.configs.schema.DataConfig.preprocessing`):
 
-- ``None``            → no preprocessing; resolver returns both halves ``None``
+- ``None``            → no preprocessing; resolver returns both modules ``None``
                         and a loud warning so the pipeline can surface it.
 - ``"model-bundled"`` → resolve via ``torchvision.models.get_model_weights(arch)``
-                           and split ``Weights.DEFAULT.transforms()`` into a shape
-                           half (Resize + CenterCrop, run per-image in the data
-                           loader) and a value half (Normalize, wrapped at the
-                           model boundary).
+                           and split ``Weights.DEFAULT.transforms()`` into data
+                           preprocessing (Resize + CenterCrop, run per-image in
+                           the data loader) and a model input transformation
+                           (Normalize, wrapped at the model boundary).
 - path to a ``.py`` file → import it via ``importlib.util.spec_from_file_location``
-                           and call its ``make_preprocessing()`` factory (model
-                           side). Optionally also calls ``make_data_preprocessing()``
-                           when the file exports it (data-loader side). Gated by
-                           the ``acknowledge_preprocessing_exec`` kwarg on
+                           and discover factories decorated with RAITAP's
+                           custom-file decorators. Gated by the
+                           ``acknowledge_preprocessing_exec`` kwarg on
                            :func:`raitap.run` (Python API) or
                            ``--allow-preprocessing-exec``/``-yp`` (CLI, surfaced
                            through the ``RAITAP_ALLOW_PREPROCESSING_EXEC`` env var).
 
-Split rationale: shape preprocessing (Resize, CenterCrop) must run per-image in
+Split rationale: data preprocessing (Resize, CenterCrop) must run per-image in
 the data loader so mixed-size directories can be stacked at all; it has no
-gradient so leaving it outside the autograd graph is safe. Value preprocessing
-(Normalize) must stay inside autograd so attribution and adversarial budgets
-operate on the same ``[0, 1]`` input space the user sees.
+gradient so leaving it outside the autograd graph is safe. The model input
+transformation (Normalize) must stay inside autograd so attribution and
+adversarial budgets operate on the same ``[0, 1]`` input space the user sees.
 
 This module is side-effect-free: it returns a :class:`ResolvedPreprocessing`
 record. Callers (currently :class:`raitap.models.model.Model` for the model
-half and :func:`raitap.data.data._load_data` for the data half) are responsible
-for emitting the user-facing panel / warning via ``raitap_log``.
+input transformation and :func:`raitap.data.data._load_data` for data
+preprocessing) are responsible for emitting the user-facing panel / warning
+via ``raitap_log``.
 """
 
 from __future__ import annotations
@@ -37,16 +37,15 @@ import hashlib
 import importlib.util
 import inspect
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar
 
 from raitap.data.types import Preprocessing
 from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     import torch
     from torch import nn
     from torchvision import models
@@ -62,30 +61,20 @@ else:
 
 _CONSENT_ENV_VAR = "RAITAP_ALLOW_PREPROCESSING_EXEC"
 _ACKNOWLEDGE_OFF_ENV_VAR = "RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF"
-_FACTORY_NAME = "make_preprocessing"
-_DATA_FACTORY_NAME = "make_data_preprocessing"
+_LEGACY_FACTORY_NAMES = ("make_preprocessing", "make_data_preprocessing")
+_DATA_PREPROCESSING_FACTORY_ATTR = "__raitap_preprocessing_factory__"
+_MODEL_INPUT_TRANSFORMATION_FACTORY_ATTR = "__raitap_model_input_transformation_factory__"
 _MODEL_BUNDLED_VALUE = Preprocessing.model_bundled.value
 
 Origin = Literal["off", "model-bundled", "custom-file"]
+_FactoryT = TypeVar("_FactoryT", bound=Callable[[], nn.Module])
 
 
-@runtime_checkable
-class PreprocessingFactory(Protocol):
-    """Static contract for ``make_preprocessing`` / ``make_data_preprocessing``.
+class DataPreprocessingFactory(Protocol):
+    """Static contract for data-side preprocessing factories.
 
-    Users authoring a ``data.preprocessing: <path>.py`` file can annotate
-    their factory with this Protocol so type checkers catch
-    signature mistakes (extra positional args, wrong return type) before
-    the pipeline runs::
-
-        from raitap.data import PreprocessingFactory
-        from torch import nn
-
-        make_preprocessing: PreprocessingFactory = lambda: nn.Sequential(...)
-
-    The resolver also enforces the contract at runtime in
-    :func:`_build_user_factory`: zero required positional args + returns
-    an ``nn.Module``.
+    Data preprocessing runs before batching and is typically used for shape
+    transforms such as Resize and CenterCrop.
     """
 
     def __call__(self) -> nn.Module:
@@ -93,12 +82,36 @@ class PreprocessingFactory(Protocol):
         raise NotImplementedError
 
 
+class ModelInputTransformationFactory(Protocol):
+    """Static contract for model-side input transformation factories.
+
+    Model input transformations run inside every model call and are typically
+    used for value transforms such as input normalization.
+    """
+
+    def __call__(self) -> nn.Module:
+        """Build and return the model input transformation module."""
+        raise NotImplementedError
+
+
+def raitap_preprocessing_factory(factory: _FactoryT) -> _FactoryT:
+    """Mark ``factory`` as the custom-file data preprocessing factory."""
+    setattr(factory, _DATA_PREPROCESSING_FACTORY_ATTR, True)
+    return factory
+
+
+def raitap_model_input_transformation_factory(factory: _FactoryT) -> _FactoryT:
+    """Mark ``factory`` as the custom-file model input transformation factory."""
+    setattr(factory, _MODEL_INPUT_TRANSFORMATION_FACTORY_ATTR, True)
+    return factory
+
+
 @dataclass(frozen=True)
 class ResolvedPreprocessing:
     """Single source of truth for everything the pipeline needs to know about
     the resolved preprocessing setup. Consumed by the data loader (per-image
-    shape transform), the model wrap (per-batch value transform), the startup
-    panel, the HTML report card, and MLflow params.
+    data preprocessing), the model wrap (per-batch model input transformation),
+    the startup panel, the HTML report card, and MLflow params.
     """
 
     data_module: nn.Module | None
@@ -156,10 +169,10 @@ def module_as_per_image_callable(
 ) -> Callable[[torch.Tensor], torch.Tensor] | None:
     """Lift an ``nn.Module`` into a per-image callable for loader-side transforms.
 
-    The data half of preprocessing runs before images are stacked, so callers
-    need a single-image ``(C, H, W) -> Tensor`` callable. The module is put in
-    eval mode and run without autograd because shape preprocessing is outside
-    the attribution/attack graph by design.
+    Data preprocessing runs before images are stacked, so callers need a
+    single-image ``(C, H, W) -> Tensor`` callable. The module is put in eval
+    mode and run without autograd because shape preprocessing is outside the
+    attribution/attack graph by design.
     """
     if module is None:
         return None
@@ -282,14 +295,14 @@ def _arch_from_model_cfg(model_cfg: ModelConfig) -> str | None:
 
 
 def _split_preset(preset: Any) -> tuple[nn.Module | None, nn.Module | None]:
-    """Split a torchvision preset into (shape-half, value-half).
+    """Split a torchvision preset into data preprocessing and model input transformation.
 
     - ``ImageClassification`` → Resize + CenterCrop for the loader, Normalize
       for the model boundary.
     - ``SemanticSegmentation`` → Resize for the loader, Normalize for the
       boundary.
     - ``ObjectDetection`` (and any unrecognised preset that runs as a no-op)
-      → both halves ``None``. Detection models normalise internally.
+      → both modules ``None``. Detection models normalise internally.
     - Anything else → fall back to model-side only.
     """
     if isinstance(preset, _presets.ImageClassification):
@@ -344,7 +357,7 @@ def _preset_wrapper_cls() -> type:
     # time, which would force a real ``import torch`` at module load and break
     # the partial-extras-venv contract (see ``raitap.utils.lazy``). The wrapper
     # lifts a torchvision transforms preset to an ``nn.Module`` so it composes
-    # with ``nn.Sequential(value, backbone)``, transparent to autograd /
+    # with ``nn.Sequential(transform, backbone)``, transparent to autograd /
     # attribution / attacks.
 
     class _PresetWrapper(nn.Module):
@@ -370,7 +383,8 @@ def _resolve_custom_file(
     if not path.exists():
         raise FileNotFoundError(
             f"data.preprocessing: file not found at {path}. "
-            f"Provide a path to a .py file that exports `{_FACTORY_NAME}()`."
+            "Provide a path to a .py file with at least one RAITAP-decorated "
+            "preprocessing factory."
         )
     if path.suffix.lower() != ".py":
         raise ValueError(
@@ -396,23 +410,58 @@ def _resolve_custom_file(
     file_sha256 = _sha256_of_file(path)
     user_module = _import_user_module(path)
 
-    model_module = _build_user_factory(user_module, path, _FACTORY_NAME, required=True)
-    data_module = _build_user_factory(user_module, path, _DATA_FACTORY_NAME, required=False)
+    _reject_legacy_undecorated_factories(user_module, path)
+    data_module = _build_decorated_user_factory(
+        user_module,
+        path,
+        marker_attr=_DATA_PREPROCESSING_FACTORY_ATTR,
+        factory_kind="data preprocessing",
+        decorator_name="raitap_preprocessing_factory",
+    )
+    model_module = _build_decorated_user_factory(
+        user_module,
+        path,
+        marker_attr=_MODEL_INPUT_TRANSFORMATION_FACTORY_ATTR,
+        factory_kind="model input transformation",
+        decorator_name="raitap_model_input_transformation_factory",
+    )
+    if data_module is None and model_module is None:
+        raise AttributeError(
+            f"{path}: no decorated preprocessing factories found. Decorate at "
+            "least one zero-argument factory with `@raitap_preprocessing_factory` "
+            "or `@raitap_model_input_transformation_factory`."
+        )
     if data_module is not None and data_module is model_module:
         raise ValueError(
-            f"{path}: `{_FACTORY_NAME}()` and `{_DATA_FACTORY_NAME}()` must return "
-            "separate nn.Module instances. The model preprocessing module may be "
-            "moved to the model device, while the data preprocessing module runs "
-            "on CPU image tensors."
+            f"{path}: data preprocessing and model input transformation factories "
+            "must return separate nn.Module instances. The model input "
+            "transformation may be moved to the model device, while data "
+            "preprocessing runs on CPU image tensors."
+        )
+    warnings: list[str] = []
+    if data_module is None:
+        data_module = nn.Identity()
+        warnings.append(
+            "Custom preprocessing file does not define data preprocessing; "
+            "using nn.Identity() before batching. Mixed-size image folders still "
+            "need data preprocessing such as Resize or CenterCrop."
+        )
+    if model_module is None:
+        model_module = nn.Identity()
+        warnings.append(
+            "Custom preprocessing file does not define a model input transformation; "
+            "using nn.Identity() at the model boundary. Models that expect input "
+            "normalization must provide a model input transformation."
         )
 
     return ResolvedPreprocessing(
         data_module=data_module,
         model_module=model_module,
         origin="custom-file",
-        description=f"Custom file: {raw_path}",
+        description=f"Custom preprocessing file: {raw_path}",
         file_path=path,
         file_sha256=file_sha256,
+        warnings=warnings,
     )
 
 
@@ -439,26 +488,63 @@ def _import_user_module(path: Path) -> Any:
     return module
 
 
-def _build_user_factory(
+def _reject_legacy_undecorated_factories(user_module: Any, path: Path) -> None:
+    legacy = [
+        name
+        for name in _LEGACY_FACTORY_NAMES
+        if callable(factory := getattr(user_module, name, None))
+        and not getattr(factory, _DATA_PREPROCESSING_FACTORY_ATTR, False)
+        and not getattr(factory, _MODEL_INPUT_TRANSFORMATION_FACTORY_ATTR, False)
+    ]
+    if not legacy:
+        return
+    names = ", ".join(f"`{name}()`" for name in legacy)
+    raise AttributeError(
+        f"{path}: fixed-name factories {names} are no longer supported on their own. "
+        "Use the RAITAP decorators: decorate an arbitrary zero-argument factory with "
+        "`@raitap_preprocessing_factory` for data preprocessing or "
+        "`@raitap_model_input_transformation_factory` for model input transformation."
+    )
+
+
+def _build_decorated_user_factory(
     user_module: Any,
+    path: Path,
+    *,
+    marker_attr: str,
+    factory_kind: str,
+    decorator_name: str,
+) -> nn.Module | None:
+    factories = [
+        (name, factory)
+        for name, factory in vars(user_module).items()
+        if callable(factory) and getattr(factory, marker_attr, False)
+    ]
+    if not factories:
+        return None
+    if len(factories) > 1:
+        names = ", ".join(f"`{name}()`" for name, _factory in factories)
+        raise ValueError(
+            f"{path}: multiple {factory_kind} factories decorated with "
+            f"`@{decorator_name}`: {names}. Use exactly one."
+        )
+    factory_name, factory = factories[0]
+    return _call_user_factory(factory, path, factory_name, factory_kind=factory_kind)
+
+
+def _call_user_factory(
+    factory: Any,
     path: Path,
     factory_name: str,
     *,
-    required: bool,
-) -> nn.Module | None:
-    factory = getattr(user_module, factory_name, None)
-    if factory is None or not callable(factory):
-        if required:
-            raise AttributeError(
-                f"{path}: missing callable `{factory_name}()`. "
-                f"Export `def {factory_name}() -> nn.Module:` from the file."
-            )
-        return None
+    factory_kind: str,
+) -> nn.Module:
     _validate_factory_signature(factory, factory_name=factory_name, path=path)
     result = factory()
     if not isinstance(result, nn.Module):
         raise TypeError(
-            f"{path}: `{factory_name}()` must return an nn.Module, got {type(result).__name__}."
+            f"{path}: {factory_kind} factory `{factory_name}()` must return "
+            f"an nn.Module, got {type(result).__name__}."
         )
     return result
 

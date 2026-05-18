@@ -60,11 +60,13 @@ class DataConfig:
     #   - ``Preprocessing.model_bundled`` (or the string ``"model-bundled"``):
     #     use the bundled preprocessing of the resolved torchvision arch
     #     (``Weights.transforms()``).
-    #   - path to a ``.py`` file: load a user-supplied ``make_preprocessing()``
-    #     factory; gated by the ``acknowledge_preprocessing_exec`` kwarg on
-    #     :func:`raitap.run` (Python API) or ``--allow-preprocessing-exec`` /
-    #     ``-yp`` (CLI). The "preprocessing is off" warning can be silenced
-    #     via the ``acknowledge_preprocessing_off`` kwarg or the
+    #   - path to a ``.py`` file: load user-supplied factories decorated with
+    #     ``@raitap_preprocessing_factory`` and/or
+    #     ``@raitap_model_input_transformation_factory``; gated by the
+    #     ``acknowledge_preprocessing_exec`` kwarg on :func:`raitap.run`
+    #     (Python API) or ``--allow-preprocessing-exec`` / ``-yp`` (CLI).
+    #     The "preprocessing is off" warning can be silenced via the
+    #     ``acknowledge_preprocessing_off`` kwarg or the
     #     ``--acknowledge-preprocessing-off`` CLI flag.
     # Annotated as ``str | None`` because ``Preprocessing`` is a ``StrEnum``
     # subclass — its members are valid wherever a ``str`` is — and because

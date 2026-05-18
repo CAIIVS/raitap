@@ -43,10 +43,10 @@ myst:
   forwards inputs unchanged with a warning; `"model-bundled"` uses the
   pretrained preprocessing from built-in torchvision models. For ONNX models
   and other custom files, provide a `.py` file with your own
-  `make_preprocessing()` factory. The "preprocessing is OFF" warning is
-  silenced via the `acknowledge_preprocessing_off` kwarg on `raitap.run()`
-  or the `--acknowledge-preprocessing-off` CLI flag; the `.py` path
-  requires the `acknowledge_preprocessing_exec` kwarg or the
+  RAITAP-decorated preprocessing factories. The "preprocessing is OFF"
+  warning is silenced via the `acknowledge_preprocessing_off` kwarg on
+  `raitap.run()` or the `--acknowledge-preprocessing-off` CLI flag; the
+  `.py` path requires the `acknowledge_preprocessing_exec` kwarg or the
   `--allow-preprocessing-exec` / `-yp` CLI flag. See {doc}`preprocessing`
   for details.
 

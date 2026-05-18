@@ -845,8 +845,8 @@ class TestModelPreprocessingWrap:
         model = Model(cfg)
 
         assert model.resolved_preprocessing.origin == "model-bundled"
-        # data_module (Resize + CenterCrop) lives in the loader, not in the
-        # model wrap. The wrap only carries the value half.
+        # data_module (Resize + CenterCrop) lives in the loader. The model
+        # wrap only carries the model input transformation.
         assert model.resolved_preprocessing.data_module is not None
         assert isinstance(model.resolved_preprocessing.model_module, v2.Normalize)
         assert isinstance(model.backend, TorchBackend)
@@ -971,6 +971,7 @@ class TestModelPreprocessingWrap:
             """
 import torch
 from torch import nn
+from raitap.data import raitap_model_input_transformation_factory
 
 
 class AddOne(nn.Module):
@@ -978,7 +979,8 @@ class AddOne(nn.Module):
         return inputs + 1
 
 
-def make_preprocessing() -> nn.Module:
+@raitap_model_input_transformation_factory
+def add_one_model_input_transform() -> nn.Module:
     return AddOne()
 """.lstrip(),
             encoding="utf-8",
@@ -1010,6 +1012,7 @@ def make_preprocessing() -> nn.Module:
             """
 import torch
 from torch import nn
+from raitap.data import raitap_model_input_transformation_factory
 
 
 class AddOne(nn.Module):
@@ -1017,7 +1020,8 @@ class AddOne(nn.Module):
         return inputs + 1
 
 
-def make_preprocessing() -> nn.Module:
+@raitap_model_input_transformation_factory
+def add_one_model_input_transform() -> nn.Module:
     return AddOne()
 """.lstrip(),
             encoding="utf-8",
@@ -1057,6 +1061,7 @@ def make_preprocessing() -> nn.Module:
             """
 import torch
 from torch import nn
+from raitap.data import raitap_model_input_transformation_factory
 
 
 class PreserveFlatInput(nn.Module):
@@ -1064,7 +1069,8 @@ class PreserveFlatInput(nn.Module):
         return inputs.reshape(inputs.shape[0], 1, 1, 4)
 
 
-def make_preprocessing() -> nn.Module:
+@raitap_model_input_transformation_factory
+def preserve_flat_model_input_transform() -> nn.Module:
     return PreserveFlatInput()
 """.lstrip(),
             encoding="utf-8",
