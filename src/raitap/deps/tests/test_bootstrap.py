@@ -23,7 +23,7 @@ def _fake_compose(monkeypatch: pytest.MonkeyPatch, cfg: dict[str, Any]) -> None:
 def _baseline_cfg() -> dict[str, Any]:
     return {
         "model": {"source": "x.pt"},
-        "metrics": {"_target_": "ClassificationMetrics", "task": "multiclass"},
+        "metrics": {"_target_": "MulticlassClassificationMetrics", "num_classes": 3},
         "reporting": {"_target_": "HTMLReporter", "filename": "r"},
     }
 

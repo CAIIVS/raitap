@@ -16,7 +16,7 @@ _LWISE_ASSESSMENT: dict = {
     "hardware": "gpu",
     "model": {"source": "lwise_ham10000_eager.pt"},
     "data": {"name": "ham10000-presentation-balanced"},
-    "metrics": {"_target_": "ClassificationMetrics", "task": "multiclass"},
+    "metrics": {"_target_": "MulticlassClassificationMetrics", "num_classes": 7},
     "transparency": {
         "gradcam": {"_target_": "CaptumExplainer", "algorithm": "LayerGradCam"},
         "saliency": {"_target_": "CaptumExplainer", "algorithm": "Saliency"},
@@ -69,7 +69,7 @@ def test_lwise_ham10000_with_cuda_picks_torch_cuda() -> None:
 _MARABOU_MNIST_DEMO: dict = {
     "model": {"source": "mlp_mnist.onnx"},
     "data": {"name": "mnist_samples"},
-    "metrics": {"_target_": "ClassificationMetrics", "task": "multiclass"},
+    "metrics": {"_target_": "MulticlassClassificationMetrics", "num_classes": 7},
     "robustness": {
         "marabou_linf": {"_target_": "MarabouAssessor", "algorithm": "linf-box"},
     },

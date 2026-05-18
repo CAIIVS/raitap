@@ -24,16 +24,16 @@ from raitap.api import instantiate
 from raitap.configs.schema import (
     DataConfig,
     LabelsConfig,
-    MetricsConfig,
     ModelConfig,
+    MulticlassClassificationMetricsConfig,
     RobustnessConfig,
     TransparencyConfig,
 )
-from raitap.metrics import classification as classification_metrics
+from raitap.metrics import multiclass_classification as classification_metrics
 from raitap.pipeline.outputs import RunOutputs
 from raitap.robustness import foolbox, torchattacks
 from raitap.transparency import captum, shap
-from raitap.types import Hardware, Task
+from raitap.types import Hardware
 
 
 def _configs_dir() -> Path:
@@ -56,7 +56,7 @@ def _demo_app_config() -> AppConfig:
                 column="label",
             ),
         ),
-        metrics=MetricsConfig(_target_="ClassificationMetrics", task=Task.multiclass),
+        metrics=MulticlassClassificationMetricsConfig(num_classes=1000),
         transparency={
             "default": TransparencyConfig(
                 _target_="CaptumExplainer",
@@ -106,11 +106,11 @@ def test_api_surface_exports_what_docs_will_reference() -> None:
 
 def test_classification_metrics_builder_instantiates_round_trip() -> None:
     """Sanity: the builder produces a config that Hydra can instantiate."""
-    from raitap.metrics.classification_metrics import ClassificationMetrics
+    from raitap.metrics.classification_metrics import MulticlassClassificationMetrics
 
-    cfg = classification_metrics(task="multiclass", num_classes=3)
+    cfg = classification_metrics(num_classes=3)
     instance = instantiate(cfg)
-    assert isinstance(instance, ClassificationMetrics)
+    assert isinstance(instance, MulticlassClassificationMetrics)
 
 
 def test_explainer_builders_accept_schema_fields() -> None:
