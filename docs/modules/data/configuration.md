@@ -39,12 +39,14 @@ myst:
 :option: preprocessing
 :allowed: null, "model-bundled", path string
 :default: null
-:description: Data-side preprocessing applied per-image in the loader,
-  before the batch is stacked. Typical contents: Resize, CenterCrop. `null`
+:description: Data-side preprocessing applied in the loader, before the
+  batch reaches the model. Per-image for image sources; per-batch on the
+  stacked `(N, F)` tensor for tabular sources. Typical contents: Resize +
+  CenterCrop for images; feature scaling or encoding for tabular. `null`
   leaves the loader untouched; `"model-bundled"` pulls Resize + CenterCrop
-  from the model's bundled torchvision preset; a `.py` path loads a factory
-  decorated with `@raitap_preprocessing_factory`. The `.py` path requires
-  the `acknowledge_preprocessing_exec` kwarg or the
+  from the model's bundled torchvision preset (image models only); a `.py`
+  path loads a factory decorated with `@raitap_preprocessing_factory`. The
+  `.py` path requires the `acknowledge_preprocessing_exec` kwarg or the
   `--allow-preprocessing-exec` / `-yp` CLI flag. See {doc}`preprocessing`.
 
 :option: model_input_transformation

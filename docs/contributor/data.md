@@ -269,7 +269,7 @@ preserve consent across the sub-process boundary.
 ```python
 @dataclass(frozen=True)
 class ResolvedPreprocessing:
-    data_module: nn.Module | None              # Data preprocessing — per-image in loader
+    data_module: nn.Module | None              # Data preprocessing — per-image (images) or per-batch (tabular) in loader
     model_module: nn.Module | None             # Model input transformation — model boundary
     data_origin: Literal["off", "model-bundled", "custom-file"]
     model_origin: Literal["off", "model-bundled", "custom-file"]
