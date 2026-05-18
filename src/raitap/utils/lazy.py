@@ -11,8 +11,8 @@ needs the library — so::
     torchmetrics = lazy_import("torchmetrics")
 
     class MulticlassClassificationMetrics(...):
-        def __init__(self) -> None:
-            self.acc = torchmetrics.Accuracy(task="multiclass")
+        def __init__(self, *, num_classes: int) -> None:
+            self.acc = torchmetrics.Accuracy(task="multiclass", num_classes=num_classes)
 
 …lets ``from raitap.metrics.classification_metrics import
 MulticlassClassificationMetrics`` succeed in a venv that has no ``torchmetrics``

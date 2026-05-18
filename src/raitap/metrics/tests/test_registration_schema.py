@@ -20,7 +20,9 @@ class _DummyMetric(BaseMetricComputer):
     def __init__(self, *, knob: int = 0) -> None:
         self.knob = knob
 
-    def reset(self) -> None: ...
+    def reset(self) -> None:
+        return None
+
     def update(self, predictions: Any, targets: Any) -> None:
         del predictions, targets
 
