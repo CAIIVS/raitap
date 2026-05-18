@@ -53,17 +53,13 @@ adapter.
 :yaml:
 metrics:
   _target_: "BinaryClassificationMetrics"
-  ignore_index: null
-  threshold: 0.5
 
 :cli: +metrics=binary_classification +metrics.threshold=0.6
 
 :python:
 from raitap.metrics import binary_classification
 
-metrics = binary_classification(
-    threshold=0.5,
-)
+metrics = binary_classification()
 ```
 
 ## Multiclass classification
@@ -98,18 +94,13 @@ metrics = binary_classification(
 metrics:
   _target_: "MulticlassClassificationMetrics"
   num_classes: 7
-  average: "macro"
-  ignore_index: null
 
 :cli: +metrics=multiclass_classification +metrics.num_classes=7
 
 :python:
 from raitap.metrics import multiclass_classification
 
-metrics = multiclass_classification(
-    num_classes=7,
-    average="macro",
-)
+metrics = multiclass_classification(num_classes=7)
 ```
 
 ## Multilabel classification
@@ -149,20 +140,13 @@ metrics = multiclass_classification(
 metrics:
   _target_: "MultilabelClassificationMetrics"
   num_labels: 5
-  average: "macro"
-  ignore_index: null
-  threshold: 0.5
 
 :cli: +metrics=multilabel_classification +metrics.num_labels=5
 
 :python:
 from raitap.metrics import multilabel_classification
 
-metrics = multilabel_classification(
-    num_labels=5,
-    average="macro",
-    threshold=0.5,
-)
+metrics = multilabel_classification(num_labels=5)
 ```
 
 ## Object detection
@@ -233,16 +217,9 @@ metrics = multilabel_classification(
 :yaml:
 metrics:
   _target_: "DetectionMetrics"
-  box_format: "xyxy"
   iou:
-    type: "bbox"
-    thresholds: null
-    rec_thresholds: null
-    max_detection_thresholds: null
-  class_metrics: false
-  extended_summary: false
-  average: "macro"
-  backend: "faster_coco_eval"
+    thresholds: [0.5, 0.75]
+  class_metrics: true
 
 :cli: +metrics=detection +metrics.class_metrics=true +metrics.extended_summary=true
 
@@ -250,9 +227,7 @@ metrics:
 from raitap.metrics import detection
 
 metrics = detection(
-    box_format="xyxy",
-    iou={"type": "bbox"},
+    iou={"thresholds": [0.5, 0.75]},
     class_metrics=True,
-    extended_summary=True,
 )
 ```
