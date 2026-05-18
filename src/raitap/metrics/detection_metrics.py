@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
+from raitap.configs.schema import DetectionMetricsConfig, IoUConfig
 from raitap.metrics.registration import register_metrics_adapter
 from raitap.utils.lazy import lazy_import
 
@@ -24,7 +25,19 @@ Backend = Literal["pycocotools", "faster_coco_eval"]
 Average = Literal["macro", "micro"]
 
 
-@register_metrics_adapter(registry_name="detection", extra="metrics")
+def _coerce_iou(iou: IoUConfig | dict[str, Any] | None) -> IoUConfig:
+    if iou is None:
+        return IoUConfig()
+    if isinstance(iou, IoUConfig):
+        return iou
+    return IoUConfig(**iou)
+
+
+@register_metrics_adapter(
+    registry_name="detection",
+    extra="metrics",
+    schema=DetectionMetricsConfig,
+)
 class DetectionMetrics(BaseMetricComputer):
     """
     Calculates and manages detection metrics for evaluating
@@ -44,22 +57,20 @@ class DetectionMetrics(BaseMetricComputer):
         self,
         *,
         box_format: BoxFormat = "xyxy",
-        iou_type: IoUType = "bbox",
-        iou_thresholds: list[float] | None = None,
-        rec_thresholds: list[float] | None = None,
-        max_detection_thresholds: list[int] | None = None,
+        iou: IoUConfig | dict[str, Any] | None = None,
         class_metrics: bool = False,
         extended_summary: bool = False,
         average: Average = "macro",
         backend: Backend = "faster_coco_eval",
         **kwargs: Any,
     ):
+        iou_cfg = _coerce_iou(iou)
         self.metric = _tm_detection_mean_ap.MeanAveragePrecision(
             box_format=box_format,
-            iou_type=iou_type,
-            iou_thresholds=iou_thresholds,
-            rec_thresholds=rec_thresholds,
-            max_detection_thresholds=max_detection_thresholds,
+            iou_type=iou_cfg.type,
+            iou_thresholds=iou_cfg.thresholds,
+            rec_thresholds=iou_cfg.rec_thresholds,
+            max_detection_thresholds=iou_cfg.max_detection_thresholds,
             class_metrics=class_metrics,
             extended_summary=extended_summary,
             average=average,
