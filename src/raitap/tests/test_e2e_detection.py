@@ -1,0 +1,156 @@
+"""End-to-end pytest covering the detection pipeline against a small torchvision detector.
+
+We deliberately use ``fasterrcnn_mobilenet_v3_large_fpn`` (~80 MB; ~5 s on CPU
+for two images) rather than the contributor-facing ``fasterrcnn_resnet50_fpn_v2``
+(~180 MB; ~30 s on CPU). The resnet50 variant is the acceptance criterion for
+issue #146 and is exercised by the dedicated contributor config + CI workflow;
+the pytest layer keeps a fast smoke variant so iteration on the detection
+pipeline stays cheap.
+"""
+
+from __future__ import annotations
+
+import json
+from types import SimpleNamespace
+from typing import TYPE_CHECKING, cast
+
+import pytest
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from raitap.configs.schema import AppConfig
+
+
+def test_detection_pipeline_e2e_via_fasterrcnn_mobilenet(tmp_path: Path) -> None:
+    # Heavy optional deps — skip if not installed in this environment.
+    try:
+        import torch
+    except ImportError:
+        pytest.skip("torch not available")
+
+    try:
+        from torchvision.models.detection import (
+            FasterRCNN_MobileNet_V3_Large_FPN_Weights,
+            fasterrcnn_mobilenet_v3_large_fpn,
+        )
+    except ImportError:
+        pytest.skip("torchvision detection extras not available")
+
+    from raitap.data.samples import SAMPLE_SOURCES, _load_sample
+
+    if "UdacitySelfDriving" not in SAMPLE_SOURCES:
+        pytest.skip("UdacitySelfDriving sample registry missing")
+
+    # Download (or hit the cache) and clip to the first two samples — keeps
+    # this end-to-end test under ~10 s on CPU.
+    try:
+        full_tensor, sample_ids = _load_sample("UdacitySelfDriving")
+    except Exception as error:
+        pytest.skip(f"udacity samples unreachable: {error}")
+
+    images_tensor = full_tensor[:2]
+    sample_ids = sample_ids[:2]
+    assert images_tensor.shape[0] == 2
+
+    # --- model + backend ---------------------------------------------------
+    from raitap.models.backend import TorchBackend
+    from raitap.models.model import Model
+
+    weights = FasterRCNN_MobileNet_V3_Large_FPN_Weights.DEFAULT
+    torch_model = fasterrcnn_mobilenet_v3_large_fpn(weights=weights)
+    torch_model.eval()
+
+    backend = TorchBackend(torch_model, device=torch.device("cpu"))
+    model = Model.__new__(Model)
+    model.backend = backend
+
+    # --- data + detection labels ------------------------------------------
+    from raitap.data.data import Data
+
+    data = Data.__new__(Data)
+    data.tensor = images_tensor
+    data.sample_ids = sample_ids
+    data.name = "udacity-e2e"
+    data.source = "UdacitySelfDriving"
+
+    # COCO class 3 = "car"; coordinates are plausible but don't need to match
+    # real ground truth — the assertions cover pipeline plumbing, not mAP.
+    labels_payload = [
+        {
+            "sample_id": sample_ids[0],
+            "boxes": [[100.0, 300.0, 600.0, 600.0]],
+            "labels": [3],
+        },
+        {
+            "sample_id": sample_ids[1],
+            "boxes": [[200.0, 320.0, 720.0, 620.0]],
+            "labels": [3],
+        },
+    ]
+    labels_path = tmp_path / "detection_labels.json"
+    labels_path.write_text(json.dumps(labels_payload))
+
+    # Bypass Data.__init__ and call _load_detection_labels directly; the
+    # discriminator branch (`labels_kind == "detection"`) has its own dedicated
+    # coverage in src/raitap/data/tests/test_detection_labels.py. This test
+    # focuses on the pipeline plumbing downstream of Data.
+    labels_cfg = SimpleNamespace(source=str(labels_path), kind="detection")
+    load_cfg = cast(
+        "AppConfig",
+        SimpleNamespace(data=SimpleNamespace(labels=labels_cfg)),
+    )
+    data.labels = data._load_detection_labels(load_cfg)
+
+    # --- app config --------------------------------------------------------
+    from raitap.configs import set_output_root
+    from raitap.configs.schema import (
+        AppConfig,
+        DetectionMetricsConfig,
+        TransparencyConfig,
+    )
+
+    transparency_cfg = TransparencyConfig(
+        _target_="CaptumExplainer",
+        algorithm="IntegratedGradients",
+        call={"target": 0},
+        raitap={
+            "detection": {
+                "score_threshold": 0.5,
+                "max_boxes": 2,
+                "iou_threshold": 0.5,
+            },
+            "batch_size": 1,
+        },
+        visualisers=[{"_target_": "DetectionImageVisualiser"}],
+    )
+
+    config = AppConfig(
+        experiment_name="detection-e2e-test",
+        metrics=DetectionMetricsConfig(),
+        transparency={"ig_det": transparency_cfg},
+    )
+    set_output_root(config, tmp_path)
+
+    # --- run pipeline ------------------------------------------------------
+    from raitap.pipeline.orchestrator import run_without_tracking
+    from raitap.types import TaskKind
+
+    outputs = run_without_tracking(config, model, data)
+
+    assert outputs.forward_output.task_kind is TaskKind.detection
+    assert outputs.forward_output.detection_predictions is not None
+    assert len(outputs.forward_output.detection_predictions) == 2
+
+    assert outputs.metrics is not None
+    assert outputs.metrics.resolved_target == "raitap.metrics.DetectionMetrics"
+
+    # At least one detection should pass score_threshold=0.5 in dashcam frames
+    # with a COCO-pretrained Faster R-CNN.
+    assert len(outputs.explanations) >= 1, "expected at least one box above score threshold"
+
+    for explanation in outputs.explanations:
+        assert explanation.detection_box is not None
+        assert explanation.original_sample_index is not None
+
+    assert len(outputs.visualisations) >= 1
