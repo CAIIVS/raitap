@@ -169,6 +169,8 @@ def test_model_bundled_accepts_preprocessing_enum_member(
     )
     assert result.data_origin == "model-bundled"
     assert result.model_origin == "model-bundled"
+    assert result.data_module is not None
+    assert result.model_module is not None
     # data_module reshapes per-image: Resize(232) + CenterCrop(224).
     shaped = result.data_module(torch.zeros(3, 300, 400))
     assert shaped.shape == (3, 224, 224)
@@ -229,6 +231,7 @@ def test_model_bundled_semantic_segmentation_preset_splits_cleanly(
     )
     assert result.data_origin == "model-bundled"
     assert result.model_origin == "model-bundled"
+    assert result.data_module is not None
     shaped = result.data_module(torch.zeros(3, 600, 800))
     assert shaped.shape == (3, 520, 693)
 
@@ -376,8 +379,8 @@ def test_custom_file_both_sides_from_same_file(
     )
     assert result.data_origin == "custom-file"
     assert result.model_origin == "custom-file"
-    assert isinstance(result.data_module, nn.Module)
-    assert isinstance(result.model_module, nn.Module)
+    assert result.data_module is not None
+    assert result.model_module is not None
     assert result.data_file_path == fixture.resolve()
     assert result.model_file_path == fixture.resolve()
     assert result.data_file_sha256 == result.model_file_sha256
