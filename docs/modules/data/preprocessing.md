@@ -46,17 +46,24 @@ all (tabular, time-series — the warning is auto-suppressed for these).
 To silence the warning for an already-preprocessed image dataset, pass the
 acknowledgement at invocation time — it is not a config-file option.
 
-- **Python API**: pass `acknowledge_preprocessing_off=True` to
-  `raitap.run(...)`.
-- **CLI**: re-run with `--acknowledge-preprocessing-off`:
+::::{tab-set}
+:::{tab-item} CLI
+```shell
+uv run raitap --config-name assessment --acknowledge-preprocessing-off
 
-  ```{install-tabs}
-  :uv:
-  uv run raitap --config-name assessment --acknowledge-preprocessing-off
+# If RAITAP is installed as a console script:
+raitap --config-name assessment --acknowledge-preprocessing-off
+```
+:::
 
-  :pip:
-  raitap --config-name assessment --acknowledge-preprocessing-off
-  ```
+:::{tab-item} Python API
+```python
+from raitap import run
+
+run(config, acknowledge_preprocessing_off=True)
+```
+:::
+::::
 
 **Requirement:** every image in your directory must already be the same
 height and width. The loader stacks them into a single batch tensor and
@@ -148,17 +155,24 @@ does not apply Python preprocessing on its own.
 Loading `./preprocessing.py` executes arbitrary Python code from disk, so
 RAITAP refuses unless you opt in. Choose one:
 
-- **Python API**: pass `acknowledge_preprocessing_exec=True` to
-  `raitap.run(...)`.
-- **CLI**: re-run with `--allow-preprocessing-exec` (short form `-yp`):
+::::{tab-set}
+:::{tab-item} CLI
+```shell
+uv run raitap --config-name assessment -yp
 
-  ```{install-tabs}
-  :uv:
-  uv run raitap --config-name assessment -yp
+# If RAITAP is installed as a console script:
+raitap --config-name assessment -yp
+```
+:::
 
-  :pip:
-  raitap --config-name assessment -yp
-  ```
+:::{tab-item} Python API
+```python
+from raitap import run
+
+run(config, acknowledge_preprocessing_exec=True)
+```
+:::
+::::
 
 Without either, RAITAP refuses with a message pointing you back here.
 
