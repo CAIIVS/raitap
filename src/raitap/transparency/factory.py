@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     import torch
 
     from raitap.models import Model
+    from raitap.types import TaskKind
 
     from ..configs.schema import AppConfig
     from ..data.preprocessing import ResolvedPreprocessing
@@ -65,6 +66,9 @@ _SCHEMA = AdapterSchema(
             "sample_ids",
             "sample_names",
             "show_sample_names",
+            # Detection-task knobs consumed by ``explain_detection`` —
+            # ``score_threshold`` / ``max_boxes`` / ``iou_threshold``.
+            "detection",
         }
     ),
     top_level_error_hint=(
@@ -119,11 +123,13 @@ def check_explainer_visualiser_semantic_compat(
     explainer: object,
     explainer_target: str,
     visualisers: list[ConfiguredVisualiser],
+    *,
+    task_kind: TaskKind | None = None,
 ) -> None:
     if not _requires_registry_semantics(explainer, explainer_target):
         return
 
-    capability = explainer_capability(explainer)
+    capability = explainer_capability(explainer, task_kind=task_kind)
 
     for configured in visualisers:
         visualiser = configured.visualiser
@@ -182,12 +188,13 @@ class Explanation:
             visualisers = create_visualisers(explainer_config)
             check_explainer_visualiser_compat(explainer_target, algorithm, visualisers)
             check_explainer_visualiser_payload_compat(explainer, explainer_target, visualisers)
+            backend = _require_model_backend(model)
             check_explainer_visualiser_semantic_compat(
                 explainer,
                 explainer_target,
                 visualisers,
+                task_kind=backend.task_kind,
             )
-            backend = _require_model_backend(model)
             explainer.check_backend_compat(backend)
 
             call_from_config = dict(parsed.call)
