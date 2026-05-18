@@ -38,22 +38,23 @@ myst:
   `false` since the state-dict already supplies the weights.
 
 :yaml:
-# Option A — full pickled nn.Module (deprecated, requires explicit opt-in;
-# only use for checkpoints from a fully trusted source). Loading such a
-# file executes arbitrary code embedded in the checkpoint, so consent must
-# be supplied at invocation time — there is no config key for it. Use the
-# `allow_unsafe_pickle=True` kwarg on `raitap.run(...)` (Python API) or
+# Option A:
+# Full pickled nn.Module (deprecated, unsafe).
+# Only use for checkpoints from a fully trusted source; executes arbitrary code embedded in the checkpoint.
+# Consent must be supplied at invocation time. Use the `allow_unsafe_pickle=True` kwarg on `raitap.run(...)` (Python API) or
 # the `--allow-unsafe-pickle` CLI flag.
 model:
   source: "myModel.pth"
 
-# Option B — state_dict + arch (recommended):
+# Option B:
+# state_dict + arch (recommended):
 model:
   source: "weights.pth"
   arch: "resnet18"
   num_classes: 2
 
-# Option C — TorchScript archive (env-independent):
+# Option C:
+# TorchScript archive (env-independent):
 model:
   source: "scripted.pt"
 

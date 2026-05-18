@@ -53,14 +53,17 @@ myst:
 :allowed: null, "model-bundled", path string
 :default: null
 :description: Transformation applied at the model boundary, on every
-  forward pass. Typical contents: Normalize. Stays inside autograd so
-  attribution and adversarial budgets see the user-facing input space.
-  `"model-bundled"` pulls Normalize from the model's bundled torchvision
-  preset; a `.py` path loads a factory decorated with
-  `@raitap_model_input_transformation_factory`. When both this and
-  `preprocessing` are `null` and inputs are images, a loud warning fires —
-  silence it with `acknowledge_preprocessing_off` /
-  `--acknowledge-preprocessing-off`. See {doc}`preprocessing`.
+  forward pass. Typical contents: Normalize. For Torch backends it stays
+  inside autograd so attribution and adversarial budgets see the
+  user-facing input space; for ONNX backends it runs on the tensor call
+  path before the ONNX session. `"model-bundled"` pulls Normalize from the
+  model's bundled torchvision preset (Torch backends only — ONNX has no
+  torchvision lineage to derive from); a `.py` path loads a factory
+  decorated with `@raitap_model_input_transformation_factory` and works
+  for both Torch and ONNX backends. When both this and `preprocessing` are
+  `null` and inputs are images, a loud warning fires — silence it with
+  `acknowledge_preprocessing_off` / `--acknowledge-preprocessing-off`.
+  See {doc}`preprocessing`.
 
 :option: labels.source
 :allowed: string, null

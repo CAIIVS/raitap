@@ -8,37 +8,28 @@ myst:
 
 # Preprocessing
 
-RAITAP applies nothing by default. Pretrained image models that expect
-ImageNet normalization, or tabular models that expect z-scored features,
-will silently produce wrong outputs if you forget.
+This page explains how RAITAP preprocessing works. By default, absolutely no preprocessing is applied; pretrained image models that expect
+ImageNet normalization, or tabular models that expect z-scored features, will produce wrong outputs.
 
-Two **independent knobs** sit on `data`:
+The 2 following config keys are available:
 
 | Knob | Where | Typical contents |
 |---|---|---|
 | `data.preprocessing` | loader, before batch reaches model | Resize + CenterCrop (images), feature scaling (tabular) |
-| `data.model_input_transformation` | model boundary, every forward pass | Normalize, learnable input layers |
+| `data.model_input_transformation` | model boundary, every forward pass. ONLY FOR TORCH MODELS. | Normalize, learnable input layers |
 
-Why split: data-side runs in the loader so mixed-size image folders can
-stack at all, and so the work is outside autograd. Model-side stays inside
-autograd so Captum/SHAP attribution and PGD/FGSM attacks operate on the same
-input space you do.
+- `preprocessing` runs in the loader so mixed-size image folders can stack at all, and so the work is outside autograd.
+- `model_input_transformation` inside autograd so Captum/SHAP attribution and PGD/FGSM attacks operate on the same input space you do.
 
-Both knobs accept the same three values, independently:
+The following values are allowed for both keys:
 
-- **`null`** (default) — stage off.
-- **`"model-bundled"`** — pull the relevant half from the resolved
-  torchvision arch's bundled preset. Image models only.
-- **path to a `.py` file** — load a user factory decorated with the matching
-  RAITAP decorator. Gated by `--allow-preprocessing-exec` / `-yp` (CLI) or
+- **`null`** (default): no preprocessing
+- **`"model-bundled"`**: use the preprocessing bundled inside the model file (e.g. `torchvision` models)
+- **path to a `.py` file**: load a user factory decorated with the matching
+  RAITAP decorator (see custom examples below). Gated by `--allow-preprocessing-exec` / `-yp` (CLI) or
   `acknowledge_preprocessing_exec=True` (Python API).
 
-If both knobs are `null` and inputs are images, a loud warning fires. If
-only the model-side knob is `null` with images, a separate warning fires
-(silent metric corruption is the bug this guards against). Both warnings
-auto-suppress for `tabular` / `text` / `time_series` data.
-
-## Recipes
+## Examples
 
 ### Torchvision image model, bundled both sides
 
