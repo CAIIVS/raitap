@@ -1,4 +1,4 @@
-"""Pipeline orchestration: ``run`` (full, with tracker context) and
+"""Pipeline orchestration: ``_run_pipeline`` (full, with tracker context) and
 ``run_without_tracking`` (composition helper for tests + embedded callers).
 
 The actual phase work lives under :mod:`raitap.pipeline.phases`."""
@@ -33,7 +33,7 @@ else:
     torch = lazy_import("torch")
 
 
-def run(
+def _run_pipeline(
     config: AppConfig,
     *,
     verbose: bool = True,
