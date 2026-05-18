@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pytest
 import torch
@@ -13,6 +13,8 @@ from raitap.data.data import Data
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from raitap.configs.schema import AppConfig
 
 
 def _write_detection_labels_json(path: Path) -> None:
@@ -36,10 +38,13 @@ def _write_detection_labels_json(path: Path) -> None:
     path.write_text(json.dumps(payload))
 
 
-def _stub_cfg(labels_source: str | None = None, labels_kind: str | None = None) -> SimpleNamespace:
-    return SimpleNamespace(
-        data=SimpleNamespace(
-            labels=SimpleNamespace(source=labels_source, kind=labels_kind),
+def _stub_cfg(labels_source: str | None = None, labels_kind: str | None = None) -> AppConfig:
+    return cast(
+        "AppConfig",
+        SimpleNamespace(
+            data=SimpleNamespace(
+                labels=SimpleNamespace(source=labels_source, kind=labels_kind),
+            ),
         ),
     )
 
@@ -179,3 +184,19 @@ def test_load_detection_labels_raises_when_source_unresolvable(tmp_path: Path) -
     data = _make_data(num_samples=1)
     with pytest.raises(ValueError, match="could not be resolved"):
         data._load_detection_labels(cfg)
+
+
+def test_data_init_dispatches_to_detection_loader_for_enum_kind(tmp_path: Path) -> None:
+    """``LabelKind.detection`` and the raw string ``"detection"`` both route to
+    ``_load_detection_labels`` (Python API + YAML callers stay symmetric)."""
+    from raitap.data.types import LabelKind
+
+    labels_path = tmp_path / "boxes.json"
+    _write_detection_labels_json(labels_path)
+
+    for kind_value in (LabelKind.detection, "detection"):
+        cfg = _stub_cfg(labels_source=str(labels_path), labels_kind=kind_value)
+        data = _make_data(num_samples=3)
+        out = data._load_detection_labels(cfg)
+        assert out is not None
+        assert len(out) == 3
