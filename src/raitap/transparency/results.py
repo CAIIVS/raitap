@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import torch
 
 from raitap.tracking.base_tracker import BaseTracker, Trackable
+from raitap.utils.errors import SampleNamesLengthError
 from raitap.utils.serialization import to_json_serialisable
 
 from .contracts import (
@@ -199,8 +200,12 @@ class ExplanationResult(Trackable):
             sample_names = _normalise_sample_names(sample_names_value)
 
             limit = _batch_size(attributions) or _batch_size(inputs)
-            if limit is not None:
-                sample_names = sample_names[:limit]
+            if sample_names and limit is not None and len(sample_names) != limit:
+                raise SampleNamesLengthError(
+                    got=len(sample_names),
+                    expected=limit,
+                    source="ExplanationResult.visualise",
+                )
 
             # Standard RAITAP pipeline metadata
             context = VisualisationContext(
@@ -324,15 +329,18 @@ class ExplanationResult(Trackable):
         sample_names_value = merged_call.pop("sample_names", self.kwargs.get("sample_names"))
         sample_names = _normalise_sample_names(sample_names_value)
 
+        batch_size = _batch_size(attributions) or _batch_size(inputs)
+        if sample_names and batch_size is not None and len(sample_names) != batch_size:
+            raise SampleNamesLengthError(
+                got=len(sample_names),
+                expected=batch_size,
+                source="ExplanationResult.render_visualisation_for_scope",
+            )
         if sample_index is not None:
             attributions = attributions[sample_index : sample_index + 1]
             inputs = inputs[sample_index : sample_index + 1]
             if sample_names:
                 sample_names = sample_names[sample_index : sample_index + 1]
-        else:
-            limit = _batch_size(attributions) or _batch_size(inputs)
-            if limit is not None:
-                sample_names = sample_names[:limit]
 
         context = VisualisationContext(
             algorithm=self.algorithm,

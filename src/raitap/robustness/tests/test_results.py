@@ -241,3 +241,78 @@ def test_visualise_does_not_swallow_visualiser_errors(tmp_path: Path) -> None:
 
     assert result.visualiser_targets == []
     assert not any(result.run_dir.glob("*.png"))
+
+
+# ---------------------------------------------------------------------------
+# C3 / C4 — RobustnessResult sample_names length-validation tests
+# ---------------------------------------------------------------------------
+
+
+def _result_with_sample_names(
+    tmp_path: Path,
+    *,
+    batch: int,
+    sample_names: list[str] | None,
+) -> RobustnessResult:
+    """Build a RobustnessResult with a recording visualiser and the given sample_names."""
+    inputs = torch.zeros(batch, 3, 4, 4)
+    result = RobustnessResult(
+        clean_inputs=inputs,
+        targets=torch.zeros(batch, dtype=torch.long),
+        clean_predictions=torch.zeros(batch, dtype=torch.long),
+        verdicts=encode_verdicts([RobustnessVerdict.NOT_ATTACKED] * batch),
+        metrics=_empirical_metrics(),
+        run_dir=tmp_path / "robustness/pgd",
+        experiment_name="test_sample_names",
+        assessor_target="raitap.robustness.assessors.TorchattacksAssessor",
+        algorithm="PGD",
+        assessor_name="pgd",
+        semantics=_semantics_for_test(),
+    )
+    result.kwargs["sample_names"] = sample_names
+    result.visualisers = [
+        ConfiguredRobustnessVisualiser(visualiser=_RecordingRobustnessVisualiser())
+    ]
+    return result
+
+
+def test_robustness_visualise_raises_on_mismatched_sample_names(tmp_path: Path) -> None:
+    result = _result_with_sample_names(tmp_path, batch=2, sample_names=["a", "b", "c"])
+    from raitap.utils.errors import SampleNamesLengthError
+
+    with pytest.raises(SampleNamesLengthError) as info:
+        result.visualise()
+    assert info.value.got == 3
+    assert info.value.expected == 2
+
+
+def test_robustness_render_raises_on_mismatched_sample_names(tmp_path: Path) -> None:
+    result = _result_with_sample_names(tmp_path, batch=2, sample_names=["a", "b", "c"])
+    from raitap.utils.errors import SampleNamesLengthError
+
+    with pytest.raises(SampleNamesLengthError):
+        result.render_visualisation_for_report(0)  # full-batch path (sample_index=None)
+
+
+def test_robustness_render_per_sample_raises_on_mismatched_sample_names(tmp_path: Path) -> None:
+    # batch=3, sample_names length=2 → mismatch should raise even on valid sample_index.
+    result = _result_with_sample_names(tmp_path, batch=3, sample_names=["a", "b"])
+    from raitap.utils.errors import SampleNamesLengthError
+
+    with pytest.raises(SampleNamesLengthError):
+        result.render_visualisation_for_report(0, sample_index=2)
+
+
+def test_robustness_visualise_passes_with_matching_sample_names(tmp_path: Path) -> None:
+    result = _result_with_sample_names(tmp_path, batch=2, sample_names=["a", "b"])
+    # Must not raise; close the figure to avoid resource leak.
+    vis_results = result.visualise()
+    for vr in vis_results:
+        plt.close(vr.figure)
+
+
+def test_robustness_visualise_passes_with_none_sample_names(tmp_path: Path) -> None:
+    result = _result_with_sample_names(tmp_path, batch=2, sample_names=None)
+    vis_results = result.visualise()
+    for vr in vis_results:
+        plt.close(vr.figure)

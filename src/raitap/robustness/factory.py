@@ -17,6 +17,7 @@ from raitap.configs.adapter_factory import (
     resolve_call_data_sources,
 )
 from raitap.models.backend import ModelBackend
+from raitap.utils.errors import SampleNamesLengthError
 
 from .contracts import AssessorAdapter
 from .exceptions import MethodKindVisualiserIncompatibilityError, MissingTargetsError
@@ -137,6 +138,17 @@ class RobustnessAssessment:
                 raitap_cfg["sample_ids"] = sample_ids
             if input_metadata is not None:
                 raitap_cfg["input_metadata"] = input_metadata
+
+            resolved_sample_names = raitap_cfg.get("sample_names")
+            if resolved_sample_names is not None:
+                resolved_list = list(resolved_sample_names)
+                if resolved_list and len(resolved_list) != int(inputs.shape[0]):
+                    source = "runtime kwarg" if sample_names is not None else "raitap.sample_names"
+                    raise SampleNamesLengthError(
+                        got=len(resolved_list),
+                        expected=int(inputs.shape[0]),
+                        source=source,
+                    )
 
             merged_kwargs = resolve_call_data_sources(
                 {**call_from_config, **kwargs}, log_label="robustness call"
