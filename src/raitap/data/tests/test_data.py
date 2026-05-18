@@ -577,6 +577,59 @@ class TestLoadData:
         with pytest.raises(ValueError, match="Cannot infer data type"):
             Data(cfg)
 
+    def test_tabular_applies_data_module(self, tmp_path: Path) -> None:
+        from torch import nn
+
+        from raitap.configs.schema import AppConfig, DataConfig, LabelsConfig, ModelConfig
+        from raitap.data.preprocessing import ResolvedPreprocessing
+
+        class _ScaleModule(nn.Module):
+            def forward(self, batch: torch.Tensor) -> torch.Tensor:
+                return batch * 10.0
+
+        p = tmp_path / "rows.csv"
+        _write_csv(p, rows=4, cols=3)
+        cfg = cast(
+            "AppConfig",
+            AppConfig(
+                model=ModelConfig(source="resnet50"),
+                data=DataConfig(
+                    name="tab",
+                    source=str(p),
+                    preprocessing="./scale.py",
+                    labels=LabelsConfig(),
+                ),
+                hardware=Hardware.cpu,
+            ),
+        )
+        resolved = ResolvedPreprocessing(
+            data_module=_ScaleModule(),
+            model_module=None,
+            data_origin="custom-file",
+            model_origin="off",
+            description="supplied",
+        )
+        baseline = _load_tabular(p)
+
+        data = Data(cfg, resolved_preprocessing=resolved)
+
+        assert data.tensor.shape == baseline.shape
+        torch.testing.assert_close(data.tensor, baseline * 10.0)
+
+    def test_tabular_no_data_module_passes_through(self, tmp_path: Path) -> None:
+        p = tmp_path / "rows.csv"
+        _write_csv(p, rows=2, cols=3)
+        cfg = cast(
+            "AppConfig",
+            type(
+                "AppConfig",
+                (),
+                {"data": type("DataConfig", (), {"source": str(p), "name": "tab"})},
+            )(),
+        )
+        data = Data(cfg)
+        torch.testing.assert_close(data.tensor, _load_tabular(p))
+
     def test_invalid_source_raises(self) -> None:
         cfg = cast(
             "AppConfig",

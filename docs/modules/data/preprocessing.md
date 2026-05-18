@@ -17,13 +17,17 @@ There are **two independent knobs**:
 
 | Knob | Where it runs | Typical contents |
 |---|---|---|
-| `data.preprocessing` | per-image in the loader, before the batch is stacked | Resize, CenterCrop |
-| `data.model_input_transformation` | at the model boundary, every forward pass | Normalize |
+| `data.preprocessing` | in the loader, before the batch reaches the model | Resize, CenterCrop (images); feature scaling, encoding (tabular) |
+| `data.model_input_transformation` | at the model boundary, every forward pass | Normalize, learnable input scaling |
 
-The split matters: shape changes must run per-image (so mixed-size folders
-can stack at all) and don't need gradients. Normalize must stay at the model
-boundary so Captum/SHAP attribution and PGD/FGSM attack budgets see the same
-input space you do.
+The split matters: shape changes must run in the loader (for images, per-image
+— so mixed-size folders can stack at all) and don't need gradients. The
+model-side stage stays inside autograd so Captum/SHAP attribution and PGD/FGSM
+attack budgets see the same input space you do.
+
+Both knobs work for any modality. For images, the data-side module is lifted
+to a per-image callable and applied as each image is loaded. For tabular
+sources, the data-side module is applied once on the stacked `(N, F)` batch.
 
 Each knob accepts the same three values, independently:
 

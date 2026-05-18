@@ -113,10 +113,10 @@ Per-knob origin (`off` / `model-bundled` / `custom-file`) is recorded on
 The resolved preprocessing has two modules, one for the data loader and one
 for the model boundary:
 
-| Half           | Where                        | What                        | Why                                                                                                                                  |
-| -------------- | ---------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `data_module`  | `Data._load_data`, per image | Data preprocessing          | Must run before `_stack_images_numpy` calls `np.stack` so mixed-size directories can be batched. No gradient → safe outside autograd. |
-| `model_module` | `Model._apply_preprocessing` | Model input transformation | Has gradient → must stay inside autograd for Captum / SHAP / torchattacks to attribute and attack on the user-facing `[0, 1]` space. |
+| Half           | Where                                                | What                       | Why                                                                                                                                  |
+| -------------- | ---------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `data_module`  | `Data._load_data` (per-image for images, per-batch for tabular) | Data preprocessing          | For images, must run before `_stack_images_numpy` calls `np.stack` so mixed-size directories can be batched. For tabular, applied once on the stacked `(N, F)` batch via `_apply_data_module_to_batch`. No gradient → safe outside autograd. |
+| `model_module` | `Model._apply_preprocessing`                         | Model input transformation | Has gradient → must stay inside autograd for Captum / SHAP / torchattacks to attribute and attack on the user-facing `[0, 1]` space. |
 
 For ONNX backends, `model_module` still belongs at the model boundary, but
 the autograd rationale is Torch-specific. Marabou-style formal verification

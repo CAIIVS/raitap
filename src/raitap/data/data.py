@@ -90,14 +90,15 @@ class Data(Trackable):
         # Use the run-level resolution when the orchestrator supplies it. Direct
         # ``Data(config)`` callers keep the legacy fallback path.
         if resolved_preprocessing is not None:
-            per_image_transform = module_as_per_image_callable(resolved_preprocessing.data_module)
+            data_module = resolved_preprocessing.data_module
         else:
             model_cfg = getattr(cfg, "model", None)
             if model_cfg is None:
-                per_image_transform = None
+                data_module = None
             else:
                 resolved = resolve_preprocessing(model_cfg, cfg.data)
-                per_image_transform = module_as_per_image_callable(resolved.data_module)
+                data_module = resolved.data_module
+        per_image_transform = module_as_per_image_callable(data_module)
 
         # Demo samples need their own loader: source images have inconsistent
         # dimensions and ``_load_sample`` resizes them to a common shape so
@@ -126,7 +127,8 @@ class Data(Trackable):
                 )
                 return tensor, _resolve_sample_ids(image_files, root=path)
             if tabular_files:
-                return torch.from_numpy(_concat_tabular_numpy(tabular_files)), None
+                tensor = torch.from_numpy(_concat_tabular_numpy(tabular_files))
+                return _apply_data_module_to_batch(data_module, tensor), None
             raise FileNotFoundError(
                 f"No supported files found in {path}.\n"
                 f"Supported image formats: {_IMAGE_EXTENSIONS}\n"
@@ -140,7 +142,7 @@ class Data(Trackable):
                 _resolve_sample_ids([path], root=path.parent),
             )
         if suffix in _TABULAR_EXTENSIONS:
-            return _load_tabular(path), None
+            return _apply_data_module_to_batch(data_module, _load_tabular(path)), None
 
         raise ValueError(
             f"Cannot infer data type from extension {suffix!r}.\n"
@@ -483,6 +485,23 @@ def _load_images(
 ) -> torch.Tensor:
     """Load image files from a directory (or a single file) as raw (C, H, W) tensors."""
     return torch.from_numpy(_load_images_numpy(path, per_image_transform=per_image_transform))
+
+
+def _apply_data_module_to_batch(
+    module: Any | None,
+    tensor: torch.Tensor,
+) -> torch.Tensor:
+    """Apply ``data_module`` to an already-stacked tabular tensor.
+
+    Images go through ``per_image_transform`` while loading because mixed
+    sizes can only be stacked after a Resize step. Tabular rows are always
+    uniform, so the module is applied once on the whole ``(N, F)`` batch.
+    """
+    if module is None:
+        return tensor
+    module.eval()
+    with torch.no_grad():
+        return module(tensor)
 
 
 def _load_tabular_numpy(path: Path) -> np.ndarray[Any, Any]:
