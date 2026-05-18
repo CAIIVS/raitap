@@ -6,6 +6,8 @@ myst:
     "description": "This page describes how to configure the metrics module used to score model predictions."
 ---
 
+# Configuration
+
 The `metrics` block scores model predictions. The `_target_` field is the
 discriminator: it selects one of four adapters, each with its own set of valid
 keys.
