@@ -34,10 +34,10 @@ Average = Literal["micro", "macro", "weighted", "none"]
 class _ClassificationBase(BaseMetricComputer):
     """Shared update/compute/reset/device wiring; subclasses build the metric quartet."""
 
-    accuracy: Any
-    precision: Any
-    recall: Any
-    f1: Any
+    accuracy: torchmetrics.Metric
+    precision: torchmetrics.Metric
+    recall: torchmetrics.Metric
+    f1: torchmetrics.Metric
     average: Average | None
 
     def _move_to_device(self, device: torch.device | None) -> None:
