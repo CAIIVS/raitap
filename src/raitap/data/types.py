@@ -33,6 +33,19 @@ class IdStrategy(StrEnum):
     stem = "stem"
 
 
+class LabelKind(StrEnum):
+    """Discriminator for ``data.labels`` loader routing.
+
+    Values match the YAML / Python API string forms exactly; ``StrEnum``
+    members serialise as their ``.value`` via omegaconf, so YAML callers
+    can write ``kind: detection`` and Python callers can pass
+    ``LabelKind.detection`` interchangeably.
+    """
+
+    classification = "classification"
+    detection = "detection"
+
+
 class Preprocessing(StrEnum):
     """Named values for ``DataConfig.preprocessing``.
 

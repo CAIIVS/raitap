@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from raitap.pipeline.outputs import PredictionSummary
+from raitap.pipeline.outputs import ForwardOutput, PredictionSummary
+from raitap.types import TaskKind
 from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
@@ -28,18 +29,25 @@ def valid_targets_for_reporting(
 
 def prediction_summaries(
     *,
-    forward_output: torch.Tensor,
+    forward_output: ForwardOutput,
     sample_ids: list[str] | None,
-    targets: torch.Tensor | None,
+    targets: torch.Tensor | list[dict[str, torch.Tensor]] | None,
 ) -> tuple[PredictionSummary, ...]:
     """Reduce classification logits to per-sample ``PredictionSummary`` rows."""
-    if forward_output.ndim != 2 or forward_output.shape[1] < 2:
+    if forward_output.task_kind is not TaskKind.classification:
+        # Detection / regression / etc. don't have a "predicted class +
+        # confidence" concept per sample. Reporting handles empty.
+        return ()
+    predictions_tensor = forward_output.predictions_tensor
+    assert predictions_tensor is not None  # invariant from ForwardOutput.__post_init__
+    if predictions_tensor.ndim != 2 or predictions_tensor.shape[1] < 2:
         return ()
 
-    probabilities = torch.softmax(forward_output.detach().cpu(), dim=1)
+    classification_targets = targets if not isinstance(targets, list) else None
+    probabilities = torch.softmax(predictions_tensor.detach().cpu(), dim=1)
     confidences, predictions = probabilities.max(dim=1)
     resolved_targets = valid_targets_for_reporting(
-        targets=targets,
+        targets=classification_targets,
         expected=int(predictions.shape[0]),
     )
 

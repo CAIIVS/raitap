@@ -1,0 +1,72 @@
+# Faster R-CNN (COCO) on Udacity dashcam frames — detection demo for RAITAP.
+#
+# Model:
+#   torchvision's ``fasterrcnn_resnet50_fpn_v2`` is loaded by builder name
+#   (raitap.models.model._load_pretrained) with its default COCO-pretrained
+#   weights. ``TorchBackend`` auto-detects ``GeneralizedRCNN`` and sets
+#   ``task_kind = detection``, which routes the pipeline to the per-box
+#   detection explain phase and the ``detection_image`` visualiser.
+#
+# Data:
+#   Four 1280x720 CarND dashcam JPEGs (raitap.data.samples ``UdacitySelfDriving``).
+#   Hand-authored COCO-class boxes in ``labels/udacity-boxes.json`` — see
+#   ``labelling-data.md`` for the format and a candidate-generation helper.
+
+experiment_name: fasterrcnn-udacity-detection-demo
+hardware: cpu
+
+model:
+  source: fasterrcnn_resnet50_fpn_v2
+
+data:
+  name: udacity-dashcam-demo
+  description: 4 Udacity CarND dashcam frames + hand-labelled COCO-class detection boxes.
+  # Use a filesystem path (not the ``UdacitySelfDriving`` sample-registry name)
+  # so the dir-loader serves images at NATIVE resolution (1280x720). The
+  # demo-sample loader hard-resizes to 224x224, which breaks detection (labels
+  # and model expectations are both in 1280x720). Run
+  # ``scripts/fetch_images.py`` once to materialise this directory.
+  source: ${hydra:runtime.cwd}/contributor-configs/fasterrcnn-udacity/images
+  forward_batch_size: 1
+  labels:
+    source: ${hydra:runtime.cwd}/contributor-configs/fasterrcnn-udacity/labels/udacity-boxes.json
+    kind: detection
+
+metrics:
+  _target_: DetectionMetrics
+
+transparency:
+  # One per-box Integrated Gradients run. ``call.target`` must be 0 — the
+  # ScalarDetectionWrapper exposes a single scalar channel, so ``auto_pred``
+  # is rejected (see docs/modules/transparency/configuration.md "Detection
+  # knobs"). ``max_boxes: 3`` keeps the K-loop small enough for CPU CI.
+  detection_ig:
+    _target_: CaptumExplainer
+    algorithm: IntegratedGradients
+    call:
+      target: 0
+      n_steps: 8
+      internal_batch_size: 1
+    raitap:
+      batch_size: 1
+      detection:
+        score_threshold: 0.5
+        max_boxes: 3
+        iou_threshold: 0.5
+      input_metadata:
+        kind: image
+        layout: NCHW
+      show_sample_names: true
+    visualisers:
+      - _target_: DetectionImageVisualiser
+
+reporting:
+  _target_: HTMLReporter
+  filename: fasterrcnn_udacity_report
+  # Force all 4 samples into the local-detail section (default cap is 3).
+  sample_selection: [0, 1, 2, 3]
+  include_config: true
+  include_metadata: true
+  multirun_report: false
+  show_original_per_explainer: false
+  show_redundant_robustness_panels: false

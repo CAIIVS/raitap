@@ -116,8 +116,11 @@ For the following, we will assume you are overriding the following config:
 :yaml:
 defaults:
   - raitap_schema
+  - metrics: multiclass_classification
   - _self_
-  - metrics: classification
+
+metrics:
+  num_classes: 1000
 
 robustness:
   pgd:
@@ -132,11 +135,11 @@ robustness:
 
 :python:
 from raitap import AppConfig
-from raitap.metrics import Task, classification
+from raitap.metrics import multiclass_classification
 from raitap.robustness import image_pair, torchattacks
 
 config = AppConfig(
-    metrics=classification(task=Task.multiclass),
+    metrics=multiclass_classification(num_classes=1000),
     robustness={
         "pgd": torchattacks(
             algorithm="PGD",
@@ -191,9 +194,9 @@ The main mechanism for this is the `defaults` list.
 # assessment.yaml
 defaults:
   - raitap_schema  # required, do not omit it, ever
-  - _self_         # inserts the 2 keys below into the final config, at that location
   - transparency: shap
-  - metrics: classification
+  - metrics: multiclass_classification
+  - _self_         # last → keys below override the group presets above
 
 experiment_name: "my-exp"
 hardware: cpu
@@ -220,7 +223,7 @@ data:
 :python:
 from raitap import AppConfig, Hardware
 from raitap.data import DataConfig
-from raitap.metrics import Task, classification
+from raitap.metrics import multiclass_classification
 from raitap.models import ModelConfig
 from raitap.transparency import shap, shap_image
 
@@ -236,7 +239,7 @@ config = AppConfig(
             visualisers=[shap_image()],
         ),
     },
-    metrics=classification(task=Task.multiclass),
+    metrics=multiclass_classification(num_classes=1000),
 )
 ```
 

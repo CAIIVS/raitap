@@ -21,6 +21,7 @@ else:
     torch = lazy_import("torch")
 
 from .contracts import (
+    DetectionBox,
     ExplanationPayloadKind,
     ExplanationScope,
     ExplanationSemantics,
@@ -143,6 +144,8 @@ class ExplanationResult(Trackable):
     visualiser_targets: list[str] = field(default_factory=list)
     visualisers: list[ConfiguredVisualiser] = field(default_factory=list, repr=False)
     payload_kind: ExplanationPayloadKind = ExplanationPayloadKind.ATTRIBUTIONS
+    detection_box: DetectionBox | None = None
+    original_sample_index: int | None = None
     semantics: ExplanationSemantics = field(kw_only=True)
 
     def __post_init__(self) -> None:
@@ -169,7 +172,7 @@ class ExplanationResult(Trackable):
 
     def _metadata(self, *, visualiser_targets: list[str] | None = None) -> dict[str, Any]:
         targets = self.visualiser_targets if visualiser_targets is None else visualiser_targets
-        return {
+        metadata: dict[str, Any] = {
             "experiment_name": self.experiment_name,
             "target": self.explainer_target,
             "algorithm": self.algorithm,
@@ -181,6 +184,18 @@ class ExplanationResult(Trackable):
                 key: _serialisable_call_kwarg(value) for key, value in self.call_kwargs.items()
             },
         }
+        if self.detection_box is not None:
+            metadata["detection_box"] = {
+                "display_index": self.detection_box.display_index,
+                "raw_index": self.detection_box.raw_index,
+                "xyxy": list(self.detection_box.xyxy),
+                "score": self.detection_box.score,
+                "label_index": self.detection_box.label_index,
+                "label_name": self.detection_box.label_name,
+            }
+        if self.original_sample_index is not None:
+            metadata["original_sample_index"] = self.original_sample_index
+        return metadata
 
     def _write_metadata(self) -> None:
         metadata_path = self.run_dir / "metadata.json"
@@ -217,6 +232,7 @@ class ExplanationResult(Trackable):
                 algorithm=self.algorithm,
                 sample_names=sample_names,
                 show_sample_names=show_sample_names,
+                detection_box=self.detection_box,
             )
 
             vis.validate_explanation(self, attributions, inputs)
@@ -341,7 +357,15 @@ class ExplanationResult(Trackable):
                 expected=batch_size,
                 source="ExplanationResult.render_visualisation_for_scope",
             )
-        if sample_index is not None:
+        if self.original_sample_index is not None:
+            # Single-sample detection result. The result already represents
+            # exactly one sample (attributions shape is (1, ...)); the caller
+            # iterates over global sample indices, so skip when the requested
+            # sample doesn't match this result's owner.
+            if sample_index is not None and sample_index != self.original_sample_index:
+                return None
+            # Match (or no specific sample requested) → use stored tensors as-is.
+        elif sample_index is not None:
             attributions = attributions[sample_index : sample_index + 1]
             inputs = inputs[sample_index : sample_index + 1]
             if sample_names:
@@ -351,6 +375,7 @@ class ExplanationResult(Trackable):
             algorithm=self.algorithm,
             sample_names=sample_names,
             show_sample_names=show_sample_names,
+            detection_box=self.detection_box,
         )
         vis.validate_explanation(self, attributions, inputs)
         original_visualiser_sample_index = getattr(vis, "sample_index", None)

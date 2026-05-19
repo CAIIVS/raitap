@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from omegaconf import MISSING
 
-from raitap.data.types import IdStrategy, LabelEncoding
+from raitap.data.types import IdStrategy, LabelEncoding, LabelKind
 from raitap.types import Hardware
 
 if TYPE_CHECKING:
@@ -73,6 +73,11 @@ class LabelsConfig:
     #                     (supports nested ImageFolder layouts with colliding stems).
     #   "stem"          — legacy flat-dir behaviour: match by ``Path(id).stem`` only.
     id_strategy: IdStrategy = IdStrategy.auto
+    # Label kind discriminator. ``None`` / ``LabelKind.classification`` → tabular
+    # loader (returns ``torch.Tensor``); ``LabelKind.detection`` → JSON
+    # list-of-records loader (returns ``list[dict[str, Tensor]]`` with
+    # per-sample boxes + labels).
+    kind: LabelKind | None = None
 
 
 @dataclass

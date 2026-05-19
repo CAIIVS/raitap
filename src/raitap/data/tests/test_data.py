@@ -730,6 +730,7 @@ class TestLoadData:
         assert data.sample_ids == expected_ids
         expected_labels = [SAMPLE_LABELS["imagenet_samples"][fn] for fn in expected_ids]
         assert data.labels is not None
+        assert isinstance(data.labels, torch.Tensor)
         assert data.labels.tolist() == expected_labels
 
 

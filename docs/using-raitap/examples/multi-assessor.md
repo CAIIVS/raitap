@@ -14,9 +14,9 @@ myst:
 :yaml:
 defaults:
   - raitap_schema
-  - _self_
   - reporting: html
-  - metrics: classification
+  - metrics: multiclass_classification
+  - _self_
 
 hardware: gpu
 experiment_name: multi-assessor
@@ -32,6 +32,13 @@ data:
     source: imagenet_samples
     id_column: image
     column: label
+
+metrics:
+  num_classes: 1000
+  # `micro` aggregates across all samples before averaging — equals overall
+  # accuracy on multiclass single-label runs. Good when every sample carries
+  # equal weight (this 4-image demo).
+  average: micro
 
 transparency:
   default:
@@ -63,7 +70,7 @@ robustness:
 :python:
 from raitap import AppConfig, Hardware, run
 from raitap.data import DataConfig, LabelsConfig
-from raitap.metrics import Task, classification
+from raitap.metrics import multiclass_classification
 from raitap.models import ModelConfig
 from raitap.reporting import html
 from raitap.robustness import image_pair, torchattacks
@@ -83,7 +90,7 @@ cfg = AppConfig(
             column="label",
         ),
     ),
-    metrics=classification(task=Task.multiclass),
+    metrics=multiclass_classification(num_classes=1000, average="micro"),
     transparency={
         "default": captum(
             algorithm="IntegratedGradients",

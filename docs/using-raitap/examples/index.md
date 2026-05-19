@@ -18,4 +18,5 @@ imagenet-captum-ig-pgd
 multi-explainer
 multi-visualiser
 multi-assessor
+detection-fasterrcnn
 ```

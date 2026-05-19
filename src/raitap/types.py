@@ -30,3 +30,20 @@ class Task(StrEnum):
     binary = "binary"
     multiclass = "multiclass"
     multilabel = "multilabel"
+
+
+class TaskKind(StrEnum):
+    """Model task family.
+
+    Adapters declare which task families they accept via the
+    ``supported_tasks: ClassVar[frozenset[TaskKind]]`` attribute on
+    :class:`raitap._adapters.AdapterMixin` (default
+    ``{TaskKind.classification}`` so legacy adapters stay correct without
+    explicit declaration). Issue #146 groundwork.
+    """
+
+    classification = "classification"
+    detection = "detection"
+    segmentation = "segmentation"
+    seq2seq = "seq2seq"
+    regression = "regression"

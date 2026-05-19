@@ -26,9 +26,11 @@ import inspect
 import pkgutil
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Final, Literal, Required, TypedDict, Unpack
+from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, Required, TypedDict, Unpack
 
 from hydra_zen import ZenStore, builds
+
+from raitap.types import TaskKind
 
 if TYPE_CHECKING:
     import re
@@ -113,6 +115,9 @@ class AdapterMixin:
     _adapter_group: str | None = None
     # Regex → friendly-message map applied automatically by :meth:`_rethrow`.
     error_patterns: Mapping[re.Pattern[str], str] = {}
+    # Task families this adapter accepts. Default classification so legacy
+    # adapters stay correct without explicit declaration. Issue #146.
+    supported_tasks: ClassVar[frozenset[TaskKind]] = frozenset({TaskKind.classification})
 
     def _lazy_import(self, submodule: str | None = None) -> ModuleType:
         """Import the wrapped third-party library lazily.

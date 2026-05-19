@@ -14,9 +14,9 @@ myst:
 :yaml:
 defaults:
   - raitap_schema
-  - _self_
   - reporting: html
-  - metrics: classification
+  - metrics: multiclass_classification
+  - _self_
 
 hardware: gpu
 experiment_name: multi-visualiser
@@ -32,6 +32,12 @@ data:
     source: imagenet_samples
     id_column: image
     column: label
+
+metrics:
+  num_classes: 1000
+  # Drop a sentinel label from the metric — useful when labels.csv encodes
+  # "unknown" / "background" as -1 and you want them excluded from accuracy.
+  ignore_index: -1
 
 transparency:
   default:
@@ -54,7 +60,7 @@ transparency:
 :python:
 from raitap import AppConfig, Hardware, run
 from raitap.data import DataConfig, LabelsConfig
-from raitap.metrics import Task, classification
+from raitap.metrics import multiclass_classification
 from raitap.models import ModelConfig
 from raitap.reporting import html
 from raitap.transparency import captum, captum_image
@@ -73,7 +79,7 @@ cfg = AppConfig(
             column="label",
         ),
     ),
-    metrics=classification(task=Task.multiclass),
+    metrics=multiclass_classification(num_classes=1000, ignore_index=-1),
     transparency={
         "default": captum(
             algorithm="IntegratedGradients",

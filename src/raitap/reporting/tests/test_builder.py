@@ -14,7 +14,7 @@ from omegaconf import OmegaConf
 import raitap.reporting.builder as reporting_builder
 from raitap.configs import set_output_root
 from raitap.configs.schema import AppConfig, ReportingConfig
-from raitap.pipeline.outputs import PredictionSummary, RunOutputs
+from raitap.pipeline.outputs import ForwardOutput, PredictionSummary, RunOutputs
 from raitap.reporting.builder import (
     BuiltReport,
     _canonical_facet_owners,
@@ -60,6 +60,16 @@ from raitap.transparency.contracts import (
 )
 from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult, VisualisationResult
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
+from raitap.types import TaskKind
+
+
+def _fo(tensor: torch.Tensor) -> ForwardOutput:
+    return ForwardOutput(
+        task_kind=TaskKind.classification,
+        batch_size=int(tensor.shape[0]) if tensor.ndim > 0 else 0,
+        predictions_tensor=tensor,
+    )
+
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -304,7 +314,7 @@ def test_build_report_orders_sections_and_ranks_samples(tmp_path: Path) -> None:
         explanations=[explanation],
         visualisations=[native_global],
         metrics=_MetricsStub(metrics_image),  # type: ignore[arg-type]
-        forward_output=torch.tensor([[0.1, 0.9], [0.8, 0.2], [0.95, 0.05]]),
+        forward_output=_fo(torch.tensor([[0.1, 0.9], [0.8, 0.2], [0.95, 0.05]])),
         sample_ids=["a", "b", "c"],
         prediction_summaries=(
             PredictionSummary(
@@ -398,7 +408,7 @@ def test_build_report_skips_global_section_for_local_only_outputs(tmp_path: Path
         explanations=[explanation],
         visualisations=[],
         metrics=None,
-        forward_output=torch.tensor([[0.1, 0.9], [0.8, 0.2], [0.95, 0.05]]),
+        forward_output=_fo(torch.tensor([[0.1, 0.9], [0.8, 0.2], [0.95, 0.05]])),
         prediction_summaries=(
             PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9, correct=None),
             PredictionSummary(sample_index=1, predicted_class=0, confidence=0.8, correct=None),
@@ -443,7 +453,7 @@ def test_build_report_places_cohort_visualisations_between_global_and_local(
         explanations=[explanation],
         visualisations=[native_cohort],
         metrics=_MetricsStub(metrics_image),  # type: ignore[arg-type]
-        forward_output=torch.tensor([[0.1, 0.9], [0.8, 0.2]]),
+        forward_output=_fo(torch.tensor([[0.1, 0.9], [0.8, 0.2]])),
         prediction_summaries=(
             PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
             PredictionSummary(sample_index=1, predicted_class=0, confidence=0.8),
@@ -482,7 +492,7 @@ def test_build_report_local_assets_are_staged_and_closed(tmp_path: Path) -> None
         explanations=[explanation],
         visualisations=[],
         metrics=None,
-        forward_output=torch.tensor([[0.1, 0.9], [0.8, 0.2], [0.95, 0.05]]),
+        forward_output=_fo(torch.tensor([[0.1, 0.9], [0.8, 0.2], [0.95, 0.05]])),
         sample_ids=["a", "b", "c"],
         prediction_summaries=(
             PredictionSummary(sample_index=0, sample_id="a", predicted_class=1, confidence=0.9),
@@ -550,7 +560,7 @@ def test_build_report_compact_local_thumbnail_titles_are_stripped(
         explanations=[explanation],
         visualisations=[],
         metrics=None,
-        forward_output=torch.tensor([[0.1, 0.9]]),
+        forward_output=_fo(torch.tensor([[0.1, 0.9]])),
         prediction_summaries=(
             PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
         ),
@@ -590,7 +600,7 @@ def test_build_report_compact_mode_omits_repeated_original_for_capable_visualise
         explanations=[explanation],
         visualisations=[],
         metrics=None,
-        forward_output=torch.tensor([[0.1, 0.9]]),
+        forward_output=_fo(torch.tensor([[0.1, 0.9]])),
         prediction_summaries=(
             PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
         ),
@@ -662,7 +672,7 @@ def test_build_report_local_explainer_group_includes_curated_transparency_rows(
         explanations=[explanation],
         visualisations=[],
         metrics=None,
-        forward_output=torch.tensor([[0.1, 0.9], [0.8, 0.2]]),
+        forward_output=_fo(torch.tensor([[0.1, 0.9], [0.8, 0.2]])),
         prediction_summaries=(
             PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
             PredictionSummary(sample_index=1, predicted_class=0, confidence=0.8),
@@ -739,7 +749,7 @@ def test_build_report_show_original_per_explainer_uses_legacy_local_layout(
         explanations=[explanation],
         visualisations=[],
         metrics=None,
-        forward_output=torch.tensor([[0.1, 0.9], [0.8, 0.2]]),
+        forward_output=_fo(torch.tensor([[0.1, 0.9], [0.8, 0.2]])),
         prediction_summaries=(
             PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
             PredictionSummary(sample_index=1, predicted_class=0, confidence=0.8),
@@ -790,7 +800,7 @@ def test_build_report_thumbnail_uses_first_compatible_explanation_in_order(
         explanations=[tabular_explanation, image_explanation],
         visualisations=[],
         metrics=None,
-        forward_output=torch.tensor([[0.1, 0.9]]),
+        forward_output=_fo(torch.tensor([[0.1, 0.9]])),
         prediction_summaries=(
             PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
         ),
@@ -861,7 +871,7 @@ def test_build_report_thumbnail_falls_back_to_later_explanation_after_runtime_er
         explanations=[first_explanation, second_explanation],
         visualisations=[],
         metrics=None,
-        forward_output=torch.tensor([[0.1, 0.9]]),
+        forward_output=_fo(torch.tensor([[0.1, 0.9]])),
         prediction_summaries=(
             PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
         ),
@@ -901,7 +911,7 @@ def test_build_report_thumbnail_failure_falls_back_for_that_sample_only(
         explanations=[explanation],
         visualisations=[],
         metrics=None,
-        forward_output=torch.tensor([[0.1, 0.9]]),
+        forward_output=_fo(torch.tensor([[0.1, 0.9]])),
         prediction_summaries=(
             PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
         ),
@@ -948,7 +958,7 @@ def test_build_report_thumbnail_runtime_failure_logs_traceback_and_falls_back(
         explanations=[explanation],
         visualisations=[],
         metrics=None,
-        forward_output=torch.tensor([[0.1, 0.9]]),
+        forward_output=_fo(torch.tensor([[0.1, 0.9]])),
         prediction_summaries=(
             PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
         ),
@@ -998,7 +1008,7 @@ def test_build_report_thumbnail_programmer_error_is_not_swallowed(
         explanations=[explanation],
         visualisations=[],
         metrics=None,
-        forward_output=torch.tensor([[0.1, 0.9]]),
+        forward_output=_fo(torch.tensor([[0.1, 0.9]])),
         prediction_summaries=(
             PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
         ),
@@ -1199,7 +1209,7 @@ def test_build_report_skips_local_groups_when_no_local_visualisations(tmp_path: 
         explanations=[explanation],
         visualisations=[],
         metrics=None,
-        forward_output=torch.tensor([[0.1, 0.9], [0.8, 0.2]]),
+        forward_output=_fo(torch.tensor([[0.1, 0.9], [0.8, 0.2]])),
         prediction_summaries=(
             PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
             PredictionSummary(sample_index=1, predicted_class=0, confidence=0.8),
@@ -1270,7 +1280,7 @@ def test_build_report_compact_robustness_omits_non_owner_perturbation_panel(
         explanations=[],
         visualisations=[],
         metrics=None,
-        forward_output=torch.zeros(1, 2),
+        forward_output=_fo(torch.zeros(1, 2)),
         robustness_results=[result],
     )
 
@@ -1309,7 +1319,7 @@ def test_build_report_compact_robustness_skips_redundant_single_facet_visualiser
         explanations=[],
         visualisations=[],
         metrics=None,
-        forward_output=torch.zeros(1, 2),
+        forward_output=_fo(torch.zeros(1, 2)),
         robustness_results=[result],
     )
 
@@ -1341,7 +1351,7 @@ def test_build_report_compact_robustness_propagates_visualiser_errors(
         explanations=[],
         visualisations=[],
         metrics=None,
-        forward_output=torch.zeros(1, 2),
+        forward_output=_fo(torch.zeros(1, 2)),
         robustness_results=[result],
     )
 
@@ -1369,7 +1379,7 @@ def test_build_report_compact_robustness_renders_selected_samples_per_assessor(
         explanations=[],
         visualisations=[],
         metrics=None,
-        forward_output=torch.zeros(20, 2),
+        forward_output=_fo(torch.zeros(20, 2)),
         prediction_summaries=(
             PredictionSummary(
                 sample_index=3,
@@ -1440,7 +1450,7 @@ def test_build_report_robustness_single_pair_keeps_all_panels(tmp_path: Path) ->
         explanations=[],
         visualisations=[],
         metrics=None,
-        forward_output=torch.zeros(1, 2),
+        forward_output=_fo(torch.zeros(1, 2)),
         robustness_results=[result],
     )
 
@@ -1477,7 +1487,7 @@ def test_build_report_legacy_robustness_reuses_existing_visualisations_without_k
         explanations=[],
         visualisations=[],
         metrics=None,
-        forward_output=torch.zeros(1, 2),
+        forward_output=_fo(torch.zeros(1, 2)),
         robustness_results=[result],
         robustness_visualisations=[existing_visualisation],
     )
@@ -1506,7 +1516,7 @@ def test_build_report_robustness_redundant_single_facet_without_kwarg_support_is
         explanations=[],
         visualisations=[],
         metrics=None,
-        forward_output=torch.zeros(1, 2),
+        forward_output=_fo(torch.zeros(1, 2)),
         robustness_results=[result],
     )
 
@@ -1535,7 +1545,7 @@ def test_report_manifest_round_trip_preserves_relative_images(tmp_path: Path) ->
         explanations=[explanation],
         visualisations=[],
         metrics=None,
-        forward_output=torch.tensor([[0.1, 0.9], [0.8, 0.2]]),
+        forward_output=_fo(torch.tensor([[0.1, 0.9], [0.8, 0.2]])),
         prediction_summaries=(
             PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9),
             PredictionSummary(sample_index=1, predicted_class=0, confidence=0.8),
@@ -1723,7 +1733,7 @@ def test_build_report_manifest_filename_matches_selected_reporter(
         explanations=[],
         visualisations=[],
         metrics=None,
-        forward_output=torch.empty(0),
+        forward_output=_fo(torch.empty(0)),
     )
 
     html_config = AppConfig(experiment_name="demo")
@@ -2013,7 +2023,7 @@ def _explicit_selection_case(
         explanations=[explanation],
         visualisations=[],
         metrics=None,
-        forward_output=torch.rand(len(ids), 2),
+        forward_output=_fo(torch.rand(len(ids), 2)),
         sample_ids=ids,
         prediction_summaries=tuple(
             PredictionSummary(

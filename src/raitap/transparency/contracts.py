@@ -54,6 +54,9 @@ class ExplanationOutputSpace(StrEnum):
     LAYER_ACTIVATION = "layer_activation"
     IMAGE_SPATIAL_MAP = "image_spatial_map"
     TOKEN_SEQUENCE = "token_sequence"
+    DETECTION_BOXES = "detection_boxes"
+    SEGMENTATION_MASK = "segmentation_mask"
+    BBOX_REGRESSION = "bbox_regression"
 
 
 class InputKind(StrEnum):
@@ -168,6 +171,24 @@ class OutputSpaceSpec:
 
 
 @dataclass(frozen=True)
+class DetectionBox:
+    """Per-box metadata persisted with a detection explanation result.
+
+    ``display_index`` is the rank in the filtered set (0..K-1) and is the
+    user-facing ordinal. ``raw_index`` is the index in the clean forward
+    pass's output list — useful for provenance and for re-anchoring the
+    explanation to the original detection. ``xyxy`` is in input pixel space.
+    """
+
+    display_index: int
+    raw_index: int
+    xyxy: tuple[float, float, float, float]
+    score: float
+    label_index: int
+    label_name: str | None = None
+
+
+@dataclass(frozen=True)
 class VisualSummarySpec:
     """Metadata for visualisers that summarize a set of local explanations."""
 
@@ -253,6 +274,7 @@ class VisualisationContext:
     algorithm: str
     sample_names: list[str] | None
     show_sample_names: bool
+    detection_box: DetectionBox | None = None
 
 
 @runtime_checkable

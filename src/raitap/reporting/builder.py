@@ -725,11 +725,22 @@ def _build_local_section(
                 if visualisation is None:
                     continue
 
+                # Detection K-loop emits one ExplanationResult per box, all
+                # sharing the same (sample_index, explainer, visualiser). Add
+                # the box's display / raw index to the asset filename + group
+                # heading + metadata so per-box panels don't collide.
+                detection_box = explanation.detection_box
+                box_suffix = (
+                    f"_box_{detection_box.display_index}_{detection_box.raw_index}"
+                    if detection_box is not None
+                    else ""
+                )
                 images = _stage_rendered_visualisations(
                     [visualisation],
                     assets_dir=assets_dir,
                     file_stem_prefix=(
                         f"sample_{selected.summary.sample_index}_{_safe_name(explainer_name)}"
+                        f"{box_suffix}"
                     ),
                     strip_titles=True,
                 )
@@ -750,6 +761,21 @@ def _build_local_section(
                     "visualiser_index": visualiser_index,
                     "visualiser_class": type(configured.visualiser).__name__,
                 }
+                heading_box_part = ""
+                if detection_box is not None:
+                    label = detection_box.label_name or f"class {detection_box.label_index}"
+                    heading_box_part = (
+                        f" - Box {detection_box.display_index}"
+                        f" ({label}, score={detection_box.score:.2f})"
+                    )
+                    metadata["detection_box"] = {
+                        "display_index": detection_box.display_index,
+                        "raw_index": detection_box.raw_index,
+                        "score": detection_box.score,
+                        "label_index": detection_box.label_index,
+                        "label_name": detection_box.label_name,
+                        "xyxy": list(detection_box.xyxy),
+                    }
                 visualiser_title = getattr(configured.visualiser, "title", None)
                 if visualiser_title:
                     metadata["visualiser_title"] = str(visualiser_title)
@@ -757,7 +783,11 @@ def _build_local_section(
                     metadata["thumbnail_source_explainer_names"] = thumbnail_source_names
                 sample_groups.append(
                     ReportGroup(
-                        heading=f"Explainer: {explainer_name} - Visualiser: {visualiser_name}",
+                        heading=(
+                            f"Explainer: {explainer_name}"
+                            f" - Visualiser: {visualiser_name}"
+                            f"{heading_box_part}"
+                        ),
                         images=images,
                         table_rows=_transparency_table_rows(
                             explanation,
@@ -917,12 +947,22 @@ def _stage_sample_thumbnail(
     last_error: Exception | None = None
 
     for explanation in outputs.explanations:
-        attributions = explanation.attributions[sample_index : sample_index + 1]
-        inputs = (
-            None
-            if explanation.inputs is None
-            else explanation.inputs[sample_index : sample_index + 1]
-        )
+        if explanation.original_sample_index is not None:
+            # Detection K-loop: each ExplanationResult is single-sample
+            # (attributions shape ``(1, ...)``) tied to one sample. Use the
+            # whole tensor when it matches the requested sample; skip when
+            # it represents a different sample (slicing would produce empty).
+            if explanation.original_sample_index != sample_index:
+                continue
+            attributions = explanation.attributions
+            inputs = explanation.inputs
+        else:
+            attributions = explanation.attributions[sample_index : sample_index + 1]
+            inputs = (
+                None
+                if explanation.inputs is None
+                else explanation.inputs[sample_index : sample_index + 1]
+            )
         try:
             visualiser.validate_explanation(explanation, attributions, inputs)
         except ValueError as exc:
@@ -952,6 +992,13 @@ def _stage_sample_thumbnail(
             last_error = exc
             continue
 
+        # Detection samples: overlay every sibling box onto the thumbnail so
+        # the pinned section doubles as a navigation overview (all K boxes
+        # at a glance — per-box attribution figures follow in the local
+        # section).
+        if explanation.original_sample_index is not None:
+            _overlay_detection_boxes(figure, outputs=outputs, sample_index=sample_index)
+
         target = assets_dir / target_name
         target.parent.mkdir(parents=True, exist_ok=True)
         if strip_titles:
@@ -973,6 +1020,45 @@ def _stage_sample_thumbnail(
             last_error,
         )
     return None
+
+
+def _overlay_detection_boxes(figure: Any, *, outputs: RunOutputs, sample_index: int) -> None:
+    """Draw every detection box for a sample onto the thumbnail figure."""
+    from matplotlib import patches as mpatches
+
+    boxes = [
+        explanation.detection_box
+        for explanation in outputs.explanations
+        if explanation.detection_box is not None
+        and explanation.original_sample_index == sample_index
+    ]
+    if not boxes:
+        return
+    axes = figure.axes
+    if not axes:
+        return
+    ax = axes[0]
+    for box in boxes:
+        x1, y1, x2, y2 = box.xyxy
+        ax.add_patch(
+            mpatches.Rectangle(
+                (x1, y1),
+                x2 - x1,
+                y2 - y1,
+                linewidth=2,
+                edgecolor="lime",
+                facecolor="none",
+            )
+        )
+        label = box.label_name or f"class {box.label_index}"
+        ax.text(
+            x1,
+            max(y1 - 4, 4),
+            f"#{box.display_index} {label} ({box.score:.2f})",
+            color="lime",
+            fontsize=7,
+            bbox={"facecolor": "black", "alpha": 0.55, "pad": 1, "edgecolor": "none"},
+        )
 
 
 def _transparency_table_rows(
@@ -1262,9 +1348,7 @@ class EdgecaseSelectorStrategy(SampleSelectionStrategy):
 
 
 def _batch_size(outputs: RunOutputs) -> int:
-    if outputs.forward_output.ndim > 0:
-        return int(outputs.forward_output.shape[0])
-    return 0
+    return outputs.forward_output.batch_size
 
 
 def _copy_asset(source: Path, *, assets_dir: Path, target_name: str) -> Path:

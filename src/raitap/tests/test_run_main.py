@@ -23,8 +23,18 @@ from raitap.data.preprocessing import ResolvedPreprocessing
 from raitap.metrics import metrics_prediction_pair
 from raitap.pipeline import __main__ as run_entry
 from raitap.pipeline import extract_primary_tensor
+from raitap.pipeline.outputs import ForwardOutput as _ForwardOutput
 from raitap.pipeline.phases import forward_pass as run_pipeline_forward
 from raitap.tracking import BaseTracker
+from raitap.types import TaskKind as _TaskKind
+
+
+def _fo(tensor: torch.Tensor) -> _ForwardOutput:
+    return _ForwardOutput(
+        task_kind=_TaskKind.classification,
+        batch_size=int(tensor.shape[0]) if tensor.ndim > 0 else 0,
+        predictions_tensor=tensor,
+    )
 
 
 class _BackendStub:
@@ -127,7 +137,9 @@ def test_forward_primary_tensor_batches_backend_calls() -> None:
     )
 
     assert backend.prepared_batch_sizes == [2, 2, 1]
-    assert torch.equal(output, torch.tensor([[1.0], [5.0], [9.0], [13.0], [17.0]]))
+    predictions_tensor = output.predictions_tensor
+    assert predictions_tensor is not None
+    assert torch.equal(predictions_tensor, torch.tensor([[1.0], [5.0], [9.0], [13.0], [17.0]]))
 
 
 class _FakeExplainerResult:
@@ -299,7 +311,7 @@ def test_run_without_tracking_returns_outputs(monkeypatch: MonkeyPatch) -> None:
         explanations=[],
         visualisations=[],
         metrics=None,
-        forward_output=torch.tensor([0, 0]),
+        forward_output=_fo(torch.tensor([0, 0])),
     )
     tracker_factory = MagicMock()
 
@@ -330,7 +342,7 @@ def test_run_resolves_preprocessing_once_for_model_and_data(monkeypatch: MonkeyP
         explanations=[],
         visualisations=[],
         metrics=None,
-        forward_output=torch.tensor([0, 0]),
+        forward_output=_fo(torch.tensor([0, 0])),
     )
     tracker_factory = MagicMock()
     resolve_preprocessing = MagicMock(return_value=resolved_preprocessing)
@@ -388,7 +400,7 @@ def test_run_invalid_report_sample_selection_fails_before_pipeline_work(
         explanations=[],
         visualisations=[],
         metrics=None,
-        forward_output=torch.tensor([0]),
+        forward_output=_fo(torch.tensor([0])),
     )
     pipeline_work = MagicMock(return_value=fake_output)
     build_report = MagicMock()
@@ -430,7 +442,7 @@ def test_run_with_tracking_logs_all_outputs(monkeypatch: MonkeyPatch) -> None:
         explanations=[explanation],  # type: ignore[list-item]
         visualisations=[visualisation],  # type: ignore[list-item]
         metrics=metrics_eval,  # type: ignore[arg-type]
-        forward_output=torch.tensor([0, 0]),
+        forward_output=_fo(torch.tensor([0, 0])),
     )
     tracker = MagicMock()
 
@@ -475,7 +487,7 @@ def test_run_with_tracking_skips_model_logging_when_disabled(monkeypatch: Monkey
         explanations=[explanation],  # type: ignore[list-item]
         visualisations=[visualisation],  # type: ignore[list-item]
         metrics=None,
-        forward_output=torch.tensor([0]),
+        forward_output=_fo(torch.tensor([0])),
     )
     tracker = MagicMock()
 
@@ -518,7 +530,7 @@ def test_run_with_multiple_explainers_uses_subdirs(monkeypatch: MonkeyPatch) -> 
         explanations=[exp1, exp2],  # type: ignore[list-item]
         visualisations=[vis1, vis2],  # type: ignore[list-item]
         metrics=None,
-        forward_output=torch.tensor([0, 0]),
+        forward_output=_fo(torch.tensor([0, 0])),
     )
     tracker = MagicMock()
 
@@ -559,7 +571,7 @@ def test_run_with_tracking_config_but_no_target_skips_tracking(monkeypatch: Monk
         explanations=[],
         visualisations=[],
         metrics=None,
-        forward_output=torch.tensor([0, 0]),
+        forward_output=_fo(torch.tensor([0, 0])),
     )
     tracker_factory = MagicMock()
 

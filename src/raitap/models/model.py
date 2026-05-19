@@ -20,12 +20,29 @@ if TYPE_CHECKING:
     import torch
     from torch import nn
     from torchvision import models
+    from torchvision.models import detection as _detection_models
 
     from raitap.configs.schema import AppConfig
 else:
     torch = lazy_import("torch")
     nn = lazy_import("torch.nn")
     models = lazy_import("torchvision.models")
+    _detection_models = lazy_import("torchvision.models.detection")
+
+
+def _resolve_torchvision_factory(name: str) -> Any | None:
+    """Return a torchvision model builder by name, checking detection too.
+
+    Top-level ``torchvision.models`` covers classification builders;
+    detection builders (``fasterrcnn_resnet50_fpn_v2``, ``retinanet_*``,
+    ``ssd*``, etc.) live under ``torchvision.models.detection``. Falls
+    back to the detection namespace when the top-level lookup misses so
+    contributor configs can reference detection models by builder name.
+    """
+    factory = getattr(models, name, None)
+    if factory is not None:
+        return factory
+    return getattr(_detection_models, name, None)
 
 
 class Model(Trackable):
@@ -68,7 +85,7 @@ class Model(Trackable):
             )
 
         name = str(source).lower()
-        if hasattr(models, name):
+        if _resolve_torchvision_factory(name) is not None:
             return _load_pretrained(name, hardware=hardware)
 
         raise ValueError(
@@ -238,7 +255,7 @@ def _build_arch_from_config(model_cfg: Any) -> nn.Module:
         )
     assert arch is not None and num_classes is not None  # narrowed by `missing` check
 
-    factory = getattr(models, arch, None)
+    factory = _resolve_torchvision_factory(arch)
     if factory is None:
         raise ValueError(f"model.arch {arch!r} is not a known torchvision model.")
 
@@ -332,7 +349,7 @@ def _load_pretrained(model_name: str, *, hardware: str) -> ModelBackend:
     Raises:
         ValueError: If *model_name* is not a valid torchvision model.
     """
-    factory = getattr(models, model_name, None)
+    factory = _resolve_torchvision_factory(model_name)
     if factory is None:
         raise ValueError(f"'{model_name}' is not a known torchvision model.")
 

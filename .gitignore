@@ -87,6 +87,13 @@ usecases/
 # Bundled use-case configs are tracked, their artefact bundles (model weights,
 # image subsets, exported checkpoints) are not — keep the dirs out of git.
 contributor-configs/*/artifacts/
+# Candidate label dumps from helper scripts — hand-edit then save to the
+# canonical labels/ filename. Keep candidates out of git.
+contributor-configs/*/labels/*.candidate.json
+# Materialised sample images (fetched via ``scripts/fetch_images.py``); the
+# upstream sample registry handles the actual download + cache, this is just
+# a per-machine working copy for the config.
+contributor-configs/*/images/
 # Stray pipeline output dirs (programmatic raitap.run defaults to outputs/, but
 # misconfigured runs may still drop these at repo root)
 /robustness/

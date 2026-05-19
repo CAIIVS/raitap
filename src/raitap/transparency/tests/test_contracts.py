@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import ast
+import dataclasses
 import importlib.util
 import sys
 from dataclasses import fields
 from pathlib import Path
 from typing import Any, get_type_hints
+
+import pytest
 
 
 def _load_contracts_module() -> Any:
@@ -60,6 +63,9 @@ def test_semantic_enum_members_are_exact_and_not_placeholders() -> None:
         "LAYER_ACTIVATION",
         "IMAGE_SPATIAL_MAP",
         "TOKEN_SEQUENCE",
+        "DETECTION_BOXES",
+        "SEGMENTATION_MASK",
+        "BBOX_REGRESSION",
     }
     assert {member.name for member in InputKind} == {
         "IMAGE",
@@ -209,3 +215,55 @@ def test_public_transparency_exports_new_contract_surface_without_report_scope()
         "method_families_for_explainer",
     } <= public_names
     assert "report_scope" not in public_names
+
+
+def test_explanation_output_space_includes_detection_members() -> None:
+    values = {member.value for member in ExplanationOutputSpace}
+    assert "detection_boxes" in values
+    assert "segmentation_mask" in values
+    assert "bbox_regression" in values
+
+
+def test_detection_box_round_trip() -> None:
+    from raitap.transparency.contracts import DetectionBox
+
+    box = DetectionBox(
+        display_index=0,
+        raw_index=7,
+        xyxy=(1.0, 2.0, 3.0, 4.0),
+        score=0.93,
+        label_index=5,
+        label_name="car",
+    )
+    assert box.display_index == 0
+    assert box.raw_index == 7
+    assert box.xyxy == (1.0, 2.0, 3.0, 4.0)
+    assert box.score == 0.93
+    assert box.label_index == 5
+    assert box.label_name == "car"
+
+
+def test_detection_box_label_name_defaults_to_none() -> None:
+    from raitap.transparency.contracts import DetectionBox
+
+    box = DetectionBox(
+        display_index=0, raw_index=0, xyxy=(0.0, 0.0, 1.0, 1.0), score=0.5, label_index=1
+    )
+    assert box.label_name is None
+
+
+def test_detection_box_is_frozen() -> None:
+    from raitap.transparency.contracts import DetectionBox
+
+    box = DetectionBox(
+        display_index=0, raw_index=0, xyxy=(0.0, 0.0, 1.0, 1.0), score=0.5, label_index=1
+    )
+    with pytest.raises((AttributeError, dataclasses.FrozenInstanceError)):
+        box.score = 0.9  # type: ignore[misc]
+
+
+def test_visualisation_context_detection_box_defaults_to_none() -> None:
+    from raitap.transparency.contracts import VisualisationContext
+
+    ctx = VisualisationContext(algorithm="x", sample_names=None, show_sample_names=False)
+    assert ctx.detection_box is None
