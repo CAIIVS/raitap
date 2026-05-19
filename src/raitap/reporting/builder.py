@@ -997,9 +997,7 @@ def _stage_sample_thumbnail(
         # at a glance — per-box attribution figures follow in the local
         # section).
         if explanation.original_sample_index is not None:
-            _overlay_detection_boxes(
-                figure, outputs=outputs, sample_index=sample_index
-            )
+            _overlay_detection_boxes(figure, outputs=outputs, sample_index=sample_index)
 
         target = assets_dir / target_name
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -1024,9 +1022,7 @@ def _stage_sample_thumbnail(
     return None
 
 
-def _overlay_detection_boxes(
-    figure: Any, *, outputs: RunOutputs, sample_index: int
-) -> None:
+def _overlay_detection_boxes(figure: Any, *, outputs: RunOutputs, sample_index: int) -> None:
     """Draw every detection box for a sample onto the thumbnail figure."""
     from matplotlib import patches as mpatches
 
