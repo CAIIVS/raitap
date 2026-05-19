@@ -20,6 +20,7 @@ Captum- and SHAP-based explainers behind the same config surface.
 :caption: Transparency module documentation
 
 configuration
+detection
 frameworks-and-libraries
 output
 visualisers
