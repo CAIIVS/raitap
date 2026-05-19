@@ -261,7 +261,7 @@ transparency:
         max_boxes: 5             # default; cap K per sample
         iou_threshold: 0.5       # default; used by reference_match target
     visualisers:
-      - _target_: detection_image
+      - _target_: DetectionImageVisualiser
 ```
 
 The pipeline emits one `ExplanationResult` per detected box (top-K after
