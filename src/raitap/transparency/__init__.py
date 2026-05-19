@@ -100,6 +100,7 @@ try:
         CaptumImageVisualiser,
         CaptumTextVisualiser,
         CaptumTimeSeriesVisualiser,
+        DetectionImageVisualiser,
         ShapBarVisualiser,
         ShapBeeswarmVisualiser,
         ShapForceVisualiser,
@@ -125,6 +126,7 @@ except ModuleNotFoundError as error:
     CaptumImageVisualiser = _unavailable("CaptumImageVisualiser", "torch")
     CaptumTextVisualiser = _unavailable("CaptumTextVisualiser", "torch")
     CaptumTimeSeriesVisualiser = _unavailable("CaptumTimeSeriesVisualiser", "torch")
+    DetectionImageVisualiser = _unavailable("DetectionImageVisualiser", "torch")
     ShapBarVisualiser = _unavailable("ShapBarVisualiser", "torch")
     ShapBeeswarmVisualiser = _unavailable("ShapBeeswarmVisualiser", "torch")
     ShapForceVisualiser = _unavailable("ShapForceVisualiser", "torch")
@@ -177,6 +179,8 @@ __all__ = [  # noqa: RUF022
     "CaptumImageVisualiser",
     "CaptumTextVisualiser",
     "CaptumTimeSeriesVisualiser",
+    # Detection visualisers
+    "DetectionImageVisualiser",
     # SHAP visualisers
     "ShapBarVisualiser",
     "ShapBeeswarmVisualiser",

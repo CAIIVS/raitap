@@ -172,7 +172,7 @@ class ExplanationResult(Trackable):
 
     def _metadata(self, *, visualiser_targets: list[str] | None = None) -> dict[str, Any]:
         targets = self.visualiser_targets if visualiser_targets is None else visualiser_targets
-        return {
+        metadata: dict[str, Any] = {
             "experiment_name": self.experiment_name,
             "target": self.explainer_target,
             "algorithm": self.algorithm,
@@ -184,6 +184,18 @@ class ExplanationResult(Trackable):
                 key: _serialisable_call_kwarg(value) for key, value in self.call_kwargs.items()
             },
         }
+        if self.detection_box is not None:
+            metadata["detection_box"] = {
+                "display_index": self.detection_box.display_index,
+                "raw_index": self.detection_box.raw_index,
+                "xyxy": list(self.detection_box.xyxy),
+                "score": self.detection_box.score,
+                "label_index": self.detection_box.label_index,
+                "label_name": self.detection_box.label_name,
+            }
+        if self.original_sample_index is not None:
+            metadata["original_sample_index"] = self.original_sample_index
+        return metadata
 
     def _write_metadata(self) -> None:
         metadata_path = self.run_dir / "metadata.json"

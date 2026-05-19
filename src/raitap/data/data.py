@@ -244,9 +244,9 @@ class Data(Trackable):
         if not labels_source:
             return None
 
+        # ``get_source_path`` raises ValueError if the source can't be resolved
+        # or returns an existing path; no separate existence check needed.
         labels_path = get_source_path(labels_source, kind=SourceKind.LABELS)
-        if not labels_path.exists():
-            raise FileNotFoundError(f"Detection labels file not found at {labels_path}.")
 
         with labels_path.open() as fh:
             records = json.load(fh)
