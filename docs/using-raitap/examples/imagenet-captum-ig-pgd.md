@@ -14,9 +14,9 @@ myst:
 :yaml:
 defaults:
   - raitap_schema
-  - _self_
   - reporting: html
-  - metrics: classification
+  - metrics: multiclass_classification
+  - _self_
 
 hardware: gpu
 experiment_name: example
@@ -32,6 +32,12 @@ data:
     source: imagenet_samples
     id_column: image
     column: label
+
+metrics:
+  # vit_b_32 ships with ImageNet-1k weights → 1000 output classes.
+  # `average: macro` is the schema default; override here only if you want
+  # `micro` / `weighted` / `none`.
+  num_classes: 1000
 
 transparency:
   default:
@@ -56,7 +62,7 @@ robustness:
 :python:
 from raitap import AppConfig, Hardware, run
 from raitap.data import DataConfig, LabelsConfig
-from raitap.metrics import Task, classification
+from raitap.metrics import multiclass_classification
 from raitap.models import ModelConfig
 from raitap.reporting import html
 from raitap.robustness import image_pair, torchattacks
@@ -76,7 +82,7 @@ cfg = AppConfig(
             column="label",
         ),
     ),
-    metrics=classification(task=Task.multiclass),
+    metrics=multiclass_classification(num_classes=1000),
     transparency={
         "default": captum(
             algorithm="IntegratedGradients",

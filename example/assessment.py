@@ -21,7 +21,7 @@ import logging
 
 from raitap import AppConfig, Hardware, run
 from raitap.data import DataConfig, LabelsConfig
-from raitap.metrics import Task, classification
+from raitap.metrics import multiclass_classification
 from raitap.models import ModelConfig
 from raitap.reporting import html
 from raitap.robustness import image_pair, torchattacks
@@ -43,7 +43,7 @@ def build_config() -> AppConfig:
                 column="label",
             ),
         ),
-        metrics=classification(task=Task.multiclass),
+        metrics=multiclass_classification(num_classes=1000),
         transparency={
             "default": captum(
                 algorithm="IntegratedGradients",

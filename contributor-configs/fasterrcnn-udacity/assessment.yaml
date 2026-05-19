@@ -21,7 +21,12 @@ model:
 data:
   name: udacity-dashcam-demo
   description: 4 Udacity CarND dashcam frames + hand-labelled COCO-class detection boxes.
-  source: UdacitySelfDriving
+  # Use a filesystem path (not the ``UdacitySelfDriving`` sample-registry name)
+  # so the dir-loader serves images at NATIVE resolution (1280x720). The
+  # demo-sample loader hard-resizes to 224x224, which breaks detection (labels
+  # and model expectations are both in 1280x720). Run
+  # ``scripts/fetch_images.py`` once to materialise this directory.
+  source: ${hydra:runtime.cwd}/contributor-configs/fasterrcnn-udacity/images
   forward_batch_size: 1
   labels:
     source: ${hydra:runtime.cwd}/contributor-configs/fasterrcnn-udacity/labels/udacity-boxes.json

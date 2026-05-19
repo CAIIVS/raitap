@@ -38,7 +38,7 @@ The Python API is laid out so each module is the single owner of *both* its type
 | --------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
 | `raitap.models`       | `ModelConfig`                | —                                                                                                                                                                                                            | —                             |
 | `raitap.data`         | `DataConfig`, `LabelsConfig` | —                                                                                                                                                                                                            | `LabelEncoding`, `IdStrategy` |
-| `raitap.metrics`      | `MetricsConfig`              | `classification`, `detection`                                                                                                                                                                                | `Task`                        |
+| `raitap.metrics`      | `MetricsConfig`              | `binary_classification`, `multiclass_classification`, `multilabel_classification`, `detection`                                                                                                                | —                             |
 | `raitap.transparency` | `TransparencyConfig`         | `captum`, `shap`, `captum_image`, `captum_text`, `captum_time_series`, `shap_bar`, `shap_beeswarm`, `shap_force`, `shap_image`, `shap_waterfall`, `tabular_bar_chart`                                        | —                             |
 | `raitap.robustness`   | `RobustnessConfig`           | `torchattacks`, `foolbox`, `marabou`, `image_pair`, `perturbation_heatmap`, `output_bounds_cohort`, `output_bounds_pinned`, `output_bounds_width_heatmap`, `output_bounds_margin_heatmap`, `verdict_summary` | —                             |
 | `raitap.reporting`    | `ReportingConfig`            | `html`, `pdf`                                                                                                                                                                                                | —                             |
@@ -55,7 +55,7 @@ The Python equivalent of `raitap --demo` is roughly twenty lines. Build an `AppC
 ```python
 from raitap import AppConfig, Hardware, run
 from raitap.data import DataConfig, LabelsConfig
-from raitap.metrics import Task, classification
+from raitap.metrics import multiclass_classification
 from raitap.models import ModelConfig
 from raitap.robustness import image_pair, torchattacks
 from raitap.transparency import captum, captum_image
@@ -74,7 +74,7 @@ cfg = AppConfig(
             column="label",
         ),
     ),
-    metrics=classification(task=Task.multiclass),
+    metrics=multiclass_classification(num_classes=1000),
     transparency={
         "captum_ig": captum(
             algorithm="IntegratedGradients",
@@ -114,7 +114,7 @@ The `raitap` CLI walks the composed Hydra config before any heavy import, then i
 ```python
 from raitap import AppConfig, Hardware, run
 from raitap.data import DataConfig, LabelsConfig
-from raitap.metrics import Task, classification
+from raitap.metrics import multiclass_classification
 from raitap.models import ModelConfig
 from raitap.reporting import html
 from raitap.robustness import image_pair, torchattacks
@@ -123,7 +123,7 @@ from raitap.transparency import captum, captum_image
 cfg = AppConfig(
     hardware=Hardware.gpu,
     model=ModelConfig(source="vit_b_32"),
-    metrics=classification(task=Task.multiclass),
+    metrics=multiclass_classification(num_classes=1000),
     transparency={"default": captum(algorithm="IntegratedGradients", call={"target": 0}, visualisers=[captum_image()])},
     robustness={"pgd": torchattacks(algorithm="PGD", constructor={"eps": 0.03}, visualisers=[image_pair()])},
     reporting=html(filename="report"),
@@ -131,7 +131,7 @@ cfg = AppConfig(
 run(cfg, auto_install_deps=True)
 ```
 
-Why this works in a venv with **no extras installed yet**: every adapter module wraps its third-party library imports in `raitap.utils.lazy.lazy_import`, so importing `from raitap.metrics import classification` does not pull `torchmetrics` at module load — only when you later instantiate the wrapped class. With `auto_install_deps=True`, `run` walks the cfg, infers the extras (it reads `_target_` strings the builders bake in), runs `uv add raitap[<extras>]`, and re-execs the script so the freshly-installed packages are visible when the pipeline actually invokes them. Idempotent: a sentinel env var short-circuits the second pass after the re-exec, so the same script line runs once and then becomes a no-op on the relaunch.
+Why this works in a venv with **no extras installed yet**: every adapter module wraps its third-party library imports in `raitap.utils.lazy.lazy_import`, so importing `from raitap.metrics import multiclass_classification` does not pull `torchmetrics` at module load — only when you later instantiate the wrapped class. With `auto_install_deps=True`, `run` walks the cfg, infers the extras (it reads `_target_` strings the builders bake in), runs `uv add raitap[<extras>]`, and re-execs the script so the freshly-installed packages are visible when the pipeline actually invokes them. Idempotent: a sentinel env var short-circuits the second pass after the re-exec, so the same script line runs once and then becomes a no-op on the relaunch.
 
 `auto_install_deps` is opt-in. Without it `run(cfg)` assumes the extras the config references are already installed — the typical case after a CLI bootstrap or a manual `uv sync`. A missing adapter library surfaces as the usual `ModuleNotFoundError` from the adapter import chain.
 
@@ -142,7 +142,7 @@ Each module exposes [hydra-zen `builds`](https://mit-ll-responsible-ai.github.io
 ```python
 from raitap.transparency import captum, shap
 from raitap.robustness import foolbox, torchattacks
-from raitap.metrics import classification
+from raitap.metrics import multiclass_classification, detection
 ```
 
 These return *dataclass types* whose fields inherit the schema dataclass (`TransparencyConfig` / `RobustnessConfig` / `MetricsConfig`). Calling them with keyword arguments produces a config instance the orchestrator `instantiate`s — the same path Hydra takes when reading YAML. They are interchangeable with hand-written schema instances; choose whichever gives you better autocomplete in your editor.
@@ -427,7 +427,7 @@ The schema is a deliberate mix of strict and forwarded. Knowing which fields are
 
 **Fully typed**
 
-- `hardware: Hardware`, `data.labels.encoding: LabelEncoding`, `data.labels.id_strategy: IdStrategy`, `metrics.task: Task` — all four are `enum.StrEnum` subclasses. Imports follow the module-ownership rule: `from raitap import Hardware`, `from raitap.data import LabelEncoding, IdStrategy`, `from raitap.metrics import Task`. **Pass the enum member** (`Hardware.cpu`) — typos like `Hardware.cpuu` fail at import time and Pyright/your editor catch them immediately. The raw string form (`"cpu"`) still parses at runtime via OmegaConf coercion, but it bypasses static type-checking — defeating the main reason to use the Python path over YAML.
+- `hardware: Hardware`, `data.labels.encoding: LabelEncoding`, `data.labels.id_strategy: IdStrategy`, `data.labels.kind: LabelKind` — all four are `enum.StrEnum` subclasses. Imports follow the module-ownership rule: `from raitap import Hardware`, `from raitap.data import LabelEncoding, IdStrategy`, `from raitap.data.types import LabelKind`. **Pass the enum member** (`Hardware.cpu`) — typos like `Hardware.cpuu` fail at import time and Pyright/your editor catch them immediately. The raw string form (`"cpu"`) still parses at runtime via OmegaConf coercion, but it bypasses static type-checking — defeating the main reason to use the Python path over YAML.
 - The nested dataclass dicts on `AppConfig.transparency` and `AppConfig.robustness` — keys are arbitrary user-chosen strings, values must be `TransparencyConfig` / `RobustnessConfig` instances (or dicts with the right keys).
 - All scalar fields on `ModelConfig`, `DataConfig`, `LabelsConfig`, `MetricsConfig`, `TrackingConfig`, `ReportingConfig` are checked by OmegaConf's structured-config validation when the orchestrator boots.
 

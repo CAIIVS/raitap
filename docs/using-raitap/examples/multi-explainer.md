@@ -14,9 +14,9 @@ myst:
 :yaml:
 defaults:
   - raitap_schema
-  - _self_
   - reporting: html
-  - metrics: classification
+  - metrics: multiclass_classification
+  - _self_
 
 hardware: gpu
 experiment_name: multi-explainer
@@ -32,6 +32,12 @@ data:
     source: imagenet_samples
     id_column: image
     column: label
+
+metrics:
+  num_classes: 1000
+  # Sample-frequency-weighted average instead of the macro default — more
+  # meaningful on imbalanced datasets where rare classes shouldn't dominate.
+  average: weighted
 
 transparency:
   ig:
@@ -52,7 +58,7 @@ transparency:
 :python:
 from raitap import AppConfig, Hardware, run
 from raitap.data import DataConfig, LabelsConfig
-from raitap.metrics import Task, classification
+from raitap.metrics import multiclass_classification
 from raitap.models import ModelConfig
 from raitap.reporting import html
 from raitap.transparency import captum, captum_image
@@ -71,7 +77,7 @@ cfg = AppConfig(
             column="label",
         ),
     ),
-    metrics=classification(task=Task.multiclass),
+    metrics=multiclass_classification(num_classes=1000, average="weighted"),
     transparency={
         "ig": captum(
             algorithm="IntegratedGradients",
