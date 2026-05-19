@@ -341,8 +341,9 @@ class CaptumImageVisualiser(BaseVisualiser):
                 orig_i = _normalise_image(orig_i)
 
                 # Layer methods (e.g., LayerGradCam) can yield low-res maps;
-                # masked modes need same HxW.
-                if self.method in {"masked_image", "alpha_scaling"}:
+                # bilinear-upsample so heat overlays align with the original
+                # image extent in matplotlib (also required for masked modes).
+                if self.method != "original_image":
                     attr_hw = attr_i.shape[:2]
                     orig_hw = orig_i.shape[:2]
                     if attr_hw != orig_hw:
