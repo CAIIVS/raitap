@@ -47,10 +47,11 @@ RAITAP does not ship with all the underlying dependencies by default, to avoid m
 
 In some specific setups, you might need to take action:
 
-- If you are using `uv`, it will ask you to run the `uv add` command yourself, or add the `--allow-project-edit` (or `-y`) flag. This is because `uv add` modifies your `pyproject.toml`.
-- If you are using `pip` and are not in a virtual environment (`venv`), it will ask to add the `--exec-global` flag. This will modify your global Python setup and is not recommended.
+- On `uv`, RAITAP may ask for [`--allow-project-edit`](configuration/flags.md#flag-allow-project-edit) (or `-y`).
+- On `pip` without a venv, RAITAP may ask for [`--exec-global`](configuration/flags.md#flag-exec-global).
 
-If you wish to manually manage your dependencies, see {doc}`installation`. You can also see a preview of the inferred deps with `--dry-run`.
+To manage dependencies manually, see {doc}`installation`. To preview the
+inferred deps without installing, use [`--dry-run`](configuration/flags.md#flag-dry-run).
 
 ## 3. Inspect the output
 

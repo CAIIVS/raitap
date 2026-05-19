@@ -26,9 +26,8 @@ The following values are allowed for both keys:
 - **`null`** (default): no preprocessing
 - **`"model-bundled"`**: use the preprocessing bundled inside the model file (e.g. `torchvision` models)
 - **path to a `.py` file**: load a user factory decorated with the matching
-  RAITAP decorator (see custom examples below). Gated by `--allow-preprocessing-exec` / `-yp` (CLI),
-  `acknowledge_preprocessing_exec=True` (Python API), or `RAITAP_ALLOW_PREPROCESSING_EXEC=1`
-  ({ref}`env var <environment-variables>`).
+  RAITAP decorator (see custom examples below). Requires consent — see
+  [`--allow-preprocessing-exec`](../../using-raitap/configuration/flags.md#flag-allow-preprocessing-exec).
 
 ## Examples
 
@@ -192,7 +191,7 @@ def normalize() -> nn.Module:
 ```
 
 Same file pointed at both knobs is imported and hashed once. Run with the
-consent flag:
+consent flag ([`--allow-preprocessing-exec`](../../using-raitap/configuration/flags.md#flag-allow-preprocessing-exec)):
 
 ```{install-tabs}
 :uv:
@@ -205,7 +204,7 @@ raitap --config-name assessment -yp
 ### Already preprocessed upstream
 
 Your dataloader emits normalized tensors? Leave both knobs unset and
-acknowledge at invocation:
+acknowledge at invocation ([`--acknowledge-preprocessing-off`](../../using-raitap/configuration/flags.md#flag-acknowledge-preprocessing-off)):
 
 ::::{tab-set}
 :::{tab-item} CLI

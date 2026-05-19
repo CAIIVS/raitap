@@ -46,10 +46,9 @@ myst:
   leaves the loader untouched; `"model-bundled"` pulls Resize + CenterCrop
   from the model's bundled torchvision preset (image models only); a `.py`
   path loads a factory decorated with `@raitap_preprocessing_factory`. The
-  `.py` path requires the `acknowledge_preprocessing_exec` kwarg, the
-  `--allow-preprocessing-exec` / `-yp` CLI flag, or the
-  `RAITAP_ALLOW_PREPROCESSING_EXEC=1` env var. See {doc}`preprocessing` and
-  {ref}`environment-variables`.
+  `.py` path requires consent — see
+  [`--allow-preprocessing-exec`](../../using-raitap/configuration/flags.md#flag-allow-preprocessing-exec)
+  and {doc}`preprocessing`.
 
 :option: model_input_transformation
 :allowed: null, "model-bundled", path string
@@ -64,9 +63,8 @@ myst:
   decorated with `@raitap_model_input_transformation_factory` and works
   for both Torch and ONNX backends. When both this and `preprocessing` are
   `null` and inputs are images, a loud warning fires — silence it with
-  `acknowledge_preprocessing_off` / `--acknowledge-preprocessing-off` /
-  `RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF=1`. See {doc}`preprocessing` and
-  {ref}`environment-variables`.
+  [`--acknowledge-preprocessing-off`](../../using-raitap/configuration/flags.md#flag-acknowledge-preprocessing-off).
+  See {doc}`preprocessing`.
 
 :option: labels.source
 :allowed: string, null

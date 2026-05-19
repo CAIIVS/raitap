@@ -12,7 +12,9 @@ This page explains how to manage config dependencies manually, without the autom
 
 ## Enabling manual mode
 
-Should you want to bypass the automatic deps detection and manage them yourself, you can pass the `--custom-deps` flag. RAITAP will not infer any dependencies from your config, and will not install anything. You are repsonsible for installing the necessary deps before running the config.
+To bypass automatic deps detection and manage them yourself, pass
+[`--custom-deps`](configuration/flags.md#flag-custom-deps). You are
+responsible for installing the necessary deps before running the config.
 
 ```{install-tabs}
 :uv:

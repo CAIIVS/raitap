@@ -1,0 +1,61 @@
+---
+title: "Flags"
+description: "Reference table mapping each RAITAP CLI flag to its Python-API kwarg and (where applicable) environment variable."
+myst:
+  html_meta:
+    "description": "Reference table mapping each RAITAP CLI flag to its Python-API kwarg and (where applicable) environment variable."
+---
+
+(flags)=
+
+# Flags
+
+Every RAITAP invocation knob is listed below. Each row gives the equivalent
+surface across the CLI, the Python API (`raitap.run(...)` kwargs), and the
+environment. The accepted truthy value for every env var is the literal
+string `"1"`; any other value (including unset) is no consent.
+
+Hydra's own flags (`--config-name`, `--config-dir`, `--multirun`, `--help`,
+`--hydra-help`) are documented by Hydra and are not repeated here.
+
+## Dependency-management flags
+
+| CLI | Python API | Env var | Description |
+|---|---|---|---|
+| `--dry-run`{#flag-dry-run} | — | — | Print the inferred extras for the composed config and exit without installing or running. |
+| `--sync-only`{#flag-sync-only} | — | — | Install the inferred extras and exit before the pipeline runs. |
+| `--custom-deps`{#flag-custom-deps} | `auto_install_deps=False` (default) | — | Skip dep inference entirely; caller is responsible for installing the right extras. |
+| `--allow-project-edit`{#flag-allow-project-edit} / `-y` | `auto_install_deps=True` | — | Consent to `uv add` mutating `pyproject.toml` / `uv.lock` when extras are missing. |
+| `--exec-global`{#flag-exec-global} | `exec_global=True` | — | Consent to bare-`pip install` into the active interpreter when no venv is detected. Not recommended. |
+
+## Safety-consent flags
+
+| CLI | Python API | Env var | Description |
+|---|---|---|---|
+| `--allow-preprocessing-exec`{#flag-allow-preprocessing-exec} / `-yp` | `acknowledge_preprocessing_exec=True` | `RAITAP_ALLOW_PREPROCESSING_EXEC=1` | Consent to importing a user-supplied preprocessing `.py` (runs arbitrary code at load time). |
+| `--acknowledge-preprocessing-off`{#flag-acknowledge-preprocessing-off} | `acknowledge_preprocessing_off=True` | `RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF=1` | Acknowledge running with both `data.preprocessing` and `data.model_input_transformation` set to `null`. |
+| `--allow-unsafe-pickle`{#flag-allow-unsafe-pickle} | `allow_unsafe_pickle=True` | `RAITAP_ALLOW_UNSAFE_PICKLE=1` | Consent to loading legacy checkpoints with `torch.load(..., weights_only=False)` (runs arbitrary code at load time). |
+
+## Setting env vars
+
+POSIX shell:
+
+```bash
+export RAITAP_ALLOW_PREPROCESSING_EXEC=1
+uv run raitap --config-name assessment
+```
+
+PowerShell:
+
+```powershell
+$env:RAITAP_ALLOW_PREPROCESSING_EXEC = "1"
+uv run raitap --config-name assessment
+```
+
+GitHub Actions:
+
+```yaml
+- run: uv run raitap --config-name assessment
+  env:
+    RAITAP_ALLOW_PREPROCESSING_EXEC: "1"
+```
