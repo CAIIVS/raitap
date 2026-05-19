@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.8.0](https://github.com/CAIIVS/raitap/compare/v0.7.1...v0.8.0) (2026-05-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* **data:** configurable image preprocessing and fix bootstrapping ([#172](https://github.com/CAIIVS/raitap/issues/172))
+* **metrics:** typed schemas, per-task classification adapters, nested iou config ([#179](https://github.com/CAIIVS/raitap/issues/179))
+
+### Features
+
+* **metrics:** typed schemas, per-task classification adapters, nested iou config ([#179](https://github.com/CAIIVS/raitap/issues/179)) ([0871ad3](https://github.com/CAIIVS/raitap/commit/0871ad3c048596c7412dbcf19c9f58ca8d3ca4ce))
+
+
+### Bug fixes
+
+* **data:** configurable image preprocessing and fix bootstrapping ([#172](https://github.com/CAIIVS/raitap/issues/172)) ([4cc36b8](https://github.com/CAIIVS/raitap/commit/4cc36b87348a8de9347119ca0138ee61b1a0420c))
+* validate sample_names length ([#97](https://github.com/CAIIVS/raitap/issues/97)) ([#177](https://github.com/CAIIVS/raitap/issues/177)) ([9a4afc4](https://github.com/CAIIVS/raitap/commit/9a4afc48d5d3b9dd3e726ef139d1b06b786552b3))
+
 ## [0.7.1](https://github.com/CAIIVS/raitap/compare/v0.7.0...v0.7.1) (2026-05-17)
 
 
