@@ -359,8 +359,9 @@ class TestCaptumImageVisualiser:
         fig = visualiser.visualise(attributions, inputs=inputs, max_samples=1)
 
         attr_axes = [ax for ax in fig.axes if getattr(ax, "images", None)]
-        heat_axes_image = attr_axes[-1].images[-1]
-        assert heat_axes_image.get_array().shape[:2] == (224, 224)
+        heat_array = attr_axes[-1].images[-1].get_array()
+        assert heat_array is not None
+        assert heat_array.shape[:2] == (224, 224)
 
     @pytest.mark.usefixtures("needs_captum")
     def test_save(self, sample_images: torch.Tensor, tmp_path: Path) -> None:
