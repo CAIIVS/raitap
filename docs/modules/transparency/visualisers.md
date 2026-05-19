@@ -61,6 +61,15 @@ Method families: `GRADIENT`, `PERTURBATION`, `SHAPLEY`, `CAM`,
 (`InputKind.IMAGE`) and an NCHW-compatible attribution shape; rejects tabular,
 token, and time-series layouts.
 
+Layer-based methods (`LayerGradCam`, `LayerActivation`, …) emit attribution
+maps at the chosen layer's spatial resolution (e.g. 7×7 for ResNet-18 `layer4`
+with 224×224 inputs). The visualiser bilinearly upsamples such maps to the
+original image size before rendering so the overlay aligns with the input
+extent across every `method`. The map still snaps to the layer's cell grid
+— this is intrinsic to Grad-CAM and not a visualiser artefact. For tighter
+localisation, use a shallower layer (e.g. `layer3` → 14×14) or a pixel-space
+method (`Saliency`, `IntegratedGradients`, `GuidedGradCam`).
+
 ![CaptumImageVisualiser preview](../../_static/visualisers/captum_image_visualiser.png)
 
 ### CaptumTimeSeriesVisualiser

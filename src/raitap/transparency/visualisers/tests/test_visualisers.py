@@ -350,6 +350,19 @@ class TestCaptumImageVisualiser:
         assert fig is not None
 
     @pytest.mark.usefixtures("needs_captum")
+    @pytest.mark.parametrize("method", ["blended_heat_map", "heat_map"])
+    def test_layer_methods_resize_low_res_attributions(self, method: str) -> None:
+        visualiser = CaptumImageVisualiser(method=method, sign="positive")
+        attributions = torch.randn(1, 1, 7, 7)
+        inputs = torch.rand(1, 3, 224, 224)
+
+        fig = visualiser.visualise(attributions, inputs=inputs, max_samples=1)
+
+        attr_axes = [ax for ax in fig.axes if getattr(ax, "images", None)]
+        heat_axes_image = attr_axes[-1].images[-1]
+        assert heat_axes_image.get_array().shape[:2] == (224, 224)
+
+    @pytest.mark.usefixtures("needs_captum")
     def test_save(self, sample_images: torch.Tensor, tmp_path: Path) -> None:
         visualiser = CaptumImageVisualiser(method="heat_map")
         attributions = torch.randn_like(sample_images)
