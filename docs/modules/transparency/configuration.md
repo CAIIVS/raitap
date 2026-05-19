@@ -184,7 +184,7 @@ transparency = {
 }
 ```
 
-## Detection knobs
+# Detection knobs
 
 For backends whose `task_kind == detection` (e.g. torchvision Faster R-CNN /
 RetinaNet / SSD), the pipeline switches to a per-box explanation loop that

@@ -22,6 +22,7 @@ logging
 Adding an adapter <adding-an-adapter>
 Adding an algorithm <adding-an-algorithm>
 Adding a module <adding-a-module>
+Adding a task family <adding-a-task-family>
 Data module <data>
 Metrics module <metrics>
 Tracking module <tracking>
