@@ -43,16 +43,21 @@ def test_detection_pipeline_e2e_via_fasterrcnn_mobilenet(tmp_path: Path) -> None
     if "UdacitySelfDriving" not in SAMPLE_SOURCES:
         pytest.skip("UdacitySelfDriving sample registry missing")
 
-    # Download (or hit the cache) and clip to the first two samples — keeps
-    # this end-to-end test under ~10 s on CPU.
+    # Download (or hit the cache) and clip to a single sample at reduced
+    # resolution — full-res IG on detection is RAM-heavy and OOMs the
+    # GitHub-hosted runner. The test asserts plumbing, not attribution
+    # quality.
     try:
         full_tensor, sample_ids = _load_sample("UdacitySelfDriving")
     except Exception as error:
         pytest.skip(f"udacity samples unreachable: {error}")
 
-    images_tensor = full_tensor[:2]
-    sample_ids = sample_ids[:2]
-    assert images_tensor.shape[0] == 2
+    # Downsample 1280x720 → 320x180 to slash IG memory budget.
+    images_tensor = torch.nn.functional.interpolate(
+        full_tensor[:1], size=(180, 320), mode="bilinear", align_corners=False
+    )
+    sample_ids = sample_ids[:1]
+    assert images_tensor.shape[0] == 1
 
     # --- model + backend ---------------------------------------------------
     from raitap.models.backend import TorchBackend
@@ -77,15 +82,11 @@ def test_detection_pipeline_e2e_via_fasterrcnn_mobilenet(tmp_path: Path) -> None
 
     # COCO class 3 = "car"; coordinates are plausible but don't need to match
     # real ground truth — the assertions cover pipeline plumbing, not mAP.
+    # Coords in downsampled (320x180) space; one box, one label.
     labels_payload = [
         {
             "sample_id": sample_ids[0],
-            "boxes": [[100.0, 300.0, 600.0, 600.0]],
-            "labels": [3],
-        },
-        {
-            "sample_id": sample_ids[1],
-            "boxes": [[200.0, 320.0, 720.0, 620.0]],
+            "boxes": [[25.0, 75.0, 150.0, 150.0]],
             "labels": [3],
         },
     ]
@@ -114,11 +115,14 @@ def test_detection_pipeline_e2e_via_fasterrcnn_mobilenet(tmp_path: Path) -> None
     transparency_cfg = TransparencyConfig(
         _target_="CaptumExplainer",
         algorithm="IntegratedGradients",
-        call={"target": 0},
+        # ``n_steps=4`` + ``internal_batch_size=1`` keep IG memory bounded so
+        # the test fits comfortably on the GitHub-hosted runner (~7 GB RAM).
+        # Default ``n_steps=50`` blows up CPU peak memory on a detection model.
+        call={"target": 0, "n_steps": 4, "internal_batch_size": 1},
         raitap={
             "detection": {
                 "score_threshold": 0.5,
-                "max_boxes": 2,
+                "max_boxes": 1,
                 "iou_threshold": 0.5,
             },
             "batch_size": 1,
@@ -141,7 +145,7 @@ def test_detection_pipeline_e2e_via_fasterrcnn_mobilenet(tmp_path: Path) -> None
 
     assert outputs.forward_output.task_kind is TaskKind.detection
     assert outputs.forward_output.detection_predictions is not None
-    assert len(outputs.forward_output.detection_predictions) == 2
+    assert len(outputs.forward_output.detection_predictions) == 1
 
     assert outputs.metrics is not None
     assert outputs.metrics.resolved_target == "raitap.metrics.DetectionMetrics"
