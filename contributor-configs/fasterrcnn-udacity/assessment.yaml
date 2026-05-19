@@ -57,4 +57,10 @@ transparency:
 
 reporting:
   _target_: HTMLReporter
-  filename: report
+  filename: fasterrcnn_udacity_report
+  sample_selection: null
+  include_config: true
+  include_metadata: true
+  multirun_report: false
+  show_original_per_explainer: false
+  show_redundant_robustness_panels: false
