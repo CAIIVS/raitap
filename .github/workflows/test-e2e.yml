@@ -105,8 +105,11 @@ jobs:
             --config-name assessment \
             --acknowledge-preprocessing-off 2>&1 | tee detection-run.log
 
-      - name: Assert DetectionMetrics resolved
-        run: grep -F "DetectionMetrics" detection-run.log
+      - name: Assert DetectionMetrics resolved (in metrics metadata.json)
+        # Pipeline persists ``resolved_target`` to ``metrics/metadata.json``;
+        # checking the file is more robust than scraping log output.
+        run: |
+          find outputs -path "*/metrics/metadata.json" -print | head -1 | xargs grep -F "raitap.metrics.DetectionMetrics"
 
       - name: Assert outputs directory exists
         run: test -d outputs
@@ -115,7 +118,9 @@ jobs:
         run: find outputs -type f -name "*.png" | head | grep -q .
 
       - name: Assert HTMLReporter output exists
-        run: find outputs -type f -name "report.html" | grep -q .
+        # ``reporting.filename`` in the contributor config is
+        # ``fasterrcnn_udacity_report``; HTMLReporter appends ``.html``.
+        run: find outputs -type f -name "fasterrcnn_udacity_report.html" | grep -q .
 
       - name: Upload outputs on failure
         if: failure()
