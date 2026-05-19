@@ -45,32 +45,6 @@ jobs:
           python-version: "3.13"
           sync-command: uv sync --group dev --extra torch-cpu --extra transparency --extra mlflow --extra metrics --extra onnx-cpu
 
-      - name: Cache torch hub weights + raitap sample data
-        # ``test_e2e_detection`` loads ``fasterrcnn_mobilenet_v3_large_fpn``
-        # (~80MB) + ``UdacitySelfDriving`` samples. Caching keeps re-runs fast
-        # and avoids mid-test downloads that trip hosted-runner preemption.
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/torch
-            ~/.cache/raitap
-          key: transparency-e2e-assets-v1-${{ hashFiles('pyproject.toml', 'src/raitap/tests/test_e2e_detection.py') }}
-          restore-keys: |
-            transparency-e2e-assets-v1-
-
-      - name: Pre-fetch detection model weights (defensive)
-        # Pull the mobilenet weights up-front in a dedicated step. If the
-        # download is what trips runner preemption, surface it here on a
-        # retry-friendly boundary instead of mid-pytest.
-        run: |
-          uv run python -c "
-          from torchvision.models.detection import (
-              FasterRCNN_MobileNet_V3_Large_FPN_Weights,
-              fasterrcnn_mobilenet_v3_large_fpn,
-          )
-          fasterrcnn_mobilenet_v3_large_fpn(weights=FasterRCNN_MobileNet_V3_Large_FPN_Weights.DEFAULT)
-          "
-
       - name: Run transparency E2E tests
         run: uv run pytest -m e2e -v --tb=long --mpl
 
@@ -81,8 +55,13 @@ jobs:
     # visualiser, HTMLReporter output. Catches regressions in the detection
     # task family (TorchBackend autodetect, per-box explain phase, detection
     # visualiser, DetectionMetrics) at the integrated pipeline level.
+    #
+    # CPU runs of fasterrcnn + IG OOM the GitHub-hosted ubuntu-latest runner
+    # (~7 GB RAM). Gated behind ``ENABLE_HOSTED_GPU_CI`` so the job lights up
+    # only when an org-level GPU lane exists. Until then, contributors run
+    # the config locally (``contributor-configs/fasterrcnn-udacity/run.sh``).
     name: "Detection E2E (Linux)"
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    if: ${{ vars.ENABLE_HOSTED_GPU_CI == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

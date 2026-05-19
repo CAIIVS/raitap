@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
 
 
-@pytest.mark.e2e
+@pytest.mark.cuda
 def test_detection_pipeline_e2e_via_fasterrcnn_mobilenet(tmp_path: Path) -> None:
     # Heavy optional deps — skip if not installed in this environment.
     try:
