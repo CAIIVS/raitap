@@ -13,8 +13,9 @@ This page explains how to manage config dependencies manually, without the autom
 ## Enabling manual mode
 
 To bypass automatic deps detection and manage them yourself, pass
-[`--custom-deps`](configuration/flags.md#flag-custom-deps). You are
-responsible for installing the necessary deps before running the config.
+<a href="configuration/flags.html#flag-custom-deps"><code>--custom-deps</code></a>.
+You are responsible for installing the necessary deps before running the
+config.
 
 ```{install-tabs}
 :uv:

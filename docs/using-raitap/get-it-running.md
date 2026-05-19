@@ -47,11 +47,11 @@ RAITAP does not ship with all the underlying dependencies by default, to avoid m
 
 In some specific setups, you might need to take action:
 
-- On `uv`, RAITAP may ask for [`--allow-project-edit`](configuration/flags.md#flag-allow-project-edit) (or `-y`).
-- On `pip` without a venv, RAITAP may ask for [`--exec-global`](configuration/flags.md#flag-exec-global).
+- On `uv`, RAITAP may ask for <a href="configuration/flags.html#flag-allow-project-edit"><code>--allow-project-edit</code></a> (or `-y`).
+- On `pip` without a venv, RAITAP may ask for <a href="configuration/flags.html#flag-exec-global"><code>--exec-global</code></a>.
 
 To manage dependencies manually, see {doc}`installation`. To preview the
-inferred deps without installing, use [`--dry-run`](configuration/flags.md#flag-dry-run).
+inferred deps without installing, use <a href="configuration/flags.html#flag-dry-run"><code>--dry-run</code></a>.
 
 ## 3. Inspect the output
 

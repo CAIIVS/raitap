@@ -47,7 +47,7 @@ myst:
   from the model's bundled torchvision preset (image models only); a `.py`
   path loads a factory decorated with `@raitap_preprocessing_factory`. The
   `.py` path requires consent — see
-  [`--allow-preprocessing-exec`](../../using-raitap/configuration/flags.md#flag-allow-preprocessing-exec)
+  <a href="../../using-raitap/configuration/flags.html#flag-allow-preprocessing-exec"><code>--allow-preprocessing-exec</code></a>
   and {doc}`preprocessing`.
 
 :option: model_input_transformation
@@ -63,7 +63,7 @@ myst:
   decorated with `@raitap_model_input_transformation_factory` and works
   for both Torch and ONNX backends. When both this and `preprocessing` are
   `null` and inputs are images, a loud warning fires — silence it with
-  [`--acknowledge-preprocessing-off`](../../using-raitap/configuration/flags.md#flag-acknowledge-preprocessing-off).
+  <a href="../../using-raitap/configuration/flags.html#flag-acknowledge-preprocessing-off"><code>--acknowledge-preprocessing-off</code></a>.
   See {doc}`preprocessing`.
 
 :option: labels.source

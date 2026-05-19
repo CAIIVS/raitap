@@ -109,7 +109,7 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 ### Auto-installing extras from Python
 
-The `raitap` CLI walks the composed Hydra config before any heavy import, then installs the matching extras via `uv add` / `uv sync` (see [`--allow-project-edit`](flags.md#flag-allow-project-edit)). The Python entry point gets the same flow with [`auto_install_deps=True`](flags.md#flag-allow-project-edit):
+The `raitap` CLI walks the composed Hydra config before any heavy import, then installs the matching extras via `uv add` / `uv sync` (see <a href="flags.html#flag-allow-project-edit"><code>--allow-project-edit</code></a>). The Python entry point gets the same flow with <a href="flags.html#flag-allow-project-edit"><code>auto_install_deps=True</code></a>:
 
 ```python
 from raitap import AppConfig, Hardware, run
@@ -135,7 +135,7 @@ Why this works in a venv with **no extras installed yet**: every adapter module 
 
 `auto_install_deps` is opt-in. Without it `run(cfg)` assumes the extras the config references are already installed — the typical case after a CLI bootstrap or a manual `uv sync`. A missing adapter library surfaces as the usual `ModuleNotFoundError` from the adapter import chain.
 
-Pass [`exec_global=True`](flags.md#flag-exec-global) together with `auto_install_deps=True` to consent to the bare-`pip install` fallback when no venv is active.
+Pass <a href="flags.html#flag-exec-global"><code>exec_global=True</code></a> together with `auto_install_deps=True` to consent to the bare-`pip install` fallback when no venv is active.
 
 Each module exposes [hydra-zen `builds`](https://mit-ll-responsible-ai.github.io/hydra-zen/) factories — one per adapter — derived automatically from the class declaration. Import them from the relevant module:
 
