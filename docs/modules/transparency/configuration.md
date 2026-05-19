@@ -216,5 +216,5 @@ transparency:
         max_boxes: 5
         iou_threshold: 0.5
     visualisers:
-      - _target_: detection_image
+      - _target_: DetectionImageVisualiser
 ```

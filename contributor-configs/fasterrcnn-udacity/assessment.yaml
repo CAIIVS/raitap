@@ -53,7 +53,7 @@ transparency:
         layout: NCHW
       show_sample_names: true
     visualisers:
-      - _target_: detection_image
+      - _target_: DetectionImageVisualiser
 
 reporting:
   _target_: HTMLReporter
