@@ -4,6 +4,10 @@ description: "Inside the transparency key, you can configure one or more explain
 myst:
   html_meta:
     "description": "Inside the transparency key, you can configure one or more explainers. See {ref}modules-transparency-configuration-examples for the config shape."
+  # ``config-page`` directive renders its own H1 from frontmatter title;
+  # the ``## Detection knobs`` follow-on section is a sibling-of-directive
+  # H2 in source. Suppress myst.header's "first heading must be H1" check.
+  suppress_warnings: ["myst.header"]
 ---
 
 ```{config-page}
@@ -184,7 +188,7 @@ transparency = {
 }
 ```
 
-# Detection knobs
+## Detection knobs
 
 For backends whose `task_kind == detection` (e.g. torchvision Faster R-CNN /
 RetinaNet / SSD), the pipeline switches to a per-box explanation loop that
