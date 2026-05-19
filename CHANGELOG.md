@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.9.0](https://github.com/CAIIVS/raitap/compare/v0.8.0...v0.9.0) (2026-05-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* **transparency:** detection task-family + Phase 5 contributor config + E2E ([#176](https://github.com/CAIIVS/raitap/issues/176))
+
+### Features
+
+* **transparency:** detection task-family + Phase 5 contributor config + E2E ([#176](https://github.com/CAIIVS/raitap/issues/176)) ([55d6fdb](https://github.com/CAIIVS/raitap/commit/55d6fdbf8771e97fffd7628b588e4ca1659e6a59))
+
 ## [0.8.0](https://github.com/CAIIVS/raitap/compare/v0.7.1...v0.8.0) (2026-05-18)
 
 
