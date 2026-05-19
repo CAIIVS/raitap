@@ -151,6 +151,15 @@ def explain_detection(
             per_box_run_dir = base_run_dir / f"sample_{sample_index}" / f"box_{raw_index}"
             per_box_run_dir.mkdir(parents=True, exist_ok=True)
 
+            # Narrow raitap_kwargs to this single sample — the explainer sees
+            # attributions of shape ``(1, ...)``, so ``sample_names`` /
+            # ``sample_ids`` must also be length 1 (else SampleNamesLengthError).
+            per_box_raitap = dict(raitap_kwargs)
+            if "sample_names" in per_box_raitap and per_box_raitap["sample_names"] is not None:
+                per_box_raitap["sample_names"] = [per_box_raitap["sample_names"][sample_index]]
+            if "sample_ids" in per_box_raitap and per_box_raitap["sample_ids"] is not None:
+                per_box_raitap["sample_ids"] = [per_box_raitap["sample_ids"][sample_index]]
+
             result = explainer.explain(
                 wrapped,
                 sample_inputs,
@@ -159,7 +168,7 @@ def explain_detection(
                 explainer_target=explainer_target,
                 explainer_name=explainer_name,
                 visualisers=list(visualisers),
-                raitap_kwargs=raitap_kwargs,
+                raitap_kwargs=per_box_raitap,
                 **normalised_call_kwargs,
             )
             result.detection_box = DetectionBox(
