@@ -154,11 +154,13 @@ def explain_detection(
             # Narrow raitap_kwargs to this single sample — the explainer sees
             # attributions of shape ``(1, ...)``, so ``sample_names`` /
             # ``sample_ids`` must also be length 1 (else SampleNamesLengthError).
-            per_box_raitap = dict(raitap_kwargs)
-            if "sample_names" in per_box_raitap and per_box_raitap["sample_names"] is not None:
-                per_box_raitap["sample_names"] = [per_box_raitap["sample_names"][sample_index]]
-            if "sample_ids" in per_box_raitap and per_box_raitap["sample_ids"] is not None:
-                per_box_raitap["sample_ids"] = [per_box_raitap["sample_ids"][sample_index]]
+            per_box_raitap: dict[str, Any] = dict(raitap_kwargs or {})
+            sample_names = per_box_raitap.get("sample_names")
+            if sample_names is not None:
+                per_box_raitap["sample_names"] = [sample_names[sample_index]]
+            sample_ids = per_box_raitap.get("sample_ids")
+            if sample_ids is not None:
+                per_box_raitap["sample_ids"] = [sample_ids[sample_index]]
 
             result = explainer.explain(
                 wrapped,
