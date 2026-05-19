@@ -98,7 +98,7 @@ jobs:
         uses: ./.github/actions/setup-raitap-env
         with:
           python-version: "3.13"
-          sync-command: uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cpu --extra reporting
+          sync-command: uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cpu --extra reporting --extra torchattacks --extra foolbox
 
       - name: Ruff
         run: uv run ruff check .
@@ -123,7 +123,7 @@ jobs:
         uses: ./.github/actions/setup-raitap-env
         with:
           python-version: "3.11"
-          sync-command: uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cpu --extra reporting
+          sync-command: uv sync --group dev --extra torch-cpu --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cpu --extra reporting --extra torchattacks --extra foolbox
 
       - name: Pytest on 3.11 (floor compatibility, no coverage)
         run: uv run pytest -m "not e2e and not cuda" -v
@@ -144,7 +144,7 @@ jobs:
         uses: ./.github/actions/setup-raitap-env
         with:
           python-version: "3.13"
-          sync-command: uv sync --group dev --extra torch-cuda --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cuda --extra reporting
+          sync-command: uv sync --group dev --extra torch-cuda --extra mlflow --extra shap --extra captum --extra metrics --extra onnx-cuda --extra reporting --extra torchattacks --extra foolbox
 
       - name: CUDA smoke check
         run: |
