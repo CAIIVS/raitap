@@ -10,13 +10,21 @@ myst:
 
 # Flags
 
-Every RAITAP invocation knob is listed below. Each row gives the equivalent
-surface across the CLI, the Python API (`raitap.run(...)` kwargs), and the
-environment. The accepted truthy value for every env var is the literal
-string `"1"`; any other value (including unset) is no consent.
+Every RAITAP-specific invocation knob is listed below. Each row gives the
+equivalent surface across the CLI, the Python API (`raitap.run(...)`
+kwargs), and the environment. The accepted truthy value for every env var
+is the literal string `"1"`; any other value (including unset) is no
+consent.
 
 Hydra's own flags (`--config-name`, `--config-dir`, `--multirun`, `--help`,
 `--hydra-help`) are documented by Hydra and are not repeated here.
+
+## General CLI flags
+
+| CLI | Python API | Env var | Description |
+|---|---|---|---|
+| `--demo`{#flag-demo} | — (pass `AppConfig` directly) | — | Run the bundled `demo` config. Equivalent to `--config-name demo` against the packaged `raitap.configs` directory. |
+| `--version` / `-V`{#flag-version} | `raitap.__version__` | — | Print the installed RAITAP version and exit. Short-circuits before deps inference. |
 
 ## Dependency-management flags
 
