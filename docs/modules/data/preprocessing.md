@@ -26,8 +26,9 @@ The following values are allowed for both keys:
 - **`null`** (default): no preprocessing
 - **`"model-bundled"`**: use the preprocessing bundled inside the model file (e.g. `torchvision` models)
 - **path to a `.py` file**: load a user factory decorated with the matching
-  RAITAP decorator (see custom examples below). Gated by `--allow-preprocessing-exec` / `-yp` (CLI) or
-  `acknowledge_preprocessing_exec=True` (Python API).
+  RAITAP decorator (see custom examples below). Gated by `--allow-preprocessing-exec` / `-yp` (CLI),
+  `acknowledge_preprocessing_exec=True` (Python API), or `RAITAP_ALLOW_PREPROCESSING_EXEC=1`
+  ({ref}`env var <environment-variables>`).
 
 ## Examples
 
