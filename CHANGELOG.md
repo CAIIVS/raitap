@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/CAIIVS/raitap/compare/v0.9.0...v0.9.1) (2026-05-19)
+
+
+### Bug fixes
+
+* **transparency:** auto-upsample low-res attributions for blended_heat_map/heat_map ([#184](https://github.com/CAIIVS/raitap/issues/184)) ([a6d876e](https://github.com/CAIIVS/raitap/commit/a6d876e94fe8ee22e9d8d7be8295d4673c5379b0))
+
 ## [0.9.0](https://github.com/CAIIVS/raitap/compare/v0.8.0...v0.9.0) (2026-05-19)
 
 
