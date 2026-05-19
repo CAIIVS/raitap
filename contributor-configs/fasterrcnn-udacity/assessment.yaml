@@ -63,7 +63,8 @@ transparency:
 reporting:
   _target_: HTMLReporter
   filename: fasterrcnn_udacity_report
-  sample_selection: null
+  # Force all 4 samples into the local-detail section (default cap is 3).
+  sample_selection: [0, 1, 2, 3]
   include_config: true
   include_metadata: true
   multirun_report: false
