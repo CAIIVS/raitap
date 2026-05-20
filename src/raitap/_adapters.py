@@ -23,9 +23,11 @@ from __future__ import annotations
 import dataclasses
 import importlib
 import inspect
+import os
 import pkgutil
 from contextlib import contextmanager
 from dataclasses import dataclass
+from importlib import metadata as importlib_metadata
 from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, Required, TypedDict, Unpack
 
 from hydra_zen import ZenStore, builds
@@ -286,6 +288,63 @@ def discover(package_path: list[str], package_name: str) -> None:
         if "tests" in name.split("."):
             continue
         importlib.import_module(name)
+
+
+def _plugin_raitap_specifier(distribution_name: str) -> str | None:
+    """Return the plugin distribution's declared ``raitap`` version specifier
+    (from its pip ``Requires-Dist``), or ``None`` if it declares no raitap pin."""
+    from packaging.requirements import Requirement
+
+    reqs = importlib_metadata.requires(distribution_name) or []
+    for raw in reqs:
+        req = Requirement(raw)
+        if req.name == "raitap":
+            return str(req.specifier)
+    return None
+
+
+def _plugin_version_ok(distribution_name: str) -> tuple[bool, str]:
+    """``(ok, message)``. Verify the running raitap version satisfies the
+    plugin's declared raitap specifier. A plugin with no raitap pin is treated
+    as malformed (not ok)."""
+    from packaging.specifiers import SpecifierSet
+
+    from raitap.__about__ import __version__
+
+    spec = _plugin_raitap_specifier(distribution_name)
+    if spec is None:
+        return False, f"{distribution_name!r} declares no 'raitap' dependency pin"
+    if __version__ not in SpecifierSet(spec, prereleases=True):
+        return False, f"{distribution_name!r} requires raitap{spec}; running {__version__}"
+    return True, ""
+
+
+def discover_third_party_adapters() -> None:
+    """Import every module under the ``raitap.adapters`` entry-point group so its
+    decorators fire, populating :data:`_BUILDERS` like in-tree adapters.
+
+    Default-allow; set ``RAITAP_DISABLE_PLUGINS=1`` to skip entirely. Each plugin
+    is version-checked against its pip ``raitap`` pin and isolated: one failure
+    is logged and skipped, never fatal.
+    """
+    if os.environ.get("RAITAP_DISABLE_PLUGINS"):
+        return
+    from raitap.utils.diagnostics import Module
+    from raitap.utils.log import raitap_log
+
+    for ep in importlib_metadata.entry_points(group="raitap.adapters"):
+        dist_name = ep.dist.name if ep.dist is not None else ep.name
+        try:
+            ok, why = _plugin_version_ok(dist_name)
+            if not ok:
+                raitap_log.warn(f"Skipping plugin {ep.name!r}: {why}", module=Module.deps)
+                continue
+            ep.load()  # decorators fire as import side-effect
+        except Exception as exc:
+            raitap_log.warn(
+                f"Plugin {ep.name!r} ({ep.value}) failed to load: {exc}",
+                module=Module.deps,
+            )
 
 
 def lookup(group: str, name: str) -> Any:
