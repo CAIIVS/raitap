@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -62,12 +62,13 @@ def _display_image(ax: Any, image: np.ndarray) -> None:
     ax.imshow(image, cmap="gray" if image.ndim == 2 else None)
 
 
-@transparency_visualiser(registry_name="input_thumbnail")
+@transparency_visualiser(
+    registry_name="input_thumbnail",
+    supported_scopes=frozenset({ExplanationScope.LOCAL}),
+    embeds_original_input=False,
+)
 class InputThumbnailVisualiser(BaseVisualiser):
     """Render a compact preview of the original input for report sample headers."""
-
-    supported_scopes: ClassVar[frozenset[ExplanationScope]] = frozenset({ExplanationScope.LOCAL})
-    embeds_original_input: ClassVar[bool] = False
 
     def __init__(self, title: str = "Input"):
         self.title = title

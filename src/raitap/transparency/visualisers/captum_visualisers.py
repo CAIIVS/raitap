@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -179,7 +179,27 @@ def _has_token_layout(explanation: object, attributions: object) -> bool:
     return shape is not None and len(shape) == 1
 
 
-@transparency_visualiser(registry_name="captum_image")
+@transparency_visualiser(
+    registry_name="captum_image",
+    supported_scopes=frozenset({ExplanationScope.LOCAL}),
+    supported_output_spaces=frozenset(
+        {
+            ExplanationOutputSpace.INPUT_FEATURES,
+            ExplanationOutputSpace.IMAGE_SPATIAL_MAP,
+        }
+    ),
+    supported_method_families=frozenset(
+        {
+            MethodFamily.GRADIENT,
+            MethodFamily.PERTURBATION,
+            MethodFamily.SHAPLEY,
+            MethodFamily.CAM,
+            MethodFamily.MODEL_AGNOSTIC,
+            MethodFamily.SURROGATE,
+        }
+    ),
+    embeds_original_input=True,
+)
 class CaptumImageVisualiser(BaseVisualiser):
     """
     Visualise image attributions using ``captum.attr.visualization.visualize_image_attr``.
@@ -189,25 +209,6 @@ class CaptumImageVisualiser(BaseVisualiser):
 
     Compatible with ALL Captum attribution algorithms.
     """
-
-    supported_scopes: ClassVar[frozenset[ExplanationScope]] = frozenset({ExplanationScope.LOCAL})
-    supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset(
-        {
-            ExplanationOutputSpace.INPUT_FEATURES,
-            ExplanationOutputSpace.IMAGE_SPATIAL_MAP,
-        }
-    )
-    supported_method_families: ClassVar[frozenset[MethodFamily]] = frozenset(
-        {
-            MethodFamily.GRADIENT,
-            MethodFamily.PERTURBATION,
-            MethodFamily.SHAPLEY,
-            MethodFamily.CAM,
-            MethodFamily.MODEL_AGNOSTIC,
-            MethodFamily.SURROGATE,
-        }
-    )
-    embeds_original_input: ClassVar[bool] = True
 
     def renders_attribution_only_when_original_hidden(self) -> bool:
         return self.method != "masked_image"
@@ -421,7 +422,12 @@ class CaptumImageVisualiser(BaseVisualiser):
         return fig
 
 
-@transparency_visualiser(registry_name="captum_time_series")
+@transparency_visualiser(
+    registry_name="captum_time_series",
+    supported_scopes=frozenset({ExplanationScope.LOCAL}),
+    supported_output_spaces=frozenset({ExplanationOutputSpace.INPUT_FEATURES}),
+    supported_method_families=_CAPTUM_SEQUENCE_METHOD_FAMILIES,
+)
 class CaptumTimeSeriesVisualiser(BaseVisualiser):
     """
     Visualise time-series attributions via
@@ -429,12 +435,6 @@ class CaptumTimeSeriesVisualiser(BaseVisualiser):
 
     Compatible with ALL Captum attribution algorithms.
     """
-
-    supported_scopes: ClassVar[frozenset[ExplanationScope]] = frozenset({ExplanationScope.LOCAL})
-    supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset(
-        {ExplanationOutputSpace.INPUT_FEATURES}
-    )
-    supported_method_families: ClassVar[frozenset[MethodFamily]] = _CAPTUM_SEQUENCE_METHOD_FAMILIES
 
     def validate_explanation(
         self,
@@ -529,7 +529,12 @@ class CaptumTimeSeriesVisualiser(BaseVisualiser):
         return fig
 
 
-@transparency_visualiser(registry_name="captum_text")
+@transparency_visualiser(
+    registry_name="captum_text",
+    supported_scopes=frozenset({ExplanationScope.LOCAL}),
+    supported_output_spaces=frozenset({ExplanationOutputSpace.TOKEN_SEQUENCE}),
+    supported_method_families=_CAPTUM_SEQUENCE_METHOD_FAMILIES,
+)
 class CaptumTextVisualiser(BaseVisualiser):
     """
     Visualise per-token text attributions as a horizontal bar chart.
@@ -542,12 +547,6 @@ class CaptumTextVisualiser(BaseVisualiser):
     Note: ``attributions`` should be a 1-D array of per-token scores for a
     single input. Pass ``token_labels`` via kwargs for readable output.
     """
-
-    supported_scopes: ClassVar[frozenset[ExplanationScope]] = frozenset({ExplanationScope.LOCAL})
-    supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset(
-        {ExplanationOutputSpace.TOKEN_SEQUENCE}
-    )
-    supported_method_families: ClassVar[frozenset[MethodFamily]] = _CAPTUM_SEQUENCE_METHOD_FAMILIES
 
     def validate_explanation(
         self,
