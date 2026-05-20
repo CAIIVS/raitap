@@ -181,7 +181,7 @@ If the new family needs more than one explanation per sample (detection: one per
 ### 10. Write a visualiser
 
 ```python
-@register_transparency_visualiser(registry_name="detection_image")
+@visualisers.transparency(registry_name="detection_image")
 class DetectionImageVisualiser(BaseVisualiser):
     supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset(
         {ExplanationOutputSpace.DETECTION_BOXES}

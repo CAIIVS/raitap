@@ -45,36 +45,17 @@ def _pyright_errors(source: str, tmp_path: Path) -> list[str]:
 def test_missing_registry_name_is_pyright_error_for_every_family_decorator(
     tmp_path: Path,
 ) -> None:
-    for decorator_import, decorator_call in [
-        (
-            "from raitap.transparency.explainers.registration import register_transparency_adapter",
-            "register_transparency_adapter(extra='x', library='x')",
-        ),
-        (
-            "from raitap.robustness.assessors.registration import register_robustness_adapter",
-            "register_robustness_adapter(extra='x', library='x')",
-        ),
-        (
-            "from raitap.metrics.registration import register_metrics_adapter",
-            "register_metrics_adapter(extra='x')",
-        ),
-        (
-            "from raitap.reporting.registration import register_reporter",
-            "register_reporter(extra='x')",
-        ),
-        (
-            "from raitap.tracking.registration import register_tracker",
-            "register_tracker(extra='x')",
-        ),
-        (
-            "from raitap.transparency.visualisers.registration import "
-            "register_transparency_visualiser",
-            "register_transparency_visualiser()",
-        ),
-        (
-            "from raitap.robustness.visualisers.registration import register_robustness_visualiser",
-            "register_robustness_visualiser()",
-        ),
+    _tr_call = "adapters.transparency(algorithm_registry={}, extra='x', library='x')"
+    _ro_call = "adapters.robustness(algorithm_registry={}, extra='x', library='x')"
+    for decorator_import, decorator_call, expected in [
+        ("from raitap import adapters", _tr_call, "registry_name"),
+        ("from raitap import adapters", _ro_call, "registry_name"),
+        ("from raitap import adapters", "adapters.metrics(extra='x')", "registry_name"),
+        ("from raitap import adapters", "adapters.reporter(extra='x')", "registry_name"),
+        ("from raitap import adapters", "adapters.tracker(extra='x')", "registry_name"),
+        ("from raitap import visualisers", "visualisers.transparency()", "registry_name"),
+        ("from raitap import visualisers", "visualisers.robustness()", "registry_name"),
+        ("from raitap import backends", "backends.register()", "supports_torch_autograd"),
     ]:
         errors = _pyright_errors(
             f"""
@@ -85,6 +66,6 @@ def test_missing_registry_name_is_pyright_error_for_every_family_decorator(
             """,
             tmp_path,
         )
-        assert any("registry_name" in e for e in errors), (
-            f"{decorator_call} did not produce a registry_name pyright error. Got: {errors}"
+        assert any(expected in e for e in errors), (
+            f"{decorator_call} did not produce a {expected!r} pyright error. Got: {errors}"
         )

@@ -14,7 +14,7 @@ The walkthrough below uses Captum and a hypothetical new method `NewMethod`.
 
 ## 1. Find the adapter
 
-Adapter classes live under `src/raitap/<module>/<subdir>/`. Look for the file matching the wrapped library (e.g. `captum_explainer.py`, `torchattacks_assessor.py`). The class is decorated with `@register_<family>_adapter(...)`.
+Adapter classes live under `src/raitap/<module>/<subdir>/`. Look for the file matching the wrapped library (e.g. `captum_explainer.py`, `torchattacks_assessor.py`). The class is decorated with `@adapters.<family>(...)`.
 
 ## 2. Add the algorithm to `algorithm_registry`
 
@@ -23,7 +23,9 @@ Adapter classes live under `src/raitap/<module>/<subdir>/`. Look for the file ma
 **Transparency explainer** (`captum_explainer.py`):
 
 ```python
-@register_transparency_adapter(
+from raitap import adapters
+
+@adapters.transparency(
     registry_name="captum",
     library="captum",
     algorithm_registry={
@@ -39,7 +41,9 @@ class CaptumExplainer(AttributionOnlyExplainer): ...
 **Robustness assessor** (`torchattacks_assessor.py`):
 
 ```python
-@register_robustness_adapter(
+from raitap import adapters
+
+@adapters.robustness(
     registry_name="torchattacks",
     library="torchattacks",
     algorithm_registry={
@@ -67,7 +71,7 @@ A missing entry means the algorithm cannot be selected via config — the family
 If the new algorithm runs on ONNX-exported models (not just torch), add it to `onnx_compatible_algorithms`:
 
 ```python
-@register_transparency_adapter(
+@adapters.transparency(
     ...,
     onnx_compatible_algorithms=frozenset({"Occlusion", "FeatureAblation", "NewMethod"}),
 )

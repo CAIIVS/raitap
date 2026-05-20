@@ -32,7 +32,7 @@ BaseExplainer                       # root — owns output_payload_kind + check_
 - **`AttributionOnlyExplainer`** — extend this when the framework maps cleanly to a single `compute_attributions(model, inputs, **kwargs) -> torch.Tensor` call. Batching, normalisation, result wrapping, and `write_artifacts` are handled for you. Captum and SHAP both subclass this.
 - **`FullExplainer`** — extend this when you own the entire `explain` pipeline yourself (data conversion, model invocation, result construction, persistence).
 
-`output_payload_kind: ClassVar[ExplanationPayloadKind]` (default `ATTRIBUTIONS`) records what artefact shape the explainer emits. It's set via the `@register_transparency_adapter` decorator kwarg.
+`output_payload_kind: ClassVar[ExplanationPayloadKind]` (default `ATTRIBUTIONS`) records what artefact shape the explainer emits. It's set via the `@adapters.transparency` decorator kwarg.
 
 ## Visualiser semantic contract
 
@@ -62,7 +62,7 @@ Plus two instance-level hooks:
 - Don't promote arbitrary debug batches or representative montages to `GLOBAL`.
 - Image visualisers with `embeds_original_input = True` **must** accept the runtime kwarg `include_original_input`. Reporting uses this to render one shared sample thumbnail and suppress repeated originals in sample-major compact local report sections. Keep YAML constructor names backward-compatible (the built-in image visualisers still accept `include_original_image`).
 
-For the decorator/registration scaffolding (`@register_transparency_visualiser`, `registry_name`, exports), see {doc}`adding-an-adapter`. The bullets above are the transparency-specific additions on top of that scaffolding.
+For the decorator/registration scaffolding (`@visualisers.transparency`, `registry_name`, exports), see {doc}`adding-an-adapter`. The bullets above are the transparency-specific additions on top of that scaffolding.
 
 ## Typed semantics contract
 
@@ -138,4 +138,4 @@ Each explainer writes to its own subdirectory under the Hydra run folder. See {d
 - `src/raitap/transparency/explainers/full_explainer.py` — `FullExplainer`.
 - `src/raitap/transparency/visualisers/base_visualiser.py` — `BaseVisualiser` and the semantic-contract ClassVars.
 
-**Name resolution.** Bare class names in YAML `_target_` keys (e.g. `_target_: CaptumExplainer`) are resolved through the `@register_transparency_adapter` / `@register_transparency_visualiser` decorators and `raitap._adapters.lookup("transparency", name)` — *not* via the legacy class-kwarg path. To make a new class addressable by bare name, decorate it; that's the only requirement.
+**Name resolution.** Bare class names in YAML `_target_` keys (e.g. `_target_: CaptumExplainer`) are resolved through the `@adapters.transparency` / `@visualisers.transparency` decorators and `raitap._adapters.lookup("transparency", name)` — *not* via the legacy class-kwarg path. To make a new class addressable by bare name, decorate it; that's the only requirement.

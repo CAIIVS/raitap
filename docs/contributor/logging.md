@@ -56,11 +56,13 @@ raise ValueError(
 )
 ```
 
-For wrapped third-party calls (captum / shap / foolbox / torchattacks), use the adapter's `self._rethrow()` helper. It pulls `library`, the family group, and the `error_patterns` map straight from the adapter's `@register_*_adapter(...)` decoration — no kwargs needed at the call site:
+For wrapped third-party calls (captum / shap / foolbox / torchattacks), use the adapter's `self._rethrow()` helper. It pulls `library`, the family group, and the `error_patterns` map straight from the adapter's `@adapters.<family>(...)` decoration — no kwargs needed at the call site:
 
 ```python
 # src/raitap/transparency/explainers/shap_explainer.py
-@register_transparency_adapter(
+from raitap import adapters
+
+@adapters.transparency(
     registry_name="shap",
     library="shap",
     error_patterns={
@@ -104,7 +106,9 @@ raitap_log.warn(
 Use the `suppress_warnings=` decorator kwarg on the adapter, not a module-level `raitap_log.suppress` call. The decorator installs the filter at registration time (same as a module-level call would), but the noise spec stays colocated with the adapter that owns it:
 
 ```python
-@register_transparency_adapter(
+from raitap import adapters
+
+@adapters.transparency(
     registry_name="captum",
     library="captum",
     suppress_warnings=[

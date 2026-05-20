@@ -38,7 +38,7 @@ In prose: the CLI entry (`raitap.cli.main`) routes to either the tracking-stop s
 
 ## Adapter registration
 
-Every concrete adapter (explainer, assessor, metric, reporter, tracker, visualiser) self-registers via a family decorator (`@register_transparency_adapter`, `@register_robustness_adapter`, `@register_metrics_adapter`, `@register_reporter`, `@register_tracker`, `@register_transparency_visualiser`, `@register_robustness_visualiser`). The decorator lives in `<module>/registration.py`; it delegates to `raitap._adapters._register_core`, which builds the hydra-zen builder, registers it with the `ConfigStore`, and populates `_BUILDERS` / `ADAPTER_EXTRAS` / `THIRD_PARTY_LIBS`. Lazy `__getattr__` on each family package resolves `raitap.<family>.<name>` via `raitap._adapters.lookup`.
+Every concrete adapter (explainer, assessor, metric, reporter, tracker, visualiser) self-registers via a namespaced facade decorator (`@adapters.transparency`, `@adapters.robustness`, `@adapters.metrics`, `@adapters.reporter`, `@adapters.tracker`, `@visualisers.transparency`, `@visualisers.robustness`). The decorator lives in `<module>/registration.py`; it delegates to `raitap._adapters._register_core`, which builds the hydra-zen builder, registers it with the `ConfigStore`, and populates `_BUILDERS` / `ADAPTER_EXTRAS` / `THIRD_PARTY_LIBS`. Lazy `__getattr__` on each family package resolves `raitap.<family>.<name>` via `raitap._adapters.lookup`.
 
 See {doc}`adding-an-adapter` / {doc}`adding-an-algorithm` / {doc}`adding-a-module` for the contributor workflow.
 
@@ -112,7 +112,7 @@ src/
     │
     ├── metrics/                    # metrics adapters (currently torchmetrics-backed)
     │   ├── factory.py              # metrics_run_enabled, evaluate(), instantiation via adapter_factory
-    │   ├── registration.py         # `register_metrics_adapter` family decorator
+    │   ├── registration.py         # `@adapters.metrics` family decorator
     │   ├── base_metric_computer.py # `BaseMetricComputer` ABC + `MetricResult` dataclass
     │   ├── classification_metrics.py
     │   └── inputs.py               # target/prediction alignment, fallbacks when labels missing
@@ -122,20 +122,20 @@ src/
     │   ├── contracts.py            # ExplanationPayloadKind, InputSpec, MethodFamily, …
     │   ├── results.py              # ExplanationResult + Explanation orchestration object
     │   ├── explainers/             # CaptumExplainer, ShapExplainer + `registration.py`
-    │   │                           # (`register_transparency_adapter`) + `base_explainer.py`
+    │   │                           # (`@adapters.transparency`) + `base_explainer.py`
     │   └── visualisers/            # CaptumImageVisualiser, ShapImageVisualiser, … + `registration.py`
-    │                               # (`register_transparency_visualiser`) + `base_visualiser.py`
+    │                               # (`@visualisers.transparency`) + `base_visualiser.py`
     │
     ├── robustness/                 # adversarial-attack + formal-verification adapters
     │   ├── factory.py              # create_assessor; raitap-key migration warnings
     │   ├── assessors/              # TorchattacksAssessor, FoolboxAssessor, MarabouAssessor +
-    │   │                           # `registration.py` (`register_robustness_adapter`) +
+    │   │                           # `registration.py` (`@adapters.robustness`) +
     │   │                           # `base_assessor.py`
     │   └── visualisers/            # ImagePairVisualiser, PerturbationHeatmapVisualiser, formal/* +
-    │                               # `registration.py` (`register_robustness_visualiser`)
+    │                               # `registration.py` (`@visualisers.robustness`)
     │
     ├── reporting/                  # HTML + PDF report builders + multirun aggregation
-    │   ├── registration.py         # `register_reporter` family decorator
+    │   ├── registration.py         # `@adapters.reporter` family decorator
     │   ├── base_reporter.py        # `BaseReporter` ABC
     │   ├── builder.py              # build_report(): assembles sections from RunOutputs
     │   ├── html_reporter.py        # Jinja2-backed HTML renderer
@@ -146,7 +146,7 @@ src/
     │   └── templates/              # Jinja templates
     │
     ├── tracking/                   # experiment-tracking adapters
-    │   ├── registration.py         # `register_tracker` family decorator
+    │   ├── registration.py         # `@adapters.tracker` family decorator
     │   ├── base_tracker.py         # BaseTracker abstract class + stop_detached hook
     │   ├── mlflow_tracker.py       # MLflow adapter
     │   ├── process_registry.py     # ~/.raitap/tracking_processes.json (used by `tracking stop`)
