@@ -16,11 +16,13 @@ In the following guide, we will imagine you want to make you "SuperXAI" library 
 
 Plugins can register:
 
-- Transparency explainers and robustness assessors
-- Metrics, reporting, and tracking adapters
-- Transparency and robustness visualisers
+- **Transparency** explainers & visualisers
+- **Robustness** assessors & visualisers
+- **Metrics** computers 
+- **Reporting** renderers
+- **Trackers**
 
-Backends are not plugin-extensible.
+Backends are not yet plugin-extensible. You can open a feature request or a PR for 1st party support.
 
 ## 1. Create the package
 
@@ -96,6 +98,11 @@ Decorator kwargs (`library`, `algorithm_registry`, `error_patterns`,
 
 `AdapterDecoratorOptions` is exported for typing, in case you want additional custom logic on top of the decorator: `from raitap import
 AdapterDecoratorOptions`.
+
+**Multiple modules.** One plugin can register adapters for several RAITAP
+modules — add more decorated classes to your `__init__.py` (e.g. an
+`@adapters.robustness(...)` assessor next to the explainer). Every decorator
+fires when the plugin is imported on discovery.
 
 ## 3. Declare the entry point and version pin
 
