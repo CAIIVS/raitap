@@ -289,6 +289,10 @@ def main() -> int:
     for md in sorted(DOCS.rglob("*.md")):
         if "_build" in md.parts or "archive" in md.parts or "superpowers" in md.parts:
             continue
+        # Skip include-only partials (underscore-prefixed); they are rendered
+        # into a host page via {include} and must not carry their own frontmatter.
+        if md.name.startswith("_"):
+            continue
         if process(md, check=args.check):
             changed.append(md)
 
