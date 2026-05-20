@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.3](https://github.com/CAIIVS/raitap/compare/v0.9.2...v0.9.3) (2026-05-20)
+
+
+### Features
+
+* decorator parity + third-party plugin system ([#191](https://github.com/CAIIVS/raitap/issues/191)) ([e2f3bb0](https://github.com/CAIIVS/raitap/commit/e2f3bb0bb36cf1b1efdcca9f4d40702d1e5b6975))
+
 ## [0.9.2](https://github.com/CAIIVS/raitap/compare/v0.9.1...v0.9.2) (2026-05-20)
 
 
