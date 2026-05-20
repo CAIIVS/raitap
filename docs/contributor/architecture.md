@@ -56,7 +56,7 @@ src/
     ├── docs_preview.py             # `docs-preview` console-script: serves built Sphinx output for local preview
     ├── types.py                    # `Hardware` enum + small shared types
     ├── _adapters.py                # registration core: `AdapterMixin` (instance helpers), `FamilyConfig`,
-    │                               # `_CommonRegKwargs` TypedDict, `_register_core`, `_BUILDERS`,
+    │                               # `AdapterDecoratorOptions` TypedDict, `_register_core`, `_BUILDERS`,
     │                               # `ADAPTER_EXTRAS`, `THIRD_PARTY_LIBS`, `ALL` sentinel, `discover`, `lookup`
     │
     ├── configs/                    # Hydra config tree shipped with the wheel

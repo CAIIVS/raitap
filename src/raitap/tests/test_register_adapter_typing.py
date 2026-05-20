@@ -1,7 +1,7 @@
 """Static-type assertions: pyright must error at the decoration site when an
 adapter author forgets the ``registry_name`` cross-family required kwarg.
 
-The whole point of ``_CommonRegKwargs.registry_name: Required[str]`` + PEP 692
+The whole point of ``AdapterDecoratorOptions.registry_name: Required[str]`` + PEP 692
 ``Unpack[...]`` on every family decorator is exactly this guarantee — verify
 it empirically so a future drift in the typing surface fails CI loudly.
 

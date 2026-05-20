@@ -8,26 +8,19 @@ myst:
 
 # Using manual deps management
 
-This page explains how to turn off automatic deps management and handle dependencies yourself. 
+This page explains how to turn off automatic deps management and handle dependencies yourself.
 
-## 1. Turn off automatic deps management
+## 1. Install the hardware backend
 
-Pass <a href="../flags.html#flag-custom-deps"><code>--custom-deps</code></a>;
-install everything the config needs first.
+Install only the backend matching your setup.
 
 ```{install-tabs}
 :uv:
-uv run raitap --config-dir my-configs --config-name assessment --custom-deps
+uv add "raitap[torch-cuda]"
 
 :pip:
-raitap --config-dir my-configs --config-name assessment --custom-deps
+pip install "raitap[torch-cuda]"
 ```
-
-(execution-dependencies)=
-
-## 2. Pick a hardware backend
-
-Install only the backend matching your setup.
 
 |       | CPU         | CUDA         | Intel GPU     |
 | ----- | ----------- | ------------ | ------------- |
@@ -45,7 +38,9 @@ CUDA / Intel wheels do not live on PyPI. Re-declare the index routing per hardwa
 :::{include} _gotchas.md
 :::
 
-## 3. Pick assessment extras
+(execution-dependencies)=
+
+## 2. Pick assessment extras
 
 (assessment-extras)=
 
@@ -71,3 +66,16 @@ You can either:
   :pip:
   pip install "raitap[onnx-cpu,transparency,metrics]"
   ```
+
+## 3. Run the config with automatic deps management off
+
+Pass <a href="../flags.html#flag-custom-deps"><code>--custom-deps</code></a>;
+install everything the config needs first.
+
+```{install-tabs}
+:uv:
+uv run raitap --config-dir my-configs --config-name assessment --custom-deps
+
+:pip:
+raitap --config-dir my-configs --config-name assessment --custom-deps
+```

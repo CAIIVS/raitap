@@ -94,7 +94,7 @@ from raitap._adapters import (
     ALL,
     FamilyConfig,
     _AllAlgorithmsSentinel,
-    _CommonRegKwargs,
+    AdapterDecoratorOptions,
     _register_core,
 )
 from raitap.configs.schema import FairnessConfig
@@ -118,7 +118,7 @@ def register_fairness_adapter(
     *,
     algorithm_registry: Mapping[str, FairnessAdapterSemanticsHints],
     onnx_compatible_algorithms: frozenset[str] | _AllAlgorithmsSentinel = frozenset(),
-    **common: Unpack[_CommonRegKwargs],
+    **common: Unpack[AdapterDecoratorOptions],
 ) -> Callable[[type[T]], type[T]]:
     def wrap(cls: type[T]) -> type[T]:
         cls.algorithm_registry = algorithm_registry  # type: ignore[misc]
@@ -132,7 +132,7 @@ def register_fairness_adapter(
     return wrap
 ```
 
-Pyright errors at decoration if `registry_name` (via `_CommonRegKwargs.Required`) or `algorithm_registry` is missing.
+Pyright errors at decoration if `registry_name` (via `AdapterDecoratorOptions.Required`) or `algorithm_registry` is missing.
 
 ## 4. Schema (`configs/schema.py`)
 

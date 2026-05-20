@@ -12,9 +12,9 @@ from typing import TYPE_CHECKING, TypeVar, Unpack
 
 from raitap._adapters import (
     ALL,
+    AdapterDecoratorOptions,
     FamilyConfig,
     _AllAlgorithmsSentinel,
-    _CommonRegKwargs,
     _register_core,
 )
 from raitap.configs.schema import RobustnessConfig
@@ -38,7 +38,7 @@ def register_robustness_adapter(
     *,
     algorithm_registry: Mapping[str, AssessorSemanticsHints],
     onnx_compatible_algorithms: frozenset[str] | _AllAlgorithmsSentinel = frozenset(),
-    **common: Unpack[_CommonRegKwargs],
+    **common: Unpack[AdapterDecoratorOptions],
 ) -> Callable[[type[T]], type[T]]:
     """Decorator: register a robustness assessor.
 

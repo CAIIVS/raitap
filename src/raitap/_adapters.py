@@ -82,10 +82,13 @@ class _AllAlgorithmsSentinel:
 ALL: Final[_AllAlgorithmsSentinel] = _AllAlgorithmsSentinel()
 
 
-class _CommonRegKwargs(TypedDict, total=False):
-    """Cross-family registration kwargs. Forwarded into every family decorator
-    via ``**common: Unpack[_CommonRegKwargs]`` so each decorator declares only
-    its own family-specific required kwargs."""
+class AdapterDecoratorOptions(TypedDict, total=False):
+    """Public: cross-family registration options every adapter decorator
+    accepts. Forwarded into each family decorator via
+    ``**common: Unpack[AdapterDecoratorOptions]``. Family-specific required
+    kwargs (e.g. ``algorithm_registry``) are declared on the individual
+    decorators. Plugin authors may import this type to re-type forwarded kwargs;
+    the decorator signatures are the public contract regardless."""
 
     registry_name: Required[str]
     extra: str
@@ -200,7 +203,7 @@ def _register_core(
     cls: type,
     *,
     family: FamilyConfig | None,
-    **common: Unpack[_CommonRegKwargs],
+    **common: Unpack[AdapterDecoratorOptions],
 ) -> type:
     """Cross-family registration mechanics. Returns ``cls`` unchanged.
 

@@ -3,14 +3,14 @@
 Adapter sites use ``@register_reporter(...)`` instead of the legacy
 ``class Foo(BaseReporter, registry_name=..., extra=..., ...)`` class-kwargs
 syntax. ``registry_name`` is required (enforced via ``Required[str]`` in
-``_CommonRegKwargs``) so pyright errors at the decoration site if omitted.
+``AdapterDecoratorOptions``) so pyright errors at the decoration site if omitted.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypeVar, Unpack
 
-from raitap._adapters import FamilyConfig, _CommonRegKwargs, _register_core
+from raitap._adapters import AdapterDecoratorOptions, FamilyConfig, _register_core
 from raitap.configs.schema import ReportingConfig
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ T = TypeVar("T", bound="BaseReporter")
 
 
 def register_reporter(
-    **common: Unpack[_CommonRegKwargs],
+    **common: Unpack[AdapterDecoratorOptions],
 ) -> Callable[[type[T]], type[T]]:
     """Decorator: register a reporter.
 

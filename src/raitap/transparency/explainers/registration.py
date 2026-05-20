@@ -14,9 +14,9 @@ from typing import TYPE_CHECKING, TypeVar, Unpack
 
 from raitap._adapters import (
     ALL,
+    AdapterDecoratorOptions,
     FamilyConfig,
     _AllAlgorithmsSentinel,
-    _CommonRegKwargs,
     _register_core,
 )
 from raitap.configs.schema import TransparencyConfig
@@ -42,12 +42,12 @@ def register_transparency_adapter(
     algorithm_registry: Mapping[str, frozenset[MethodFamily]],
     output_payload_kind: ExplanationPayloadKind = ExplanationPayloadKind.ATTRIBUTIONS,
     onnx_compatible_algorithms: frozenset[str] | _AllAlgorithmsSentinel = frozenset(),
-    **common: Unpack[_CommonRegKwargs],
+    **common: Unpack[AdapterDecoratorOptions],
 ) -> Callable[[type[T]], type[T]]:
     """Decorator: register a transparency explainer.
 
     Required:
-        ``registry_name`` (via ``_CommonRegKwargs.Required[str]``) and
+        ``registry_name`` (via ``AdapterDecoratorOptions.Required[str]``) and
         ``algorithm_registry``.
 
     Optional:

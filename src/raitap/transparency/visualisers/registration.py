@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypeVar, Unpack
 
-from raitap._adapters import _CommonRegKwargs, _register_core
+from raitap._adapters import AdapterDecoratorOptions, _register_core
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -22,12 +22,12 @@ T = TypeVar("T", bound="BaseVisualiser")
 
 
 def register_transparency_visualiser(
-    **common: Unpack[_CommonRegKwargs],
+    **common: Unpack[AdapterDecoratorOptions],
 ) -> Callable[[type[T]], type[T]]:
     """Decorator: register a transparency visualiser.
 
     ``registry_name`` is required (enforced via ``Required[str]`` in
-    ``_CommonRegKwargs``). There is no Hydra group; the builder lands in
+    ``AdapterDecoratorOptions``). There is no Hydra group; the builder lands in
     ``_BUILDERS['_unscoped']``.
     """
 
