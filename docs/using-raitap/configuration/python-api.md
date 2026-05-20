@@ -9,9 +9,7 @@ myst:
 
 # Python API
 
-RAITAP can be driven from Python directly, without YAML files or the CLI. The Python entry point shares the orchestrator, schema, and side-effects with `raitap --config-name ...`; only the *front door* differs.
-
-This page is the canonical translation reference between YAML configs and the Python API. Every snippet pair below uses the `config-tabs` directive so you can flip the whole page between the two surfaces at once.
+This page explains how to use RAITAP from Python directly, without YAML files or the CLI.
 
 ## When to use which
 
@@ -38,7 +36,7 @@ The Python API is laid out so each module is the single owner of *both* its type
 | --------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
 | `raitap.models`       | `ModelConfig`                | —                                                                                                                                                                                                            | —                             |
 | `raitap.data`         | `DataConfig`, `LabelsConfig` | —                                                                                                                                                                                                            | `LabelEncoding`, `IdStrategy` |
-| `raitap.metrics`      | `MetricsConfig`              | `binary_classification`, `multiclass_classification`, `multilabel_classification`, `detection`                                                                                                                | —                             |
+| `raitap.metrics`      | `MetricsConfig`              | `binary_classification`, `multiclass_classification`, `multilabel_classification`, `detection`                                                                                                               | —                             |
 | `raitap.transparency` | `TransparencyConfig`         | `captum`, `shap`, `captum_image`, `captum_text`, `captum_time_series`, `shap_bar`, `shap_beeswarm`, `shap_force`, `shap_image`, `shap_waterfall`, `tabular_bar_chart`                                        | —                             |
 | `raitap.robustness`   | `RobustnessConfig`           | `torchattacks`, `foolbox`, `marabou`, `image_pair`, `perturbation_heatmap`, `output_bounds_cohort`, `output_bounds_pinned`, `output_bounds_width_heatmap`, `output_bounds_margin_heatmap`, `verdict_summary` | —                             |
 | `raitap.reporting`    | `ReportingConfig`            | `html`, `pdf`                                                                                                                                                                                                | —                             |
@@ -109,7 +107,7 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 ### Auto-installing extras from Python
 
-The `raitap` CLI walks the composed Hydra config before any heavy import, then installs the matching extras via `uv add` / `uv sync` (the `--allow-project-edit` / `-y` flow). The Python entry point gets the same flow by passing `auto_install_deps=True` to `run`:
+The `raitap` CLI walks the composed Hydra config before any heavy import, then installs the matching extras via `uv add` / `uv sync` (see <a href="../flags.html#flag-allow-project-edit"><code>--allow-project-edit</code></a>). The Python entry point gets the same flow with <a href="../flags.html#flag-allow-project-edit"><code>auto_install_deps=True</code></a>:
 
 ```python
 from raitap import AppConfig, Hardware, run
@@ -135,7 +133,7 @@ Why this works in a venv with **no extras installed yet**: every adapter module 
 
 `auto_install_deps` is opt-in. Without it `run(cfg)` assumes the extras the config references are already installed — the typical case after a CLI bootstrap or a manual `uv sync`. A missing adapter library surfaces as the usual `ModuleNotFoundError` from the adapter import chain.
 
-Pass `exec_global=True` together with `auto_install_deps=True` to consent to the bare-`pip install` fallback when no venv is active (the pip-side analogue of the CLI's `--exec-global`).
+Pass <a href="../flags.html#flag-exec-global"><code>exec_global=True</code></a> together with `auto_install_deps=True` to consent to the bare-`pip install` fallback when no venv is active.
 
 Each module exposes [hydra-zen `builds`](https://mit-ll-responsible-ai.github.io/hydra-zen/) factories — one per adapter — derived automatically from the class declaration. Import them from the relevant module:
 

@@ -35,6 +35,7 @@
         "footgun",
         "frozenset",
         "getattr",
+        "gotchas",
         "kwargs",
         "MLOPs",
         "ONNX",

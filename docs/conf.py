@@ -38,6 +38,8 @@ exclude_patterns = [
     ".DS_Store",
     "archive/**",
     "superpowers/**",
+    # Include-only partials (pulled in via {include}); not standalone docs.
+    "**/_*.md",
 ]
 
 source_suffix = {
@@ -183,7 +185,7 @@ html_sidebars = {
 
 html_context = {"default_mode": "auto"}
 
-myst_enable_extensions = ["attrs_block", "colon_fence"]
+myst_enable_extensions = ["attrs_block", "attrs_inline", "colon_fence"]
 
 pygments_style = "friendly"
 pygments_dark_style = "monokai"

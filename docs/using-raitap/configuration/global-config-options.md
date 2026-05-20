@@ -16,8 +16,14 @@ This section describes options that impact all modules.
 :option: hardware
 :allowed: "cpu", "gpu"
 :default: "gpu"
-:description: Forces execution on the specified hardware. If the GPU is unavailable
-  on the machine, RAITAP falls back to CPU and emits a CLI warning. {ref}`execution-dependencies`.
+:description: Forces execution on the specified hardware. The config-level
+  enum is only `cpu` / `gpu`; when set to `gpu`, RAITAP probes for CUDA
+  (NVIDIA), then XPU (Intel), then MPS (Apple, planned) and binds to the
+  first one it finds. If none is available, RAITAP falls back to CPU and
+  emits a CLI warning. The probed backend must match the installed extra —
+  `gpu` on a CUDA host needs `torch-cuda` / `onnx-cuda`, `gpu` on an Intel
+  host needs `torch-intel` / `onnx-intel`. See
+  {ref}`execution-dependencies` for the extras matrix.
 
 :option: experiment_name
 :allowed: string

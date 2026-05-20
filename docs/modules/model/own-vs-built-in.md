@@ -22,13 +22,11 @@ RAITAP allows you to use your own model in any of the following supported format
 - `.pt` / `.pth` containing a full pickled `torch.nn.Module` (saved via
   `torch.save(model, path)`). **Deprecated and refused by default** — this
   format requires unsafe pickle deserialisation, which executes arbitrary
-  code embedded in the file. RAITAP refuses such checkpoints unless you
-  explicitly opt in via the `allow_unsafe_pickle=True` kwarg on
-  `raitap.run(...)` (Python API), the `--allow-unsafe-pickle` CLI flag, or
-  the `RAITAP_ALLOW_UNSAFE_PICKLE=1` env var,
-  and only do so for files from a fully trusted source. The pickle also embeds
-  fully-qualified class paths so it breaks when classes are renamed or when
-  torchvision is bumped. Migrate with one line (in a trusted environment):
+  code embedded in the file. Opt in only for fully trusted files; see
+  <a href="../../using-raitap/flags.html#flag-allow-unsafe-pickle"><code>--allow-unsafe-pickle</code></a>.
+  The pickle also embeds fully-qualified class paths so it breaks when
+  classes are renamed or when torchvision is bumped. Migrate with one line
+  (in a trusted environment):
   ```python
   m = torch.load("model.pth", weights_only=False)
   torch.save(m.state_dict(), "weights.pth")

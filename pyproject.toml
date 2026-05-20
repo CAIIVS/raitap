@@ -42,7 +42,16 @@ classifiers = [
 
 dependencies = [
   # Core runtime.
-  "hydra-core>=1.3.2",
+  # Upper bound on hydra-core / omegaconf: hydra-zen 0.16 reads the removed
+  # `omegaconf._utils.get_yaml_loader` symbol, which is gone in omegaconf 2.4
+  # (shipped as 2.4.0.devN). hydra-core 1.4.0.devN bundles the new omegaconf
+  # too. Cap both at <next-major until hydra-zen catches up. Defense-in-depth:
+  # the cap stops the broken pre-releases even if a downstream project relaxes
+  # pre-release handling. Consumers should scope pre-releases to triton-xpu
+  # (`triton-xpu>=3.0.0rc0`), not a global `prerelease = "allow"` — see
+  # docs/using-raitap/installing.
+  "hydra-core>=1.3.2,<1.4",
+  "omegaconf>=2.3,<2.4",
   "hydra-zen>=0.13",
   "numpy>=2.4.2",
   "packaging>=23.0",

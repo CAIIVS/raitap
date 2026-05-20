@@ -41,8 +41,7 @@ myst:
 # Option A:
 # Full pickled nn.Module (deprecated, unsafe).
 # Only use for checkpoints from a fully trusted source; executes arbitrary code embedded in the checkpoint.
-# Consent must be supplied at invocation time. Use the `allow_unsafe_pickle=True` kwarg on `raitap.run(...)` (Python API),
-# the `--allow-unsafe-pickle` CLI flag, or set `RAITAP_ALLOW_UNSAFE_PICKLE=1` in the environment.
+# Consent required at invocation time — see `--allow-unsafe-pickle` in the flags reference.
 model:
   source: "myModel.pth"
 
