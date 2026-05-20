@@ -28,4 +28,10 @@ def __getattr__(name: str) -> Any:
         return TrackingConfig
     from raitap._adapters import lookup
 
-    return lookup("tracking", name)
+    try:
+        return lookup("tracking", name)
+    except AttributeError:
+        from raitap.configs import register_configs
+
+        register_configs()  # idempotent; fires in-tree imports + plugin discovery
+        return lookup("tracking", name)

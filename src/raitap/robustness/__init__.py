@@ -135,7 +135,13 @@ def __getattr__(name: str) -> Any:
         return RobustnessConfig
     from raitap._adapters import lookup
 
-    return lookup("robustness", name)
+    try:
+        return lookup("robustness", name)
+    except AttributeError:
+        from raitap.configs import register_configs
+
+        register_configs()  # idempotent; fires in-tree imports + plugin discovery
+        return lookup("robustness", name)
 
 
 __all__ = [  # noqa: RUF022

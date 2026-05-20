@@ -56,6 +56,10 @@ def register_zen_groups() -> None:
     ):
         importlib.import_module(pkg)
 
+    from raitap._adapters import discover_third_party_adapters
+
+    discover_third_party_adapters()
+
     # Flush the mixin-generated entries first; the special-cases below then
     # overwrite the reporting entries with the ``_global_`` + multirun shape.
     store.add_to_hydra_store(overwrite_ok=True)

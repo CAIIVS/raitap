@@ -159,7 +159,13 @@ def __getattr__(name: str) -> Any:
         return TransparencyConfig
     from raitap._adapters import lookup
 
-    return lookup("transparency", name)
+    try:
+        return lookup("transparency", name)
+    except AttributeError:
+        from raitap.configs import register_configs
+
+        register_configs()  # idempotent; fires in-tree imports + plugin discovery
+        return lookup("transparency", name)
 
 
 __all__ = [  # noqa: RUF022
