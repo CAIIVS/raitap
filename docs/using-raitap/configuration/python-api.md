@@ -126,7 +126,7 @@ Library-forwarded kwargs (unchecked at schema time):
 
 ## Multiruns in Python
 
-Only the CLi can benefit from Hydra's multirun feature (see {ref}`general:multirun`), but you can recreate the loop in Python directly:
+Only the CLI can benefit from Hydra's multirun feature (see {ref}`multirun`), but you can recreate the loop in Python directly:
 
 ```python
 from copy import deepcopy
