@@ -26,19 +26,19 @@ def _installed_broken_plugin():  # noqa: ANN202
 
 
 def test_plugin_adapter_registered(_installed_fake_plugin) -> None:  # noqa: ANN001
-    from raitap._adapters import _BUILDERS, discover_third_party_adapters
+    import raitap._adapters as adapters_mod
 
-    discover_third_party_adapters()
-    assert "fakeattack" in _BUILDERS["robustness"]
+    adapters_mod.discover_third_party_adapters()
+    assert "fakeattack" in adapters_mod._BUILDERS["robustness"]
 
 
 def test_disabled_env_skips(monkeypatch, _installed_fake_plugin) -> None:  # noqa: ANN001
-    from raitap._adapters import _BUILDERS, discover_third_party_adapters
+    import raitap._adapters as adapters_mod
 
-    _BUILDERS.get("robustness", {}).pop("fakeattack", None)
+    adapters_mod._BUILDERS.get("robustness", {}).pop("fakeattack", None)
     monkeypatch.setenv("RAITAP_DISABLE_PLUGINS", "1")
-    discover_third_party_adapters()
-    assert "fakeattack" not in _BUILDERS.get("robustness", {})
+    adapters_mod.discover_third_party_adapters()
+    assert "fakeattack" not in adapters_mod._BUILDERS.get("robustness", {})
 
 
 def test_crashing_plugin_is_isolated(_installed_broken_plugin) -> None:  # noqa: ANN001
@@ -48,16 +48,16 @@ def test_crashing_plugin_is_isolated(_installed_broken_plugin) -> None:  # noqa:
 
     register_configs()  # ensure in-tree adapters are registered
 
-    from raitap._adapters import _BUILDERS, discover_third_party_adapters
+    import raitap._adapters as adapters_mod
 
     # The broken plugin's import raises; discovery must not propagate it, and
     # must emit a warning naming the plugin.
     with pytest.warns(UserWarning, match="fakebroken"):
-        discover_third_party_adapters()
+        adapters_mod.discover_third_party_adapters()
 
-    assert "fakebroken" not in _BUILDERS.get("robustness", {})
+    assert "fakebroken" not in adapters_mod._BUILDERS.get("robustness", {})
     # In-tree adapter still resolvable — one bad plugin didn't break the registry.
-    assert "torchattacks" in _BUILDERS["robustness"]
+    assert "torchattacks" in adapters_mod._BUILDERS["robustness"]
 
 
 def test_version_skew_skips(monkeypatch) -> None:  # noqa: ANN001

@@ -53,6 +53,7 @@ def test_register_backend_sets_class_constant() -> None:
         def __call__(self, inputs: object) -> object:
             return inputs
 
-        def as_model_for_explanation(self) -> nn.Module: ...
+        def as_model_for_explanation(self) -> nn.Module:
+            return nn.Identity()
 
     assert _B.supports_torch_autograd is True

@@ -1,4 +1,9 @@
-"""Metadata-only decorator for model backends. (Body completed in Task A4.)"""
+"""Metadata-only decorator for model backends.
+
+Backends are not Hydra-config adapters (no registry, no entry-point plugins);
+this decorator only sets and type-checks the required ``supports_torch_autograd``
+class constant at the decoration site.
+"""
 
 from __future__ import annotations
 

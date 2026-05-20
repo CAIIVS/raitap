@@ -42,7 +42,5 @@ def test_adapter_imports_without_wrapped_libs(
 
 
 def test_facades_import_without_torch() -> None:
-    import importlib
-
     for mod in ("raitap.adapters", "raitap.visualisers", "raitap.backends"):
         importlib.import_module(mod)
