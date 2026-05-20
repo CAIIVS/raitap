@@ -53,6 +53,7 @@ using-raitap/installing/index
 using-raitap/configuration/index
 using-raitap/understanding-outputs
 using-raitap/job-launcher
+using-raitap/using-plugins
 using-raitap/flags
 using-raitap/examples/index
 ```
