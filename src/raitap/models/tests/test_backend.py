@@ -38,3 +38,21 @@ def test_torch_backend_detects_torchvision_detection_model() -> None:
 def test_torch_backend_task_kind_can_be_overridden_in_constructor() -> None:
     backend = TorchBackend(_Linear(), task_kind=TaskKind.regression)
     assert backend.task_kind is TaskKind.regression
+
+
+def test_register_backend_sets_class_constant() -> None:
+    from raitap.models.backend import ModelBackend
+    from raitap.models.registration import register
+
+    @register(supports_torch_autograd=True)
+    class _B(ModelBackend):
+        @property
+        def hardware_label(self) -> str:
+            return "test"
+
+        def __call__(self, inputs: object) -> object:
+            return inputs
+
+        def as_model_for_explanation(self) -> object: ...
+
+    assert _B.supports_torch_autograd is True
