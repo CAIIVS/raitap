@@ -30,7 +30,6 @@ import hashlib
 import importlib.util
 import inspect
 import os
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar
@@ -39,6 +38,8 @@ from raitap.data.types import Preprocessing
 from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import torch
     from torch import nn
     from torchvision import models
@@ -61,7 +62,11 @@ _MODEL_BUNDLED_VALUE = Preprocessing.model_bundled.value
 
 Origin = Literal["off", "model-bundled", "custom-file"]
 Side = Literal["data", "model"]
-_FactoryT = TypeVar("_FactoryT", bound=Callable[[], nn.Module])
+# String forward-ref bound: a bare ``Callable[[], nn.Module]`` would evaluate
+# ``nn.Module`` at module-import time, and ``nn`` is the lazy torch proxy — that
+# forces ``import torch.nn`` and breaks the torch-free deps-bootstrap path. The
+# string defers it to pyright (resolved via the TYPE_CHECKING imports).
+_FactoryT = TypeVar("_FactoryT", bound="Callable[[], nn.Module]")
 
 
 class DataPreprocessingFactory(Protocol):
