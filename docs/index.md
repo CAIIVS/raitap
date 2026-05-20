@@ -49,11 +49,11 @@ RAITAP is a wrapper around existing XAI frameworks, which provides a consistent 
 :caption: Using RAITAP
 
 using-raitap/get-it-running
+using-raitap/installing/index
 using-raitap/configuration/index
 using-raitap/understanding-outputs
-using-raitap/installation
-using-raitap/consuming-raitap
 using-raitap/job-launcher
+using-raitap/flags
 using-raitap/examples/index
 ```
 

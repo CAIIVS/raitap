@@ -16,7 +16,6 @@ This section explains high level configuration principles for your use case.
 
 general
 global-config-options
-flags
 python-api
 ```
 

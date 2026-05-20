@@ -72,6 +72,8 @@ raitap --config-name assessment # assuming your config is `./assessment.yaml`
 
 As mentioned in {doc}`../get-it-running`, RAITAP will then detect required dependencies and guide you in the terminal.
 
+(hydra-flags)=
+
 ## Some advanced Hydra features
 
 ### Getting Hydra help

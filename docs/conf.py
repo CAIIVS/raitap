@@ -38,6 +38,8 @@ exclude_patterns = [
     ".DS_Store",
     "archive/**",
     "superpowers/**",
+    # Include-only partials (pulled in via {include}); not standalone docs.
+    "**/_*.md",
 ]
 
 source_suffix = {

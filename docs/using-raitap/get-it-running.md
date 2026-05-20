@@ -8,7 +8,7 @@ myst:
 
 # Running a quick example
 
-This page explains how to install RAITAP itself and how to get it running quickly, with a **simple demo example**. If you want to see how to fully configure your own assessment, skip to the {doc}`configuration/index` page.
+This page explains how to install RAITAP itself and how to get it running quickly, with a **simple demo example**. If you want to see how to fully configure your own assessment, skip to the {doc}`installing/index` and {doc}`configuration/index` pages.
 
 It is recommended to use `uv`, but `pip` will also work.
 
@@ -43,15 +43,12 @@ uv run raitap --demo
 raitap --demo
 ```
 
-RAITAP does not ship with all the underlying dependencies by default, to avoid massive bloat. This means dependencies required for each specific config must be installed before the run.
+RAITAP does not ship with all the underlying dependencies by default, to avoid massive bloat. The required dependencies are automatically inferred and installed by default.
 
-In some specific setups, you might need to take action:
+In some specific setups, you might need to take action for the automatic install to occur:
 
-- On `uv`, RAITAP may ask for <a href="configuration/flags.html#flag-allow-project-edit"><code>--allow-project-edit</code></a> (or `-y`).
-- On `pip` without a venv, RAITAP may ask for <a href="configuration/flags.html#flag-exec-global"><code>--exec-global</code></a>.
-
-To manage dependencies manually, see {doc}`installation`. To preview the
-inferred deps without installing, use <a href="configuration/flags.html#flag-dry-run"><code>--dry-run</code></a>.
+- On `uv`, RAITAP may ask for <a href="flags.html#flag-allow-project-edit"><code>--allow-project-edit</code></a> (or `-y`).
+- On `pip` without a venv, RAITAP may ask for <a href="flags.html#flag-exec-global"><code>--exec-global</code></a>.
 
 ## 3. Inspect the output
 

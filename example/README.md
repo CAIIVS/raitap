@@ -51,4 +51,4 @@ the dependency line evolves automatically as you change the config.
   `[tool.uv.sources]`. Real consumers should remove that section to fetch raitap
   from PyPI.
 - Skip auto-deps entirely with `--custom-deps` if you prefer to manage the
-  dependency line by hand. See raitap's installation docs.
+  dependency line by hand. See raitap's "Using RAITAP in your project" docs.
