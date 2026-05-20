@@ -8,26 +8,27 @@ myst:
 
 # Writing a plugin
 
-A **plugin** is a separate pip package that registers a RAITAP adapter via the
-`raitap.adapters` entry-point group. No fork or pull request needed — once
-installed alongside RAITAP the adapter appears in every family namespace just
-like an in-tree one.
+This page explains how to write a lightwight plugin adapter so your library can seamlessly be used via RAITAP. That way, you do not need to open a PR in the RAITAP repo, and consumers can use your library like any 1st party RAITAP adapter.
 
-## Package layout
+
+## Step 1 — Create the package
+
+A plugin is an ordinary pip package. Lay it out like any `src/`-style project:
 
 ```
 raitap-myattack/
 ├── pyproject.toml
 └── src/
     └── raitap_myattack/
-        └── __init__.py   # decorator fires on import
+        └── __init__.py   # holds the decorated adapter; runs on import
 ```
 
-## The adapter
+## Step 2 — Write the adapter
 
-Implement the adapter exactly as described in {doc}`adding-an-adapter`. The only
-difference is that your file lives in your own package instead of under
-`src/raitap/`. The example below uses the robustness family:
+Implement the adapter exactly as in {doc}`adding-an-adapter` — the only
+difference is your class lives in your own package, not under `src/raitap/`.
+Decorate it with the public `@adapters.<family>(...)` surface (`from raitap
+import adapters`). Example, robustness family:
 
 ```python
 # src/raitap_myattack/__init__.py
@@ -83,10 +84,14 @@ class MyAttackAssessor(EmpiricalAttackAssessor):
 
 Decorator kwargs (`library`, `algorithm_registry`, `error_patterns`,
 `suppress_warnings`, …) are documented in {doc}`adding-an-adapter`.
-`AdapterDecoratorOptions` is also exported for typing: `from raitap import
+`AdapterDecoratorOptions` is exported for typing: `from raitap import
 AdapterDecoratorOptions`.
 
-## pyproject.toml
+## Step 3 — Declare the entry point and version pin
+
+Two things in `pyproject.toml`: the `raitap.adapters` entry point (so RAITAP
+finds your module) and a `raitap` dependency pin (so RAITAP can version-check
+you).
 
 ```toml
 [project]
@@ -100,29 +105,32 @@ dependencies = [
 myattack = "raitap_myattack"   # value is the module to import; decorator fires on import
 ```
 
-**Version pin.** RAITAP reads the `Requires-Dist: raitap ...` metadata from
-your installed distribution at load time. If the running RAITAP version does not
-satisfy the pin, or if no `raitap` pin is declared at all, the plugin is
-**skipped with a warning** and never breaks the user's run. Pin a tight range
-(`>=x,<y`) whenever you rely on internal API that may change.
+RAITAP reads the `Requires-Dist: raitap ...` metadata from your installed
+distribution at load time. If the running RAITAP version doesn't satisfy the
+pin — or if no `raitap` pin is declared at all — your plugin is **skipped with a
+warning** and never breaks the user's run. Pin a tight range (`>=x,<y`) whenever
+you rely on internal API that may change.
 
-## Discovery and isolation
+## Step 4 — Install and verify
 
-- Discovery fires at **config-registration time** (`register_zen_groups` /
-  `register_configs`), not on a bare `import raitap`.
-- Loading is **default-allow**: all installed plugins under `raitap.adapters`
-  are discovered automatically.
-- A plugin that **crashes at import** is logged (naming the plugin) and skipped
-  — it never breaks RAITAP.
-- Set `RAITAP_DISABLE_PLUGINS=1` to skip all plugin discovery entirely.
-
-## User consumption
+Install your plugin alongside RAITAP and confirm it resolves like a first-party
+adapter:
 
 ```bash
 pip install raitap raitap-myattack
 ```
 
-Then in YAML:
+```bash
+# resolves only if discovery + version check passed
+python -c "from raitap.robustness import myattack; print(myattack)"
+```
+
+If nothing resolves, check the logs for a skip/crash warning naming your plugin
+(see *How discovery works* below), or run with `RAITAP_DISABLE_PLUGINS` unset.
+
+## Step 5 — Use it
+
+Consumers reference your adapter by its `registry_name`, in YAML:
 
 ```yaml
 robustness:
@@ -133,10 +141,20 @@ robustness:
       eps: 0.03
 ```
 
-Or in Python:
+or in Python:
 
 ```python
 from raitap.robustness import myattack
 
 robustness = {"my_run": myattack(algorithm="MyPGD", constructor={"eps": 0.03})}
 ```
+
+## How discovery works
+
+- Discovery fires at **config-registration time** (`register_zen_groups` /
+  `register_configs`), not on a bare `import raitap`.
+- Loading is **default-allow**: every installed plugin under the
+  `raitap.adapters` entry-point group is discovered automatically.
+- A plugin that **crashes at import** is logged (naming the plugin) and skipped
+  — one bad plugin never breaks RAITAP.
+- Set `RAITAP_DISABLE_PLUGINS=1` to skip all plugin discovery entirely.
