@@ -57,7 +57,7 @@ def test_robustness_capability_fields_via_decorator() -> None:
         embeds_clean_input=True,
     )
     class _StubRob(BaseRobustnessVisualiser):
-        def visualise(self, *a: object, **k: object) -> object: ...
+        def visualise(self, *a: object, **k: object) -> Figure: ...
 
     assert _StubRob.supported_method_kinds == frozenset({MethodKind.EMPIRICAL_ATTACK})
     assert _StubRob.embeds_clean_input is True
