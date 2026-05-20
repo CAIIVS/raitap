@@ -10,7 +10,7 @@ myst:
 
 This page explains how to write a lightwight plugin adapter so your library can seamlessly be used via RAITAP. That way, you do not need to open a PR in the RAITAP repo, and consumers can use your library like any 1st party RAITAP adapter.
 
-In the following guide, we will imagine you want to create 
+In the following guide, we will imagine you want to make you "SuperXAI" library usable to RAITAP users seamlessly.
 
 ## 1. Create the package
 
@@ -21,7 +21,7 @@ raitap-superxai/
 ├── pyproject.toml
 └── src/
     └── raitap_superxai/
-        └── __init__.py   # holds the decorated adapter; runs on import
+        └── __init__.py   # holds the decorated adapter; runs on import (see below)
 ```
 
 ## 2. Write the adapter
@@ -35,6 +35,7 @@ instead of the in-tree relative import. Decorate it with the public
 
 ```python
 # src/raitap_superxai/__init__.py
+
 from __future__ import annotations
 
 import re
@@ -51,18 +52,18 @@ if TYPE_CHECKING:
 
 @adapters.transparency(
     registry_name="superxai",      # CLI `+transparency=superxai` / Python `from raitap.transparency import superxai`
-    library="superxai-lib",        # real PyPI package name; drives `self._lazy_import()`
+    library="superxai-lib",        # real name of your PyPI package; drives `self._lazy_import()` (defaults to registry_name)
     error_patterns={               # rewrite cryptic upstream errors at call sites
-        re.compile(r"some library footgun"): "Do X instead.",
+        re.compile(r"some library footgun"): "Do X instead.", # nicer error messages to avoid deep stack traces in RAITAP
     },
     algorithm_registry={
-        "supertreeshap": frozenset({MethodFamily.SHAPLEY}),
+        "supertreeshap": frozenset({MethodFamily.SHAPLEY}), # the algos your library offers
     },
-    onnx_compatible_algorithms=frozenset({"supertreeshap"}),
+    onnx_compatible_algorithms=frozenset({"supertreeshap"}), # algos compatible with ONNX models
 )
 class SuperXAIExplainer(AttributionOnlyExplainer):
     def __init__(self, algorithm: str, **init_kwargs):
-        super().__init__()
+        super().__init__()              # don't omit!
         self.algorithm = algorithm
         self.init_kwargs = init_kwargs
 
@@ -73,7 +74,7 @@ class SuperXAIExplainer(AttributionOnlyExplainer):
         backend=None,
         **call_kwargs,
     ) -> torch.Tensor:
-        superxai = self._lazy_import()
+        superxai = self._lazy_import()  # don't omit!
         with self._rethrow():
             return getattr(superxai, self.algorithm)(model, **self.init_kwargs).attribute(
                 inputs, **call_kwargs
@@ -82,25 +83,27 @@ class SuperXAIExplainer(AttributionOnlyExplainer):
 
 Decorator kwargs (`library`, `algorithm_registry`, `error_patterns`,
 `suppress_warnings`, …) are documented in {doc}`adding-an-adapter`.
-`AdapterDecoratorOptions` is exported for typing: `from raitap import
+
+`AdapterDecoratorOptions` is exported for typing, in case you want additional custom logic on top of the decorator: `from raitap import
 AdapterDecoratorOptions`.
 
-## Step 3 — Declare the entry point and version pin
+## 3. Declare the entry point and version pin
 
-Two things in `pyproject.toml`: the `raitap.adapters` entry point (so RAITAP
-finds your module) and a `raitap` dependency pin (so RAITAP can version-check
-you).
+Two things to add to your `pyproject.toml`:
+
+- the `raitap.adapters` entry point (so RAITAP finds your module)
+- a `raitap` dependency pin (so RAITAP can version-check you).
 
 ```toml
 [project]
-name = "raitap-superxai"
+name = "raitap-superxai"  # plugin name, not your published PyPI package
 dependencies = [
     "raitap>=0.5,<0.6",   # required — RAITAP reads this pin at load time
-    "superxai-lib",
+    "superxai-lib",       # your published PyPI package
 ]
 
 [project.entry-points."raitap.adapters"]
-superxai = "raitap_superxai"   # value is the module to import; decorator fires on import
+superxai = "raitap_superxai"   # name of the file in src (see Step 1), NOT YOUR PLUGIN NAME
 ```
 
 RAITAP reads the `Requires-Dist: raitap ...` metadata from your installed
@@ -109,12 +112,16 @@ pin — or if no `raitap` pin is declared at all — your plugin is **skipped wi
 warning** and never breaks the user's run. Pin a tight range (`>=x,<y`) whenever
 you rely on internal API that may change.
 
-## Step 4 — Install and verify
+## 4. Do a self-test
 
 Install your plugin alongside RAITAP and confirm it resolves like a first-party
 adapter:
 
-```bash
+```{install-tabs}
+:uv:
+uv add raitap raitap-superxai
+
+:pip:
 pip install raitap raitap-superxai
 ```
 
@@ -124,26 +131,13 @@ python -c "from raitap.transparency import superxai; print(superxai)"
 ```
 
 If nothing resolves, check the logs for a skip/crash warning naming your plugin
-(see *How discovery works* below), or run with `RAITAP_DISABLE_PLUGINS` unset.
+(see {ref}`disco`), or run with `RAITAP_DISABLE_PLUGINS` unset.
 
-## Step 5 — Use it
+## 5. Document consumer usage
 
-Consumers reference your adapter by its `registry_name`, in YAML:
+RAITAP already documents how to use plugins ({doc}`../using-raitap/using-plugins`), but it's always good to add a section in your own docs too.
 
-```yaml
-transparency:
-  my_run:
-    _target_: SuperXAIExplainer
-    algorithm: supertreeshap
-```
-
-or in Python:
-
-```python
-from raitap.transparency import superxai
-
-transparency = {"my_run": superxai(algorithm="supertreeshap")}
-```
+(disco)=
 
 ## How discovery works
 

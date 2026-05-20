@@ -8,43 +8,42 @@ myst:
 
 # Using plugins
 
-Third-party packages can add adapters (extra explainers, attacks, trackers, …)
-to RAITAP. Once installed alongside RAITAP, a plugin's adapter behaves like a
-first-party one — same YAML and Python API.
+This page explains how to seamlessly use a 3rd party lib's plugin in RAITAP.
+
+Some libraries are implemented as 1st party in RIAITAP directly, but some others simply ship a plugin. The user-facing behaviour is identical.
 
 :::{tip}
 Are you a library maintainer wanting to ship your own adapter as a plugin? See
 {doc}`../contributor/writing-a-plugin`.
 :::
 
-## Install
+## 1. Install
 
 Install the plugin next to RAITAP:
 
-```bash
+```{install-tabs}
+:uv:
+uv add raitap raitap-superxai
+
+:pip:
 pip install raitap raitap-superxai
 ```
 
-That's it — no config flag to "enable" it. Every installed plugin is discovered
-automatically.
+That's it. Every installed plugin is discovered automatically.
 
-## Use it
+## 2. Use it
 
 Reference the adapter by its `registry_name` (here, `superxai`), exactly like a
 built-in adapter.
 
-In YAML:
-
-```yaml
+```{config-tabs}
+:yaml:
 transparency:
   my_run:
-    _target_: SuperXAIExplainer
+    _target_: "SuperXAIExplainer"
     algorithm: supertreeshap
-```
 
-In Python:
-
-```python
+:python:
 from raitap.transparency import superxai
 
 transparency = {"my_run": superxai(algorithm="supertreeshap")}
