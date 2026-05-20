@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.2](https://github.com/CAIIVS/raitap/compare/v0.9.1...v0.9.2) (2026-05-20)
+
+
+### Documentation
+
+* consolidate CLI/python/env knobs into Flags reference table ([#189](https://github.com/CAIIVS/raitap/issues/189)) ([1477f17](https://github.com/CAIIVS/raitap/commit/1477f17f49595bdc9f025b1836106d9ade40dc47))
+* document RAITAP_* environment variables ([#187](https://github.com/CAIIVS/raitap/issues/187)) ([aee3895](https://github.com/CAIIVS/raitap/commit/aee3895a83553f446034d6fd189da77a6803d36f))
+
 ## [0.9.1](https://github.com/CAIIVS/raitap/compare/v0.9.0...v0.9.1) (2026-05-19)
 
 
