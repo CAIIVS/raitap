@@ -12,9 +12,11 @@ from typing import TYPE_CHECKING, Required, TypedDict, TypeVar, Unpack
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from raitap.models.backend import ModelBackend
-
-B = TypeVar("B", bound="ModelBackend")
+# Unbounded: a runtime ``bound=ModelBackend`` would cycle (backend.py imports
+# this module for ``@register``), and a string bound keeps a TYPE_CHECKING
+# import that static scanners flag as unused. The decorator returns ``cls``
+# unchanged, so the bound only documents intent — not worth the churn.
+B = TypeVar("B")
 
 
 class _BackendRegKwargs(TypedDict):
