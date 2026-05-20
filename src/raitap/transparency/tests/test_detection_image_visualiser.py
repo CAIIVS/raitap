@@ -107,7 +107,7 @@ def test_visualiser_raises_when_detection_box_missing() -> None:
 
 def test_detection_image_visualiser_is_importable_from_visualisers_package() -> None:
     """Fresh-process surface: importing raitap.transparency.visualisers must
-    eagerly load detection_image_visualiser so the @register_transparency_visualiser
+    eagerly load detection_image_visualiser so the @visualisers.transparency
     side effect runs and the hydra-zen store knows about ``_target_:
     detection_image``."""
     import importlib

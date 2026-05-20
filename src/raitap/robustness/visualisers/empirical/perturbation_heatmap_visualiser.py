@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import matplotlib.pyplot as plt
 import numpy as np
 
-from raitap.robustness.visualisers.registration import register_robustness_visualiser
+from raitap.robustness.visualisers.registration import robustness_visualiser
 from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 _SUPPORTED_MODES = frozenset({"signed_dominant", "mean_abs", "mean", "max_abs"})
 
 
-@register_robustness_visualiser(registry_name="perturbation_heatmap")
+@robustness_visualiser(registry_name="perturbation_heatmap")
 class PerturbationHeatmapVisualiser(BaseRobustnessVisualiser):
     """Render the perturbation tensor as a heatmap.
 

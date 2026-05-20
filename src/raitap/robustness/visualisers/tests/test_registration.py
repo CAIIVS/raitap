@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from raitap import visualisers
 from raitap.robustness.visualisers.base_visualiser import BaseRobustnessVisualiser
-from raitap.robustness.visualisers.registration import register_robustness_visualiser
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 # introspect a real import path. Function-local classes have a ``<locals>``
 # ``__qualname__`` that ``builds(...)`` rejects with ``TypeError``, which
 # ``_register_core`` then silently swallows.
-@register_robustness_visualiser(
+@visualisers.robustness(
     registry_name="_stub_rob_viz",
 )
 class _StubRobViz(BaseRobustnessVisualiser):
@@ -40,7 +40,7 @@ class _StubRobViz(BaseRobustnessVisualiser):
         return _Figure()
 
 
-def test_register_robustness_visualiser_lands_in_unscoped_pool() -> None:
+def test_robustness_visualiser_lands_in_unscoped_pool() -> None:
     from raitap._adapters import _BUILDERS
 
     assert "_stub_rob_viz" in _BUILDERS["_unscoped"]

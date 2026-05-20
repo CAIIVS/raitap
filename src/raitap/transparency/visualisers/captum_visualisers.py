@@ -13,9 +13,9 @@ from raitap.transparency.contracts import (
     ExplanationScope,
     MethodFamily,
 )
+from raitap.transparency.visualisers.registration import transparency_visualiser
 
 from .base_visualiser import BaseVisualiser
-from .registration import register_transparency_visualiser
 
 if TYPE_CHECKING:
     import torch
@@ -179,7 +179,7 @@ def _has_token_layout(explanation: object, attributions: object) -> bool:
     return shape is not None and len(shape) == 1
 
 
-@register_transparency_visualiser(registry_name="captum_image")
+@transparency_visualiser(registry_name="captum_image")
 class CaptumImageVisualiser(BaseVisualiser):
     """
     Visualise image attributions using ``captum.attr.visualization.visualize_image_attr``.
@@ -421,7 +421,7 @@ class CaptumImageVisualiser(BaseVisualiser):
         return fig
 
 
-@register_transparency_visualiser(registry_name="captum_time_series")
+@transparency_visualiser(registry_name="captum_time_series")
 class CaptumTimeSeriesVisualiser(BaseVisualiser):
     """
     Visualise time-series attributions via
@@ -529,7 +529,7 @@ class CaptumTimeSeriesVisualiser(BaseVisualiser):
         return fig
 
 
-@register_transparency_visualiser(registry_name="captum_text")
+@transparency_visualiser(registry_name="captum_text")
 class CaptumTextVisualiser(BaseVisualiser):
     """
     Visualise per-token text attributions as a horizontal bar chart.

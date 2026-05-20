@@ -1,6 +1,6 @@
 """Family decorator for transparency visualisers (no Hydra group).
 
-Adapter sites use ``@register_transparency_visualiser(...)`` instead of the
+Adapter sites use ``@visualisers.transparency(...)`` instead of the
 legacy ``class Foo(BaseVisualiser, registry_name=..., ...)`` class-kwargs
 syntax. Visualisers do not own a Hydra family group — the resulting builder is
 stored in ``_BUILDERS['_unscoped']`` and embedded as a list inside
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 T = TypeVar("T", bound="BaseVisualiser")
 
 
-def register_transparency_visualiser(
+def transparency_visualiser(
     **common: Unpack[AdapterDecoratorOptions],
 ) -> Callable[[type[T]], type[T]]:
     """Decorator: register a transparency visualiser.

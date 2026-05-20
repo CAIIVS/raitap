@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import matplotlib.pyplot as plt
 import numpy as np
 
-from raitap.robustness.visualisers.registration import register_robustness_visualiser
+from raitap.robustness.visualisers.registration import robustness_visualiser
 
 from ...contracts import MethodKind
 from ..base_visualiser import BaseRobustnessVisualiser
@@ -43,7 +43,7 @@ def _auto_figsize(n: int, k: int) -> tuple[float, float]:
     return (max(k * 0.6 + 2, 6), max(n * 0.25 + 1.5, 3))
 
 
-@register_robustness_visualiser(registry_name="output_bounds_width_heatmap")
+@robustness_visualiser(registry_name="output_bounds_width_heatmap")
 class OutputBoundsWidthHeatmapVisualiser(BaseRobustnessVisualiser):
     """Heatmap of certified per-class output-bound widths across the batch."""
 

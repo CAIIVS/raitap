@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 from raitap import raitap_log
 from raitap.configs import cfg_to_dict, resolve_run_dir
 from raitap.models.backend import OnnxBackend, TorchBackend
+from raitap.tracking.registration import tracker
 from raitap.utils.diagnostics import Module
 
 from .base_tracker import BaseTracker
@@ -22,7 +23,6 @@ from .process_registry import (
     reinsert_entries,
     watch_port,
 )
-from .registration import register_tracker
 
 DEFAULT_MLFLOW_BACKEND_STORE_URI = "sqlite:///mlflow/mlflow.db"
 DEFAULT_MLFLOW_ARTIFACT_ROOT = "./mlflow/artifacts"
@@ -171,7 +171,7 @@ def _mlflow_summary_params(config_dict: dict[str, Any]) -> dict[str, str]:
     return out
 
 
-@register_tracker(registry_name="mlflow")
+@tracker(registry_name="mlflow")
 class MLFlowTracker(BaseTracker):
     @classmethod
     def stop_detached(cls, timeout: float = 5.0) -> tuple[int, int]:

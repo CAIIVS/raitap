@@ -1,0 +1,24 @@
+"""Public namespaced decorator surface for registering RAITAP adapters.
+
+Plugin authors and in-tree adapters decorate with ``@adapters.<family>(...)``::
+
+    from raitap import adapters
+
+    @adapters.robustness(registry_name="myattack", algorithm_registry={...})
+    class MyAttackAssessor(EmpiricalAttackAssessor): ...
+
+Each attribute is the real, fully-typed family decorator (not a dynamic
+attribute), so pyright checks kwargs at the decoration site. Importing this
+module stays torch-free: the underlying ``registration.py`` modules defer torch
+via ``raitap.utils.lazy.lazy_import``.
+"""
+
+from __future__ import annotations
+
+from raitap.metrics.registration import metrics_adapter as metrics
+from raitap.reporting.registration import reporter
+from raitap.robustness.assessors.registration import robustness_adapter as robustness
+from raitap.tracking.registration import tracker
+from raitap.transparency.explainers.registration import transparency_adapter as transparency
+
+__all__ = ["metrics", "reporter", "robustness", "tracker", "transparency"]

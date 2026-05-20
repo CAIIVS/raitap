@@ -16,10 +16,10 @@ if TYPE_CHECKING:
 
 from raitap import raitap_log
 from raitap.configs import resolve_run_dir
+from raitap.reporting.registration import reporter
 
 from .base_reporter import BaseReporter
 from .filenames import report_output_filename
-from .registration import register_reporter
 
 # A4 default in borb (points). SingleColumnLayout uses ~10% side margins.
 _A4_WIDTH_PT = 595
@@ -212,7 +212,7 @@ def _image_limits_for_figures(
     return max_w, max_h
 
 
-@register_reporter(registry_name="pdf")
+@reporter(registry_name="pdf")
 class PDFReporter(BaseReporter):
     """PDF report generator using borb library."""
 

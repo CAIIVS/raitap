@@ -1,6 +1,6 @@
 """Family decorator for robustness assessors.
 
-Adapter sites use ``@register_robustness_adapter(...)`` instead of the legacy
+Adapter sites use ``@adapters.robustness(...)`` instead of the legacy
 ``class Foo(EmpiricalAttackAssessor, registry_name=..., extra=..., ...)``
 class-kwargs syntax. ``registry_name`` + ``algorithm_registry`` are
 pyright-checked at the decoration site.
@@ -34,7 +34,7 @@ ROBUSTNESS = FamilyConfig(
 T = TypeVar("T", bound="BaseAssessor")
 
 
-def register_robustness_adapter(
+def robustness_adapter(
     *,
     algorithm_registry: Mapping[str, AssessorSemanticsHints],
     onnx_compatible_algorithms: frozenset[str] | _AllAlgorithmsSentinel = frozenset(),

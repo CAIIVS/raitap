@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any
 
 from matplotlib.figure import Figure
 
+from raitap import visualisers
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
-from raitap.transparency.visualisers.registration import register_transparency_visualiser
 
 if TYPE_CHECKING:
     import torch
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 # Defined at module scope so ``hydra_zen.builds(...)`` can resolve the class's
 # ``__module__`` — nested-in-function classes would not be importable and the
 # ``_register_core`` swallow would silently skip registration.
-@register_transparency_visualiser(
+@visualisers.transparency(
     registry_name="_stub_viz",
 )
 class _StubViz(BaseVisualiser):
@@ -38,7 +38,7 @@ class _StubViz(BaseVisualiser):
         return Figure()
 
 
-def test_register_transparency_visualiser_lands_in_unscoped_pool() -> None:
+def test_transparency_visualiser_lands_in_unscoped_pool() -> None:
     from raitap._adapters import _BUILDERS
 
     assert "_stub_viz" in _BUILDERS["_unscoped"]

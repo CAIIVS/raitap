@@ -1,6 +1,6 @@
 """Family decorator for reporting adapters.
 
-Adapter sites use ``@register_reporter(...)`` instead of the legacy
+Adapter sites use ``@adapters.reporter(...)`` instead of the legacy
 ``class Foo(BaseReporter, registry_name=..., extra=..., ...)`` class-kwargs
 syntax. ``registry_name`` is required (enforced via ``Required[str]`` in
 ``AdapterDecoratorOptions``) so pyright errors at the decoration site if omitted.
@@ -27,7 +27,7 @@ REPORTING = FamilyConfig(
 T = TypeVar("T", bound="BaseReporter")
 
 
-def register_reporter(
+def reporter(
     **common: Unpack[AdapterDecoratorOptions],
 ) -> Callable[[type[T]], type[T]]:
     """Decorator: register a reporter.

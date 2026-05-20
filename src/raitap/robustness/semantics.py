@@ -67,7 +67,7 @@ def hints_for_assessor(assessor: object) -> AssessorSemanticsHints:
     if not isinstance(registry, Mapping):
         raise TypeError(
             f"Assessor {type(assessor).__name__!r} must declare an "
-            "``algorithm_registry`` ClassVar (set by the @register_robustness_adapter "
+            "``algorithm_registry`` ClassVar (set by the @adapters.robustness "
             "decoration contract)."
         )
     try:

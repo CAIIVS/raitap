@@ -15,7 +15,7 @@ else:
     torch = lazy_import("torch")
     nn = lazy_import("torch.nn")
 from raitap.transparency.contracts import MethodFamily
-from raitap.transparency.explainers.registration import register_transparency_adapter
+from raitap.transparency.explainers.registration import transparency_adapter
 
 from .base_explainer import AttributionOnlyExplainer
 
@@ -68,7 +68,7 @@ def _select_target_attributions(
     return shap_values[batch_indices, ..., target_tensor]
 
 
-@register_transparency_adapter(
+@transparency_adapter(
     registry_name="shap",
     library="shap",
     error_patterns={

@@ -5,12 +5,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from raitap import adapters
 from raitap._adapters import _BUILDERS, ADAPTER_EXTRAS
 from raitap.metrics.base_metric_computer import BaseMetricComputer, MetricResult
-from raitap.metrics.registration import register_metrics_adapter
 
 
-@register_metrics_adapter(
+@adapters.metrics(
     registry_name="_stub_metric",
     extra="_stub_extra",
 )
@@ -35,5 +35,5 @@ class _StubMetric(BaseMetricComputer):
 ADAPTER_EXTRAS.pop("_StubMetric", None)
 
 
-def test_register_metrics_adapter_registers_under_metrics_group() -> None:
+def test_metrics_adapter_registers_under_metrics_group() -> None:
     assert "_stub_metric" in _BUILDERS["metrics"]

@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 
+from raitap import adapters
 from raitap.robustness.assessors.base_assessor import EmpiricalAttackAssessor
-from raitap.robustness.assessors.registration import register_robustness_adapter
 from raitap.robustness.contracts import (
     MethodKind,
     Objective,
@@ -21,8 +21,8 @@ if TYPE_CHECKING:
     from torch import nn
 
 
-def test_register_robustness_adapter_registers_under_robustness_group() -> None:
-    @register_robustness_adapter(
+def test_robustness_adapter_registers_under_robustness_group() -> None:
+    @adapters.robustness(
         registry_name="_stub_attack",
         extra="_stub_extra",
         library="_stub_lib",

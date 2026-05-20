@@ -2,8 +2,8 @@
 
 Every concrete adapter (explainer, assessor, metric computer, reporter,
 tracker, visualiser) is registered via its family decorator (e.g.
-``@register_transparency_adapter``, ``@register_robustness_adapter``,
-``@register_transparency_visualiser``). The decorator delegates to
+``@adapters.transparency``, ``@adapters.robustness``,
+``@visualisers.transparency``). The decorator delegates to
 :func:`_register_core` which:
 
 * generates the hydra-zen builder (``builds(...)``)
@@ -69,8 +69,8 @@ class FamilyConfig:
 
 class _AllAlgorithmsSentinel:
     """Singleton type for the :data:`ALL` marker — pass
-    ``onnx_compatible_algorithms=ALL`` to ``@register_transparency_adapter`` /
-    ``@register_robustness_adapter`` to mark every algorithm in the adapter's
+    ``onnx_compatible_algorithms=ALL`` to ``@adapters.transparency`` /
+    ``@adapters.robustness`` to mark every algorithm in the adapter's
     ``algorithm_registry`` as ONNX-compatible without re-listing them."""
 
     __slots__ = ()
@@ -104,7 +104,7 @@ class AdapterMixin:
     Concrete adapters never inherit ``AdapterMixin`` directly — they extend
     their family base class (e.g. ``AttributionOnlyExplainer``,
     ``EmpiricalAttackAssessor``) which mixes in ``AdapterMixin``. Registration
-    is done by the family decorator (e.g. ``@register_transparency_adapter``),
+    is done by the family decorator (e.g. ``@adapters.transparency``),
     not by inheritance.
     """
 

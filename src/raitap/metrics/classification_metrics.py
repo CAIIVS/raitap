@@ -7,7 +7,7 @@ from raitap.configs.schema import (
     MulticlassClassificationMetricsConfig,
     MultilabelClassificationMetricsConfig,
 )
-from raitap.metrics.registration import register_metrics_adapter
+from raitap.metrics.registration import metrics_adapter
 from raitap.utils.lazy import lazy_import
 
 from .base_metric_computer import BaseMetricComputer, MetricResult
@@ -86,7 +86,7 @@ class _ClassificationBase(BaseMetricComputer):
         self.f1 = torchmetrics.F1Score(**tm_kwargs)
 
 
-@register_metrics_adapter(
+@metrics_adapter(
     registry_name="binary_classification",
     extra="metrics",
     schema=BinaryClassificationMetricsConfig,
@@ -110,7 +110,7 @@ class BinaryClassificationMetrics(_ClassificationBase):
         )
 
 
-@register_metrics_adapter(
+@metrics_adapter(
     registry_name="multiclass_classification",
     extra="metrics",
     schema=MulticlassClassificationMetricsConfig,
@@ -138,7 +138,7 @@ class MulticlassClassificationMetrics(_ClassificationBase):
         )
 
 
-@register_metrics_adapter(
+@metrics_adapter(
     registry_name="multilabel_classification",
     extra="metrics",
     schema=MultilabelClassificationMetricsConfig,

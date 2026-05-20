@@ -20,10 +20,10 @@ from raitap.transparency.contracts import (
     ExplanationScope,
     MethodFamily,
 )
+from raitap.transparency.visualisers.registration import transparency_visualiser
 from raitap.types import TaskKind
 
 from .base_visualiser import BaseVisualiser
-from .registration import register_transparency_visualiser
 
 if TYPE_CHECKING:
     import torch
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from raitap.transparency.contracts import VisualisationContext
 
 
-@register_transparency_visualiser(registry_name="detection_image")
+@transparency_visualiser(registry_name="detection_image")
 class DetectionImageVisualiser(BaseVisualiser):
     """Render one fig per box: original image + bbox rectangle + heatmap.
 

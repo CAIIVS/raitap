@@ -1,6 +1,6 @@
 """Family decorator for tracking adapters.
 
-Adapter sites use ``@register_tracker(...)`` instead of the legacy
+Adapter sites use ``@adapters.tracker(...)`` instead of the legacy
 ``class Foo(BaseTracker, registry_name=..., extra=..., ...)`` class-kwargs
 syntax. ``registry_name`` is enforced as required at the call site via
 ``Required[str]`` in ``AdapterDecoratorOptions`` — pyright errors if it is missing.
@@ -27,7 +27,7 @@ TRACKING = FamilyConfig(
 T = TypeVar("T", bound="BaseTracker")
 
 
-def register_tracker(
+def tracker(
     **common: Unpack[AdapterDecoratorOptions],
 ) -> Callable[[type[T]], type[T]]:
     """Decorator: register a tracker.

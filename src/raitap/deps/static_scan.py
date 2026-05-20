@@ -1,9 +1,9 @@
 """Best-effort static scan of adapter ``extra=`` declarations.
 
 Walks the installed raitap source tree with :mod:`ast` and harvests every
-``@register_<family>_adapter(...)`` (or ``@register_<family>_visualiser(...)``)
-decorator above a ``class`` def, without importing the module (and therefore
-without pulling the wrapped third-party library).
+family decorator (``@<family>_adapter(...)`` / ``@<family>_visualiser(...)``)
+above a ``class`` def, without importing the module (and therefore without
+pulling the wrapped third-party library).
 
 Mirrors :func:`raitap._adapters._register_core`'s defaulting: when the
 decorator omits ``extra=``, the runtime defaults it to ``registry_name``, so
@@ -19,7 +19,7 @@ whenever it is populated; this scanner is a safety net for
 
 Preserves the "adding a new adapter = single-file add" invariant:
 nothing here is hand-maintained, and a new adapter's
-``@register_*_adapter(..., extra="...")`` is picked up automatically.
+``@<family>_adapter(..., extra="...")`` is picked up automatically.
 """
 
 from __future__ import annotations
@@ -28,11 +28,20 @@ import ast
 from functools import lru_cache
 from pathlib import Path
 
+# In-tree adapters decorate with the bare family decorator imported directly
+# from its ``registration`` module (e.g. ``@metrics_adapter(...)``). The public
+# ``@adapters.<family>`` facade is for external plugin authors and is not used
+# in-tree (it would create an import cycle), so the scanner matches bare names.
+_ADAPTER_DECORATORS = frozenset(
+    {"transparency_adapter", "robustness_adapter", "metrics_adapter", "reporter", "tracker"}
+)
+_VISUALISER_DECORATORS = frozenset({"transparency_visualiser", "robustness_visualiser"})
+
 
 def _decorator_name(deco: ast.expr) -> str | None:
-    """Return the bare name of a decorator call (e.g. ``register_metrics_adapter``)
-    regardless of whether it was imported as ``register_metrics_adapter`` or
-    accessed via ``module.register_metrics_adapter``."""
+    """Return the bare name of a decorator call (e.g. ``metrics_adapter``)
+    regardless of whether it was imported as ``metrics_adapter`` or accessed via
+    ``module.metrics_adapter``."""
     if not isinstance(deco, ast.Call):
         return None
     func = deco.func
@@ -43,16 +52,6 @@ def _decorator_name(deco: ast.expr) -> str | None:
     return None
 
 
-def _is_register_decorator(name: str | None) -> bool:
-    """Match every family registration decorator: ``register_transparency_adapter``,
-    ``register_robustness_adapter``, ``register_metrics_adapter``,
-    ``register_reporter``, ``register_tracker``,
-    ``register_transparency_visualiser``, ``register_robustness_visualiser``.
-    All share the ``register_`` prefix — broader match keeps this future-proof
-    when a new family adds its own decorator."""
-    return name is not None and name.startswith("register_")
-
-
 @lru_cache(maxsize=1)
 def scan_adapter_extras() -> dict[str, str]:
     """Return ``{class_name: extra}`` harvested from raitap's source tree."""
@@ -61,7 +60,7 @@ def scan_adapter_extras() -> dict[str, str]:
     root = Path(raitap.__file__).resolve().parent
     found: dict[str, str] = {}
     for path in root.rglob("*.py"):
-        # Tests can legitimately declare ``@register_*_adapter(..., extra="…")`` —
+        # Tests can legitimately declare ``@<family>_adapter(..., extra="…")`` —
         # they are not real adapters and should not pollute the map.
         if "tests" in path.parts:
             continue
@@ -74,7 +73,7 @@ def scan_adapter_extras() -> dict[str, str]:
                 continue
             for deco in node.decorator_list:
                 name = _decorator_name(deco)
-                if not _is_register_decorator(name):
+                if name not in _ADAPTER_DECORATORS and name not in _VISUALISER_DECORATORS:
                     continue
                 assert isinstance(deco, ast.Call)  # narrowed by _decorator_name
                 kwargs = {
@@ -87,14 +86,12 @@ def scan_adapter_extras() -> dict[str, str]:
                     )
                 }
                 # ``extra`` defaults to ``registry_name`` at runtime for every
-                # schema-backed decorator (``register_*_adapter``,
-                # ``register_reporter``, ``register_tracker``); visualiser
-                # decorators (``register_*_visualiser``) don't get an
-                # auto-extra — they ship with their parent adapter's extra.
+                # schema-backed adapter decorator; visualiser decorators don't
+                # get an auto-extra — they ship with their parent adapter's extra.
                 explicit_extra = kwargs.get("extra")
                 if explicit_extra:
                     found[node.name] = explicit_extra
-                elif name is not None and not name.endswith("_visualiser"):
+                elif name in _ADAPTER_DECORATORS:
                     registry_name = kwargs.get("registry_name")
                     if registry_name:
                         found[node.name] = registry_name

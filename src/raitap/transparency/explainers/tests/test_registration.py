@@ -6,13 +6,13 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from raitap import adapters
 from raitap.transparency.contracts import ExplanationPayloadKind, MethodFamily
 from raitap.transparency.explainers.base_explainer import AttributionOnlyExplainer
-from raitap.transparency.explainers.registration import register_transparency_adapter
 
 
-def test_register_transparency_adapter_registers_and_assigns_classvars() -> None:
-    @register_transparency_adapter(
+def test_transparency_adapter_registers_and_assigns_classvars() -> None:
+    @adapters.transparency(
         registry_name="_stub_xai",
         extra="_stub_extra",
         library="_stub_lib",

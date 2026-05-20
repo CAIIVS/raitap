@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import matplotlib.pyplot as plt
 import numpy as np
 
-from raitap.robustness.visualisers.registration import register_robustness_visualiser
+from raitap.robustness.visualisers.registration import robustness_visualiser
 from raitap.transparency.contracts import InputKind
 from raitap.utils.lazy import lazy_import
 
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from ...results import RobustnessResult
 
 
-@register_robustness_visualiser(registry_name="image_pair")
+@robustness_visualiser(registry_name="image_pair")
 class ImagePairVisualiser(BaseRobustnessVisualiser):
     """Render N rows by 3 columns: clean, perturbed, signed perturbation."""
 

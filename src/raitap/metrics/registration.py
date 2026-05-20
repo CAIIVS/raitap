@@ -1,6 +1,6 @@
 """Family decorator for metrics adapters.
 
-Adapter sites use ``@register_metrics_adapter(...)`` instead of the legacy
+Adapter sites use ``@adapters.metrics(...)`` instead of the legacy
 ``class Foo(BaseMetricComputer, registry_name=..., extra=..., ...)`` class-kwargs
 syntax. ``registry_name`` is type-checked by pyright at the decoration site via
 ``Required[str]`` in ``AdapterDecoratorOptions``.
@@ -27,7 +27,7 @@ METRICS = FamilyConfig(
 T = TypeVar("T", bound="BaseMetricComputer")
 
 
-def register_metrics_adapter(
+def metrics_adapter(
     **common: Unpack[AdapterDecoratorOptions],
 ) -> Callable[[type[T]], type[T]]:
     """Decorator: register a metrics adapter.

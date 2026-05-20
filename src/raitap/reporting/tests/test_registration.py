@@ -6,8 +6,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from raitap import adapters
 from raitap.reporting.base_reporter import BaseReporter
-from raitap.reporting.registration import register_reporter
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -15,8 +15,8 @@ if TYPE_CHECKING:
     from raitap.reporting.base_reporter import ReportSection
 
 
-def test_register_reporter_registers_under_reporting_group() -> None:
-    @register_reporter(
+def test_reporter_registers_under_reporting_group() -> None:
+    @adapters.reporter(
         registry_name="_stub_reporter",
         extra="_stub_extra",
         library="_stub_lib",

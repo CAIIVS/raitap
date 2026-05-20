@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Literal
 
 from raitap.configs.schema import DetectionMetricsConfig, IoUConfig
-from raitap.metrics.registration import register_metrics_adapter
+from raitap.metrics.registration import metrics_adapter
 from raitap.utils.lazy import lazy_import
 
 from .base_metric_computer import BaseMetricComputer, MetricResult
@@ -33,7 +33,7 @@ def _coerce_iou(iou: IoUConfig | dict[str, Any] | None) -> IoUConfig:
     return IoUConfig(**iou)
 
 
-@register_metrics_adapter(
+@metrics_adapter(
     registry_name="detection",
     extra="metrics",
     schema=DetectionMetricsConfig,

@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 T = TypeVar("T", bound="BaseRobustnessVisualiser")
 
 
-def register_robustness_visualiser(
+def robustness_visualiser(
     **common: Unpack[AdapterDecoratorOptions],
 ) -> Callable[[type[T]], type[T]]:
     """Decorator: register a robustness visualiser. No family group; the

@@ -32,6 +32,8 @@ if TYPE_CHECKING:
 else:
     torch = lazy_import("torch")
 
+from raitap.robustness.assessors.registration import robustness_adapter
+
 from ..contracts import (
     MethodKind,
     Objective,
@@ -44,7 +46,6 @@ from ..contracts import (
 from ..exceptions import AssessorBackendIncompatibilityError
 from ..semantics import AssessorSemanticsHints
 from .base_assessor import FormalVerificationAssessor
-from .registration import register_robustness_adapter
 
 # Curated error patterns for confusing maraboupy errors. Matched against
 # ``str(exc)``; first hit wins. See :func:`raitap.utils.errors.rethrow`.
@@ -73,7 +74,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-@register_robustness_adapter(
+@robustness_adapter(
     registry_name="marabou",
     library="maraboupy",
     error_patterns=_MARABOUPY_ERROR_MESSAGES,
