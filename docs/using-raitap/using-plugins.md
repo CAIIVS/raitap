@@ -40,7 +40,7 @@ built-in adapter.
 :yaml:
 transparency:
   my_run:
-    _target_: "SuperXAIExplainer"
+    _target_: "raitap_superxai.SuperXAIExplainer"   # full import path — plugin classes live outside raitap.*
     algorithm: supertreeshap
 
 :python:
@@ -49,8 +49,11 @@ from raitap.transparency import superxai
 transparency = {"my_run": superxai(algorithm="supertreeshap")}
 ```
 
-The `+transparency=superxai` CLI shorthand also works **if** the plugin ships a
-matching preset; otherwise compose it inline as above.
+In YAML, use the plugin class's **full import path** (`raitap_superxai.SuperXAIExplainer`):
+a bare `_target_: SuperXAIExplainer` only resolves for built-in adapters. The
+Python form needs no path — `superxai` already carries it. The
+`+transparency=superxai` CLI shorthand also works **if** the plugin ships a
+matching preset.
 
 ## If a plugin doesn't show up
 
