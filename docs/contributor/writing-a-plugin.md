@@ -12,6 +12,16 @@ This page explains how to write a lightwight plugin adapter so your library can 
 
 In the following guide, we will imagine you want to make you "SuperXAI" library usable to RAITAP users seamlessly.
 
+## Supported modules
+
+Plugins can register:
+
+- Transparency explainers and robustness assessors
+- Metrics, reporting, and tracking adapters
+- Transparency and robustness visualisers
+
+Backends are not plugin-extensible.
+
 ## 1. Create the package
 
 A plugin is an ordinary pip package. Lay it out like any `src/`-style project:
