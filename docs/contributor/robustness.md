@@ -27,8 +27,7 @@ BaseAssessor                            # root — declares method_kind + budget
 ```
 
 - **`BaseAssessor`** — root. Declares `method_kind: ClassVar[MethodKind]`,
-  `threat_model_default`, `objective_default`, `budget_kwarg_source`, and the
-  no-op `check_backend_compat`. Never subclass directly.
+  `budget_kwarg_source`, and the no-op `check_backend_compat`. Never subclass directly.
 - **`EmpiricalAttackAssessor`** — subclasses implement only
   `generate_adversarial(model, inputs, targets, ...) → Tensor`. Batching,
   prediction, verdict computation, distance computation, semantics inference,

@@ -36,7 +36,6 @@ from ..contracts import (
     PerturbationBudget,
     PerturbationNorm,
     RobustnessVerdict,
-    ThreatModel,
     VerificationOutcome,
 )
 from ..exceptions import AssessorBackendIncompatibilityError
@@ -67,8 +66,6 @@ class BaseAssessor(AdapterMixin, ABC):
 
     algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]
     method_kind: ClassVar[MethodKind]
-    threat_model_default: ClassVar[ThreatModel] = ThreatModel.WHITE_BOX
-    objective_default: ClassVar[Objective] = Objective.UNTARGETED
 
     #: Which YAML block the underlying library actually consumes for budget
     #: kwargs (``eps`` / ``alpha`` / ``steps``). ``"init_kwargs"`` means the
