@@ -159,3 +159,11 @@ during bisection (TIMEOUT / UNKNOWN) break the search conservatively; the
 returned bound is the loosest still-certified value, never a falsely tight
 one. If every probe for a given class/mode is inconclusive the assessor
 emits a `WARNING` log so vacuous bounds are obvious.
+
+## Third-party adapters
+
+Third-party adapters published to PyPI can register under the `raitap.adapters`
+entry-point group and are auto-discovered at config-registration time. Once
+installed they appear alongside in-tree assessors: `+robustness=myattack` in the
+CLI or `from raitap.robustness import myattack` in Python. See
+{doc}`../../contributor/writing-a-plugin`.

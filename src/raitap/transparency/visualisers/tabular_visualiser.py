@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,9 +14,9 @@ from raitap.transparency.contracts import (
     ScopeDefinitionStep,
     VisualSummarySpec,
 )
+from raitap.transparency.visualisers.registration import transparency_visualiser
 
 from .base_visualiser import BaseVisualiser
-from .registration import register_transparency_visualiser
 
 if TYPE_CHECKING:
     import torch
@@ -25,31 +25,30 @@ if TYPE_CHECKING:
     from raitap.transparency.contracts import VisualisationContext
 
 
-@register_transparency_visualiser(registry_name="tabular_bar_chart")
+@transparency_visualiser(
+    registry_name="tabular_bar_chart",
+    supported_scopes=frozenset({ExplanationScope.LOCAL}),
+    supported_output_spaces=frozenset(
+        {
+            ExplanationOutputSpace.INPUT_FEATURES,
+            ExplanationOutputSpace.INTERPRETABLE_FEATURES,
+        }
+    ),
+    supported_method_families=frozenset(MethodFamily),
+    produces_scope=ExplanationScope.COHORT,
+    scope_definition_step=ScopeDefinitionStep.VISUALISER_SUMMARY,
+    visual_summary=VisualSummarySpec(
+        summary_type="tabular_bar",
+        aggregation="mean_absolute_attribution",
+        description="Mean absolute attribution by tabular feature.",
+    ),
+)
 class TabularBarChartVisualiser(BaseVisualiser):
     """
     Visualise attributions for tabular data as bar charts.
 
     Works with any attribution method (Captum, SHAP, etc.)
     """
-
-    supported_scopes: ClassVar[frozenset[ExplanationScope]] = frozenset({ExplanationScope.LOCAL})
-    supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset(
-        {
-            ExplanationOutputSpace.INPUT_FEATURES,
-            ExplanationOutputSpace.INTERPRETABLE_FEATURES,
-        }
-    )
-    supported_method_families: ClassVar[frozenset[MethodFamily]] = frozenset(MethodFamily)
-    produces_scope: ClassVar[ExplanationScope | None] = ExplanationScope.COHORT
-    scope_definition_step: ClassVar[ScopeDefinitionStep | None] = (
-        ScopeDefinitionStep.VISUALISER_SUMMARY
-    )
-    visual_summary: ClassVar[VisualSummarySpec | None] = VisualSummarySpec(
-        summary_type="tabular_bar",
-        aggregation="mean_absolute_attribution",
-        description="Mean absolute attribution by tabular feature.",
-    )
 
     def __init__(self, feature_names: list[str] | None = None):
         """

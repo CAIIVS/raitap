@@ -2,8 +2,8 @@
 
 Every concrete adapter (explainer, assessor, metric computer, reporter,
 tracker, visualiser) is registered via its family decorator (e.g.
-``@register_transparency_adapter``, ``@register_robustness_adapter``,
-``@register_transparency_visualiser``). The decorator delegates to
+``@adapters.transparency``, ``@adapters.robustness``,
+``@visualisers.transparency``). The decorator delegates to
 :func:`_register_core` which:
 
 * generates the hydra-zen builder (``builds(...)``)
@@ -23,9 +23,11 @@ from __future__ import annotations
 import dataclasses
 import importlib
 import inspect
+import os
 import pkgutil
 from contextlib import contextmanager
 from dataclasses import dataclass
+from importlib import metadata as importlib_metadata
 from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, Required, TypedDict, Unpack
 
 from hydra_zen import ZenStore, builds
@@ -69,8 +71,8 @@ class FamilyConfig:
 
 class _AllAlgorithmsSentinel:
     """Singleton type for the :data:`ALL` marker — pass
-    ``onnx_compatible_algorithms=ALL`` to ``@register_transparency_adapter`` /
-    ``@register_robustness_adapter`` to mark every algorithm in the adapter's
+    ``onnx_compatible_algorithms=ALL`` to ``@adapters.transparency`` /
+    ``@adapters.robustness`` to mark every algorithm in the adapter's
     ``algorithm_registry`` as ONNX-compatible without re-listing them."""
 
     __slots__ = ()
@@ -82,10 +84,13 @@ class _AllAlgorithmsSentinel:
 ALL: Final[_AllAlgorithmsSentinel] = _AllAlgorithmsSentinel()
 
 
-class _CommonRegKwargs(TypedDict, total=False):
-    """Cross-family registration kwargs. Forwarded into every family decorator
-    via ``**common: Unpack[_CommonRegKwargs]`` so each decorator declares only
-    its own family-specific required kwargs."""
+class AdapterDecoratorOptions(TypedDict, total=False):
+    """Public: cross-family registration options every adapter decorator
+    accepts. Forwarded into each family decorator via
+    ``**common: Unpack[AdapterDecoratorOptions]``. Family-specific required
+    kwargs (e.g. ``algorithm_registry``) are declared on the individual
+    decorators. Plugin authors may import this type to re-type forwarded kwargs;
+    the decorator signatures are the public contract regardless."""
 
     registry_name: Required[str]
     extra: str
@@ -101,7 +106,7 @@ class AdapterMixin:
     Concrete adapters never inherit ``AdapterMixin`` directly — they extend
     their family base class (e.g. ``AttributionOnlyExplainer``,
     ``EmpiricalAttackAssessor``) which mixes in ``AdapterMixin``. Registration
-    is done by the family decorator (e.g. ``@register_transparency_adapter``),
+    is done by the family decorator (e.g. ``@adapters.transparency``),
     not by inheritance.
     """
 
@@ -200,7 +205,7 @@ def _register_core(
     cls: type,
     *,
     family: FamilyConfig | None,
-    **common: Unpack[_CommonRegKwargs],
+    **common: Unpack[AdapterDecoratorOptions],
 ) -> type:
     """Cross-family registration mechanics. Returns ``cls`` unchanged.
 
@@ -283,6 +288,63 @@ def discover(package_path: list[str], package_name: str) -> None:
         if "tests" in name.split("."):
             continue
         importlib.import_module(name)
+
+
+def _plugin_raitap_specifier(distribution_name: str) -> str | None:
+    """Return the plugin distribution's declared ``raitap`` version specifier
+    (from its pip ``Requires-Dist``), or ``None`` if it declares no raitap pin."""
+    from packaging.requirements import Requirement
+
+    reqs = importlib_metadata.requires(distribution_name) or []
+    for raw in reqs:
+        req = Requirement(raw)
+        if req.name == "raitap":
+            return str(req.specifier)
+    return None
+
+
+def _plugin_version_ok(distribution_name: str) -> tuple[bool, str]:
+    """``(ok, message)``. Verify the running raitap version satisfies the
+    plugin's declared raitap specifier. A plugin with no raitap pin is treated
+    as malformed (not ok)."""
+    from packaging.specifiers import SpecifierSet
+
+    from raitap.__about__ import __version__
+
+    spec = _plugin_raitap_specifier(distribution_name)
+    if spec is None:
+        return False, f"{distribution_name!r} declares no 'raitap' dependency pin"
+    if __version__ not in SpecifierSet(spec, prereleases=True):
+        return False, f"{distribution_name!r} requires raitap{spec}; running {__version__}"
+    return True, ""
+
+
+def discover_third_party_adapters() -> None:
+    """Import every module under the ``raitap.adapters`` entry-point group so its
+    decorators fire, populating :data:`_BUILDERS` like in-tree adapters.
+
+    Default-allow; set ``RAITAP_DISABLE_PLUGINS=1`` to skip entirely. Each plugin
+    is version-checked against its pip ``raitap`` pin and isolated: one failure
+    is logged and skipped, never fatal.
+    """
+    if os.environ.get("RAITAP_DISABLE_PLUGINS"):
+        return
+    from raitap.utils.diagnostics import Module
+    from raitap.utils.log import raitap_log
+
+    for ep in importlib_metadata.entry_points(group="raitap.adapters"):
+        dist_name = ep.dist.name if ep.dist is not None else ep.name
+        try:
+            ok, why = _plugin_version_ok(dist_name)
+            if not ok:
+                raitap_log.warn(f"Skipping plugin {ep.name!r}: {why}", module=Module.deps)
+                continue
+            ep.load()  # decorators fire as import side-effect
+        except Exception as exc:
+            raitap_log.warn(
+                f"Plugin {ep.name!r} ({ep.value}) failed to load: {exc}",
+                module=Module.deps,
+            )
 
 
 def lookup(group: str, name: str) -> Any:

@@ -1,16 +1,16 @@
 """Family decorator for tracking adapters.
 
-Adapter sites use ``@register_tracker(...)`` instead of the legacy
+Adapter sites use ``@adapters.tracker(...)`` instead of the legacy
 ``class Foo(BaseTracker, registry_name=..., extra=..., ...)`` class-kwargs
 syntax. ``registry_name`` is enforced as required at the call site via
-``Required[str]`` in ``_CommonRegKwargs`` — pyright errors if it is missing.
+``Required[str]`` in ``AdapterDecoratorOptions`` — pyright errors if it is missing.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypeVar, Unpack
 
-from raitap._adapters import FamilyConfig, _CommonRegKwargs, _register_core
+from raitap._adapters import AdapterDecoratorOptions, FamilyConfig, _register_core
 from raitap.configs.schema import TrackingConfig
 
 if TYPE_CHECKING:
@@ -27,8 +27,8 @@ TRACKING = FamilyConfig(
 T = TypeVar("T", bound="BaseTracker")
 
 
-def register_tracker(
-    **common: Unpack[_CommonRegKwargs],
+def tracker(
+    **common: Unpack[AdapterDecoratorOptions],
 ) -> Callable[[type[T]], type[T]]:
     """Decorator: register a tracker.
 

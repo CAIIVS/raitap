@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from raitap.transparency.contracts import MethodFamily
-from raitap.transparency.explainers.registration import register_transparency_adapter
+from raitap.transparency.explainers.registration import transparency_adapter
 
 from .base_explainer import AttributionOnlyExplainer
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     import torch.nn as nn
 
 
-@register_transparency_adapter(
+@transparency_adapter(
     registry_name="captum",
     library="captum",
     # Captum emits the ``required_grads`` UserWarning on every run when inputs

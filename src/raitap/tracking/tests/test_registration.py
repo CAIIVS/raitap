@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from raitap import adapters
 from raitap.tracking.base_tracker import BaseTracker
-from raitap.tracking.registration import register_tracker
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -16,8 +16,8 @@ if TYPE_CHECKING:
     from raitap.models.backend import ModelBackend
 
 
-def test_register_tracker_registers_under_tracking_group() -> None:
-    @register_tracker(
+def test_tracker_registers_under_tracking_group() -> None:
+    @adapters.tracker(
         registry_name="_stub_tracker",
         extra="_stub_extra",
     )

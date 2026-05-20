@@ -39,3 +39,8 @@ def test_adapter_imports_without_wrapped_libs(
 ) -> None:
     monkeypatch.delitem(sys.modules, module_name, raising=False)
     importlib.import_module(module_name)
+
+
+def test_facades_import_without_torch() -> None:
+    for mod in ("raitap.adapters", "raitap.visualisers", "raitap.backends"):
+        importlib.import_module(mod)

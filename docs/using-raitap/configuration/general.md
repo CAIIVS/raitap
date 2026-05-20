@@ -265,6 +265,8 @@ config = AppConfig(model=ModelConfig(source="./my-custom-model.onnx"))
 
 In the above example, the final config will use the custom ONNX model, because `_self_` is applied last.
 
+(multirun)=
+
 ### Batch runs
 
 Hydra can execute multiple runs from a single command using `--multirun`.

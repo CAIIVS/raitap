@@ -36,7 +36,6 @@ from ..contracts import (
     PerturbationBudget,
     PerturbationNorm,
     RobustnessVerdict,
-    ThreatModel,
     VerificationOutcome,
 )
 from ..exceptions import AssessorBackendIncompatibilityError
@@ -61,14 +60,12 @@ class BaseAssessor(AdapterMixin, ABC):
 
     Concrete subclasses must declare ``algorithm_registry`` as a class-body
     ClassVar — pyright errors at the decoration site if missing (the
-    ``@register_robustness_adapter`` decorator's ``algorithm_registry`` kwarg
+    ``@adapters.robustness`` decorator's ``algorithm_registry`` kwarg
     is ``Required``).
     """
 
     algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]
     method_kind: ClassVar[MethodKind]
-    threat_model_default: ClassVar[ThreatModel] = ThreatModel.WHITE_BOX
-    objective_default: ClassVar[Objective] = Objective.UNTARGETED
 
     #: Which YAML block the underlying library actually consumes for budget
     #: kwargs (``eps`` / ``alpha`` / ``steps``). ``"init_kwargs"`` means the
@@ -79,7 +76,7 @@ class BaseAssessor(AdapterMixin, ABC):
     budget_kwarg_source: ClassVar[str] = "init_kwargs"
 
     #: Adapter-specific; defaults to "no ONNX support". The
-    #: ``@register_robustness_adapter`` decorator overrides per-adapter.
+    #: ``@adapters.robustness`` decorator overrides per-adapter.
     ONNX_COMPATIBLE_ALGORITHMS: ClassVar[frozenset[str]] = frozenset()
 
     def check_backend_compat(self, backend: object) -> None:

@@ -21,9 +21,9 @@ from raitap.transparency.contracts import (
     ScopeDefinitionStep,
     VisualSummarySpec,
 )
+from raitap.transparency.visualisers.registration import transparency_visualiser
 
 from .base_visualiser import BaseVisualiser
-from .registration import register_transparency_visualiser
 
 if TYPE_CHECKING:
     import torch
@@ -211,19 +211,20 @@ class _TabularSummaryContractMixin(BaseVisualiser):
 # ---------------------------------------------------------------------------
 
 
-@register_transparency_visualiser(registry_name="shap_bar")
+@transparency_visualiser(
+    registry_name="shap_bar",
+    visual_summary=VisualSummarySpec(
+        summary_type="bar",
+        aggregation="mean_absolute_attribution",
+        description="Mean absolute attribution by feature.",
+    ),
+)
 class ShapBarVisualiser(_TabularSummaryContractMixin):
     """
     Mean absolute SHAP value bar chart via ``shap.summary_plot(plot_type='bar')``.
 
     Compatible with all SHAP explainer algorithms.
     """
-
-    visual_summary: ClassVar[VisualSummarySpec | None] = VisualSummarySpec(
-        summary_type="bar",
-        aggregation="mean_absolute_attribution",
-        description="Mean absolute attribution by feature.",
-    )
 
     def __init__(self, feature_names: list[str] | None = None, max_display: int = 20):
         self.feature_names = feature_names
@@ -268,19 +269,20 @@ class ShapBarVisualiser(_TabularSummaryContractMixin):
         return fig
 
 
-@register_transparency_visualiser(registry_name="shap_beeswarm")
+@transparency_visualiser(
+    registry_name="shap_beeswarm",
+    visual_summary=VisualSummarySpec(
+        summary_type="beeswarm",
+        aggregation="distribution_summary",
+        description="Distribution of local attributions by feature.",
+    ),
+)
 class ShapBeeswarmVisualiser(_TabularSummaryContractMixin):
     """
     SHAP beeswarm summary plot via ``shap.summary_plot()``.
 
     Compatible with all SHAP explainer algorithms.
     """
-
-    visual_summary: ClassVar[VisualSummarySpec | None] = VisualSummarySpec(
-        summary_type="beeswarm",
-        aggregation="distribution_summary",
-        description="Distribution of local attributions by feature.",
-    )
 
     def __init__(self, feature_names: list[str] | None = None, max_display: int = 20):
         self.feature_names = feature_names
@@ -317,7 +319,7 @@ class ShapBeeswarmVisualiser(_TabularSummaryContractMixin):
         return fig
 
 
-@register_transparency_visualiser(registry_name="shap_waterfall")
+@transparency_visualiser(registry_name="shap_waterfall")
 class ShapWaterfallVisualiser(BaseVisualiser):
     """
     Per-sample SHAP waterfall chart via ``shap.plots.waterfall``.
@@ -385,7 +387,7 @@ class ShapWaterfallVisualiser(BaseVisualiser):
         return _close_and_return(fig)
 
 
-@register_transparency_visualiser(registry_name="shap_force")
+@transparency_visualiser(registry_name="shap_force")
 class ShapForceVisualiser(BaseVisualiser):
     """
     Per-sample SHAP force plot via ``shap.plots.force`` (matplotlib backend).
@@ -448,7 +450,14 @@ class ShapForceVisualiser(BaseVisualiser):
 # ---------------------------------------------------------------------------
 
 
-@register_transparency_visualiser(registry_name="shap_image")
+@transparency_visualiser(
+    registry_name="shap_image",
+    compatible_algorithms=frozenset({"GradientExplainer", "DeepExplainer"}),
+    supported_scopes=frozenset({ExplanationScope.LOCAL}),
+    supported_output_spaces=frozenset({ExplanationOutputSpace.INPUT_FEATURES}),
+    supported_method_families=frozenset({MethodFamily.GRADIENT}),
+    embeds_original_input=True,
+)
 class ShapImageVisualiser(BaseVisualiser):
     """
     Render image-level SHAP attributions with Matplotlib.
@@ -467,18 +476,6 @@ class ShapImageVisualiser(BaseVisualiser):
     Positive contributions are shown in warm colours and negative
     contributions in cool colours, using the configured Matplotlib colormap.
     """
-
-    compatible_algorithms: ClassVar[frozenset[str]] = frozenset(
-        {"GradientExplainer", "DeepExplainer"}
-    )
-    supported_scopes: ClassVar[frozenset[ExplanationScope]] = frozenset({ExplanationScope.LOCAL})
-    supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset(
-        {ExplanationOutputSpace.INPUT_FEATURES}
-    )
-    supported_method_families: ClassVar[frozenset[MethodFamily]] = frozenset(
-        {MethodFamily.GRADIENT}
-    )
-    embeds_original_input: ClassVar[bool] = True
 
     def validate_explanation(
         self,

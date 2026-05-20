@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from raitap._adapters import AdapterDecoratorOptions
 from raitap.utils.log import raitap_log
 
 if TYPE_CHECKING:
@@ -48,6 +49,7 @@ if TYPE_CHECKING:
 
 
 __all__ = [
+    "AdapterDecoratorOptions",
     "AppConfig",
     "Hardware",
     "raitap_log",

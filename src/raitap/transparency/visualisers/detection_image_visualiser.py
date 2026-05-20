@@ -8,7 +8,7 @@ model_agnostic / surrogate). Issue #146 Phase 3.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -20,10 +20,10 @@ from raitap.transparency.contracts import (
     ExplanationScope,
     MethodFamily,
 )
+from raitap.transparency.visualisers.registration import transparency_visualiser
 from raitap.types import TaskKind
 
 from .base_visualiser import BaseVisualiser
-from .registration import register_transparency_visualiser
 
 if TYPE_CHECKING:
     import torch
@@ -32,23 +32,12 @@ if TYPE_CHECKING:
     from raitap.transparency.contracts import VisualisationContext
 
 
-@register_transparency_visualiser(registry_name="detection_image")
-class DetectionImageVisualiser(BaseVisualiser):
-    """Render one fig per box: original image + bbox rectangle + heatmap.
-
-    Reads the per-box metadata from ``context.detection_box`` (populated by
-    the detection explain phase). The visualiser does not know which box k
-    it is rendering until the context is passed in.
-    """
-
-    supported_payload_kinds: ClassVar[frozenset[ExplanationPayloadKind]] = frozenset(
-        {ExplanationPayloadKind.ATTRIBUTIONS}
-    )
-    supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset(
-        {ExplanationOutputSpace.DETECTION_BOXES}
-    )
-    supported_scopes: ClassVar[frozenset[ExplanationScope]] = frozenset({ExplanationScope.LOCAL})
-    supported_method_families: ClassVar[frozenset[MethodFamily]] = frozenset(
+@transparency_visualiser(
+    registry_name="detection_image",
+    supported_payload_kinds=frozenset({ExplanationPayloadKind.ATTRIBUTIONS}),
+    supported_output_spaces=frozenset({ExplanationOutputSpace.DETECTION_BOXES}),
+    supported_scopes=frozenset({ExplanationScope.LOCAL}),
+    supported_method_families=frozenset(
         {
             MethodFamily.GRADIENT,
             MethodFamily.PERTURBATION,
@@ -57,9 +46,17 @@ class DetectionImageVisualiser(BaseVisualiser):
             MethodFamily.MODEL_AGNOSTIC,
             MethodFamily.SURROGATE,
         }
-    )
-    supported_tasks: ClassVar[frozenset[TaskKind]] = frozenset({TaskKind.detection})
-    embeds_original_input: ClassVar[bool] = True
+    ),
+    supported_tasks=frozenset({TaskKind.detection}),
+    embeds_original_input=True,
+)
+class DetectionImageVisualiser(BaseVisualiser):
+    """Render one fig per box: original image + bbox rectangle + heatmap.
+
+    Reads the per-box metadata from ``context.detection_box`` (populated by
+    the detection explain phase). The visualiser does not know which box k
+    it is rendering until the context is passed in.
+    """
 
     def visualise(
         self,

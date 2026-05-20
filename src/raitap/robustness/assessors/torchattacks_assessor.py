@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from raitap.robustness.assessors.registration import robustness_adapter
 from raitap.utils.lazy import lazy_import
 
 from ..contracts import MethodKind, Objective, PerturbationNorm, ThreatModel
 from ..semantics import AssessorSemanticsHints
 from .base_assessor import EmpiricalAttackAssessor, _prepare_inputs_for_forward
-from .registration import register_robustness_adapter
 
 if TYPE_CHECKING:
     import torch
@@ -18,7 +18,7 @@ else:
     torch = lazy_import("torch")
 
 
-@register_robustness_adapter(
+@robustness_adapter(
     registry_name="torchattacks",
     library="torchattacks",
     algorithm_registry={

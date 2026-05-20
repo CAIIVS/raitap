@@ -4,9 +4,9 @@ import dataclasses
 from dataclasses import dataclass
 from typing import Any
 
+from raitap import adapters
 from raitap._adapters import _BUILDERS, ADAPTER_EXTRAS
 from raitap.metrics.base_metric_computer import BaseMetricComputer, MetricResult
-from raitap.metrics.registration import register_metrics_adapter
 
 
 @dataclass
@@ -15,7 +15,7 @@ class _DummyConfig:
     knob: int = 42
 
 
-@register_metrics_adapter(registry_name="dummy_schema_test", schema=_DummyConfig)
+@adapters.metrics(registry_name="dummy_schema_test", schema=_DummyConfig)
 class _DummyMetric(BaseMetricComputer):
     def __init__(self, *, knob: int = 0) -> None:
         self.knob = knob

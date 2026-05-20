@@ -334,3 +334,11 @@ transparency = {
 ```
 
 **Note:** `ShapImageVisualiser` requires pixel-level SHAP values from `GradientExplainer` or `DeepExplainer`. Other SHAP visualisers are intended for tabular or interpretable feature outputs and are treated as cohort summaries when they aggregate the selected batch.
+
+## Third-party adapters
+
+Third-party adapters published to PyPI can register under the `raitap.adapters`
+entry-point group and are auto-discovered at config-registration time. Once
+installed they appear alongside in-tree explainers: `+transparency=myexplainer`
+in the CLI or `from raitap.transparency import myexplainer` in Python. See
+{doc}`../../contributor/writing-a-plugin`.

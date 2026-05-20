@@ -24,7 +24,13 @@ def __getattr__(name: str) -> Any:
         return ReportingConfig
     from raitap._adapters import lookup
 
-    return lookup("reporting", name)
+    try:
+        return lookup("reporting", name)
+    except AttributeError:
+        from raitap.configs import register_configs
+
+        register_configs()  # idempotent; fires in-tree imports + plugin discovery
+        return lookup("reporting", name)
 
 
 __all__ = [

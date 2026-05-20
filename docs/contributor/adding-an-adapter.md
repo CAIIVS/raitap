@@ -1,9 +1,9 @@
 ---
 title: "Adding an adapter"
-description: "Adapters (explainers, assessors, metrics, reporters, trackers, visualisers) self-register via a per-family decorator (@register_transparency_adapter, @register_robustness_adapter, ...). Adding one is a single file plus optional pyproject.toml + test + docs entries. No central registry to edit."
+description: "Adapters (explainers, assessors, metrics, reporters, trackers, visualisers) self-register via a namespaced facade decorator (@adapters.transparency, @adapters.robustness, ...). Adding one is a single file plus optional pyproject.toml + test + docs entries. No central registry to edit."
 myst:
   html_meta:
-    "description": "Adapters (explainers, assessors, metrics, reporters, trackers, visualisers) self-register via a per-family decorator (@register_transparency_adapter, @register_robustness_adapter, ...). Adding one is a single file plus optional pyproject.toml + test + docs entries. No central registry to edit."
+    "description": "Adapters (explainers, assessors, metrics, reporters, trackers, visualisers) self-register via a namespaced facade decorator (@adapters.transparency, @adapters.robustness, ...). Adding one is a single file plus optional pyproject.toml + test + docs entries. No central registry to edit."
 ---
 
 # Adding an adapter
@@ -26,8 +26,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+from raitap import adapters
 from raitap.transparency.contracts import MethodFamily
-from raitap.transparency.explainers.registration import register_transparency_adapter
 
 from .base_explainer import AttributionOnlyExplainer
 
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     import torch.nn as nn
 
 
-@register_transparency_adapter(
+@adapters.transparency(
     registry_name="superxai",      # CLI `+transparency=superxai` / Python `from raitap.transparency import superxai`
     # extra="superxai",            # uv extra name; defaults to `registry_name` (omit unless they differ — see metrics for an exception)
     library="superxai-lib",        # real PyPI package name; drives `self._lazy_import()`
@@ -80,7 +80,7 @@ class SuperXAIExplainer(AttributionOnlyExplainer):
 ```
 
 - **Base class.** `AttributionOnlyExplainer` provides batching, artefact persistence, and `explain()` orchestration. Other families use other bases (`EmpiricalAttackAssessor` for robustness, `BaseMetricComputer` for metrics, etc.) — find them in files starting with `base_`. The concrete adapter is just a normal class; nothing flags it as abstract (the old `abstract=True` workaround was removed).
-- **Decorator.** `@register_transparency_adapter(...)` is the sole entry point for registration. `registry_name` is required and pyright-checked at the decoration site via `Required[str]`. Each family has its own decorator (`register_robustness_adapter`, `register_metrics_adapter`, `register_reporter`, `register_tracker`, `register_transparency_visualiser`, `register_robustness_visualiser`) — pick the one matching your base class.
+- **Decorator.** `@adapters.transparency(...)` is the sole entry point for registration. `registry_name` is required and pyright-checked at the decoration site via `Required[str]`. Each family has its own facade attribute (`adapters.robustness`, `adapters.metrics`, `adapters.reporter`, `adapters.tracker`, `visualisers.transparency`, `visualisers.robustness`) — pick the one matching your base class.
 - **Registration kwargs.** `library` is the pip name powering `self._lazy_import()` — pass it when you wrap a third-party package (the usual case). `extra` is the uv extra surfaced in install hints and scanned by `raitap.deps.inference`; it **defaults to `registry_name`** so you only need to set it explicitly when they differ (e.g. `classification_metrics` + `detection_metrics` both share `extra="metrics"`). `error_patterns` and `suppress_warnings` are optional polish.
 - **`algorithm_registry` (decorator kwarg).** Transparency and robustness only. Maps algorithm name → method families (or `AssessorSemanticsHints` for robustness) RAITAP tracks and reports on. **Required** — pyright errors at the decoration site if you omit it. Missing or misnamed entries make algorithms unselectable. The decorator assigns it onto the class so `type(self).algorithm_registry` still works at runtime.
 - **`output_payload_kind` (decorator kwarg).** Transparency only. Tells the report renderer what artefact shape the explainer emits (`ATTRIBUTIONS`, `SALIENCY_MAP`, ...). Defaults to `ExplanationPayloadKind.ATTRIBUTIONS` — only pass it if your explainer emits something else.
@@ -111,7 +111,7 @@ Tests go in `tests/raitap/<module>/<subdir>/test_<name>_<entity>.py`. Also add a
 
 Cover at minimum: registry membership, `check_backend_compat`, decorator wiring (the class lands in `_BUILDERS["<group>"]["<name>"]` and in `ADAPTER_EXTRAS`), and one `compute_attributions` / `generate_adversarial` / `compute` happy path. CI enforces module coverage.
 
-No stub workaround needed — concrete adapters are just concrete classes, and the decorator carries every family-required piece of metadata (`algorithm_registry`, `output_payload_kind`, `onnx_compatible_algorithms`). A test stub is just `@register_<family>_adapter(registry_name="_stub", algorithm_registry={...}, ...)` over a minimal subclass implementing the abstract methods.
+No stub workaround needed — concrete adapters are just concrete classes, and the decorator carries every family-required piece of metadata (`algorithm_registry`, `output_payload_kind`, `onnx_compatible_algorithms`). A test stub is just `@adapters.<family>(registry_name="_stub", algorithm_registry={...}, ...)` over a minimal subclass implementing the abstract methods.
 
 ## 5. Update the docs
 
@@ -119,14 +119,14 @@ Add a row to `docs/modules/<module>/frameworks-and-libraries.md` documenting the
 
 ## Adapter families and where to look
 
-| Module                 | Abstract base                                                                                                                               | Registration decorator                                                       | Group              | Schema               |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------ | -------------------- |
-| Transparency explainer | `raitap.transparency.explainers.base_explainer.AttributionOnlyExplainer` / `FullExplainer`                                                  | `@register_transparency_adapter`                                             | `transparency`     | `TransparencyConfig` |
-| Robustness assessor    | `raitap.robustness.assessors.base_assessor.EmpiricalAttackAssessor` / `FormalVerificationAssessor`                                          | `@register_robustness_adapter`                                               | `robustness`       | `RobustnessConfig`   |
-| Metric                 | `raitap.metrics.base_metric_computer.BaseMetricComputer`                                                                                    | `@register_metrics_adapter`                                                  | `metrics`          | `MetricsConfig`      |
-| Reporter               | `raitap.reporting.base_reporter.BaseReporter`                                                                                               | `@register_reporter`                                                         | `reporting`        | `ReportingConfig`    |
-| Tracker                | `raitap.tracking.base_tracker.BaseTracker`                                                                                                  | `@register_tracker`                                                          | `tracking`         | `TrackingConfig`     |
-| Visualiser             | `raitap.transparency.visualisers.base_visualiser.BaseVisualiser` / `raitap.robustness.visualisers.base_visualiser.BaseRobustnessVisualiser` | `@register_transparency_visualiser` / `@register_robustness_visualiser`      | — (no Hydra group) | —                    |
+| Module                 | Abstract base                                                                                                                               | Registration decorator                                              | Group              | Schema               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------ | -------------------- |
+| Transparency explainer | `raitap.transparency.explainers.base_explainer.AttributionOnlyExplainer` / `FullExplainer`                                                  | `@adapters.transparency`                                            | `transparency`     | `TransparencyConfig` |
+| Robustness assessor    | `raitap.robustness.assessors.base_assessor.EmpiricalAttackAssessor` / `FormalVerificationAssessor`                                          | `@adapters.robustness`                                              | `robustness`       | `RobustnessConfig`   |
+| Metric                 | `raitap.metrics.base_metric_computer.BaseMetricComputer`                                                                                    | `@adapters.metrics`                                                 | `metrics`          | `MetricsConfig`      |
+| Reporter               | `raitap.reporting.base_reporter.BaseReporter`                                                                                               | `@adapters.reporter`                                                | `reporting`        | `ReportingConfig`    |
+| Tracker                | `raitap.tracking.base_tracker.BaseTracker`                                                                                                  | `@adapters.tracker`                                                 | `tracking`         | `TrackingConfig`     |
+| Visualiser             | `raitap.transparency.visualisers.base_visualiser.BaseVisualiser` / `raitap.robustness.visualisers.base_visualiser.BaseRobustnessVisualiser` | `@visualisers.transparency` / `@visualisers.robustness`             | — (no Hydra group) | —                    |
 
 ## Adding a new algorithm to an existing adapter
 

@@ -18,13 +18,13 @@ Declared compatible with :class:`MethodKind.FORMAL_VERIFICATION` only.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import TwoSlopeNorm
 
-from raitap.robustness.visualisers.registration import register_robustness_visualiser
+from raitap.robustness.visualisers.registration import robustness_visualiser
 
 from ...contracts import MethodKind
 from ..base_visualiser import BaseRobustnessVisualiser
@@ -53,13 +53,12 @@ def _auto_figsize(n: int, k: int) -> tuple[float, float]:
     return (max(k * 0.6 + 2, 6), max(n * 0.25 + 1.5, 3))
 
 
-@register_robustness_visualiser(registry_name="output_bounds_margin_heatmap")
+@robustness_visualiser(
+    registry_name="output_bounds_margin_heatmap",
+    supported_method_kinds=frozenset({MethodKind.FORMAL_VERIFICATION}),
+)
 class OutputBoundsMarginHeatmapVisualiser(BaseRobustnessVisualiser):
     """Heatmap of per-class lower-vs-upper margins relative to the target class."""
-
-    supported_method_kinds: ClassVar[frozenset[MethodKind]] = frozenset(
-        {MethodKind.FORMAL_VERIFICATION}
-    )
 
     def __init__(
         self,

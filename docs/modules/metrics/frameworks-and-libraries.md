@@ -55,3 +55,10 @@ include `boxes` and `labels`.
 Scalar detection results such as `map` are written to `metrics.json`. Larger
 structured outputs, such as class-wise or extended summaries, are written to
 `artifacts.json`.
+
+## Third-party adapters
+
+Third-party adapters published to PyPI can register under the `raitap.adapters`
+entry-point group and are auto-discovered at config-registration time. Once
+installed they appear alongside in-tree metric computers. See
+{doc}`../../contributor/writing-a-plugin`.

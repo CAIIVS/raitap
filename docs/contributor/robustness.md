@@ -27,8 +27,7 @@ BaseAssessor                            # root — declares method_kind + budget
 ```
 
 - **`BaseAssessor`** — root. Declares `method_kind: ClassVar[MethodKind]`,
-  `threat_model_default`, `objective_default`, `budget_kwarg_source`, and the
-  no-op `check_backend_compat`. Never subclass directly.
+  `budget_kwarg_source`, and the no-op `check_backend_compat`. Never subclass directly.
 - **`EmpiricalAttackAssessor`** — subclasses implement only
   `generate_adversarial(model, inputs, targets, ...) → Tensor`. Batching,
   prediction, verdict computation, distance computation, semantics inference,
@@ -46,7 +45,7 @@ Every assessor declares two `ClassVar`s the framework relies on:
   algorithm names to their threat model / norm / families. `assessor_semantics`
   uses this to build `RobustnessResult.semantics.budget`, so the reported
   metadata always matches what the adapter actually executed. Passed via the
-  `@register_robustness_adapter(algorithm_registry=...)` decorator kwarg.
+  `@adapters.robustness(algorithm_registry=...)` decorator kwarg.
 - `budget_kwarg_source: ClassVar[str]` — `"init_kwargs"` (torchattacks reads
   the budget at construction time) or `"call_kwargs"` (foolbox reads it at
   call time). Defaults to `"init_kwargs"`.
@@ -105,7 +104,7 @@ reported `perturbation_distance` always matches the configured threat model.
   both empirical attacks and formal verification.
 - `factory.py` — typed config parsing, `_resolve_call_data_sources`, and the
   `RobustnessAssessment` Hydra entry point. Adapter paths are resolved via the
-  `@register_robustness_adapter` decorator — no manual path table to maintain.
+  `@adapters.robustness` decorator — no manual path table to maintain.
 - `results.py` — `RobustnessResult`, `RobustnessMetrics`, verdict encoding.
 - `visualisers/base_visualiser.py` — `BaseRobustnessVisualiser` +
   `MethodKind` compatibility check.
@@ -140,7 +139,7 @@ well-defined reference (a warning is logged).
   norm, family tags) from `semantics.py`.
 - **New robustness library** — see {doc}`adding-an-adapter`. Pick
   `EmpiricalAttackAssessor` or `FormalVerificationAssessor` as the base,
-  decorate with `@register_robustness_adapter(...)`, and set
+  decorate with `@adapters.robustness(...)`, and set
   `budget_kwarg_source="call_kwargs"` if the library reads the budget at
   call time. Override `check_backend_compat` if the library imposes extra
   backend constraints (e.g. white-box attacks require
@@ -150,7 +149,7 @@ well-defined reference (a warning is logged).
 ## Adding a new visualiser
 
 Subclass `BaseRobustnessVisualiser` and decorate with
-`@register_robustness_visualiser(...)` (see {doc}`adding-an-adapter` for the
+`@visualisers.robustness(...)` (see {doc}`adding-an-adapter` for the
 decorator scaffolding). Robustness-specific notes:
 
 - Set `supported_method_kinds` so the factory rejects mismatched assessor

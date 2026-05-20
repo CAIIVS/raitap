@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any
 
 from matplotlib.figure import Figure
 
+from raitap import visualisers
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
-from raitap.transparency.visualisers.registration import register_transparency_visualiser
 
 if TYPE_CHECKING:
     import torch
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 # Defined at module scope so ``hydra_zen.builds(...)`` can resolve the class's
 # ``__module__`` — nested-in-function classes would not be importable and the
 # ``_register_core`` swallow would silently skip registration.
-@register_transparency_visualiser(
+@visualisers.transparency(
     registry_name="_stub_viz",
 )
 class _StubViz(BaseVisualiser):
@@ -38,7 +38,28 @@ class _StubViz(BaseVisualiser):
         return Figure()
 
 
-def test_register_transparency_visualiser_lands_in_unscoped_pool() -> None:
+def test_transparency_visualiser_lands_in_unscoped_pool() -> None:
     from raitap._adapters import _BUILDERS
 
     assert "_stub_viz" in _BUILDERS["_unscoped"]
+
+
+def test_capability_fields_settable_via_decorator() -> None:
+    from matplotlib.figure import Figure
+
+    from raitap.transparency.contracts import ExplanationScope
+    from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
+    from raitap.transparency.visualisers.registration import transparency_visualiser
+
+    @transparency_visualiser(
+        registry_name="_stub_caps",
+        supported_scopes=frozenset({ExplanationScope.LOCAL}),
+        embeds_original_input=True,
+    )
+    class _StubCaps(BaseVisualiser):
+        def visualise(self, attributions, inputs=None, *, context=None, **kwargs) -> Figure:  # type: ignore[no-untyped-def]  # noqa: ANN001
+            return Figure()
+
+    assert _StubCaps.supported_scopes == frozenset({ExplanationScope.LOCAL})
+    assert _StubCaps.embeds_original_input is True
+    assert _StubCaps.supported_payload_kinds == BaseVisualiser.supported_payload_kinds

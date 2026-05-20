@@ -74,3 +74,10 @@ For each run, MLflow receives:
 ### Model logging
 
 When `log_model: true`, RAITAP logs the assessed model to MLflow. This can take significant time and resources for large models.
+
+## Third-party adapters
+
+Third-party adapters published to PyPI can register under the `raitap.adapters`
+entry-point group and are auto-discovered at config-registration time. Once
+installed they appear alongside in-tree trackers. See
+{doc}`../../contributor/writing-a-plugin`.

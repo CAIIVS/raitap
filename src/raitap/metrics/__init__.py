@@ -65,7 +65,13 @@ def __getattr__(name: str) -> Any:
         return MetricsConfig
     from raitap._adapters import lookup
 
-    return lookup("metrics", name)
+    try:
+        return lookup("metrics", name)
+    except AttributeError:
+        from raitap.configs import register_configs
+
+        register_configs()  # idempotent; fires in-tree imports + plugin discovery
+        return lookup("metrics", name)
 
 
 __all__ = [  # noqa: RUF022

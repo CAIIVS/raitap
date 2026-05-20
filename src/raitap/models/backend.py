@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, overload
 
 import numpy as np
 
+from raitap.models.registration import register
 from raitap.types import TaskKind
 from raitap.utils.errors import ModelInputShapeError
 from raitap.utils.lazy import lazy_import
@@ -162,10 +163,9 @@ class ModelBackend(ABC):
         """Return the model object that explainers should consume."""
 
 
+@register(supports_torch_autograd=True)
 class TorchBackend(ModelBackend):
     """PyTorch-backed model runtime."""
-
-    supports_torch_autograd = True
 
     def __init__(
         self,
@@ -231,10 +231,9 @@ def _onnx_explanation_module_cls() -> type:
     return _OnnxExplanationModule
 
 
+@register(supports_torch_autograd=False)
 class OnnxBackend(ModelBackend):
     """ONNX Runtime-backed model runtime."""
-
-    supports_torch_autograd = False
 
     def __init__(
         self,
