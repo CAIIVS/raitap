@@ -22,7 +22,7 @@ Are you a library maintainer wanting to ship your own adapter as a plugin? See
 Install the plugin next to RAITAP:
 
 ```bash
-pip install raitap raitap-myattack
+pip install raitap raitap-superxai
 ```
 
 That's it — no config flag to "enable" it. Every installed plugin is discovered
@@ -30,29 +30,27 @@ automatically.
 
 ## Use it
 
-Reference the adapter by its `registry_name` (here, `myattack`), exactly like a
+Reference the adapter by its `registry_name` (here, `superxai`), exactly like a
 built-in adapter.
 
 In YAML:
 
 ```yaml
-robustness:
+transparency:
   my_run:
-    _target_: MyAttackAssessor
-    algorithm: MyPGD
-    constructor:
-      eps: 0.03
+    _target_: SuperXAIExplainer
+    algorithm: supertreeshap
 ```
 
 In Python:
 
 ```python
-from raitap.robustness import myattack
+from raitap.transparency import superxai
 
-robustness = {"my_run": myattack(algorithm="MyPGD", constructor={"eps": 0.03})}
+transparency = {"my_run": superxai(algorithm="supertreeshap")}
 ```
 
-The `+robustness=myattack` CLI shorthand also works **if** the plugin ships a
+The `+transparency=superxai` CLI shorthand also works **if** the plugin ships a
 matching preset; otherwise compose it inline as above.
 
 ## If a plugin doesn't show up

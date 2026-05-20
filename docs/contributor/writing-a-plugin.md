@@ -10,76 +10,74 @@ myst:
 
 This page explains how to write a lightwight plugin adapter so your library can seamlessly be used via RAITAP. That way, you do not need to open a PR in the RAITAP repo, and consumers can use your library like any 1st party RAITAP adapter.
 
+In the following guide, we will imagine you want to create 
 
-## Step 1 — Create the package
+## 1. Create the package
 
 A plugin is an ordinary pip package. Lay it out like any `src/`-style project:
 
 ```
-raitap-myattack/
+raitap-superxai/
 ├── pyproject.toml
 └── src/
-    └── raitap_myattack/
+    └── raitap_superxai/
         └── __init__.py   # holds the decorated adapter; runs on import
 ```
 
-## Step 2 — Write the adapter
+## 2. Write the adapter
 
 Implement the adapter exactly as in {doc}`adding-an-adapter` — the only
-difference is your class lives in your own package, not under `src/raitap/`.
-Decorate it with the public `@adapters.<family>(...)` surface (`from raitap
-import adapters`). Example, robustness family:
+difference is your class lives in your own package, so import the base class by
+its full path (`from raitap.transparency.explainers.base_explainer import ...`)
+instead of the in-tree relative import. Decorate it with the public
+`@adapters.<family>(...)` surface (`from raitap import adapters`). Same
+`superxai-lib` transparency example as the adapter guide:
 
 ```python
-# src/raitap_myattack/__init__.py
+# src/raitap_superxai/__init__.py
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import re
+from typing import TYPE_CHECKING
 
 from raitap import adapters
-from raitap.robustness.assessors.base_assessor import EmpiricalAttackAssessor
-from raitap.robustness.contracts import MethodKind, Objective, PerturbationNorm, ThreatModel
-from raitap.robustness.semantics import AssessorSemanticsHints
-from raitap.utils.lazy import lazy_import
+from raitap.transparency.contracts import MethodFamily
+from raitap.transparency.explainers.base_explainer import AttributionOnlyExplainer
 
 if TYPE_CHECKING:
     import torch
-    from torch import nn
-else:
-    torch = lazy_import("torch")
+    import torch.nn as nn
 
 
-@adapters.robustness(
-    registry_name="myattack",           # CLI `+robustness=myattack` / Python `from raitap.robustness import myattack`
-    library="myattack-lib",             # real PyPI name; drives self._lazy_import()
-    algorithm_registry={
-        "MyPGD": AssessorSemanticsHints(
-            MethodKind.EMPIRICAL_ATTACK,
-            ThreatModel.WHITE_BOX,
-            Objective.UNTARGETED,
-            PerturbationNorm.LINF,
-            families=frozenset({"gradient_sign", "iterative"}),
-        ),
+@adapters.transparency(
+    registry_name="superxai",      # CLI `+transparency=superxai` / Python `from raitap.transparency import superxai`
+    library="superxai-lib",        # real PyPI package name; drives `self._lazy_import()`
+    error_patterns={               # rewrite cryptic upstream errors at call sites
+        re.compile(r"some library footgun"): "Do X instead.",
     },
+    algorithm_registry={
+        "supertreeshap": frozenset({MethodFamily.SHAPLEY}),
+    },
+    onnx_compatible_algorithms=frozenset({"supertreeshap"}),
 )
-class MyAttackAssessor(EmpiricalAttackAssessor):
-    def __init__(self, algorithm: str, **init_kwargs: Any) -> None:
+class SuperXAIExplainer(AttributionOnlyExplainer):
+    def __init__(self, algorithm: str, **init_kwargs):
+        super().__init__()
         self.algorithm = algorithm
-        self.init_kwargs = dict(init_kwargs)
+        self.init_kwargs = init_kwargs
 
-    def generate_adversarial(
+    def compute_attributions(
         self,
         model: nn.Module,
         inputs: torch.Tensor,
-        targets: torch.Tensor,
-        *,
-        backend: object | None = None,
-        **kwargs: Any,
+        backend=None,
+        **call_kwargs,
     ) -> torch.Tensor:
-        lib = self._lazy_import()
+        superxai = self._lazy_import()
         with self._rethrow():
-            attack = getattr(lib, self.algorithm)(model, **self.init_kwargs)
-            return attack(inputs, targets)
+            return getattr(superxai, self.algorithm)(model, **self.init_kwargs).attribute(
+                inputs, **call_kwargs
+            )
 ```
 
 Decorator kwargs (`library`, `algorithm_registry`, `error_patterns`,
@@ -95,14 +93,14 @@ you).
 
 ```toml
 [project]
-name = "raitap-myattack"
+name = "raitap-superxai"
 dependencies = [
     "raitap>=0.5,<0.6",   # required — RAITAP reads this pin at load time
-    "myattack-lib",
+    "superxai-lib",
 ]
 
 [project.entry-points."raitap.adapters"]
-myattack = "raitap_myattack"   # value is the module to import; decorator fires on import
+superxai = "raitap_superxai"   # value is the module to import; decorator fires on import
 ```
 
 RAITAP reads the `Requires-Dist: raitap ...` metadata from your installed
@@ -117,12 +115,12 @@ Install your plugin alongside RAITAP and confirm it resolves like a first-party
 adapter:
 
 ```bash
-pip install raitap raitap-myattack
+pip install raitap raitap-superxai
 ```
 
 ```bash
 # resolves only if discovery + version check passed
-python -c "from raitap.robustness import myattack; print(myattack)"
+python -c "from raitap.transparency import superxai; print(superxai)"
 ```
 
 If nothing resolves, check the logs for a skip/crash warning naming your plugin
@@ -133,20 +131,18 @@ If nothing resolves, check the logs for a skip/crash warning naming your plugin
 Consumers reference your adapter by its `registry_name`, in YAML:
 
 ```yaml
-robustness:
+transparency:
   my_run:
-    _target_: MyAttackAssessor
-    algorithm: MyPGD
-    constructor:
-      eps: 0.03
+    _target_: SuperXAIExplainer
+    algorithm: supertreeshap
 ```
 
 or in Python:
 
 ```python
-from raitap.robustness import myattack
+from raitap.transparency import superxai
 
-robustness = {"my_run": myattack(algorithm="MyPGD", constructor={"eps": 0.03})}
+transparency = {"my_run": superxai(algorithm="supertreeshap")}
 ```
 
 ## How discovery works
