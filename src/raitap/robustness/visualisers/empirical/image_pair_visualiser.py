@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,15 +26,14 @@ if TYPE_CHECKING:
     from ...results import RobustnessResult
 
 
-@robustness_visualiser(registry_name="image_pair")
+@robustness_visualiser(
+    registry_name="image_pair",
+    supported_method_kinds=frozenset({MethodKind.EMPIRICAL_ATTACK}),
+    embeds_clean_input=True,
+    embeds_perturbation_map=True,
+)
 class ImagePairVisualiser(BaseRobustnessVisualiser):
     """Render N rows by 3 columns: clean, perturbed, signed perturbation."""
-
-    supported_method_kinds: ClassVar[frozenset[MethodKind]] = frozenset(
-        {MethodKind.EMPIRICAL_ATTACK}
-    )
-    embeds_clean_input: ClassVar[bool] = True
-    embeds_perturbation_map: ClassVar[bool] = True
 
     def __init__(
         self,

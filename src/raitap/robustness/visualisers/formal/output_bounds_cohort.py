@@ -10,7 +10,7 @@ Declared compatible with :class:`MethodKind.FORMAL_VERIFICATION` only.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -39,13 +39,12 @@ def _placeholder_figure(message: str) -> Figure:
     return fig
 
 
-@robustness_visualiser(registry_name="output_bounds_cohort")
+@robustness_visualiser(
+    registry_name="output_bounds_cohort",
+    supported_method_kinds=frozenset({MethodKind.FORMAL_VERIFICATION}),
+)
 class OutputBoundsCohortVisualiser(BaseRobustnessVisualiser):
     """Boxplot of certified per-class bound widths across the verified batch."""
-
-    supported_method_kinds: ClassVar[frozenset[MethodKind]] = frozenset(
-        {MethodKind.FORMAL_VERIFICATION}
-    )
 
     def __init__(
         self,

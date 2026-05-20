@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -29,7 +29,11 @@ if TYPE_CHECKING:
 _SUPPORTED_MODES = frozenset({"signed_dominant", "mean_abs", "mean", "max_abs"})
 
 
-@robustness_visualiser(registry_name="perturbation_heatmap")
+@robustness_visualiser(
+    registry_name="perturbation_heatmap",
+    supported_method_kinds=frozenset({MethodKind.EMPIRICAL_ATTACK}),
+    embeds_perturbation_map=True,
+)
 class PerturbationHeatmapVisualiser(BaseRobustnessVisualiser):
     """Render the perturbation tensor as a heatmap.
 
@@ -39,11 +43,6 @@ class PerturbationHeatmapVisualiser(BaseRobustnessVisualiser):
     signs across channels (e.g. ``+eps`` on R and ``-eps`` on G displaying as
     ~0). Other modes (``mean``, ``mean_abs``, ``max_abs``) are kept as opt-ins.
     """
-
-    supported_method_kinds: ClassVar[frozenset[MethodKind]] = frozenset(
-        {MethodKind.EMPIRICAL_ATTACK}
-    )
-    embeds_perturbation_map: ClassVar[bool] = True
 
     def __init__(
         self,

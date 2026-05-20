@@ -44,3 +44,22 @@ def test_robustness_visualiser_lands_in_unscoped_pool() -> None:
     from raitap._adapters import _BUILDERS
 
     assert "_stub_rob_viz" in _BUILDERS["_unscoped"]
+
+
+def test_robustness_capability_fields_via_decorator() -> None:
+    from raitap.robustness.contracts import MethodKind
+    from raitap.robustness.visualisers.base_visualiser import BaseRobustnessVisualiser
+    from raitap.robustness.visualisers.registration import robustness_visualiser
+
+    @robustness_visualiser(
+        registry_name="_stub_rob_caps",
+        supported_method_kinds=frozenset({MethodKind.EMPIRICAL_ATTACK}),
+        embeds_clean_input=True,
+    )
+    class _StubRob(BaseRobustnessVisualiser):
+        def visualise(self, *a, **k):  # type: ignore[no-untyped-def]
+            ...
+
+    assert _StubRob.supported_method_kinds == frozenset({MethodKind.EMPIRICAL_ATTACK})
+    assert _StubRob.embeds_clean_input is True
+    assert _StubRob.embeds_perturbation_map == BaseRobustnessVisualiser.embeds_perturbation_map

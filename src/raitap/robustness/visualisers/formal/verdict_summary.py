@@ -13,7 +13,7 @@ Declared compatible with :class:`MethodKind.FORMAL_VERIFICATION` only.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -44,13 +44,12 @@ _VERDICT_COLORS = {
 }
 
 
-@robustness_visualiser(registry_name="verdict_summary")
+@robustness_visualiser(
+    registry_name="verdict_summary",
+    supported_method_kinds=frozenset({MethodKind.FORMAL_VERIFICATION}),
+)
 class VerdictSummaryVisualiser(BaseRobustnessVisualiser):
     """Bar chart of verdict counts plus a runtime histogram."""
-
-    supported_method_kinds: ClassVar[frozenset[MethodKind]] = frozenset(
-        {MethodKind.FORMAL_VERIFICATION}
-    )
 
     def __init__(self, *, runtime_bins: int = 20) -> None:
         self.runtime_bins = max(int(runtime_bins), 1)
