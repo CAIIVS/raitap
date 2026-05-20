@@ -60,3 +60,29 @@ def test_robustness_adapter_registers_under_robustness_group() -> None:
 
     assert "_stub_attack" in _BUILDERS["robustness"]
     assert ADAPTER_EXTRAS["_StubAssessor"] == "_stub_extra"
+
+
+def test_budget_kwarg_source_via_decorator() -> None:
+    from raitap.robustness.assessors.base_assessor import EmpiricalAttackAssessor
+    from raitap.robustness.assessors.registration import robustness_adapter
+    from raitap.robustness.contracts import MethodKind, Objective, PerturbationNorm, ThreatModel
+    from raitap.robustness.semantics import AssessorSemanticsHints
+
+    @robustness_adapter(
+        registry_name="_stub_budget",
+        budget_kwarg_source="call_kwargs",
+        algorithm_registry={
+            "x": AssessorSemanticsHints(
+                MethodKind.EMPIRICAL_ATTACK,
+                ThreatModel.WHITE_BOX,
+                Objective.UNTARGETED,
+                PerturbationNorm.LINF,
+                families=frozenset({"i"}),
+            ),
+        },
+    )
+    class _Stub(EmpiricalAttackAssessor):
+        def generate_adversarial(self, model, inputs, targets, *, backend=None, **kw):  # type: ignore[no-untyped-def]  # noqa: ANN001, ANN202
+            return inputs
+
+    assert _Stub.budget_kwarg_source == "call_kwargs"

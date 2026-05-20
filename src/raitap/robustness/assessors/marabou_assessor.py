@@ -21,7 +21,7 @@ import tempfile
 import time
 from collections.abc import Mapping  # noqa: TC003 — runtime use in module-level annotation
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -102,10 +102,6 @@ class MarabouAssessor(FormalVerificationAssessor):
     user sees a clear "Marabou cannot handle this graph" message instead of
     a torch traceback.
     """
-
-    # Budget keys (epsilon, norm) live under ``constructor:`` in the YAML; the
-    # adapter applies them at verify-time but they're configured at __init__.
-    budget_kwarg_source: ClassVar[str] = "init_kwargs"
 
     def __init__(
         self,
