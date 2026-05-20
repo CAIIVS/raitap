@@ -3,7 +3,7 @@
 :func:`raitap.deps.static_scan.scan_adapter_extras` walks the raitap source
 tree without importing modules so the deps bootstrap can resolve adapter
 extras in partial-extras venvs. This test asserts the runtime
-``ADAPTER_EXTRAS`` populated by ``AdapterMixin.__init_subclass__`` is a
+``ADAPTER_EXTRAS`` populated by the family decorators (``_register_core``) is a
 *subset* of what the scanner finds — drift in either direction (a missing
 ``extra=`` kwarg on a new adapter, or scanner missing a new declaration
 syntax) shows up here.

@@ -1,11 +1,11 @@
 """Force adapter registration + apply Hydra-only specialisations.
 
-Adapter classes register themselves via :class:`raitap._adapters.AdapterMixin`
-at class-creation time. That requires the class file to be imported.
-Importing each module's ``__init__.py`` here is enough — those packages
-re-export their leaf adapters, which triggers ``__init_subclass__``.
+Adapter classes register themselves via their family decorator (e.g.
+``@adapters.transparency`` → ``_register_core``) at import time. That requires
+the class file to be imported. Importing each module's ``__init__.py`` here is
+enough — those packages re-export their leaf adapters, firing the decorators.
 
-A handful of bundled Hydra group entries need shapes the mixin can't
+A handful of bundled Hydra group entries need shapes the decorators can't
 produce (``# @package _global_`` callback injection for reporting multirun,
 ``_target_: null`` for the ``disabled`` reporting variant). Those live
 below as direct :class:`hydra.core.config_store.ConfigStore` writes.
@@ -33,8 +33,9 @@ _REGISTERED = False
 
 
 def register_zen_groups() -> None:
-    """Idempotent. Triggers adapter ``__init_subclass__`` for every module,
-    then layers the Hydra-only specialisations on top.
+    """Idempotent. Imports every family package (firing their adapter
+    decorators) and discovers third-party plugins, then layers the Hydra-only
+    specialisations on top.
     """
     global _REGISTERED
     if _REGISTERED:
@@ -42,9 +43,9 @@ def register_zen_groups() -> None:
     _REGISTERED = True
 
     # Importing each subpackage runs its ``__init__.py``, which imports the
-    # leaf adapter modules → ``AdapterMixin.__init_subclass__`` fires. These
-    # are pure side-effect imports; we discard the module objects through
-    # ``importlib`` so both ruff and pyright stay quiet.
+    # leaf adapter modules → their family decorator fires. These are pure
+    # side-effect imports; we discard the module objects through ``importlib``
+    # so both ruff and pyright stay quiet.
     import importlib
 
     for pkg in (
