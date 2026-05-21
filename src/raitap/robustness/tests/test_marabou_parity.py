@@ -66,7 +66,8 @@ def _direct_marabou_verdict(
 
     options = Marabou.createOptions(timeoutInSeconds=120, verbosity=0)
     exit_code, _values, _stats = network.solve(options=options)
-    return str(exit_code).lower()
+    # Normalise exactly as MarabouAssessor does so the verdicts compare cleanly.
+    return str(exit_code).strip().lower()
 
 
 @pytest.fixture
