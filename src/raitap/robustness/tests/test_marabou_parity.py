@@ -31,7 +31,9 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.e2e, pytest.mark.parity, pytest.mark.robustness]
 
 
-def _direct_marabou_verdict(model_path: Path, flat_sample: np.ndarray, target_idx: int, eps: float):
+def _direct_marabou_verdict(
+    model_path: Path, flat_sample: np.ndarray, target_idx: int, eps: float
+) -> str:
     """Solve the same query raitap builds, directly via maraboupy.
 
     Returns ``"sat"`` or ``"unsat"`` (lower-cased exit code). Mirrors the
