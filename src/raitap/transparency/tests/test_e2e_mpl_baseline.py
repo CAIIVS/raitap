@@ -18,7 +18,18 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
 _BASELINE_DIR = Path(__file__).with_name("mpl_baseline")
-_MPL_TOLERANCE = 10 if sys.platform.startswith("win") else 2
+# Single tight tolerance: baselines are generated on the CI image (ubuntu-24.04)
+# with a pinned matplotlib, and ``remove_text=True`` strips the FreeType-sensitive
+# glyphs, so the Agg-rendered heatmap fill is stable enough for RMS=2.
+_MPL_TOLERANCE = 2
+
+# Pixel baselines are only valid on the OS/toolchain that generated them. CI
+# renders them on ubuntu-24.04; skip elsewhere (e.g. local Windows/macOS) rather
+# than fail on non-portable FreeType/Agg pixel drift.
+pytestmark = pytest.mark.skipif(
+    not sys.platform.startswith("linux"),
+    reason="pytest-mpl baselines are generated on ubuntu-24.04; pixel diffs are not portable",
+)
 
 
 def _baseline_file(case: MatrixCase) -> Path:
@@ -68,6 +79,7 @@ MPL_CASES = tuple(case for case in MATRIX_CASES if case.mpl_baseline_filename is
 
 @pytest.mark.e2e
 @pytest.mark.mpl
+@pytest.mark.visual
 @pytest.mark.parametrize("case", [_mpl_case_param(case) for case in MPL_CASES])
 def test_transparency_visual_regression_matrix_case(
     case: MatrixCase,
