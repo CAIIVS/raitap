@@ -28,9 +28,10 @@ concurrency:
 
 jobs:
   transparency-e2e-linux:
-    name: "Transparency E2E (Linux)"
+    name: "E2E / Transparency"
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    runs-on: ubuntu-latest
+    # pinned: pytest-mpl baselines are generated on this exact image (FreeType/Agg rendering is version-sensitive)
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       MPLBACKEND: Agg
@@ -136,7 +137,7 @@ jobs:
           retention-days: 7
 
   marabou-e2e-linux:
-    name: "Marabou formal-verification E2E (Linux)"
+    name: "E2E / Robustness"
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 10
