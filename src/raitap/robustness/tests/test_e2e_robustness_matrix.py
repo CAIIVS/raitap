@@ -22,6 +22,7 @@ from omegaconf import OmegaConf
 from raitap.models.backend import ModelBackend
 from raitap.robustness import RobustnessAssessment, RobustnessResult
 from raitap.robustness.tests.e2e_assessor_matrix import MATRIX_CASES, AssessorMatrixCase
+from raitap.testing import make_pixel_linear_classifier
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -55,18 +56,6 @@ class _BackendStub(ModelBackend):
         return self._model
 
 
-class _TinyClassifier(torch.nn.Module):
-    """Single Linear over flattened CHW pixels. Small enough that even
-    iterative attacks finish in well under a second on CPU."""
-
-    def __init__(self, num_classes: int = 3, channels: int = 3, hw: int = 8) -> None:
-        super().__init__()
-        self.layer = torch.nn.Linear(channels * hw * hw, num_classes)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.layer(x.flatten(1))
-
-
 @pytest.fixture
 def tiny_inputs() -> torch.Tensor:
     # Deterministic seed → matrix cases reproducible across runs.
@@ -80,9 +69,8 @@ def tiny_targets() -> torch.Tensor:
 
 
 @pytest.fixture
-def tiny_model() -> _TinyClassifier:
-    torch.manual_seed(0)
-    return _TinyClassifier(num_classes=3)
+def tiny_model() -> torch.nn.Module:
+    return make_pixel_linear_classifier(num_classes=3)
 
 
 def _make_robustness_config(tmp_path: Path, family: str, case: AssessorMatrixCase) -> AppConfig:
@@ -118,7 +106,7 @@ def test_assessor_matrix_happy_path(
     tmp_path: Path,
     tiny_inputs: torch.Tensor,
     tiny_targets: torch.Tensor,
-    tiny_model: _TinyClassifier,
+    tiny_model: torch.nn.Module,
 ) -> None:
     if importlib.util.find_spec(case.needs_extra) is None:
         pytest.skip(f"{case.needs_extra} extra not installed")

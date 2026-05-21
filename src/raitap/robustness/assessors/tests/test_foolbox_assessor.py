@@ -5,6 +5,7 @@ import torch
 
 from raitap.robustness.assessors import FoolboxAssessor
 from raitap.robustness.exceptions import AssessorBackendIncompatibilityError
+from raitap.testing import make_pixel_linear_classifier
 
 foolbox = pytest.importorskip("foolbox")
 
@@ -17,15 +18,6 @@ class _OnnxLikeBackend:
     supports_torch_autograd = False
 
 
-class _TinyClassifier(torch.nn.Module):
-    def __init__(self, num_classes: int = 3) -> None:
-        super().__init__()
-        self.layer = torch.nn.Linear(3 * 4 * 4, num_classes)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.layer(x.flatten(1))
-
-
 def test_foolbox_rejects_non_autograd_backend() -> None:
     assessor = FoolboxAssessor(algorithm="LinfPGD")
     with pytest.raises(AssessorBackendIncompatibilityError):
@@ -33,7 +25,7 @@ def test_foolbox_rejects_non_autograd_backend() -> None:
 
 
 def test_foolbox_rejects_list_epsilons() -> None:
-    model = _TinyClassifier()
+    model = make_pixel_linear_classifier(hw=4)
     inputs = torch.rand(2, 3, 4, 4)
     targets = torch.tensor([0, 1])
     assessor = FoolboxAssessor(algorithm="LinfFastGradientAttack")
@@ -42,7 +34,7 @@ def test_foolbox_rejects_list_epsilons() -> None:
 
 
 def test_foolbox_requires_epsilon() -> None:
-    model = _TinyClassifier()
+    model = make_pixel_linear_classifier(hw=4)
     inputs = torch.rand(2, 3, 4, 4)
     targets = torch.tensor([0, 1])
     assessor = FoolboxAssessor(algorithm="LinfFastGradientAttack")

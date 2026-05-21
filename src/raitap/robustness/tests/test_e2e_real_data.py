@@ -27,6 +27,7 @@ from omegaconf import OmegaConf
 from raitap.models.backend import ModelBackend
 from raitap.pipeline.orchestrator import run_without_tracking as _run_without_tracking
 from raitap.robustness import RobustnessAssessment, RobustnessResult
+from raitap.testing import make_pixel_linear_classifier
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -59,15 +60,6 @@ class _BackendStub(ModelBackend):
         return self._model
 
 
-class _TinyClassifier(torch.nn.Module):
-    def __init__(self, num_classes: int = 3) -> None:
-        super().__init__()
-        self.layer = torch.nn.Linear(3 * 8 * 8, num_classes)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.layer(x.flatten(1))
-
-
 def _hwc_to_nchw_non_contiguous(batch: int = 2, hw: int = 8) -> torch.Tensor:
     """Build an NCHW tensor via the same HWC->CHW transpose the loader uses.
 
@@ -96,7 +88,7 @@ def test_torchattacks_pgdl2_handles_non_contiguous_input(tmp_path: Path) -> None
     """Regression: PGDL2 used to crash on RAITAP loader's HWC->CHW tensors."""
     inputs = _hwc_to_nchw_non_contiguous()
     targets = torch.tensor([0, 1])
-    model = _TinyClassifier()
+    model = make_pixel_linear_classifier(hw=8)
 
     config = _make_robustness_config(
         tmp_path,
@@ -128,7 +120,7 @@ def test_image_pair_visualiser_diff_uses_diverging_cmap(tmp_path: Path) -> None:
     """Regression: diff axis used to receive RGB and silently dropped cmap/vmin/vmax."""
     inputs = _hwc_to_nchw_non_contiguous(batch=2, hw=8)
     targets = torch.tensor([0, 1])
-    model = _TinyClassifier()
+    model = make_pixel_linear_classifier(hw=8)
 
     config = _make_robustness_config(
         tmp_path,
@@ -178,7 +170,7 @@ def test_assess_rejects_empty_batch(tmp_path: Path) -> None:
     """Empty batches must error loudly rather than crash deep in matplotlib / metrics."""
     inputs = torch.empty(0, 3, 8, 8)
     targets = torch.empty(0, dtype=torch.long)
-    model = _TinyClassifier()
+    model = make_pixel_linear_classifier(hw=8)
 
     config = _make_robustness_config(
         tmp_path,
@@ -207,7 +199,7 @@ def test_pipeline_allows_robustness_only_runs(tmp_path: Path) -> None:
     """Regression: pipeline used to require at least one explainer."""
     inputs = _hwc_to_nchw_non_contiguous(batch=2, hw=8)
     targets = torch.tensor([0, 1])
-    model = _TinyClassifier()
+    model = make_pixel_linear_classifier(hw=8)
 
     config = _make_robustness_config(
         tmp_path,
