@@ -13,8 +13,14 @@ import torch
 import torch.nn as nn
 
 
-def make_tiny_classifier(*, in_channels: int = 3, num_classes: int = 2, seed: int = 0) -> nn.Module:
-    """A deterministic conv classifier for attribution/parity tests."""
+def make_tiny_classifier(
+    *, in_channels: int = 3, num_classes: int = 2, seed: int = 0
+) -> nn.Sequential:
+    """A deterministic conv classifier for attribution/parity tests.
+
+    Returns ``nn.Sequential`` (not just ``nn.Module``) so callers can index
+    layers, e.g. ``model[0]`` for a GradCAM target layer.
+    """
     torch.manual_seed(seed)
     model = nn.Sequential(
         nn.Conv2d(in_channels, 4, kernel_size=3, padding=1),
@@ -27,7 +33,7 @@ def make_tiny_classifier(*, in_channels: int = 3, num_classes: int = 2, seed: in
     return model
 
 
-def make_tiny_mlp(*, in_features: int = 10, num_classes: int = 2, seed: int = 0) -> nn.Module:
+def make_tiny_mlp(*, in_features: int = 10, num_classes: int = 2, seed: int = 0) -> nn.Sequential:
     """A deterministic MLP for tabular attribution/parity tests."""
     torch.manual_seed(seed)
     model = nn.Sequential(nn.Linear(in_features, 16), nn.ReLU(), nn.Linear(16, num_classes))

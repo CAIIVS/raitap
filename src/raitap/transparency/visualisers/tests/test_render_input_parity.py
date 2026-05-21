@@ -14,7 +14,7 @@ Patch target: ``captum.attr._utils.visualization.visualize_image_attr``
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -124,7 +124,7 @@ def test_low_res_attr_is_upsampled_to_image_hw(
 
     # model[2] is AdaptiveAvgPool2d(1) -> feature map is 1x1 -> GradCam gives (1,1,1,1)
     layer = model[2]
-    attr_tensor = LayerGradCam(model, layer).attribute(x, target=0)
+    attr_tensor = cast("torch.Tensor", LayerGradCam(model, layer).attribute(x, target=0))
     # Confirm attr is genuinely low-res (must be smaller than 16x16 to be meaningful)
     assert attr_tensor.shape[-2:] != (16, 16), (
         f"Expected low-res attr; got {attr_tensor.shape} - choose a different layer"

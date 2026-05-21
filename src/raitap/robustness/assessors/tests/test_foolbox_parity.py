@@ -26,7 +26,7 @@ def test_pgd_advs_match_direct_call(seeded: object, _fb: object) -> None:
 
     # Direct foolbox call — second return value is the clipped adversarial tensor.
     # random_start=False makes LinfPGD deterministic (default is True).
-    fmodel = foolbox.PyTorchModel(model, bounds=(0, 1))
+    fmodel = foolbox.PyTorchModel(model, bounds=(0, 1))  # pyright: ignore[reportPrivateImportUsage]
     attack = foolbox.attacks.LinfPGD(steps=5, random_start=False)
     _, raw_adv, _ = attack(fmodel, x, y, epsilons=8 / 255)
 

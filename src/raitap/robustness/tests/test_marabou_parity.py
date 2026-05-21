@@ -41,7 +41,7 @@ def _direct_marabou_verdict(
     ``value +/- eps`` and a disjunction asserting some non-target output is
     ``>=`` the target output (i.e. the target is no longer the strict argmax).
     """
-    from maraboupy import Marabou, MarabouCore, MarabouUtils
+    from maraboupy import Marabou, MarabouCore, MarabouUtils  # type: ignore[import-not-found]
 
     network = Marabou.read_onnx(str(model_path))
     input_vars = np.asarray(network.inputVars[0]).reshape(-1)
