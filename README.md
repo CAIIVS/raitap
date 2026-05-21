@@ -13,18 +13,6 @@ RAITAP currently assesses the following 2 responsible AI dimensions:
 
 as defined in [Towards the certification of AI-based systems](https://doi.org/10.1109/SDS60720.2024.00020) and [MLOps as enabler of trustworthy AI](https://doi.org/10.1109/SDS60720.2024.00013)
 
-## Quick start
-
-```bash
-uv add raitap
-uv run raitap --demo
-```
-
-This runs the bundled self-contained `demo.yaml` (tiny dataset, CPU,
-no setup required). For a more realistic consumer integration, see the
-standalone `example/` project at the repo root. For the full ZHAW thesis
-demo, see `contributor-configs/lwise-ham10000/`.
-
 For more information
 
 - as a consumer/user: [consumer documentation](https://caiivs.github.io/raitap/)
