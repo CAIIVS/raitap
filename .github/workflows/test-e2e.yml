@@ -44,10 +44,26 @@ jobs:
         uses: ./.github/actions/setup-raitap-env
         with:
           python-version: "3.13"
-          sync-command: uv sync --group dev --extra torch-cpu --extra transparency --extra mlflow --extra metrics --extra onnx-cpu
+          # torchattacks + foolbox added so the Parity step can exercise the
+          # robustness adversarial-attack parity tests in this 3.13 lane.
+          sync-command: uv sync --group dev --extra torch-cpu --extra transparency --extra mlflow --extra metrics --extra onnx-cpu --extra torchattacks --extra foolbox
 
-      - name: Run transparency E2E tests
-        run: uv run pytest -m e2e -v --tb=long --mpl
+      # Split by marker so each category renders as its own collapsible section
+      # in the job log. ``if: always()`` keeps later categories running after an
+      # earlier failure; any failing step still fails the job.
+      - name: Visual regression
+        run: uv run pytest -m "e2e and visual" -v --tb=long --mpl
+
+      - name: Parity
+        if: always()
+        # Captum/torchattacks/foolbox parity run here; marabou parity collects
+        # but skips (maraboupy is absent in this 3.13 lane) — it runs in the
+        # E2E / Robustness lane below.
+        run: uv run pytest -m "e2e and parity" -v --tb=long
+
+      - name: Transparency E2E (remaining)
+        if: always()
+        run: uv run pytest -m "e2e and not visual and not parity and not robustness" -v --tb=long
 
   detection-e2e-linux:
     # Drives the bundled ``contributor-configs/fasterrcnn-udacity/`` config
@@ -167,6 +183,12 @@ jobs:
         # test modules whose deps (torchmetrics, etc.) aren't installed in
         # this minimal lane.
         run: uv run pytest src/raitap/robustness/tests/test_e2e_marabou_acas_xu.py -m e2e -v --tb=long
+
+      - name: Marabou parity
+        if: always()
+        # Verdict parity vs a direct maraboupy solve. Scoped to the parity file
+        # for the same minimal-deps reason as the e2e step above.
+        run: uv run pytest src/raitap/robustness/tests/test_marabou_parity.py -m parity -v --tb=long
 
   example-consumer-e2e-linux:
     # Drives `example/` as a standalone consumer end-to-end: `uv sync` against
