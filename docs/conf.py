@@ -189,3 +189,5 @@ myst_enable_extensions = ["attrs_block", "attrs_inline", "colon_fence"]
 
 pygments_style = "friendly"
 pygments_dark_style = "monokai"
+
+smartquotes = False
