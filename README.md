@@ -13,7 +13,7 @@ RAITAP currently assesses the following 2 responsible AI dimensions:
 
 as defined in [Towards the certification of AI-based systems](https://doi.org/10.1109/SDS60720.2024.00020) and [MLOps as enabler of trustworthy AI](https://doi.org/10.1109/SDS60720.2024.00013)
 
-For more information
+## Getting started
 
 - as a consumer/user: [consumer documentation](https://caiivs.github.io/raitap/)
 - as a contributor: [contributor documentation](https://caiivs.github.io/raitap/contributor/index.html)
