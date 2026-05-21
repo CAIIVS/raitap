@@ -91,6 +91,10 @@ Add a unit test next to the adapter (`src/raitap/<module>/<subdir>/tests/test_<a
 
 If the algorithm has unusual kwargs (e.g. a custom `baselines=` shape), add an edge-case test for those too.
 
+Reuse shared helpers instead of re-rolling fixtures: `from raitap.testing import make_tiny_classifier, make_app_config, requires` and the root `seeded` fixture.
+
+If the wrapped library is **deterministic** (Captum, torchattacks with `random_start=False`, foolbox, Marabou — not sampling-based SHAP), add a **parity test** marked `@pytest.mark.e2e @pytest.mark.parity` that asserts `torch.allclose(raitap_output, direct_library_call)` for the same config. Use at least one non-default kwarg so a silently-dropped kwarg fails the assertion. This proves raitap relays the library faithfully.
+
 The family E2E matrix parametrises over algorithm names — add an entry to keep coverage complete:
 
 - **Transparency**: `src/raitap/transparency/tests/e2e_case_matrix.py::MATRIX_CASES`. Add a `MatrixCase(id="...", framework=..., algorithm="NewMethod", ...)`.
