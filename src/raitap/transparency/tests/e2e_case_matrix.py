@@ -690,9 +690,6 @@ MATRIX_CASES: tuple[MatrixCase, ...] = (
             "show_colorbar": False,
             "include_original_image": False,
         },
-        mpl_baseline_filename="captum_saliency_image_heat_map.png",
-        mpl_use_deterministic_inputs=True,
-        mpl_target_mode=1,
     ),
     MatrixCase(
         id="captum_occlusion_image_heat_map",
@@ -784,9 +781,6 @@ MATRIX_CASES: tuple[MatrixCase, ...] = (
         },
         experiment_name="test_captum_factory_e2e",
         factory_explainer_name="captum_saliency",
-        mpl_baseline_filename="captum_saliency_blended_heat_map.png",
-        mpl_use_deterministic_inputs=True,
-        mpl_target_mode=1,
     ),
     MatrixCase(
         id="captum_layer_gradcam_masked_image",
@@ -807,9 +801,6 @@ MATRIX_CASES: tuple[MatrixCase, ...] = (
             "show_colorbar": False,
             "include_original_image": False,
         },
-        mpl_baseline_filename="captum_layer_gradcam_masked_image.png",
-        mpl_use_deterministic_inputs=True,
-        mpl_target_mode=1,
     ),
     MatrixCase(
         id="captum_saliency_timeseries_overlay",
