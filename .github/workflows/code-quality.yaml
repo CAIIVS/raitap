@@ -85,7 +85,7 @@ jobs:
     # checks fail fast; 3.11 only exercises the test suite (floor compatibility)
     # and runs last — its result is moot if 3.13 already failed. Collapsing into
     # one GitHub check trades parallelism for a quieter PR status list.
-    name: Quality Gate (Linux CPU)
+    name: Quality Gate
     needs: changes
     if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest

@@ -209,6 +209,7 @@ def test_programmatic_custom_file_accepts_with_kwarg(
     assert resolved.model_origin == "custom-file"
 
 
+@pytest.mark.slow
 def test_model_accepts_externally_resolved_custom_file(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -254,6 +255,7 @@ def _demo_run() -> RunOutputs:
     return outputs
 
 
+@pytest.mark.e2e
 def test_run_smoke_with_verbose_false_drives_full_pipeline(_demo_run: RunOutputs) -> None:
     """`raitap.run(cfg, verbose=False)` exits cleanly with non-empty outputs."""
     assert isinstance(_demo_run, RunOutputs)
@@ -263,6 +265,7 @@ def test_run_smoke_with_verbose_false_drives_full_pipeline(_demo_run: RunOutputs
     assert _demo_run.metrics.result.metrics  # at least one scalar metric
 
 
+@pytest.mark.e2e
 def test_run_parity_with_yaml_demo(_demo_run: RunOutputs) -> None:
     """Composing ``demo.yaml`` and our Python ``AppConfig`` produce equivalent runs.
 

@@ -1,0 +1,49 @@
+# Regenerate pytest-mpl visual baselines on the canonical CI image.
+#
+# Baselines are FreeType/Agg-sensitive, so they must be rendered on the same
+# ubuntu-24.04 + pinned-matplotlib toolchain that the "E2E / Transparency"
+# visual step compares against. Contributors on Windows/macOS cannot produce
+# valid baselines locally — run this workflow, download the ``mpl-baselines``
+# artifact, and commit the PNGs.
+name: Regenerate Visual Baselines
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why regenerate (e.g. matplotlib bump, new case)?"
+        required: false
+        default: "manual baseline refresh"
+
+permissions:
+  contents: read
+
+jobs:
+  regen:
+    name: Regenerate pytest-mpl baselines
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      MPLBACKEND: Agg
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up environment
+        uses: ./.github/actions/setup-raitap-env
+        with:
+          python-version: "3.13"
+          sync-command: uv sync --group dev --extra torch-cpu --extra transparency --extra mlflow --extra metrics --extra onnx-cpu
+
+      - name: Generate baselines
+        run: |
+          uv run pytest src/raitap/transparency/tests/test_e2e_mpl_baseline.py \
+            -m "e2e and visual" \
+            --mpl-generate-path=regenerated_baselines -v
+
+      - name: Upload regenerated baselines
+        uses: actions/upload-artifact@v7
+        with:
+          name: mpl-baselines
+          path: regenerated_baselines/
+          retention-days: 14

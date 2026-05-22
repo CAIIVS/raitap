@@ -57,7 +57,7 @@ dependencies = [
   "packaging>=23.0",
 
   # Data and visualisation.
-  "matplotlib>=3.9.0",
+  "matplotlib==3.10.*",  # pinned: bumping invalidates committed pytest-mpl baselines (FreeType/Agg rendering)
   "pandas>=2.0.0",
   "pandas-stubs~=3.0.0",
   "pillow>=12.2.0",
@@ -390,6 +390,11 @@ markers = [
   "mpl: matplotlib baseline-regression tests that require committed reference images",
   "runtime: runtime resolution and backend hardware-label tests for platform-specific CI selection",
   "cuda: tests that require real CUDA hardware and run only on the GPU CI lane",
+  "slow: integration tests that download model weights; kept in Quality Gate but opt-out via -m 'not slow'",
+  "parity: assert raitap output equals a direct third-party-library call",
+  "visual: pytest-mpl pixel baseline regression of rendered figures",
+  "robustness: parity/e2e tests for the robustness (adversarial/formal) assessors",
+  "negative: tests asserting failure paths (missing baseline, invalid config, ...)",
 ]
 addopts = ["-v", "--strict-markers", "--strict-config", "--tb=short"]
 filterwarnings = [
