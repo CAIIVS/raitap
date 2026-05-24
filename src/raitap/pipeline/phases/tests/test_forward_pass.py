@@ -10,6 +10,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
 import torch
 from torch import nn
 
@@ -214,3 +215,35 @@ def test_classification_forward_chunked_regression() -> None:
     assert result.batch_size == 6
     assert result.predictions_tensor is not None
     assert result.predictions_tensor.shape == (6, 5)
+
+
+# ---------------------------------------------------------------------------
+# Input-contract guard tests
+# ---------------------------------------------------------------------------
+
+
+def test_detection_forward_rejects_non_list_inputs() -> None:
+    """A detection backend handed a dense tensor must fail loud, not slice it."""
+    backend = _FakeDetectionBackend()
+    config = _make_config()
+
+    with pytest.raises(TypeError, match="expected a list"):
+        forward_pass(config, backend, torch.zeros(2, 3, 8, 8))
+
+
+def test_classification_forward_rejects_list_inputs() -> None:
+    """A classification backend handed a list must fail loud."""
+    backend = _FakeClassificationBackend()
+    config = _make_config()
+
+    with pytest.raises(TypeError, match="expected a dense"):
+        forward_pass(config, backend, [torch.zeros(3, 8, 8)])  # type: ignore[arg-type]
+
+
+def test_classification_forward_rejects_unbatched_tensor() -> None:
+    """A 1-D tensor lacks a sample axis; reject before len()/slicing."""
+    backend = _FakeClassificationBackend()
+    config = _make_config()
+
+    with pytest.raises(ValueError, match="ndim >= 2"):
+        forward_pass(config, backend, torch.zeros(5))

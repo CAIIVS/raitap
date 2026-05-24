@@ -89,6 +89,33 @@ def resolve_forward_batch_size(config: AppConfig) -> int:
     return configured
 
 
+def _validate_inputs_for_task(inputs: torch.Tensor | DetectionInputs, task_kind: TaskKind) -> None:
+    """Guard the input contract before ``len()``/slicing assumes it.
+
+    ``Data`` already validates at load time; this catches direct callers that
+    bypass it. Detection wants a ``list`` of per-image tensors; classification
+    wants a dense ``(N, ...)`` tensor (``len()`` on a stray ``(C, H, W)`` would
+    silently count channels, not samples).
+    """
+    if task_kind is TaskKind.detection:
+        if not isinstance(inputs, list):
+            raise TypeError(
+                "forward_pass(detection) expected a list of per-image (C, H, W) "
+                f"tensors; got {type(inputs).__name__}."
+            )
+        return
+    if not isinstance(inputs, torch.Tensor):
+        raise TypeError(
+            f"forward_pass({task_kind.value}) expected a dense (N, ...) tensor; "
+            f"got {type(inputs).__name__}."
+        )
+    if inputs.ndim < 2:
+        raise ValueError(
+            f"forward_pass({task_kind.value}) expected a batched (N, ...) tensor "
+            f"with ndim >= 2; got shape {tuple(inputs.shape)}."
+        )
+
+
 def forward_pass(
     config: AppConfig, backend: Any, inputs: torch.Tensor | DetectionInputs
 ) -> ForwardOutput:
@@ -105,9 +132,9 @@ def forward_pass(
     ``(N, C, H, W)`` tensor.
     """
     batch_size = resolve_forward_batch_size(config)
-    total_batch = len(inputs)
-
     task_kind = backend.task_kind
+    _validate_inputs_for_task(inputs, task_kind)
+    total_batch = len(inputs)
 
     if task_kind is TaskKind.detection:
         detection_predictions: list[dict[str, torch.Tensor]] = []
