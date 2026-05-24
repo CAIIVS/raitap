@@ -148,6 +148,11 @@ def forward_pass(
                     f"got {type(raw_output).__name__}."
                 )
             for sample_dict in raw_output:
+                if not isinstance(sample_dict, dict):
+                    raise TypeError(
+                        "forward_pass(detection) expected each backend output entry to be a "
+                        f"dict of tensors; got {type(sample_dict).__name__}."
+                    )
                 detection_predictions.append({k: v.detach().cpu() for k, v in sample_dict.items()})
             del prepared_inputs, raw_output
             if torch.cuda.is_available():

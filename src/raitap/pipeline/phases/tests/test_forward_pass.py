@@ -231,6 +231,20 @@ def test_detection_forward_rejects_non_list_inputs() -> None:
         forward_pass(config, backend, torch.zeros(2, 3, 8, 8))
 
 
+def test_detection_forward_rejects_non_dict_backend_entries() -> None:
+    """A detection backend returning list[non-dict] must fail loud at the entry, not .items()."""
+
+    class _BadEntryBackend(_FakeDetectionBackend):
+        def __call__(self, inputs: list[torch.Tensor]) -> Any:  # type: ignore[override]
+            return [(0.9, "box") for _ in inputs]  # list, but tuples not dicts
+
+    backend = _BadEntryBackend()
+    config = _make_config()
+
+    with pytest.raises(TypeError, match="dict of tensors"):
+        forward_pass(config, backend, [torch.zeros(3, 8, 8)])
+
+
 def test_classification_forward_rejects_list_inputs() -> None:
     """A classification backend handed a list must fail loud."""
     backend = _FakeClassificationBackend()
