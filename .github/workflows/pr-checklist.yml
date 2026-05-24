@@ -17,7 +17,9 @@ jobs:
     steps:
       - uses: mheap/require-checklist-action@v2
         with:
-          # Only items under headings whose name is NOT in this list are required.
-          # Keeps the existing "## Optional" section in pull_request_template.md non-blocking.
-          ignoreHeadings: "Optional"
           requireChecklist: true
+          # Items tagged "(optional)" in pull_request_template.md are non-blocking.
+          # (The action has no per-heading ignore; skipDescriptionRegex is the
+          # supported mechanism — it skips checkboxes whose text matches.)
+          skipDescriptionRegex: "\\(optional\\)"
+          skipDescriptionRegexFlags: "i"
