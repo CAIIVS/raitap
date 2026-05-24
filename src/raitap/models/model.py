@@ -11,6 +11,8 @@ from raitap.configs import cfg_to_dict
 from raitap.data.metadata import shape_tuple
 from raitap.data.preprocessing import ResolvedPreprocessing, resolve_preprocessing
 from raitap.tracking.base_tracker import BaseTracker, Trackable
+from raitap.types import TaskKind
+from raitap.utils.errors import RaitapError
 from raitap.utils.lazy import lazy_import
 
 from .backend import ModelBackend, OnnxBackend, TorchBackend
@@ -123,6 +125,15 @@ def _apply_preprocessing(
     )
 
     if resolved.model_module is not None:
+        if backend.task_kind is TaskKind.detection:
+            raise RaitapError(
+                "data.model_input_transformation is not supported for object "
+                "detection models: detectors normalise inputs internally "
+                "(torchvision GeneralizedRCNNTransform), so an external "
+                "model-side transformation would double-process the input. It "
+                "is also incompatible with the per-image (variable-resolution) "
+                "detection input. Leave the model-side knob unset for detection."
+            )
         if isinstance(backend, OnnxBackend):
             if resolved.model_origin != "custom-file":
                 raise NotImplementedError(

@@ -942,6 +942,42 @@ class TestModelPreprocessingWrap:
         assert wrapped_preprocessing is not model_module
         assert not wrapped_preprocessing.training
 
+    def test_model_input_transformation_rejected_for_detection(self) -> None:
+        """Detection models normalise inputs internally; an external model-side
+        transformation would double-process and is incompatible with the ragged
+        ``list[Tensor]`` detection input. ``_apply_preprocessing`` must reject it
+        rather than silently wrap the detector in ``nn.Sequential``."""
+        from raitap.data.preprocessing import ResolvedPreprocessing
+        from raitap.models.model import _apply_preprocessing
+        from raitap.types import TaskKind
+        from raitap.utils.diagnostics import Module
+        from raitap.utils.errors import RaitapError, resolve_diagnostic_from_traceback
+
+        cfg = _make_config("resnet18")
+        backend = TorchBackend(
+            nn.Identity(), device=torch.device("cpu"), task_kind=TaskKind.detection
+        )
+        resolved = ResolvedPreprocessing(
+            data_module=None,
+            model_module=nn.Dropout(),
+            data_origin="off",
+            model_origin="custom-file",
+            description="supplied",
+        )
+
+        with pytest.raises(RaitapError, match="detection") as excinfo:
+            _apply_preprocessing(backend, cfg, resolved_preprocessing=resolved)
+
+        # The detector must be left untouched (not wrapped).
+        assert isinstance(backend.model, nn.Identity)
+
+        # The failure must attribute to the Models module so the CLI failure
+        # panel shows the correct source chip. A bare RaitapError raised inside
+        # ``src/raitap/models/`` is frame/traceback-walked to ``Module.models``;
+        # no explicit Diagnostic is needed.
+        diagnostic = resolve_diagnostic_from_traceback(excinfo.value.__traceback__)
+        assert diagnostic.module is Module.models
+
     def test_model_bundled_wrap_consumes_raw_input(self) -> None:
         from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
 
