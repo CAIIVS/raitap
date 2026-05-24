@@ -19,6 +19,16 @@ one source of truth.
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import torch
+
+#: A ragged batch of detection inputs: one native-resolution ``(C, H, W)``
+#: float32 tensor per image. Used as ``Data.tensor`` when
+#: ``task_kind == TaskKind.detection``.  Defined with ``TYPE_CHECKING`` so
+#: importing this module never triggers a real ``torch`` import.
+DetectionInputs = list["torch.Tensor"]
 
 
 class Hardware(StrEnum):

@@ -16,7 +16,7 @@ import torch
 from raitap import raitap_log
 from raitap.models.task_wrappers import DetectionTarget, ScalarDetectionWrapper
 from raitap.transparency.contracts import DetectionBox
-from raitap.types import TaskKind
+from raitap.types import DetectionInputs, TaskKind
 from raitap.utils.errors import RaitapError
 
 if TYPE_CHECKING:
@@ -33,9 +33,21 @@ _DEFAULT_MAX_BOXES = 5
 _DEFAULT_IOU_THRESHOLD = 0.5
 
 
+def _sample_as_batch(inputs: torch.Tensor | DetectionInputs, index: int) -> torch.Tensor:
+    """Return a (1, C, H, W) tensor for sample *index* from either input form.
+
+    - ``list[Tensor]`` (ragged, one ``(C,H,W)`` per image): unsqueeze at dim 0.
+    - Dense ``(N,C,H,W)`` tensor: standard one-element slice preserving the
+      batch dimension.
+    """
+    if isinstance(inputs, list):
+        return inputs[index].unsqueeze(0)
+    return inputs[index : index + 1]
+
+
 def explain_detection(
     *,
-    inputs: torch.Tensor,
+    inputs: torch.Tensor | DetectionInputs,
     forward_output: ForwardOutput,
     backend: ModelBackend,
     explainer: Any,
@@ -130,7 +142,7 @@ def explain_detection(
         order = scores[raw_candidates].argsort(descending=True)
         top_k_raw_indices = raw_candidates[order[:max_boxes]]
 
-        sample_inputs = inputs[sample_index : sample_index + 1]
+        sample_inputs = _sample_as_batch(inputs, sample_index)
 
         for display_index, raw_index_value in enumerate(top_k_raw_indices.tolist()):
             raw_index = int(raw_index_value)

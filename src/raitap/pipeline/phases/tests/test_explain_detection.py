@@ -319,3 +319,64 @@ def test_explain_detection_rejects_invalid_max_boxes(
                 call_kwargs={},
             )
         )
+
+
+def test_explain_detection_with_list_inputs(
+    detection_forward_output: ForwardOutput, tmp_path: Path
+) -> None:
+    """When inputs is a list[Tensor] (ragged, one tensor per image),
+    each explain() call must receive a (1, C, H, W) tensor, not a list slice.
+    Tests both the correct shape and that different native resolutions are preserved."""
+    backend = TorchBackend(_FakeDetector(), task_kind=TaskKind.detection)
+    explainer = _RecordingExplainer()
+
+    # Two differently-sized images (C=3, but H*W differ) to confirm per-sample sizing.
+    # detection_forward_output has sample 0 with 2 boxes passing threshold=0.5 (scores 0.9, 0.7),
+    # sample 1 has zero detections.
+    list_inputs: list[torch.Tensor] = [
+        torch.zeros(3, 8, 8),  # sample 0 — native (3,8,8)
+        torch.zeros(3, 12, 10),  # sample 1 — native (3,12,10), but no detections → unused
+    ]
+
+    results = list(
+        explain_detection(
+            inputs=list_inputs,  # type: ignore[arg-type]
+            forward_output=detection_forward_output,
+            backend=backend,
+            explainer=explainer,
+            explainer_target="t",
+            explainer_name="x",
+            visualisers=[],
+            base_run_dir=tmp_path,
+            raitap_kwargs={"detection": {"score_threshold": 0.5, "max_boxes": 5}},
+            call_kwargs={},
+        )
+    )
+
+    # Same 2 boxes as the dense-tensor test (scores 0.9 and 0.7 for sample 0).
+    assert len(results) == 2
+    # The explainer must receive a (1, C, H, W) tensor for sample 0's native size.
+    for call in explainer.calls:
+        assert call["inputs_shape"] == (1, 3, 8, 8), (
+            f"Expected (1, 3, 8, 8) but got {call['inputs_shape']} — "
+            "list slice was probably passed instead of unsqueezed tensor"
+        )
+
+
+def test_sample_as_batch_helper_list_and_tensor() -> None:
+    """Unit-test _sample_as_batch directly for both list and dense tensor inputs."""
+    from raitap.pipeline.phases.explain_detection import _sample_as_batch
+
+    # List case — differently-sized tensors.
+    t0 = torch.zeros(3, 8, 8)
+    t1 = torch.zeros(3, 12, 10)
+    lst: list[torch.Tensor] = [t0, t1]
+    out0 = _sample_as_batch(lst, 0)
+    assert out0.shape == (1, 3, 8, 8)
+    out1 = _sample_as_batch(lst, 1)
+    assert out1.shape == (1, 3, 12, 10)
+
+    # Dense tensor case.
+    batch = torch.zeros(4, 3, 8, 8)
+    out = _sample_as_batch(batch, 2)
+    assert out.shape == (1, 3, 8, 8)

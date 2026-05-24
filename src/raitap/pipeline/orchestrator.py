@@ -5,7 +5,7 @@ The actual phase work lives under :mod:`raitap.pipeline.phases`."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from raitap import raitap_log
 from raitap.data import Data
@@ -22,6 +22,7 @@ from raitap.pipeline.ui import print_summary
 from raitap.reporting import build_report, create_report, reporting_enabled
 from raitap.reporting.sample_selection import resolve_report_sample_selection
 from raitap.tracking import BaseTracker
+from raitap.types import TaskKind
 from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
@@ -72,7 +73,11 @@ def _run_pipeline(
             resolved_preprocessing=resolved_preprocessing,
             allow_unsafe_pickle=allow_unsafe_pickle,
         )
-        data = Data(config, resolved_preprocessing=resolved_preprocessing)
+        data = Data(
+            config,
+            resolved_preprocessing=resolved_preprocessing,
+            task_kind=getattr(model.backend, "task_kind", TaskKind.classification),
+        )
     _validate_report_sample_selection(config, data)
     if verbose:
         print_summary(config, model)
@@ -135,7 +140,11 @@ def run_without_tracking(
     """
     raitap_log.info("Running model forward pass...")
     with torch.no_grad():
-        forward_output = forward_pass(config, model.backend, data.tensor)
+        # ``forward_pass`` is typed to accept ``torch.Tensor``; detection will
+        # pass a ``list[Tensor]`` at runtime — the forward-pass phase handles it
+        # (see issue #197).  Cast here so pyright doesn't flag the union type
+        # while keeping the call site byte-for-byte unchanged in behaviour.
+        forward_output = forward_pass(config, model.backend, cast("torch.Tensor", data.tensor))
 
     metrics_eval = evaluate_metrics(config, forward_output, data.labels)
 
@@ -186,5 +195,5 @@ def _validate_report_sample_selection(config: AppConfig, data: Data) -> None:
     resolve_report_sample_selection(
         selection,
         sample_ids=data.sample_ids,
-        batch_size=int(data.tensor.shape[0]) if data.tensor.ndim > 0 else 0,
+        batch_size=len(data.tensor),
     )

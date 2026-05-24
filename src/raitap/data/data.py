@@ -15,6 +15,7 @@ from raitap.data.preprocessing import module_as_per_image_callable, resolve_prep
 from raitap.data.types import IdStrategy, LabelEncoding, LabelKind
 from raitap.data.utils import download_file
 from raitap.tracking.base_tracker import BaseTracker, Trackable
+from raitap.types import DetectionInputs, TaskKind
 from raitap.utils.lazy import lazy_import
 
 from .samples import SAMPLE_SOURCES, _load_sample, resolve_sample_labels_path
@@ -48,9 +49,12 @@ class Data(Trackable):
         cfg: AppConfig,
         *,
         resolved_preprocessing: ResolvedPreprocessing | None = None,
+        task_kind: TaskKind = TaskKind.classification,
     ) -> None:
         self.name = cfg.data.name
         self.source = cfg.data.source
+        self.task_kind = task_kind
+        self.tensor: torch.Tensor | DetectionInputs
         self.tensor, self.sample_ids = self._load_data(
             cfg,
             resolved_preprocessing=resolved_preprocessing,
@@ -71,7 +75,7 @@ class Data(Trackable):
         cfg: AppConfig,
         *,
         resolved_preprocessing: ResolvedPreprocessing | None = None,
-    ) -> tuple[torch.Tensor, list[str] | None]:
+    ) -> tuple[torch.Tensor | DetectionInputs, list[str] | None]:
         """
         Load data from a specified source into a raw tensor.
 
@@ -80,15 +84,17 @@ class Data(Trackable):
         - Named demo sample (e.g. ``"imagenet_samples"``)
         - URL to a single downloadable file
         - Local directory of images → ``(N, 3, H, W)`` float32 in ``[0, 1]``
+          (or ``list[Tensor]`` of per-image ``(C, H, W)`` for detection)
         - Local directory of CSV / TSV / Parquet files → ``(N, F)`` float32 (rows concatenated)
         - Local image file → ``(1, 3, H, W)`` float32 in ``[0, 1]``
+          (or ``list[Tensor]`` of length 1 for detection)
         - Local CSV / TSV / Parquet file → ``(N, F)`` float32
 
         Args:
             cfg: Application configuration.
 
         Returns:
-            Raw data tensor.
+            Raw data tensor or ragged list of per-image tensors (detection).
         """
         source = cfg.data.source
         if not source or not source.strip():
@@ -110,6 +116,8 @@ class Data(Trackable):
                 data_module = resolved.data_module
         per_image_transform = module_as_per_image_callable(data_module)
 
+        is_detection = self.task_kind is TaskKind.detection
+
         # Demo samples need their own loader: source images have inconsistent
         # dimensions and ``_load_sample`` resizes them to a common shape so
         # they can be stacked. The generic dir-loader expects pre-aligned
@@ -119,6 +127,9 @@ class Data(Trackable):
             # at their native resolution instead of pre-squashing them to
             # ``_DEMO_SIZE`` before the bundled Resize/CenterCrop sees them.
             tensor, sample_ids = _load_sample(source, per_image_transform=per_image_transform)
+            if is_detection:
+                # Convert stacked tensor to per-image list for detection.
+                return list(tensor.unbind(0)), sample_ids
             return tensor, sample_ids
 
         path = get_source_path(source, kind=SourceKind.DATA)
@@ -132,6 +143,11 @@ class Data(Trackable):
                     "Separate them into different directories."
                 )
             if image_files:
+                if is_detection:
+                    ragged = _load_images_ragged(
+                        image_files, per_image_transform=per_image_transform
+                    )
+                    return ragged, _resolve_sample_ids(image_files, root=path)
                 tensor = torch.from_numpy(
                     _stack_images_numpy(image_files, per_image_transform=per_image_transform)
                 )
@@ -147,6 +163,9 @@ class Data(Trackable):
 
         suffix = path.suffix.lower()
         if suffix in _IMAGE_EXTENSIONS:
+            if is_detection:
+                ragged = _load_images_ragged([path], per_image_transform=per_image_transform)
+                return ragged, _resolve_sample_ids([path], root=path.parent)
             return (
                 _load_images(path, per_image_transform=per_image_transform),
                 _resolve_sample_ids([path], root=path.parent),
@@ -184,7 +203,7 @@ class Data(Trackable):
             labels_encoding=labels_encoding,
         )
 
-        expected = int(self.tensor.shape[0])
+        expected = len(self.tensor)
         if self.sample_ids and id_column:
             id_series = _column_as_series(labels_df, id_column)
             strategy = _resolve_id_strategy(labels_id_strategy, id_series)
@@ -253,7 +272,7 @@ class Data(Trackable):
         if not isinstance(records, list):
             raise ValueError(f"Detection labels file {labels_path} must be a JSON array.")
 
-        expected = int(self.tensor.shape[0])
+        expected = len(self.tensor)
 
         if self.sample_ids is not None:
             by_id: dict[str, dict[str, Any]] = {}
@@ -333,6 +352,17 @@ class Data(Trackable):
         Returns:
             Dictionary containing dataset metadata.
         """
+        if isinstance(self.tensor, list):
+            # Ragged detection batch: report count and dtype only; no fixed shape.
+            dtype_str = str(self.tensor[0].dtype) if self.tensor else "unknown"
+            return {
+                "name": self.name,
+                "source": self.source,
+                "num_samples": len(self.tensor),
+                "shape": "ragged",
+                "dtype": dtype_str,
+                "has_labels": self.labels is not None,
+            }
         shape = [int(dim) for dim in self.tensor.shape]
         dataset_info: dict[str, Any] = {
             "name": self.name,
@@ -605,6 +635,33 @@ def _load_images(
 ) -> torch.Tensor:
     """Load image files from a directory (or a single file) as raw (C, H, W) tensors."""
     return torch.from_numpy(_load_images_numpy(path, per_image_transform=per_image_transform))
+
+
+def _load_images_ragged(
+    files: list[Path],
+    *,
+    per_image_transform: Callable[[torch.Tensor], torch.Tensor] | None = None,
+) -> list[torch.Tensor]:
+    """Load pre-discovered image files as a ragged list of per-image ``(C, H, W)`` float32 tensors.
+
+    Unlike :func:`_stack_images_numpy`, this function does NOT stack the images,
+    so files with different spatial dimensions are handled without error. Each
+    returned tensor is a ``(C, H, W)`` float32 in ``[0, 1]``.  When
+    ``per_image_transform`` is supplied it is applied per image (as in
+    :func:`_stack_images_numpy`) before the tensor is appended, but no resize
+    is forced — the transform is passed through transparently.
+
+    Used for detection task inputs where batches are ragged by design.
+    """
+    result: list[torch.Tensor] = []
+    for f in files:
+        arr = np.array(Image.open(f).convert("RGB"))  # HWC uint8
+        chw = arr.transpose(2, 0, 1).astype(np.float32) / 255.0  # CHW float32
+        t: torch.Tensor = torch.from_numpy(chw)
+        if per_image_transform is not None:
+            t = per_image_transform(t)
+        result.append(t)
+    return result
 
 
 def _apply_data_module_to_batch(

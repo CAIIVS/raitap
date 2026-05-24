@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from raitap.pipeline.outputs import ForwardOutput
-from raitap.types import TaskKind
+from raitap.types import DetectionInputs, TaskKind
 from raitap.utils.lazy import lazy_import
 
 # Conservative default for prediction/metrics forwards. Transparency methods
@@ -89,16 +89,23 @@ def resolve_forward_batch_size(config: AppConfig) -> int:
     return configured
 
 
-def forward_pass(config: AppConfig, backend: Any, inputs: torch.Tensor) -> ForwardOutput:
+def forward_pass(
+    config: AppConfig, backend: Any, inputs: torch.Tensor | DetectionInputs
+) -> ForwardOutput:
     """Run the model backend forward in chunks of ``forward_batch_size``.
 
     Returns a typed :class:`ForwardOutput` keyed by ``backend.task_kind``.
     Classification backends produce ``predictions_tensor`` (CPU-detached);
     detection backends produce ``detection_predictions`` (a length-N list of
     per-sample dicts with ``boxes`` / ``scores`` / ``labels`` tensors).
+
+    For detection, ``inputs`` is a ragged ``list[torch.Tensor]`` with one
+    native-resolution ``(C, H, W)`` tensor per image (sizes may differ, so
+    they cannot be stacked). For classification, ``inputs`` is a dense
+    ``(N, C, H, W)`` tensor.
     """
     batch_size = resolve_forward_batch_size(config)
-    total_batch = int(inputs.shape[0])
+    total_batch = len(inputs)
 
     task_kind = getattr(backend, "task_kind", TaskKind.classification)
 
@@ -106,7 +113,7 @@ def forward_pass(config: AppConfig, backend: Any, inputs: torch.Tensor) -> Forwa
         detection_predictions: list[dict[str, torch.Tensor]] = []
         for start in range(0, total_batch, batch_size):
             end = min(start + batch_size, total_batch)
-            prepared_inputs = backend._prepare_inputs(inputs[start:end])
+            prepared_inputs = backend.prepare_detection_inputs(inputs[start:end])
             raw_output: Any = backend(prepared_inputs)
             if not isinstance(raw_output, list):
                 raise TypeError(
