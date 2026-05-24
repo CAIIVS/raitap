@@ -101,7 +101,7 @@ jobs:
         # samples (small) — both downloaded on first pipeline run,
         # deterministic per cfg. Key on pyproject.toml + the assessment.yaml
         # so a torchvision bump or cfg change cleanly invalidates.
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cache/torch
@@ -228,7 +228,7 @@ jobs:
       - name: Cache torch hub weights + raitap sample data
         # vit_b_32 weights (~350MB) + imagenet_samples (small) — both
         # downloaded on first pipeline run, deterministic per cfg.
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cache/torch
@@ -315,7 +315,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - name: Cache torch hub weights + raitap sample data
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cache/torch
