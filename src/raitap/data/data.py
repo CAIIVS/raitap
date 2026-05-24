@@ -593,7 +593,8 @@ def _stack_images_numpy(
     """
     arrays = []
     for f in files:
-        arr = np.array(Image.open(f).convert("RGB"))  # HWC uint8
+        with Image.open(f) as im:
+            arr = np.array(im.convert("RGB"))  # HWC uint8
         chw = arr.transpose(2, 0, 1).astype(np.float32) / 255.0  # CHW float32
         if per_image_transform is not None:
             chw = per_image_transform(torch.from_numpy(chw)).numpy()
