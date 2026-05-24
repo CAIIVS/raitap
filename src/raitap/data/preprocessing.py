@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     import torch
     from torch import nn
     from torchvision import models
+    from torchvision.models import detection as _detection_models
     from torchvision.transforms import _presets, v2
 
     from raitap.configs.schema import DataConfig, ModelConfig
@@ -50,6 +51,7 @@ else:
     torch = lazy_import("torch")
     nn = lazy_import("torch.nn")
     models = lazy_import("torchvision.models")
+    _detection_models = lazy_import("torchvision.models.detection")
     v2 = lazy_import("torchvision.transforms.v2")
     _presets = lazy_import("torchvision.transforms._presets")
 
@@ -403,8 +405,13 @@ def _arch_from_model_cfg(model_cfg: ModelConfig) -> str | None:
     source = getattr(model_cfg, "source", None)
     if isinstance(source, str):
         candidate = source.strip().lower()
-        if candidate and hasattr(models, candidate):
-            attr = getattr(models, candidate)
+        if candidate:
+            # Top-level torchvision.models covers classification/segmentation
+            # builders; detection builders (fasterrcnn_*, retinanet_*, ssd*)
+            # live under torchvision.models.detection. Check top-level first,
+            # then fall back — same precedence as the model loader's
+            # _resolve_torchvision_factory (models/model.py). #196.
+            attr = getattr(models, candidate, None) or getattr(_detection_models, candidate, None)
             if callable(attr):
                 return candidate
     return None

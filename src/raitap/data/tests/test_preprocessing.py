@@ -218,6 +218,27 @@ def test_model_bundled_via_source(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "ResNet50_Weights" in result.description
 
 
+def test_model_bundled_via_detection_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Detection builders live under torchvision.models.detection, not top-level
+    # torchvision.models. Resolution must fall back there (mirrors the model
+    # loader's _resolve_torchvision_factory). Regression guard for #196.
+    monkeypatch.delenv(_ENV, raising=False)
+    result = resolve_preprocessing(
+        ModelConfig(source="fasterrcnn_resnet50_fpn_v2"),
+        DataConfig(
+            preprocessing="model-bundled",
+            model_input_transformation="model-bundled",
+        ),
+    )
+    assert result.data_origin == "model-bundled"
+    assert result.model_origin == "model-bundled"
+    assert "FasterRCNN" in result.description
+    # ObjectDetection preset is a no-op split: detectors normalise internally,
+    # so neither side carries a transform.
+    assert result.data_module is None
+    assert result.model_module is None
+
+
 def test_model_bundled_semantic_segmentation_preset_splits_cleanly(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
