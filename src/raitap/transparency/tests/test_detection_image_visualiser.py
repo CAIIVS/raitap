@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import matplotlib.pyplot as plt
 import pytest
 import torch
 
@@ -122,3 +123,29 @@ def test_detection_image_visualiser_is_importable_from_visualisers_package() -> 
     assert pkg.DetectionImageVisualiser is DetectionImageVisualiser or (
         pkg.DetectionImageVisualiser.__name__ == "DetectionImageVisualiser"
     )
+
+
+def test_visualiser_upsamples_low_res_cam_to_full_image_extent() -> None:
+    """LayerGradCam yields a low-res spatial map; the overlay must span the
+    whole image, not sit in a top-left corner patch. Regression guard for the
+    detection visualiser missing the bilinear-upsample the classification path
+    already has (issue #203)."""
+    vis = DetectionImageVisualiser()
+    cam = torch.rand(1, 1, 8, 8)  # low-res CAM map, e.g. from LayerGradCam
+    inputs = torch.rand(1, 3, 64, 64)
+    ctx = VisualisationContext(
+        algorithm="LayerGradCam",
+        sample_names=["img_0"],
+        show_sample_names=False,
+        detection_box=_box(label_name="car"),
+    )
+
+    fig = vis.visualise(cam, inputs, context=ctx)
+    try:
+        main_ax = fig.get_axes()[0]
+        overlay = main_ax.images[1]  # images[0] = original; images[1] = attribution overlay
+        left, right, bottom, top = overlay.get_extent()
+        assert abs(right - left) == pytest.approx(64.0, abs=2.0)
+        assert abs(top - bottom) == pytest.approx(64.0, abs=2.0)
+    finally:
+        plt.close(fig)
