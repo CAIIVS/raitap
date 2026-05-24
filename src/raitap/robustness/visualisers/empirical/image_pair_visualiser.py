@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 else:
     torch = lazy_import("torch")
 
-from ...contracts import MethodKind
+from ...contracts import AssessmentKind
 from ..base_visualiser import BaseRobustnessVisualiser
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 @robustness_visualiser(
     registry_name="image_pair",
-    supported_method_kinds=frozenset({MethodKind.EMPIRICAL_ATTACK}),
+    supported_assessment_kinds=frozenset({AssessmentKind.EMPIRICAL_ATTACK}),
     embeds_clean_input=True,
     embeds_perturbation_map=True,
 )
@@ -175,7 +175,7 @@ def _shared_display_range(clean: torch.Tensor, perturbed: torch.Tensor) -> tuple
 def _require_image_modality(result: RobustnessResult, visualiser_name: str) -> None:
     """Refuse to render a non-image robustness result through an image visualiser.
 
-    ``BaseRobustnessVisualiser.validate_result`` only enforces ``method_kind``;
+    ``BaseRobustnessVisualiser.validate_result`` only enforces ``assessment_kind``;
     image visualisers additionally need the result's input modality to be IMAGE
     so the (B, C, H, W) layout assumption holds. Without this guard a tabular
     or time-series result would silently feed garbage into ``imshow``.

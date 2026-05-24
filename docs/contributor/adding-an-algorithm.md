@@ -49,7 +49,7 @@ from raitap import adapters
     algorithm_registry={
         # ... existing entries ...
         "NewAttack": AssessorSemanticsHints(
-            MethodKind.EMPIRICAL_ATTACK,
+            AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.LINF,

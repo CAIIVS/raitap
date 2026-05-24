@@ -5,7 +5,7 @@ For each output class ``k`` over the verified batch, render a boxplot of
 with no finite samples are omitted from the boxplot but keep their x-axis
 tick so the class index remains unambiguous.
 
-Declared compatible with :class:`MethodKind.FORMAL_VERIFICATION` only.
+Declared compatible with :class:`AssessmentKind.FORMAL_VERIFICATION` only.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ import numpy as np
 
 from raitap.robustness.visualisers.registration import robustness_visualiser
 
-from ...contracts import MethodKind
+from ...contracts import AssessmentKind
 from ..base_visualiser import BaseRobustnessVisualiser
 
 if TYPE_CHECKING:
@@ -41,7 +41,7 @@ def _placeholder_figure(message: str) -> Figure:
 
 @robustness_visualiser(
     registry_name="output_bounds_cohort",
-    supported_method_kinds=frozenset({MethodKind.FORMAL_VERIFICATION}),
+    supported_assessment_kinds=frozenset({AssessmentKind.FORMAL_VERIFICATION}),
 )
 class OutputBoundsCohortVisualiser(BaseRobustnessVisualiser):
     """Boxplot of certified per-class bound widths across the verified batch."""

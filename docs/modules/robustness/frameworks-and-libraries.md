@@ -36,15 +36,15 @@ is visible in the run log.
 
 ## Typed semantics and visualiser compatibility
 
-RAITAP uses typed `MethodKind`, `ThreatModel`, `Objective`, and
+RAITAP uses typed `AssessmentKind`, `ThreatModel`, `Objective`, and
 `PerturbationBudget` semantics to validate visualisers against the result
 they receive. In short:
 
 - assessors produce typed `RobustnessResult.semantics`
-- visualisers declare which `MethodKind` they can render via the
-  `supported_method_kinds: ClassVar[frozenset[MethodKind]]` attribute
+- visualisers declare which `AssessmentKind` they can render via the
+  `supported_assessment_kinds: ClassVar[frozenset[AssessmentKind]]` attribute
 - the factory rejects incompatible pairings at YAML parse time
-  (`MethodKindVisualiserIncompatibilityError`)
+  (`AssessmentKindVisualiserIncompatibilityError`)
 - image visualisers additionally refuse non-image results
   (`input_spec.kind != IMAGE`)
 

@@ -10,7 +10,7 @@ from raitap._adapters import AdapterDecoratorOptions, _register_core
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from raitap.robustness.contracts import MethodKind
+    from raitap.robustness.contracts import AssessmentKind
     from raitap.robustness.visualisers.base_visualiser import BaseRobustnessVisualiser
 
 
@@ -25,7 +25,7 @@ T = TypeVar("T", bound="BaseRobustnessVisualiser")
 
 def robustness_visualiser(
     *,
-    supported_method_kinds: frozenset[MethodKind] | _Unset = _UNSET,
+    supported_assessment_kinds: frozenset[AssessmentKind] | _Unset = _UNSET,
     embeds_clean_input: bool | _Unset = _UNSET,
     embeds_perturbation_map: bool | _Unset = _UNSET,
     **common: Unpack[AdapterDecoratorOptions],
@@ -35,7 +35,7 @@ def robustness_visualiser(
 
     def wrap(cls: type[T]) -> type[T]:
         for attr, value in (
-            ("supported_method_kinds", supported_method_kinds),
+            ("supported_assessment_kinds", supported_assessment_kinds),
             ("embeds_clean_input", embeds_clean_input),
             ("embeds_perturbation_map", embeds_perturbation_map),
         ):

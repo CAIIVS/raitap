@@ -21,7 +21,7 @@ from raitap.models.backend import ModelBackend
 from raitap.utils.errors import SampleNamesLengthError
 
 from .contracts import AssessorAdapter
-from .exceptions import MethodKindVisualiserIncompatibilityError, MissingTargetsError
+from .exceptions import AssessmentKindVisualiserIncompatibilityError, MissingTargetsError
 from .results import ConfiguredRobustnessVisualiser
 
 if TYPE_CHECKING:
@@ -87,19 +87,19 @@ def check_assessor_visualiser_compat(
     assessor_target: str,
     visualisers: list[ConfiguredRobustnessVisualiser],
 ) -> None:
-    """Enforce ``MethodKind`` ↔ ``supported_method_kinds`` at parse time."""
-    method_kind = assessor.method_kind
+    """Enforce ``AssessmentKind`` ↔ ``supported_assessment_kinds`` at parse time."""
+    assessment_kind = assessor.assessment_kind
     for configured in visualisers:
         visualiser = configured.visualiser
-        supported = getattr(type(visualiser), "supported_method_kinds", frozenset())
+        supported = getattr(type(visualiser), "supported_assessment_kinds", frozenset())
         if not supported:
             continue
-        if method_kind not in supported:
-            raise MethodKindVisualiserIncompatibilityError(
+        if assessment_kind not in supported:
+            raise AssessmentKindVisualiserIncompatibilityError(
                 assessor_target=assessor_target,
                 visualiser=type(visualiser).__name__,
-                assessor_method_kind=method_kind.value,
-                supported_method_kinds=[k.value for k in sorted(supported)],
+                assessor_assessment_kind=assessment_kind.value,
+                supported_assessment_kinds=[k.value for k in sorted(supported)],
             )
 
 
@@ -195,7 +195,7 @@ def create_assessor(assessor_config: Any) -> tuple[AssessorAdapter, str]:
         ),
         type_error_hint=(
             "Configured assessors must have callable assess() and check_backend_compat() methods, "
-            "and a ``method_kind`` attribute."
+            "and a ``assessment_kind`` attribute."
         ),
         instantiate_fn=instantiate,
     )

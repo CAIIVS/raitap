@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
 from raitap.robustness.contracts import (
-    MethodKind,
+    AssessmentKind,
     Objective,
     PerturbationBudget,
     PerturbationNorm,
@@ -123,7 +123,7 @@ def _formal_fixture() -> RobustnessResult:
         output_bounds={"lower": lower, "upper": upper},
         runtime_per_sample=runtimes,
         semantics=RobustnessSemantics(
-            method_kind=MethodKind.FORMAL_VERIFICATION,
+            assessment_kind=AssessmentKind.FORMAL_VERIFICATION,
             threat_model=ThreatModel.WHITE_BOX,
             objective=Objective.UNTARGETED,
             families=frozenset({"smt"}),
@@ -141,10 +141,10 @@ def _empirical_fixture() -> RobustnessResult:
     perturbed = (clean + perturbation).clamp(0.0, 1.0)
     targets = torch.tensor([0, 1, 2, 3])
     verdicts = [
-        RobustnessVerdict.ATTACKED,
-        RobustnessVerdict.ATTACKED,
-        RobustnessVerdict.NOT_ATTACKED,
-        RobustnessVerdict.ATTACKED,
+        RobustnessVerdict.ATTACK_SUCCEEDED,
+        RobustnessVerdict.ATTACK_SUCCEEDED,
+        RobustnessVerdict.ATTACK_FAILED,
+        RobustnessVerdict.ATTACK_SUCCEEDED,
     ]
     distance = torch.tensor([0.05, 0.04, float("nan"), 0.06])
     perturbed_predictions = torch.tensor([1, 0, 2, 0])
@@ -170,7 +170,7 @@ def _empirical_fixture() -> RobustnessResult:
         algorithm="PGD",
         assessor_name="pgd",
         semantics=RobustnessSemantics(
-            method_kind=MethodKind.EMPIRICAL_ATTACK,
+            assessment_kind=AssessmentKind.EMPIRICAL_ATTACK,
             threat_model=ThreatModel.WHITE_BOX,
             objective=Objective.UNTARGETED,
             families=frozenset({"gradient"}),
@@ -180,10 +180,10 @@ def _empirical_fixture() -> RobustnessResult:
     )
 
 
-def _ctx(method_kind: MethodKind, algorithm: str) -> RobustnessVisualisationContext:
+def _ctx(assessment_kind: AssessmentKind, algorithm: str) -> RobustnessVisualisationContext:
     return RobustnessVisualisationContext(
         algorithm=algorithm,
-        method_kind=method_kind,
+        assessment_kind=assessment_kind,
         sample_names=None,
         show_sample_names=False,
     )
@@ -382,8 +382,8 @@ def main() -> None:
     empirical = _empirical_fixture()
     formal = _formal_fixture()
 
-    empirical_ctx = _ctx(MethodKind.EMPIRICAL_ATTACK, "PGD")
-    formal_ctx = _ctx(MethodKind.FORMAL_VERIFICATION, "marabou-linf")
+    empirical_ctx = _ctx(AssessmentKind.EMPIRICAL_ATTACK, "PGD")
+    formal_ctx = _ctx(AssessmentKind.FORMAL_VERIFICATION, "marabou-linf")
 
     saved: list[Path] = []
     saved.append(

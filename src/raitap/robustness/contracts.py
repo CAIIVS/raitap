@@ -1,19 +1,19 @@
 """
-Shared robustness contracts: method-kind taxonomy, threat model, and verdict typing.
+Shared robustness contracts: assessment-kind taxonomy, threat model, and verdict typing.
 
 The robustness module distinguishes two fundamentally different ways to assess a
 model's robustness against perturbations:
 
-* ``MethodKind.EMPIRICAL_ATTACK`` — try to find an adversarial example within a
+* ``AssessmentKind.EMPIRICAL_ATTACK`` — try to find an adversarial example within a
   perturbation budget (torchattacks, foolbox, …). A "non-attack" outcome does
   *not* prove robustness; it just means the configured attack failed.
-* ``MethodKind.FORMAL_VERIFICATION`` — prove (or refute) that no adversarial
+* ``AssessmentKind.FORMAL_VERIFICATION`` — prove (or refute) that no adversarial
   example exists within the budget (auto_LiRPA, alpha-beta-CROWN, ...). Outcomes are
   verified / falsified / unknown.
 
 A single ``RobustnessSemantics`` carries this distinction so that downstream
 result handling, reporting, and visualiser-compatibility checks can branch on
-``method_kind`` instead of duck-typing.
+``assessment_kind`` instead of duck-typing.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ Module = Any
 Tensor = Any
 
 
-class MethodKind(StrEnum):
+class AssessmentKind(StrEnum):
     """High-level taxonomy distinguishing empirical attacks from formal verification."""
 
     EMPIRICAL_ATTACK = "empirical_attack"
@@ -42,14 +42,15 @@ class MethodKind(StrEnum):
 class RobustnessVerdict(StrEnum):
     """Per-sample assessment outcome.
 
-    Empirical assessors emit ``ATTACKED`` / ``NOT_ATTACKED`` (the latter does NOT
-    prove robustness — it only means the configured attack failed).
+    Empirical assessors emit ``ATTACK_SUCCEEDED`` / ``ATTACK_FAILED`` (the latter
+    does NOT prove robustness — it only means the configured attack failed to find
+    an adversarial example within the budget).
     Formal verification assessors emit ``VERIFIED`` / ``FALSIFIED`` / ``UNKNOWN``
     (and ``ERROR`` for per-sample crashes / timeouts).
     """
 
-    ATTACKED = "attacked"
-    NOT_ATTACKED = "not_attacked"
+    ATTACK_SUCCEEDED = "attack_succeeded"
+    ATTACK_FAILED = "attack_failed"
     VERIFIED = "verified"
     FALSIFIED = "falsified"
     UNKNOWN = "unknown"
@@ -59,8 +60,8 @@ class RobustnessVerdict(StrEnum):
 # Stable integer encoding for storing verdicts inside a torch tensor.
 # Map order is the public contract; do not renumber existing entries.
 VERDICT_CODES: dict[RobustnessVerdict, int] = {
-    RobustnessVerdict.ATTACKED: 1,
-    RobustnessVerdict.NOT_ATTACKED: 2,
+    RobustnessVerdict.ATTACK_SUCCEEDED: 1,
+    RobustnessVerdict.ATTACK_FAILED: 2,
     RobustnessVerdict.VERIFIED: 3,
     RobustnessVerdict.FALSIFIED: 4,
     RobustnessVerdict.UNKNOWN: 5,
@@ -118,7 +119,7 @@ class PerturbationBudget:
 class RobustnessSemantics:
     """Typed contract describing the meaning of a robustness assessment artifact."""
 
-    method_kind: MethodKind
+    assessment_kind: AssessmentKind
     threat_model: ThreatModel
     objective: Objective
     families: frozenset[str]
@@ -133,7 +134,7 @@ class RobustnessVisualisationContext:
     """Standard pipeline-controlled metadata provided to robustness visualisers."""
 
     algorithm: str
-    method_kind: MethodKind
+    assessment_kind: AssessmentKind
     sample_names: list[str] | None
     show_sample_names: bool
 
@@ -147,7 +148,7 @@ class AssessorAdapter(Protocol):
     ``explain(model, inputs, …)``.
     """
 
-    method_kind: ClassVar[MethodKind]
+    assessment_kind: ClassVar[AssessmentKind]
 
     def check_backend_compat(self, backend: object) -> None:
         pass

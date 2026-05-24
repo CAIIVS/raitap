@@ -29,7 +29,7 @@ from raitap.reporting.manifest import ReportManifest
 from raitap.reporting.sample_selection import ReportSampleSelectionEntry
 from raitap.reporting.sections import ReportGroup, ReportSection
 from raitap.robustness.contracts import (
-    MethodKind,
+    AssessmentKind,
     Objective,
     PerturbationBudget,
     PerturbationNorm,
@@ -237,7 +237,7 @@ def _local_tabular_semantics(shape: tuple[int, ...]) -> ExplanationSemantics:
 
 def _robustness_semantics() -> RobustnessSemantics:
     return RobustnessSemantics(
-        method_kind=MethodKind.EMPIRICAL_ATTACK,
+        assessment_kind=AssessmentKind.EMPIRICAL_ATTACK,
         threat_model=ThreatModel.WHITE_BOX,
         objective=Objective.UNTARGETED,
         families=frozenset({"gradient_sign"}),
@@ -263,7 +263,7 @@ def _make_robustness_result(
         clean_inputs=clean,
         targets=torch.arange(batch_size),
         clean_predictions=torch.arange(batch_size),
-        verdicts=encode_verdicts([RobustnessVerdict.ATTACKED] * batch_size),
+        verdicts=encode_verdicts([RobustnessVerdict.ATTACK_SUCCEEDED] * batch_size),
         metrics=RobustnessMetrics(
             clean_accuracy=1.0,
             adversarial_accuracy=0.0,

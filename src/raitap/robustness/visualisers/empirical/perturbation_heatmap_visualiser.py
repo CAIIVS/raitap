@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 else:
     torch = lazy_import("torch")
 
-from ...contracts import MethodKind
+from ...contracts import AssessmentKind
 from ..base_visualiser import BaseRobustnessVisualiser
 from .image_pair_visualiser import _require_image_modality, _signed_perturbation_heatmap
 
@@ -31,7 +31,7 @@ _SUPPORTED_MODES = frozenset({"signed_dominant", "mean_abs", "mean", "max_abs"})
 
 @robustness_visualiser(
     registry_name="perturbation_heatmap",
-    supported_method_kinds=frozenset({MethodKind.EMPIRICAL_ATTACK}),
+    supported_assessment_kinds=frozenset({AssessmentKind.EMPIRICAL_ATTACK}),
     embeds_perturbation_map=True,
 )
 class PerturbationHeatmapVisualiser(BaseRobustnessVisualiser):

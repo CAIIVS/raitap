@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from raitap._adapters import AdapterMixin
 
-from ..exceptions import MethodKindVisualiserIncompatibilityError
+from ..exceptions import AssessmentKindVisualiserIncompatibilityError
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
-    from ..contracts import MethodKind, RobustnessVisualisationContext
+    from ..contracts import AssessmentKind, RobustnessVisualisationContext
     from ..results import RobustnessResult
 
 
@@ -20,7 +20,7 @@ class BaseRobustnessVisualiser(ABC, AdapterMixin):
     """All robustness visualisers extend this class.
 
     Subclasses declare which method kinds they support via the
-    ``supported_method_kinds`` ClassVar; the factory enforces compatibility at
+    ``supported_assessment_kinds`` ClassVar; the factory enforces compatibility at
     YAML parse time so configuration errors fail fast.
 
     Empirical visualisers may also declare class-level facet hints used by
@@ -32,20 +32,22 @@ class BaseRobustnessVisualiser(ABC, AdapterMixin):
     unaffected unless they explicitly opt into the contract.
     """
 
-    supported_method_kinds: ClassVar[frozenset[MethodKind]] = frozenset()
+    supported_assessment_kinds: ClassVar[frozenset[AssessmentKind]] = frozenset()
     # Class-level because embedding robustness facets is a visual layout property.
     embeds_clean_input: ClassVar[bool] = False
     embeds_perturbation_map: ClassVar[bool] = False
 
     def validate_result(self, result: RobustnessResult) -> None:
-        if not self.supported_method_kinds:
+        if not self.supported_assessment_kinds:
             return
-        if result.method_kind not in self.supported_method_kinds:
-            raise MethodKindVisualiserIncompatibilityError(
+        if result.assessment_kind not in self.supported_assessment_kinds:
+            raise AssessmentKindVisualiserIncompatibilityError(
                 assessor_target=result.assessor_target,
                 visualiser=type(self).__name__,
-                assessor_method_kind=result.method_kind.value,
-                supported_method_kinds=[k.value for k in sorted(self.supported_method_kinds)],
+                assessor_assessment_kind=result.assessment_kind.value,
+                supported_assessment_kinds=[
+                    k.value for k in sorted(self.supported_assessment_kinds)
+                ],
             )
 
     @abstractmethod

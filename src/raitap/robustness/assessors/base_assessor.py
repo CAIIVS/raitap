@@ -3,7 +3,7 @@
 Three layers, mirroring transparency's split between framework-owned and
 adapter-owned pipelines:
 
-* ``BaseAssessor`` - root: declares ``method_kind`` and the no-op
+* ``BaseAssessor`` - root: declares ``assessment_kind`` and the no-op
   ``check_backend_compat`` default.
 * ``EmpiricalAttackAssessor`` - framework owns ``assess()``; subclasses
   implement only ``generate_adversarial``.
@@ -31,7 +31,7 @@ else:
     torch = lazy_import("torch")
 
 from ..contracts import (
-    MethodKind,
+    AssessmentKind,
     Objective,
     PerturbationBudget,
     PerturbationNorm,
@@ -65,7 +65,7 @@ class BaseAssessor(AdapterMixin, ABC):
     """
 
     algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]
-    method_kind: ClassVar[MethodKind]
+    assessment_kind: ClassVar[AssessmentKind]
 
     #: Which YAML block the underlying library actually consumes for budget
     #: kwargs (``eps`` / ``alpha`` / ``steps``). ``"init_kwargs"`` means the
@@ -148,7 +148,7 @@ def _per_sample_norm(delta: torch.Tensor, norm: PerturbationNorm) -> torch.Tenso
 class EmpiricalAttackAssessor(BaseAssessor, ABC):
     """Empirical attack adapter: subclass implements one method, framework does the rest."""
 
-    method_kind: ClassVar[MethodKind] = MethodKind.EMPIRICAL_ATTACK
+    assessment_kind: ClassVar[AssessmentKind] = AssessmentKind.EMPIRICAL_ATTACK
 
     @abstractmethod
     def generate_adversarial(
@@ -327,7 +327,7 @@ class EmpiricalAttackAssessor(BaseAssessor, ABC):
 class FormalVerificationAssessor(BaseAssessor, ABC):
     """Formal-verification adapter: subclass implements per-sample ``verify_sample``."""
 
-    method_kind: ClassVar[MethodKind] = MethodKind.FORMAL_VERIFICATION
+    assessment_kind: ClassVar[AssessmentKind] = AssessmentKind.FORMAL_VERIFICATION
 
     @abstractmethod
     def verify_sample(
@@ -560,7 +560,7 @@ def _empirical_verdicts(
     else:
         success = adversarial_predictions != reference_targets
     verdicts = [
-        RobustnessVerdict.ATTACKED if hit else RobustnessVerdict.NOT_ATTACKED
+        RobustnessVerdict.ATTACK_SUCCEEDED if hit else RobustnessVerdict.ATTACK_FAILED
         for hit in success.tolist()
     ]
     return verdicts, success

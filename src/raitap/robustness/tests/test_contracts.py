@@ -7,7 +7,7 @@ import pytest
 
 from raitap.robustness.contracts import (
     VERDICT_CODES,
-    MethodKind,
+    AssessmentKind,
     Objective,
     PerturbationBudget,
     PerturbationNorm,
@@ -33,7 +33,7 @@ def test_decode_unknown_code_raises() -> None:
 
 def test_robustness_semantics_is_frozen() -> None:
     semantics = RobustnessSemantics(
-        method_kind=MethodKind.EMPIRICAL_ATTACK,
+        assessment_kind=AssessmentKind.EMPIRICAL_ATTACK,
         threat_model=ThreatModel.WHITE_BOX,
         objective=Objective.UNTARGETED,
         families=frozenset({"gradient_sign"}),

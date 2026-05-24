@@ -14,7 +14,7 @@ from raitap.configs.schema import AppConfig, ReportingConfig
 from raitap.pipeline.outputs import ForwardOutput, RunOutputs
 from raitap.reporting.builder import build_report
 from raitap.robustness.contracts import (
-    MethodKind,
+    AssessmentKind,
     Objective,
     PerturbationBudget,
     PerturbationNorm,
@@ -63,7 +63,7 @@ def _formal_result(run_dir: Path) -> RobustnessResult:
         assessor_name="marabou_linf",
         runtime_per_sample=torch.tensor([0.2, 0.4, 0.6]),
         semantics=RobustnessSemantics(
-            method_kind=MethodKind.FORMAL_VERIFICATION,
+            assessment_kind=AssessmentKind.FORMAL_VERIFICATION,
             threat_model=ThreatModel.WHITE_BOX,
             objective=Objective.UNTARGETED,
             families=frozenset({"smt", "complete", "sound"}),
@@ -205,7 +205,7 @@ def test_build_report_skips_bound_rows_for_empirical_attack_results(
     result = _formal_result(run_dir)
     # Mutate to an EMPIRICAL_ATTACK result while keeping output_bounds set.
     result.semantics = RobustnessSemantics(
-        method_kind=MethodKind.EMPIRICAL_ATTACK,
+        assessment_kind=AssessmentKind.EMPIRICAL_ATTACK,
         threat_model=ThreatModel.WHITE_BOX,
         objective=Objective.UNTARGETED,
         families=frozenset({"attack"}),

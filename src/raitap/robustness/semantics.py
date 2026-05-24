@@ -18,7 +18,7 @@ from raitap.transparency.contracts import InputSpec, SampleSelection
 from raitap.transparency.semantics import infer_input_spec
 
 from .contracts import (
-    MethodKind,
+    AssessmentKind,
     Objective,
     PerturbationBudget,
     PerturbationNorm,
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 class AssessorSemanticsHints:
     """Per-algorithm metadata read by ``assessor_semantics``."""
 
-    method_kind: MethodKind
+    assessment_kind: AssessmentKind
     threat_model: ThreatModel
     objective: Objective
     norm: PerturbationNorm
@@ -225,7 +225,7 @@ def assessor_semantics(
         sample_display_names=sample_names,
     )
     return RobustnessSemantics(
-        method_kind=hints.method_kind,
+        assessment_kind=hints.assessment_kind,
         threat_model=hints.threat_model,
         objective=objective,
         families=hints.families,

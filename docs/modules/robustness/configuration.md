@@ -101,7 +101,7 @@ myst:
 :default: [ImagePairVisualiser]
 :description: Visualiser definitions. Each entry must include at least
   `_target_`. Each visualiser can also define its own `constructor` and `call`
-  blocks. Visualisers declare which `MethodKind` (`empirical_attack` /
+  blocks. Visualisers declare which `AssessmentKind` (`empirical_attack` /
   `formal_verification`) they support; the factory rejects mismatches at parse
   time.
 

@@ -13,7 +13,7 @@ The diverging colormap is centred on zero via
 :class:`matplotlib.colors.TwoSlopeNorm`, so colours stay interpretable when
 the magnitudes of the positive and negative tails differ.
 
-Declared compatible with :class:`MethodKind.FORMAL_VERIFICATION` only.
+Declared compatible with :class:`AssessmentKind.FORMAL_VERIFICATION` only.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from matplotlib.colors import TwoSlopeNorm
 
 from raitap.robustness.visualisers.registration import robustness_visualiser
 
-from ...contracts import MethodKind
+from ...contracts import AssessmentKind
 from ..base_visualiser import BaseRobustnessVisualiser
 
 if TYPE_CHECKING:
@@ -55,7 +55,7 @@ def _auto_figsize(n: int, k: int) -> tuple[float, float]:
 
 @robustness_visualiser(
     registry_name="output_bounds_margin_heatmap",
-    supported_method_kinds=frozenset({MethodKind.FORMAL_VERIFICATION}),
+    supported_assessment_kinds=frozenset({AssessmentKind.FORMAL_VERIFICATION}),
 )
 class OutputBoundsMarginHeatmapVisualiser(BaseRobustnessVisualiser):
     """Heatmap of per-class lower-vs-upper margins relative to the target class."""

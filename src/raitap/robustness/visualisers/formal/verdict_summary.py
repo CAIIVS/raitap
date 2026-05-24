@@ -8,7 +8,7 @@ Two side-by-side panels:
 * Right: histogram of ``runtime_per_sample`` (seconds), to surface
   long-tail timeouts vs. fast SAT/UNSAT cases.
 
-Declared compatible with :class:`MethodKind.FORMAL_VERIFICATION` only.
+Declared compatible with :class:`AssessmentKind.FORMAL_VERIFICATION` only.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ import numpy as np
 
 from raitap.robustness.visualisers.registration import robustness_visualiser
 
-from ...contracts import MethodKind, RobustnessVerdict
+from ...contracts import AssessmentKind, RobustnessVerdict
 from ..base_visualiser import BaseRobustnessVisualiser
 
 if TYPE_CHECKING:
@@ -46,7 +46,7 @@ _VERDICT_COLORS = {
 
 @robustness_visualiser(
     registry_name="verdict_summary",
-    supported_method_kinds=frozenset({MethodKind.FORMAL_VERIFICATION}),
+    supported_assessment_kinds=frozenset({AssessmentKind.FORMAL_VERIFICATION}),
 )
 class VerdictSummaryVisualiser(BaseRobustnessVisualiser):
     """Bar chart of verdict counts plus a runtime histogram."""

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from raitap.robustness.assessors.registration import robustness_adapter
 from raitap.utils.lazy import lazy_import
 
-from ..contracts import MethodKind, Objective, PerturbationNorm, ThreatModel
+from ..contracts import AssessmentKind, Objective, PerturbationNorm, ThreatModel
 from ..semantics import AssessorSemanticsHints
 from .base_assessor import EmpiricalAttackAssessor, _prepare_inputs_for_forward
 
@@ -23,70 +23,70 @@ else:
     library="torchattacks",
     algorithm_registry={
         "FGSM": AssessorSemanticsHints(
-            MethodKind.EMPIRICAL_ATTACK,
+            AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
             families=frozenset({"gradient_sign"}),
         ),
         "BIM": AssessorSemanticsHints(
-            MethodKind.EMPIRICAL_ATTACK,
+            AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
             families=frozenset({"gradient_sign", "iterative"}),
         ),
         "PGD": AssessorSemanticsHints(
-            MethodKind.EMPIRICAL_ATTACK,
+            AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
             families=frozenset({"gradient_sign", "iterative"}),
         ),
         "PGDL2": AssessorSemanticsHints(
-            MethodKind.EMPIRICAL_ATTACK,
+            AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.L2,
             families=frozenset({"gradient_sign", "iterative"}),
         ),
         "MIFGSM": AssessorSemanticsHints(
-            MethodKind.EMPIRICAL_ATTACK,
+            AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
             families=frozenset({"gradient_sign", "iterative", "momentum"}),
         ),
         "CW": AssessorSemanticsHints(
-            MethodKind.EMPIRICAL_ATTACK,
+            AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.L2,
             families=frozenset({"optimization"}),
         ),
         "DeepFool": AssessorSemanticsHints(
-            MethodKind.EMPIRICAL_ATTACK,
+            AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.L2,
             families=frozenset({"optimization"}),
         ),
         "AutoAttack": AssessorSemanticsHints(
-            MethodKind.EMPIRICAL_ATTACK,
+            AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
             families=frozenset({"ensemble", "auto"}),
         ),
         "Square": AssessorSemanticsHints(
-            MethodKind.EMPIRICAL_ATTACK,
+            AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.BLACK_BOX_SCORE,
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
             families=frozenset({"score_based"}),
         ),
         "OnePixel": AssessorSemanticsHints(
-            MethodKind.EMPIRICAL_ATTACK,
+            AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.BLACK_BOX_SCORE,
             Objective.UNTARGETED,
             PerturbationNorm.L0,
