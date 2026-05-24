@@ -21,6 +21,10 @@ The 2 following config keys are available:
 - `preprocessing` runs in the loader so mixed-size image folders can stack at all, and so the work is outside autograd.
 - `model_input_transformation` inside autograd so Captum/SHAP attribution and PGD/FGSM attacks operate on the same input space you do.
 
+:::{warning}
+**Not supported for object detection.** Detection models take native per-image inputs and resize/normalise internally (e.g. torchvision `GeneralizedRCNNTransform`), so neither knob applies: a data-side resize/crop/pad would corrupt the ground-truth box coordinates (labels are not transformed with the pixels), and a model-side transform would double-process the input. Setting `data.preprocessing` or `data.model_input_transformation` for a detection model raises an error — leave both unset.
+:::
+
 The following values are allowed for both keys:
 
 - **`null`** (default): no preprocessing
