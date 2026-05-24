@@ -24,6 +24,7 @@ from raitap.transparency.visualisers.registration import transparency_visualiser
 from raitap.types import TaskKind
 
 from .base_visualiser import BaseVisualiser
+from .captum_visualisers import _resize_attr_to_hw
 
 if TYPE_CHECKING:
     import torch
@@ -103,6 +104,13 @@ class DetectionImageVisualiser(BaseVisualiser):
                 f"DetectionImageVisualiser expected (C, H, W) or (H, W) attribution; "
                 f"got shape {attr_arr.shape!r}."
             )
+        # Layer methods (e.g. LayerGradCam) yield low-res spatial maps; bilinear-
+        # upsample to the image so the heat overlay spans the full frame instead
+        # of a top-left corner patch. Mirrors the classification path
+        # (captum_visualisers._resize_attr_to_hw). Issue #203.
+        target_hw = img_hwc.shape[:2]
+        if attr_2d.shape != target_hw:
+            attr_2d = _resize_attr_to_hw(attr_2d, target_hw)
         attr_max = float(np.max(np.abs(attr_2d))) if attr_2d.size else 0.0
         if attr_max > 0:
             attr_2d = attr_2d / attr_max
