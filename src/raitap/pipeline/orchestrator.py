@@ -22,7 +22,6 @@ from raitap.pipeline.ui import print_summary
 from raitap.reporting import build_report, create_report, reporting_enabled
 from raitap.reporting.sample_selection import resolve_report_sample_selection
 from raitap.tracking import BaseTracker
-from raitap.types import TaskKind
 from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
@@ -76,7 +75,7 @@ def _run_pipeline(
         data = Data(
             config,
             resolved_preprocessing=resolved_preprocessing,
-            task_kind=getattr(model.backend, "task_kind", TaskKind.classification),
+            task_kind=model.backend.task_kind,
         )
     _validate_report_sample_selection(config, data)
     if verbose:

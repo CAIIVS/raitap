@@ -45,6 +45,10 @@ class _BackendStub:
     def hardware_label(self) -> str:
         return "CPU"
 
+    @property
+    def task_kind(self) -> _TaskKind:
+        return _TaskKind.classification
+
     def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
         return inputs
 
