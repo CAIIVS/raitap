@@ -60,6 +60,7 @@ class TestDataConstructor:
         data = Data(config)
 
         assert isinstance(data.tensor, torch.Tensor)
+        assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape == (2, 2)
         assert data.source == str(csv_file)
 
@@ -201,6 +202,7 @@ class TestDataConstructor:
 
         data = Data(config)
 
+        assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape[0] == 2
         assert data.labels is not None
         # Sample order is sorted by relative posix path: NORMAL/* < PNEUMONIA/*.

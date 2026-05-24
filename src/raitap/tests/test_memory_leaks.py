@@ -142,11 +142,16 @@ def test_run_without_tracking_forward_output_is_cpu_and_detached() -> None:
     import torch.nn as nn
 
     from raitap.pipeline.orchestrator import run_without_tracking as _run_without_tracking
+    from raitap.types import TaskKind
 
     net = nn.Linear(4, 2, bias=False)
 
     class _Backend:
         hardware_label = "cpu"
+
+        @property
+        def task_kind(self) -> TaskKind:
+            return TaskKind.classification
 
         def _prepare_inputs(self, x: torch.Tensor) -> torch.Tensor:
             return x

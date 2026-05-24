@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from raitap import raitap_log
 from raitap.configs import cfg_to_dict
@@ -101,7 +101,9 @@ def assess_transparency(
             config,
             name,
             model,
-            data.tensor,
+            # Detection routed away at the task-kind check above, so this is the
+            # dense-NCHW classification path; narrow the ``Data.tensor`` union.
+            cast("torch.Tensor", data.tensor),
             input_metadata=input_metadata,
             sample_ids=data.sample_ids,
             sample_names=data.sample_ids,

@@ -45,6 +45,10 @@ class _BackendStub:
     def hardware_label(self) -> str:
         return "CPU"
 
+    @property
+    def task_kind(self) -> _TaskKind:
+        return _TaskKind.classification
+
     def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
         return inputs
 
@@ -115,6 +119,10 @@ def test_forward_primary_tensor_batches_backend_calls() -> None:
     class _RecordingBackend:
         def __init__(self) -> None:
             self.prepared_batch_sizes: list[int] = []
+
+        @property
+        def task_kind(self) -> _TaskKind:
+            return _TaskKind.classification
 
         def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
             self.prepared_batch_sizes.append(int(inputs.shape[0]))
@@ -377,7 +385,11 @@ def test_run_resolves_preprocessing_once_for_model_and_data(monkeypatch: MonkeyP
         resolved_preprocessing=resolved_preprocessing,
         allow_unsafe_pickle=False,
     )
-    data_factory.assert_called_once_with(config, resolved_preprocessing=resolved_preprocessing)
+    data_factory.assert_called_once_with(
+        config,
+        resolved_preprocessing=resolved_preprocessing,
+        task_kind=_TaskKind.classification,
+    )
     run_without_tracking.assert_called_once_with(
         config,
         model,

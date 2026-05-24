@@ -75,7 +75,10 @@ def test_detection_pipeline_e2e_via_fasterrcnn_mobilenet(tmp_path: Path) -> None
     from raitap.data.data import Data
 
     data = Data.__new__(Data)
-    data.tensor = images_tensor
+    # Detection batches are ragged ``list[Tensor]`` (one native-resolution
+    # ``(C, H, W)`` per image), not a dense ``NCHW`` tensor — exercise the
+    # canonical detection input path (issue #197).
+    data.tensor = [images_tensor[0]]
     data.sample_ids = sample_ids
     data.name = "udacity-e2e"
     data.source = "UdacitySelfDriving"

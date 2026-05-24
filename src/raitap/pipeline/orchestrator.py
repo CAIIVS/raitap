@@ -72,7 +72,11 @@ def _run_pipeline(
             resolved_preprocessing=resolved_preprocessing,
             allow_unsafe_pickle=allow_unsafe_pickle,
         )
-        data = Data(config, resolved_preprocessing=resolved_preprocessing)
+        data = Data(
+            config,
+            resolved_preprocessing=resolved_preprocessing,
+            task_kind=model.backend.task_kind,
+        )
     _validate_report_sample_selection(config, data)
     if verbose:
         print_summary(config, model)
@@ -186,5 +190,5 @@ def _validate_report_sample_selection(config: AppConfig, data: Data) -> None:
     resolve_report_sample_selection(
         selection,
         sample_ids=data.sample_ids,
-        batch_size=int(data.tensor.shape[0]) if data.tensor.ndim > 0 else 0,
+        batch_size=len(data.tensor),
     )

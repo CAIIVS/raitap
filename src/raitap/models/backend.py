@@ -196,10 +196,19 @@ class TorchBackend(ModelBackend):
         reshaped = _adapt_input_shape(inputs, self.expected_input_shape)
         return reshaped.to(self.device)
 
+    def prepare_detection_inputs(self, inputs: list[torch.Tensor]) -> list[torch.Tensor]:
+        """Prepare a ragged list of detection images for inference.
+
+        Each ``(C, H, W)`` tensor is moved to the backend device without
+        any shape adaptation — detection images keep their native resolution.
+        Torchvision detection models accept ``list[Tensor]`` natively.
+        """
+        return [img.to(self.device) for img in inputs]
+
     def _prepare_kwargs(self, kwargs: dict[str, Any]) -> dict[str, Any]:
         return _move_tensors_to_device(kwargs, self.device)
 
-    def __call__(self, inputs: torch.Tensor) -> Any:
+    def __call__(self, inputs: torch.Tensor | list[torch.Tensor]) -> Any:
         return self.model(inputs)
 
     def as_model_for_explanation(self) -> nn.Module:

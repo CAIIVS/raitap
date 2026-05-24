@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from raitap.pipeline.outputs import ForwardOutput
-from raitap.types import TaskKind
+from raitap.types import DetectionInputs, TaskKind
 from raitap.utils.lazy import lazy_import
 
 # Conservative default for prediction/metrics forwards. Transparency methods
@@ -89,24 +89,58 @@ def resolve_forward_batch_size(config: AppConfig) -> int:
     return configured
 
 
-def forward_pass(config: AppConfig, backend: Any, inputs: torch.Tensor) -> ForwardOutput:
+def _validate_inputs_for_task(inputs: torch.Tensor | DetectionInputs, task_kind: TaskKind) -> None:
+    """Guard the input contract before ``len()``/slicing assumes it.
+
+    ``Data`` already validates at load time; this catches direct callers that
+    bypass it. Detection wants a ``list`` of per-image tensors; classification
+    wants a dense ``(N, ...)`` tensor (``len()`` on a stray ``(C, H, W)`` would
+    silently count channels, not samples).
+    """
+    if task_kind is TaskKind.detection:
+        if not isinstance(inputs, list):
+            raise TypeError(
+                "forward_pass(detection) expected a list of per-image (C, H, W) "
+                f"tensors; got {type(inputs).__name__}."
+            )
+        return
+    if not isinstance(inputs, torch.Tensor):
+        raise TypeError(
+            f"forward_pass({task_kind.value}) expected a dense (N, ...) tensor; "
+            f"got {type(inputs).__name__}."
+        )
+    if inputs.ndim < 2:
+        raise ValueError(
+            f"forward_pass({task_kind.value}) expected a batched (N, ...) tensor "
+            f"with ndim >= 2; got shape {tuple(inputs.shape)}."
+        )
+
+
+def forward_pass(
+    config: AppConfig, backend: Any, inputs: torch.Tensor | DetectionInputs
+) -> ForwardOutput:
     """Run the model backend forward in chunks of ``forward_batch_size``.
 
     Returns a typed :class:`ForwardOutput` keyed by ``backend.task_kind``.
     Classification backends produce ``predictions_tensor`` (CPU-detached);
     detection backends produce ``detection_predictions`` (a length-N list of
     per-sample dicts with ``boxes`` / ``scores`` / ``labels`` tensors).
+
+    For detection, ``inputs`` is a ragged ``list[torch.Tensor]`` with one
+    native-resolution ``(C, H, W)`` tensor per image (sizes may differ, so
+    they cannot be stacked). For classification, ``inputs`` is a dense
+    ``(N, C, H, W)`` tensor.
     """
     batch_size = resolve_forward_batch_size(config)
-    total_batch = int(inputs.shape[0])
-
-    task_kind = getattr(backend, "task_kind", TaskKind.classification)
+    task_kind = backend.task_kind
+    _validate_inputs_for_task(inputs, task_kind)
+    total_batch = len(inputs)
 
     if task_kind is TaskKind.detection:
         detection_predictions: list[dict[str, torch.Tensor]] = []
         for start in range(0, total_batch, batch_size):
             end = min(start + batch_size, total_batch)
-            prepared_inputs = backend._prepare_inputs(inputs[start:end])
+            prepared_inputs = backend.prepare_detection_inputs(inputs[start:end])
             raw_output: Any = backend(prepared_inputs)
             if not isinstance(raw_output, list):
                 raise TypeError(
@@ -114,6 +148,11 @@ def forward_pass(config: AppConfig, backend: Any, inputs: torch.Tensor) -> Forwa
                     f"got {type(raw_output).__name__}."
                 )
             for sample_dict in raw_output:
+                if not isinstance(sample_dict, dict):
+                    raise TypeError(
+                        "forward_pass(detection) expected each backend output entry to be a "
+                        f"dict of tensors; got {type(sample_dict).__name__}."
+                    )
                 detection_predictions.append({k: v.detach().cpu() for k, v in sample_dict.items()})
             del prepared_inputs, raw_output
             if torch.cuda.is_available():
