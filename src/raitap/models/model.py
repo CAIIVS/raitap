@@ -124,16 +124,18 @@ def _apply_preprocessing(
         else resolve_preprocessing(config.model, config.data)
     )
 
+    # Detection models resize/normalise internally and take native per-image
+    # inputs, so a data-side transform would corrupt box coordinates (labels
+    # are not transformed) and a model-side transform would double-process.
+    detection_preprocessing = resolved.data_module is not None or resolved.model_module is not None
+    if backend.task_kind is TaskKind.detection and detection_preprocessing:
+        raise RaitapError(
+            "Preprocessing is not supported for object detection models. "
+            "Unset data.preprocessing and data.model_input_transformation: "
+            "detection takes native per-image inputs and normalises internally."
+        )
+
     if resolved.model_module is not None:
-        if backend.task_kind is TaskKind.detection:
-            raise RaitapError(
-                "data.model_input_transformation is not supported for object "
-                "detection models: detectors normalise inputs internally "
-                "(torchvision GeneralizedRCNNTransform), so an external "
-                "model-side transformation would double-process the input. It "
-                "is also incompatible with the per-image (variable-resolution) "
-                "detection input. Leave the model-side knob unset for detection."
-            )
         if isinstance(backend, OnnxBackend):
             if resolved.model_origin != "custom-file":
                 raise NotImplementedError(

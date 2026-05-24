@@ -971,6 +971,34 @@ class TestModelPreprocessingWrap:
         # The detector must be left untouched (not wrapped).
         assert isinstance(backend.model, nn.Identity)
 
+    def test_data_preprocessing_rejected_for_detection(self) -> None:
+        """A data-side ``data.preprocessing`` module is also rejected for
+        detection: a resize/crop/pad would change pixels while the box labels
+        stay untransformed, corrupting mAP and attribution coordinates. Guards
+        the model-side and data-side knobs symmetrically."""
+        from raitap.data.preprocessing import ResolvedPreprocessing
+        from raitap.models.model import _apply_preprocessing
+        from raitap.types import TaskKind
+        from raitap.utils.errors import RaitapError
+
+        cfg = _make_config("resnet18")
+        backend = TorchBackend(
+            nn.Identity(), device=torch.device("cpu"), task_kind=TaskKind.detection
+        )
+        resolved = ResolvedPreprocessing(
+            data_module=nn.Dropout(),
+            model_module=None,
+            data_origin="custom-file",
+            model_origin="off",
+            description="supplied",
+        )
+
+        with pytest.raises(RaitapError, match="detection"):
+            _apply_preprocessing(backend, cfg, resolved_preprocessing=resolved)
+
+        # The detector must be left untouched (not wrapped).
+        assert isinstance(backend.model, nn.Identity)
+
     def test_model_bundled_wrap_consumes_raw_input(self) -> None:
         from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
 
