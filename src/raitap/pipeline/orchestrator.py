@@ -5,7 +5,7 @@ The actual phase work lives under :mod:`raitap.pipeline.phases`."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from raitap import raitap_log
 from raitap.data import Data
@@ -139,11 +139,7 @@ def run_without_tracking(
     """
     raitap_log.info("Running model forward pass...")
     with torch.no_grad():
-        # ``forward_pass`` is typed to accept ``torch.Tensor``; detection will
-        # pass a ``list[Tensor]`` at runtime — the forward-pass phase handles it
-        # (see issue #197).  Cast here so pyright doesn't flag the union type
-        # while keeping the call site byte-for-byte unchanged in behaviour.
-        forward_output = forward_pass(config, model.backend, cast("torch.Tensor", data.tensor))
+        forward_output = forward_pass(config, model.backend, data.tensor)
 
     metrics_eval = evaluate_metrics(config, forward_output, data.labels)
 
