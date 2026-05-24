@@ -22,7 +22,7 @@ class AssessorBackendIncompatibilityError(Exception):
 
 
 class AssessmentKindVisualiserIncompatibilityError(Exception):
-    """Raised when a visualiser does not support the assessor's method kind."""
+    """Raised when a visualiser does not support the assessor's assessment kind."""
 
     def __init__(
         self,
@@ -38,7 +38,7 @@ class AssessmentKindVisualiserIncompatibilityError(Exception):
         self.supported_assessment_kinds = supported_assessment_kinds
         supported = ", ".join(supported_assessment_kinds) if supported_assessment_kinds else "none"
         super().__init__(
-            f"Visualiser {visualiser!r} does not support assessor method kind "
+            f"Visualiser {visualiser!r} does not support assessor assessment kind "
             f"{assessor_assessment_kind!r} (from {assessor_target}). "
             f"That visualiser's supported_assessment_kinds are: {supported}."
         )

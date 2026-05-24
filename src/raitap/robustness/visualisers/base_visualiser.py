@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class BaseRobustnessVisualiser(ABC, AdapterMixin):
     """All robustness visualisers extend this class.
 
-    Subclasses declare which method kinds they support via the
+    Subclasses declare which assessment kinds they support via the
     ``supported_assessment_kinds`` ClassVar; the factory enforces compatibility at
     YAML parse time so configuration errors fail fast.
 

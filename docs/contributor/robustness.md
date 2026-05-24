@@ -77,7 +77,7 @@ no changes.
 ## Typed semantics
 
 `RobustnessResult.semantics` is a typed contract, not a narrative description.
-It records method kind, threat model, objective, families, budget, target
+It records assessment kind, threat model, objective, families, budget, target
 classes (for targeted attacks), sample selection, and input metadata.
 
 `AssessmentKind` distinguishes the two ways to assess robustness:
@@ -120,7 +120,7 @@ reported `perturbation_distance` always matches the configured threat model.
 
 1. `RobustnessAssessment(config, name, model, inputs, targets)` creates the
    assessor and its visualisers via the factory.
-2. The factory checks method-kind / visualiser compatibility at parse time.
+2. The factory checks assessment-kind / visualiser compatibility at parse time.
 3. `assessor.assess(...)` runs the framework-owned pipeline for the assessor's
    `assessment_kind` and returns a `RobustnessResult`.
 4. `result.write_artifacts()` saves `robustness_data.pt` plus typed metadata.
@@ -135,7 +135,7 @@ well-defined reference (a warning is logged).
 
 - **New algorithm in an existing adapter (torchattacks, foolbox, ...)** —
   see {doc}`adding-an-algorithm`. For robustness, the `algorithm_registry`
-  value is an `AssessorSemanticsHints` (method kind, threat model, objective,
+  value is an `AssessorSemanticsHints` (assessment kind, threat model, objective,
   norm, family tags) from `semantics.py`.
 - **New robustness library** — see {doc}`adding-an-adapter`. Pick
   `EmpiricalAttackAssessor` or `FormalVerificationAssessor` as the base,

@@ -62,7 +62,7 @@ class TorchattacksAssessor(EmpiricalAttackAssessor): ...
 
 The map value carries the semantics RAITAP tracks and reports on:
 - **Transparency** → `frozenset[MethodFamily]`. New `MethodFamily` values go in `src/raitap/transparency/contracts.py`.
-- **Robustness** → `AssessorSemanticsHints` (method kind, threat model, objective, norm, family tags). Defined in `src/raitap/robustness/semantics.py`.
+- **Robustness** → `AssessorSemanticsHints` (assessment kind, threat model, objective, norm, family tags). Defined in `src/raitap/robustness/semantics.py`.
 
 A missing entry means the algorithm cannot be selected via config — the family's runtime check fails fast.
 

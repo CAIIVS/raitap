@@ -195,7 +195,7 @@ def create_assessor(assessor_config: Any) -> tuple[AssessorAdapter, str]:
         ),
         type_error_hint=(
             "Configured assessors must have callable assess() and check_backend_compat() methods, "
-            "and a ``assessment_kind`` attribute."
+            "and an ``assessment_kind`` attribute."
         ),
         instantiate_fn=instantiate,
     )

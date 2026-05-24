@@ -27,7 +27,7 @@ compact robustness layout. The `metadata.json` `visualisers` list always
 references the canonical persisted layouts, not report-only variants.
 
 `robustness_data.pt` is a torch checkpoint dict with the following keys (some
-are present only for the matching method kind):
+are present only for the matching assessment kind):
 
 | Key | Always present | Description |
 | --- | --- | --- |
