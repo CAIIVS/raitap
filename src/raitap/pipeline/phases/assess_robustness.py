@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from raitap import raitap_log
 from raitap.metrics import metrics_prediction_pair
@@ -95,7 +95,9 @@ def assess_robustness(
             config,
             name,
             model,
-            data.tensor,
+            # Non-classification short-circuited above, so this is the dense
+            # NCHW classification path; narrow the ``Data.tensor`` union.
+            cast("torch.Tensor", data.tensor),
             targets,
             input_metadata=input_metadata,
             sample_ids=data.sample_ids,

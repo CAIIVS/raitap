@@ -134,6 +134,7 @@ class TestClassificationStackedGuard:
         data = Data(cfg)  # default task_kind = classification
 
         assert isinstance(data.tensor, torch.Tensor)
+        assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape == (2, 3, 32, 32)
         assert data.tensor.dtype == torch.float32
 
@@ -145,6 +146,7 @@ class TestClassificationStackedGuard:
         cfg = _make_config(str(data_dir))
         data = Data(cfg, task_kind=TaskKind.classification)
 
+        assert isinstance(data.tensor, torch.Tensor)
         assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape == (1, 3, 8, 8)
 

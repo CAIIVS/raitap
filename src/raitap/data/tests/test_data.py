@@ -217,6 +217,7 @@ class TestDataPreprocessing:
         _write_image(tmp_path / "c.jpg", 440, 780)
         cfg = self._make_cfg(str(tmp_path), preprocessing="model-bundled")
         data = Data(cfg)
+        assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape == (3, 3, 224, 224)
         assert data.tensor.dtype == torch.float32
 
@@ -232,6 +233,7 @@ class TestDataPreprocessing:
             _write_image(tmp_path / f"img{i}.jpg", 64, 64)
         cfg = self._make_cfg(str(tmp_path), preprocessing=None)
         data = Data(cfg)
+        assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape == (3, 3, 64, 64)
 
     def test_supplied_resolved_preprocessing_skips_resolution(self, tmp_path: Path) -> None:
@@ -270,6 +272,7 @@ class TestDataPreprocessing:
             resolve_preprocessing_mock.side_effect = AssertionError("should not resolve again")
             data = Data(cfg, resolved_preprocessing=resolved)
 
+        assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape == (1, 3, 8, 8)
         resolve_preprocessing_mock.assert_not_called()
 
@@ -324,6 +327,7 @@ class TestDataPreprocessing:
 
         data = Data(cfg)
 
+        assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape == (2, 3, 8, 8)
         assert data.tensor.dtype == torch.float32
 
@@ -417,6 +421,7 @@ class TestDataPreprocessing:
             SAMPLE_SOURCES.clear()
             SAMPLE_SOURCES.update(original)
 
+        assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape == (3, 3, 224, 224)
         # The spy must see three per-image calls at NATIVE resolution
         # (the PIL pre-squash to 224x224 must NOT happen when a transform
@@ -493,6 +498,7 @@ class TestLoadData:
             )(),
         )
         data = Data(cfg)
+        assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape == (1, 3, 32, 32)
 
     def test_local_image_directory(self, tmp_path: Path) -> None:
@@ -507,6 +513,7 @@ class TestLoadData:
             )(),
         )
         data = Data(cfg)
+        assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape[0] == 2
 
     def test_local_csv_file(self, tmp_path: Path) -> None:
@@ -521,6 +528,7 @@ class TestLoadData:
             )(),
         )
         data = Data(cfg)
+        assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape == (6, 3)
 
     def test_local_tabular_directory(self, tmp_path: Path) -> None:
@@ -535,6 +543,7 @@ class TestLoadData:
             )(),
         )
         data = Data(cfg)
+        assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape == (6, 3)
 
     def test_mixed_directory_raises(self, tmp_path: Path) -> None:
@@ -613,6 +622,7 @@ class TestLoadData:
 
         data = Data(cfg, resolved_preprocessing=resolved)
 
+        assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape == baseline.shape
         torch.testing.assert_close(data.tensor, baseline * 10.0)
 
@@ -665,6 +675,7 @@ class TestLoadData:
         )
         with patch("raitap.data.data.get_source_path", return_value=p):
             data = Data(cfg)
+        assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape == (2, 3)
 
     def test_url_source_loads_image_via_get_source_path(self, tmp_path: Path) -> None:
@@ -686,6 +697,7 @@ class TestLoadData:
         )
         with patch("raitap.data.data.get_source_path", return_value=p):
             data = Data(cfg)
+        assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape == (1, 3, 32, 32)
 
     def test_sample_labels_align_with_sample_images(self, tmp_path: Path) -> None:
