@@ -107,7 +107,7 @@ def forward_pass(
     batch_size = resolve_forward_batch_size(config)
     total_batch = len(inputs)
 
-    task_kind = getattr(backend, "task_kind", TaskKind.classification)
+    task_kind = backend.task_kind
 
     if task_kind is TaskKind.detection:
         detection_predictions: list[dict[str, torch.Tensor]] = []

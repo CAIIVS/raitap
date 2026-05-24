@@ -655,7 +655,8 @@ def _load_images_ragged(
     """
     result: list[torch.Tensor] = []
     for f in files:
-        arr = np.array(Image.open(f).convert("RGB"))  # HWC uint8
+        with Image.open(f) as im:
+            arr = np.array(im.convert("RGB"))  # HWC uint8
         chw = arr.transpose(2, 0, 1).astype(np.float32) / 255.0  # CHW float32
         t: torch.Tensor = torch.from_numpy(chw)
         if per_image_transform is not None:

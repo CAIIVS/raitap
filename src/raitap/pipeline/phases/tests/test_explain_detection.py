@@ -340,7 +340,7 @@ def test_explain_detection_with_list_inputs(
 
     results = list(
         explain_detection(
-            inputs=list_inputs,  # type: ignore[arg-type]
+            inputs=list_inputs,
             forward_output=detection_forward_output,
             backend=backend,
             explainer=explainer,

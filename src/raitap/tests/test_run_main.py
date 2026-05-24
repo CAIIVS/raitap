@@ -120,6 +120,10 @@ def test_forward_primary_tensor_batches_backend_calls() -> None:
         def __init__(self) -> None:
             self.prepared_batch_sizes: list[int] = []
 
+        @property
+        def task_kind(self) -> _TaskKind:
+            return _TaskKind.classification
+
         def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
             self.prepared_batch_sizes.append(int(inputs.shape[0]))
             return inputs
