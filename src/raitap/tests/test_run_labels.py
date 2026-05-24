@@ -8,6 +8,7 @@ import torch
 
 import raitap.pipeline.orchestrator as run_pipeline
 from raitap.metrics import resolve_metric_targets
+from raitap.types import TaskKind
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
@@ -18,6 +19,10 @@ if TYPE_CHECKING:
 class _BackendStub:
     def __init__(self, output: torch.Tensor) -> None:
         self._output = output
+
+    @property
+    def task_kind(self) -> TaskKind:
+        return TaskKind.classification
 
     def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
         return inputs
