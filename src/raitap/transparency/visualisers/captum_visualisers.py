@@ -102,6 +102,59 @@ def _last_mappable(ax: Any) -> Any:
     return None
 
 
+def _captum_normalisation_degenerate(
+    attr: np.ndarray, sign: str, outlier_perc: float = 2.0
+) -> bool:
+    """Whether Captum's ``_normalize_attr`` would hit ``scale_factor == 0``.
+
+    An all-zero (or sign-empty, e.g. a non-positive map under ``sign="positive"``)
+    slice is a *valid* explainer output — it means the method found no attribution
+    of that sign — but Captum's normaliser asserts ``Cannot normalize by scale
+    factor = 0`` on it rather than rendering it. We mirror Captum's threshold maths
+    here (channel-summed reduction, sign filter, cumulative-sum percentile) so the
+    slice can be rendered flat instead of crashing the figure.
+    """
+    combined = np.sum(attr, axis=2) if attr.ndim == 3 else attr
+    if sign == "positive":
+        values = (combined > 0) * combined
+    elif sign == "negative":
+        values = np.abs((combined < 0) * combined)
+    else:  # "all" / "absolute_value"
+        values = np.abs(combined)
+    sorted_vals = np.sort(values.flatten())
+    if sorted_vals.size == 0:
+        return True
+    cum_sums = np.cumsum(sorted_vals)
+    total = float(cum_sums[-1])
+    if total == 0:
+        return True
+    threshold_id = int(np.where(cum_sums >= total * 0.01 * (100.0 - outlier_perc))[0][0])
+    return bool(sorted_vals[threshold_id] == 0)
+
+
+def _degenerate_note(sign: str) -> str:
+    """Sign-aware annotation for a valid all-zero attribution map."""
+    if sign == "positive":
+        return "no positive attribution"
+    if sign == "negative":
+        return "no negative attribution"
+    return "no attribution"
+
+
+def _render_flat_attribution(ax: Any, sign: str, base_title: str | None) -> None:
+    """Render a valid all-zero attribution as a flat map with an explanatory note.
+
+    The map is zero everywhere, so we show a uniform field (faithful to the data)
+    and annotate it so a reader reads it as a finding — the method assigned no
+    attribution of this sign — rather than a rendering glitch.
+    """
+    ax.imshow(np.zeros((1, 1)), cmap="gray", vmin=-1.0, vmax=1.0)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    note = _degenerate_note(sign)
+    ax.set_title(f"{base_title}\n({note})" if base_title else f"({note})")
+
+
 def _input_kind(explanation: object) -> str:
     semantics = getattr(explanation, "semantics", None)
     input_spec = getattr(semantics, "input_spec", None)
@@ -366,29 +419,43 @@ class CaptumImageVisualiser(BaseVisualiser):
                     sample_name=sample_name,
                 )
 
-                _, _ = viz.visualize_image_attr(
-                    attr_i,
-                    orig_i,
-                    method="original_image",
-                    sign="all",
-                    show_colorbar=False,
-                    plt_fig_axis=(fig, original_ax),
-                    use_pyplot=False,
-                    title=original_title,
-                )
+                if _captum_normalisation_degenerate(attr_i, "all"):
+                    # ``original_image`` only displays the input, but Captum
+                    # normalises attr first and would assert on this slice.
+                    original_ax.imshow(orig_i)
+                    original_ax.set_xticks([])
+                    original_ax.set_yticks([])
+                    if original_title is not None:
+                        original_ax.set_title(original_title)
+                else:
+                    _, _ = viz.visualize_image_attr(
+                        attr_i,
+                        orig_i,
+                        method="original_image",
+                        sign="all",
+                        show_colorbar=False,
+                        plt_fig_axis=(fig, original_ax),
+                        use_pyplot=False,
+                        title=original_title,
+                    )
 
                 attr_viz_kwargs = dict(kwargs)
                 attr_viz_kwargs["title"] = attr_title
-                _, _ = viz.visualize_image_attr(
-                    attr_i,
-                    orig_i,
-                    method=self.method,
-                    sign=self.sign,
-                    show_colorbar=False,
-                    plt_fig_axis=(fig, attr_ax),
-                    use_pyplot=False,
-                    **attr_viz_kwargs,
-                )
+                if _captum_normalisation_degenerate(
+                    attr_i, self.sign, float(kwargs.get("outlier_perc", 2))
+                ):
+                    _render_flat_attribution(attr_ax, self.sign, attr_title)
+                else:
+                    _, _ = viz.visualize_image_attr(
+                        attr_i,
+                        orig_i,
+                        method=self.method,
+                        sign=self.sign,
+                        show_colorbar=False,
+                        plt_fig_axis=(fig, attr_ax),
+                        use_pyplot=False,
+                        **attr_viz_kwargs,
+                    )
                 if self.show_colorbar and colorbar_ax is not None:
                     mappable = _last_mappable(attr_ax)
                     if mappable is None:
@@ -402,17 +469,22 @@ class CaptumImageVisualiser(BaseVisualiser):
             if self.title is not None and "title" not in viz_kwargs:
                 viz_kwargs["title"] = self.title
 
-            # Let Captum render into our existing axes
-            _, _ = viz.visualize_image_attr(
-                attr_i,
-                orig_i,
-                method=self.method,
-                sign=self.sign,
-                show_colorbar=self.show_colorbar,
-                plt_fig_axis=(fig, ax),
-                use_pyplot=False,
-                **viz_kwargs,
-            )
+            if _captum_normalisation_degenerate(
+                attr_i, self.sign, float(kwargs.get("outlier_perc", 2))
+            ):
+                _render_flat_attribution(ax, self.sign, viz_kwargs.get("title"))
+            else:
+                # Let Captum render into our existing axes
+                _, _ = viz.visualize_image_attr(
+                    attr_i,
+                    orig_i,
+                    method=self.method,
+                    sign=self.sign,
+                    show_colorbar=self.show_colorbar,
+                    plt_fig_axis=(fig, ax),
+                    use_pyplot=False,
+                    **viz_kwargs,
+                )
             if show_sample_names and i < len(names):
                 base_title = ax.get_title().strip()
                 label = f"{base_title}: {names[i]}" if base_title else names[i]

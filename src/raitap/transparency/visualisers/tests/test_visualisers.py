@@ -224,6 +224,35 @@ class TestCaptumImageVisualiser:
         assert len(fig.axes) >= 4  # at least one axes per sample
 
     @pytest.mark.usefixtures("needs_captum")
+    def test_all_zero_attribution_renders_flat_panel_with_note(self) -> None:
+        # An all-zero map is a valid explainer output ("no positive evidence for
+        # the predicted class"), not malformed input. Captum's normaliser asserts
+        # ``scale factor = 0`` on it; the visualiser must instead render the map
+        # honestly as a flat panel annotated with a sign-aware note.
+        visualiser = CaptumImageVisualiser(method="heat_map", sign="positive")
+        attributions = torch.zeros(1, 3, 32, 32)
+
+        fig = visualiser.visualise(attributions)
+
+        assert fig is not None
+        titles = " ".join(ax.get_title() for ax in fig.axes)
+        assert "no positive attribution" in titles
+
+    @pytest.mark.usefixtures("needs_captum")
+    def test_zero_attribution_sample_renders_alongside_valid_one(
+        self, sample_images: torch.Tensor
+    ) -> None:
+        # One degenerate sample must not abort the valid samples in the batch.
+        visualiser = CaptumImageVisualiser(method="heat_map", sign="positive")
+        attributions = torch.randn(2, 3, 32, 32).abs()
+        attributions[0] = 0.0  # first sample is the degenerate all-zero map
+
+        fig = visualiser.visualise(attributions, inputs=sample_images[:2], max_samples=2)
+
+        assert fig is not None
+        assert len(fig.axes) >= 2
+
+    @pytest.mark.usefixtures("needs_captum")
     def test_max_samples_limit(self) -> None:
         visualiser = CaptumImageVisualiser(method="heat_map")
         large_batch = torch.randn(64, 3, 32, 32)
