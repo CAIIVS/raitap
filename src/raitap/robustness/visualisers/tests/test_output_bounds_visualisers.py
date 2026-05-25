@@ -10,7 +10,7 @@ import pytest
 import torch
 
 from raitap.robustness.contracts import (
-    MethodKind,
+    AssessmentKind,
     Objective,
     PerturbationBudget,
     PerturbationNorm,
@@ -19,7 +19,7 @@ from raitap.robustness.contracts import (
     RobustnessVisualisationContext,
     ThreatModel,
 )
-from raitap.robustness.exceptions import MethodKindVisualiserIncompatibilityError
+from raitap.robustness.exceptions import AssessmentKindVisualiserIncompatibilityError
 from raitap.robustness.results import RobustnessMetrics, RobustnessResult, encode_verdicts
 from raitap.robustness.visualisers import (
     OutputBoundsCohortVisualiser,
@@ -62,7 +62,7 @@ def _formal_result(
         output_bounds=output_bounds,
         runtime_per_sample=torch.zeros(n),
         semantics=RobustnessSemantics(
-            method_kind=MethodKind.FORMAL_VERIFICATION,
+            assessment_kind=AssessmentKind.FORMAL_VERIFICATION,
             threat_model=ThreatModel.WHITE_BOX,
             objective=Objective.UNTARGETED,
             families=frozenset({"smt"}),
@@ -74,7 +74,7 @@ def _formal_result(
 def _empirical_result() -> RobustnessResult:
     inputs = torch.zeros(2, 3)
     targets = torch.tensor([0, 1])
-    verdicts = [RobustnessVerdict.ATTACKED, RobustnessVerdict.NOT_ATTACKED]
+    verdicts = [RobustnessVerdict.ATTACK_SUCCEEDED, RobustnessVerdict.ATTACK_FAILED]
     return RobustnessResult(
         clean_inputs=inputs,
         targets=targets,
@@ -86,7 +86,7 @@ def _empirical_result() -> RobustnessResult:
         assessor_target="raitap.robustness.assessors.TorchattacksAssessor",
         algorithm="PGD",
         semantics=RobustnessSemantics(
-            method_kind=MethodKind.EMPIRICAL_ATTACK,
+            assessment_kind=AssessmentKind.EMPIRICAL_ATTACK,
             threat_model=ThreatModel.WHITE_BOX,
             objective=Objective.UNTARGETED,
             families=frozenset({"gradient"}),
@@ -100,7 +100,7 @@ def _ctx(
 ) -> RobustnessVisualisationContext:
     return RobustnessVisualisationContext(
         algorithm="linf-box",
-        method_kind=MethodKind.FORMAL_VERIFICATION,
+        assessment_kind=AssessmentKind.FORMAL_VERIFICATION,
         sample_names=names,
         show_sample_names=show_sample_names,
     )
@@ -149,9 +149,9 @@ def test_cohort_visualiser_handles_all_nan_gracefully() -> None:
         plt.close(figure)
 
 
-def test_cohort_method_kind_rejection_for_empirical_results() -> None:
+def test_cohort_assessment_kind_rejection_for_empirical_results() -> None:
     visualiser = OutputBoundsCohortVisualiser()
-    with pytest.raises(MethodKindVisualiserIncompatibilityError):
+    with pytest.raises(AssessmentKindVisualiserIncompatibilityError):
         visualiser.validate_result(_empirical_result())
 
 
@@ -226,9 +226,9 @@ def test_pinned_visualiser_handles_none_bounds_gracefully() -> None:
         plt.close(figure)
 
 
-def test_pinned_method_kind_rejection_for_empirical_results() -> None:
+def test_pinned_assessment_kind_rejection_for_empirical_results() -> None:
     visualiser = OutputBoundsPinnedVisualiser()
-    with pytest.raises(MethodKindVisualiserIncompatibilityError):
+    with pytest.raises(AssessmentKindVisualiserIncompatibilityError):
         visualiser.validate_result(_empirical_result())
 
 
@@ -290,8 +290,8 @@ def test_width_heatmap_handles_none_bounds_gracefully() -> None:
         plt.close(figure)
 
 
-def test_width_heatmap_method_kind_rejection_for_empirical_results() -> None:
-    with pytest.raises(MethodKindVisualiserIncompatibilityError):
+def test_width_heatmap_assessment_kind_rejection_for_empirical_results() -> None:
+    with pytest.raises(AssessmentKindVisualiserIncompatibilityError):
         OutputBoundsWidthHeatmapVisualiser().validate_result(_empirical_result())
 
 
@@ -367,8 +367,8 @@ def test_margin_heatmap_falls_back_when_targets_missing() -> None:
         plt.close(figure)
 
 
-def test_margin_heatmap_method_kind_rejection_for_empirical_results() -> None:
-    with pytest.raises(MethodKindVisualiserIncompatibilityError):
+def test_margin_heatmap_assessment_kind_rejection_for_empirical_results() -> None:
+    with pytest.raises(AssessmentKindVisualiserIncompatibilityError):
         OutputBoundsMarginHeatmapVisualiser().validate_result(_empirical_result())
 
 

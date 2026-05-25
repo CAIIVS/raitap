@@ -29,7 +29,7 @@ _TECHNICAL_KEYS = frozenset(
     }
 )
 _ROBUSTNESS_SETTING_KEYS = frozenset(
-    {"assessor", "algorithm", "method_kind", "threat_model", "objective", "norm", "epsilon"}
+    {"assessor", "algorithm", "assessment_kind", "threat_model", "objective", "norm", "epsilon"}
 )
 
 
@@ -85,7 +85,7 @@ class RobustnessSampleEvidence:
 class RobustnessAssessorView:
     assessor_name: str
     algorithm: str
-    method_kind: str
+    assessment_kind: str
     heading: str
     rows: tuple[tuple[str, str], ...]
     settings: dict[str, str]
@@ -431,8 +431,8 @@ def _build_robustness_assessors(section: ReportSection) -> tuple[RobustnessAsses
             RobustnessAssessorView(
                 assessor_name=assessor_name,
                 algorithm=str(group.metadata.get("algorithm") or rows.get("algorithm") or "n/a"),
-                method_kind=str(
-                    group.metadata.get("method_kind") or rows.get("method_kind") or "n/a"
+                assessment_kind=str(
+                    group.metadata.get("assessment_kind") or rows.get("assessment_kind") or "n/a"
                 ),
                 heading=group.heading,
                 rows=group.table_rows,

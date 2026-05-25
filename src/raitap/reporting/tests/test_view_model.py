@@ -268,7 +268,7 @@ def _robustness_assessor(assessor_name: str, result_index: int) -> ReportGroup:
         table_rows=(
             ("assessor", assessor_name),
             ("algorithm", assessor_name),
-            ("method_kind", "empirical"),
+            ("assessment_kind", "empirical"),
             ("clean_accuracy", "0.9000"),
             ("adversarial_accuracy", "0.8000"),
         ),
@@ -276,7 +276,7 @@ def _robustness_assessor(assessor_name: str, result_index: int) -> ReportGroup:
             "role": "robustness",
             "assessor_name": assessor_name,
             "algorithm": assessor_name,
-            "method_kind": "empirical",
+            "assessment_kind": "empirical",
             "sample_indices": [3, 8, 19],
         },
     )

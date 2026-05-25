@@ -22,7 +22,7 @@ else:
 
 from .contracts import (
     VERDICT_CODES,
-    MethodKind,
+    AssessmentKind,
     RobustnessSemantics,
     RobustnessVerdict,
     RobustnessVisualisationContext,
@@ -229,8 +229,8 @@ class RobustnessResult(Trackable):
             }
 
     @property
-    def method_kind(self) -> MethodKind:
-        return self.semantics.method_kind
+    def assessment_kind(self) -> AssessmentKind:
+        return self.semantics.assessment_kind
 
     def write_artifacts(self) -> None:
         self.run_dir.mkdir(parents=True, exist_ok=True)
@@ -260,7 +260,7 @@ class RobustnessResult(Trackable):
             "target": self.assessor_target,
             "algorithm": self.algorithm,
             "assessor_name": self.assessor_name,
-            "method_kind": self.method_kind.value,
+            "assessment_kind": self.assessment_kind.value,
             "visualisers": targets,
             "metrics": self.metrics.as_dict(),
             "verdict_codes": {v.value: code for v, code in VERDICT_CODES.items()},
@@ -300,7 +300,7 @@ class RobustnessResult(Trackable):
 
             context = RobustnessVisualisationContext(
                 algorithm=self.algorithm,
-                method_kind=self.method_kind,
+                assessment_kind=self.assessment_kind,
                 sample_names=sample_names,
                 show_sample_names=show_sample_names,
             )
@@ -421,7 +421,7 @@ class RobustnessResult(Trackable):
 
         context = RobustnessVisualisationContext(
             algorithm=self.algorithm,
-            method_kind=self.method_kind,
+            assessment_kind=self.assessment_kind,
             sample_names=sample_names,
             show_sample_names=show_sample_names,
         )

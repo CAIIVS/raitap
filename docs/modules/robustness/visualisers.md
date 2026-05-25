@@ -29,7 +29,7 @@ robustness = {
 }
 ```
 
-Visualisers declare which `MethodKind` they support; the factory rejects mismatches at YAML parse time.
+Visualisers declare which `AssessmentKind` they support; the factory rejects mismatches at YAML parse time.
 
 ## Empirical attack
 
@@ -47,7 +47,7 @@ attack run.
 | `cmap` | `"RdBu_r"` | Diverging colormap used for the signed perturbation panel. |
 | `diff_scale` | `None` | Fixed symmetric vmin/vmax for the perturbation panel. `None` means auto-fit per-figure. |
 
-Supports `MethodKind.EMPIRICAL_ATTACK`. Rejects non-image results
+Supports `AssessmentKind.EMPIRICAL_ATTACK`. Rejects non-image results
 (`InputSpec.kind != IMAGE`).
 
 ![ImagePairVisualiser preview](../../_static/visualisers/image_pair_visualiser.png)
@@ -67,7 +67,7 @@ rather than collapsing to zero on cancelling channels.
 | `cmap` | `"seismic"` | Diverging colormap for the perturbation. |
 | `aggregate_channels` | `"signed_dominant"` | Channel reduction: `signed_dominant`, `mean`, `mean_abs`, or `max_abs`. |
 
-Supports `MethodKind.EMPIRICAL_ATTACK`. Rejects non-image results.
+Supports `AssessmentKind.EMPIRICAL_ATTACK`. Rejects non-image results.
 
 ![PerturbationHeatmapVisualiser preview](../../_static/visualisers/perturbation_heatmap_visualiser.png)
 
@@ -84,7 +84,7 @@ run to see how the verifier performed before drilling into bound widths.
 |---|---|---|
 | `runtime_bins` | `20` | Histogram bin count for the runtime panel. |
 
-Supports `MethodKind.FORMAL_VERIFICATION`.
+Supports `AssessmentKind.FORMAL_VERIFICATION`.
 
 ![VerdictSummaryVisualiser preview](../../_static/visualisers/verdict_summary_visualiser.png)
 
@@ -100,7 +100,7 @@ tight for most samples but has a long tail at logit 3".
 | `whis` | `1.5` | Matplotlib whisker length (multiple of IQR). |
 | `show_outliers` | `True` | Whether to render flier points beyond the whiskers. |
 
-Supports `MethodKind.FORMAL_VERIFICATION`. Renders a placeholder figure when
+Supports `AssessmentKind.FORMAL_VERIFICATION`. Renders a placeholder figure when
 `result.output_bounds is None` or every row is NaN.
 
 ![OutputBoundsCohortVisualiser preview](../../_static/visualisers/output_bounds_cohort_visualiser.png)
@@ -119,7 +119,7 @@ the bound for sample 17 look like?"
 | `bar_color` | `"#1f77b4"` | Bar colour for non-target classes. |
 | `sample_indices` | `None` | Optional explicit list of row indices to pin. |
 
-Supports `MethodKind.FORMAL_VERIFICATION`. Falls back to a placeholder when
+Supports `AssessmentKind.FORMAL_VERIFICATION`. Falls back to a placeholder when
 bounds are absent.
 
 ![OutputBoundsPinnedVisualiser preview](../../_static/visualisers/output_bounds_pinned_visualiser.png)
@@ -138,7 +138,7 @@ visibility is more useful than per-class aggregate stats.
 | `max_samples` | `None` | Truncate to the first N rows. `None` renders every row. |
 | `figsize` | `None` | Manual override; `None` picks an auto size from sample / class counts. |
 
-Supports `MethodKind.FORMAL_VERIFICATION`.
+Supports `AssessmentKind.FORMAL_VERIFICATION`.
 
 ![OutputBoundsWidthHeatmapVisualiser preview](../../_static/visualisers/output_bounds_width_heatmap_visualiser.png)
 
@@ -157,7 +157,7 @@ target. The target column is masked grey. Use it for "is this batch
 | `max_samples` | `None` | Truncate to the first N rows. `None` renders every row. |
 | `figsize` | `None` | Manual override; `None` picks an auto size. |
 
-Supports `MethodKind.FORMAL_VERIFICATION`. Falls back to a placeholder when
+Supports `AssessmentKind.FORMAL_VERIFICATION`. Falls back to a placeholder when
 `result.targets` is missing or shaped wrong.
 
 ![OutputBoundsMarginHeatmapVisualiser preview](../../_static/visualisers/output_bounds_margin_heatmap_visualiser.png)

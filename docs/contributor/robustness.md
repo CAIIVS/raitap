@@ -18,7 +18,7 @@ Robustness assessors form a three-level hierarchy in
 `src/raitap/robustness/assessors/base_assessor.py`:
 
 ```text
-BaseAssessor                            # root — declares method_kind + budget_kwarg_source
+BaseAssessor                            # root — declares assessment_kind + budget_kwarg_source
 ├── EmpiricalAttackAssessor             # you implement generate_adversarial(); framework owns assess()
 │   ├── TorchattacksAssessor
 │   └── FoolboxAssessor
@@ -26,7 +26,7 @@ BaseAssessor                            # root — declares method_kind + budget
     └── (alpha-beta-CROWN, auto_LiRPA — follow-up adapters)
 ```
 
-- **`BaseAssessor`** — root. Declares `method_kind: ClassVar[MethodKind]`,
+- **`BaseAssessor`** — root. Declares `assessment_kind: ClassVar[AssessmentKind]`,
   `budget_kwarg_source`, and the no-op `check_backend_compat`. Never subclass directly.
 - **`EmpiricalAttackAssessor`** — subclasses implement only
   `generate_adversarial(model, inputs, targets, ...) → Tensor`. Batching,
@@ -55,16 +55,16 @@ Every assessor declares two `ClassVar`s the framework relies on:
 All robustness visualisers implement `BaseRobustnessVisualiser`:
 
 - `visualise(result, *, context, **kwargs) → Figure` — abstract, required.
-- `supported_method_kinds: ClassVar[frozenset[MethodKind]]` — empty means
+- `supported_assessment_kinds: ClassVar[frozenset[AssessmentKind]]` — empty means
   "all". The factory's `check_assessor_visualiser_compat` enforces this at
-  YAML parse time and raises `MethodKindVisualiserIncompatibilityError` on
+  YAML parse time and raises `AssessmentKindVisualiserIncompatibilityError` on
   mismatch.
 - `embeds_clean_input` / `embeds_perturbation_map` — class-level report layout
   hints for empirical visualisers. A visualiser that sets either flag to
   `True` must accept the matching runtime kwarg (`include_clean_input` /
   `include_perturbation_map`) and omit that facet when it is `False`.
 - `validate_result(result)` — render-time check that the assessor's
-  `method_kind` is in `supported_method_kinds`. Image visualisers additionally
+  `assessment_kind` is in `supported_assessment_kinds`. Image visualisers additionally
   refuse non-image results via `_require_image_modality`.
 
 The facet flags are consumed only by **compact robustness reporting** to
@@ -77,14 +77,14 @@ no changes.
 ## Typed semantics
 
 `RobustnessResult.semantics` is a typed contract, not a narrative description.
-It records method kind, threat model, objective, families, budget, target
+It records assessment kind, threat model, objective, families, budget, target
 classes (for targeted attacks), sample selection, and input metadata.
 
-`MethodKind` distinguishes the two ways to assess robustness:
+`AssessmentKind` distinguishes the two ways to assess robustness:
 
 | Kind | Meaning |
 | --- | --- |
-| `EMPIRICAL_ATTACK` | Try to find an adversarial example within the budget. A `NOT_ATTACKED` verdict does **not** prove robustness. |
+| `EMPIRICAL_ATTACK` | Try to find an adversarial example within the budget. A `ATTACK_FAILED` verdict does **not** prove robustness. |
 | `FORMAL_VERIFICATION` | Prove (or refute) that no adversarial example exists in the budget. Produces `VERIFIED` / `FALSIFIED` / `UNKNOWN`. |
 
 `RobustnessVerdict` codes the per-sample outcome (encoded as a `long` tensor
@@ -107,7 +107,7 @@ reported `perturbation_distance` always matches the configured threat model.
   `@adapters.robustness` decorator — no manual path table to maintain.
 - `results.py` — `RobustnessResult`, `RobustnessMetrics`, verdict encoding.
 - `visualisers/base_visualiser.py` — `BaseRobustnessVisualiser` +
-  `MethodKind` compatibility check.
+  `AssessmentKind` compatibility check.
 - `visualisers/empirical/` — image-pair and perturbation-heatmap visualisers
   for empirical attacks. The shared `_signed_perturbation_heatmap` helper
   reduces a signed per-channel delta to a 2D scalar map (matplotlib treats
@@ -120,9 +120,9 @@ reported `perturbation_distance` always matches the configured threat model.
 
 1. `RobustnessAssessment(config, name, model, inputs, targets)` creates the
    assessor and its visualisers via the factory.
-2. The factory checks method-kind / visualiser compatibility at parse time.
+2. The factory checks assessment-kind / visualiser compatibility at parse time.
 3. `assessor.assess(...)` runs the framework-owned pipeline for the assessor's
-   `method_kind` and returns a `RobustnessResult`.
+   `assessment_kind` and returns a `RobustnessResult`.
 4. `result.write_artifacts()` saves `robustness_data.pt` plus typed metadata.
 5. `result.visualise()` iterates configured visualisers, validates each, calls
    `visualise()`, and saves the figures.
@@ -135,7 +135,7 @@ well-defined reference (a warning is logged).
 
 - **New algorithm in an existing adapter (torchattacks, foolbox, ...)** —
   see {doc}`adding-an-algorithm`. For robustness, the `algorithm_registry`
-  value is an `AssessorSemanticsHints` (method kind, threat model, objective,
+  value is an `AssessorSemanticsHints` (assessment kind, threat model, objective,
   norm, family tags) from `semantics.py`.
 - **New robustness library** — see {doc}`adding-an-adapter`. Pick
   `EmpiricalAttackAssessor` or `FormalVerificationAssessor` as the base,
@@ -152,7 +152,7 @@ Subclass `BaseRobustnessVisualiser` and decorate with
 `@visualisers.robustness(...)` (see {doc}`adding-an-adapter` for the
 decorator scaffolding). Robustness-specific notes:
 
-- Set `supported_method_kinds` so the factory rejects mismatched assessor
+- Set `supported_assessment_kinds` so the factory rejects mismatched assessor
   pairings at parse time.
 - For image visualisers, call
   `_require_image_modality(result, type(self).__name__)` inside `visualise()`

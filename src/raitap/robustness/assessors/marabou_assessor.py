@@ -35,7 +35,7 @@ else:
 from raitap.robustness.assessors.registration import robustness_adapter
 
 from ..contracts import (
-    MethodKind,
+    AssessmentKind,
     Objective,
     PerturbationBudget,
     PerturbationNorm,
@@ -80,7 +80,7 @@ logger = logging.getLogger(__name__)
     error_patterns=_MARABOUPY_ERROR_MESSAGES,
     algorithm_registry={
         "linf-box": AssessorSemanticsHints(
-            MethodKind.FORMAL_VERIFICATION,
+            AssessmentKind.FORMAL_VERIFICATION,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.LINF,

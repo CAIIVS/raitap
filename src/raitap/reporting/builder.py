@@ -19,7 +19,7 @@ else:
     torch = lazy_import("torch")
 from raitap.configs import resolve_run_dir
 from raitap.pipeline.outputs import PredictionSummary, RunOutputs
-from raitap.robustness.contracts import MethodKind
+from raitap.robustness.contracts import AssessmentKind
 from raitap.transparency.contracts import ExplanationScope, VisualisationContext
 from raitap.transparency.visualisers import BaseVisualiser, InputThumbnailVisualiser
 
@@ -302,8 +302,8 @@ def _build_robustness_section(
     groups: list[ReportGroup] = []
     for index, result in enumerate(outputs.robustness_results):
         assessor_name = result.assessor_name or result.run_dir.name
-        method_kind_value = result.method_kind.value
-        if result.method_kind == MethodKind.EMPIRICAL_ATTACK:
+        assessment_kind_value = result.assessment_kind.value
+        if result.assessment_kind == AssessmentKind.EMPIRICAL_ATTACK:
             heading = f"Adversarial attack - {result.algorithm} ({assessor_name})"
         else:
             heading = f"Robustness certification - {result.algorithm} ({assessor_name})"
@@ -312,7 +312,7 @@ def _build_robustness_section(
         table_rows: list[tuple[str, str]] = [
             ("assessor", assessor_name),
             ("algorithm", result.algorithm),
-            ("method_kind", method_kind_value),
+            ("assessment_kind", assessment_kind_value),
             ("threat_model", result.semantics.threat_model.value),
             ("objective", result.semantics.objective.value),
             ("norm", budget.norm.value),
@@ -348,7 +348,7 @@ def _build_robustness_section(
             "role": "robustness",
             "assessor_name": assessor_name,
             "algorithm": result.algorithm,
-            "method_kind": method_kind_value,
+            "assessment_kind": assessment_kind_value,
         }
         if not show_redundant_robustness_panels:
             metadata["sample_indices"] = robustness_sample_indices
@@ -370,7 +370,7 @@ def _build_robustness_section(
 
 
 def _output_bounds_table_rows(result: Any) -> list[tuple[str, str]]:
-    if result.method_kind != MethodKind.FORMAL_VERIFICATION:
+    if result.assessment_kind != AssessmentKind.FORMAL_VERIFICATION:
         return []
 
     output_bounds = getattr(result, "output_bounds", None)
@@ -510,7 +510,7 @@ def _robustness_report_sample_indices(
     *,
     selected_samples: list[SelectedSample],
 ) -> tuple[int, ...]:
-    if result.method_kind != MethodKind.EMPIRICAL_ATTACK:
+    if result.assessment_kind != AssessmentKind.EMPIRICAL_ATTACK:
         return ()
     batch_size = int(result.clean_inputs.shape[0])
     return tuple(

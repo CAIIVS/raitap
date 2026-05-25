@@ -9,7 +9,7 @@ import pytest
 import torch
 
 from raitap.robustness.contracts import (
-    MethodKind,
+    AssessmentKind,
     Objective,
     PerturbationBudget,
     PerturbationNorm,
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 def _semantics_for_test() -> RobustnessSemantics:
     return RobustnessSemantics(
-        method_kind=MethodKind.EMPIRICAL_ATTACK,
+        assessment_kind=AssessmentKind.EMPIRICAL_ATTACK,
         threat_model=ThreatModel.WHITE_BOX,
         objective=Objective.UNTARGETED,
         families=frozenset({"gradient_sign"}),
@@ -66,7 +66,9 @@ def test_robustness_result_writes_pt_and_metadata(tmp_path: Path) -> None:
     targets = torch.tensor([0, 1])
     clean_preds = torch.tensor([0, 1])
     adv_preds = torch.tensor([1, 1])
-    verdicts = encode_verdicts([RobustnessVerdict.ATTACKED, RobustnessVerdict.NOT_ATTACKED])
+    verdicts = encode_verdicts(
+        [RobustnessVerdict.ATTACK_SUCCEEDED, RobustnessVerdict.ATTACK_FAILED]
+    )
 
     result = RobustnessResult(
         clean_inputs=inputs,
@@ -91,10 +93,10 @@ def test_robustness_result_writes_pt_and_metadata(tmp_path: Path) -> None:
     assert payload["verdicts"].tolist() == [1, 2]
 
     metadata = json.loads((result.run_dir / "metadata.json").read_text())
-    assert metadata["method_kind"] == "empirical_attack"
+    assert metadata["assessment_kind"] == "empirical_attack"
     assert metadata["semantics"]["budget"]["norm"] == "Linf"
     assert metadata["metrics"]["attack_success_rate"] == 0.75
-    assert metadata["verdict_codes"]["attacked"] == 1
+    assert metadata["verdict_codes"]["attack_succeeded"] == 1
 
 
 def _result_for_visualiser_tests(tmp_path: Path) -> RobustnessResult:
@@ -103,7 +105,9 @@ def _result_for_visualiser_tests(tmp_path: Path) -> RobustnessResult:
         clean_inputs=inputs,
         targets=torch.tensor([0, 1]),
         clean_predictions=torch.tensor([0, 1]),
-        verdicts=encode_verdicts([RobustnessVerdict.ATTACKED, RobustnessVerdict.NOT_ATTACKED]),
+        verdicts=encode_verdicts(
+            [RobustnessVerdict.ATTACK_SUCCEEDED, RobustnessVerdict.ATTACK_FAILED]
+        ),
         metrics=_empirical_metrics(),
         run_dir=tmp_path / "robustness/pgd",
         experiment_name="unit-test",
@@ -188,7 +192,9 @@ def test_render_visualisation_for_report_slices_to_requested_sample(
     result.targets = torch.tensor([4, 7])
     result.clean_predictions = torch.tensor([4, 5])
     result.perturbed_predictions = torch.tensor([6, 8])
-    result.verdicts = encode_verdicts([RobustnessVerdict.NOT_ATTACKED, RobustnessVerdict.ATTACKED])
+    result.verdicts = encode_verdicts(
+        [RobustnessVerdict.ATTACK_FAILED, RobustnessVerdict.ATTACK_SUCCEEDED]
+    )
     result.perturbation_distance = torch.tensor([0.1, 0.2])
     result.runtime_per_sample = torch.tensor([1.5, 2.5])
     result.output_bounds = {
@@ -260,7 +266,7 @@ def _result_with_sample_names(
         clean_inputs=inputs,
         targets=torch.zeros(batch, dtype=torch.long),
         clean_predictions=torch.zeros(batch, dtype=torch.long),
-        verdicts=encode_verdicts([RobustnessVerdict.NOT_ATTACKED] * batch),
+        verdicts=encode_verdicts([RobustnessVerdict.ATTACK_FAILED] * batch),
         metrics=_empirical_metrics(),
         run_dir=tmp_path / "robustness/pgd",
         experiment_name="test_sample_names",

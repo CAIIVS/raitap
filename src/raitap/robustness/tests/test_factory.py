@@ -10,8 +10,8 @@ from omegaconf import OmegaConf
 
 from raitap.models.backend import ModelBackend
 from raitap.robustness.assessors import TorchattacksAssessor
-from raitap.robustness.contracts import MethodKind
-from raitap.robustness.exceptions import MethodKindVisualiserIncompatibilityError
+from raitap.robustness.contracts import AssessmentKind
+from raitap.robustness.exceptions import AssessmentKindVisualiserIncompatibilityError
 from raitap.robustness.factory import (
     RobustnessAssessment,
     _parse_assessor_config,
@@ -52,7 +52,7 @@ class _BackendStub(ModelBackend):
 
 
 class _OnlyFormalVisualiser(BaseRobustnessVisualiser):
-    supported_method_kinds = frozenset({MethodKind.FORMAL_VERIFICATION})
+    supported_assessment_kinds = frozenset({AssessmentKind.FORMAL_VERIFICATION})
 
     def visualise(self, result, *, context, **kwargs) -> Any:  # noqa: ANN001
         raise NotImplementedError
@@ -133,11 +133,11 @@ def test_resolve_call_data_sources_passes_through_non_source_dicts() -> None:
     assert out == {"target_labels": [0, 1]}
 
 
-def test_check_visualiser_compat_raises_on_method_kind_mismatch() -> None:
+def test_check_visualiser_compat_raises_on_assessment_kind_mismatch() -> None:
     assessor = TorchattacksAssessor(algorithm="PGD")  # EMPIRICAL_ATTACK
     visualiser = _OnlyFormalVisualiser()
     configured = [ConfiguredRobustnessVisualiser(visualiser=visualiser)]
-    with pytest.raises(MethodKindVisualiserIncompatibilityError):
+    with pytest.raises(AssessmentKindVisualiserIncompatibilityError):
         check_assessor_visualiser_compat(
             assessor,
             "raitap.robustness.assessors.TorchattacksAssessor",
@@ -156,7 +156,7 @@ def test_robustness_uses_model_resolved_preprocessing_for_call_data(
             return torch.zeros(3, 5, 5, dtype=image.dtype)
 
     class RecordingAssessor:
-        method_kind = MethodKind.EMPIRICAL_ATTACK
+        assessment_kind = AssessmentKind.EMPIRICAL_ATTACK
 
         def __init__(self) -> None:
             self.last_assess_kwargs: dict[str, Any] = {}

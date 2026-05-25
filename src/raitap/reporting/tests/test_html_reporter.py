@@ -274,7 +274,7 @@ def _synthetic_sections() -> tuple[ReportSection, ...]:
                     table_rows=(
                         ("assessor", "fgsm_linf_fast"),
                         ("algorithm", "FGSM"),
-                        ("method_kind", "empirical_attack"),
+                        ("assessment_kind", "empirical_attack"),
                         ("clean_accuracy", "0.9000"),
                         ("adversarial_accuracy", "0.5000"),
                         ("attack_success_rate", "0.4000"),
@@ -283,7 +283,7 @@ def _synthetic_sections() -> tuple[ReportSection, ...]:
                         "role": "robustness",
                         "assessor_name": "fgsm_linf_fast",
                         "algorithm": "FGSM",
-                        "method_kind": "empirical_attack",
+                        "assessment_kind": "empirical_attack",
                         "sample_indices": [3],
                     },
                 )

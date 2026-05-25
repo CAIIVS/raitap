@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from raitap.robustness.assessors.registration import robustness_adapter
 from raitap.utils.lazy import lazy_import
 
-from ..contracts import MethodKind, Objective, PerturbationNorm, ThreatModel
+from ..contracts import AssessmentKind, Objective, PerturbationNorm, ThreatModel
 from ..semantics import AssessorSemanticsHints
 from .base_assessor import EmpiricalAttackAssessor, _prepare_inputs_for_forward
 
@@ -24,49 +24,49 @@ else:
     budget_kwarg_source="call_kwargs",
     algorithm_registry={
         "LinfPGD": AssessorSemanticsHints(
-            MethodKind.EMPIRICAL_ATTACK,
+            AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
             families=frozenset({"gradient_sign", "iterative"}),
         ),
         "L2PGD": AssessorSemanticsHints(
-            MethodKind.EMPIRICAL_ATTACK,
+            AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.L2,
             families=frozenset({"gradient_sign", "iterative"}),
         ),
         "LinfFastGradientAttack": AssessorSemanticsHints(
-            MethodKind.EMPIRICAL_ATTACK,
+            AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
             families=frozenset({"gradient_sign"}),
         ),
         "L2FastGradientAttack": AssessorSemanticsHints(
-            MethodKind.EMPIRICAL_ATTACK,
+            AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.L2,
             families=frozenset({"gradient_sign"}),
         ),
         "L2CarliniWagnerAttack": AssessorSemanticsHints(
-            MethodKind.EMPIRICAL_ATTACK,
+            AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.L2,
             families=frozenset({"optimization"}),
         ),
         "L2DeepFoolAttack": AssessorSemanticsHints(
-            MethodKind.EMPIRICAL_ATTACK,
+            AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.L2,
             families=frozenset({"optimization"}),
         ),
         "BoundaryAttack": AssessorSemanticsHints(
-            MethodKind.EMPIRICAL_ATTACK,
+            AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.BLACK_BOX_DECISION,
             Objective.UNTARGETED,
             PerturbationNorm.L2,

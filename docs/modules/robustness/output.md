@@ -27,14 +27,14 @@ compact robustness layout. The `metadata.json` `visualisers` list always
 references the canonical persisted layouts, not report-only variants.
 
 `robustness_data.pt` is a torch checkpoint dict with the following keys (some
-are present only for the matching method kind):
+are present only for the matching assessment kind):
 
 | Key | Always present | Description |
 | --- | --- | --- |
 | `clean_inputs` | yes | Inputs as fed to the model. |
 | `targets` | yes | Per-sample reference labels (ground truth or, when no labels were available, model predictions used as the untargeted reference). |
 | `clean_predictions` | yes | `argmax(model(clean_inputs))`. |
-| `verdicts` | yes | Per-sample integer codes. The mapping is also stored in `metadata.json` under `verdict_codes` (e.g. `attacked → 1`, `not_attacked → 2`, `verified → 3`, `falsified → 4`, `unknown → 5`, `error → 6`). |
+| `verdicts` | yes | Per-sample integer codes. The mapping is also stored in `metadata.json` under `verdict_codes` (e.g. `attack_succeeded → 1`, `attack_failed → 2`, `verified → 3`, `falsified → 4`, `unknown → 5`, `error → 6`). |
 | `perturbed_inputs` | empirical / falsified rows | Adversarial example tensor. NaN-padded for verifier rows that did not produce a counter-example. |
 | `perturbed_predictions` | empirical / falsified rows | `argmax(model(perturbed_inputs))`; `-1` for verifier rows without a counter-example. |
 | `perturbation_distance` | empirical / falsified rows | Per-sample distance under `semantics.budget.norm`. |
@@ -44,7 +44,7 @@ are present only for the matching method kind):
 `metadata.json` carries assessor metadata, aggregate metrics, and the typed
 robustness semantics:
 
-- `method_kind` — `empirical_attack` or `formal_verification`.
+- `assessment_kind` — `empirical_attack` or `formal_verification`.
 - `semantics.threat_model` — `white_box`, `black_box_score`, `black_box_decision`.
 - `semantics.objective` — `untargeted` or `targeted`.
 - `semantics.budget` — norm + epsilon + (optional) step size + steps.

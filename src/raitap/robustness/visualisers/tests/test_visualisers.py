@@ -7,7 +7,7 @@ import pytest
 import torch
 
 from raitap.robustness.contracts import (
-    MethodKind,
+    AssessmentKind,
     Objective,
     PerturbationBudget,
     PerturbationNorm,
@@ -16,7 +16,7 @@ from raitap.robustness.contracts import (
     RobustnessVisualisationContext,
     ThreatModel,
 )
-from raitap.robustness.exceptions import MethodKindVisualiserIncompatibilityError
+from raitap.robustness.exceptions import AssessmentKindVisualiserIncompatibilityError
 from raitap.robustness.results import RobustnessMetrics, RobustnessResult, encode_verdicts
 from raitap.robustness.visualisers import (
     ImagePairVisualiser,
@@ -32,7 +32,9 @@ def _make_result() -> RobustnessResult:
         clean_inputs=inputs,
         targets=targets,
         clean_predictions=torch.tensor([0, 1]),
-        verdicts=encode_verdicts([RobustnessVerdict.ATTACKED, RobustnessVerdict.NOT_ATTACKED]),
+        verdicts=encode_verdicts(
+            [RobustnessVerdict.ATTACK_SUCCEEDED, RobustnessVerdict.ATTACK_FAILED]
+        ),
         metrics=RobustnessMetrics(clean_accuracy=1.0, adversarial_accuracy=0.5),
         run_dir=Path("."),
         experiment_name="t",
@@ -43,7 +45,7 @@ def _make_result() -> RobustnessResult:
         perturbed_predictions=torch.tensor([1, 1]),
         perturbation_distance=torch.tensor([0.05, 0.05]),
         semantics=RobustnessSemantics(
-            method_kind=MethodKind.EMPIRICAL_ATTACK,
+            assessment_kind=AssessmentKind.EMPIRICAL_ATTACK,
             threat_model=ThreatModel.WHITE_BOX,
             objective=Objective.UNTARGETED,
             families=frozenset({"gradient_sign"}),
@@ -55,7 +57,7 @@ def _make_result() -> RobustnessResult:
 def _empirical_context() -> RobustnessVisualisationContext:
     return RobustnessVisualisationContext(
         algorithm="PGD",
-        method_kind=MethodKind.EMPIRICAL_ATTACK,
+        assessment_kind=AssessmentKind.EMPIRICAL_ATTACK,
         sample_names=["a", "b"],
         show_sample_names=True,
     )
@@ -162,7 +164,7 @@ def test_image_pair_visualiser_uses_shared_display_range_for_clean_and_perturbed
         clean_inputs=inputs,
         targets=targets,
         clean_predictions=torch.tensor([0]),
-        verdicts=encode_verdicts([RobustnessVerdict.NOT_ATTACKED]),
+        verdicts=encode_verdicts([RobustnessVerdict.ATTACK_FAILED]),
         metrics=RobustnessMetrics(clean_accuracy=1.0, adversarial_accuracy=1.0),
         run_dir=Path("."),
         experiment_name="t",
@@ -173,7 +175,7 @@ def test_image_pair_visualiser_uses_shared_display_range_for_clean_and_perturbed
         perturbed_predictions=torch.tensor([0]),
         perturbation_distance=torch.tensor([0.05]),
         semantics=RobustnessSemantics(
-            method_kind=MethodKind.EMPIRICAL_ATTACK,
+            assessment_kind=AssessmentKind.EMPIRICAL_ATTACK,
             threat_model=ThreatModel.WHITE_BOX,
             objective=Objective.UNTARGETED,
             families=frozenset({"gradient_sign"}),
@@ -195,13 +197,13 @@ def test_image_pair_visualiser_uses_shared_display_range_for_clean_and_perturbed
         plt.close(figure)
 
 
-def test_validate_result_blocks_wrong_method_kind() -> None:
+def test_validate_result_blocks_wrong_assessment_kind() -> None:
     result = _make_result()
-    # Force a verifier-only visualiser by patching supported_method_kinds.
+    # Force a verifier-only visualiser by patching supported_assessment_kinds.
     visualiser = ImagePairVisualiser(max_samples=1)
-    type(visualiser).supported_method_kinds = frozenset({MethodKind.FORMAL_VERIFICATION})
+    type(visualiser).supported_assessment_kinds = frozenset({AssessmentKind.FORMAL_VERIFICATION})
     try:
-        with pytest.raises(MethodKindVisualiserIncompatibilityError):
+        with pytest.raises(AssessmentKindVisualiserIncompatibilityError):
             visualiser.validate_result(result)
     finally:
-        type(visualiser).supported_method_kinds = frozenset({MethodKind.EMPIRICAL_ATTACK})
+        type(visualiser).supported_assessment_kinds = frozenset({AssessmentKind.EMPIRICAL_ATTACK})

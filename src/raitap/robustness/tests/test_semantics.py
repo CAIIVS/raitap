@@ -5,7 +5,7 @@ import torch
 
 from raitap.robustness.assessors import FoolboxAssessor, TorchattacksAssessor
 from raitap.robustness.contracts import (
-    MethodKind,
+    AssessmentKind,
     Objective,
     PerturbationNorm,
     ThreatModel,
@@ -18,7 +18,7 @@ from raitap.robustness.semantics import (
 
 def test_torchattacks_registry_covers_pgd() -> None:
     hints = TorchattacksAssessor.algorithm_registry["PGD"]
-    assert hints.method_kind == MethodKind.EMPIRICAL_ATTACK
+    assert hints.assessment_kind == AssessmentKind.EMPIRICAL_ATTACK
     assert hints.norm == PerturbationNorm.LINF
     assert "iterative" in hints.families
 
@@ -37,7 +37,7 @@ def test_hints_for_assessor_routes_to_torchattacks() -> None:
 def test_hints_for_assessor_routes_to_foolbox() -> None:
     assessor = FoolboxAssessor(algorithm="LinfPGD")
     hints = hints_for_assessor(assessor)
-    assert hints.method_kind == MethodKind.EMPIRICAL_ATTACK
+    assert hints.assessment_kind == AssessmentKind.EMPIRICAL_ATTACK
 
 
 def test_assessor_semantics_reads_budget_from_constructor_kwargs() -> None:
@@ -70,7 +70,7 @@ def test_assessor_semantics_extracts_targeted_objective_from_call_kwargs() -> No
         inputs=inputs,
         targets=targets,
     )
-    assert semantics.method_kind == MethodKind.EMPIRICAL_ATTACK
+    assert semantics.assessment_kind == AssessmentKind.EMPIRICAL_ATTACK
     assert semantics.objective == Objective.TARGETED
     assert semantics.target_classes == (3, 4)
     # Budget reflects the constructor (where torchattacks actually reads from).

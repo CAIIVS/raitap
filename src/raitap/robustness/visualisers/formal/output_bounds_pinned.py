@@ -16,7 +16,7 @@ Note: the issue spec mentions reading resolved pin indices off
 so the constructor-kwarg path is the only pinning surface this visualiser
 exposes.
 
-Declared compatible with :class:`MethodKind.FORMAL_VERIFICATION` only.
+Declared compatible with :class:`AssessmentKind.FORMAL_VERIFICATION` only.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ import numpy as np
 
 from raitap.robustness.visualisers.registration import robustness_visualiser
 
-from ...contracts import MethodKind
+from ...contracts import AssessmentKind
 from ..base_visualiser import BaseRobustnessVisualiser
 
 if TYPE_CHECKING:
@@ -55,7 +55,7 @@ def _placeholder_figure(message: str) -> Figure:
 
 @robustness_visualiser(
     registry_name="output_bounds_pinned",
-    supported_method_kinds=frozenset({MethodKind.FORMAL_VERIFICATION}),
+    supported_assessment_kinds=frozenset({AssessmentKind.FORMAL_VERIFICATION}),
 )
 class OutputBoundsPinnedVisualiser(BaseRobustnessVisualiser):
     """Per-pinned-sample plot of ``[lower_k, upper_k]`` certified intervals."""

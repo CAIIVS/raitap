@@ -3,14 +3,18 @@ fields use the UNSET sentinel so omitted kwargs keep the base default."""
 
 from __future__ import annotations
 
+from collections.abc import (
+    Callable,  # noqa: TC003 — return annotation; get_type_hints() resolves it
+)
 from typing import TYPE_CHECKING, Final, TypeVar, Unpack
 
 from raitap._adapters import AdapterDecoratorOptions, _register_core
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
+# Runtime import: AssessmentKind appears in this public decorator's signature, so
+# typing.get_type_hints() must be able to resolve it from module globals.
+from raitap.robustness.contracts import AssessmentKind  # noqa: TC001
 
-    from raitap.robustness.contracts import MethodKind
+if TYPE_CHECKING:
     from raitap.robustness.visualisers.base_visualiser import BaseRobustnessVisualiser
 
 
@@ -25,7 +29,7 @@ T = TypeVar("T", bound="BaseRobustnessVisualiser")
 
 def robustness_visualiser(
     *,
-    supported_method_kinds: frozenset[MethodKind] | _Unset = _UNSET,
+    supported_assessment_kinds: frozenset[AssessmentKind] | _Unset = _UNSET,
     embeds_clean_input: bool | _Unset = _UNSET,
     embeds_perturbation_map: bool | _Unset = _UNSET,
     **common: Unpack[AdapterDecoratorOptions],
@@ -35,7 +39,7 @@ def robustness_visualiser(
 
     def wrap(cls: type[T]) -> type[T]:
         for attr, value in (
-            ("supported_method_kinds", supported_method_kinds),
+            ("supported_assessment_kinds", supported_assessment_kinds),
             ("embeds_clean_input", embeds_clean_input),
             ("embeds_perturbation_map", embeds_perturbation_map),
         ):

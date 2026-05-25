@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import torch
 
 from raitap.robustness.contracts import (
-    MethodKind,
+    AssessmentKind,
     Objective,
     PerturbationBudget,
     PerturbationNorm,
@@ -50,7 +50,7 @@ def _make_formal_result() -> RobustnessResult:
         assessor_name="marabou_linf",
         runtime_per_sample=torch.tensor([0.1, 0.4, 0.7, 0.8]),
         semantics=RobustnessSemantics(
-            method_kind=MethodKind.FORMAL_VERIFICATION,
+            assessment_kind=AssessmentKind.FORMAL_VERIFICATION,
             threat_model=ThreatModel.WHITE_BOX,
             objective=Objective.UNTARGETED,
             families=frozenset({"smt", "complete", "sound"}),
@@ -62,7 +62,7 @@ def _make_formal_result() -> RobustnessResult:
 def _formal_context() -> RobustnessVisualisationContext:
     return RobustnessVisualisationContext(
         algorithm="linf-box",
-        method_kind=MethodKind.FORMAL_VERIFICATION,
+        assessment_kind=AssessmentKind.FORMAL_VERIFICATION,
         sample_names=None,
         show_sample_names=False,
     )
@@ -84,5 +84,5 @@ def test_verdict_summary_renders_two_panels() -> None:
 
 def test_verdict_summary_only_supports_formal_verification() -> None:
     visualiser = VerdictSummaryVisualiser()
-    assert MethodKind.FORMAL_VERIFICATION in visualiser.supported_method_kinds
-    assert MethodKind.EMPIRICAL_ATTACK not in visualiser.supported_method_kinds
+    assert AssessmentKind.FORMAL_VERIFICATION in visualiser.supported_assessment_kinds
+    assert AssessmentKind.EMPIRICAL_ATTACK not in visualiser.supported_assessment_kinds

@@ -26,8 +26,8 @@ from raitap._adapters import ALL as ALL
 from .contracts import (
     VERDICT_CODES,
     VERDICT_FROM_CODE,
+    AssessmentKind,
     AssessorAdapter,
-    MethodKind,
     Objective,
     PerturbationBudget,
     PerturbationNorm,
@@ -40,8 +40,8 @@ from .contracts import (
     encode_verdict,
 )
 from .exceptions import (
+    AssessmentKindVisualiserIncompatibilityError,
     AssessorBackendIncompatibilityError,
-    MethodKindVisualiserIncompatibilityError,
     MissingTargetsError,
     RobustnessVisualiserIncompatibilityError,
 )
@@ -166,7 +166,7 @@ __all__ = [  # noqa: RUF022
     "encode_verdicts",
     # Contracts
     "AssessorAdapter",
-    "MethodKind",
+    "AssessmentKind",
     "Objective",
     "PerturbationBudget",
     "PerturbationNorm",
@@ -181,7 +181,7 @@ __all__ = [  # noqa: RUF022
     "encode_verdict",
     # Exceptions
     "AssessorBackendIncompatibilityError",
-    "MethodKindVisualiserIncompatibilityError",
+    "AssessmentKindVisualiserIncompatibilityError",
     "MissingTargetsError",
     "RobustnessVisualiserIncompatibilityError",
     # Semantics
