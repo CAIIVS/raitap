@@ -15,6 +15,8 @@
 
 ## Optional
 
-- [ ] **Issue** — A GitHub issues is linked to this PR ("Development" section in the right sidebar).
-- [ ] **Docs** — User or contributor docs updated where needed.
-- [ ] **Tests** — New or updated tests cover the change.
+<!-- These are non-blocking: the `require-checklist` job skips items tagged "(optional)". -->
+
+- [ ] **Issue** _(optional)_ — A GitHub issues is linked to this PR ("Development" section in the right sidebar).
+- [ ] **Docs** _(optional)_ — User or contributor docs updated where needed.
+- [ ] **Tests** _(optional)_ — New or updated tests cover the change.
