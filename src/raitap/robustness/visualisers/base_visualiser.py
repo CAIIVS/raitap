@@ -5,15 +5,22 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar
 
+# Runtime imports: these names appear in public annotations on this base class, so
+# typing.get_type_hints() must resolve them from module globals.
+from matplotlib.figure import Figure  # noqa: TC002
+
 from raitap._adapters import AdapterMixin
 
+from ..contracts import AssessmentKind, RobustnessVisualisationContext  # noqa: TC001
 from ..exceptions import AssessmentKindVisualiserIncompatibilityError
 
 if TYPE_CHECKING:
-    from matplotlib.figure import Figure
-
-    from ..contracts import AssessmentKind, RobustnessVisualisationContext
     from ..results import RobustnessResult
+else:
+    # Runtime alias: a real import would be circular (``results`` imports this
+    # module for ``BaseRobustnessVisualiser``). ``Any`` lets get_type_hints()
+    # resolve the string annotation without the cycle.
+    RobustnessResult = Any
 
 
 class BaseRobustnessVisualiser(ABC, AdapterMixin):
