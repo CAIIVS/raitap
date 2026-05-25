@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.10.0](https://github.com/CAIIVS/raitap/compare/v0.9.3...v0.10.0) (2026-05-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* **robustness:** rename confusing enums (ATTACK verdicts, MethodKind→AssessmentKind) ([#200](https://github.com/CAIIVS/raitap/issues/200))
+* **data:** batch object-detection inputs as ragged list[Tensor] ([#202](https://github.com/CAIIVS/raitap/issues/202))
+
+### Bug fixes
+
+* **data:** batch object-detection inputs as ragged list[Tensor] ([#202](https://github.com/CAIIVS/raitap/issues/202)) ([4f3d7b5](https://github.com/CAIIVS/raitap/commit/4f3d7b59bfac1478386256d43a8bbbf2ff3f3def))
+* **data:** resolve detection model-bundled preprocessing by builder name ([#198](https://github.com/CAIIVS/raitap/issues/198)) ([1c5aab6](https://github.com/CAIIVS/raitap/commit/1c5aab67cb4bce30b32c993830230535c9850aee))
+* **transparency:** upsample low-res CAM maps in detection visualiser ([#204](https://github.com/CAIIVS/raitap/issues/204)) ([f5ce177](https://github.com/CAIIVS/raitap/commit/f5ce1779880ab42e7238a7a60cbebcb468661f6e))
+
+
+### Dependencies
+
+* **actions:** bump actions/cache from 4 to 5 ([#195](https://github.com/CAIIVS/raitap/issues/195)) ([d7651f0](https://github.com/CAIIVS/raitap/commit/d7651f09a914689399d95579c1f2e08a7a1f6838))
+
+
+### Documentation
+
+* no smart quotes ([e2505dc](https://github.com/CAIIVS/raitap/commit/e2505dcc923249915ca5e1ca9cb17292dfb70f7f))
+* readme ([56edffe](https://github.com/CAIIVS/raitap/commit/56edffeeb03bde421ca6c7659f70031de0c09543))
+* README ([8caf8c7](https://github.com/CAIIVS/raitap/commit/8caf8c782841c73098a12f3f091987fb6528254c))
+* remove Quick start  ([d5f2113](https://github.com/CAIIVS/raitap/commit/d5f21131d25e7608eb04cf2184e86af9d6974151))
+* revise Python version and enhance setup instructions ([d11f638](https://github.com/CAIIVS/raitap/commit/d11f638145eaf7c1bea3ab4f4c1969f32cc11ce8))
+* revise README for package layout and conventions ([ddf646d](https://github.com/CAIIVS/raitap/commit/ddf646d010bd3643535640890c802aac55c845d3))
+
+
+### Internal code refactoring
+
+* **robustness:** rename confusing enums (ATTACK verdicts, MethodKind→AssessmentKind) ([#200](https://github.com/CAIIVS/raitap/issues/200)) ([bc695d8](https://github.com/CAIIVS/raitap/commit/bc695d8dbc189f8002ab879a5995c508f9675d3b))
+
 ## [0.9.3](https://github.com/CAIIVS/raitap/compare/v0.9.2...v0.9.3) (2026-05-20)
 
 

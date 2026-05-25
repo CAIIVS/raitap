@@ -975,13 +975,14 @@ wheels = [
 
 [[package]]
 name = "raitap"
-version = "0.7.0"
+version = "0.10.0"
 source = { editable = "../" }
 dependencies = [
     { name = "hydra-core" },
     { name = "hydra-zen" },
     { name = "matplotlib" },
     { name = "numpy" },
+    { name = "omegaconf" },
     { name = "packaging" },
     { name = "pandas" },
     { name = "pandas-stubs" },
@@ -1015,14 +1016,15 @@ requires-dist = [
     { name = "captum", marker = "extra == 'captum'", specifier = ">=0.7.0" },
     { name = "faster-coco-eval", marker = "extra == 'metrics'", specifier = ">=1.6.3" },
     { name = "foolbox", marker = "extra == 'foolbox'", specifier = ">=3.3.4" },
-    { name = "hydra-core", specifier = ">=1.3.2" },
+    { name = "hydra-core", specifier = ">=1.3.2,<1.4" },
     { name = "hydra-submitit-launcher", marker = "extra == 'launcher'", specifier = ">=1.2.0" },
     { name = "hydra-zen", specifier = ">=0.13" },
     { name = "jinja2", marker = "extra == 'html'", specifier = ">=3.1" },
     { name = "maraboupy", marker = "python_full_version < '3.12' and sys_platform != 'win32' and extra == 'marabou'", specifier = ">=2.0.0,<3.0" },
-    { name = "matplotlib", specifier = ">=3.9.0" },
+    { name = "matplotlib", specifier = "==3.10.*" },
     { name = "mlflow", marker = "extra == 'mlflow'", specifier = ">=3.9.0" },
     { name = "numpy", specifier = ">=2.4.2" },
+    { name = "omegaconf", specifier = ">=2.3,<2.4" },
     { name = "onnx", marker = "sys_platform != 'darwin' and extra == 'onnx-intel'", specifier = ">=1.21.0" },
     { name = "onnx", marker = "extra == 'marabou'", specifier = ">=1.15" },
     { name = "onnx", marker = "extra == 'onnx-cpu'", specifier = ">=1.21.0" },
