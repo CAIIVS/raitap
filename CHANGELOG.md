@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/CAIIVS/raitap/compare/v0.10.0...v0.10.1) (2026-05-25)
+
+
+### Bug fixes
+
+* **transparency:** render all-zero attribution maps instead of crashing ([#207](https://github.com/CAIIVS/raitap/issues/207)) ([2c1b0b0](https://github.com/CAIIVS/raitap/commit/2c1b0b039b125622661f1f0bd4f703cfe77e1b2d))
+
 ## [0.10.0](https://github.com/CAIIVS/raitap/compare/v0.9.3...v0.10.0) (2026-05-25)
 
 
