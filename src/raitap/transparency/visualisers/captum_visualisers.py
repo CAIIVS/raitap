@@ -128,6 +128,15 @@ def _captum_normalisation_degenerate(
     total = float(cum_sums[-1])
     if total == 0:
         return True
+    # NB: this is *not* equivalent to the ``total == 0`` check above and must not be
+    # simplified to it. For the default ``outlier_perc=2`` the percentile lands deep
+    # in the non-zero tail, so the two agree — but Captum scales by the
+    # ``(100 - outlier_perc)``-percentile value, which is itself 0 when enough mass
+    # sits at zero (e.g. ``outlier_perc=100`` → 0th percentile → the min, which is 0
+    # whenever any pixel is zero). In those cases ``total > 0`` yet Captum still hits
+    # ``scale_factor == 0``; replicating its threshold here is what catches them.
+    # ``np.where`` is non-empty for any valid ``outlier_perc`` in [0, 100] because the
+    # final cum-sum (== total) always satisfies ``total >= total * 0.01 * percentile``.
     threshold_id = int(np.where(cum_sums >= total * 0.01 * (100.0 - outlier_perc))[0][0])
     return bool(sorted_vals[threshold_id] == 0)
 
