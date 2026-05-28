@@ -23,6 +23,7 @@ _WRAPPED_LIBS = (
     "foolbox",
     "foolbox.attacks",
     "foolbox.criteria",
+    "imagecorruptions",
     "maraboupy",
 )
 
@@ -31,6 +32,7 @@ _ADAPTER_MODULES = (
     "raitap.robustness.assessors",
     "raitap.robustness.assessors.torchattacks_assessor",
     "raitap.robustness.assessors.foolbox_assessor",
+    "raitap.robustness.assessors.imagecorruptions_assessor",
     "raitap.robustness.assessors.marabou_assessor",
     "raitap.robustness.visualisers",
 )
