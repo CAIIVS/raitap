@@ -21,7 +21,9 @@ from .contracts import (
     AssessmentKind,
     Objective,
     PerturbationBudget,
+    PerturbationDistribution,
     PerturbationNorm,
+    PerturbationRegion,
     RobustnessSemantics,
     ThreatModel,
 )
@@ -39,8 +41,8 @@ class AssessorSemanticsHints:
     assessment_kind: AssessmentKind
     threat_model: ThreatModel
     objective: Objective
-    norm: PerturbationNorm
-    families: frozenset[str]
+    norm: PerturbationNorm | None = None
+    families: frozenset[str] = frozenset()
     default_epsilon: float | None = None
 
 
@@ -135,6 +137,19 @@ _BUDGET_KEY_GROUPS = (
 )
 
 
+def _build_distribution(assessor: object) -> PerturbationDistribution:
+    """Build the average-case region: corruption name = algorithm; severity from init kwargs."""
+    corruption_name = str(getattr(assessor, "algorithm", ""))
+    init_kwargs: Mapping[str, Any] = getattr(assessor, "init_kwargs", {}) or {}
+    severity_raw = getattr(assessor, "severity", None)
+    if severity_raw is None:
+        severity_raw = init_kwargs.get("severity", 1)
+    severity = int(severity_raw)
+    if not 1 <= severity <= 5:
+        raise ValueError(f"severity must be in 1..5, got {severity}.")
+    return PerturbationDistribution(corruption_name=corruption_name, severity=severity)
+
+
 def _warn_misplaced_budget_keys(
     *,
     assessor: object,
@@ -197,21 +212,29 @@ def assessor_semantics(
     else:
         budget_source = init_kwargs
         other_source = call_kwargs
-    _warn_misplaced_budget_keys(
-        assessor=assessor, authoritative=authoritative_label, other_source=other_source
-    )
     objective = _resolve_objective(hints, call_kwargs)
-    epsilon = _resolve_epsilon(hints, budget_source)
-    step_size = budget_source.get("alpha")
-    if step_size is None:
-        step_size = budget_source.get("step_size")
-    steps = budget_source.get("steps")
-    budget = PerturbationBudget(
-        norm=hints.norm,
-        epsilon=float(epsilon) if epsilon is not None else None,
-        step_size=float(step_size) if step_size is not None else None,
-        steps=int(steps) if steps is not None else None,
-    )
+    perturbation: PerturbationRegion
+    if hints.assessment_kind == AssessmentKind.STATISTICAL_SAMPLING:
+        perturbation = _build_distribution(assessor)
+    else:
+        _warn_misplaced_budget_keys(
+            assessor=assessor, authoritative=authoritative_label, other_source=other_source
+        )
+        epsilon = _resolve_epsilon(hints, budget_source)
+        step_size = budget_source.get("alpha")
+        if step_size is None:
+            step_size = budget_source.get("step_size")
+        steps = budget_source.get("steps")
+        if hints.norm is None:
+            raise ValueError(
+                f"{type(assessor).__name__}: worst-case assessors require a 'norm' hint."
+            )
+        perturbation = PerturbationBudget(
+            norm=hints.norm,
+            epsilon=float(epsilon) if epsilon is not None else None,
+            step_size=float(step_size) if step_size is not None else None,
+            steps=int(steps) if steps is not None else None,
+        )
     input_spec: InputSpec | None
     try:
         input_spec = infer_input_spec(
@@ -229,7 +252,7 @@ def assessor_semantics(
         threat_model=hints.threat_model,
         objective=objective,
         families=hints.families,
-        perturbation=budget,
+        perturbation=perturbation,
         target_classes=_extract_target_classes(call_kwargs),
         sample_selection=sample_selection,
         input_spec=input_spec,
