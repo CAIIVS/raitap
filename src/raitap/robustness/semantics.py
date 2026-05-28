@@ -183,7 +183,7 @@ def assessor_semantics(
     * foolbox: ``"call_kwargs"`` (foolbox attacks consume ``epsilons=...`` at
       ``attack(...)`` time).
 
-    The reported ``RobustnessSemantics.budget`` therefore matches what the
+    The reported ``RobustnessSemantics.perturbation`` therefore matches what the
     adapter actually executed. Misplaced budget keys in the non-authoritative
     source emit a warning so the user can correct the YAML.
     """
@@ -229,7 +229,7 @@ def assessor_semantics(
         threat_model=hints.threat_model,
         objective=objective,
         families=hints.families,
-        budget=budget,
+        perturbation=budget,
         target_classes=_extract_target_classes(call_kwargs),
         sample_selection=sample_selection,
         input_spec=input_spec,

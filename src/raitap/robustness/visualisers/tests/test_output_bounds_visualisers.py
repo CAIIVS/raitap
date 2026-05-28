@@ -66,7 +66,7 @@ def _formal_result(
             threat_model=ThreatModel.WHITE_BOX,
             objective=Objective.UNTARGETED,
             families=frozenset({"smt"}),
-            budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
+            perturbation=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
         ),
     )
 
@@ -90,7 +90,7 @@ def _empirical_result() -> RobustnessResult:
             threat_model=ThreatModel.WHITE_BOX,
             objective=Objective.UNTARGETED,
             families=frozenset({"gradient"}),
-            budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
+            perturbation=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
         ),
     )
 

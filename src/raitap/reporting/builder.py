@@ -19,7 +19,7 @@ else:
     torch = lazy_import("torch")
 from raitap.configs import resolve_run_dir
 from raitap.pipeline.outputs import PredictionSummary, RunOutputs
-from raitap.robustness.contracts import AssessmentKind
+from raitap.robustness.contracts import AssessmentKind, PerturbationBudget
 from raitap.transparency.contracts import ExplanationScope, VisualisationContext
 from raitap.transparency.visualisers import BaseVisualiser, InputThumbnailVisualiser
 
@@ -308,17 +308,18 @@ def _build_robustness_section(
         else:
             heading = f"Robustness certification - {result.algorithm} ({assessor_name})"
 
-        budget = result.semantics.budget
+        perturbation = result.semantics.perturbation
         table_rows: list[tuple[str, str]] = [
             ("assessor", assessor_name),
             ("algorithm", result.algorithm),
             ("assessment_kind", assessment_kind_value),
             ("threat_model", result.semantics.threat_model.value),
             ("objective", result.semantics.objective.value),
-            ("norm", budget.norm.value),
         ]
-        if budget.epsilon is not None:
-            table_rows.append(("epsilon", f"{budget.epsilon:g}"))
+        if isinstance(perturbation, PerturbationBudget):
+            table_rows.append(("norm", perturbation.norm.value))
+            if perturbation.epsilon is not None:
+                table_rows.append(("epsilon", f"{perturbation.epsilon:g}"))
         for metric_name, metric_value in result.metrics.as_dict().items():
             table_rows.append((metric_name, f"{metric_value:.4f}"))
         table_rows.extend(_output_bounds_table_rows(result))

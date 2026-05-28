@@ -241,7 +241,7 @@ def _robustness_semantics() -> RobustnessSemantics:
         threat_model=ThreatModel.WHITE_BOX,
         objective=Objective.UNTARGETED,
         families=frozenset({"gradient_sign"}),
-        budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.03),
+        perturbation=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.03),
         input_spec=InputSpec(
             kind="image",
             shape=(1, 3, 4, 4),

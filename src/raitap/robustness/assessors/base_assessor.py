@@ -55,6 +55,16 @@ if TYPE_CHECKING:
 _VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
 
 
+def _require_budget(semantics: Any) -> PerturbationBudget:
+    """Worst-case assessors always carry a PerturbationBudget; narrow for type-safety."""
+    region = semantics.perturbation
+    if not isinstance(region, PerturbationBudget):
+        raise TypeError(
+            f"Expected a PerturbationBudget for a worst-case assessor, got {type(region).__name__}."
+        )
+    return region
+
+
 class BaseAssessor(AdapterMixin, ABC):
     """Root base class for all robustness assessors.
 
@@ -71,7 +81,7 @@ class BaseAssessor(AdapterMixin, ABC):
     #: kwargs (``eps`` / ``alpha`` / ``steps``). ``"init_kwargs"`` means the
     #: adapter forwards them at attack-instance construction (torchattacks);
     #: ``"call_kwargs"`` means they are read at attack-call time (foolbox).
-    #: ``RobustnessSemantics.budget`` is derived from this source so reported
+    #: ``RobustnessSemantics.perturbation`` is derived from this source so reported
     #: metadata always matches what the adapter executed.
     budget_kwarg_source: ClassVar[str] = "init_kwargs"
 
@@ -225,7 +235,8 @@ class EmpiricalAttackAssessor(BaseAssessor, ABC):
         verdicts = encode_verdicts(verdicts_list)
 
         delta = (perturbed - inputs).detach().cpu()
-        per_sample_distance = _per_sample_norm(delta, semantics.budget.norm)
+        budget = _require_budget(semantics)
+        per_sample_distance = _per_sample_norm(delta, budget.norm)
 
         clean_acc = (clean_predictions == targets).float().mean().item()
         adv_acc = (adversarial_predictions == targets).float().mean().item()
@@ -401,7 +412,7 @@ class FormalVerificationAssessor(BaseAssessor, ABC):
                     model,
                     sample,
                     target,
-                    budget=semantics.budget,
+                    budget=_require_budget(semantics),
                     backend=backend,
                     **verify_kwargs,
                 )
@@ -441,7 +452,7 @@ class FormalVerificationAssessor(BaseAssessor, ABC):
             counter_examples=counter_examples,
             verdicts=verdict_list,
             model=model,
-            norm=semantics.budget.norm,
+            norm=_require_budget(semantics).norm,
             backend=backend,
         )
         output_bounds = _stack_optional_bounds(lower_rows, upper_rows)

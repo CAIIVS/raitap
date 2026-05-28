@@ -54,7 +54,7 @@ def _make_formal_result() -> RobustnessResult:
             threat_model=ThreatModel.WHITE_BOX,
             objective=Objective.UNTARGETED,
             families=frozenset({"smt", "complete", "sound"}),
-            budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
+            perturbation=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
         ),
     )
 

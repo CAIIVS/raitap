@@ -38,7 +38,7 @@ def _semantics_for_test() -> RobustnessSemantics:
         threat_model=ThreatModel.WHITE_BOX,
         objective=Objective.UNTARGETED,
         families=frozenset({"gradient_sign"}),
-        budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.03),
+        perturbation=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.03),
     )
 
 
@@ -94,7 +94,7 @@ def test_robustness_result_writes_pt_and_metadata(tmp_path: Path) -> None:
 
     metadata = json.loads((result.run_dir / "metadata.json").read_text())
     assert metadata["assessment_kind"] == "empirical_attack"
-    assert metadata["semantics"]["budget"]["norm"] == "Linf"
+    assert metadata["semantics"]["perturbation"]["norm"] == "Linf"
     assert metadata["metrics"]["attack_success_rate"] == 0.75
     assert metadata["verdict_codes"]["attack_succeeded"] == 1
 

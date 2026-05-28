@@ -49,7 +49,7 @@ def _make_result() -> RobustnessResult:
             threat_model=ThreatModel.WHITE_BOX,
             objective=Objective.UNTARGETED,
             families=frozenset({"gradient_sign"}),
-            budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
+            perturbation=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
         ),
     )
 
@@ -179,7 +179,7 @@ def test_image_pair_visualiser_uses_shared_display_range_for_clean_and_perturbed
             threat_model=ThreatModel.WHITE_BOX,
             objective=Objective.UNTARGETED,
             families=frozenset({"gradient_sign"}),
-            budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
+            perturbation=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
         ),
     )
     visualiser = ImagePairVisualiser(max_samples=1)
