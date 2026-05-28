@@ -322,3 +322,24 @@ def test_robustness_visualise_passes_with_none_sample_names(tmp_path: Path) -> N
     vis_results = result.visualise()
     for vr in vis_results:
         plt.close(vr.figure)
+
+
+def test_metrics_average_case_fields_in_as_dict() -> None:
+    from raitap.robustness.results import RobustnessMetrics
+
+    metrics = RobustnessMetrics(
+        clean_accuracy=0.9,
+        corrupted_accuracy=0.7,
+        accuracy_ci_low=0.6,
+        accuracy_ci_high=0.8,
+        n_samples=10,
+        n_correct=7,
+    )
+    out = metrics.as_dict()
+    assert out["corrupted_accuracy"] == 0.7
+    assert out["accuracy_ci_low"] == 0.6
+    assert out["accuracy_ci_high"] == 0.8
+    assert out["n_samples"] == 10.0
+    assert out["n_correct"] == 7.0
+    # Worst-case fields stay absent when None.
+    assert "adversarial_accuracy" not in out
