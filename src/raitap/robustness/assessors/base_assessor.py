@@ -609,6 +609,10 @@ class StatisticalSamplingAssessor(BaseAssessor, ABC):
                 "sample_ids": sample_ids,
                 "sample_names": sample_names,
                 "show_sample_names": bool(rk.get("show_sample_names", False)),
+                # Persist the resolved CI settings so saved average-case artifacts
+                # are self-describing (which interval + level produced the bounds).
+                "ci_method": ci_method,
+                "ci_level": ci_level,
             },
             call_kwargs=call_kwargs,
             visualisers=visualisers_list,
