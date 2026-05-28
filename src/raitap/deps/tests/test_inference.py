@@ -184,6 +184,7 @@ def test_mapping_table_lists_all_known_targets() -> None:
         "TorchattacksAssessor",
         "FoolboxAssessor",
         "MarabouAssessor",
+        "ImageCorruptionsAssessor",
         "HTMLReporter",
         "PDFReporter",
         "MLFlowTracker",
