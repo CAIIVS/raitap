@@ -2101,6 +2101,61 @@ def _write_child_manifest(
     (hydra_dir / "overrides.yaml").write_text("- transparency=demo\n", encoding="utf-8")
 
 
+def test_build_report_sampling_result_renders_without_error(tmp_path: Path) -> None:
+    from raitap.robustness.contracts import PerturbationDistribution
+
+    config = AppConfig(experiment_name="sampling_test")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    semantics = RobustnessSemantics(
+        assessment_kind=AssessmentKind.STATISTICAL_SAMPLING,
+        threat_model=ThreatModel.NOT_APPLICABLE,
+        objective=Objective.UNTARGETED,
+        families=frozenset({"noise"}),
+        perturbation=PerturbationDistribution(corruption_name="fog", severity=3),
+    )
+    result = RobustnessResult(
+        clean_inputs=torch.rand(2, 3, 4, 4),
+        targets=torch.tensor([0, 1]),
+        clean_predictions=torch.tensor([0, 1]),
+        verdicts=encode_verdicts([RobustnessVerdict.ATTACK_SUCCEEDED] * 2),
+        metrics=RobustnessMetrics(
+            clean_accuracy=1.0,
+            corrupted_accuracy=0.5,
+            n_samples=2,
+            n_correct=1,
+        ),
+        run_dir=tmp_path / "robustness" / "fog",
+        experiment_name="sampling_test",
+        assessor_target="t",
+        algorithm="fog",
+        assessor_name="fog",
+        semantics=semantics,
+        visualisers=[],
+    )
+    outputs = RunOutputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=_fo(torch.zeros(2, 2)),
+        robustness_results=[result],
+    )
+
+    report = build_report(config, outputs)
+
+    assert len(report.sections) == 1
+    robustness_section = report.sections[0]
+    assert robustness_section.title == "Robustness"
+    group = robustness_section.groups[0]
+    row_dict = dict(group.table_rows)
+    assert "Average-case" in group.heading
+    assert row_dict.get("corruption_name") == "fog"
+    assert row_dict.get("severity") == "3"
+    assert row_dict.get("case") == "average_case"
+    assert row_dict.get("corrupted_accuracy") == "0.5000"
+
+
 def _write_test_image(path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(figsize=(1, 1))

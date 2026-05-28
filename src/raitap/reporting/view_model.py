@@ -29,7 +29,18 @@ _TECHNICAL_KEYS = frozenset(
     }
 )
 _ROBUSTNESS_SETTING_KEYS = frozenset(
-    {"assessor", "algorithm", "assessment_kind", "threat_model", "objective", "norm", "epsilon"}
+    {
+        "assessor",
+        "algorithm",
+        "assessment_kind",
+        "case",
+        "threat_model",
+        "objective",
+        "norm",
+        "epsilon",
+        "corruption_name",
+        "severity",
+    }
 )
 
 

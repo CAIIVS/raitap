@@ -272,6 +272,7 @@ class RobustnessResult(Trackable):
             "algorithm": self.algorithm,
             "assessor_name": self.assessor_name,
             "assessment_kind": self.assessment_kind.value,
+            "case": self.semantics.case.value,
             "visualisers": targets,
             "metrics": self.metrics.as_dict(),
             "verdict_codes": {v.value: code for v, code in VERDICT_CODES.items()},

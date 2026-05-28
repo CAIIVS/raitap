@@ -19,7 +19,7 @@ else:
     torch = lazy_import("torch")
 from raitap.configs import resolve_run_dir
 from raitap.pipeline.outputs import PredictionSummary, RunOutputs
-from raitap.robustness.contracts import AssessmentKind, PerturbationBudget
+from raitap.robustness.contracts import AssessmentKind, PerturbationBudget, PerturbationDistribution
 from raitap.transparency.contracts import ExplanationScope, VisualisationContext
 from raitap.transparency.visualisers import BaseVisualiser, InputThumbnailVisualiser
 
@@ -305,6 +305,8 @@ def _build_robustness_section(
         assessment_kind_value = result.assessment_kind.value
         if result.assessment_kind == AssessmentKind.EMPIRICAL_ATTACK:
             heading = f"Adversarial attack - {result.algorithm} ({assessor_name})"
+        elif result.assessment_kind == AssessmentKind.STATISTICAL_SAMPLING:
+            heading = f"Average-case robustness - {result.algorithm} ({assessor_name})"
         else:
             heading = f"Robustness certification - {result.algorithm} ({assessor_name})"
 
@@ -313,6 +315,7 @@ def _build_robustness_section(
             ("assessor", assessor_name),
             ("algorithm", result.algorithm),
             ("assessment_kind", assessment_kind_value),
+            ("case", result.semantics.case.value),
             ("threat_model", result.semantics.threat_model.value),
             ("objective", result.semantics.objective.value),
         ]
@@ -320,6 +323,9 @@ def _build_robustness_section(
             table_rows.append(("norm", perturbation.norm.value))
             if perturbation.epsilon is not None:
                 table_rows.append(("epsilon", f"{perturbation.epsilon:g}"))
+        elif isinstance(perturbation, PerturbationDistribution):
+            table_rows.append(("corruption_name", perturbation.corruption_name))
+            table_rows.append(("severity", str(perturbation.severity)))
         for metric_name, metric_value in result.metrics.as_dict().items():
             table_rows.append((metric_name, f"{metric_value:.4f}"))
         table_rows.extend(_output_bounds_table_rows(result))

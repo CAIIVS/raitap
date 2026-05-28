@@ -343,3 +343,32 @@ def test_metrics_average_case_fields_in_as_dict() -> None:
     assert out["n_correct"] == 7.0
     # Worst-case fields stay absent when None.
     assert "adversarial_accuracy" not in out
+
+
+def test_metadata_includes_case(tmp_path: Path) -> None:
+    from raitap.robustness.contracts import PerturbationDistribution
+
+    semantics = RobustnessSemantics(
+        assessment_kind=AssessmentKind.STATISTICAL_SAMPLING,
+        threat_model=ThreatModel.NOT_APPLICABLE,
+        objective=Objective.UNTARGETED,
+        families=frozenset({"noise"}),
+        perturbation=PerturbationDistribution(corruption_name="fog", severity=2),
+    )
+    result = RobustnessResult(
+        clean_inputs=torch.rand(2, 3, 8, 8),
+        targets=torch.tensor([0, 1]),
+        clean_predictions=torch.tensor([0, 1]),
+        verdicts=torch.tensor([7, 8]),
+        metrics=RobustnessMetrics(
+            clean_accuracy=1.0, corrupted_accuracy=0.5, n_samples=2, n_correct=1
+        ),
+        run_dir=str(tmp_path),
+        experiment_name="t",
+        assessor_target="x",
+        algorithm="fog",
+        semantics=semantics,
+    )
+    meta = result._metadata()
+    assert meta["case"] == "average_case"
+    assert meta["assessment_kind"] == "statistical_sampling"
