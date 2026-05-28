@@ -363,7 +363,7 @@ def test_metadata_includes_case(tmp_path: Path) -> None:
         metrics=RobustnessMetrics(
             clean_accuracy=1.0, corrupted_accuracy=0.5, n_samples=2, n_correct=1
         ),
-        run_dir=str(tmp_path),
+        run_dir=tmp_path,
         experiment_name="t",
         assessor_target="x",
         algorithm="fog",

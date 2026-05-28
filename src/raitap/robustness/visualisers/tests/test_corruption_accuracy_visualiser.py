@@ -49,7 +49,7 @@ def _make_result(tmp_path: Path) -> RobustnessResult:
             n_samples=4,
             n_correct=3,
         ),
-        run_dir=str(tmp_path),
+        run_dir=tmp_path,
         experiment_name="t",
         assessor_target="x",
         algorithm="gaussian_noise",

@@ -85,11 +85,10 @@ def test_gaussian_noise_e2e(tmp_path: Path) -> None:
 
     assert isinstance(result, RobustnessResult)
     assert result.metrics.n_samples == 6
-    assert 0.0 <= result.metrics.corrupted_accuracy <= 1.0
-    assert (
-        result.metrics.accuracy_ci_low
-        <= result.metrics.corrupted_accuracy
-        <= result.metrics.accuracy_ci_high
-    )
+    ci_low = result.metrics.accuracy_ci_low
+    ci_high = result.metrics.accuracy_ci_high
+    accuracy = result.metrics.corrupted_accuracy
+    assert ci_low is not None and ci_high is not None and accuracy is not None
+    assert 0.0 <= ci_low <= accuracy <= ci_high <= 1.0
     assert (result.run_dir / "metadata.json").exists()
     assert (result.run_dir / "robustness_data.pt").exists()

@@ -12,6 +12,8 @@ import torch
 from torch import nn
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     import numpy as np
 
 from raitap.robustness.assessors.base_assessor import StatisticalSamplingAssessor
@@ -38,7 +40,7 @@ class _OneHotModel(nn.Module):
 
 
 class _StubSamplingAssessor(StatisticalSamplingAssessor):
-    algorithm_registry: ClassVar[dict[str, AssessorSemanticsHints]] = {
+    algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]] = {
         "identity": AssessorSemanticsHints(
             AssessmentKind.STATISTICAL_SAMPLING,
             ThreatModel.NOT_APPLICABLE,
@@ -72,8 +74,11 @@ def test_aggregation_counts_correct_and_builds_ci(tmp_path: Any) -> None:
     assert result.metrics.n_samples == 3
     assert result.metrics.n_correct == 2
     assert result.metrics.corrupted_accuracy == 2 / 3
-    assert 0.0 <= result.metrics.accuracy_ci_low <= result.metrics.corrupted_accuracy
-    assert result.metrics.corrupted_accuracy <= result.metrics.accuracy_ci_high <= 1.0
+    ci_low = result.metrics.accuracy_ci_low
+    ci_high = result.metrics.accuracy_ci_high
+    accuracy = result.metrics.corrupted_accuracy
+    assert ci_low is not None and ci_high is not None and accuracy is not None
+    assert 0.0 <= ci_low <= accuracy <= ci_high <= 1.0
 
     verdicts = decode_verdicts(result.verdicts)
     assert verdicts == [

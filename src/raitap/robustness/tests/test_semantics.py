@@ -7,6 +7,7 @@ from raitap.robustness.assessors import FoolboxAssessor, TorchattacksAssessor
 from raitap.robustness.contracts import (
     AssessmentKind,
     Objective,
+    PerturbationBudget,
     PerturbationNorm,
     ThreatModel,
 )
@@ -53,6 +54,7 @@ def test_assessor_semantics_reads_budget_from_constructor_kwargs() -> None:
         inputs=inputs,
         targets=targets,
     )
+    assert isinstance(semantics.perturbation, PerturbationBudget)
     assert semantics.perturbation.epsilon == 0.04
     assert semantics.perturbation.step_size == 0.005
     assert semantics.perturbation.steps == 12
@@ -74,6 +76,7 @@ def test_assessor_semantics_extracts_targeted_objective_from_call_kwargs() -> No
     assert semantics.objective == Objective.TARGETED
     assert semantics.target_classes == (3, 4)
     # Budget reflects the constructor (where torchattacks actually reads from).
+    assert isinstance(semantics.perturbation, PerturbationBudget)
     assert semantics.perturbation.epsilon == 0.05
     assert semantics.perturbation.step_size == 0.01
     assert semantics.perturbation.steps == 7
@@ -91,6 +94,7 @@ def test_assessor_semantics_foolbox_reads_budget_from_call_kwargs() -> None:
         inputs=inputs,
         targets=targets,
     )
+    assert isinstance(semantics.perturbation, PerturbationBudget)
     assert semantics.perturbation.epsilon == 0.07
     assert semantics.perturbation.steps == 25
 
@@ -110,6 +114,7 @@ def test_assessor_semantics_warns_on_misplaced_budget_keys() -> None:
         )
     # Misplaced kwargs in call_kwargs are not consumed by the adapter, so the
     # resulting budget reflects init_kwargs (empty) plus registry default.
+    assert isinstance(semantics.perturbation, PerturbationBudget)
     assert semantics.perturbation.epsilon is None
 
 
