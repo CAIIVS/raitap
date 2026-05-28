@@ -22,8 +22,10 @@ BaseAssessor                            # root — declares assessment_kind + bu
 ├── EmpiricalAttackAssessor             # you implement generate_adversarial(); framework owns assess()
 │   ├── TorchattacksAssessor
 │   └── FoolboxAssessor
-└── FormalVerificationAssessor          # you implement verify_sample(); framework owns assess()
-    └── (alpha-beta-CROWN, auto_LiRPA — follow-up adapters)
+├── FormalVerificationAssessor          # you implement verify_sample(); framework owns assess()
+│   └── (alpha-beta-CROWN, auto_LiRPA — follow-up adapters)
+└── StatisticalSamplingAssessor         # you implement apply_perturbation(image); framework owns assess()
+    └── ImageCorruptionsAssessor
 ```
 
 - **`BaseAssessor`** — root. Declares `assessment_kind: ClassVar[AssessmentKind]`,
@@ -36,6 +38,10 @@ BaseAssessor                            # root — declares assessment_kind + bu
   `verify_sample(model, sample, target, *, budget) → VerificationOutcome`.
   The per-sample loop, runtime tracking, output-bounds stacking, and
   counter-example assembly are owned by this class.
+- **`StatisticalSamplingAssessor`** — subclasses implement only
+  `apply_perturbation(image: np.ndarray) → np.ndarray` on a single HWC
+  uint8 image. The framework owns batching, forward passes, verdict assignment,
+  CI computation, and persistence.
 
 ## Class-level attributes the framework reads
 
@@ -43,7 +49,7 @@ Every assessor declares two `ClassVar`s the framework relies on:
 
 - `algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]` — maps
   algorithm names to their threat model / norm / families. `assessor_semantics`
-  uses this to build `RobustnessResult.semantics.budget`, so the reported
+  uses this to build `RobustnessResult.semantics.perturbation`, so the reported
   metadata always matches what the adapter actually executed. Passed via the
   `@adapters.robustness(algorithm_registry=...)` decorator kwarg.
 - `budget_kwarg_source: ClassVar[str]` — `"init_kwargs"` (torchattacks reads
@@ -77,23 +83,35 @@ no changes.
 ## Typed semantics
 
 `RobustnessResult.semantics` is a typed contract, not a narrative description.
-It records assessment kind, threat model, objective, families, budget, target
+It records assessment kind, threat model, objective, families, perturbation, target
 classes (for targeted attacks), sample selection, and input metadata.
 
-`AssessmentKind` distinguishes the two ways to assess robustness:
+`AssessmentKind` is the procedure-level taxonomy (Level 1). Each kind belongs
+to exactly one `RobustnessCase` (Level 2) derived via `case_for(kind)` — never
+stored independently, but surfaced as the `case` key in `metadata.json`.
 
-| Kind | Meaning |
-| --- | --- |
-| `EMPIRICAL_ATTACK` | Try to find an adversarial example within the budget. A `ATTACK_FAILED` verdict does **not** prove robustness. |
-| `FORMAL_VERIFICATION` | Prove (or refute) that no adversarial example exists in the budget. Produces `VERIFIED` / `FALSIFIED` / `UNKNOWN`. |
+| Kind | Case | Meaning |
+| --- | --- | --- |
+| `EMPIRICAL_ATTACK` | `worst_case` | Try to find an adversarial example within the budget. `ATTACK_FAILED` does **not** prove robustness. |
+| `FORMAL_VERIFICATION` | `worst_case` | Prove (or refute) that no adversarial example exists in the budget. Produces `VERIFIED` / `FALSIFIED` / `UNKNOWN`. |
+| `STATISTICAL_SAMPLING` | `average_case` | Measure accuracy under a perturbation distribution. Produces `CORRECT_UNDER_PERTURBATION` / `MISCLASSIFIED_UNDER_PERTURBATION`. |
 
 `RobustnessVerdict` codes the per-sample outcome (encoded as a `long` tensor
 in `robustness_data.pt`; the integer mapping is exposed in `metadata.json`
-under `verdict_codes`).
+under `verdict_codes`). Empirical assessors emit `ATTACK_SUCCEEDED` /
+`ATTACK_FAILED`; formal assessors emit `VERIFIED` / `FALSIFIED` / `UNKNOWN` /
+`ERROR`; statistical-sampling assessors emit `CORRECT_UNDER_PERTURBATION` /
+`MISCLASSIFIED_UNDER_PERTURBATION`.
 
-`PerturbationBudget` carries `norm`, `epsilon`, `step_size`, and `steps`.
-The `norm` value drives `_per_sample_norm` in the empirical pipeline so the
-reported `perturbation_distance` always matches the configured threat model.
+`RobustnessSemantics.perturbation` is a `PerturbationRegion` base type. Worst-case
+assessors use `PerturbationBudget` (carries `norm`, `epsilon`, `step_size`,
+`steps`; the `norm` drives `_per_sample_norm` so reported `perturbation_distance`
+always matches the configured threat model). Average-case assessors use
+`PerturbationDistribution` (carries `corruption_name` and `severity`).
+
+`ThreatModel.NOT_APPLICABLE` is used by statistical-sampling assessors where
+there is no adversary; in contrast empirical and formal assessors use
+`WHITE_BOX`, `BLACK_BOX_SCORE`, or `BLACK_BOX_DECISION`.
 
 ## Important files
 
@@ -115,6 +133,11 @@ reported `perturbation_distance` always matches the configured threat model.
   signed-perturbation render must reduce first).
 - `visualisers/formal/` — reserved for the verifier visualiser follow-up
   (verdict badge, certified-bounds plot).
+- `assessors/imagecorruptions_assessor.py` — `ImageCorruptionsAssessor`; wraps
+  the ImageNet-C 15 common corruptions via `imagecorruptions`.
+- `visualisers/average_case/corruption_accuracy_visualiser.py` —
+  `CorruptionAccuracyVisualiser`; renders clean vs corrupted accuracy bars with
+  a CI whisker.
 
 ## Runtime flow
 
@@ -138,10 +161,13 @@ well-defined reference (a warning is logged).
   value is an `AssessorSemanticsHints` (assessment kind, threat model, objective,
   norm, family tags) from `semantics.py`.
 - **New robustness library** — see {doc}`adding-an-adapter`. Pick
-  `EmpiricalAttackAssessor` or `FormalVerificationAssessor` as the base,
-  decorate with `@adapters.robustness(...)`, and set
-  `budget_kwarg_source="call_kwargs"` if the library reads the budget at
-  call time. Override `check_backend_compat` if the library imposes extra
+  `EmpiricalAttackAssessor`, `FormalVerificationAssessor`, or
+  `StatisticalSamplingAssessor` as the base, decorate with
+  `@adapters.robustness(...)`, and set `budget_kwarg_source="call_kwargs"` if
+  the library reads the budget at call time. Statistical-sampling adapters
+  implement `apply_perturbation(image)` only; `check_backend_compat` is a
+  no-op because pixel-space corruption requires no specific backend. Override
+  `check_backend_compat` for empirical/formal adapters that impose extra
   backend constraints (e.g. white-box attacks require
   `supports_torch_autograd`).
 - **New top-level module** — see {doc}`adding-a-module`.

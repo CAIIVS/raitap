@@ -20,6 +20,10 @@ myst:
 .. autoclass:: raitap.robustness.assessors.base_assessor.FormalVerificationAssessor
    :members:
    :show-inheritance:
+
+.. autoclass:: raitap.robustness.assessors.base_assessor.StatisticalSamplingAssessor
+   :members:
+   :show-inheritance:
 ```
 
 ```{eval-rst}

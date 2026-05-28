@@ -161,3 +161,14 @@ Supports `AssessmentKind.FORMAL_VERIFICATION`. Falls back to a placeholder when
 `result.targets` is missing or shaped wrong.
 
 ![OutputBoundsMarginHeatmapVisualiser preview](../../_static/visualisers/output_bounds_margin_heatmap_visualiser.png)
+
+## Statistical sampling
+
+### CorruptionAccuracyVisualiser
+
+Clean vs corrupted accuracy bars with a CI whisker on the corrupted bar.
+Annotated with the corruption name, severity, and sample count (`N`). Use it
+to see at a glance whether a corruption degrades accuracy and how tight the
+estimate is.
+
+Supports `AssessmentKind.STATISTICAL_SAMPLING`. No image-modality requirement.
