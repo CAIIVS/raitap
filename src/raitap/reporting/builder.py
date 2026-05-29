@@ -105,9 +105,9 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
     if global_section is not None:
         sections.append(global_section)
 
-    cohort_section = _build_cohort_section(outputs, assets_dir=assets_dir)
-    if cohort_section is not None:
-        sections.append(cohort_section)
+    aggregated_section = _build_aggregated_section(outputs, assets_dir=assets_dir)
+    if aggregated_section is not None:
+        sections.append(aggregated_section)
 
     local_section = _build_local_section(
         outputs,
@@ -171,7 +171,7 @@ def build_merged_report(
     sections_by_title: dict[str, list[ReportGroup]] = {
         "Metrics": [],
         "Global Explanations": [],
-        "Cohort Explanations": [],
+        "Aggregated Explanations": [],
         "Local Explanations": [],
         "Robustness": [],
     }
@@ -611,19 +611,19 @@ def _build_global_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSec
     )
 
 
-def _build_cohort_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSection | None:
+def _build_aggregated_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSection | None:
     groups = _native_scope_groups(
         outputs.visualisations,
-        scope=ExplanationScope.COHORT,
-        role="cohort",
+        scope=ExplanationScope.AGGREGATED,
+        role="aggregated",
         assets_dir=assets_dir,
     )
     if not groups:
         return None
     return ReportSection.from_groups(
-        "Cohort Explanations",
+        "Aggregated Explanations",
         groups,
-        metadata={"section_role": "cohort"},
+        metadata={"section_role": "aggregated"},
     )
 
 

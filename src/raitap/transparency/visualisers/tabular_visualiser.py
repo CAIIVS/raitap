@@ -35,7 +35,7 @@ if TYPE_CHECKING:
         }
     ),
     supported_method_families=frozenset(MethodFamily),
-    produces_scope=ExplanationScope.COHORT,
+    produces_scope=ExplanationScope.AGGREGATED,
     scope_definition_step=ScopeDefinitionStep.VISUALISER_SUMMARY,
     visual_summary=VisualSummarySpec(
         summary_type="tabular_bar",

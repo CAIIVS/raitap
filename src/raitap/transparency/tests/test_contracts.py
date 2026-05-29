@@ -52,7 +52,7 @@ explainer_output_scope = contracts.explainer_output_scope
 
 
 def test_semantic_enum_members_are_exact_and_not_placeholders() -> None:
-    assert {member.name for member in ExplanationScope} == {"LOCAL", "COHORT", "GLOBAL"}
+    assert {member.name for member in ExplanationScope} == {"LOCAL", "AGGREGATED", "GLOBAL"}
     assert {member.name for member in ScopeDefinitionStep} == {
         "EXPLAINER_OUTPUT",
         "VISUALISER_SUMMARY",

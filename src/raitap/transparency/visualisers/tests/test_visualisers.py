@@ -118,7 +118,7 @@ class TestBaseVisualiserContract:
                 "payload kind",
             ),
             (
-                _explanation(scope=ExplanationScope.COHORT),
+                _explanation(scope=ExplanationScope.AGGREGATED),
                 "scope",
             ),
             (
@@ -509,8 +509,8 @@ class TestTabularBarChartVisualiser:
         visualiser = TabularBarChartVisualiser()
         assert visualiser is not None
 
-    def test_contract_produces_cohort_visualiser_summary(self) -> None:
-        assert TabularBarChartVisualiser.produces_scope is ExplanationScope.COHORT
+    def test_contract_produces_aggregated_visualiser_summary(self) -> None:
+        assert TabularBarChartVisualiser.produces_scope is ExplanationScope.AGGREGATED
         assert (
             TabularBarChartVisualiser.scope_definition_step
             is ScopeDefinitionStep.VISUALISER_SUMMARY
@@ -832,8 +832,8 @@ class TestShapBarVisualiser:
         visualiser = ShapBarVisualiser()
         assert visualiser is not None
 
-    def test_contract_produces_cohort_visualiser_summary(self) -> None:
-        assert ShapBarVisualiser.produces_scope is ExplanationScope.COHORT
+    def test_contract_produces_aggregated_visualiser_summary(self) -> None:
+        assert ShapBarVisualiser.produces_scope is ExplanationScope.AGGREGATED
         assert ShapBarVisualiser.scope_definition_step is ScopeDefinitionStep.VISUALISER_SUMMARY
         assert ShapBarVisualiser.visual_summary is not None
         assert ShapBarVisualiser.visual_summary.aggregation == "mean_absolute_attribution"
@@ -900,8 +900,8 @@ class TestShapBeeswarmVisualiser:
         visualiser = ShapBeeswarmVisualiser()
         assert visualiser is not None
 
-    def test_contract_produces_cohort_distribution_summary(self) -> None:
-        assert ShapBeeswarmVisualiser.produces_scope is ExplanationScope.COHORT
+    def test_contract_produces_aggregated_distribution_summary(self) -> None:
+        assert ShapBeeswarmVisualiser.produces_scope is ExplanationScope.AGGREGATED
         assert (
             ShapBeeswarmVisualiser.scope_definition_step is ScopeDefinitionStep.VISUALISER_SUMMARY
         )

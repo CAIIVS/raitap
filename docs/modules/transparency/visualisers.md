@@ -117,7 +117,7 @@ layout.
 
 ### ShapBarVisualiser
 
-Mean-absolute-attribution bar chart across the cohort, one bar per input
+Mean-absolute-attribution bar chart across the selected batch, one bar per input
 feature. Use it as the headline "what matters on average?" figure for any
 tabular or interpretable-features explanation.
 
@@ -128,8 +128,8 @@ Wraps `shap.summary_plot(plot_type="bar")`.
 | `feature_names` | `None` | Optional list of feature labels. Falls back to SHAP's `f0 … fN` defaults. |
 | `max_display` | `20` | Maximum number of features to render. |
 
-Scope: `LOCAL` (consumes local attributions). Produces a cohort visual
-summary so reporting places the figure under cohort explanations. Output
+Scope: `LOCAL` (consumes local attributions). Produces an aggregated visual
+summary so reporting places the figure under aggregated explanations. Output
 spaces: `INPUT_FEATURES`, `INTERPRETABLE_FEATURES`. Method family: `SHAPLEY`.
 Requires `(B, F)` tabular or interpretable attributions.
 
@@ -149,7 +149,7 @@ Wraps `shap.summary_plot()` (default `plot_type="dot"`).
 | `feature_names` | `None` | Optional list of feature labels. |
 | `max_display` | `20` | Maximum number of features to render. |
 
-Scope: `LOCAL` consumed, cohort visual summary produced. Output spaces:
+Scope: `LOCAL` consumed, aggregated visual summary produced. Output spaces:
 `INPUT_FEATURES`, `INTERPRETABLE_FEATURES`. Method family: `SHAPLEY`.
 Requires `(B, F)` tabular or interpretable attributions; passing `inputs`
 unlocks the colour-by-feature-value channel.
@@ -230,7 +230,7 @@ or `TreeExplainer`.
 
 Framework-agnostic mean-absolute-attribution bar chart for tabular features.
 Use it when the explainer is Captum (or anything else) rather than SHAP and
-you still want the same "what matters on average?" cohort summary.
+you still want the same "what matters on average?" aggregated summary.
 
 Wraps a small Matplotlib renderer (no third-party plotting dependency).
 
@@ -238,7 +238,7 @@ Wraps a small Matplotlib renderer (no third-party plotting dependency).
 |---|---|---|
 | `feature_names` | `None` | List of feature names for x-axis labels. |
 
-Scope: `LOCAL` consumed, cohort visual summary produced. Output spaces:
+Scope: `LOCAL` consumed, aggregated visual summary produced. Output spaces:
 `INPUT_FEATURES`, `INTERPRETABLE_FEATURES`. All method families are
 accepted. Requires `(B, F)` tabular attributions; rejects image, text, and
 time-series modalities.

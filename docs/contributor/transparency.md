@@ -45,7 +45,7 @@ All visualisers extend `BaseVisualiser` (`src/raitap/transparency/visualisers/ba
 | `supported_output_spaces` | `frozenset[ExplanationOutputSpace]` | Attribution coordinate spaces the visualiser handles. |
 | `supported_method_families` | `frozenset[MethodFamily]` | Method families the visualiser understands. |
 | `compatible_algorithms` | `frozenset[str]` | Optional algorithm allowlist; empty = all algorithms. |
-| `produces_scope` | `ExplanationScope \| None` | Set only when the visualiser *changes* the result scope (e.g. summarising local → cohort). Leave `None` to preserve the input scope. |
+| `produces_scope` | `ExplanationScope \| None` | Set only when the visualiser *changes* the result scope (e.g. summarising local → aggregated). Leave `None` to preserve the input scope. |
 | `scope_definition_step` | `ScopeDefinitionStep \| None` | Where the produced scope was defined; set when `produces_scope` is set. |
 | `visual_summary` | `VisualSummarySpec \| None` | Metadata for summary visualisations. |
 | `embeds_original_input` | `bool` | Whether the normal layout includes an original-input panel alongside the rendered explanation. |
@@ -58,7 +58,7 @@ Plus two instance-level hooks:
 **Rules of thumb**
 
 - Per-sample renderers (heatmap, overlay): preserve scope — leave `produces_scope = None`.
-- Summary renderers (SHAP bar/beeswarm, tabular bar): consume local attributions and produce `COHORT` — set `produces_scope = ExplanationScope.COHORT` + `scope_definition_step = ScopeDefinitionStep.VISUALISER_SUMMARY`.
+- Summary renderers (SHAP bar/beeswarm, tabular bar): consume local attributions and produce `AGGREGATED` — set `produces_scope = ExplanationScope.AGGREGATED` + `scope_definition_step = ScopeDefinitionStep.VISUALISER_SUMMARY`.
 - Don't promote arbitrary debug batches or representative montages to `GLOBAL`.
 - Image visualisers with `embeds_original_input = True` **must** accept the runtime kwarg `include_original_input`. Reporting uses this to render one shared sample thumbnail and suppress repeated originals in sample-major compact local report sections. Keep YAML constructor names backward-compatible (the built-in image visualisers still accept `include_original_image`).
 
@@ -75,10 +75,10 @@ Describes the semantic breadth of an explanation or rendered visualisation:
 | Scope | Meaning |
 | --- | --- |
 | `LOCAL` | Explains individual input samples. Current Captum and SHAP attribution explainers produce local explanation artefacts. |
-| `COHORT` | Summarises the selected input batch or cohort. Current SHAP bar, SHAP beeswarm, and tabular bar visualisers produce cohort visual summaries when they aggregate local attributions. |
+| `AGGREGATED` | Summarises the selected input batch. Current SHAP bar, SHAP beeswarm, and tabular bar visualisers produce aggregated visual summaries when they aggregate local attributions. |
 | `GLOBAL` | Represents a dataset, population, or model-wide result. The enum keeps this concept available, but built-in visualisers do not promote arbitrary batches to global outputs. |
 
-The `COHORT` distinction is intentional. A SHAP plotting API may call a bar or beeswarm figure "global", but RAITAP only treats it as global when a first-class dataset, population, or model-level contract proves that scope.
+The `AGGREGATED` scope distinction is intentional. A SHAP plotting API may call a bar or beeswarm figure "global", but RAITAP only treats it as global when a first-class dataset, population, or model-level contract proves that scope.
 
 ### `ScopeDefinitionStep`
 
@@ -89,7 +89,7 @@ Records where the scope was defined:
 | `EXPLAINER_OUTPUT` | The explainer produced an artefact with this scope. |
 | `VISUALISER_SUMMARY` | The visualiser changed the result scope by summarising another explanation artefact. |
 
-For example, an attribution explainer produces local attributions with `EXPLAINER_OUTPUT`. A summary visualiser consumes those local attributions and produces a cohort figure with `VISUALISER_SUMMARY`.
+For example, an attribution explainer produces local attributions with `EXPLAINER_OUTPUT`. A summary visualiser consumes those local attributions and produces an aggregated figure with `VISUALISER_SUMMARY`.
 
 `VisualisationResult.scope` describes what the rendered figure represents. Reporting placement comes from this rendered visualisation scope, not from legacy report-placement strings.
 

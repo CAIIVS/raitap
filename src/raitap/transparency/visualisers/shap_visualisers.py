@@ -182,7 +182,7 @@ class _TabularSummaryContractMixin(BaseVisualiser):
         }
     )
     supported_method_families: ClassVar[frozenset[MethodFamily]] = frozenset({MethodFamily.SHAPLEY})
-    produces_scope: ClassVar[ExplanationScope | None] = ExplanationScope.COHORT
+    produces_scope: ClassVar[ExplanationScope | None] = ExplanationScope.AGGREGATED
     scope_definition_step: ClassVar[ScopeDefinitionStep | None] = (
         ScopeDefinitionStep.VISUALISER_SUMMARY
     )

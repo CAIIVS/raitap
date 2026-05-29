@@ -126,7 +126,7 @@ class ReportView:
     summary: SummaryView
     metrics: MetricsView | None
     global_groups: tuple[GenericGroupView, ...]
-    cohort_groups: tuple[GenericGroupView, ...]
+    aggregated_groups: tuple[GenericGroupView, ...]
     local_samples: tuple[LocalSampleView, ...]
     robustness_assessors: tuple[RobustnessAssessorView, ...]
     appendix: AppendixView
@@ -143,7 +143,7 @@ def build_view(
     metadata = {} if metadata is None else metadata
     metrics: MetricsView | None = None
     global_groups: tuple[GenericGroupView, ...] = ()
-    cohort_groups: tuple[GenericGroupView, ...] = ()
+    aggregated_groups: tuple[GenericGroupView, ...] = ()
     local_samples: tuple[LocalSampleView, ...] = ()
     robustness_assessors: tuple[RobustnessAssessorView, ...] = ()
 
@@ -153,8 +153,8 @@ def build_view(
             metrics = _build_metrics_view(section)
         elif role == "global":
             global_groups = _build_generic_groups(section)
-        elif role == "cohort":
-            cohort_groups = _build_generic_groups(section)
+        elif role == "aggregated":
+            aggregated_groups = _build_generic_groups(section)
         elif role == "local":
             local_samples = _build_local_samples(section)
         elif role == "robustness":
@@ -195,7 +195,7 @@ def build_view(
         summary=summary,
         metrics=metrics,
         global_groups=global_groups,
-        cohort_groups=cohort_groups,
+        aggregated_groups=aggregated_groups,
         local_samples=local_samples,
         robustness_assessors=robustness_assessors,
         appendix=AppendixView(sections=tuple(sections)),
@@ -206,7 +206,7 @@ def _section_role(section: ReportSection) -> str:
     raw = str(section.metadata.get("section_role", ""))
     aliases = {
         "global_explanations": "global",
-        "cohort_explanations": "cohort",
+        "aggregated_explanations": "aggregated",
         "local_explanations": "local",
     }
     return aliases.get(raw, raw)
