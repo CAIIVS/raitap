@@ -35,7 +35,7 @@ class ExplanationScope(StrEnum):
     """Semantic breadth represented by an explanation artifact."""
 
     LOCAL = "local"
-    COHORT = "cohort"
+    AGGREGATED = "aggregated"
     GLOBAL = "global"
 
 

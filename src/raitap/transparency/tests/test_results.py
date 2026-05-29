@@ -605,7 +605,7 @@ def test_render_visualisation_for_scope_targets_one_visualiser_and_forwards_kwar
 
 def test_render_visualisation_for_scope_returns_none_for_scope_mismatch(tmp_path: Path) -> None:
     class _CohortVisualiser(BaseVisualiser):
-        produces_scope = ExplanationScope.COHORT
+        produces_scope = ExplanationScope.AGGREGATED
 
         def visualise(
             self,

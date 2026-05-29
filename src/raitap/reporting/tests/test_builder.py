@@ -447,7 +447,7 @@ def test_build_report_places_cohort_visualisations_between_global_and_local(
         visualiser_name="Cohort_0",
         visualiser_target="test.Cohort_0",
         output_path=native_cohort_path,
-        scope=ExplanationScope.COHORT,
+        scope=ExplanationScope.AGGREGATED,
     )
     outputs = RunOutputs(
         explanations=[explanation],

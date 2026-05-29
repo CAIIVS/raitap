@@ -614,7 +614,7 @@ def _build_global_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSec
 def _build_cohort_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSection | None:
     groups = _native_scope_groups(
         outputs.visualisations,
-        scope=ExplanationScope.COHORT,
+        scope=ExplanationScope.AGGREGATED,
         role="cohort",
         assets_dir=assets_dir,
     )
