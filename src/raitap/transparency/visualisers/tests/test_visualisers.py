@@ -509,7 +509,7 @@ class TestTabularBarChartVisualiser:
         visualiser = TabularBarChartVisualiser()
         assert visualiser is not None
 
-    def test_contract_produces_cohort_visualiser_summary(self) -> None:
+    def test_contract_produces_aggregated_visualiser_summary(self) -> None:
         assert TabularBarChartVisualiser.produces_scope is ExplanationScope.AGGREGATED
         assert (
             TabularBarChartVisualiser.scope_definition_step
@@ -832,7 +832,7 @@ class TestShapBarVisualiser:
         visualiser = ShapBarVisualiser()
         assert visualiser is not None
 
-    def test_contract_produces_cohort_visualiser_summary(self) -> None:
+    def test_contract_produces_aggregated_visualiser_summary(self) -> None:
         assert ShapBarVisualiser.produces_scope is ExplanationScope.AGGREGATED
         assert ShapBarVisualiser.scope_definition_step is ScopeDefinitionStep.VISUALISER_SUMMARY
         assert ShapBarVisualiser.visual_summary is not None
@@ -900,7 +900,7 @@ class TestShapBeeswarmVisualiser:
         visualiser = ShapBeeswarmVisualiser()
         assert visualiser is not None
 
-    def test_contract_produces_cohort_distribution_summary(self) -> None:
+    def test_contract_produces_aggregated_distribution_summary(self) -> None:
         assert ShapBeeswarmVisualiser.produces_scope is ExplanationScope.AGGREGATED
         assert (
             ShapBeeswarmVisualiser.scope_definition_step is ScopeDefinitionStep.VISUALISER_SUMMARY
