@@ -1230,6 +1230,24 @@ class TestShapImageVisualiser:
         with pytest.raises(ValueError, match=r"expected 2D or 3D"):
             _rgb_to_grayscale(np.zeros((1, 2, 3, 4)))
 
+    def test_symmetric_vmin_vmax_uses_nanpercentile(self) -> None:
+        """vmax = nanpercentile(|values|, perc); vmin = -vmax."""
+        from raitap.transparency.visualisers.shap_visualisers import _symmetric_vmin_vmax
+
+        values = np.array([-3.0, -1.0, 0.0, 2.0, 5.0, np.nan])
+        vmin, vmax = _symmetric_vmin_vmax(values, outlier_perc=99.9)
+        expected = float(np.nanpercentile(np.abs(values), 99.9))
+        assert vmax == pytest.approx(expected)
+        assert vmin == pytest.approx(-expected)
+
+    def test_symmetric_vmin_vmax_falls_back_for_all_zero(self) -> None:
+        """All-zero / empty / non-finite inputs fall back to ±1.0."""
+        from raitap.transparency.visualisers.shap_visualisers import _symmetric_vmin_vmax
+
+        assert _symmetric_vmin_vmax(np.zeros((4, 4))) == (-1.0, 1.0)
+        assert _symmetric_vmin_vmax(np.array([])) == (-1.0, 1.0)
+        assert _symmetric_vmin_vmax(np.full((2, 2), np.nan)) == (-1.0, 1.0)
+
 
 class TestInputThumbnailVisualiser:
     def test_renders_single_image_input_without_original_embedding_contract(self) -> None:

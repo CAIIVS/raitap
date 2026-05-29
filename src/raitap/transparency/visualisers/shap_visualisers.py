@@ -110,6 +110,25 @@ def _default_image_title(algorithm: str | None) -> str:
     return f"{algorithm} (SHAP)" if algorithm else "SHAP Image"
 
 
+def _symmetric_vmin_vmax(
+    values: np.ndarray, outlier_perc: float = 99.9
+) -> tuple[float, float]:
+    """Symmetric ``(vmin, vmax)`` for ``imshow`` using a percentile of ``|values|``.
+
+    Matches the normalisation used by ``shap.plots.image``:
+    ``max_val = np.nanpercentile(|values|, outlier_perc)``. Falls back to
+    ``(-1.0, 1.0)`` for degenerate inputs (empty, all-zero, or non-finite)
+    so the heatmap stays renderable.
+    """
+    abs_vals = np.abs(values)
+    if abs_vals.size == 0:
+        return -1.0, 1.0
+    max_val = float(np.nanpercentile(abs_vals, outlier_perc))
+    if not np.isfinite(max_val) or max_val == 0.0:
+        return -1.0, 1.0
+    return -max_val, max_val
+
+
 def _rgb_to_grayscale(image: np.ndarray) -> np.ndarray:
     """Reduce an image to a 2-D grayscale array for use as a background under a heatmap.
 
