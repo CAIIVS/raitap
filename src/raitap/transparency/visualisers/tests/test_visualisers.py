@@ -1248,6 +1248,29 @@ class TestShapImageVisualiser:
         assert _symmetric_vmin_vmax(np.array([])) == (-1.0, 1.0)
         assert _symmetric_vmin_vmax(np.full((2, 2), np.nan)) == (-1.0, 1.0)
 
+    def test_init_defaults_match_shap_image_plot(self) -> None:
+        """Defaults reproduce shap.plots.image: red_transparent_blue, α=0.15, 99.9 perc."""
+        from raitap.transparency.visualisers.shap_visualisers import (
+            ShapImageVisualiser,
+            red_transparent_blue,
+        )
+
+        v = ShapImageVisualiser()
+        assert v.cmap is red_transparent_blue
+        assert v.overlay_alpha == 0.15
+        assert v.outlier_perc == 99.9
+        assert v.max_samples == 4
+        assert v.include_original_image is True
+        assert v.show_colorbar is True
+
+    def test_init_accepts_explicit_cmap_and_outlier_perc(self) -> None:
+        from raitap.transparency.visualisers.shap_visualisers import ShapImageVisualiser
+
+        v = ShapImageVisualiser(cmap="viridis", outlier_perc=95.0, overlay_alpha=0.4)
+        assert v.cmap == "viridis"
+        assert v.outlier_perc == 95.0
+        assert v.overlay_alpha == 0.4
+
 
 class TestInputThumbnailVisualiser:
     def test_renders_single_image_input_without_original_embedding_contract(self) -> None:

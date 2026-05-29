@@ -549,25 +549,34 @@ class ShapImageVisualiser(BaseVisualiser):
         title: str | None = None,
         include_original_image: bool = True,
         show_colorbar: bool = True,
-        cmap: str = "coolwarm",
-        overlay_alpha: float = 0.65,
+        cmap: Any = None,
+        overlay_alpha: float = 0.15,
+        outlier_perc: float = 99.9,
     ):
         """
         Args:
             max_samples: Maximum number of images to display side by side.
             title: Optional attribution panel title.
-            include_original_image: Whether to render the original image next to the
-                attribution heatmap when ``inputs`` are provided.
+            include_original_image: Whether to render the original image next to
+                the attribution heatmap when ``inputs`` are provided.
             show_colorbar: Whether to add a SHAP colorbar in the paired layout.
             cmap: Matplotlib colormap for the SHAP heatmap overlay.
-            overlay_alpha: Alpha value used for the SHAP heatmap overlay.
+                ``None`` (default) selects the vendored ``red_transparent_blue``
+                diverging colormap, matching ``shap.plots.image``.
+            overlay_alpha: Alpha of the grayscale background drawn under the
+                colored SHAP heatmap. Default ``0.15`` matches
+                ``shap.plots.image``.
+            outlier_perc: Percentile used to compute the symmetric
+                ``±nanpercentile(|attribution|, outlier_perc)`` colormap scale.
+                Default ``99.9`` matches ``shap.plots.image``.
         """
         self.max_samples = max_samples
         self.title = title
         self.include_original_image = include_original_image
         self.show_colorbar = show_colorbar
-        self.cmap = cmap
+        self.cmap = red_transparent_blue if cmap is None else cmap
         self.overlay_alpha = overlay_alpha
+        self.outlier_perc = outlier_perc
 
     def visualise(
         self,
