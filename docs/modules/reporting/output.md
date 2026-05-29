@@ -23,7 +23,7 @@ reports/
 ├── report.zip
 ├── report_manifest.json
 └── _assets/
-    ├── ... native global or cohort summary figures
+    ├── ... native global or aggregated summary figures
     └── ... selected local sample figures
 ```
 
@@ -46,7 +46,7 @@ Generated reports use this structure:
 3. **Robustness Details**
 4. **Appendix**
 
-Missing metrics, global, cohort, and robustness sections are omitted. If no
+Missing metrics, global explanations, aggregated explanations, and robustness sections are omitted. If no
 local explanations are present, the transparency details render a short
 placeholder rather than an empty card.
 
@@ -69,9 +69,9 @@ the configured visualiser or underlying library with `GLOBAL` scope.
 Current built-in transparency visualisers do not produce global outputs, so this
 section is usually omitted.
 
-### Cohort Explanations
+### Aggregated Explanations
 
-Cohort explanations summarize the selected input batch or cohort. Current SHAP
+Aggregated explanations summarize the selected input batch. Current SHAP
 bar, SHAP beeswarm, and tabular bar summaries belong here because they aggregate
 local attribution values from the selected samples. RAITAP intentionally does
 not call those figures global unless a future first-class dataset, population,

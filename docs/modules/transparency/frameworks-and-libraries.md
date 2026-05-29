@@ -73,11 +73,11 @@ visualisers against the explanation artifact they receive. In short:
 | `CaptumTextVisualiser` | Local token-sequence attributions | Local visualisation | Requires explicit token metadata. |
 | `CaptumTimeSeriesVisualiser` | Local time-series attributions | Local visualisation | Requires explicit time-series metadata. |
 | `ShapImageVisualiser` | Local image-shaped SHAP values from `GradientExplainer` or `DeepExplainer` | Local visualisation | Intended for pixel-level SHAP values, not tabular SHAP outputs. |
-| `ShapBarVisualiser` | Local tabular or interpretable SHAP attributions | Cohort visual summary | Summarizes the selected batch or cohort, so it is reported under Cohort Explanations. |
-| `ShapBeeswarmVisualiser` | Local tabular or interpretable SHAP attributions | Cohort visual summary | Summarizes attribution distributions for the selected batch or cohort. |
+| `ShapBarVisualiser` | Local tabular or interpretable SHAP attributions | Aggregated visual summary | Summarizes the selected batch, so it is reported under Aggregated Explanations. |
+| `ShapBeeswarmVisualiser` | Local tabular or interpretable SHAP attributions | Aggregated visual summary | Summarizes attribution distributions for the selected batch. |
 | `ShapForceVisualiser` | Local tabular or interpretable SHAP attributions for one selected sample | Local visualisation | Preserves local scope. |
 | `ShapWaterfallVisualiser` | Local tabular or interpretable SHAP attributions for one selected sample | Local visualisation | Preserves local scope. |
-| `TabularBarChartVisualiser` | Local tabular or interpretable attributions | Cohort visual summary | Uses mean absolute attribution-style aggregation for the selected batch or cohort. |
+| `TabularBarChartVisualiser` | Local tabular or interpretable attributions | Aggregated visual summary | Uses mean absolute attribution-style aggregation for the selected batch. |
 
 See {doc}`visualisers` for per-visualiser previews, constructor kwargs, and
 modality constraints. Contributor-facing details about semantic contracts are
@@ -194,7 +194,7 @@ Only `KernelExplainer` is compatible.
 #### Visualiser compatibility
 
 The following SHAP visualisers render tabular or interpretable SHAP values and
-produce cohort summaries:
+produce aggregated summaries:
 
 - `ShapBarVisualiser`
 - `ShapBeeswarmVisualiser`
@@ -333,7 +333,7 @@ transparency = {
 }
 ```
 
-**Note:** `ShapImageVisualiser` requires pixel-level SHAP values from `GradientExplainer` or `DeepExplainer`. Other SHAP visualisers are intended for tabular or interpretable feature outputs and are treated as cohort summaries when they aggregate the selected batch.
+**Note:** `ShapImageVisualiser` requires pixel-level SHAP values from `GradientExplainer` or `DeepExplainer`. Other SHAP visualisers are intended for tabular or interpretable feature outputs and are treated as aggregated summaries when they aggregate the selected batch.
 
 ## Third-party adapters
 
