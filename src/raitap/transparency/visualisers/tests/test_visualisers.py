@@ -1192,6 +1192,44 @@ class TestShapImageVisualiser:
             atol=1e-3,
         )
 
+    def test_rgb_to_grayscale_uses_luminosity_weights(self) -> None:
+        """RGB → 2-D grayscale via ITU-R luminosity weights matching shap.image_plot."""
+        from raitap.transparency.visualisers.shap_visualisers import _rgb_to_grayscale
+
+        # Pure red, green, blue (H=W=2). Channels last (H, W, C).
+        red = np.zeros((2, 2, 3))
+        red[..., 0] = 1.0
+        green = np.zeros((2, 2, 3))
+        green[..., 1] = 1.0
+        blue = np.zeros((2, 2, 3))
+        blue[..., 2] = 1.0
+
+        np.testing.assert_allclose(_rgb_to_grayscale(red), np.full((2, 2), 0.2989))
+        np.testing.assert_allclose(_rgb_to_grayscale(green), np.full((2, 2), 0.5870))
+        np.testing.assert_allclose(_rgb_to_grayscale(blue), np.full((2, 2), 0.1140))
+
+    def test_rgb_to_grayscale_passthrough_and_non_rgb_mean(self) -> None:
+        """2-D inputs pass through, single-channel reduces to 2-D, non-RGB averages."""
+        from raitap.transparency.visualisers.shap_visualisers import _rgb_to_grayscale
+
+        # 2-D pass-through.
+        flat = np.arange(4, dtype=float).reshape(2, 2)
+        np.testing.assert_array_equal(_rgb_to_grayscale(flat), flat)
+
+        # Single-channel HxWx1 — fall back to mean (one channel = identity).
+        single = np.full((2, 2, 1), 0.7)
+        np.testing.assert_allclose(_rgb_to_grayscale(single), np.full((2, 2), 0.7))
+
+        # 5-channel multi-channel non-RGB — per-channel mean.
+        multi = np.stack([np.full((2, 2), float(c)) for c in range(5)], axis=-1)
+        np.testing.assert_allclose(_rgb_to_grayscale(multi), np.full((2, 2), 2.0))
+
+    def test_rgb_to_grayscale_rejects_unsupported_shapes(self) -> None:
+        from raitap.transparency.visualisers.shap_visualisers import _rgb_to_grayscale
+
+        with pytest.raises(ValueError, match=r"expected 2D or 3D"):
+            _rgb_to_grayscale(np.zeros((1, 2, 3, 4)))
+
 
 class TestInputThumbnailVisualiser:
     def test_renders_single_image_input_without_original_embedding_contract(self) -> None:

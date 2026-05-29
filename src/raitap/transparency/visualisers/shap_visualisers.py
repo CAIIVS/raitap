@@ -110,6 +110,23 @@ def _default_image_title(algorithm: str | None) -> str:
     return f"{algorithm} (SHAP)" if algorithm else "SHAP Image"
 
 
+def _rgb_to_grayscale(image: np.ndarray) -> np.ndarray:
+    """Reduce an image to a 2-D grayscale array for use as a background under a heatmap.
+
+    For RGB inputs the standard luminosity weights are used
+    (``0.2989·R + 0.5870·G + 0.1140·B``), matching ``shap.plots.image``. For
+    other multi-channel inputs (including 1-channel ``(H, W, 1)``) the per-channel
+    mean is used. 2-D inputs are returned unchanged.
+    """
+    if image.ndim == 2:
+        return image
+    if image.ndim == 3:
+        if image.shape[-1] == 3:
+            return 0.2989 * image[..., 0] + 0.5870 * image[..., 1] + 0.1140 * image[..., 2]
+        return image.mean(axis=-1)
+    raise ValueError(f"_rgb_to_grayscale expected 2D or 3D image, got shape {image.shape}.")
+
+
 def _image_heatmap(values: np.ndarray) -> np.ndarray:
     """Reduce channel-wise SHAP values to a 2-D heatmap for display."""
     if values.ndim == 3:
