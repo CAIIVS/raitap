@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.colors import LinearSegmentedColormap
 
 from raitap import raitap_log
 from raitap.transparency.contracts import (
@@ -30,6 +31,23 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     from raitap.transparency.contracts import VisualisationContext
+
+
+# ---------------------------------------------------------------------------
+# Vendored from shap/plots/colors/_colors.py:93 (SHAP, MIT-licensed).
+# RAITAP keeps a local copy of ``red_transparent_blue`` so the SHAP image
+# rendering recipe is reproducible without importing ``shap.plots`` at module
+# load. The 200 RGBA stops are identical to SHAP's definition.
+# ---------------------------------------------------------------------------
+_RED_TRANSPARENT_BLUE_STOPS: list[tuple[float, float, float, float]] = []
+for _j in np.linspace(1, 0, 100):
+    _RED_TRANSPARENT_BLUE_STOPS.append((30.0 / 255, 136.0 / 255, 229.0 / 255, float(_j)))
+for _j in np.linspace(0, 1, 100):
+    _RED_TRANSPARENT_BLUE_STOPS.append((255.0 / 255, 13.0 / 255, 87.0 / 255, float(_j)))
+red_transparent_blue = LinearSegmentedColormap.from_list(
+    "red_transparent_blue", _RED_TRANSPARENT_BLUE_STOPS
+)
+del _j
 
 
 def _to_numpy(x: torch.Tensor | np.ndarray) -> np.ndarray:

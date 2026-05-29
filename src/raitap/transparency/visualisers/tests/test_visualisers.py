@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pytest
 import torch
 
@@ -1167,6 +1168,29 @@ class TestShapImageVisualiser:
         assert caught == []
         assert "Original Image" not in [ax.get_title() for ax in fig.axes]
         plt.close(fig)
+
+    def test_red_transparent_blue_colormap_anchor_stops(self) -> None:
+        """Vendored ``red_transparent_blue`` matches shap.plots.colors at the anchors."""
+        from matplotlib.colors import LinearSegmentedColormap
+
+        from raitap.transparency.visualisers.shap_visualisers import red_transparent_blue
+
+        assert isinstance(red_transparent_blue, LinearSegmentedColormap)
+        assert red_transparent_blue.name == "red_transparent_blue"
+        # Blue end (pos 0.0): opaque (30, 136, 229)/255 from shap.
+        np.testing.assert_allclose(
+            red_transparent_blue(0.0),
+            (30 / 255, 136 / 255, 229 / 255, 1.0),
+            atol=1e-3,
+        )
+        # Middle (pos 0.5): transparent — both halves meet at alpha~=0.
+        assert red_transparent_blue(0.5)[3] == pytest.approx(0.0, abs=1e-2)
+        # Red end (pos 1.0): opaque (255, 13, 87)/255 from shap.
+        np.testing.assert_allclose(
+            red_transparent_blue(1.0),
+            (255 / 255, 13 / 255, 87 / 255, 1.0),
+            atol=1e-3,
+        )
 
 
 class TestInputThumbnailVisualiser:
