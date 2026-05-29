@@ -1271,6 +1271,72 @@ class TestShapImageVisualiser:
         assert v.outlier_perc == 95.0
         assert v.overlay_alpha == 0.4
 
+    @pytest.mark.usefixtures("needs_shap")
+    def test_visualise_uses_shap_native_recipe(self) -> None:
+        """Each panel draws grayscale@overlay_alpha under red_transparent_blue@±perc."""
+        import matplotlib
+
+        matplotlib.use("Agg")
+
+        from raitap.transparency.visualisers.shap_visualisers import (
+            ShapImageVisualiser,
+            _image_heatmap,
+            _symmetric_vmin_vmax,
+            red_transparent_blue,
+        )
+
+        rng = np.random.default_rng(0)
+        # 2 samples, RGB 8x8.
+        attributions = torch.from_numpy(rng.normal(size=(2, 3, 8, 8))).float()
+        inputs = torch.from_numpy(rng.uniform(size=(2, 3, 8, 8))).float()
+
+        fig = ShapImageVisualiser(include_original_image=False, show_colorbar=False).visualise(
+            attributions, inputs=inputs
+        )
+
+        # First sample's attribution axis is axes[0] (no original, no colorbar).
+        attr_ax = fig.axes[0]
+        images = attr_ax.get_images()
+        assert len(images) == 2, "expected grayscale background + heatmap overlay"
+
+        bg, heat = images
+        assert bg.cmap.name == "gray"
+        assert bg.get_alpha() == pytest.approx(0.15)
+
+        assert heat.cmap.name == red_transparent_blue.name
+        vmin, vmax = heat.get_clim()
+        # Compute the expected percentile from the same heatmap reduction the
+        # visualiser uses internally.
+        heatmap_first = _image_heatmap(np.transpose(attributions[0].numpy(), (1, 2, 0)))
+        expected_vmin, expected_vmax = _symmetric_vmin_vmax(heatmap_first, 99.9)
+        assert vmin == pytest.approx(expected_vmin)
+        assert vmax == pytest.approx(expected_vmax)
+
+    @pytest.mark.usefixtures("needs_shap")
+    def test_visualise_without_inputs_skips_grayscale_background(self) -> None:
+        """When no input image is provided the grayscale background is omitted."""
+        import matplotlib
+
+        matplotlib.use("Agg")
+
+        from raitap.transparency.visualisers.shap_visualisers import (
+            ShapImageVisualiser,
+            red_transparent_blue,
+        )
+
+        attributions = torch.zeros(1, 3, 8, 8)
+        attributions[..., 0, 0] = 1.0  # nonzero so the colormap range is valid
+
+        fig = ShapImageVisualiser(include_original_image=False, show_colorbar=False).visualise(
+            attributions, inputs=None
+        )
+
+        attr_ax = fig.axes[0]
+        images = attr_ax.get_images()
+        # Only the heatmap — no grayscale background without an input image.
+        assert len(images) == 1
+        assert images[0].cmap.name == red_transparent_blue.name
+
 
 class TestInputThumbnailVisualiser:
     def test_renders_single_image_input_without_original_embedding_contract(self) -> None:

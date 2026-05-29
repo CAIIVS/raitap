@@ -630,6 +630,7 @@ class ShapImageVisualiser(BaseVisualiser):
         names = [] if sample_names is None else [str(name) for name in sample_names[:n]]
         cmap = kwargs.pop("cmap", self.cmap)
         overlay_alpha = kwargs.pop("overlay_alpha", self.overlay_alpha)
+        outlier_perc = float(kwargs.pop("outlier_perc", self.outlier_perc))
         show_colorbar = bool(kwargs.pop("show_colorbar", self.show_colorbar))
         if "include_original_input" in kwargs:
             include_original_image = bool(kwargs.pop("include_original_input"))
@@ -677,9 +678,7 @@ class ShapImageVisualiser(BaseVisualiser):
                 np.transpose(shap_vals[i], (1, 2, 0)) if shap_vals[i].ndim == 3 else shap_vals[i]
             )
             heatmap = _image_heatmap(shap_i)
-            max_abs = float(np.max(np.abs(heatmap))) if heatmap.size else 0.0
-            if max_abs == 0.0:
-                max_abs = 1.0
+            vmin, vmax = _symmetric_vmin_vmax(heatmap, outlier_perc)
 
             sample_name = names[i] if show_sample_names and i < len(names) else None
             original_title = _compose_title("Original Image", sample_name)
@@ -710,13 +709,16 @@ class ShapImageVisualiser(BaseVisualiser):
                     colorbar_ax = None
 
             if image_i is not None:
-                _display_image(attr_ax, image_i)
+                attr_ax.imshow(
+                    _rgb_to_grayscale(image_i),
+                    cmap="gray",
+                    alpha=overlay_alpha,
+                )
             im = attr_ax.imshow(
                 heatmap,
                 cmap=cmap,
-                alpha=overlay_alpha if image_i is not None else 1.0,
-                vmin=-max_abs,
-                vmax=max_abs,
+                vmin=vmin,
+                vmax=vmax,
             )
             attr_ax.set_title(attr_title or "")
             attr_ax.axis("off")
