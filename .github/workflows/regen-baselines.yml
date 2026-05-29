@@ -36,10 +36,14 @@ jobs:
           sync-command: uv sync --group dev --extra torch-cpu --extra transparency --extra mlflow --extra metrics --extra onnx-cpu
 
       - name: Generate baselines
+        # Absolute path: the transparency package's autouse ``isolate_transparency_test_cwd``
+        # fixture chdir's each test into a tmp dir, and pytest-mpl writes the generated
+        # baseline to the *raw* (relative) generate-path at test time — so a relative path
+        # would land in the ephemeral tmp dir instead of the workspace. See #217.
         run: |
           uv run pytest src/raitap/transparency/tests/test_e2e_mpl_baseline.py \
             -m "e2e and visual" \
-            --mpl-generate-path=regenerated_baselines -v
+            --mpl-generate-path="$GITHUB_WORKSPACE/regenerated_baselines" -v
 
       - name: Upload regenerated baselines
         uses: actions/upload-artifact@v7
