@@ -44,15 +44,13 @@ if TYPE_CHECKING:
 # rendering recipe is reproducible without importing ``shap.plots`` at module
 # load. The 200 RGBA stops are identical to SHAP's definition.
 # ---------------------------------------------------------------------------
-_RED_TRANSPARENT_BLUE_STOPS: list[tuple[float, float, float, float]] = []
-for _j in np.linspace(1, 0, 100):
-    _RED_TRANSPARENT_BLUE_STOPS.append((30.0 / 255, 136.0 / 255, 229.0 / 255, float(_j)))
-for _j in np.linspace(0, 1, 100):
-    _RED_TRANSPARENT_BLUE_STOPS.append((255.0 / 255, 13.0 / 255, 87.0 / 255, float(_j)))
+_RED_TRANSPARENT_BLUE_STOPS: list[tuple[float, float, float, float]] = [
+    *((30.0 / 255, 136.0 / 255, 229.0 / 255, float(j)) for j in np.linspace(1, 0, 100)),
+    *((255.0 / 255, 13.0 / 255, 87.0 / 255, float(j)) for j in np.linspace(0, 1, 100)),
+]
 red_transparent_blue = LinearSegmentedColormap.from_list(
     "red_transparent_blue", _RED_TRANSPARENT_BLUE_STOPS
 )
-del _j
 
 
 def _to_numpy(x: torch.Tensor | np.ndarray) -> np.ndarray:
