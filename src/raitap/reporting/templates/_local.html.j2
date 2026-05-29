@@ -16,10 +16,10 @@
     </section>
   {% endif %}
 
-  {% if view.cohort_groups %}
+  {% if view.aggregated_groups %}
     <section class="subsection">
-      <h3>Cohort</h3>
-      {% for group in view.cohort_groups %}
+      <h3>Aggregated</h3>
+      {% for group in view.aggregated_groups %}
         <article class="card compact-card">
           <h4>{{ group.heading }}</h4>
           {% for image in group.image_srcs %}<img class="figure" src="{{ image }}" alt="{{ group.heading }}">{% endfor %}
