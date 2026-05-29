@@ -1249,7 +1249,7 @@ class TestShapImageVisualiser:
         assert _symmetric_vmin_vmax(np.full((2, 2), np.nan)) == (-1.0, 1.0)
 
     def test_init_defaults_match_shap_image_plot(self) -> None:
-        """Defaults reproduce shap.plots.image: red_transparent_blue, α=0.15, 99.9 perc."""
+        """Defaults reproduce shap.plots.image: red_transparent_blue, alpha=0.15, 99.9 perc."""
         from raitap.transparency.visualisers.shap_visualisers import (
             ShapImageVisualiser,
             red_transparent_blue,
