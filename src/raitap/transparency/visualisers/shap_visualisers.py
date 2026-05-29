@@ -3,7 +3,12 @@
 Most visualisers wrap SHAP's plotting APIs (``shap.plots.*`` /
 ``shap.summary_plot``). ``ShapImageVisualiser`` is rendered manually with
 Matplotlib so RAITAP can provide a consistent paired image/overlay layout,
-titles, sample names, and colorbar handling.
+titles, sample names, and colorbar handling. Its per-panel rendering recipe
+reproduces ``shap.plots.image`` — a grayscale background under a
+``red_transparent_blue`` diverging heatmap with a symmetric
+``±np.nanpercentile(|attribution|, 99.9)`` colormap scale. The
+``red_transparent_blue`` colormap is vendored from SHAP (MIT-licensed); see
+the inline attribution near its definition.
 """
 
 from __future__ import annotations
@@ -110,9 +115,7 @@ def _default_image_title(algorithm: str | None) -> str:
     return f"{algorithm} (SHAP)" if algorithm else "SHAP Image"
 
 
-def _symmetric_vmin_vmax(
-    values: np.ndarray, outlier_perc: float = 99.9
-) -> tuple[float, float]:
+def _symmetric_vmin_vmax(values: np.ndarray, outlier_perc: float = 99.9) -> tuple[float, float]:
     """Symmetric ``(vmin, vmax)`` for ``imshow`` using a percentile of ``|values|``.
 
     Matches the normalisation used by ``shap.plots.image``:
@@ -516,19 +519,23 @@ class ShapImageVisualiser(BaseVisualiser):
     """
     Render image-level SHAP attributions with Matplotlib.
 
-    This visualiser does not call ``shap.image_plot`` directly. Instead, it
-    renders a RAITAP-managed figure that can optionally show the original
-    image, a SHAP heatmap overlay, sample-aware titles, and a colorbar.
+    This visualiser does not call ``shap.image_plot`` directly; instead it
+    renders a RAITAP-managed figure that follows the same rendering recipe
+    as ``shap.plots.image`` — a grayscale background at
+    ``overlay_alpha=0.15``, a ``red_transparent_blue`` diverging colormap,
+    and a symmetric ``±np.nanpercentile(|attribution|, outlier_perc)``
+    colormap scale (``outlier_perc=99.9`` by default). RAITAP layers
+    sample-aware titles, the paired-original panel, and the colorbar on
+    top of that recipe.
 
     .. warning::
        **Only compatible with ``GradientExplainer`` and ``DeepExplainer``.**
        These are the only SHAP explainers that compute pixel-level SHAP
-       values suitable for image visualisation.
-       Passing attributions from other explainers will produce meaningless
-       plots.
+       values suitable for image visualisation. Passing attributions from
+       other explainers will produce meaningless plots.
 
-    Positive contributions are shown in warm colours and negative
-    contributions in cool colours, using the configured Matplotlib colormap.
+    Positive contributions are shown in red and negative contributions in
+    blue with a transparent mid-range, matching SHAP's native presentation.
     """
 
     def validate_explanation(
