@@ -223,6 +223,7 @@ class Explanation:
                         source=source,
                     )
 
+            call_provenance: dict[str, dict[str, Any]] = {}
             merged_kwargs = resolve_call_data_sources(
                 {**call_from_config, **kwargs},
                 log_label="call",
@@ -230,6 +231,7 @@ class Explanation:
                     config,
                     resolved_preprocessing=resolved_preprocessing,
                 ),
+                provenance_out=call_provenance,
             )
             merged_kwargs = backend._prepare_kwargs(merged_kwargs)
 
@@ -243,6 +245,7 @@ class Explanation:
                 explainer_name=explainer_name,
                 visualisers=visualisers,
                 raitap_kwargs=raitap_cfg,
+                call_provenance=call_provenance,
                 **merged_kwargs,
             )
         finally:

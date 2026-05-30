@@ -179,6 +179,7 @@ def _assess_transparency_detection(
             if input_metadata is not None:
                 raitap_cfg["input_metadata"] = input_metadata
 
+            call_provenance: dict[str, dict[str, Any]] = {}
             merged_kwargs = resolve_call_data_sources(
                 call_from_config,
                 log_label="call",
@@ -186,6 +187,7 @@ def _assess_transparency_detection(
                     config,
                     resolved_preprocessing=resolved_preprocessing,
                 ),
+                provenance_out=call_provenance,
             )
             merged_kwargs = backend._prepare_kwargs(merged_kwargs)
 
@@ -202,6 +204,7 @@ def _assess_transparency_detection(
                 base_run_dir=base_run_dir,
                 raitap_kwargs=raitap_cfg,
                 call_kwargs=merged_kwargs,
+                call_provenance=call_provenance,
             ):
                 explanations.append(result)
                 visualisations.extend(result.visualise())

@@ -80,6 +80,7 @@ class _RecordingExplainer:
                 "inputs_shape": tuple(inputs.shape),
                 "run_dir": run_dir,
                 "call_target": kwargs.get("target"),
+                "call_provenance": kwargs.get("call_provenance"),
             }
         )
         semantics = ExplanationSemantics(
@@ -361,6 +362,34 @@ def test_explain_detection_with_list_inputs(
             f"Expected (1, 3, 8, 8) but got {call['inputs_shape']} — "
             "list slice was probably passed instead of unsqueezed tensor"
         )
+
+
+def test_explain_detection_forwards_call_provenance(
+    detection_forward_output: ForwardOutput, tmp_path: Path
+) -> None:
+    backend = TorchBackend(_FakeDetector(), task_kind=TaskKind.detection)
+    explainer = _RecordingExplainer()
+    provenance = {"baselines": {"source": "cfg", "n_samples": 1}}
+
+    list(
+        explain_detection(
+            inputs=torch.zeros(2, 3, 8, 8),
+            forward_output=detection_forward_output,
+            backend=backend,
+            explainer=explainer,
+            explainer_target="t",
+            explainer_name="x",
+            visualisers=[],
+            base_run_dir=tmp_path,
+            raitap_kwargs={"detection": {"score_threshold": 0.5, "max_boxes": 5}},
+            call_kwargs={},
+            call_provenance=provenance,
+        )
+    )
+
+    assert explainer.calls, "expected at least one explain() call"
+    for call in explainer.calls:
+        assert call["call_provenance"] == provenance
 
 
 def test_sample_as_batch_helper_list_and_tensor() -> None:

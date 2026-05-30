@@ -20,7 +20,7 @@ from raitap.types import DetectionInputs, TaskKind
 from raitap.utils.errors import RaitapError
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Iterator, Mapping, Sequence
     from pathlib import Path
 
     from raitap.models.backend import ModelBackend
@@ -57,6 +57,7 @@ def explain_detection(
     base_run_dir: Path,
     raitap_kwargs: dict[str, Any] | None,
     call_kwargs: dict[str, Any],
+    call_provenance: Mapping[str, Any] | None = None,
 ) -> Iterator[ExplanationResult]:
     """Yield one ExplanationResult per detected box.
 
@@ -183,6 +184,7 @@ def explain_detection(
                 explainer_name=explainer_name,
                 visualisers=list(visualisers),
                 raitap_kwargs=per_box_raitap,
+                call_provenance=call_provenance,
                 **normalised_call_kwargs,
             )
             result.detection_box = DetectionBox(
