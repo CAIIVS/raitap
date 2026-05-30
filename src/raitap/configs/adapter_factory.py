@@ -455,6 +455,10 @@ def resolve_call_data_sources(
     preprocessing transform), it is applied per-image so that auxiliary
     tensors (SHAP background, baselines, …) share the same shape as the
     primary ``Data.tensor``.
+
+    When ``provenance_out`` is supplied, each resolved data-source kwarg also
+    records ``{key: {"source", "n_samples"}}`` into it (a side-channel for
+    baseline documentation; callers that omit it are unaffected).
     """
     resolved: dict[str, Any] = {}
     for key, value in call_kwargs.items():
