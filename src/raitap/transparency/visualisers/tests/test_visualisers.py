@@ -1169,28 +1169,16 @@ class TestShapImageVisualiser:
         assert "Original Image" not in [ax.get_title() for ax in fig.axes]
         plt.close(fig)
 
-    def test_red_transparent_blue_colormap_anchor_stops(self) -> None:
-        """Vendored ``red_transparent_blue`` matches shap.plots.colors at the anchors."""
-        from matplotlib.colors import LinearSegmentedColormap
+    @pytest.mark.usefixtures("needs_shap")
+    def test_red_transparent_blue_accessor_returns_shap_colormap(self) -> None:
+        """``_red_transparent_blue`` lazily returns SHAP's diverging colormap."""
+        from matplotlib.colors import Colormap
 
-        from raitap.transparency.visualisers.shap_visualisers import red_transparent_blue
+        from raitap.transparency.visualisers.shap_visualisers import _red_transparent_blue
 
-        assert isinstance(red_transparent_blue, LinearSegmentedColormap)
-        assert red_transparent_blue.name == "red_transparent_blue"
-        # Blue end (pos 0.0): opaque (30, 136, 229)/255 from shap.
-        np.testing.assert_allclose(
-            red_transparent_blue(0.0),
-            (30 / 255, 136 / 255, 229 / 255, 1.0),
-            atol=1e-3,
-        )
-        # Middle (pos 0.5): transparent — both halves meet at alpha~=0.
-        assert red_transparent_blue(0.5)[3] == pytest.approx(0.0, abs=1e-2)
-        # Red end (pos 1.0): opaque (255, 13, 87)/255 from shap.
-        np.testing.assert_allclose(
-            red_transparent_blue(1.0),
-            (255 / 255, 13 / 255, 87 / 255, 1.0),
-            atol=1e-3,
-        )
+        cmap = _red_transparent_blue()
+        assert isinstance(cmap, Colormap)
+        assert cmap.name == "red_transparent_blue"
 
     def test_rgb_to_grayscale_uses_luminosity_weights(self) -> None:
         """RGB → 2-D grayscale via ITU-R luminosity weights matching shap.image_plot."""
@@ -1249,14 +1237,11 @@ class TestShapImageVisualiser:
         assert _symmetric_vmin_vmax(np.full((2, 2), np.nan)) == (-1.0, 1.0)
 
     def test_init_defaults_match_shap_image_plot(self) -> None:
-        """Defaults reproduce shap.plots.image: red_transparent_blue, alpha=0.15, 99.9 perc."""
-        from raitap.transparency.visualisers.shap_visualisers import (
-            ShapImageVisualiser,
-            red_transparent_blue,
-        )
+        """Defaults match shap.plots.image: cmap None sentinel, alpha=0.15, outlier_perc=99.9."""
+        from raitap.transparency.visualisers.shap_visualisers import ShapImageVisualiser
 
         v = ShapImageVisualiser()
-        assert v.cmap is red_transparent_blue
+        assert v.cmap is None  # resolved to SHAP's red_transparent_blue at render time
         assert v.overlay_alpha == 0.15
         assert v.outlier_perc == 99.9
         assert v.max_samples == 4
@@ -1282,7 +1267,6 @@ class TestShapImageVisualiser:
             ShapImageVisualiser,
             _image_heatmap,
             _symmetric_vmin_vmax,
-            red_transparent_blue,
         )
 
         rng = np.random.default_rng(0)
@@ -1303,7 +1287,7 @@ class TestShapImageVisualiser:
         assert bg.cmap.name == "gray"
         assert bg.get_alpha() == pytest.approx(0.15)
 
-        assert heat.cmap.name == red_transparent_blue.name
+        assert heat.cmap.name == "red_transparent_blue"
         vmin, vmax = heat.get_clim()
         # Compute the expected percentile from the same heatmap reduction the
         # visualiser uses internally.
@@ -1319,10 +1303,7 @@ class TestShapImageVisualiser:
 
         matplotlib.use("Agg")
 
-        from raitap.transparency.visualisers.shap_visualisers import (
-            ShapImageVisualiser,
-            red_transparent_blue,
-        )
+        from raitap.transparency.visualisers.shap_visualisers import ShapImageVisualiser
 
         attributions = torch.zeros(1, 3, 8, 8)
         attributions[..., 0, 0] = 1.0  # nonzero so the colormap range is valid
@@ -1335,7 +1316,7 @@ class TestShapImageVisualiser:
         images = attr_ax.get_images()
         # Only the heatmap — no grayscale background without an input image.
         assert len(images) == 1
-        assert images[0].cmap.name == red_transparent_blue.name
+        assert images[0].cmap.name == "red_transparent_blue"
 
 
 class TestInputThumbnailVisualiser:

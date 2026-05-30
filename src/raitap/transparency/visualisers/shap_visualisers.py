@@ -7,8 +7,9 @@ titles, sample names, and colorbar handling. Its per-panel rendering recipe
 reproduces ``shap.plots.image`` — a grayscale background under a
 ``red_transparent_blue`` diverging heatmap with a symmetric
 ``±np.nanpercentile(|attribution|, 99.9)`` colormap scale. The
-``red_transparent_blue`` colormap is vendored from SHAP (MIT-licensed); see
-the inline attribution near its definition.
+``red_transparent_blue`` colormap is SHAP's own, imported lazily from
+``shap.plots.colors`` (``shap`` is already a runtime dependency of this
+visualiser).
 """
 
 from __future__ import annotations
@@ -17,7 +18,6 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.colors import LinearSegmentedColormap
 
 from raitap import raitap_log
 from raitap.transparency.contracts import (
@@ -33,24 +33,22 @@ from .base_visualiser import BaseVisualiser
 
 if TYPE_CHECKING:
     import torch
+    from matplotlib.colors import Colormap
     from matplotlib.figure import Figure
 
     from raitap.transparency.contracts import VisualisationContext
 
 
-# ---------------------------------------------------------------------------
-# Vendored from shap/plots/colors/_colors.py:93 (SHAP, MIT-licensed).
-# RAITAP keeps a local copy of ``red_transparent_blue`` so the SHAP image
-# rendering recipe is reproducible without importing ``shap.plots`` at module
-# load. The 200 RGBA stops are identical to SHAP's definition.
-# ---------------------------------------------------------------------------
-_RED_TRANSPARENT_BLUE_STOPS: list[tuple[float, float, float, float]] = [
-    *((30.0 / 255, 136.0 / 255, 229.0 / 255, float(j)) for j in np.linspace(1, 0, 100)),
-    *((255.0 / 255, 13.0 / 255, 87.0 / 255, float(j)) for j in np.linspace(0, 1, 100)),
-]
-red_transparent_blue = LinearSegmentedColormap.from_list(
-    "red_transparent_blue", _RED_TRANSPARENT_BLUE_STOPS
-)
+def _red_transparent_blue() -> Colormap:
+    """SHAP's ``red_transparent_blue`` diverging colormap, imported lazily.
+
+    ``shap`` is a runtime dependency of this visualiser (``visualise`` already
+    imports it), so the colormap is fetched from ``shap.plots.colors`` on demand
+    rather than vendored — keeping RAITAP in sync with SHAP's own definition.
+    """
+    from shap.plots.colors import red_transparent_blue
+
+    return red_transparent_blue
 
 
 def _to_numpy(x: torch.Tensor | np.ndarray) -> np.ndarray:
@@ -566,8 +564,8 @@ class ShapImageVisualiser(BaseVisualiser):
                 the attribution heatmap when ``inputs`` are provided.
             show_colorbar: Whether to add a SHAP colorbar in the paired layout.
             cmap: Matplotlib colormap for the SHAP heatmap overlay.
-                ``None`` (default) selects the vendored ``red_transparent_blue``
-                diverging colormap, matching ``shap.plots.image``.
+                ``None`` (default) uses SHAP's ``red_transparent_blue`` diverging
+                colormap, matching ``shap.plots.image`` (resolved at render time).
             overlay_alpha: Alpha of the grayscale background drawn under the
                 colored SHAP heatmap. Default ``0.15`` matches
                 ``shap.plots.image``.
@@ -579,7 +577,7 @@ class ShapImageVisualiser(BaseVisualiser):
         self.title = title
         self.include_original_image = include_original_image
         self.show_colorbar = show_colorbar
-        self.cmap = red_transparent_blue if cmap is None else cmap
+        self.cmap = cmap
         self.overlay_alpha = overlay_alpha
         self.outlier_perc = outlier_perc
 
@@ -634,6 +632,8 @@ class ShapImageVisualiser(BaseVisualiser):
 
         names = [] if sample_names is None else [str(name) for name in sample_names[:n]]
         cmap = kwargs.pop("cmap", self.cmap)
+        if cmap is None:
+            cmap = _red_transparent_blue()
         overlay_alpha = kwargs.pop("overlay_alpha", self.overlay_alpha)
         outlier_perc = float(kwargs.pop("outlier_perc", self.outlier_perc))
         show_colorbar = bool(kwargs.pop("show_colorbar", self.show_colorbar))
