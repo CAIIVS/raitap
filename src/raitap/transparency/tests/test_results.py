@@ -12,6 +12,7 @@ import torch
 from raitap.configs import resolve_run_dir, set_output_root
 from raitap.configs.schema import AppConfig
 from raitap.transparency.contracts import (
+    BaselineRecord,
     ExplanationOutputSpace,
     ExplanationPayloadKind,
     ExplanationScope,
@@ -888,3 +889,101 @@ def test_render_visualisation_for_scope_raises_on_mismatched_sample_names(
         explanation.render_visualisation_for_scope(0, scope="local")
     assert info.value.got == 3
     assert info.value.expected == 2
+
+
+# ---------------------------------------------------------------------------
+# BaselineRecord persistence in ExplanationResult metadata — Task 4
+# ---------------------------------------------------------------------------
+
+
+def _semantics_simple(shape: tuple[int, ...]) -> ExplanationSemantics:
+    # Built locally to keep these tests free of cross-module test coupling.
+    return ExplanationSemantics(
+        scope=ExplanationScope.LOCAL,
+        scope_definition_step=ScopeDefinitionStep.EXPLAINER_OUTPUT,
+        payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
+        method_families=frozenset({MethodFamily.GRADIENT}),
+        target=None,
+        sample_selection=None,
+        input_spec=InputSpec(kind="image", shape=shape, layout="NCHW"),
+        output_space=OutputSpaceSpec(
+            space=ExplanationOutputSpace.INPUT_FEATURES,
+            shape=shape,
+            layout="NCHW",
+        ),
+    )
+
+
+def _result_with_baseline(
+    tmp_path: Path, *, baseline: BaselineRecord | None = None, call_kwargs: dict | None = None
+) -> ExplanationResult:
+    return ExplanationResult(
+        attributions=torch.rand(1, 1, 4, 4),
+        inputs=torch.rand(1, 1, 4, 4),
+        run_dir=tmp_path / "exp",
+        experiment_name="demo",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        semantics=_semantics_simple((1, 1, 4, 4)),
+        call_kwargs=call_kwargs or {},
+        baseline=baseline,
+    )
+
+
+def test_metadata_omits_baseline_when_none(tmp_path: Path) -> None:
+    result = _result_with_baseline(tmp_path)
+    result.write_artifacts()
+    meta = json.loads((result.run_dir / "metadata.json").read_text())
+    assert "baseline" not in meta
+
+
+def test_metadata_serializes_baseline_block(tmp_path: Path) -> None:
+    from pathlib import Path as _Path
+
+    record = BaselineRecord(
+        kwarg_name="baselines",
+        mode="zero",
+        source=None,
+        n_samples=None,
+        shape=(1, 1, 4, 4),
+        dtype="torch.float32",
+        sha256="deadbeef",
+        image_path=_Path("baseline.png"),
+    )
+    result = _result_with_baseline(tmp_path, baseline=record)
+    result.write_artifacts()
+    meta = json.loads((result.run_dir / "metadata.json").read_text())
+    assert meta["baseline"] == {
+        "kwarg_name": "baselines",
+        "mode": "zero",
+        "source": None,
+        "n_samples": None,
+        "shape": [1, 1, 4, 4],
+        "dtype": "torch.float32",
+        "sha256": "deadbeef",
+        "image_path": "baseline.png",
+    }
+
+
+def test_metadata_suppresses_recognized_baseline_kwarg(tmp_path: Path) -> None:
+    record = BaselineRecord(
+        kwarg_name="baselines",
+        mode="user_tensor",
+        source=None,
+        n_samples=None,
+        shape=(1, 1, 4, 4),
+        dtype="torch.float32",
+        sha256="d",
+        image_path=None,
+    )
+    result = _result_with_baseline(
+        tmp_path,
+        baseline=record,
+        call_kwargs={"baselines": torch.zeros(1, 1, 4, 4), "target": 0},
+    )
+    result.write_artifacts()
+    meta = json.loads((result.run_dir / "metadata.json").read_text())
+    # The opaque tensor row is suppressed; the clean baseline block stands alone.
+    assert "baselines" not in meta["call_kwargs"]
+    assert meta["call_kwargs"]["target"] == 0
+    assert meta["baseline"]["kwarg_name"] == "baselines"
