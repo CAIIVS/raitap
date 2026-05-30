@@ -117,7 +117,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
         explainer_name: str | None = None,
         visualisers: list[ConfiguredVisualiser] | None = None,
         raitap_kwargs: dict[str, Any] | None = None,
-        call_provenance: Mapping[str, Any] | None = None,
+        call_provenance: Mapping[str, Mapping[str, Any]] | None = None,
         **kwargs: Any,
     ) -> ExplanationResult:
         """
