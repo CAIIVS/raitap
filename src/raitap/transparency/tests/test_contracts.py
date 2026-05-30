@@ -267,3 +267,25 @@ def test_visualisation_context_detection_box_defaults_to_none() -> None:
 
     ctx = VisualisationContext(algorithm="x", sample_names=None, show_sample_names=False)
     assert ctx.detection_box is None
+
+
+def test_baseline_record_is_frozen_and_carries_descriptor() -> None:
+    from pathlib import Path
+
+    from raitap.transparency.contracts import BaselineRecord
+
+    record = BaselineRecord(
+        kwarg_name="background_data",
+        mode="configured",
+        source="imagenet_samples",
+        n_samples=50,
+        shape=(50, 3, 224, 224),
+        dtype="torch.float32",
+        sha256="abc123",
+        image_path=Path("baseline.png"),
+    )
+    assert record.kwarg_name == "background_data"
+    assert record.mode == "configured"
+    assert record.shape == (50, 3, 224, 224)
+    with pytest.raises(Exception):
+        record.mode = "zero"  # type: ignore[misc]  # frozen

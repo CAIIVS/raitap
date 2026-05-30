@@ -189,6 +189,26 @@ class DetectionBox:
 
 
 @dataclass(frozen=True)
+class BaselineRecord:
+    """Reference input an attribution method was computed against.
+
+    Captured once at the explain chokepoint for methods that take a baseline
+    (IG ``baselines``, SHAP ``background_data``), including implicit defaults.
+    ``image_path`` is relative to the explanation ``run_dir`` and set only for
+    image-modality runs; ``sha256`` hashes the tensor actually used as baseline.
+    """
+
+    kwarg_name: str
+    mode: str
+    source: str | None
+    n_samples: int | None
+    shape: tuple[int, ...]
+    dtype: str
+    sha256: str
+    image_path: Path | None
+
+
+@dataclass(frozen=True)
 class VisualSummarySpec:
     """Metadata for visualisers that summarize a set of local explanations."""
 
