@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import pytest
 import torch
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 import raitap.transparency.explainers.base_explainer as base_explainer_module
 from raitap.transparency.contracts import (
@@ -83,6 +86,23 @@ class _BatchRecordingExplainer(AttributionOnlyExplainer):
 
         background_size = -1 if background_data is None else int(background_data.shape[0])
         self.seen_background_sizes.append(background_size)
+        return inputs
+
+
+class _BaselineDeclaringExplainer(AttributionOnlyExplainer):
+    algorithm = "IntegratedGradients"
+    baseline_kwarg = "baselines"
+    baseline_defaults: ClassVar[dict[str, str]] = {"IntegratedGradients": "zero"}
+
+    def compute_attributions(
+        self,
+        model: torch.nn.Module,
+        inputs: torch.Tensor,
+        target: int | None = None,
+        baselines: torch.Tensor | None = None,
+        **kwargs: Any,
+    ) -> torch.Tensor:
+        del model, target, baselines, kwargs
         return inputs
 
 
@@ -550,3 +570,49 @@ def test_explainer_baseline_declarations() -> None:
         "KernelExplainer": "input_batch",
     }
     assert "TreeExplainer" not in ShapExplainer.baseline_defaults
+
+
+def test_explain_attaches_zero_baseline_when_absent(tmp_path: Path) -> None:
+    explainer = _BaselineDeclaringExplainer()
+    inputs = torch.randn(2, 3, 4, 4)
+
+    result = explainer.explain(
+        torch.nn.Identity(),
+        inputs,
+        run_dir=tmp_path / "exp",
+        target=0,
+        raitap_kwargs=_raitap_kwargs_for(inputs),
+    )
+
+    assert result.baseline is not None
+    assert result.baseline.mode == "zero"
+    assert result.baseline.kwarg_name == "baselines"
+    assert result.baseline.shape == (1, 3, 4, 4)  # torch.zeros_like(inputs[:1])
+    assert result.baseline.sha256
+    # Image modality -> a baseline PNG was rendered into run_dir.
+    assert result.baseline.image_path is not None
+    assert (result.run_dir / result.baseline.image_path).exists()
+
+
+def test_explain_records_configured_baseline_with_provenance(tmp_path: Path) -> None:
+    explainer = _BaselineDeclaringExplainer()
+    inputs = torch.randn(1, 3, 4, 4)
+    baseline_tensor = torch.zeros(1, 3, 4, 4)
+
+    result = explainer.explain(
+        torch.nn.Identity(),
+        inputs,
+        run_dir=tmp_path / "exp",
+        target=0,
+        baselines=baseline_tensor,
+        call_provenance={"baselines": {"source": "zeros_cfg", "n_samples": 1}},
+        raitap_kwargs=_raitap_kwargs_for(inputs),
+    )
+
+    assert result.baseline is not None
+    assert result.baseline.mode == "configured"
+    assert result.baseline.source == "zeros_cfg"
+    assert result.baseline.n_samples == 1
+    # call_provenance is a named kwarg, not forwarded into compute_attributions
+    # kwargs, so it never lands in call_kwargs.
+    assert "call_provenance" not in result.call_kwargs

@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 else:
     torch = lazy_import("torch")
 
+from ..baselines import build_baseline_record
 from ..contracts import (
     ExplanationOutputSpace,
     ExplanationPayloadKind,
@@ -116,6 +117,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
         explainer_name: str | None = None,
         visualisers: list[ConfiguredVisualiser] | None = None,
         raitap_kwargs: dict[str, Any] | None = None,
+        call_provenance: Mapping[str, Any] | None = None,
         **kwargs: Any,
     ) -> ExplanationResult:
         """
@@ -169,17 +171,28 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
             output_space=output_space,
         )
 
+        resolved_run_dir = (
+            Path(run_dir)
+            if run_dir is not None
+            else resolve_run_dir(
+                output_root=output_root,
+                subdir="transparency",
+            )
+        )
+
+        baseline = build_baseline_record(
+            explainer=self,
+            inputs=inputs,
+            call_kwargs=call_kwargs,
+            call_provenance=call_provenance,
+            input_spec=input_spec,
+            run_dir=resolved_run_dir,
+        )
+
         explanation = ExplanationResult(
             attributions=attributions,
             inputs=inputs,
-            run_dir=(
-                Path(run_dir)
-                if run_dir is not None
-                else resolve_run_dir(
-                    output_root=output_root,
-                    subdir="transparency",
-                )
-            ),
+            run_dir=resolved_run_dir,
             experiment_name=experiment_name,
             explainer_target=(explainer_target or f"{type(self).__module__}.{type(self).__name__}"),
             algorithm=getattr(self, "algorithm", ""),
@@ -189,6 +202,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
             visualisers=visualisers_list,
             payload_kind=self.output_payload_kind,
             semantics=semantics,
+            baseline=baseline,
         )
         explanation.write_artifacts()
         return explanation
