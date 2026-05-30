@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.11.0](https://github.com/CAIIVS/raitap/compare/v0.10.1...v0.11.0) (2026-05-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **transparency:** rename ExplanationScope.COHORT to AGGREGATED ([#216](https://github.com/CAIIVS/raitap/issues/216))
+
+### Features
+
+* **transparency:** SHAP-native rendering inside ShapImageVisualiser ([#218](https://github.com/CAIIVS/raitap/issues/218)) ([c29a20f](https://github.com/CAIIVS/raitap/commit/c29a20f5d92be65572e834216f4f3738de779fcd))
+
+
+### Internal code refactoring
+
+* **transparency:** rename ExplanationScope.COHORT to AGGREGATED ([#216](https://github.com/CAIIVS/raitap/issues/216)) ([a9ff300](https://github.com/CAIIVS/raitap/commit/a9ff30067abbb346356eaff60256495bda83cbe7))
+
 ## [0.10.1](https://github.com/CAIIVS/raitap/compare/v0.10.0...v0.10.1) (2026-05-25)
 
 
