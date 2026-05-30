@@ -62,6 +62,7 @@ def test_captum_zero_default_when_baseline_absent(tmp_path: Path) -> None:
         input_spec=_image_input_spec((2, 3, 4, 4)),
         run_dir=tmp_path,
     )
+    assert expected is not None
     assert record.sha256 == expected.sha256
     assert record.image_path is not None
     assert (tmp_path / record.image_path).exists()

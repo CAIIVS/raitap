@@ -6,6 +6,7 @@ import pytest
 import torch
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
 import raitap.transparency.explainers.base_explainer as base_explainer_module
@@ -92,7 +93,7 @@ class _BatchRecordingExplainer(AttributionOnlyExplainer):
 class _BaselineDeclaringExplainer(AttributionOnlyExplainer):
     algorithm = "IntegratedGradients"
     baseline_kwarg = "baselines"
-    baseline_defaults: ClassVar[dict[str, str]] = {"IntegratedGradients": "zero"}
+    baseline_defaults: ClassVar[Mapping[str, str]] = {"IntegratedGradients": "zero"}
 
     def compute_attributions(
         self,
