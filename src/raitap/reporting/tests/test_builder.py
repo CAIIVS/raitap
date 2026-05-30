@@ -2199,6 +2199,14 @@ def test_stage_baseline_image_none_when_no_baseline_or_missing_file(tmp_path: Pa
     missing = SimpleNamespace(baseline=record, run_dir=tmp_path / "missing")
     assert _stage_baseline_image(missing, assets_dir=tmp_path / "a", stem="s") is None
 
+    # A baseline with no rendered image (e.g. tabular modality) stages nothing.
+    no_image_record = BaselineRecord(
+        kwarg_name="baselines", mode="zero", source=None, n_samples=None,
+        shape=(1, 4), dtype="torch.float32", sha256="h", image_path=None,
+    )
+    no_image = SimpleNamespace(baseline=no_image_record, run_dir=tmp_path)
+    assert _stage_baseline_image(no_image, assets_dir=tmp_path / "a", stem="s") is None
+
 
 def test_build_report_attaches_baseline_image_once_per_explanation(tmp_path: Path) -> None:
     from pathlib import Path as _Path
