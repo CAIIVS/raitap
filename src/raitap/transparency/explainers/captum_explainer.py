@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from raitap.transparency.contracts import MethodFamily
 from raitap.transparency.explainers.registration import transparency_adapter
@@ -10,6 +10,8 @@ from raitap.transparency.explainers.registration import transparency_adapter
 from .base_explainer import AttributionOnlyExplainer
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     import torch
     import torch.nn as nn
 
@@ -58,8 +60,8 @@ class CaptumExplainer(AttributionOnlyExplainer):
     Uses dynamic method loading - no need for class-per-method.
     """
 
-    baseline_kwarg = "baselines"
-    baseline_defaults = {"IntegratedGradients": "zero"}
+    baseline_kwarg: ClassVar[str | None] = "baselines"
+    baseline_defaults: ClassVar[Mapping[str, str]] = {"IntegratedGradients": "zero"}
 
     def __init__(self, algorithm: str, **init_kwargs):
         """

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from raitap import raitap_log
 from raitap.utils.lazy import lazy_import
@@ -20,7 +20,7 @@ from raitap.transparency.explainers.registration import transparency_adapter
 from .base_explainer import AttributionOnlyExplainer
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
 
 def _normalise_target_indices(
@@ -98,8 +98,8 @@ class ShapExplainer(AttributionOnlyExplainer):
     Uses dynamic explainer loading - no need for class-per-explainer.
     """
 
-    baseline_kwarg = "background_data"
-    baseline_defaults = {
+    baseline_kwarg: ClassVar[str | None] = "background_data"
+    baseline_defaults: ClassVar[Mapping[str, str]] = {
         "GradientExplainer": "input_batch",
         "DeepExplainer": "input_batch",
         "KernelExplainer": "input_batch",
