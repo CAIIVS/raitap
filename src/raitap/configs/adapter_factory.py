@@ -436,6 +436,7 @@ def resolve_call_data_sources(
     *,
     log_label: str = "call",
     per_image_transform: Callable[[torch.Tensor], torch.Tensor] | None = None,
+    provenance_out: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Replace ``call:`` values matching ``{source, n_samples}`` with loaded tensors.
 
@@ -471,6 +472,8 @@ def resolve_call_data_sources(
                 source,
                 n_samples,
             )
+            if provenance_out is not None:
+                provenance_out[key] = {"source": str(source), "n_samples": n_samples}
             resolved[key] = load_tensor_from_source(
                 str(source),
                 n_samples=n_samples,
