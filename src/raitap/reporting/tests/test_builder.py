@@ -2156,3 +2156,110 @@ def test_transparency_table_rows_include_baseline_and_hide_opaque_kwarg(tmp_path
     assert "call.background_data" not in rows
     # Non-baseline kwargs still render.
     assert "call.target" in rows
+
+
+def test_stage_baseline_image_copies_when_present(tmp_path: Path) -> None:
+    from pathlib import Path as _Path
+    from types import SimpleNamespace
+
+    from raitap.reporting.builder import _stage_baseline_image
+    from raitap.transparency.contracts import BaselineRecord
+
+    run_dir = tmp_path / "exp"
+    run_dir.mkdir()
+    _write_test_image(run_dir / "baseline.png")  # existing helper in this module
+    record = BaselineRecord(
+        kwarg_name="baselines", mode="zero", source=None, n_samples=None,
+        shape=(1, 1, 4, 4), dtype="torch.float32", sha256="h",
+        image_path=_Path("baseline.png"),
+    )
+    explanation = SimpleNamespace(baseline=record, run_dir=run_dir)
+
+    out = _stage_baseline_image(explanation, assets_dir=tmp_path / "assets", stem="s0")
+    assert out is not None
+    assert out.exists()
+    assert out.name == "baseline_s0.png"
+
+
+def test_stage_baseline_image_none_when_no_baseline_or_missing_file(tmp_path: Path) -> None:
+    from pathlib import Path as _Path
+    from types import SimpleNamespace
+
+    from raitap.reporting.builder import _stage_baseline_image
+    from raitap.transparency.contracts import BaselineRecord
+
+    no_baseline = SimpleNamespace(baseline=None, run_dir=tmp_path)
+    assert _stage_baseline_image(no_baseline, assets_dir=tmp_path / "a", stem="s") is None
+
+    record = BaselineRecord(
+        kwarg_name="baselines", mode="zero", source=None, n_samples=None,
+        shape=(1, 1, 4, 4), dtype="torch.float32", sha256="h",
+        image_path=_Path("baseline.png"),
+    )
+    missing = SimpleNamespace(baseline=record, run_dir=tmp_path / "missing")
+    assert _stage_baseline_image(missing, assets_dir=tmp_path / "a", stem="s") is None
+
+
+def test_build_report_attaches_baseline_image_once_per_explanation(tmp_path: Path) -> None:
+    from pathlib import Path as _Path
+
+    from raitap.transparency.contracts import BaselineRecord
+
+    config = AppConfig(experiment_name="bl")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    run_dir = tmp_path / "transparency" / "exp"
+    run_dir.mkdir(parents=True)
+    _write_test_image(run_dir / "baseline.png")
+
+    record = BaselineRecord(
+        kwarg_name="baselines", mode="zero", source=None, n_samples=None,
+        shape=(1, 1, 4, 4), dtype="torch.float32", sha256="h",
+        image_path=_Path("baseline.png"),
+    )
+    explanation = ExplanationResult(
+        attributions=torch.rand(1, 1, 4, 4),
+        inputs=torch.rand(1, 1, 4, 4),
+        run_dir=run_dir,
+        experiment_name="bl",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        explainer_name="captum_ig",
+        semantics=_local_image_semantics((1, 1, 4, 4)),
+        visualisers=[
+            ConfiguredVisualiser(visualiser=_LocalImageVisualiser()),
+            ConfiguredVisualiser(visualiser=_LocalImageVisualiser()),
+        ],
+        baseline=record,
+    )
+    outputs = RunOutputs(
+        explanations=[explanation],
+        visualisations=[],
+        metrics=None,
+        forward_output=_fo(torch.tensor([[0.1, 0.9]])),
+        sample_ids=["a"],
+        prediction_summaries=(
+            PredictionSummary(
+                sample_index=0,
+                sample_id="a",
+                predicted_class=1,
+                target_class=0,
+                confidence=0.9,
+                correct=False,
+            ),
+        ),
+    )
+
+    report = build_report(config, outputs)
+
+    local = next(s for s in report.sections if s.title == "Local Explanations")
+    baseline_imgs = [
+        p for group in local.groups for p in group.images if p.name.startswith("baseline_")
+    ]
+    local_vis_groups = [
+        g for g in local.groups if g.metadata.get("role") == "local_visualiser"
+    ]
+    # Two visualisers -> two local_visualiser groups, but the baseline renders once.
+    assert len(local_vis_groups) == 2
+    assert len(baseline_imgs) == 1

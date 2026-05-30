@@ -704,6 +704,20 @@ def _build_local_section(
             if not explanation.has_visualisations_for_scope(ExplanationScope.LOCAL):
                 continue
             explainer_name = explanation.explainer_name or explanation.run_dir.name
+            box_suffix_for_baseline = (
+                f"_box_{explanation.detection_box.display_index}_{explanation.detection_box.raw_index}"
+                if explanation.detection_box is not None
+                else ""
+            )
+            baseline_image = _stage_baseline_image(
+                explanation,
+                assets_dir=assets_dir,
+                stem=(
+                    f"sample_{selected.summary.sample_index}_"
+                    f"{_safe_name(explainer_name)}{box_suffix_for_baseline}"
+                ),
+            )
+            baseline_emitted = False
 
             for visualiser_index, configured in enumerate(explanation.visualisers):
                 if (
@@ -781,6 +795,10 @@ def _build_local_section(
                     metadata["visualiser_title"] = str(visualiser_title)
                 if thumbnail_source_names:
                     metadata["thumbnail_source_explainer_names"] = thumbnail_source_names
+                group_images = images
+                if baseline_image is not None and not baseline_emitted:
+                    group_images = (*images, baseline_image)
+                    baseline_emitted = True
                 sample_groups.append(
                     ReportGroup(
                         heading=(
@@ -788,7 +806,7 @@ def _build_local_section(
                             f" - Visualiser: {visualiser_name}"
                             f"{heading_box_part}"
                         ),
-                        images=images,
+                        images=group_images,
                         table_rows=_transparency_table_rows(
                             explanation,
                             selected_samples=[selected],
@@ -1468,3 +1486,26 @@ def _requested_sample_metadata(sample: SelectedSample) -> dict[str, object]:
 
 def _safe_name(value: str) -> str:
     return "".join(ch if ch.isalnum() else "_" for ch in value).strip("_") or "asset"
+
+
+def _stage_baseline_image(
+    explanation: Any,
+    *,
+    assets_dir: Path,
+    stem: str,
+) -> Path | None:
+    """Copy an explanation's baseline PNG into ``assets_dir``; return staged path.
+
+    Returns ``None`` when the explanation has no baseline image or the source
+    file is missing (backward-compatible artefacts).
+    """
+    baseline = getattr(explanation, "baseline", None)
+    if baseline is None or baseline.image_path is None:
+        return None
+    source = explanation.run_dir / baseline.image_path
+    if not source.exists():
+        return None
+    assets_dir.mkdir(parents=True, exist_ok=True)
+    target = assets_dir / f"baseline_{stem}{source.suffix}"
+    shutil.copy2(source, target)
+    return target
