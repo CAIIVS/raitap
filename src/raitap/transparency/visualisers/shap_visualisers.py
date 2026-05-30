@@ -3,7 +3,13 @@
 Most visualisers wrap SHAP's plotting APIs (``shap.plots.*`` /
 ``shap.summary_plot``). ``ShapImageVisualiser`` is rendered manually with
 Matplotlib so RAITAP can provide a consistent paired image/overlay layout,
-titles, sample names, and colorbar handling.
+titles, sample names, and colorbar handling. Its per-panel rendering recipe
+reproduces ``shap.plots.image`` — a grayscale background under a
+``red_transparent_blue`` diverging heatmap with a symmetric
+``±np.nanpercentile(|attribution|, 99.9)`` colormap scale. The
+``red_transparent_blue`` colormap is SHAP's own, imported lazily from
+``shap.plots.colors`` (``shap`` is already a runtime dependency of this
+visualiser).
 """
 
 from __future__ import annotations
@@ -27,9 +33,22 @@ from .base_visualiser import BaseVisualiser
 
 if TYPE_CHECKING:
     import torch
+    from matplotlib.colors import Colormap
     from matplotlib.figure import Figure
 
     from raitap.transparency.contracts import VisualisationContext
+
+
+def _red_transparent_blue() -> Colormap:
+    """SHAP's ``red_transparent_blue`` diverging colormap, imported lazily.
+
+    ``shap`` is a runtime dependency of this visualiser (``visualise`` already
+    imports it), so the colormap is fetched from ``shap.plots.colors`` on demand
+    rather than vendored — keeping RAITAP in sync with SHAP's own definition.
+    """
+    from shap.plots.colors import red_transparent_blue
+
+    return red_transparent_blue
 
 
 def _to_numpy(x: torch.Tensor | np.ndarray) -> np.ndarray:
@@ -90,6 +109,40 @@ def _display_image(ax: Any, image: np.ndarray) -> None:
 def _default_image_title(algorithm: str | None) -> str:
     """Return the default SHAP attribution title for image plots."""
     return f"{algorithm} (SHAP)" if algorithm else "SHAP Image"
+
+
+def _symmetric_vmin_vmax(values: np.ndarray, outlier_perc: float = 99.9) -> tuple[float, float]:
+    """Symmetric ``(vmin, vmax)`` for ``imshow`` using a percentile of ``|values|``.
+
+    Matches the normalisation used by ``shap.plots.image``:
+    ``max_val = np.nanpercentile(|values|, outlier_perc)``. Falls back to
+    ``(-1.0, 1.0)`` for degenerate inputs (empty, all-zero, or non-finite)
+    so the heatmap stays renderable.
+    """
+    abs_vals = np.abs(values)
+    if abs_vals.size == 0:
+        return -1.0, 1.0
+    max_val = float(np.nanpercentile(abs_vals, outlier_perc))
+    if not np.isfinite(max_val) or max_val == 0.0:
+        return -1.0, 1.0
+    return -max_val, max_val
+
+
+def _rgb_to_grayscale(image: np.ndarray) -> np.ndarray:
+    """Reduce an image to a 2-D grayscale array for use as a background under a heatmap.
+
+    For RGB inputs the standard luminosity weights are used
+    (``0.2989·R + 0.5870·G + 0.1140·B``), matching ``shap.plots.image``. For
+    other multi-channel inputs (including 1-channel ``(H, W, 1)``) the per-channel
+    mean is used. 2-D inputs are returned unchanged.
+    """
+    if image.ndim == 2:
+        return image
+    if image.ndim == 3:
+        if image.shape[-1] == 3:
+            return 0.2989 * image[..., 0] + 0.5870 * image[..., 1] + 0.1140 * image[..., 2]
+        return image.mean(axis=-1)
+    raise ValueError(f"_rgb_to_grayscale expected 2D or 3D image, got shape {image.shape}.")
 
 
 def _image_heatmap(values: np.ndarray) -> np.ndarray:
@@ -462,19 +515,23 @@ class ShapImageVisualiser(BaseVisualiser):
     """
     Render image-level SHAP attributions with Matplotlib.
 
-    This visualiser does not call ``shap.image_plot`` directly. Instead, it
-    renders a RAITAP-managed figure that can optionally show the original
-    image, a SHAP heatmap overlay, sample-aware titles, and a colorbar.
+    This visualiser does not call ``shap.image_plot`` directly; instead it
+    renders a RAITAP-managed figure that follows the same rendering recipe
+    as ``shap.plots.image`` — a grayscale background at
+    ``overlay_alpha=0.15``, a ``red_transparent_blue`` diverging colormap,
+    and a symmetric ``±np.nanpercentile(|attribution|, outlier_perc)``
+    colormap scale (``outlier_perc=99.9`` by default). RAITAP layers
+    sample-aware titles, the paired-original panel, and the colorbar on
+    top of that recipe.
 
     .. warning::
        **Only compatible with ``GradientExplainer`` and ``DeepExplainer``.**
        These are the only SHAP explainers that compute pixel-level SHAP
-       values suitable for image visualisation.
-       Passing attributions from other explainers will produce meaningless
-       plots.
+       values suitable for image visualisation. Passing attributions from
+       other explainers will produce meaningless plots.
 
-    Positive contributions are shown in warm colours and negative
-    contributions in cool colours, using the configured Matplotlib colormap.
+    Positive contributions are shown in red and negative contributions in
+    blue with a transparent mid-range, matching SHAP's native presentation.
     """
 
     def validate_explanation(
@@ -495,18 +552,26 @@ class ShapImageVisualiser(BaseVisualiser):
         title: str | None = None,
         include_original_image: bool = True,
         show_colorbar: bool = True,
-        cmap: str = "coolwarm",
-        overlay_alpha: float = 0.65,
+        cmap: Any = None,
+        overlay_alpha: float = 0.15,
+        outlier_perc: float = 99.9,
     ):
         """
         Args:
             max_samples: Maximum number of images to display side by side.
             title: Optional attribution panel title.
-            include_original_image: Whether to render the original image next to the
-                attribution heatmap when ``inputs`` are provided.
+            include_original_image: Whether to render the original image next to
+                the attribution heatmap when ``inputs`` are provided.
             show_colorbar: Whether to add a SHAP colorbar in the paired layout.
             cmap: Matplotlib colormap for the SHAP heatmap overlay.
-            overlay_alpha: Alpha value used for the SHAP heatmap overlay.
+                ``None`` (default) uses SHAP's ``red_transparent_blue`` diverging
+                colormap, matching ``shap.plots.image`` (resolved at render time).
+            overlay_alpha: Alpha of the grayscale background drawn under the
+                colored SHAP heatmap. Default ``0.15`` matches
+                ``shap.plots.image``.
+            outlier_perc: Percentile used to compute the symmetric
+                ``±nanpercentile(|attribution|, outlier_perc)`` colormap scale.
+                Default ``99.9`` matches ``shap.plots.image``.
         """
         self.max_samples = max_samples
         self.title = title
@@ -514,6 +579,7 @@ class ShapImageVisualiser(BaseVisualiser):
         self.show_colorbar = show_colorbar
         self.cmap = cmap
         self.overlay_alpha = overlay_alpha
+        self.outlier_perc = outlier_perc
 
     def visualise(
         self,
@@ -566,7 +632,10 @@ class ShapImageVisualiser(BaseVisualiser):
 
         names = [] if sample_names is None else [str(name) for name in sample_names[:n]]
         cmap = kwargs.pop("cmap", self.cmap)
+        if cmap is None:
+            cmap = _red_transparent_blue()
         overlay_alpha = kwargs.pop("overlay_alpha", self.overlay_alpha)
+        outlier_perc = float(kwargs.pop("outlier_perc", self.outlier_perc))
         show_colorbar = bool(kwargs.pop("show_colorbar", self.show_colorbar))
         if "include_original_input" in kwargs:
             include_original_image = bool(kwargs.pop("include_original_input"))
@@ -614,9 +683,7 @@ class ShapImageVisualiser(BaseVisualiser):
                 np.transpose(shap_vals[i], (1, 2, 0)) if shap_vals[i].ndim == 3 else shap_vals[i]
             )
             heatmap = _image_heatmap(shap_i)
-            max_abs = float(np.max(np.abs(heatmap))) if heatmap.size else 0.0
-            if max_abs == 0.0:
-                max_abs = 1.0
+            vmin, vmax = _symmetric_vmin_vmax(heatmap, outlier_perc)
 
             sample_name = names[i] if show_sample_names and i < len(names) else None
             original_title = _compose_title("Original Image", sample_name)
@@ -647,13 +714,16 @@ class ShapImageVisualiser(BaseVisualiser):
                     colorbar_ax = None
 
             if image_i is not None:
-                _display_image(attr_ax, image_i)
+                attr_ax.imshow(
+                    _rgb_to_grayscale(image_i),
+                    cmap="gray",
+                    alpha=overlay_alpha,
+                )
             im = attr_ax.imshow(
                 heatmap,
                 cmap=cmap,
-                alpha=overlay_alpha if image_i is not None else 1.0,
-                vmin=-max_abs,
-                vmax=max_abs,
+                vmin=vmin,
+                vmax=vmax,
             )
             attr_ax.set_title(attr_title or "")
             attr_ax.axis("off")
