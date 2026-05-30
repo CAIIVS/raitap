@@ -98,6 +98,13 @@ class ShapExplainer(AttributionOnlyExplainer):
     Uses dynamic explainer loading - no need for class-per-explainer.
     """
 
+    baseline_kwarg = "background_data"
+    baseline_defaults = {
+        "GradientExplainer": "input_batch",
+        "DeepExplainer": "input_batch",
+        "KernelExplainer": "input_batch",
+    }
+
     def __init__(self, algorithm: str, **init_kwargs):
         """
         Args:

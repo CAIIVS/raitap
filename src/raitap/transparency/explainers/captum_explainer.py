@@ -58,6 +58,9 @@ class CaptumExplainer(AttributionOnlyExplainer):
     Uses dynamic method loading - no need for class-per-method.
     """
 
+    baseline_kwarg = "baselines"
+    baseline_defaults = {"IntegratedGradients": "zero"}
+
     def __init__(self, algorithm: str, **init_kwargs):
         """
         Args:

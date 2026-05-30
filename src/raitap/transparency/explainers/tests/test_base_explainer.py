@@ -526,3 +526,27 @@ def test_explain_classification_unchanged_when_backend_has_no_task_kind() -> Non
         raitap_kwargs=_raitap_kwargs_for(inputs),
     )
     assert result.semantics.output_space.space is ExplanationOutputSpace.INPUT_FEATURES
+
+
+def test_explainer_baseline_declarations() -> None:
+    from raitap.transparency.explainers.base_explainer import BaseExplainer
+    from raitap.transparency.explainers.captum_explainer import CaptumExplainer
+    from raitap.transparency.explainers.shap_explainer import ShapExplainer
+
+    # Base default: no baseline kwarg, no implicit defaults.
+    assert BaseExplainer.baseline_kwarg is None
+    assert BaseExplainer.baseline_defaults == {}
+
+    # Captum: only IntegratedGradients has a meaningful zero default.
+    assert CaptumExplainer.baseline_kwarg == "baselines"
+    assert CaptumExplainer.baseline_defaults == {"IntegratedGradients": "zero"}
+    assert "Saliency" not in CaptumExplainer.baseline_defaults
+
+    # SHAP: Gradient/Deep/Kernel fall back to the input batch; Tree does not.
+    assert ShapExplainer.baseline_kwarg == "background_data"
+    assert ShapExplainer.baseline_defaults == {
+        "GradientExplainer": "input_batch",
+        "DeepExplainer": "input_batch",
+        "KernelExplainer": "input_batch",
+    }
+    assert "TreeExplainer" not in ShapExplainer.baseline_defaults
