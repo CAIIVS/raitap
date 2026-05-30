@@ -270,6 +270,7 @@ def test_visualisation_context_detection_box_defaults_to_none() -> None:
 
 
 def test_baseline_record_is_frozen_and_carries_descriptor() -> None:
+    import dataclasses
     from pathlib import Path
 
     from raitap.transparency.contracts import BaselineRecord
@@ -287,5 +288,5 @@ def test_baseline_record_is_frozen_and_carries_descriptor() -> None:
     assert record.kwarg_name == "background_data"
     assert record.mode == "configured"
     assert record.shape == (50, 3, 224, 224)
-    with pytest.raises(Exception):
+    with pytest.raises(dataclasses.FrozenInstanceError):
         record.mode = "zero"  # type: ignore[misc]  # frozen
