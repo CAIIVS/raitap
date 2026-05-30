@@ -2169,8 +2169,13 @@ def test_stage_baseline_image_copies_when_present(tmp_path: Path) -> None:
     run_dir.mkdir()
     _write_test_image(run_dir / "baseline.png")  # existing helper in this module
     record = BaselineRecord(
-        kwarg_name="baselines", mode="zero", source=None, n_samples=None,
-        shape=(1, 1, 4, 4), dtype="torch.float32", sha256="h",
+        kwarg_name="baselines",
+        mode="zero",
+        source=None,
+        n_samples=None,
+        shape=(1, 1, 4, 4),
+        dtype="torch.float32",
+        sha256="h",
         image_path=_Path("baseline.png"),
     )
     explanation = SimpleNamespace(baseline=record, run_dir=run_dir)
@@ -2192,8 +2197,13 @@ def test_stage_baseline_image_none_when_no_baseline_or_missing_file(tmp_path: Pa
     assert _stage_baseline_image(no_baseline, assets_dir=tmp_path / "a", stem="s") is None
 
     record = BaselineRecord(
-        kwarg_name="baselines", mode="zero", source=None, n_samples=None,
-        shape=(1, 1, 4, 4), dtype="torch.float32", sha256="h",
+        kwarg_name="baselines",
+        mode="zero",
+        source=None,
+        n_samples=None,
+        shape=(1, 1, 4, 4),
+        dtype="torch.float32",
+        sha256="h",
         image_path=_Path("baseline.png"),
     )
     missing = SimpleNamespace(baseline=record, run_dir=tmp_path / "missing")
@@ -2201,8 +2211,14 @@ def test_stage_baseline_image_none_when_no_baseline_or_missing_file(tmp_path: Pa
 
     # A baseline with no rendered image (e.g. tabular modality) stages nothing.
     no_image_record = BaselineRecord(
-        kwarg_name="baselines", mode="zero", source=None, n_samples=None,
-        shape=(1, 4), dtype="torch.float32", sha256="h", image_path=None,
+        kwarg_name="baselines",
+        mode="zero",
+        source=None,
+        n_samples=None,
+        shape=(1, 4),
+        dtype="torch.float32",
+        sha256="h",
+        image_path=None,
     )
     no_image = SimpleNamespace(baseline=no_image_record, run_dir=tmp_path)
     assert _stage_baseline_image(no_image, assets_dir=tmp_path / "a", stem="s") is None
@@ -2222,8 +2238,13 @@ def test_build_report_attaches_baseline_image_once_per_explanation(tmp_path: Pat
     _write_test_image(run_dir / "baseline.png")
 
     record = BaselineRecord(
-        kwarg_name="baselines", mode="zero", source=None, n_samples=None,
-        shape=(1, 1, 4, 4), dtype="torch.float32", sha256="h",
+        kwarg_name="baselines",
+        mode="zero",
+        source=None,
+        n_samples=None,
+        shape=(1, 1, 4, 4),
+        dtype="torch.float32",
+        sha256="h",
         image_path=_Path("baseline.png"),
     )
     explanation = ExplanationResult(
@@ -2265,9 +2286,7 @@ def test_build_report_attaches_baseline_image_once_per_explanation(tmp_path: Pat
     baseline_imgs = [
         p for group in local.groups for p in group.images if p.name.startswith("baseline_")
     ]
-    local_vis_groups = [
-        g for g in local.groups if g.metadata.get("role") == "local_visualiser"
-    ]
+    local_vis_groups = [g for g in local.groups if g.metadata.get("role") == "local_visualiser"]
     # Two visualisers -> two local_visualiser groups, but the baseline renders once.
     assert len(local_vis_groups) == 2
     assert len(baseline_imgs) == 1

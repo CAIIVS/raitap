@@ -1686,9 +1686,7 @@ class TestResolveCallDataSources:
         )
 
         assert isinstance(result["background_data"], torch.Tensor)
-        assert provenance == {
-            "background_data": {"source": str(img_dir), "n_samples": 3}
-        }
+        assert provenance == {"background_data": {"source": str(img_dir), "n_samples": 3}}
         # Non-source kwargs do not appear in provenance.
         assert "target" not in provenance
 

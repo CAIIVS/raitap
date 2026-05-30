@@ -209,9 +209,7 @@ class ExplanationResult(Trackable):
                 "dtype": self.baseline.dtype,
                 "sha256": self.baseline.sha256,
                 "image_path": (
-                    str(self.baseline.image_path)
-                    if self.baseline.image_path is not None
-                    else None
+                    str(self.baseline.image_path) if self.baseline.image_path is not None else None
                 ),
             }
         return metadata
