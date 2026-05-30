@@ -57,7 +57,7 @@ def explain_detection(
     base_run_dir: Path,
     raitap_kwargs: dict[str, Any] | None,
     call_kwargs: dict[str, Any],
-    call_provenance: Mapping[str, Any] | None = None,
+    call_provenance: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> Iterator[ExplanationResult]:
     """Yield one ExplanationResult per detected box.
 
