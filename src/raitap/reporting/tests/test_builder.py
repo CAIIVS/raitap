@@ -2109,3 +2109,50 @@ def _write_test_image(path: Path) -> Path:
     fig.savefig(path, bbox_inches="tight", dpi=80)
     plt.close(fig)
     return path
+
+
+def test_transparency_table_rows_include_baseline_and_hide_opaque_kwarg(tmp_path: Path) -> None:
+    from pathlib import Path as _Path
+
+    from raitap.reporting.builder import _transparency_table_rows
+    from raitap.transparency.contracts import BaselineRecord
+
+    record = BaselineRecord(
+        kwarg_name="background_data",
+        mode="configured",
+        source="imagenet",
+        n_samples=50,
+        shape=(50, 3, 4, 4),
+        dtype="torch.float32",
+        sha256="secret-hash",
+        image_path=_Path("baseline.png"),
+    )
+    explanation = ExplanationResult(
+        attributions=torch.rand(1, 1, 4, 4),
+        inputs=torch.rand(1, 1, 4, 4),
+        run_dir=tmp_path / "exp",
+        experiment_name="demo",
+        explainer_target="t",
+        algorithm="GradientExplainer",
+        explainer_name="shap_grad",
+        semantics=_local_image_semantics((1, 1, 4, 4)),
+        # Small tensor (numel == 4) so it WOULD render as call.background_data
+        # without suppression — proving the suppression branch is exercised.
+        call_kwargs={"background_data": torch.zeros(4), "target": 0},
+        visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
+        baseline=record,
+    )
+
+    rows = dict(_transparency_table_rows(explanation, selected_samples=[], visualiser_index=0))
+
+    assert rows["baseline.mode"] == "configured"
+    assert rows["baseline.source"] == "imagenet"
+    assert rows["baseline.n_samples"] == "50"
+    assert "baseline.shape" in rows
+    # sha256 never reaches the report.
+    assert "secret-hash" not in str(rows)
+    assert not any(k.startswith("baseline.sha2") for k in rows)
+    # The opaque tensor kwarg is suppressed in favour of the labelled rows.
+    assert "call.background_data" not in rows
+    # Non-baseline kwargs still render.
+    assert "call.target" in rows

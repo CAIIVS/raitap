@@ -1105,7 +1105,18 @@ def _transparency_table_rows(
     if output_space.requires_interpolation:
         rows.append(("requires_interpolation", "true"))
 
+    baseline = getattr(explanation, "baseline", None)
+    if baseline is not None:
+        rows.append(("baseline.mode", str(baseline.mode)))
+        if baseline.source is not None:
+            rows.append(("baseline.source", str(baseline.source)))
+        if baseline.n_samples is not None:
+            rows.append(("baseline.n_samples", str(baseline.n_samples)))
+        rows.append(("baseline.shape", _format_shape(baseline.shape)))
+
     for key, value in explanation.call_kwargs.items():
+        if baseline is not None and key == baseline.kwarg_name:
+            continue
         formatted = _format_table_value(value)
         if formatted is not None:
             rows.append((f"call.{key}", formatted))
