@@ -114,12 +114,7 @@ myst:
 :allowed: dict | tensor
 :default: null
 :description: Library-agnostic baseline / reference input for attribution methods
-  that take one (Captum `baselines`, SHAP `background_data`). Preferred over the raw
-  library kwarg under `call:` — the name stays the same when you switch libraries.
-  Same value shape as a `call:` data source: `{source, n_samples}` (or a tensor via
-  the Python API). If the baseline is also set via the library's own kwarg (under
-  `call:` or passed at runtime), `raitap.baseline` wins and a warning is logged —
-  it is never overridden silently. Setting it on an explainer that
+  that take one (Captum `baselines`, SHAP `background_data`). Setting it on an explainer that
   takes no baseline (e.g. Saliency) raises `raitap.utils.errors.RaitapError`. A
   single-reference method (e.g. Integrated Gradients) warns if given a multi-sample
   baseline (`n_samples > 1`) — that shape only works for a sample-set method like
@@ -143,7 +138,7 @@ transparency:
     call:
       target: 0
     raitap:
-      baseline:                 # library-agnostic; routed to Captum's `baselines`
+      baseline:                
         source: "./data/baseline"
       input_metadata:
         kind: image
