@@ -124,3 +124,20 @@ def test_resolver_shap_vs_captum_shapley_trap():
         "captum", frozenset({MethodFamily.GRADIENT, MethodFamily.CAM})
     )
     assert cam_sign == "positive"
+
+
+def test_image_renderer_on_public_adapters_facade():
+    from raitap import adapters
+    assert hasattr(adapters, "image_renderer")
+
+    @adapters.image_renderer(for_library="superxai-test")
+    class _SuperXAIRenderer:
+        def draw(self, ax, attr, image, *, sign="all", **style):
+            return None
+
+    from raitap.transparency.visualisers.image_rendering import resolve_image_renderer
+    renderer, _ = resolve_image_renderer("superxai-test", frozenset())
+    assert isinstance(renderer, _SuperXAIRenderer)
+    # cleanup global registry to avoid cross-test leakage
+    from raitap.transparency.visualisers.image_rendering import IMAGE_RENDERER_REGISTRY
+    del IMAGE_RENDERER_REGISTRY["superxai-test"]
