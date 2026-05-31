@@ -97,8 +97,9 @@ class _IdentityExplainer(AttributionOnlyExplainer):
         return inputs.clone()
 
 
-def test_visualisation_context_carries_source_library_and_families():
+def test_visualisation_context_carries_source_library_and_families() -> None:
     from raitap.transparency.contracts import MethodFamily, VisualisationContext
+
     ctx = VisualisationContext(
         algorithm="GradientExplainer",
         sample_names=None,

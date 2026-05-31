@@ -12,6 +12,7 @@ import sys
 from typing import TYPE_CHECKING
 
 import matplotlib
+
 matplotlib.use("Agg")
 import numpy as np
 import pytest
@@ -29,7 +30,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _deterministic_detection_figure():
+def _deterministic_detection_figure() -> Figure:
     # deterministic synthetic data — no RNG, fully reproducible
     grid = np.linspace(-1.0, 1.0, 16 * 16, dtype=np.float32).reshape(16, 16)
     attr = torch.from_numpy(np.stack([grid, -grid, grid * 0.5]))  # (3,16,16) signed
@@ -41,7 +42,7 @@ def _deterministic_detection_figure():
         sample_names=None,
         show_sample_names=False,
         detection_box=DetectionBox(0, 0, (2.0, 2.0, 12.0, 12.0), 0.87, 1, "cat"),
-        source_library=None,        # -> RaitapHouseRenderer (no shap/captum dependency)
+        source_library=None,  # -> RaitapHouseRenderer (no shap/captum dependency)
         method_families=frozenset(),
     )
     return DetectionImageVisualiser().visualise(attr, inputs=img, context=ctx)
@@ -57,5 +58,5 @@ def _deterministic_detection_figure():
     savefig_kwargs={"dpi": 150},
     tolerance=2,
 )
-def test_detection_house_visual_regression() -> "Figure":
+def test_detection_house_visual_regression() -> Figure:
     return _deterministic_detection_figure()

@@ -8,7 +8,6 @@ automatically from explainer provenance via :func:`resolve_image_renderer`.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
@@ -16,6 +15,8 @@ import numpy as np
 from raitap.transparency.contracts import MethodFamily
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from matplotlib.axes import Axes
     from matplotlib.cm import ScalarMappable
 
@@ -70,7 +71,15 @@ class RaitapHouseRenderer:
     Grayscale background of ``image`` at alpha 0.15 when provided.
     """
 
-    def draw(self, ax: Axes, attr: np.ndarray, image: np.ndarray | None, *, sign: str = "all", **style: Any) -> ScalarMappable | None:
+    def draw(
+        self,
+        ax: Axes,
+        attr: np.ndarray,
+        image: np.ndarray | None,
+        *,
+        sign: str = "all",
+        **style: Any,
+    ) -> ScalarMappable | None:
         heat = _signed_channel_sum(attr)
         if image is not None:
             ax.imshow(_grayscale(image), cmap="gray", alpha=0.15)
@@ -122,7 +131,15 @@ class ShapNativeRenderer:
     SHAP attributions are always signed-diverging.
     """
 
-    def draw(self, ax: "Axes", attr: np.ndarray, image: "np.ndarray | None", *, sign: str = "all", **style: Any) -> "ScalarMappable":
+    def draw(
+        self,
+        ax: Axes,
+        attr: np.ndarray,
+        image: np.ndarray | None,
+        *,
+        sign: str = "all",
+        **style: Any,
+    ) -> ScalarMappable:
         from raitap.transparency.visualisers.shap_visualisers import (
             _image_heatmap,
             _red_transparent_blue,
@@ -149,7 +166,15 @@ class CaptumNativeRenderer:
     all-zero map (rendered flat instead of crashing — see #206/#207).
     """
 
-    def draw(self, ax, attr, image, *, sign: str = "all", **style: Any):
+    def draw(
+        self,
+        ax: Axes,
+        attr: np.ndarray,
+        image: np.ndarray | None,
+        *,
+        sign: str = "all",
+        **style: Any,
+    ) -> ScalarMappable | None:
         from captum.attr import visualization as viz
 
         from raitap.transparency.visualisers.captum_visualisers import (
