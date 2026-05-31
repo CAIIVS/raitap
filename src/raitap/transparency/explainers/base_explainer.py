@@ -21,14 +21,13 @@ else:
 
 from ..baselines import build_baseline_record
 from ..contracts import (
-    BaselineMode,
+    ExplainerSemanticsHints,
     ExplanationOutputSpace,
     ExplanationPayloadKind,
     ExplanationScope,
     ExplanationSemantics,
     ExplanationTarget,
     InputSpec,
-    MethodFamily,
     SampleSelection,
     ScopeDefinitionStep,
     explainer_output_scope,
@@ -55,18 +54,17 @@ class BaseExplainer(AdapterMixin, ABC):
 
     output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
     output_scope: ClassVar[ExplanationScope] = ExplanationScope.LOCAL
-    algorithm_registry: ClassVar[Mapping[str, frozenset[MethodFamily]]]
+    algorithm_registry: ClassVar[Mapping[str, ExplainerSemanticsHints]]
     # Adapter-specific; defaults to "no ONNX support". The
     # ``@adapters.transparency`` decorator overrides per-adapter.
     ONNX_COMPATIBLE_ALGORITHMS: ClassVar[frozenset[str]] = frozenset()
 
     # Baseline documentation (issue #210). ``baseline_kwarg`` is the call kwarg
     # that holds this family's reference input (``None`` → family takes no
-    # baseline). ``baseline_defaults`` maps an algorithm name to the implicit
-    # default mode used when that kwarg is absent. Declared per-algorithm
-    # because one adapter class wraps many algorithms (most take no baseline).
+    # baseline); set via the ``@adapters.transparency`` decorator kwarg. The
+    # per-algorithm implicit default mode lives on each algorithm's
+    # ``ExplainerSemanticsHints.baseline_default`` in ``algorithm_registry``.
     baseline_kwarg: ClassVar[str | None] = None
-    baseline_defaults: ClassVar[Mapping[str, BaselineMode]] = {}
 
     def check_backend_compat(self, backend: object) -> None:
         """Default: enforce the ONNX-allowlist contract.

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 import raitap.transparency.explainers.base_explainer as base_explainer_module
 from raitap.transparency.contracts import (
     BaselineMode,
+    ExplainerSemanticsHints,
     ExplanationOutputSpace,
     ExplanationPayloadKind,
     ExplanationScope,
@@ -94,8 +95,10 @@ class _BatchRecordingExplainer(AttributionOnlyExplainer):
 class _BaselineDeclaringExplainer(AttributionOnlyExplainer):
     algorithm = "IntegratedGradients"
     baseline_kwarg = "baselines"
-    baseline_defaults: ClassVar[Mapping[str, BaselineMode]] = {
-        "IntegratedGradients": BaselineMode.ZERO
+    algorithm_registry: ClassVar[Mapping[str, ExplainerSemanticsHints]] = {
+        "IntegratedGradients": ExplainerSemanticsHints(
+            frozenset({MethodFamily.GRADIENT}), baseline_default=BaselineMode.ZERO
+        )
     }
 
     def compute_attributions(
@@ -557,23 +560,26 @@ def test_explainer_baseline_declarations() -> None:
     from raitap.transparency.explainers.captum_explainer import CaptumExplainer
     from raitap.transparency.explainers.shap_explainer import ShapExplainer
 
-    # Base default: no baseline kwarg, no implicit defaults.
+    # Base default: no baseline kwarg.
     assert BaseExplainer.baseline_kwarg is None
-    assert BaseExplainer.baseline_defaults == {}
 
-    # Captum: only IntegratedGradients has a meaningful zero default.
+    # Captum: only IntegratedGradients has a meaningful zero default; the rest
+    # carry no implicit baseline (``baseline_default`` is None).
     assert CaptumExplainer.baseline_kwarg == "baselines"
-    assert CaptumExplainer.baseline_defaults == {"IntegratedGradients": "zero"}
-    assert "Saliency" not in CaptumExplainer.baseline_defaults
+    assert CaptumExplainer.algorithm_registry["IntegratedGradients"].baseline_default == "zero"
+    assert CaptumExplainer.algorithm_registry["Saliency"].baseline_default is None
 
     # SHAP: Gradient/Deep/Kernel fall back to the input batch; Tree does not.
     assert ShapExplainer.baseline_kwarg == "background_data"
-    assert ShapExplainer.baseline_defaults == {
+    assert {
+        algorithm: hints.baseline_default
+        for algorithm, hints in ShapExplainer.algorithm_registry.items()
+    } == {
         "GradientExplainer": "input_batch",
         "DeepExplainer": "input_batch",
         "KernelExplainer": "input_batch",
+        "TreeExplainer": None,
     }
-    assert "TreeExplainer" not in ShapExplainer.baseline_defaults
 
 
 def test_explain_attaches_zero_baseline_when_absent(tmp_path: Path) -> None:

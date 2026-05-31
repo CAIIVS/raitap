@@ -29,10 +29,15 @@ from raitap import adapters
     registry_name="captum",
     library="captum",
     algorithm_registry={
-        "IntegratedGradients": frozenset({MethodFamily.GRADIENT}),
+        "IntegratedGradients": ExplainerSemanticsHints(
+            frozenset({MethodFamily.GRADIENT}), baseline_default=BaselineMode.ZERO
+        ),
         # ... existing entries ...
-        "NewMethod": frozenset({MethodFamily.GRADIENT, MethodFamily.PERTURBATION}),
+        "NewMethod": ExplainerSemanticsHints(
+            frozenset({MethodFamily.GRADIENT, MethodFamily.PERTURBATION})
+        ),
     },
+    baseline_kwarg="baselines",
     onnx_compatible_algorithms=frozenset({...}),
 )
 class CaptumExplainer(AttributionOnlyExplainer): ...
@@ -61,7 +66,7 @@ class TorchattacksAssessor(EmpiricalAttackAssessor): ...
 ```
 
 The map value carries the semantics RAITAP tracks and reports on:
-- **Transparency** → `frozenset[MethodFamily]`. New `MethodFamily` values go in `src/raitap/transparency/contracts.py`.
+- **Transparency** → `ExplainerSemanticsHints` (`families: frozenset[MethodFamily]` + optional `baseline_default`). New `MethodFamily` values go in `src/raitap/transparency/contracts.py`.
 - **Robustness** → `AssessorSemanticsHints` (assessment kind, threat model, objective, norm, family tags). Defined in `src/raitap/robustness/semantics.py`.
 
 A missing entry means the algorithm cannot be selected via config — the family's runtime check fails fast.
@@ -83,20 +88,30 @@ The default `check_backend_compat` enforces this allowlist — algorithms not in
 
 ## 4. Baseline default (transparency only, optional)
 
-Attribution methods that take a *reference input* — Integrated Gradients (`baselines=`) and SHAP (`background_data=`) — have that baseline recorded in `metadata.json` and the report (issue #210). Two class-body attributes on the adapter drive this:
+Attribution methods that take a *reference input* — Integrated Gradients (`baselines=`) and SHAP (`background_data=`) — have that baseline recorded in `metadata.json` and the report (issue #210). Two declarations drive this:
 
-- `baseline_kwarg` — the call kwarg that holds the reference (`"baselines"` for Captum, `"background_data"` for SHAP). `None` (the base-class default) means the family takes no baseline.
-- `baseline_defaults` — a `Mapping[str, BaselineMode]` of *algorithm name → implicit default mode*, used when the user omits the kwarg. Declared **per algorithm** because one adapter wraps many algorithms, most of which take no baseline.
+- `baseline_kwarg` — a `@adapters.transparency` decorator kwarg naming the call kwarg that holds the reference (`"baselines"` for Captum, `"background_data"` for SHAP). Omitted (the default) means the family takes no baseline. It's per-**adapter** (one library, one kwarg name).
+- `ExplainerSemanticsHints.baseline_default` — the per-**algorithm** implicit default mode, used when the user omits the kwarg. Lives on the algorithm's registry entry because one adapter wraps many algorithms, most of which take no baseline (so they leave it `None`).
 
-If your new algorithm takes a baseline **and** has a meaningful default when the user omits it, add one entry (use a `BaselineMode` member from `transparency/contracts.py`):
+If your new algorithm takes a baseline **and** has a meaningful default when the user omits it, set `baseline_default` on its registry entry (use a `BaselineMode` member from `transparency/contracts.py`):
 
 ```python
-class CaptumExplainer(AttributionOnlyExplainer):
-    baseline_kwarg = "baselines"
-    baseline_defaults = {"IntegratedGradients": BaselineMode.ZERO, "NewMethod": BaselineMode.ZERO}
+@adapters.transparency(
+    registry_name="captum",
+    baseline_kwarg="baselines",
+    algorithm_registry={
+        "IntegratedGradients": ExplainerSemanticsHints(
+            frozenset({MethodFamily.GRADIENT}), baseline_default=BaselineMode.ZERO
+        ),
+        "NewMethod": ExplainerSemanticsHints(
+            frozenset({MethodFamily.GRADIENT}), baseline_default=BaselineMode.ZERO
+        ),
+    },
+)
+class CaptumExplainer(AttributionOnlyExplainer): ...
 ```
 
-Nothing to do if your algorithm only uses a baseline when the user supplies one (no implicit default) — the kwarg-present path records it as `configured`/`user_tensor` automatically — or if it takes no reference at all (Saliency, GradCam).
+Nothing to do if your algorithm only uses a baseline when the user supplies one (no implicit default) — the kwarg-present path records it as `configured`/`user_tensor` automatically — or if it takes no reference at all (Saliency, GradCam): leave `baseline_default` unset (`None`).
 
 ## 5. Tests
 

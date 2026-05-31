@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from raitap import raitap_log
 from raitap.utils.lazy import lazy_import
@@ -14,13 +14,13 @@ if TYPE_CHECKING:
 else:
     torch = lazy_import("torch")
     nn = lazy_import("torch.nn")
-from raitap.transparency.contracts import BaselineMode, MethodFamily
+from raitap.transparency.contracts import BaselineMode, ExplainerSemanticsHints, MethodFamily
 from raitap.transparency.explainers.registration import transparency_adapter
 
 from .base_explainer import AttributionOnlyExplainer
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable
 
 
 def _normalise_target_indices(
@@ -81,14 +81,28 @@ def _select_target_attributions(
             "limitations. Use alternatives like GradientExplainer."
         ),
     },
+    # Gradient/Deep/Kernel fall back to the input batch when ``background_data``
+    # is omitted; TreeExplainer takes no reference input (``baseline_default`` None).
     algorithm_registry={
-        "GradientExplainer": frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
-        "DeepExplainer": frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
-        "KernelExplainer": frozenset(
-            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC}
+        "GradientExplainer": ExplainerSemanticsHints(
+            frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+            baseline_default=BaselineMode.INPUT_BATCH,
         ),
-        "TreeExplainer": frozenset({MethodFamily.SHAPLEY, MethodFamily.TREE}),
+        "DeepExplainer": ExplainerSemanticsHints(
+            frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+            baseline_default=BaselineMode.INPUT_BATCH,
+        ),
+        "KernelExplainer": ExplainerSemanticsHints(
+            frozenset(
+                {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC}
+            ),
+            baseline_default=BaselineMode.INPUT_BATCH,
+        ),
+        "TreeExplainer": ExplainerSemanticsHints(
+            frozenset({MethodFamily.SHAPLEY, MethodFamily.TREE})
+        ),
     },
+    baseline_kwarg="background_data",
     onnx_compatible_algorithms=frozenset({"KernelExplainer"}),
 )
 class ShapExplainer(AttributionOnlyExplainer):
@@ -97,13 +111,6 @@ class ShapExplainer(AttributionOnlyExplainer):
 
     Uses dynamic explainer loading - no need for class-per-explainer.
     """
-
-    baseline_kwarg: ClassVar[str | None] = "background_data"
-    baseline_defaults: ClassVar[Mapping[str, BaselineMode]] = {
-        "GradientExplainer": BaselineMode.INPUT_BATCH,
-        "DeepExplainer": BaselineMode.INPUT_BATCH,
-        "KernelExplainer": BaselineMode.INPUT_BATCH,
-    }
 
     def __init__(self, algorithm: str, **init_kwargs):
         """

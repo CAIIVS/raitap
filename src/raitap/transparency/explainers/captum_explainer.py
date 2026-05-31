@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
-from raitap.transparency.contracts import BaselineMode, MethodFamily
+from raitap.transparency.contracts import BaselineMode, ExplainerSemanticsHints, MethodFamily
 from raitap.transparency.explainers.registration import transparency_adapter
 
 from .base_explainer import AttributionOnlyExplainer
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     import torch
     import torch.nn as nn
 
@@ -24,23 +22,40 @@ if TYPE_CHECKING:
     # is pure noise. Scope ``module=`` to captum so unrelated UserWarnings
     # with matching messages aren't accidentally hidden.
     suppress_warnings=[(r"Input Tensor.*required_grads", UserWarning, r"captum.*")],
+    # Only IntegratedGradients has a meaningful implicit baseline (zeros); the
+    # rest take no reference input, so their ``baseline_default`` stays ``None``.
     algorithm_registry={
-        "IntegratedGradients": frozenset({MethodFamily.GRADIENT}),
-        "Saliency": frozenset({MethodFamily.GRADIENT}),
-        "FeatureAblation": frozenset({MethodFamily.PERTURBATION}),
-        "FeaturePermutation": frozenset({MethodFamily.PERTURBATION}),
-        "Occlusion": frozenset({MethodFamily.PERTURBATION}),
-        "ShapleyValueSampling": frozenset({MethodFamily.SHAPLEY, MethodFamily.PERTURBATION}),
-        "ShapleyValues": frozenset({MethodFamily.SHAPLEY, MethodFamily.PERTURBATION}),
-        "KernelShap": frozenset(
-            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC}
+        "IntegratedGradients": ExplainerSemanticsHints(
+            frozenset({MethodFamily.GRADIENT}), baseline_default=BaselineMode.ZERO
         ),
-        "Lime": frozenset(
-            {MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC, MethodFamily.SURROGATE}
+        "Saliency": ExplainerSemanticsHints(frozenset({MethodFamily.GRADIENT})),
+        "FeatureAblation": ExplainerSemanticsHints(frozenset({MethodFamily.PERTURBATION})),
+        "FeaturePermutation": ExplainerSemanticsHints(frozenset({MethodFamily.PERTURBATION})),
+        "Occlusion": ExplainerSemanticsHints(frozenset({MethodFamily.PERTURBATION})),
+        "ShapleyValueSampling": ExplainerSemanticsHints(
+            frozenset({MethodFamily.SHAPLEY, MethodFamily.PERTURBATION})
         ),
-        "LayerGradCam": frozenset({MethodFamily.GRADIENT, MethodFamily.CAM}),
-        "GuidedGradCam": frozenset({MethodFamily.GRADIENT, MethodFamily.CAM}),
+        "ShapleyValues": ExplainerSemanticsHints(
+            frozenset({MethodFamily.SHAPLEY, MethodFamily.PERTURBATION})
+        ),
+        "KernelShap": ExplainerSemanticsHints(
+            frozenset(
+                {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC}
+            )
+        ),
+        "Lime": ExplainerSemanticsHints(
+            frozenset(
+                {MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC, MethodFamily.SURROGATE}
+            )
+        ),
+        "LayerGradCam": ExplainerSemanticsHints(
+            frozenset({MethodFamily.GRADIENT, MethodFamily.CAM})
+        ),
+        "GuidedGradCam": ExplainerSemanticsHints(
+            frozenset({MethodFamily.GRADIENT, MethodFamily.CAM})
+        ),
     },
+    baseline_kwarg="baselines",
     onnx_compatible_algorithms=frozenset(
         {
             "FeatureAblation",
@@ -59,11 +74,6 @@ class CaptumExplainer(AttributionOnlyExplainer):
 
     Uses dynamic method loading - no need for class-per-method.
     """
-
-    baseline_kwarg: ClassVar[str | None] = "baselines"
-    baseline_defaults: ClassVar[Mapping[str, BaselineMode]] = {
-        "IntegratedGradients": BaselineMode.ZERO
-    }
 
     def __init__(self, algorithm: str, **init_kwargs):
         """

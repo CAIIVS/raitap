@@ -81,9 +81,14 @@ def build_baseline_record(
             mode = BaselineMode.USER_TENSOR
         baseline_tensor = value
     else:
-        # ``baseline_defaults`` values are ``BaselineMode`` members; comparison
-        # also accepts the bare-string equivalents (StrEnum) for forward compat.
-        mode = getattr(explainer, "baseline_defaults", {}).get(algorithm)
+        # The implicit default mode lives on the algorithm's
+        # ``ExplainerSemanticsHints.baseline_default`` in ``algorithm_registry``;
+        # read defensively so stubs without a registry simply yield no baseline.
+        # ``baseline_default`` is a ``BaselineMode`` member; comparison below also
+        # accepts the bare-string equivalent (StrEnum) for forward compat.
+        registry = getattr(explainer, "algorithm_registry", None) or {}
+        hints = registry.get(algorithm)
+        mode = getattr(hints, "baseline_default", None)
         if mode is None:
             return None
         if mode == BaselineMode.ZERO:

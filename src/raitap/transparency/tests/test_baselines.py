@@ -16,7 +16,12 @@ from raitap.transparency.baselines import (
 from raitap.transparency.baselines import (
     build_baseline_record,
 )
-from raitap.transparency.contracts import InputSpec
+from raitap.transparency.contracts import (
+    BaselineMode,
+    ExplainerSemanticsHints,
+    InputSpec,
+    MethodFamily,
+)
 
 
 def _image_input_spec(shape: tuple[int, ...]) -> InputSpec:
@@ -34,7 +39,11 @@ def _captum_ig() -> SimpleNamespace:
     return SimpleNamespace(
         algorithm="IntegratedGradients",
         baseline_kwarg="baselines",
-        baseline_defaults={"IntegratedGradients": "zero"},
+        algorithm_registry={
+            "IntegratedGradients": ExplainerSemanticsHints(
+                frozenset({MethodFamily.GRADIENT}), baseline_default=BaselineMode.ZERO
+            )
+        },
     )
 
 
@@ -42,7 +51,12 @@ def _shap_gradient() -> SimpleNamespace:
     return SimpleNamespace(
         algorithm="GradientExplainer",
         baseline_kwarg="background_data",
-        baseline_defaults={"GradientExplainer": "input_batch"},
+        algorithm_registry={
+            "GradientExplainer": ExplainerSemanticsHints(
+                frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+                baseline_default=BaselineMode.INPUT_BATCH,
+            )
+        },
     )
 
 
@@ -212,7 +226,12 @@ def test_no_record_for_algorithm_without_baseline(tmp_path: Path) -> None:
     saliency = SimpleNamespace(
         algorithm="Saliency",
         baseline_kwarg="baselines",
-        baseline_defaults={"IntegratedGradients": "zero"},
+        # Saliency is absent from the registry → no implicit baseline.
+        algorithm_registry={
+            "IntegratedGradients": ExplainerSemanticsHints(
+                frozenset({MethodFamily.GRADIENT}), baseline_default=BaselineMode.ZERO
+            )
+        },
     )
     record = build_baseline_record(
         explainer=saliency,
@@ -226,7 +245,7 @@ def test_no_record_for_algorithm_without_baseline(tmp_path: Path) -> None:
 
 
 def test_no_record_when_family_takes_no_baseline(tmp_path: Path) -> None:
-    explainer = SimpleNamespace(algorithm="X", baseline_kwarg=None, baseline_defaults={})
+    explainer = SimpleNamespace(algorithm="X", baseline_kwarg=None, algorithm_registry={})
     record = build_baseline_record(
         explainer=explainer,
         inputs=torch.rand(2, 3, 4, 4),

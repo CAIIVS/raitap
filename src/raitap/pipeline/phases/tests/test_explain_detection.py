@@ -14,6 +14,7 @@ from raitap.pipeline.outputs import ForwardOutput
 from raitap.pipeline.phases.explain_detection import explain_detection
 from raitap.transparency.contracts import (
     DetectionBox,
+    ExplainerSemanticsHints,
     ExplanationOutputSpace,
     ExplanationPayloadKind,
     ExplanationScope,
@@ -50,7 +51,9 @@ class _RecordingExplainer:
     """Test double — captures every explain() invocation."""
 
     algorithm = "IntegratedGradients"
-    algorithm_registry: ClassVar[dict[str, Any]] = {"IntegratedGradients": frozenset()}
+    algorithm_registry: ClassVar[dict[str, Any]] = {
+        "IntegratedGradients": ExplainerSemanticsHints(frozenset())
+    }
     output_payload_kind = ExplanationPayloadKind.ATTRIBUTIONS
     output_scope = ExplanationScope.LOCAL
 

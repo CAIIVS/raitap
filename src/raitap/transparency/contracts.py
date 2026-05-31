@@ -102,6 +102,21 @@ class MethodFamily(StrEnum):
     SURROGATE = "surrogate"
 
 
+@dataclass(frozen=True)
+class ExplainerSemanticsHints:
+    """Per-algorithm metadata carried by a transparency adapter's ``algorithm_registry``.
+
+    The transparency analogue of robustness's ``AssessorSemanticsHints``: one entry
+    per algorithm an adapter wraps, holding everything the framework tracks and
+    reports for that algorithm. ``baseline_default`` is the implicit
+    :class:`BaselineMode` used when the user omits the baseline kwarg (``None`` for
+    algorithms with no meaningful default, e.g. Saliency / TreeExplainer).
+    """
+
+    families: frozenset[MethodFamily]
+    baseline_default: BaselineMode | None = None
+
+
 def explainer_output_kind(explainer: object) -> ExplanationPayloadKind:
     raw = getattr(type(explainer), "output_payload_kind", None)
     if isinstance(raw, ExplanationPayloadKind):

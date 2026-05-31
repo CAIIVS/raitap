@@ -54,7 +54,7 @@ import re
 from typing import TYPE_CHECKING
 
 from raitap import adapters
-from raitap.transparency.contracts import MethodFamily
+from raitap.transparency.contracts import ExplainerSemanticsHints, MethodFamily
 from raitap.transparency.explainers.base_explainer import AttributionOnlyExplainer
 
 if TYPE_CHECKING:
@@ -69,7 +69,9 @@ if TYPE_CHECKING:
         re.compile(r"some library footgun"): "Do X instead.", # nicer error messages to avoid deep stack traces in RAITAP
     },
     algorithm_registry={
-        "supertreeshap": frozenset({MethodFamily.SHAPLEY}), # the algos your library offers
+        # the algos your library offers; ExplainerSemanticsHints carries the
+        # method families (+ optional baseline_default for reference-input methods)
+        "supertreeshap": ExplainerSemanticsHints(frozenset({MethodFamily.SHAPLEY})),
     },
     onnx_compatible_algorithms=frozenset({"supertreeshap"}), # algos compatible with ONNX models
 )
