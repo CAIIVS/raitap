@@ -97,6 +97,19 @@ class _IdentityExplainer(AttributionOnlyExplainer):
         return inputs.clone()
 
 
+def test_visualisation_context_carries_source_library_and_families():
+    from raitap.transparency.contracts import MethodFamily, VisualisationContext
+    ctx = VisualisationContext(
+        algorithm="GradientExplainer",
+        sample_names=None,
+        show_sample_names=False,
+        source_library="shap",
+        method_families=frozenset({MethodFamily.SHAPLEY}),
+    )
+    assert ctx.source_library == "shap"
+    assert MethodFamily.SHAPLEY in ctx.method_families
+
+
 def test_resolve_run_dir_uses_hydra_runtime(monkeypatch: MonkeyPatch) -> None:
     class _HydraRuntime:
         output_dir = "hydra-output"
