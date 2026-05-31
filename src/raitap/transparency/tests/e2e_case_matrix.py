@@ -313,12 +313,14 @@ def _assert_metadata_invariants(
         "experiment_name",
         "target",
         "algorithm",
+        "source_library",
         "visualisers",
         "kwargs",
         "call_kwargs",
         "payload_kind",
         "semantics",
     }
+    assert metadata["source_library"] in {"captum", "shap"}
     assert metadata["payload_kind"] == "attributions"
     semantics = cast("dict[str, object]", metadata["semantics"])
     assert semantics["scope"] == "local"
