@@ -42,7 +42,7 @@ def method_families_for_explainer(explainer: object) -> frozenset[MethodFamily]:
 
     cls_registry = getattr(type(explainer), "algorithm_registry", None)
     if isinstance(cls_registry, Mapping) and algorithm in cls_registry:
-        return cls_registry[algorithm]
+        return cls_registry[algorithm].families
 
     framework = _explainer_framework(explainer)
     if framework is not None:
@@ -50,7 +50,7 @@ def method_families_for_explainer(explainer: object) -> frozenset[MethodFamily]:
         if adapter_cls is not None:
             registry = adapter_cls.algorithm_registry
             if algorithm in registry:
-                return registry[algorithm]
+                return registry[algorithm].families
             raise _method_family_error(framework, algorithm)
 
     # No framework hint: try unique cross-framework match via algorithm name.
@@ -279,7 +279,7 @@ def _method_families_for_algorithm(algorithm: str) -> frozenset[MethodFamily]:
     for label, adapter_cls in (("SHAP", ShapExplainer), ("Captum", CaptumExplainer)):
         registry = adapter_cls.algorithm_registry
         if algorithm in registry:
-            matches.append((label, registry[algorithm]))
+            matches.append((label, registry[algorithm].families))
 
     if len(matches) == 1:
         return matches[0][1]

@@ -181,6 +181,67 @@ def test_html_reporter_renders_legacy_local_detail_images(tmp_path: Path) -> Non
     assert "No local explanations were configured" not in html
 
 
+def test_html_reporter_renders_baseline_image_and_view_link(tmp_path: Path) -> None:
+    sections = (
+        ReportSection.from_groups(
+            "Local Explanations",
+            [
+                ReportGroup(
+                    heading="Sample - correct",
+                    table_rows=(("sample_index", "0"), ("sample_id", "forest.jpg")),
+                    metadata={"role": "sample_header", "bucket": "correct", "sample_index": 0},
+                    images=(Path("reports/_assets/sample_0_original.png"),),
+                ),
+                ReportGroup(
+                    heading="Explainer: shap_grad - Visualiser: SHAP",
+                    images=(
+                        Path("reports/_assets/sample_0_shap_grad.png"),
+                        Path("reports/_assets/baseline_sample_0_shap_grad.png"),
+                    ),
+                    table_rows=(
+                        ("explainer", "shap_grad"),
+                        ("algorithm", "GradientExplainer"),
+                        ("baseline.mode", "configured"),
+                        ("baseline.source", "imagenet_val"),
+                        ("baseline.n_samples", "20"),
+                        ("baseline.shape", "20 x 3 x 96 x 96"),
+                    ),
+                    metadata={
+                        "role": "local_visualiser",
+                        "bucket": "correct",
+                        "sample_index": 0,
+                        "explainer_name": "shap_grad",
+                        "algorithm": "GradientExplainer",
+                        "visualiser_name": "SHAP",
+                        "baseline_image": "reports/_assets/baseline_sample_0_shap_grad.png",
+                    },
+                ),
+            ],
+            metadata={"section_role": "local"},
+        ),
+    )
+
+    HTMLReporter(_config()).generate(sections, report_dir=tmp_path)
+    html = (tmp_path / "report.html").read_text(encoding="utf-8")
+
+    # Baseline image rendered once in the per-explainer reference card, anchored.
+    assert 'id="baseline-shap_grad"' in html
+    assert 'src="_assets/baseline_sample_0_shap_grad.png"' in html
+    # Descriptor rows are shown (n_samples + shape); sha256 never reaches the report.
+    assert "baseline.n_samples" in html
+    assert "20 x 3 x 96 x 96" in html
+    assert "sha256" not in html
+    # Each explanation panel carries a working "View baseline" link.
+    assert "View baseline" in html
+    assert 'href="#baseline-shap_grad"' in html
+
+    parser = _ReportHTMLParser()
+    parser.feed(html)
+    # The baseline anchor exists and every fragment link resolves to an id.
+    assert "baseline-shap_grad" in parser.ids
+    assert [href for href in parser.fragment_hrefs if href not in parser.ids] == []
+
+
 def _config(*, filename: str = "report.pdf") -> AppConfig:
     config = AppConfig(experiment_name="html-report-test")
     config.reporting = ReportingConfig(

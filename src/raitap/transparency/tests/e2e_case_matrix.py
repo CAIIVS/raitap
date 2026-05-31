@@ -309,7 +309,7 @@ def _assert_metadata_invariants(
     case: MatrixCase,
     has_visualisers: bool,
 ) -> None:
-    assert set(metadata) == {
+    required_keys = {
         "experiment_name",
         "target",
         "algorithm",
@@ -320,6 +320,11 @@ def _assert_metadata_invariants(
         "payload_kind",
         "semantics",
     }
+    assert required_keys <= set(metadata)
+    # ``baseline`` is an optional key, present only for attribution methods that
+    # take a reference input (IG ``baselines`` / SHAP ``background_data``); see
+    # issue #210. No other keys are permitted.
+    assert set(metadata) - required_keys <= {"baseline"}
     assert metadata["source_library"] in {"captum", "shap"}
     assert metadata["payload_kind"] == "attributions"
     semantics = cast("dict[str, object]", metadata["semantics"])

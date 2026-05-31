@@ -25,7 +25,7 @@ from raitap.transparency.contracts import ExplanationPayloadKind
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
-    from raitap.transparency.contracts import MethodFamily
+    from raitap.transparency.contracts import ExplainerSemanticsHints
     from raitap.transparency.explainers.base_explainer import BaseExplainer
 
 TRANSPARENCY = FamilyConfig(
@@ -39,16 +39,17 @@ T = TypeVar("T", bound="BaseExplainer")
 
 def transparency_adapter(
     *,
-    algorithm_registry: Mapping[str, frozenset[MethodFamily]],
+    algorithm_registry: Mapping[str, ExplainerSemanticsHints],
     output_payload_kind: ExplanationPayloadKind = ExplanationPayloadKind.ATTRIBUTIONS,
     onnx_compatible_algorithms: frozenset[str] | _AllAlgorithmsSentinel = frozenset(),
+    baseline_kwarg_name: str | None = None,
     **common: Unpack[AdapterDecoratorOptions],
 ) -> Callable[[type[T]], type[T]]:
     """Decorator: register a transparency explainer.
 
     Required:
         ``registry_name`` (via ``AdapterDecoratorOptions.Required[str]``) and
-        ``algorithm_registry``.
+        ``algorithm_registry`` (algorithm name → :class:`ExplainerSemanticsHints`).
 
     Optional:
         ``output_payload_kind`` defaults to ``ATTRIBUTIONS`` — the common case;
@@ -57,11 +58,16 @@ def transparency_adapter(
         rare). Pass an explicit ``frozenset({"name1", "name2"})`` to enable a
         subset, or :data:`raitap.transparency.ALL` to enable every algorithm in
         ``algorithm_registry``.
+        ``baseline_kwarg_name`` is the call kwarg holding this family's reference
+        input (``"baselines"`` for Captum, ``"background_data"`` for SHAP);
+        ``None`` (default) means the family takes no baseline. The per-algorithm
+        implicit default mode lives on each ``ExplainerSemanticsHints.baseline_default``.
     """
 
     def wrap(cls: type[T]) -> type[T]:
         cls.algorithm_registry = algorithm_registry  # type: ignore[misc]
         cls.output_payload_kind = output_payload_kind
+        cls.baseline_kwarg_name = baseline_kwarg_name
         cls.ONNX_COMPATIBLE_ALGORITHMS = (  # type: ignore[misc]
             frozenset(algorithm_registry.keys())
             if onnx_compatible_algorithms is ALL

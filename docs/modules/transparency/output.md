@@ -35,3 +35,34 @@ metadata. It also keeps two separate runtime buckets:
 `call_kwargs` is a best-effort JSON summary of the library invocation. Scalar
 values are stored directly, while tensor-like values are summarized rather than
 embedded verbatim so `metadata.json` stays lightweight and readable.
+
+## `baseline` block
+
+For attribution methods that use a reference input (baseline data), `metadata.json` carries a `baseline`
+block documenting the exact reference the explanation was computed against.
+
+```json
+"baseline": {
+  "kwarg_name": "background_data",
+  "mode": "configured",
+  "source": "imagenet_samples",
+  "n_samples": 50,
+  "shape": [50, 3, 224, 224],
+  "dtype": "torch.float32",
+  "sha256": "…",
+  "image_path": "baseline.png"
+}
+```
+
+- `mode`: how the baseline was obtained: `configured` (resolved from a YAML
+  data source), `user_tensor` (passed directly via the Python API), `zero`
+  (Captum's implicit all-zeros default), or `input_batch` (SHAP's implicit
+  default of using the input batch).
+- `source` / `n_samples`: set only for `configured` baselines (the YAML
+  provenance).
+- `sha256`: content hash of the tensor actually used as the baseline; recorded
+  here only, never shown in the report.
+- `image_path`: a rendered preview (image modality only), relative to the run
+  directory; a single tile for one image, or a capped grid for a multi-image
+  baseline. The report shows this image and the descriptor fields, but not the
+  hash.

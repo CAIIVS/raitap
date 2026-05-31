@@ -50,6 +50,11 @@ class ExplainerView:
     headline: dict[str, str]
     context: dict[str, str]
     technical: dict[str, str]
+    # Baseline (issue #210): ``baseline_image_src`` is set on every visualiser
+    # card of an explanation whose baseline rendered an image. It drives BOTH the
+    # "View baseline" link (each card) and the anchored image in the per-explainer
+    # reference card, so the link and its anchor cannot drift apart (review #6).
+    baseline_image_src: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -400,6 +405,11 @@ def _build_explainer_view(group: ReportGroup) -> ExplainerView:
         or "visualiser"
     )
 
+    baseline_image = group.metadata.get("baseline_image")
+    baseline_image_src = (
+        _image_src(Path(baseline_image)) if isinstance(baseline_image, str) else None
+    )
+
     return ExplainerView(
         explainer_name=explainer_name,
         algorithm=algorithm,
@@ -409,6 +419,7 @@ def _build_explainer_view(group: ReportGroup) -> ExplainerView:
         headline=headline,
         context=context,
         technical=technical,
+        baseline_image_src=baseline_image_src,
     )
 
 

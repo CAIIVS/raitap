@@ -45,6 +45,7 @@ ExplanationScope = contracts.ExplanationScope
 InputKind = contracts.InputKind
 InputSpec = contracts.InputSpec
 MethodFamily = contracts.MethodFamily
+ExplainerSemanticsHints = contracts.ExplainerSemanticsHints
 ScopeDefinitionStep = contracts.ScopeDefinitionStep
 TensorLayout = contracts.TensorLayout
 from raitap.transparency.explainers.captum_explainer import CaptumExplainer  # noqa: E402
@@ -113,7 +114,9 @@ def test_captum_method_family_registry_exactly_matches_adr_v1_list() -> None:
         "GuidedGradCam": frozenset({MethodFamily.GRADIENT, MethodFamily.CAM}),
     }
 
-    assert expected == CAPTUM_METHOD_FAMILIES
+    assert expected == {
+        algorithm: hints.families for algorithm, hints in CAPTUM_METHOD_FAMILIES.items()
+    }
     for algorithm, families in expected.items():
         assert method_families_for_explainer(_explainer("captum", algorithm)) == families
 
@@ -297,12 +300,12 @@ def test_infer_output_space_rejects_ambiguous_algorithm_only_signal(
     monkeypatch.setitem(
         SHAP_METHOD_FAMILIES,
         "SharedAlgorithm",
-        frozenset({MethodFamily.SHAPLEY}),
+        ExplainerSemanticsHints(frozenset({MethodFamily.SHAPLEY})),
     )
     monkeypatch.setitem(
         CAPTUM_METHOD_FAMILIES,
         "SharedAlgorithm",
-        frozenset({MethodFamily.GRADIENT}),
+        ExplainerSemanticsHints(frozenset({MethodFamily.GRADIENT})),
     )
 
     with pytest.raises(
