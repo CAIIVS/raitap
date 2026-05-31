@@ -795,9 +795,17 @@ def _build_local_section(
                     metadata["visualiser_title"] = str(visualiser_title)
                 if thumbnail_source_names:
                     metadata["thumbnail_source_explainer_names"] = thumbnail_source_names
+                if baseline_image is not None:
+                    # Drives the "View baseline" link on every visualiser card of
+                    # this explanation (HTML); the image itself is rendered once
+                    # in the per-explainer reference card via ``baseline_image``.
+                    metadata["has_baseline_image"] = True
                 group_images = images
                 if baseline_image is not None and not baseline_emitted:
                     group_images = (*images, baseline_image)
+                    # Stored as str (not Path) so group metadata stays JSON-serialisable
+                    # for the report manifest; the view model coerces it back.
+                    metadata["baseline_image"] = str(baseline_image)
                     baseline_emitted = True
                 sample_groups.append(
                     ReportGroup(

@@ -87,6 +87,7 @@
                   </details>
                 {% endif %}
                 <a class="text-link" href="#explainer-{{ explainer.explainer_name|slug }}">About this explainer</a>
+                {% if explainer.has_baseline_image %}<a class="text-link" href="#baseline-{{ explainer.explainer_name|slug }}">View baseline</a>{% endif %}
               </article>
             {% endfor %}
           </div>

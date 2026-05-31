@@ -50,6 +50,12 @@ class ExplainerView:
     headline: dict[str, str]
     context: dict[str, str]
     technical: dict[str, str]
+    # Baseline (issue #210): ``has_baseline_image`` flags every visualiser card
+    # of an explanation whose baseline rendered an image (drives the "View
+    # baseline" link); ``baseline_image_src`` is set only on the card that owns
+    # the rendered baseline (shown once in the per-explainer reference card).
+    has_baseline_image: bool = False
+    baseline_image_src: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -400,6 +406,11 @@ def _build_explainer_view(group: ReportGroup) -> ExplainerView:
         or "visualiser"
     )
 
+    baseline_image = group.metadata.get("baseline_image")
+    baseline_image_src = (
+        _image_src(Path(baseline_image)) if isinstance(baseline_image, str) else None
+    )
+
     return ExplainerView(
         explainer_name=explainer_name,
         algorithm=algorithm,
@@ -409,6 +420,8 @@ def _build_explainer_view(group: ReportGroup) -> ExplainerView:
         headline=headline,
         context=context,
         technical=technical,
+        has_baseline_image=bool(group.metadata.get("has_baseline_image")),
+        baseline_image_src=baseline_image_src,
     )
 
 

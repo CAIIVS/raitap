@@ -16,6 +16,12 @@
                   {% endfor %}
                 </tbody>
               </table>
+              {% if explainer.baseline_image_src %}
+                <figure class="baseline-figure" id="baseline-{{ explainer.explainer_name|slug }}">
+                  <img class="figure" src="{{ explainer.baseline_image_src }}" alt="Baseline reference for {{ explainer.explainer_name }}">
+                  <figcaption>Baseline ({{ explainer.explainer_name }})</figcaption>
+                </figure>
+              {% endif %}
             </article>
           {% endif %}
         {% endfor %}
