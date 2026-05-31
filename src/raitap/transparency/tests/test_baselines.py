@@ -103,6 +103,14 @@ def test_configured_when_provenance_present(tmp_path: Path) -> None:
     assert record.shape == (5, 3, 4, 4)
 
 
+def test_montage_caption_only_when_capped() -> None:
+    from raitap.transparency.baselines import _montage_caption
+
+    assert _montage_caption(25, 200) == "Showing 25 of 200"
+    assert _montage_caption(20, 20) is None  # all tiles shown -> no label
+    assert _montage_caption(1, 1) is None
+
+
 def test_multi_image_baseline_renders_grid_montage(tmp_path: Path) -> None:
     from PIL import Image
 

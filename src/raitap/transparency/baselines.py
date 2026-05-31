@@ -115,6 +115,11 @@ def _is_image_modality(input_spec: object) -> bool:
     return str(layout or "").upper().replace(" ", "") == "NCHW"
 
 
+def _montage_caption(shown: int, total: int) -> str | None:
+    """Label for a capped baseline montage, or ``None`` when all tiles are shown."""
+    return f"Showing {shown} of {total}" if shown < total else None
+
+
 def _render_baseline_image(baseline: torch.Tensor, run_dir: Path) -> Path:
     """Render a preview of *baseline* to ``run_dir/baseline.png``.
 
@@ -128,9 +133,9 @@ def _render_baseline_image(baseline: torch.Tensor, run_dir: Path) -> Path:
     import matplotlib.pyplot as plt
     import numpy as np
 
+    total = int(baseline.shape[0]) if baseline.ndim >= 4 else 1
     if baseline.ndim >= 4:
-        n_show = min(int(baseline.shape[0]), _BASELINE_GRID_CAP)
-        tiles = [baseline[index] for index in range(n_show)]
+        tiles = [baseline[index] for index in range(min(total, _BASELINE_GRID_CAP))]
     else:
         tiles = [baseline]
 
@@ -154,6 +159,9 @@ def _render_baseline_image(baseline: torch.Tensor, run_dir: Path) -> Path:
             ax.axis("off")
         for ax in flat_axes[count:]:
             ax.axis("off")
+        caption = _montage_caption(count, total)
+        if caption is not None:
+            fig.suptitle(caption, fontsize=10)
         fig.tight_layout()
         run_dir.mkdir(parents=True, exist_ok=True)
         fig.savefig(run_dir / _BASELINE_IMAGE_NAME, bbox_inches="tight", dpi=150)
