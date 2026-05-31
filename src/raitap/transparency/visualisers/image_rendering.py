@@ -177,3 +177,7 @@ class CaptumNativeRenderer:
             **style,
         )
         return _last_mappable(ax)
+
+
+IMAGE_RENDERER_REGISTRY["shap"] = ShapNativeRenderer()
+IMAGE_RENDERER_REGISTRY["captum"] = CaptumNativeRenderer()

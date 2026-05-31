@@ -99,3 +99,28 @@ def test_captum_native_flat_for_degenerate():
     im = CaptumNativeRenderer().draw(ax, attr, np.zeros_like(attr), sign="all")
     assert im is None  # flat-rendered, no mappable; must not raise
     plt.close(fig)
+
+
+def test_builtin_libraries_registered():
+    from raitap.transparency.visualisers.image_rendering import (
+        CaptumNativeRenderer, IMAGE_RENDERER_REGISTRY, ShapNativeRenderer,
+    )
+    assert isinstance(IMAGE_RENDERER_REGISTRY["shap"], ShapNativeRenderer)
+    assert isinstance(IMAGE_RENDERER_REGISTRY["captum"], CaptumNativeRenderer)
+
+
+def test_resolver_shap_vs_captum_shapley_trap():
+    from raitap.transparency.contracts import MethodFamily
+    from raitap.transparency.visualisers.image_rendering import (
+        CaptumNativeRenderer, ShapNativeRenderer,
+    )
+    r_shap, _ = resolve_image_renderer("shap", frozenset({MethodFamily.SHAPLEY}))
+    r_cap, sign = resolve_image_renderer(
+        "captum", frozenset({MethodFamily.SHAPLEY, MethodFamily.PERTURBATION})
+    )
+    assert isinstance(r_shap, ShapNativeRenderer)
+    assert isinstance(r_cap, CaptumNativeRenderer) and sign == "all"
+    _, cam_sign = resolve_image_renderer(
+        "captum", frozenset({MethodFamily.GRADIENT, MethodFamily.CAM})
+    )
+    assert cam_sign == "positive"
