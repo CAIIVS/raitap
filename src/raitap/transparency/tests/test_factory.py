@@ -28,6 +28,7 @@ from raitap.transparency.factory import (
     check_explainer_visualiser_compat,
     create_explainer,
     create_visualisers,
+    resolve_call_data_sources,
 )
 from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
@@ -882,6 +883,130 @@ def test_explanation_merges_call_before_run_kwargs(
     assert explainer.last_explain_kwargs["baselines"] == "from_yaml"
 
 
+def test_explanation_routes_raitap_baseline_to_adapter_kwarg(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sample_images: torch.Tensor,
+) -> None:
+    """``raitap.baseline`` is routed to the adapter's own call kwarg end-to-end."""
+
+    class RecordingExplainer:
+        algorithm = "IntegratedGradients"
+        baseline_kwarg_name = "baselines"
+
+        def __init__(self) -> None:
+            self.last_explain_kwargs: dict[str, Any] = {}
+
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
+
+        def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
+            self.last_explain_kwargs = dict(kwargs)
+            return MagicMock(spec=ExplanationResult)
+
+    explainer = RecordingExplainer()
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "IntegratedGradients",
+                "call": {"target": 0},
+                "raitap": {"baseline": "ROUTED"},
+                "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+            }
+        ),
+    )
+
+    vis = MagicMock()
+    vis.compatible_algorithms = frozenset({"IntegratedGradients"})
+
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (explainer, "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_visualisers",
+        lambda _cfg: [ConfiguredVisualiser(visualiser=vis, call_kwargs={})],
+    )
+
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    Explanation(
+        config,
+        "test_explainer",
+        model=model,  # type: ignore[arg-type]
+        inputs=sample_images,
+        target=0,
+    )
+
+    # Routed under the adapter's own kwarg, and popped from the raitap block.
+    assert explainer.last_explain_kwargs["baselines"] == "ROUTED"
+    assert "baseline" not in explainer.last_explain_kwargs["raitap_kwargs"]
+
+
+def test_raitap_baseline_wins_over_runtime_kwarg(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sample_images: torch.Tensor,
+) -> None:
+    """A runtime baseline kwarg must not silently override ``raitap.baseline``."""
+
+    class RecordingExplainer:
+        algorithm = "IntegratedGradients"
+        baseline_kwarg_name = "baselines"
+
+        def __init__(self) -> None:
+            self.last_explain_kwargs: dict[str, Any] = {}
+
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
+
+        def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
+            self.last_explain_kwargs = dict(kwargs)
+            return MagicMock(spec=ExplanationResult)
+
+    explainer = RecordingExplainer()
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "IntegratedGradients",
+                "call": {"target": 0},
+                "raitap": {"baseline": "ROUTED"},
+                "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+            }
+        ),
+    )
+
+    vis = MagicMock()
+    vis.compatible_algorithms = frozenset({"IntegratedGradients"})
+
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (explainer, "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_visualisers",
+        lambda _cfg: [ConfiguredVisualiser(visualiser=vis, call_kwargs={})],
+    )
+
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    Explanation(
+        config,
+        "test_explainer",
+        model=model,  # type: ignore[arg-type]
+        inputs=sample_images,
+        target=0,
+        baselines="RUNTIME",  # runtime Python-API override of the same kwarg
+    )
+
+    # raitap.baseline wins over the runtime kwarg (and a warning is logged).
+    assert explainer.last_explain_kwargs["baselines"] == "ROUTED"
+
+
 def test_explanation_uses_real_shap_preset_defaults_and_runtime_overrides(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -1667,6 +1792,32 @@ class TestResolveCallDataSources:
         bg_tensor = explainer.last_explain_kwargs["background_data"]
         assert isinstance(bg_tensor, torch.Tensor)
         assert bg_tensor.shape == (2, 3, 5, 5)
+
+    def test_provenance_out_captures_source_and_n_samples(self, tmp_path: Path) -> None:
+        import numpy as np
+        from PIL import Image
+
+        img_dir = tmp_path / "bg"
+        img_dir.mkdir()
+        for i in range(6):
+            arr = np.zeros((8, 8, 3), dtype=np.uint8)
+            Image.fromarray(arr, "RGB").save(img_dir / f"img{i}.png")
+
+        provenance: dict[str, dict[str, object]] = {}
+        result = resolve_call_data_sources(
+            {"background_data": {"source": str(img_dir), "n_samples": 3}, "target": 0},
+            provenance_out=provenance,
+        )
+
+        assert isinstance(result["background_data"], torch.Tensor)
+        assert provenance == {"background_data": {"source": str(img_dir), "n_samples": 3}}
+        # Non-source kwargs do not appear in provenance.
+        assert "target" not in provenance
+
+    def test_provenance_out_unaffected_when_not_passed(self, tmp_path: Path) -> None:
+        # Robustness/back-compat callers pass no out-param; behaviour unchanged.
+        out = resolve_call_data_sources({"target": 1})
+        assert out == {"target": 1}
 
 
 # ---------------------------------------------------------------------------

@@ -27,7 +27,7 @@ import re
 from typing import TYPE_CHECKING
 
 from raitap import adapters
-from raitap.transparency.contracts import MethodFamily
+from raitap.transparency.contracts import ExplainerSemanticsHints, MethodFamily
 
 from .base_explainer import AttributionOnlyExplainer
 
@@ -47,7 +47,7 @@ if TYPE_CHECKING:
         (r"some noisy.*pattern", UserWarning, r"superxai.*"),
     ],
     algorithm_registry={           # required kwarg, pyright errors at decoration if missing
-        "supertreeshap": frozenset({MethodFamily.SHAPLEY}),
+        "supertreeshap": ExplainerSemanticsHints(frozenset({MethodFamily.SHAPLEY})),
     },
     # onnx_compatible_algorithms — optional, defaults to none (ONNX support is rare).
     # Pass an explicit frozenset to enable a subset, or `ALL` for everything in
@@ -82,7 +82,7 @@ class SuperXAIExplainer(AttributionOnlyExplainer):
 - **Base class.** `AttributionOnlyExplainer` provides batching, artefact persistence, and `explain()` orchestration. Other families use other bases (`EmpiricalAttackAssessor` for robustness, `BaseMetricComputer` for metrics, etc.) — find them in files starting with `base_`. The concrete adapter is just a normal class; nothing flags it as abstract (the old `abstract=True` workaround was removed).
 - **Decorator.** `@adapters.transparency(...)` is the sole entry point for registration. `registry_name` is required and pyright-checked at the decoration site via `Required[str]`. Each family has its own facade attribute (`adapters.robustness`, `adapters.metrics`, `adapters.reporter`, `adapters.tracker`, `visualisers.transparency`, `visualisers.robustness`) — pick the one matching your base class.
 - **Registration kwargs.** `library` is the pip name powering `self._lazy_import()` — pass it when you wrap a third-party package (the usual case). `extra` is the uv extra surfaced in install hints and scanned by `raitap.deps.inference`; it **defaults to `registry_name`** so you only need to set it explicitly when they differ (e.g. `classification_metrics` + `detection_metrics` both share `extra="metrics"`). `error_patterns` and `suppress_warnings` are optional polish.
-- **`algorithm_registry` (decorator kwarg).** Transparency and robustness only. Maps algorithm name → method families (or `AssessorSemanticsHints` for robustness) RAITAP tracks and reports on. **Required** — pyright errors at the decoration site if you omit it. Missing or misnamed entries make algorithms unselectable. The decorator assigns it onto the class so `type(self).algorithm_registry` still works at runtime.
+- **`algorithm_registry` (decorator kwarg).** Transparency and robustness only. Maps algorithm name → a per-algorithm semantics-hints value RAITAP tracks and reports on (`ExplainerSemanticsHints` for transparency, `AssessorSemanticsHints` for robustness). **Required** — pyright errors at the decoration site if you omit it. Missing or misnamed entries make algorithms unselectable. The decorator assigns it onto the class so `type(self).algorithm_registry` still works at runtime.
 - **`output_payload_kind` (decorator kwarg).** Transparency only. Tells the report renderer what artefact shape the explainer emits (`ATTRIBUTIONS`, `SALIENCY_MAP`, ...). Defaults to `ExplanationPayloadKind.ATTRIBUTIONS` — only pass it if your explainer emits something else.
 - **`onnx_compatible_algorithms` (decorator kwarg).** Transparency only. Optional — defaults to "none compatible" (ONNX support is rare). Pass an explicit `frozenset({"name1", "name2"})` to enable a subset, or `from raitap.transparency import ALL; onnx_compatible_algorithms=ALL` to mark every algorithm in `algorithm_registry` ONNX-compatible without re-listing them. The decorator resolves the sentinel and assigns the final frozenset onto the class as `type(self).ONNX_COMPATIBLE_ALGORITHMS` for use inside `check_backend_compat`.
 - **`super().__init__()`.** Cooperative parent init — the base class allocates buffers the framework reads later (e.g. `self.attributions = None`). Forgetting raises `AttributeError` deep inside `explain()`. Always call first when overriding `__init__`.

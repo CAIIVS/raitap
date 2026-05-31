@@ -14,7 +14,12 @@ if TYPE_CHECKING:
 else:
     torch = lazy_import("torch")
     nn = lazy_import("torch.nn")
-from raitap.transparency.contracts import MethodFamily
+from raitap.transparency.contracts import (
+    BaselineCardinality,
+    BaselineMode,
+    ExplainerSemanticsHints,
+    MethodFamily,
+)
 from raitap.transparency.explainers.registration import transparency_adapter
 
 from .base_explainer import AttributionOnlyExplainer
@@ -81,14 +86,31 @@ def _select_target_attributions(
             "limitations. Use alternatives like GradientExplainer."
         ),
     },
+    # Gradient/Deep/Kernel fall back to the input batch when ``background_data``
+    # is omitted; TreeExplainer takes no reference input (``baseline_default`` None).
     algorithm_registry={
-        "GradientExplainer": frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
-        "DeepExplainer": frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
-        "KernelExplainer": frozenset(
-            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC}
+        "GradientExplainer": ExplainerSemanticsHints(
+            frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+            baseline_default=BaselineMode.INPUT_BATCH,
+            baseline_cardinality=BaselineCardinality.SET,
         ),
-        "TreeExplainer": frozenset({MethodFamily.SHAPLEY, MethodFamily.TREE}),
+        "DeepExplainer": ExplainerSemanticsHints(
+            frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+            baseline_default=BaselineMode.INPUT_BATCH,
+            baseline_cardinality=BaselineCardinality.SET,
+        ),
+        "KernelExplainer": ExplainerSemanticsHints(
+            frozenset(
+                {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC}
+            ),
+            baseline_default=BaselineMode.INPUT_BATCH,
+            baseline_cardinality=BaselineCardinality.SET,
+        ),
+        "TreeExplainer": ExplainerSemanticsHints(
+            frozenset({MethodFamily.SHAPLEY, MethodFamily.TREE})
+        ),
     },
+    baseline_kwarg_name="background_data",
     onnx_compatible_algorithms=frozenset({"KernelExplainer"}),
 )
 class ShapExplainer(AttributionOnlyExplainer):

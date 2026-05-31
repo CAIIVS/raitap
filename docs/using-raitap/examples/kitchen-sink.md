@@ -38,7 +38,8 @@ transparency:
     constructor: {}
     call:
       target: 0
-      baselines:
+    raitap:
+      baseline:
         source: "./data/baselines"
         n_samples: 8
     visualisers:
@@ -60,10 +61,10 @@ transparency:
     call:
       target: 0
       nsamples: 10
-      background_data:
+    raitap:
+      baseline:
         source: "./data/background"
         n_samples: 32
-    raitap:
       batch_size: 1
       progress_desc: "SHAP batches"
     visualisers:
@@ -142,10 +143,9 @@ config = AppConfig(
     transparency={
         "captum_ig": captum(
             algorithm="IntegratedGradients",
-            call={
-                "target": 0,
-                "baselines": {"source": "./data/baselines", "n_samples": 8},
-            },
+            call={"target": 0},
+            # Preferred library-agnostic baseline; routed to Captum's `baselines`.
+            raitap={"baseline": {"source": "./data/baselines", "n_samples": 8}},
             visualisers=[
                 captum_image(
                     method="blended_heat_map",
@@ -160,15 +160,12 @@ config = AppConfig(
         "shap_gradient": shap(
             algorithm="GradientExplainer",
             constructor={"local_smoothing": 0.0},
-            call={
-                "target": 0,
-                "nsamples": 10,
-                "background_data": {
-                    "source": "./data/background",
-                    "n_samples": 32,
-                },
+            call={"target": 0, "nsamples": 10},
+            raitap={
+                "baseline": {"source": "./data/background", "n_samples": 32},
+                "batch_size": 1,
+                "progress_desc": "SHAP batches",
             },
-            raitap={"batch_size": 1, "progress_desc": "SHAP batches"},
             visualisers=[shap_image(max_samples=2)],
         ),
     },

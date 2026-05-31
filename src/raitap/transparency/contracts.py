@@ -31,6 +31,19 @@ class ExplanationPayloadKind(StrEnum):
     STRUCTURED = "structured"
 
 
+class BaselineMode(StrEnum):
+    """How an attribution baseline (IG ``baselines`` / SHAP ``background_data``) was obtained.
+
+    Serialised by value into ``metadata.json`` and the report, so these string
+    values are a stable contract.
+    """
+
+    CONFIGURED = "configured"  # resolved from a YAML data source (has provenance)
+    USER_TENSOR = "user_tensor"  # tensor passed directly via the Python API
+    ZERO = "zero"  # synthesized all-zeros (Captum's implicit default)
+    INPUT_BATCH = "input_batch"  # the input batch (SHAP's implicit default)
+
+
 class ExplanationScope(StrEnum):
     """Semantic breadth represented by an explanation artifact."""
 
@@ -87,6 +100,41 @@ class MethodFamily(StrEnum):
     MODEL_AGNOSTIC = "model_agnostic"
     TREE = "tree"
     SURROGATE = "surrogate"
+
+
+class BaselineCardinality(StrEnum):
+    """How many reference samples an algorithm's baseline is meant to hold.
+
+    Used to validate (never reshape) a configured baseline against the method:
+
+    * ``SINGLE`` — one reference input that broadcasts to the batch (Captum
+      Integrated Gradients, DeepLift). A many-sample baseline is almost always a
+      mistake (e.g. a SHAP background set reused here).
+    * ``SET`` — a distribution of samples (SHAP ``background_data``); any count is
+      meaningful, more is usually better.
+    """
+
+    SINGLE = "single"
+    SET = "set"
+
+
+@dataclass(frozen=True)
+class ExplainerSemanticsHints:
+    """Per-algorithm metadata carried by a transparency adapter's ``algorithm_registry``.
+
+    The transparency analogue of robustness's ``AssessorSemanticsHints``: one entry
+    per algorithm an adapter wraps, holding everything the framework tracks and
+    reports for that algorithm. ``baseline_default`` is the implicit
+    ``BaselineMode`` used when the user omits the baseline kwarg (``None`` for
+    algorithms with no meaningful default, e.g. Saliency / TreeExplainer).
+    ``baseline_cardinality`` declares whether the baseline is a single reference or
+    a sample set, so a mismatched ``raitap.baseline`` is flagged (not reshaped);
+    ``None`` skips the check.
+    """
+
+    families: frozenset[MethodFamily]
+    baseline_default: BaselineMode | None = None
+    baseline_cardinality: BaselineCardinality | None = None
 
 
 def explainer_output_kind(explainer: object) -> ExplanationPayloadKind:
@@ -186,6 +234,26 @@ class DetectionBox:
     score: float
     label_index: int
     label_name: str | None = None
+
+
+@dataclass(frozen=True)
+class BaselineRecord:
+    """Reference input an attribution method was computed against.
+
+    Captured once at the explain chokepoint for methods that take a baseline
+    (IG ``baselines``, SHAP ``background_data``), including implicit defaults.
+    ``image_path`` is relative to the explanation ``run_dir`` and set only for
+    image-modality runs; ``sha256`` hashes the tensor actually used as baseline.
+    """
+
+    kwarg_name: str
+    mode: str
+    source: str | None
+    n_samples: int | None
+    shape: tuple[int, ...]
+    dtype: str
+    sha256: str
+    image_path: Path | None
 
 
 @dataclass(frozen=True)

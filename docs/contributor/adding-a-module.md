@@ -38,7 +38,7 @@ The walkthrough below uses a fictional `fairness` module.
 Mirror the shape of `src/raitap/transparency/contracts.py` or `src/raitap/robustness/contracts.py`. Declare:
 
 - Enums for the kinds your module distinguishes (e.g. `FairnessMetricKind`, `ProtectedAttributeKind`).
-- The `Mapping[str, T]` value type that goes into `algorithm_registry` (transparency uses `frozenset[MethodFamily]`; robustness uses `AssessorSemanticsHints`).
+- The `Mapping[str, T]` value type that goes into `algorithm_registry` (transparency uses `ExplainerSemanticsHints`; robustness uses `AssessorSemanticsHints` — both are frozen per-algorithm hints dataclasses).
 - A `Protocol` for the adapter (optional but useful for cross-module callers).
 
 ## 2. Base class (`assessors/base_assessor.py`)
