@@ -1479,3 +1479,41 @@ class TestInputThumbnailVisualiser:
         output_path = tmp_path / "shap_image.png"
         visualiser.save(attributions, output_path, inputs=sample_images)
         assert output_path.exists()
+
+
+def test_detection_uses_shap_renderer_for_shap_library(monkeypatch: pytest.MonkeyPatch) -> None:
+    import raitap.transparency.visualisers.image_rendering as ir
+    from raitap.transparency.contracts import DetectionBox, MethodFamily, VisualisationContext
+    from raitap.transparency.visualisers.detection_image_visualiser import DetectionImageVisualiser
+
+    calls: dict[str, bool] = {}
+
+    class _Spy:
+        def draw(
+            self,
+            ax: Any,
+            attr: Any,
+            image: Any,
+            *,
+            sign: str = "all",
+            **style: Any,
+        ) -> None:
+            calls["used"] = True
+            return ax.imshow(np.zeros((4, 4)))
+
+    monkeypatch.setitem(ir.IMAGE_RENDERER_REGISTRY, "shap", _Spy())
+
+    attr = torch.zeros(3, 4, 4)
+    img = torch.zeros(3, 4, 4)
+    ctx = VisualisationContext(
+        algorithm="GradientExplainer",
+        sample_names=None,
+        show_sample_names=False,
+        detection_box=DetectionBox(0, 0, (0.0, 0.0, 2.0, 2.0), 0.9, 1, "cat"),
+        source_library="shap",
+        method_families=frozenset({MethodFamily.SHAPLEY}),
+    )
+    fig = DetectionImageVisualiser().visualise(attr, inputs=img, context=ctx)
+    assert calls.get("used") is True
+    assert all(im.get_cmap().name != "seismic" for ax in fig.axes for im in ax.images)
+    plt.close(fig)
