@@ -196,6 +196,11 @@ override-dependencies = [
   "spacy>=3.8.0",
   # torchattacks 3.5.1 pins requests<2.26 which conflicts with sphinx 9.1+; relax.
   "requests>=2.30.0",
+  # auto-LiRPA leaks test deps into install_requires and hard-pins
+  # ``pytest==8.1.1``, conflicting with raitap's ``pytest>=9.0.3`` dev group.
+  # Override the exact pin to raitap's floor (its other leaked test deps —
+  # pylint / pytest-order / pytest-mock — are open ranges and resolve cleanly).
+  "pytest>=9.0.3",
 ]
 conflicts = [
   [
