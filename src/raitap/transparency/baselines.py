@@ -30,6 +30,11 @@ else:
     torch = lazy_import("torch")
 
 _BASELINE_IMAGE_NAME = "baseline.png"
+# A multi-image baseline (e.g. a SHAP background set) is rendered as a grid
+# preview: up to ``_BASELINE_GRID_CAP`` tiles, ``_BASELINE_GRID_COLS`` per row.
+# The full count is always recorded in the descriptor's ``n_samples``/``shape``.
+_BASELINE_GRID_CAP = 25
+_BASELINE_GRID_COLS = 5
 
 
 def build_baseline_record(
@@ -111,30 +116,44 @@ def _is_image_modality(input_spec: object) -> bool:
 
 
 def _render_baseline_image(baseline: torch.Tensor, run_dir: Path) -> Path:
-    """Render the first sample of *baseline* to ``run_dir/baseline.png``.
+    """Render a preview of *baseline* to ``run_dir/baseline.png``.
 
-    Mirrors the normalisation/layout of ``InputThumbnailVisualiser`` (min-max
-    normalise, NCHW->HWC, grayscale handling) without importing its private
-    helpers. Returns the path relative to ``run_dir`` for storage in the record.
+    A single-image baseline renders one tile; a multi-image baseline (e.g. a
+    SHAP background set) renders a capped grid of its images (see
+    ``_BASELINE_GRID_CAP``). Each tile mirrors ``InputThumbnailVisualiser``'s
+    normalisation/layout (min-max normalise, NCHW->HWC, grayscale handling)
+    without importing its private helpers. Returns the path relative to
+    ``run_dir`` for storage in the record.
     """
     import matplotlib.pyplot as plt
     import numpy as np
 
-    sample = baseline[0] if baseline.ndim >= 4 else baseline
-    image = np.asarray(sample.detach().cpu().numpy())
-    if image.ndim == 3:
-        image = np.transpose(image, (1, 2, 0))
-    lo, hi = float(image.min()), float(image.max())
-    if hi > lo:
-        image = (image - lo) / (hi - lo)
+    if baseline.ndim >= 4:
+        n_show = min(int(baseline.shape[0]), _BASELINE_GRID_CAP)
+        tiles = [baseline[index] for index in range(n_show)]
+    else:
+        tiles = [baseline]
 
-    fig, ax = plt.subplots(1, 1, figsize=(4, 4))
+    count = len(tiles)
+    cols = min(_BASELINE_GRID_COLS, count)
+    rows = (count + cols - 1) // cols
+    fig, axes = plt.subplots(rows, cols, figsize=(cols * 2.2, rows * 2.2), squeeze=False)
     try:
-        if image.ndim == 3 and image.shape[-1] == 1:
-            ax.imshow(image[..., 0], cmap="gray")
-        else:
-            ax.imshow(image, cmap="gray" if image.ndim == 2 else None)
-        ax.axis("off")
+        flat_axes = list(axes.flat)
+        for ax, tile in zip(flat_axes, tiles, strict=False):
+            image = np.asarray(tile.detach().cpu().numpy())
+            if image.ndim == 3:
+                image = np.transpose(image, (1, 2, 0))
+            lo, hi = float(image.min()), float(image.max())
+            if hi > lo:
+                image = (image - lo) / (hi - lo)
+            if image.ndim == 3 and image.shape[-1] == 1:
+                ax.imshow(image[..., 0], cmap="gray")
+            else:
+                ax.imshow(image, cmap="gray" if image.ndim == 2 else None)
+            ax.axis("off")
+        for ax in flat_axes[count:]:
+            ax.axis("off")
         fig.tight_layout()
         run_dir.mkdir(parents=True, exist_ok=True)
         fig.savefig(run_dir / _BASELINE_IMAGE_NAME, bbox_inches="tight", dpi=150)

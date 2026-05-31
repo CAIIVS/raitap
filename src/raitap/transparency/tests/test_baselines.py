@@ -103,6 +103,30 @@ def test_configured_when_provenance_present(tmp_path: Path) -> None:
     assert record.shape == (5, 3, 4, 4)
 
 
+def test_multi_image_baseline_renders_grid_montage(tmp_path: Path) -> None:
+    from PIL import Image
+
+    background = torch.rand(6, 3, 8, 8)
+    record = build_baseline_record(
+        explainer=_shap_gradient(),
+        inputs=torch.rand(1, 3, 8, 8),
+        call_kwargs={"background_data": background},
+        call_provenance={"background_data": {"source": "bg", "n_samples": 6}},
+        input_spec=_image_input_spec((1, 3, 8, 8)),
+        run_dir=tmp_path,
+    )
+    assert record is not None
+    assert record.image_path is not None
+    rendered = tmp_path / record.image_path
+    assert rendered.exists()
+    # 6 images -> 5 cols x 2 rows grid -> wider than a single square tile.
+    with Image.open(rendered) as image:
+        assert image.width > image.height
+    # The descriptor still records the full set, not just the previewed tiles.
+    assert record.shape == (6, 3, 8, 8)
+    assert record.n_samples == 6
+
+
 def test_shap_input_batch_default_when_absent(tmp_path: Path) -> None:
     inputs = torch.rand(3, 3, 4, 4)
     record = build_baseline_record(
