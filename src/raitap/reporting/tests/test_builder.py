@@ -2111,6 +2111,16 @@ def _write_test_image(path: Path) -> Path:
     return path
 
 
+def test_baseline_mode_label_humanises_known_tokens() -> None:
+    from raitap.reporting.builder import _baseline_mode_label
+
+    assert _baseline_mode_label("configured") == "configured dataset"
+    assert _baseline_mode_label("user_tensor") == "user-provided tensor"
+    assert _baseline_mode_label("zero") == "all-zeros (method default)"
+    assert _baseline_mode_label("input_batch") == "input batch (method default)"
+    assert _baseline_mode_label("future_mode") == "future_mode"  # unknown -> passthrough
+
+
 def test_transparency_table_rows_include_baseline_and_hide_opaque_kwarg(tmp_path: Path) -> None:
     from pathlib import Path as _Path
 
@@ -2145,7 +2155,8 @@ def test_transparency_table_rows_include_baseline_and_hide_opaque_kwarg(tmp_path
 
     rows = dict(_transparency_table_rows(explanation, selected_samples=[], visualiser_index=0))
 
-    assert rows["baseline.mode"] == "configured"
+    # Mode token is humanised for the report; raw token stays in metadata.json.
+    assert rows["baseline.mode"] == "configured dataset"
     assert rows["baseline.source"] == "imagenet"
     assert rows["baseline.n_samples"] == "50"
     assert "baseline.shape" in rows

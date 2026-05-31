@@ -1087,6 +1087,21 @@ def _overlay_detection_boxes(figure: Any, *, outputs: RunOutputs, sample_index: 
         )
 
 
+# Human-facing labels for the baseline ``mode`` token. The raw token is kept in
+# ``metadata.json``; the report shows the readable phrasing (issue #210).
+_BASELINE_MODE_LABELS = {
+    "configured": "configured dataset",
+    "user_tensor": "user-provided tensor",
+    "zero": "all-zeros (method default)",
+    "input_batch": "input batch (method default)",
+}
+
+
+def _baseline_mode_label(mode: object) -> str:
+    token = str(mode)
+    return _BASELINE_MODE_LABELS.get(token, token)
+
+
 def _transparency_table_rows(
     explanation: Any,
     *,
@@ -1133,7 +1148,7 @@ def _transparency_table_rows(
 
     baseline = getattr(explanation, "baseline", None)
     if baseline is not None:
-        rows.append(("baseline.mode", str(baseline.mode)))
+        rows.append(("baseline.mode", _baseline_mode_label(baseline.mode)))
         if baseline.source is not None:
             rows.append(("baseline.source", str(baseline.source)))
         if baseline.n_samples is not None:
