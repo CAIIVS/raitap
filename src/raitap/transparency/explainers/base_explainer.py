@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
+from raitap import raitap_log
 from raitap._adapters import AdapterMixin
 from raitap.configs import resolve_run_dir
 from raitap.utils.lazy import lazy_import
@@ -180,14 +181,24 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
             )
         )
 
-        baseline = build_baseline_record(
-            explainer=self,
-            inputs=inputs,
-            call_kwargs=call_kwargs,
-            call_provenance=call_provenance,
-            input_spec=input_spec,
-            run_dir=resolved_run_dir,
-        )
+        try:
+            baseline = build_baseline_record(
+                explainer=self,
+                inputs=inputs,
+                call_kwargs=call_kwargs,
+                call_provenance=call_provenance,
+                input_spec=input_spec,
+                run_dir=resolved_run_dir,
+            )
+        except Exception:
+            # Baseline capture is documentation only. A render/hash failure must
+            # never discard the just-computed attributions for this explainer (or
+            # abort not-yet-run explainers); degrade to no baseline (cf. #206/#207).
+            raitap_log.exception(
+                "Baseline documentation failed for %s; continuing without it.",
+                getattr(self, "algorithm", type(self).__name__),
+            )
+            baseline = None
 
         explanation = ExplanationResult(
             attributions=attributions,

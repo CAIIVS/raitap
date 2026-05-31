@@ -103,7 +103,10 @@ def build_baseline_record(
 
 
 def _hash_tensor(tensor: torch.Tensor) -> str:
-    data = tensor.detach().cpu().contiguous().numpy().tobytes()
+    # Cast to float32 first: NumPy has no bfloat16, so a bf16 baseline would
+    # otherwise raise in ``.numpy()``. The cast is a no-op for float32 inputs and
+    # keeps the hash deterministic across dtypes.
+    data = tensor.detach().cpu().to(torch.float32).contiguous().numpy().tobytes()
     return hashlib.sha256(data).hexdigest()
 
 
@@ -146,7 +149,8 @@ def _render_baseline_image(baseline: torch.Tensor, run_dir: Path) -> Path:
     try:
         flat_axes = list(axes.flat)
         for ax, tile in zip(flat_axes, tiles, strict=False):
-            image = np.asarray(tile.detach().cpu().numpy())
+            # float32 cast: NumPy has no bfloat16, so a bf16 tile would raise here.
+            image = np.asarray(tile.detach().cpu().to(torch.float32).numpy())
             if image.ndim == 3:
                 image = np.transpose(image, (1, 2, 0))
             lo, hi = float(image.min()), float(image.max())

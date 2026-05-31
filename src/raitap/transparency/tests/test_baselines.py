@@ -103,6 +103,21 @@ def test_configured_when_provenance_present(tmp_path: Path) -> None:
     assert record.shape == (5, 3, 4, 4)
 
 
+def test_bfloat16_baseline_renders_and_hashes(tmp_path: Path) -> None:
+    record = build_baseline_record(
+        explainer=_captum_ig(),
+        inputs=torch.rand(2, 3, 4, 4, dtype=torch.bfloat16),
+        call_kwargs={},
+        call_provenance=None,
+        input_spec=_image_input_spec((2, 3, 4, 4)),
+        run_dir=tmp_path,
+    )
+    assert record is not None
+    assert record.sha256  # bf16 hashed without crashing
+    assert record.image_path is not None
+    assert (tmp_path / record.image_path).exists()  # bf16 rendered without crashing
+
+
 def test_montage_caption_only_when_capped() -> None:
     from raitap.transparency.baselines import _montage_caption
 

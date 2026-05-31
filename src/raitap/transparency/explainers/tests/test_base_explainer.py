@@ -595,6 +595,32 @@ def test_explain_attaches_zero_baseline_when_absent(tmp_path: Path) -> None:
     assert (result.run_dir / result.baseline.image_path).exists()
 
 
+def test_explain_survives_baseline_documentation_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _boom(**_kwargs: Any) -> None:
+        raise RuntimeError("baseline render exploded")
+
+    monkeypatch.setattr(base_explainer_module, "build_baseline_record", _boom)
+
+    explainer = _BaselineDeclaringExplainer()
+    inputs = torch.randn(2, 3, 4, 4)
+
+    result = explainer.explain(
+        torch.nn.Identity(),
+        inputs,
+        run_dir=tmp_path / "exp",
+        target=0,
+        raitap_kwargs=_raitap_kwargs_for(inputs),
+    )
+
+    # Documentation failure must not discard the scientific output.
+    assert result.baseline is None
+    assert torch.equal(result.attributions, inputs)
+    assert (result.run_dir / "metadata.json").exists()
+    assert (result.run_dir / "attributions.pt").exists()
+
+
 def test_explain_records_configured_baseline_with_provenance(tmp_path: Path) -> None:
     explainer = _BaselineDeclaringExplainer()
     inputs = torch.randn(1, 3, 4, 4)
