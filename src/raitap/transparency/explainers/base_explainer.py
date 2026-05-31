@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
+from raitap import raitap_log
 from raitap._adapters import AdapterMixin
 from raitap.configs import resolve_run_dir
 from raitap.utils.lazy import lazy_import
@@ -18,14 +19,15 @@ if TYPE_CHECKING:
 else:
     torch = lazy_import("torch")
 
+from ..baselines import build_baseline_record
 from ..contracts import (
+    ExplainerSemanticsHints,
     ExplanationOutputSpace,
     ExplanationPayloadKind,
     ExplanationScope,
     ExplanationSemantics,
     ExplanationTarget,
     InputSpec,
-    MethodFamily,
     SampleSelection,
     ScopeDefinitionStep,
     explainer_output_scope,
@@ -52,10 +54,17 @@ class BaseExplainer(AdapterMixin, ABC):
 
     output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
     output_scope: ClassVar[ExplanationScope] = ExplanationScope.LOCAL
-    algorithm_registry: ClassVar[Mapping[str, frozenset[MethodFamily]]]
+    algorithm_registry: ClassVar[Mapping[str, ExplainerSemanticsHints]]
     # Adapter-specific; defaults to "no ONNX support". The
     # ``@adapters.transparency`` decorator overrides per-adapter.
     ONNX_COMPATIBLE_ALGORITHMS: ClassVar[frozenset[str]] = frozenset()
+
+    # Baseline documentation (issue #210). ``baseline_kwarg_name`` is the call kwarg
+    # that holds this family's reference input (``None`` → family takes no
+    # baseline); set via the ``@adapters.transparency`` decorator kwarg. The
+    # per-algorithm implicit default mode lives on each algorithm's
+    # ``ExplainerSemanticsHints.baseline_default`` in ``algorithm_registry``.
+    baseline_kwarg_name: ClassVar[str | None] = None
 
     def check_backend_compat(self, backend: object) -> None:
         """Default: enforce the ONNX-allowlist contract.
@@ -108,6 +117,8 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
         explainer_name: str | None = None,
         visualisers: list[ConfiguredVisualiser] | None = None,
         raitap_kwargs: dict[str, Any] | None = None,
+        call_provenance: Mapping[str, Mapping[str, Any]] | None = None,
+        baseline_render_cache: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> ExplanationResult:
         """
@@ -161,17 +172,39 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
             output_space=output_space,
         )
 
+        resolved_run_dir = (
+            Path(run_dir)
+            if run_dir is not None
+            else resolve_run_dir(
+                output_root=output_root,
+                subdir="transparency",
+            )
+        )
+
+        try:
+            baseline = build_baseline_record(
+                explainer=self,
+                inputs=inputs,
+                call_kwargs=call_kwargs,
+                call_provenance=call_provenance,
+                input_spec=input_spec,
+                run_dir=resolved_run_dir,
+                render_cache=baseline_render_cache,
+            )
+        except Exception:
+            # Baseline capture is documentation only. A render/hash failure must
+            # never discard the just-computed attributions for this explainer (or
+            # abort not-yet-run explainers); degrade to no baseline (cf. #206/#207).
+            raitap_log.exception(
+                "Baseline documentation failed for %s; continuing without it.",
+                getattr(self, "algorithm", type(self).__name__),
+            )
+            baseline = None
+
         explanation = ExplanationResult(
             attributions=attributions,
             inputs=inputs,
-            run_dir=(
-                Path(run_dir)
-                if run_dir is not None
-                else resolve_run_dir(
-                    output_root=output_root,
-                    subdir="transparency",
-                )
-            ),
+            run_dir=resolved_run_dir,
             experiment_name=experiment_name,
             explainer_target=(explainer_target or f"{type(self).__module__}.{type(self).__name__}"),
             algorithm=getattr(self, "algorithm", ""),
@@ -181,6 +214,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
             visualisers=visualisers_list,
             payload_kind=self.output_payload_kind,
             semantics=semantics,
+            baseline=baseline,
         )
         explanation.write_artifacts()
         return explanation

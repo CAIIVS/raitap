@@ -17,6 +17,7 @@ from raitap.configs.adapter_factory import (
     resolve_per_image_transform,
 )
 from raitap.models.backend import ModelBackend
+from raitap.transparency.baselines import apply_config_baseline
 from raitap.utils.errors import SampleNamesLengthError
 from raitap.utils.lazy import lazy_import
 
@@ -66,6 +67,9 @@ _SCHEMA = AdapterSchema(
             "sample_ids",
             "sample_names",
             "show_sample_names",
+            # Library-agnostic baseline / reference input, routed to the
+            # adapter's ``baseline_kwarg_name`` by ``apply_config_baseline``.
+            "baseline",
             # Detection-task knobs consumed by ``explain_detection`` —
             # ``score_threshold`` / ``max_boxes`` / ``iou_threshold``.
             "detection",
@@ -223,13 +227,24 @@ class Explanation:
                         source=source,
                     )
 
+            # Route raitap.baseline on the *merged* call dict (config + runtime
+            # kwargs) so raitap.baseline wins — with a warning — over the adapter's
+            # own kwarg whether it came from ``call:`` or a runtime override.
+            merged_call = apply_config_baseline(
+                explainer=explainer,
+                call_kwargs={**call_from_config, **kwargs},
+                raitap_kwargs=raitap_cfg,
+            )
+
+            call_provenance: dict[str, dict[str, Any]] = {}
             merged_kwargs = resolve_call_data_sources(
-                {**call_from_config, **kwargs},
+                merged_call,
                 log_label="call",
                 per_image_transform=resolve_per_image_transform(
                     config,
                     resolved_preprocessing=resolved_preprocessing,
                 ),
+                provenance_out=call_provenance,
             )
             merged_kwargs = backend._prepare_kwargs(merged_kwargs)
 
@@ -243,6 +258,7 @@ class Explanation:
                 explainer_name=explainer_name,
                 visualisers=visualisers,
                 raitap_kwargs=raitap_cfg,
+                call_provenance=call_provenance,
                 **merged_kwargs,
             )
         finally:

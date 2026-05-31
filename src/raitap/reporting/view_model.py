@@ -61,6 +61,11 @@ class ExplainerView:
     headline: dict[str, str]
     context: dict[str, str]
     technical: dict[str, str]
+    # Baseline (issue #210): ``baseline_image_src`` is set on every visualiser
+    # card of an explanation whose baseline rendered an image. It drives BOTH the
+    # "View baseline" link (each card) and the anchored image in the per-explainer
+    # reference card, so the link and its anchor cannot drift apart (review #6).
+    baseline_image_src: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,7 +142,7 @@ class ReportView:
     summary: SummaryView
     metrics: MetricsView | None
     global_groups: tuple[GenericGroupView, ...]
-    cohort_groups: tuple[GenericGroupView, ...]
+    aggregated_groups: tuple[GenericGroupView, ...]
     local_samples: tuple[LocalSampleView, ...]
     robustness_assessors: tuple[RobustnessAssessorView, ...]
     appendix: AppendixView
@@ -154,7 +159,7 @@ def build_view(
     metadata = {} if metadata is None else metadata
     metrics: MetricsView | None = None
     global_groups: tuple[GenericGroupView, ...] = ()
-    cohort_groups: tuple[GenericGroupView, ...] = ()
+    aggregated_groups: tuple[GenericGroupView, ...] = ()
     local_samples: tuple[LocalSampleView, ...] = ()
     robustness_assessors: tuple[RobustnessAssessorView, ...] = ()
 
@@ -164,8 +169,8 @@ def build_view(
             metrics = _build_metrics_view(section)
         elif role == "global":
             global_groups = _build_generic_groups(section)
-        elif role == "cohort":
-            cohort_groups = _build_generic_groups(section)
+        elif role == "aggregated":
+            aggregated_groups = _build_generic_groups(section)
         elif role == "local":
             local_samples = _build_local_samples(section)
         elif role == "robustness":
@@ -206,7 +211,7 @@ def build_view(
         summary=summary,
         metrics=metrics,
         global_groups=global_groups,
-        cohort_groups=cohort_groups,
+        aggregated_groups=aggregated_groups,
         local_samples=local_samples,
         robustness_assessors=robustness_assessors,
         appendix=AppendixView(sections=tuple(sections)),
@@ -217,7 +222,7 @@ def _section_role(section: ReportSection) -> str:
     raw = str(section.metadata.get("section_role", ""))
     aliases = {
         "global_explanations": "global",
-        "cohort_explanations": "cohort",
+        "aggregated_explanations": "aggregated",
         "local_explanations": "local",
     }
     return aliases.get(raw, raw)
@@ -411,6 +416,11 @@ def _build_explainer_view(group: ReportGroup) -> ExplainerView:
         or "visualiser"
     )
 
+    baseline_image = group.metadata.get("baseline_image")
+    baseline_image_src = (
+        _image_src(Path(baseline_image)) if isinstance(baseline_image, str) else None
+    )
+
     return ExplainerView(
         explainer_name=explainer_name,
         algorithm=algorithm,
@@ -420,6 +430,7 @@ def _build_explainer_view(group: ReportGroup) -> ExplainerView:
         headline=headline,
         context=context,
         technical=technical,
+        baseline_image_src=baseline_image_src,
     )
 
 

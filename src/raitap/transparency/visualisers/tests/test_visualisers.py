@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pytest
 import torch
 
@@ -118,7 +119,7 @@ class TestBaseVisualiserContract:
                 "payload kind",
             ),
             (
-                _explanation(scope=ExplanationScope.COHORT),
+                _explanation(scope=ExplanationScope.AGGREGATED),
                 "scope",
             ),
             (
@@ -509,8 +510,8 @@ class TestTabularBarChartVisualiser:
         visualiser = TabularBarChartVisualiser()
         assert visualiser is not None
 
-    def test_contract_produces_cohort_visualiser_summary(self) -> None:
-        assert TabularBarChartVisualiser.produces_scope is ExplanationScope.COHORT
+    def test_contract_produces_aggregated_visualiser_summary(self) -> None:
+        assert TabularBarChartVisualiser.produces_scope is ExplanationScope.AGGREGATED
         assert (
             TabularBarChartVisualiser.scope_definition_step
             is ScopeDefinitionStep.VISUALISER_SUMMARY
@@ -832,8 +833,8 @@ class TestShapBarVisualiser:
         visualiser = ShapBarVisualiser()
         assert visualiser is not None
 
-    def test_contract_produces_cohort_visualiser_summary(self) -> None:
-        assert ShapBarVisualiser.produces_scope is ExplanationScope.COHORT
+    def test_contract_produces_aggregated_visualiser_summary(self) -> None:
+        assert ShapBarVisualiser.produces_scope is ExplanationScope.AGGREGATED
         assert ShapBarVisualiser.scope_definition_step is ScopeDefinitionStep.VISUALISER_SUMMARY
         assert ShapBarVisualiser.visual_summary is not None
         assert ShapBarVisualiser.visual_summary.aggregation == "mean_absolute_attribution"
@@ -900,8 +901,8 @@ class TestShapBeeswarmVisualiser:
         visualiser = ShapBeeswarmVisualiser()
         assert visualiser is not None
 
-    def test_contract_produces_cohort_distribution_summary(self) -> None:
-        assert ShapBeeswarmVisualiser.produces_scope is ExplanationScope.COHORT
+    def test_contract_produces_aggregated_distribution_summary(self) -> None:
+        assert ShapBeeswarmVisualiser.produces_scope is ExplanationScope.AGGREGATED
         assert (
             ShapBeeswarmVisualiser.scope_definition_step is ScopeDefinitionStep.VISUALISER_SUMMARY
         )
@@ -1167,6 +1168,155 @@ class TestShapImageVisualiser:
         assert caught == []
         assert "Original Image" not in [ax.get_title() for ax in fig.axes]
         plt.close(fig)
+
+    @pytest.mark.usefixtures("needs_shap")
+    def test_red_transparent_blue_accessor_returns_shap_colormap(self) -> None:
+        """``_red_transparent_blue`` lazily returns SHAP's diverging colormap."""
+        from matplotlib.colors import Colormap
+
+        from raitap.transparency.visualisers.shap_visualisers import _red_transparent_blue
+
+        cmap = _red_transparent_blue()
+        assert isinstance(cmap, Colormap)
+        assert cmap.name == "red_transparent_blue"
+
+    def test_rgb_to_grayscale_uses_luminosity_weights(self) -> None:
+        """RGB → 2-D grayscale via ITU-R luminosity weights matching shap.image_plot."""
+        from raitap.transparency.visualisers.shap_visualisers import _rgb_to_grayscale
+
+        # Pure red, green, blue (H=W=2). Channels last (H, W, C).
+        red = np.zeros((2, 2, 3))
+        red[..., 0] = 1.0
+        green = np.zeros((2, 2, 3))
+        green[..., 1] = 1.0
+        blue = np.zeros((2, 2, 3))
+        blue[..., 2] = 1.0
+
+        np.testing.assert_allclose(_rgb_to_grayscale(red), np.full((2, 2), 0.2989))
+        np.testing.assert_allclose(_rgb_to_grayscale(green), np.full((2, 2), 0.5870))
+        np.testing.assert_allclose(_rgb_to_grayscale(blue), np.full((2, 2), 0.1140))
+
+    def test_rgb_to_grayscale_passthrough_and_non_rgb_mean(self) -> None:
+        """2-D inputs pass through, single-channel reduces to 2-D, non-RGB averages."""
+        from raitap.transparency.visualisers.shap_visualisers import _rgb_to_grayscale
+
+        # 2-D pass-through.
+        flat = np.arange(4, dtype=float).reshape(2, 2)
+        np.testing.assert_array_equal(_rgb_to_grayscale(flat), flat)
+
+        # Single-channel HxWx1 — fall back to mean (one channel = identity).
+        single = np.full((2, 2, 1), 0.7)
+        np.testing.assert_allclose(_rgb_to_grayscale(single), np.full((2, 2), 0.7))
+
+        # 5-channel multi-channel non-RGB — per-channel mean.
+        multi = np.stack([np.full((2, 2), float(c)) for c in range(5)], axis=-1)
+        np.testing.assert_allclose(_rgb_to_grayscale(multi), np.full((2, 2), 2.0))
+
+    def test_rgb_to_grayscale_rejects_unsupported_shapes(self) -> None:
+        from raitap.transparency.visualisers.shap_visualisers import _rgb_to_grayscale
+
+        with pytest.raises(ValueError, match=r"expected 2D or 3D"):
+            _rgb_to_grayscale(np.zeros((1, 2, 3, 4)))
+
+    def test_symmetric_vmin_vmax_uses_nanpercentile(self) -> None:
+        """vmax = nanpercentile(|values|, perc); vmin = -vmax."""
+        from raitap.transparency.visualisers.shap_visualisers import _symmetric_vmin_vmax
+
+        values = np.array([-3.0, -1.0, 0.0, 2.0, 5.0, np.nan])
+        vmin, vmax = _symmetric_vmin_vmax(values, outlier_perc=99.9)
+        expected = float(np.nanpercentile(np.abs(values), 99.9))
+        assert vmax == pytest.approx(expected)
+        assert vmin == pytest.approx(-expected)
+
+    def test_symmetric_vmin_vmax_falls_back_for_all_zero(self) -> None:
+        """All-zero / empty / non-finite inputs fall back to ±1.0."""
+        from raitap.transparency.visualisers.shap_visualisers import _symmetric_vmin_vmax
+
+        assert _symmetric_vmin_vmax(np.zeros((4, 4))) == (-1.0, 1.0)
+        assert _symmetric_vmin_vmax(np.array([])) == (-1.0, 1.0)
+        assert _symmetric_vmin_vmax(np.full((2, 2), np.nan)) == (-1.0, 1.0)
+
+    def test_init_defaults_match_shap_image_plot(self) -> None:
+        """Defaults match shap.plots.image: cmap None sentinel, alpha=0.15, outlier_perc=99.9."""
+        from raitap.transparency.visualisers.shap_visualisers import ShapImageVisualiser
+
+        v = ShapImageVisualiser()
+        assert v.cmap is None  # resolved to SHAP's red_transparent_blue at render time
+        assert v.overlay_alpha == 0.15
+        assert v.outlier_perc == 99.9
+        assert v.max_samples == 4
+        assert v.include_original_image is True
+        assert v.show_colorbar is True
+
+    def test_init_accepts_explicit_cmap_and_outlier_perc(self) -> None:
+        from raitap.transparency.visualisers.shap_visualisers import ShapImageVisualiser
+
+        v = ShapImageVisualiser(cmap="viridis", outlier_perc=95.0, overlay_alpha=0.4)
+        assert v.cmap == "viridis"
+        assert v.outlier_perc == 95.0
+        assert v.overlay_alpha == 0.4
+
+    @pytest.mark.usefixtures("needs_shap")
+    def test_visualise_uses_shap_native_recipe(self) -> None:
+        """Each panel draws grayscale@overlay_alpha under red_transparent_blue@±perc."""
+        import matplotlib
+
+        matplotlib.use("Agg")
+
+        from raitap.transparency.visualisers.shap_visualisers import (
+            ShapImageVisualiser,
+            _image_heatmap,
+            _symmetric_vmin_vmax,
+        )
+
+        rng = np.random.default_rng(0)
+        # 2 samples, RGB 8x8.
+        attributions = torch.from_numpy(rng.normal(size=(2, 3, 8, 8))).float()
+        inputs = torch.from_numpy(rng.uniform(size=(2, 3, 8, 8))).float()
+
+        fig = ShapImageVisualiser(include_original_image=False, show_colorbar=False).visualise(
+            attributions, inputs=inputs
+        )
+
+        # First sample's attribution axis is axes[0] (no original, no colorbar).
+        attr_ax = fig.axes[0]
+        images = attr_ax.get_images()
+        assert len(images) == 2, "expected grayscale background + heatmap overlay"
+
+        bg, heat = images
+        assert bg.cmap.name == "gray"
+        assert bg.get_alpha() == pytest.approx(0.15)
+
+        assert heat.cmap.name == "red_transparent_blue"
+        vmin, vmax = heat.get_clim()
+        # Compute the expected percentile from the same heatmap reduction the
+        # visualiser uses internally.
+        heatmap_first = _image_heatmap(np.transpose(attributions[0].numpy(), (1, 2, 0)))
+        expected_vmin, expected_vmax = _symmetric_vmin_vmax(heatmap_first, 99.9)
+        assert vmin == pytest.approx(expected_vmin)
+        assert vmax == pytest.approx(expected_vmax)
+
+    @pytest.mark.usefixtures("needs_shap")
+    def test_visualise_without_inputs_skips_grayscale_background(self) -> None:
+        """When no input image is provided the grayscale background is omitted."""
+        import matplotlib
+
+        matplotlib.use("Agg")
+
+        from raitap.transparency.visualisers.shap_visualisers import ShapImageVisualiser
+
+        attributions = torch.zeros(1, 3, 8, 8)
+        attributions[..., 0, 0] = 1.0  # nonzero so the colormap range is valid
+
+        fig = ShapImageVisualiser(include_original_image=False, show_colorbar=False).visualise(
+            attributions, inputs=None
+        )
+
+        attr_ax = fig.axes[0]
+        images = attr_ax.get_images()
+        # Only the heatmap — no grayscale background without an input image.
+        assert len(images) == 1
+        assert images[0].cmap.name == "red_transparent_blue"
 
 
 class TestInputThumbnailVisualiser:

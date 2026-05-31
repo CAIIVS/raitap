@@ -421,10 +421,10 @@ def test_build_report_skips_global_section_for_local_only_outputs(tmp_path: Path
     assert [section.title for section in report.sections] == ["Local Explanations"]
 
 
-def test_build_report_places_cohort_visualisations_between_global_and_local(
+def test_build_report_places_aggregated_visualisations_between_global_and_local(
     tmp_path: Path,
 ) -> None:
-    config = AppConfig(experiment_name="cohort")
+    config = AppConfig(experiment_name="aggregated")
     set_output_root(config, tmp_path)
     config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
 
@@ -433,25 +433,25 @@ def test_build_report_places_cohort_visualisations_between_global_and_local(
         attributions=torch.rand(2, 1, 4, 4),
         inputs=torch.rand(2, 1, 4, 4),
         run_dir=tmp_path / "transparency" / "exp",
-        experiment_name="cohort",
+        experiment_name="aggregated",
         explainer_target="t",
         algorithm="IntegratedGradients",
         semantics=_local_image_semantics((2, 1, 4, 4)),
         explainer_name="captum_ig",
         visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
     )
-    native_cohort_path = _write_test_image(tmp_path / "native_cohort.png")
-    native_cohort = VisualisationResult(
+    native_aggregated_path = _write_test_image(tmp_path / "native_aggregated.png")
+    native_aggregated = VisualisationResult(
         explanation=explanation,
         figure=plt.figure(),
-        visualiser_name="Cohort_0",
-        visualiser_target="test.Cohort_0",
-        output_path=native_cohort_path,
-        scope=ExplanationScope.COHORT,
+        visualiser_name="Aggregated_0",
+        visualiser_target="test.Aggregated_0",
+        output_path=native_aggregated_path,
+        scope=ExplanationScope.AGGREGATED,
     )
     outputs = RunOutputs(
         explanations=[explanation],
-        visualisations=[native_cohort],
+        visualisations=[native_aggregated],
         metrics=_MetricsStub(metrics_image),  # type: ignore[arg-type]
         forward_output=_fo(torch.tensor([[0.1, 0.9], [0.8, 0.2]])),
         prediction_summaries=(
@@ -464,10 +464,10 @@ def test_build_report_places_cohort_visualisations_between_global_and_local(
 
     assert [section.title for section in report.sections] == [
         "Metrics",
-        "Cohort Explanations",
+        "Aggregated Explanations",
         "Local Explanations",
     ]
-    assert report.sections[1].groups[0].metadata["role"] == "cohort"
+    assert report.sections[1].groups[0].metadata["role"] == "aggregated"
 
 
 def test_build_report_local_assets_are_staged_and_closed(tmp_path: Path) -> None:
@@ -1837,7 +1837,7 @@ def test_build_merged_report_deduplicates_identical_metrics_only(tmp_path: Path)
     assert len(sections["Local Explanations"].groups) == 3
 
 
-def test_build_merged_report_preserves_present_section_order_with_cohort(
+def test_build_merged_report_preserves_present_section_order_with_aggregated(
     tmp_path: Path,
 ) -> None:
     sweep_dir = tmp_path / "multirun"
@@ -1845,7 +1845,7 @@ def test_build_merged_report_preserves_present_section_order_with_cohort(
     _write_child_manifest(
         sweep_dir / "0",
         heading="Metrics A",
-        include_cohort=True,
+        include_aggregated=True,
         include_local=True,
     )
     child_manifests: list[tuple[str, str | None, ReportManifest]] = [
@@ -1865,7 +1865,7 @@ def test_build_merged_report_preserves_present_section_order_with_cohort(
 
     assert [section.title for section in report.sections] == [
         "Metrics",
-        "Cohort Explanations",
+        "Aggregated Explanations",
         "Local Explanations",
     ]
 
@@ -2043,7 +2043,7 @@ def _write_child_manifest(
     *,
     heading: str,
     table_rows: tuple[tuple[str, str], ...] = (("accuracy", "0.9000"),),
-    include_cohort: bool = False,
+    include_aggregated: bool = False,
     include_local: bool = False,
 ) -> None:
     report_dir = child_dir / "reports"
@@ -2063,16 +2063,16 @@ def _write_child_manifest(
         )
     ]
     if include_local:
-        if include_cohort:
-            cohort_asset = _write_test_image(report_dir / "_assets" / "cohort.png")
+        if include_aggregated:
+            aggregated_asset = _write_test_image(report_dir / "_assets" / "aggregated.png")
             sections.append(
                 ReportSection.from_groups(
-                    "Cohort Explanations",
+                    "Aggregated Explanations",
                     [
                         ReportGroup(
-                            heading=f"Cohort {heading}",
-                            images=(cohort_asset,),
-                            metadata={"role": "cohort"},
+                            heading=f"Aggregated {heading}",
+                            images=(aggregated_asset,),
+                            metadata={"role": "aggregated"},
                         )
                     ],
                 )
@@ -2164,3 +2164,195 @@ def _write_test_image(path: Path) -> Path:
     fig.savefig(path, bbox_inches="tight", dpi=80)
     plt.close(fig)
     return path
+
+
+def test_baseline_mode_label_humanises_known_tokens() -> None:
+    from raitap.reporting.builder import _baseline_mode_label
+
+    assert _baseline_mode_label("configured") == "configured dataset"
+    assert _baseline_mode_label("user_tensor") == "user-provided tensor"
+    assert _baseline_mode_label("zero") == "all-zeros (method default)"
+    assert _baseline_mode_label("input_batch") == "input batch (method default)"
+    assert _baseline_mode_label("future_mode") == "future_mode"  # unknown -> passthrough
+
+
+def test_transparency_table_rows_include_baseline_and_hide_opaque_kwarg(tmp_path: Path) -> None:
+    from pathlib import Path as _Path
+
+    from raitap.reporting.builder import _transparency_table_rows
+    from raitap.transparency.contracts import BaselineRecord
+
+    record = BaselineRecord(
+        kwarg_name="background_data",
+        mode="configured",
+        source="imagenet",
+        n_samples=50,
+        shape=(50, 3, 4, 4),
+        dtype="torch.float32",
+        sha256="secret-hash",
+        image_path=_Path("baseline.png"),
+    )
+    explanation = ExplanationResult(
+        attributions=torch.rand(1, 1, 4, 4),
+        inputs=torch.rand(1, 1, 4, 4),
+        run_dir=tmp_path / "exp",
+        experiment_name="demo",
+        explainer_target="t",
+        algorithm="GradientExplainer",
+        explainer_name="shap_grad",
+        semantics=_local_image_semantics((1, 1, 4, 4)),
+        # Small tensor (numel == 4) so it WOULD render as call.background_data
+        # without suppression — proving the suppression branch is exercised.
+        call_kwargs={"background_data": torch.zeros(4), "target": 0},
+        visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
+        baseline=record,
+    )
+
+    rows = dict(_transparency_table_rows(explanation, selected_samples=[], visualiser_index=0))
+
+    # Mode token is humanised for the report; raw token stays in metadata.json.
+    assert rows["baseline.mode"] == "configured dataset"
+    assert rows["baseline.source"] == "imagenet"
+    assert rows["baseline.n_samples"] == "50"
+    assert "baseline.shape" in rows
+    # sha256 never reaches the report.
+    assert "secret-hash" not in str(rows)
+    assert not any(k.startswith("baseline.sha2") for k in rows)
+    # The opaque tensor kwarg is suppressed in favour of the labelled rows.
+    assert "call.background_data" not in rows
+    # Non-baseline kwargs still render.
+    assert "call.target" in rows
+
+
+def test_stage_baseline_image_copies_when_present(tmp_path: Path) -> None:
+    from pathlib import Path as _Path
+    from types import SimpleNamespace
+
+    from raitap.reporting.builder import _stage_baseline_image
+    from raitap.transparency.contracts import BaselineRecord
+
+    run_dir = tmp_path / "exp"
+    run_dir.mkdir()
+    _write_test_image(run_dir / "baseline.png")  # existing helper in this module
+    record = BaselineRecord(
+        kwarg_name="baselines",
+        mode="zero",
+        source=None,
+        n_samples=None,
+        shape=(1, 1, 4, 4),
+        dtype="torch.float32",
+        sha256="h",
+        image_path=_Path("baseline.png"),
+    )
+    explanation = SimpleNamespace(baseline=record, run_dir=run_dir)
+
+    out = _stage_baseline_image(explanation, assets_dir=tmp_path / "assets", stem="s0")
+    assert out is not None
+    assert out.exists()
+    assert out.name == "baseline_s0.png"
+
+
+def test_stage_baseline_image_none_when_no_baseline_or_missing_file(tmp_path: Path) -> None:
+    from pathlib import Path as _Path
+    from types import SimpleNamespace
+
+    from raitap.reporting.builder import _stage_baseline_image
+    from raitap.transparency.contracts import BaselineRecord
+
+    no_baseline = SimpleNamespace(baseline=None, run_dir=tmp_path)
+    assert _stage_baseline_image(no_baseline, assets_dir=tmp_path / "a", stem="s") is None
+
+    record = BaselineRecord(
+        kwarg_name="baselines",
+        mode="zero",
+        source=None,
+        n_samples=None,
+        shape=(1, 1, 4, 4),
+        dtype="torch.float32",
+        sha256="h",
+        image_path=_Path("baseline.png"),
+    )
+    missing = SimpleNamespace(baseline=record, run_dir=tmp_path / "missing")
+    assert _stage_baseline_image(missing, assets_dir=tmp_path / "a", stem="s") is None
+
+    # A baseline with no rendered image (e.g. tabular modality) stages nothing.
+    no_image_record = BaselineRecord(
+        kwarg_name="baselines",
+        mode="zero",
+        source=None,
+        n_samples=None,
+        shape=(1, 4),
+        dtype="torch.float32",
+        sha256="h",
+        image_path=None,
+    )
+    no_image = SimpleNamespace(baseline=no_image_record, run_dir=tmp_path)
+    assert _stage_baseline_image(no_image, assets_dir=tmp_path / "a", stem="s") is None
+
+
+def test_build_report_attaches_baseline_image_once_per_explanation(tmp_path: Path) -> None:
+    from pathlib import Path as _Path
+
+    from raitap.transparency.contracts import BaselineRecord
+
+    config = AppConfig(experiment_name="bl")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    run_dir = tmp_path / "transparency" / "exp"
+    run_dir.mkdir(parents=True)
+    _write_test_image(run_dir / "baseline.png")
+
+    record = BaselineRecord(
+        kwarg_name="baselines",
+        mode="zero",
+        source=None,
+        n_samples=None,
+        shape=(1, 1, 4, 4),
+        dtype="torch.float32",
+        sha256="h",
+        image_path=_Path("baseline.png"),
+    )
+    explanation = ExplanationResult(
+        attributions=torch.rand(1, 1, 4, 4),
+        inputs=torch.rand(1, 1, 4, 4),
+        run_dir=run_dir,
+        experiment_name="bl",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        explainer_name="captum_ig",
+        semantics=_local_image_semantics((1, 1, 4, 4)),
+        visualisers=[
+            ConfiguredVisualiser(visualiser=_LocalImageVisualiser()),
+            ConfiguredVisualiser(visualiser=_LocalImageVisualiser()),
+        ],
+        baseline=record,
+    )
+    outputs = RunOutputs(
+        explanations=[explanation],
+        visualisations=[],
+        metrics=None,
+        forward_output=_fo(torch.tensor([[0.1, 0.9]])),
+        sample_ids=["a"],
+        prediction_summaries=(
+            PredictionSummary(
+                sample_index=0,
+                sample_id="a",
+                predicted_class=1,
+                target_class=0,
+                confidence=0.9,
+                correct=False,
+            ),
+        ),
+    )
+
+    report = build_report(config, outputs)
+
+    local = next(s for s in report.sections if s.title == "Local Explanations")
+    baseline_imgs = [
+        p for group in local.groups for p in group.images if p.name.startswith("baseline_")
+    ]
+    local_vis_groups = [g for g in local.groups if g.metadata.get("role") == "local_visualiser"]
+    # Two visualisers -> two local_visualiser groups, but the baseline renders once.
+    assert len(local_vis_groups) == 2
+    assert len(baseline_imgs) == 1

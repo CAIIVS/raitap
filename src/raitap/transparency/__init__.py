@@ -30,6 +30,7 @@ from raitap._adapters import ALL as ALL
 from .contracts import (
     ExplainerAdapter,
     ExplainerCapability,
+    ExplainerSemanticsHints,
     ExplanationOutputSpace,
     ExplanationPayloadKind,
     ExplanationScope,
@@ -198,6 +199,7 @@ __all__ = [  # noqa: RUF022
     # Contracts
     "ExplainerAdapter",
     "ExplainerCapability",
+    "ExplainerSemanticsHints",
     "ExplanationOutputSpace",
     "ExplanationPayloadKind",
     "ExplanationScope",

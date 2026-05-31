@@ -20,7 +20,7 @@ from raitap.types import DetectionInputs, TaskKind
 from raitap.utils.errors import RaitapError
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Iterator, Mapping, Sequence
     from pathlib import Path
 
     from raitap.models.backend import ModelBackend
@@ -57,6 +57,7 @@ def explain_detection(
     base_run_dir: Path,
     raitap_kwargs: dict[str, Any] | None,
     call_kwargs: dict[str, Any],
+    call_provenance: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> Iterator[ExplanationResult]:
     """Yield one ExplanationResult per detected box.
 
@@ -113,6 +114,10 @@ def explain_detection(
     normalised_call_kwargs["target"] = 0
 
     base_model = backend.as_model_for_explanation()
+
+    # One baseline preview is shared by every box of a sample (same inputs +
+    # call kwargs). Render it once and copy for the rest, keyed by content hash.
+    baseline_render_cache: dict[str, Path] = {}
 
     for sample_index, predictions_i in enumerate(detection_predictions):
         scores = predictions_i.get("scores", torch.zeros(0))
@@ -183,6 +188,8 @@ def explain_detection(
                 explainer_name=explainer_name,
                 visualisers=list(visualisers),
                 raitap_kwargs=per_box_raitap,
+                call_provenance=call_provenance,
+                baseline_render_cache=baseline_render_cache,
                 **normalised_call_kwargs,
             )
             result.detection_box = DetectionBox(

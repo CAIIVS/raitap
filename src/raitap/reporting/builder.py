@@ -105,9 +105,9 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
     if global_section is not None:
         sections.append(global_section)
 
-    cohort_section = _build_cohort_section(outputs, assets_dir=assets_dir)
-    if cohort_section is not None:
-        sections.append(cohort_section)
+    aggregated_section = _build_aggregated_section(outputs, assets_dir=assets_dir)
+    if aggregated_section is not None:
+        sections.append(aggregated_section)
 
     local_section = _build_local_section(
         outputs,
@@ -171,7 +171,7 @@ def build_merged_report(
     sections_by_title: dict[str, list[ReportGroup]] = {
         "Metrics": [],
         "Global Explanations": [],
-        "Cohort Explanations": [],
+        "Aggregated Explanations": [],
         "Local Explanations": [],
         "Robustness": [],
     }
@@ -618,19 +618,19 @@ def _build_global_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSec
     )
 
 
-def _build_cohort_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSection | None:
+def _build_aggregated_section(outputs: RunOutputs, *, assets_dir: Path) -> ReportSection | None:
     groups = _native_scope_groups(
         outputs.visualisations,
-        scope=ExplanationScope.COHORT,
-        role="cohort",
+        scope=ExplanationScope.AGGREGATED,
+        role="aggregated",
         assets_dir=assets_dir,
     )
     if not groups:
         return None
     return ReportSection.from_groups(
-        "Cohort Explanations",
+        "Aggregated Explanations",
         groups,
-        metadata={"section_role": "cohort"},
+        metadata={"section_role": "aggregated"},
     )
 
 
@@ -711,6 +711,20 @@ def _build_local_section(
             if not explanation.has_visualisations_for_scope(ExplanationScope.LOCAL):
                 continue
             explainer_name = explanation.explainer_name or explanation.run_dir.name
+            box_suffix_for_baseline = (
+                f"_box_{explanation.detection_box.display_index}_{explanation.detection_box.raw_index}"
+                if explanation.detection_box is not None
+                else ""
+            )
+            baseline_image = _stage_baseline_image(
+                explanation,
+                assets_dir=assets_dir,
+                stem=(
+                    f"sample_{selected.summary.sample_index}_"
+                    f"{_safe_name(explainer_name)}{box_suffix_for_baseline}"
+                ),
+            )
+            baseline_emitted = False
 
             for visualiser_index, configured in enumerate(explanation.visualisers):
                 if (
@@ -788,6 +802,18 @@ def _build_local_section(
                     metadata["visualiser_title"] = str(visualiser_title)
                 if thumbnail_source_names:
                     metadata["thumbnail_source_explainer_names"] = thumbnail_source_names
+                group_images = images
+                if baseline_image is not None:
+                    # One field drives BOTH the "View baseline" link (every card)
+                    # and the anchored image in the reference card, so they cannot
+                    # drift into a dead anchor (issue #210 review #6). Stored as str
+                    # so group metadata stays JSON-serialisable for the manifest.
+                    metadata["baseline_image"] = str(baseline_image)
+                    if not baseline_emitted:
+                        # Add the file to group.images once per explanation so the
+                        # PDF reporter (which renders all group images) shows it once.
+                        group_images = (*images, baseline_image)
+                        baseline_emitted = True
                 sample_groups.append(
                     ReportGroup(
                         heading=(
@@ -795,7 +821,7 @@ def _build_local_section(
                             f" - Visualiser: {visualiser_name}"
                             f"{heading_box_part}"
                         ),
-                        images=images,
+                        images=group_images,
                         table_rows=_transparency_table_rows(
                             explanation,
                             selected_samples=[selected],
@@ -1068,6 +1094,21 @@ def _overlay_detection_boxes(figure: Any, *, outputs: RunOutputs, sample_index: 
         )
 
 
+# Human-facing labels for the baseline ``mode`` token. The raw token is kept in
+# ``metadata.json``; the report shows the readable phrasing (issue #210).
+_BASELINE_MODE_LABELS = {
+    "configured": "configured dataset",
+    "user_tensor": "user-provided tensor",
+    "zero": "all-zeros (method default)",
+    "input_batch": "input batch (method default)",
+}
+
+
+def _baseline_mode_label(mode: object) -> str:
+    token = str(mode)
+    return _BASELINE_MODE_LABELS.get(token, token)
+
+
 def _transparency_table_rows(
     explanation: Any,
     *,
@@ -1112,7 +1153,18 @@ def _transparency_table_rows(
     if output_space.requires_interpolation:
         rows.append(("requires_interpolation", "true"))
 
+    baseline = getattr(explanation, "baseline", None)
+    if baseline is not None:
+        rows.append(("baseline.mode", _baseline_mode_label(baseline.mode)))
+        if baseline.source is not None:
+            rows.append(("baseline.source", str(baseline.source)))
+        if baseline.n_samples is not None:
+            rows.append(("baseline.n_samples", str(baseline.n_samples)))
+        rows.append(("baseline.shape", _format_shape(baseline.shape)))
+
     for key, value in explanation.call_kwargs.items():
+        if baseline is not None and key == baseline.kwarg_name:
+            continue
         formatted = _format_table_value(value)
         if formatted is not None:
             rows.append((f"call.{key}", formatted))
@@ -1464,3 +1516,26 @@ def _requested_sample_metadata(sample: SelectedSample) -> dict[str, object]:
 
 def _safe_name(value: str) -> str:
     return "".join(ch if ch.isalnum() else "_" for ch in value).strip("_") or "asset"
+
+
+def _stage_baseline_image(
+    explanation: Any,
+    *,
+    assets_dir: Path,
+    stem: str,
+) -> Path | None:
+    """Copy an explanation's baseline PNG into ``assets_dir``; return staged path.
+
+    Returns ``None`` when the explanation has no baseline image or the source
+    file is missing (backward-compatible artefacts).
+    """
+    baseline = getattr(explanation, "baseline", None)
+    if baseline is None or baseline.image_path is None:
+        return None
+    source = explanation.run_dir / baseline.image_path
+    if not source.exists():
+        return None
+    assets_dir.mkdir(parents=True, exist_ok=True)
+    target = assets_dir / f"baseline_{stem}{source.suffix}"
+    shutil.copy2(source, target)
+    return target

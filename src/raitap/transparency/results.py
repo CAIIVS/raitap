@@ -21,6 +21,7 @@ else:
     torch = lazy_import("torch")
 
 from .contracts import (
+    BaselineRecord,
     DetectionBox,
     ExplanationPayloadKind,
     ExplanationScope,
@@ -146,6 +147,7 @@ class ExplanationResult(Trackable):
     payload_kind: ExplanationPayloadKind = ExplanationPayloadKind.ATTRIBUTIONS
     detection_box: DetectionBox | None = None
     original_sample_index: int | None = None
+    baseline: BaselineRecord | None = None
     semantics: ExplanationSemantics = field(kw_only=True)
 
     def __post_init__(self) -> None:
@@ -181,7 +183,9 @@ class ExplanationResult(Trackable):
             "semantics": _serialisable_semantics(self.semantics),
             "kwargs": {key: _serialisable(value) for key, value in self.kwargs.items()},
             "call_kwargs": {
-                key: _serialisable_call_kwarg(value) for key, value in self.call_kwargs.items()
+                key: _serialisable_call_kwarg(value)
+                for key, value in self.call_kwargs.items()
+                if not (self.baseline is not None and key == self.baseline.kwarg_name)
             },
         }
         if self.detection_box is not None:
@@ -195,6 +199,19 @@ class ExplanationResult(Trackable):
             }
         if self.original_sample_index is not None:
             metadata["original_sample_index"] = self.original_sample_index
+        if self.baseline is not None:
+            metadata["baseline"] = {
+                "kwarg_name": self.baseline.kwarg_name,
+                "mode": self.baseline.mode,
+                "source": self.baseline.source,
+                "n_samples": self.baseline.n_samples,
+                "shape": list(self.baseline.shape),
+                "dtype": self.baseline.dtype,
+                "sha256": self.baseline.sha256,
+                "image_path": (
+                    str(self.baseline.image_path) if self.baseline.image_path is not None else None
+                ),
+            }
         return metadata
 
     def _write_metadata(self) -> None:
