@@ -28,7 +28,7 @@ import numpy as np
 
 from raitap.robustness.visualisers.registration import robustness_visualiser
 
-from ...contracts import AssessmentKind
+from ...contracts import AssessmentKind, ReportFigureScope
 from ..base_visualiser import BaseRobustnessVisualiser
 
 if TYPE_CHECKING:
@@ -56,6 +56,7 @@ def _placeholder_figure(message: str) -> Figure:
 @robustness_visualiser(
     registry_name="output_bounds_pinned",
     supported_assessment_kinds=frozenset({AssessmentKind.FORMAL_VERIFICATION}),
+    report_figure_scope=ReportFigureScope.ASSESSOR,
 )
 class OutputBoundsPinnedVisualiser(BaseRobustnessVisualiser):
     """Per-pinned-sample plot of ``[lower_k, upper_k]`` certified intervals."""

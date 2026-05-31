@@ -48,6 +48,8 @@ _SCHEMA = AdapterSchema(
     raitap_keys=frozenset(
         {
             "batch_size",
+            "ci_level",
+            "ci_method",
             "input_metadata",
             "show_progress",
             "progress_desc",

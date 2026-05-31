@@ -34,22 +34,23 @@ are present only for the matching assessment kind):
 | `clean_inputs` | yes | Inputs as fed to the model. |
 | `targets` | yes | Per-sample reference labels (ground truth or, when no labels were available, model predictions used as the untargeted reference). |
 | `clean_predictions` | yes | `argmax(model(clean_inputs))`. |
-| `verdicts` | yes | Per-sample integer codes. The mapping is also stored in `metadata.json` under `verdict_codes` (e.g. `attack_succeeded → 1`, `attack_failed → 2`, `verified → 3`, `falsified → 4`, `unknown → 5`, `error → 6`). |
-| `perturbed_inputs` | empirical / falsified rows | Adversarial example tensor. NaN-padded for verifier rows that did not produce a counter-example. |
-| `perturbed_predictions` | empirical / falsified rows | `argmax(model(perturbed_inputs))`; `-1` for verifier rows without a counter-example. |
-| `perturbation_distance` | empirical / falsified rows | Per-sample distance under `semantics.budget.norm`. |
+| `verdicts` | yes | Per-sample integer codes. The mapping is also stored in `metadata.json` under `verdict_codes` (e.g. `attack_succeeded → 1`, `attack_failed → 2`, `verified → 3`, `falsified → 4`, `unknown → 5`, `error → 6`, `correct_under_perturbation → 7`, `misclassified_under_perturbation → 8`). |
+| `perturbed_inputs` | empirical / falsified rows / statistical sampling | Adversarial example tensor (empirical), counter-example NaN-padded for verifier rows without one (formal), or the corrupted inputs (statistical sampling). |
+| `perturbed_predictions` | empirical / falsified rows / statistical sampling | `argmax(model(perturbed_inputs))`; `-1` for verifier rows without a counter-example. |
+| `perturbation_distance` | empirical / falsified rows | Per-sample distance under `semantics.perturbation.norm` (worst-case only; absent for statistical sampling). |
 | `output_bounds` | formal verification only | `{"lower": ..., "upper": ...}` per-class logit bounds. |
 | `runtime_per_sample` | formal verification only | Per-sample verifier runtime, in seconds. |
 
 `metadata.json` carries assessor metadata, aggregate metrics, and the typed
 robustness semantics:
 
-- `assessment_kind` — `empirical_attack` or `formal_verification`.
-- `semantics.threat_model` — `white_box`, `black_box_score`, `black_box_decision`.
+- `assessment_kind` — `empirical_attack`, `formal_verification`, or `statistical_sampling`.
+- `case` — `worst_case` (empirical / formal) or `average_case` (statistical sampling); derived from `assessment_kind`, never stored independently.
+- `semantics.threat_model` — `white_box`, `black_box_score`, `black_box_decision`, or `not_applicable` (statistical sampling).
 - `semantics.objective` — `untargeted` or `targeted`.
-- `semantics.budget` — norm + epsilon + (optional) step size + steps.
-- `semantics.families` — descriptive tags such as `gradient_sign`, `iterative`, `optimization`.
-- `metrics` — empirical-only fields (`adversarial_accuracy`, `attack_success_rate`, `mean_distance`, `max_distance`) and formal-only fields (`verified_rate`, `falsified_rate`, `unknown_rate`, `error_rate`, `mean_runtime`); `clean_accuracy` is always populated. Unused fields are omitted rather than set to `null`.
+- `semantics.perturbation` — worst-case assessors: norm + epsilon + (optional) step size + steps; average-case assessors: corruption name + severity.
+- `semantics.families` — descriptive tags such as `gradient_sign`, `iterative`, `optimization`, or `common_corruption`.
+- `metrics` — empirical-only fields (`adversarial_accuracy`, `attack_success_rate`, `mean_distance`, `max_distance`); formal-only fields (`verified_rate`, `falsified_rate`, `unknown_rate`, `error_rate`, `mean_runtime`); statistical-sampling-only fields (`corrupted_accuracy`, `accuracy_ci_low`, `accuracy_ci_high`, `n_samples`, `n_correct`); `clean_accuracy` is always populated. Unused fields are omitted rather than set to `null`.
 - `kwargs` — RAITAP-owned metadata used for reporting (`sample_names`,
   `show_sample_names`).
 - `call_kwargs` — best-effort JSON summary of the library invocation. Tensors

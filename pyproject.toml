@@ -123,6 +123,9 @@ transparency = ["raitap[shap,captum]"]
 # Robustness module
 torchattacks = ["torchattacks>=3.5.1"]
 foolbox = ["foolbox>=3.3.4"]
+# Average-case (statistical-sampling) adapter: the ImageNet-C common-corruption
+# suite. Pure numpy/scipy/skimage/opencv — no torch, lazy-imported.
+imagecorruptions = ["imagecorruptions>=1.1.2"]
 # Marabou formal-verification adapter (Linux/macOS x86-64, Python 3.11 only).
 # maraboupy 2.0.0 publishes cp311 wheels only — no cp312/cp313, no Windows.
 # Marker below keeps ``uv sync`` working on other interpreters by silently
@@ -132,7 +135,7 @@ marabou = [
     "maraboupy>=2.0.0,<3.0; python_full_version < '3.12' and sys_platform != 'win32'",
     "onnx>=1.15",
 ]
-robustness = ["raitap[torchattacks,foolbox,marabou]"]
+robustness = ["raitap[torchattacks,foolbox,marabou,imagecorruptions]"]
 
 # Job launcher / batch scheduler support
 launcher = ["hydra-submitit-launcher>=1.2.0"]

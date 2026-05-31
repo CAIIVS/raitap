@@ -28,6 +28,7 @@ from raitap.robustness.contracts import (
     AssessmentKind,
     Objective,
     PerturbationBudget,
+    PerturbationDistribution,
     PerturbationNorm,
     RobustnessSemantics,
     RobustnessVerdict,
@@ -36,6 +37,7 @@ from raitap.robustness.contracts import (
 )
 from raitap.robustness.results import RobustnessMetrics, RobustnessResult, encode_verdicts
 from raitap.robustness.visualisers import (
+    CorruptionAccuracyVisualiser,
     ImagePairVisualiser,
     OutputBoundsCohortVisualiser,
     OutputBoundsMarginHeatmapVisualiser,
@@ -45,6 +47,7 @@ from raitap.robustness.visualisers import (
     VerdictSummaryVisualiser,
 )
 from raitap.transparency.contracts import (
+    DetectionBox,
     InputKind,
     InputSpec,
 )
@@ -55,6 +58,8 @@ from raitap.transparency.visualisers import (
     CaptumImageVisualiser,
     CaptumTextVisualiser,
     CaptumTimeSeriesVisualiser,
+    DetectionImageVisualiser,
+    InputThumbnailVisualiser,
     ShapBarVisualiser,
     ShapBeeswarmVisualiser,
     ShapForceVisualiser,
@@ -127,7 +132,7 @@ def _formal_fixture() -> RobustnessResult:
             threat_model=ThreatModel.WHITE_BOX,
             objective=Objective.UNTARGETED,
             families=frozenset({"smt"}),
-            budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
+            perturbation=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
         ),
     )
 
@@ -174,8 +179,43 @@ def _empirical_fixture() -> RobustnessResult:
             threat_model=ThreatModel.WHITE_BOX,
             objective=Objective.UNTARGETED,
             families=frozenset({"gradient"}),
-            budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
+            perturbation=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
             input_spec=InputSpec(kind=InputKind.IMAGE, shape=(n, c, h, w), layout="NCHW"),
+        ),
+    )
+
+
+def _sampling_fixture() -> RobustnessResult:
+    """Statistical-sampling result so the average-case visualiser lights up."""
+    n = 24
+    n_correct = 15
+    verdicts = [RobustnessVerdict.CORRECT_UNDER_PERTURBATION] * n_correct + [
+        RobustnessVerdict.MISCLASSIFIED_UNDER_PERTURBATION
+    ] * (n - n_correct)
+    return RobustnessResult(
+        clean_inputs=torch.zeros(n, 3, 16, 16),
+        targets=torch.zeros(n, dtype=torch.long),
+        clean_predictions=torch.zeros(n, dtype=torch.long),
+        verdicts=encode_verdicts(verdicts),
+        metrics=RobustnessMetrics(
+            clean_accuracy=0.83,
+            corrupted_accuracy=n_correct / n,
+            accuracy_ci_low=0.43,
+            accuracy_ci_high=0.80,
+            n_samples=n,
+            n_correct=n_correct,
+        ),
+        run_dir=Path("."),
+        experiment_name="imagecorruptions-preview",
+        assessor_target="raitap.robustness.assessors.ImageCorruptionsAssessor",
+        algorithm="gaussian_noise",
+        assessor_name="gaussian_noise",
+        semantics=RobustnessSemantics(
+            assessment_kind=AssessmentKind.STATISTICAL_SAMPLING,
+            threat_model=ThreatModel.NOT_APPLICABLE,
+            objective=Objective.UNTARGETED,
+            families=frozenset({"common_corruption", "noise"}),
+            perturbation=PerturbationDistribution(corruption_name="gaussian_noise", severity=3),
         ),
     )
 
@@ -375,6 +415,39 @@ def _render_transparency_previews() -> list[Path]:
             ),
         )
     )
+
+    # Input thumbnail (reporting sample-header preview)
+    saved.append(
+        _save(
+            "input_thumbnail_visualiser",
+            InputThumbnailVisualiser().visualise(
+                image_attrs, inputs=image_inputs, context=captum_ctx, max_samples=2
+            ),
+        )
+    )
+
+    # Detection (one figure per box; needs detection_box on the context)
+    detection_ctx = TransparencyVisualisationContext(
+        algorithm="IntegratedGradients",
+        sample_names=None,
+        show_sample_names=False,
+        detection_box=DetectionBox(
+            display_index=0,
+            raw_index=3,
+            xyxy=(6.0, 5.0, 26.0, 24.0),
+            score=0.92,
+            label_index=17,
+            label_name="cat",
+        ),
+    )
+    saved.append(
+        _save(
+            "detection_image_visualiser",
+            DetectionImageVisualiser().visualise(
+                image_attrs[0], inputs=image_inputs[0], context=detection_ctx
+            ),
+        )
+    )
     return saved
 
 
@@ -428,6 +501,15 @@ def main() -> None:
         _save(
             "output_bounds_margin_heatmap_visualiser",
             OutputBoundsMarginHeatmapVisualiser().visualise(formal, context=formal_ctx),
+        )
+    )
+
+    sampling = _sampling_fixture()
+    sampling_ctx = _ctx(AssessmentKind.STATISTICAL_SAMPLING, "gaussian_noise")
+    saved.append(
+        _save(
+            "corruption_accuracy_visualiser",
+            CorruptionAccuracyVisualiser().visualise(sampling, context=sampling_ctx),
         )
     )
 

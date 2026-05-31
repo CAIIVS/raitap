@@ -17,7 +17,7 @@ import numpy as np
 
 from raitap.robustness.visualisers.registration import robustness_visualiser
 
-from ...contracts import AssessmentKind
+from ...contracts import AssessmentKind, ReportFigureScope
 from ..base_visualiser import BaseRobustnessVisualiser
 
 if TYPE_CHECKING:
@@ -46,6 +46,7 @@ def _auto_figsize(n: int, k: int) -> tuple[float, float]:
 @robustness_visualiser(
     registry_name="output_bounds_width_heatmap",
     supported_assessment_kinds=frozenset({AssessmentKind.FORMAL_VERIFICATION}),
+    report_figure_scope=ReportFigureScope.ASSESSOR,
 )
 class OutputBoundsWidthHeatmapVisualiser(BaseRobustnessVisualiser):
     """Heatmap of certified per-class output-bound widths across the batch."""

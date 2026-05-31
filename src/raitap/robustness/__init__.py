@@ -30,7 +30,11 @@ from .contracts import (
     AssessorAdapter,
     Objective,
     PerturbationBudget,
+    PerturbationDistribution,
     PerturbationNorm,
+    PerturbationRegion,
+    ReportFigureScope,
+    RobustnessCase,
     RobustnessSemantics,
     RobustnessVerdict,
     RobustnessVisualisationContext,
@@ -77,6 +81,7 @@ try:
         EmpiricalAttackAssessor,
         FoolboxAssessor,
         FormalVerificationAssessor,
+        ImageCorruptionsAssessor,
         TorchattacksAssessor,
     )
     from .factory import (
@@ -106,6 +111,7 @@ except ModuleNotFoundError as error:
     FormalVerificationAssessor = _unavailable("FormalVerificationAssessor", "torch")
     TorchattacksAssessor = _unavailable("TorchattacksAssessor", "torch")
     FoolboxAssessor = _unavailable("FoolboxAssessor", "torch")
+    ImageCorruptionsAssessor = _unavailable("ImageCorruptionsAssessor", "torch")
     RobustnessAssessment = _unavailable("RobustnessAssessment", "torch")
     check_assessor_visualiser_compat = _unavailable("check_assessor_visualiser_compat", "torch")
     create_assessor = _unavailable("create_assessor", "torch")
@@ -151,6 +157,7 @@ __all__ = [  # noqa: RUF022
     "BaseAssessor",
     "EmpiricalAttackAssessor",
     "FormalVerificationAssessor",
+    "ImageCorruptionsAssessor",
     "TorchattacksAssessor",
     "FoolboxAssessor",
     # Visualisers
@@ -169,7 +176,11 @@ __all__ = [  # noqa: RUF022
     "AssessmentKind",
     "Objective",
     "PerturbationBudget",
+    "PerturbationDistribution",
     "PerturbationNorm",
+    "PerturbationRegion",
+    "ReportFigureScope",
+    "RobustnessCase",
     "RobustnessSemantics",
     "RobustnessVerdict",
     "RobustnessVisualisationContext",

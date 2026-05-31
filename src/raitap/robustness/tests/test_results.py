@@ -38,7 +38,7 @@ def _semantics_for_test() -> RobustnessSemantics:
         threat_model=ThreatModel.WHITE_BOX,
         objective=Objective.UNTARGETED,
         families=frozenset({"gradient_sign"}),
-        budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.03),
+        perturbation=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.03),
     )
 
 
@@ -94,7 +94,7 @@ def test_robustness_result_writes_pt_and_metadata(tmp_path: Path) -> None:
 
     metadata = json.loads((result.run_dir / "metadata.json").read_text())
     assert metadata["assessment_kind"] == "empirical_attack"
-    assert metadata["semantics"]["budget"]["norm"] == "Linf"
+    assert metadata["semantics"]["perturbation"]["norm"] == "Linf"
     assert metadata["metrics"]["attack_success_rate"] == 0.75
     assert metadata["verdict_codes"]["attack_succeeded"] == 1
 
@@ -322,3 +322,53 @@ def test_robustness_visualise_passes_with_none_sample_names(tmp_path: Path) -> N
     vis_results = result.visualise()
     for vr in vis_results:
         plt.close(vr.figure)
+
+
+def test_metrics_average_case_fields_in_as_dict() -> None:
+    from raitap.robustness.results import RobustnessMetrics
+
+    metrics = RobustnessMetrics(
+        clean_accuracy=0.9,
+        corrupted_accuracy=0.7,
+        accuracy_ci_low=0.6,
+        accuracy_ci_high=0.8,
+        n_samples=10,
+        n_correct=7,
+    )
+    out = metrics.as_dict()
+    assert out["corrupted_accuracy"] == 0.7
+    assert out["accuracy_ci_low"] == 0.6
+    assert out["accuracy_ci_high"] == 0.8
+    assert out["n_samples"] == 10.0
+    assert out["n_correct"] == 7.0
+    # Worst-case fields stay absent when None.
+    assert "adversarial_accuracy" not in out
+
+
+def test_metadata_includes_case(tmp_path: Path) -> None:
+    from raitap.robustness.contracts import PerturbationDistribution
+
+    semantics = RobustnessSemantics(
+        assessment_kind=AssessmentKind.STATISTICAL_SAMPLING,
+        threat_model=ThreatModel.NOT_APPLICABLE,
+        objective=Objective.UNTARGETED,
+        families=frozenset({"noise"}),
+        perturbation=PerturbationDistribution(corruption_name="fog", severity=2),
+    )
+    result = RobustnessResult(
+        clean_inputs=torch.rand(2, 3, 8, 8),
+        targets=torch.tensor([0, 1]),
+        clean_predictions=torch.tensor([0, 1]),
+        verdicts=torch.tensor([7, 8]),
+        metrics=RobustnessMetrics(
+            clean_accuracy=1.0, corrupted_accuracy=0.5, n_samples=2, n_correct=1
+        ),
+        run_dir=tmp_path,
+        experiment_name="t",
+        assessor_target="x",
+        algorithm="fog",
+        semantics=semantics,
+    )
+    meta = result._metadata()
+    assert meta["case"] == "average_case"
+    assert meta["assessment_kind"] == "statistical_sampling"

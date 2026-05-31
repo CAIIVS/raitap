@@ -15,15 +15,27 @@
           <div class="badge-row">
             <span class="badge">{{ assessor.settings.get("threat_model", "n/a") }}</span>
             <span class="badge">{{ assessor.settings.get("objective", "n/a") }}</span>
-            <span class="badge">{{ assessor.settings.get("norm", "n/a") }}={{ assessor.settings.get("epsilon", "n/a") }}</span>
+            {% if assessor.assessment_kind == "statistical_sampling" %}
+              <span class="badge">{{ assessor.settings.get("corruption_name", "n/a") }}@{{ assessor.settings.get("severity", "n/a") }}</span>
+            {% elif assessor.assessment_kind == "empirical_attack" %}
+              <span class="badge">{{ assessor.settings.get("norm", "n/a") }}={{ assessor.settings.get("epsilon", "n/a") }}</span>
+            {% endif %}
           </div>
         </header>
 
         <div class="metric-grid metric-grid--wide">
-          {% for key in ["clean_accuracy", "adversarial_accuracy", "attack_success_rate", "mean_distance", "max_distance"] %}
-            <div class="tile"><span>{{ key }}</span><strong>{{ assessor.metrics.get(key, "n/a")|fmt_num }}</strong></div>
+          {% for key, value in assessor.headline_metrics %}
+            <div class="tile"><span>{{ key }}</span><strong>{{ value|fmt_num }}</strong></div>
           {% endfor %}
         </div>
+
+        {% if assessor.assessor_figure_srcs %}
+          <div class="robust-images">
+            {% for src in assessor.assessor_figure_srcs %}
+              <figure><img class="figure" src="{{ src }}" alt="{{ assessor.assessor_name }} summary figure"><figcaption>{{ assessor.assessor_name }}</figcaption></figure>
+            {% endfor %}
+          </div>
+        {% endif %}
 
         {% for sample in assessor.samples %}
           <section class="robust-row">

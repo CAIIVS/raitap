@@ -284,3 +284,24 @@ chip.
 Scope: `LOCAL`. Output space: `DETECTION_BOXES`. Supported task: `detection`.
 Requires `VisualisationContext.detection_box` to be set (populated
 automatically by the detection explain phase).
+
+![DetectionImageVisualiser preview](../../_static/visualisers/detection_image_visualiser.png)
+
+## Reporting helpers
+
+### InputThumbnailVisualiser
+
+Compact preview of the original input, used by the report builder to render one
+shared sample thumbnail in sample-header rows (not a typical user-configured
+visualiser). Image inputs only; falls back gracefully when no compatible input
+is available.
+
+| Kwarg | Default | Meaning |
+|---|---|---|
+| `title` | `"Input"` | Caption shown above the thumbnail. |
+| `max_samples` | `8` | Maximum number of thumbnails rendered side by side. |
+
+Scope: `LOCAL`. Requires image input metadata (`InputKind.IMAGE` or NCHW layout)
+and a non-`None` `inputs` tensor.
+
+![InputThumbnailVisualiser preview](../../_static/visualisers/input_thumbnail_visualiser.png)

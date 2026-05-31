@@ -67,7 +67,7 @@ def _formal_result(run_dir: Path) -> RobustnessResult:
             threat_model=ThreatModel.WHITE_BOX,
             objective=Objective.UNTARGETED,
             families=frozenset({"smt", "complete", "sound"}),
-            budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
+            perturbation=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
         ),
     )
 
@@ -209,7 +209,7 @@ def test_build_report_skips_bound_rows_for_empirical_attack_results(
         threat_model=ThreatModel.WHITE_BOX,
         objective=Objective.UNTARGETED,
         families=frozenset({"attack"}),
-        budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
+        perturbation=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
     )
     result.output_bounds = {
         "lower": torch.zeros(3, 5),

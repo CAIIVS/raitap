@@ -17,7 +17,7 @@ myst:
   `_target_`, `algorithm`, and visualiser compatibility.
 
 :option: _target_
-:allowed: "TorchattacksAssessor", "FoolboxAssessor"
+:allowed: "TorchattacksAssessor", "FoolboxAssessor", "ImageCorruptionsAssessor"
 :default: null
 :description: Hydra target for the assessor class.
 
@@ -96,14 +96,27 @@ myst:
   input reshape is controlled by `data.input_metadata.shape` instead — see
   {doc}`../data/configuration`.
 
+:option: raitap.ci_method
+:allowed: "wilson", "clopper_pearson"
+:default: "wilson"
+:description: Binomial CI method used by statistical-sampling assessors
+  (`ImageCorruptionsAssessor`). Ignored by empirical-attack and formal-verification
+  assessors.
+
+:option: raitap.ci_level
+:allowed: float
+:default: 0.95
+:description: Confidence level for the binomial CI. Ignored by empirical-attack
+  and formal-verification assessors.
+
 :option: visualisers
 :allowed: list[dict]
 :default: [ImagePairVisualiser]
 :description: Visualiser definitions. Each entry must include at least
   `_target_`. Each visualiser can also define its own `constructor` and `call`
   blocks. Visualisers declare which `AssessmentKind` (`empirical_attack` /
-  `formal_verification`) they support; the factory rejects mismatches at parse
-  time.
+  `formal_verification` / `statistical_sampling`) they support; the factory
+  rejects mismatches at parse time.
 
 :yaml:
 robustness:
@@ -127,11 +140,21 @@ robustness:
     visualisers:
       - _target_: "ImagePairVisualiser"
       - _target_: "PerturbationHeatmapVisualiser"
+  avg:
+    _target_: "ImageCorruptionsAssessor"
+    algorithm: "gaussian_noise"   # one of the 15 ImageNet-C corruptions
+    constructor:
+      severity: 3                 # 1..5
+    raitap:
+      ci_method: "wilson"         # or clopper_pearson
+      ci_level: 0.95
+    visualisers:
+      - _target_: "CorruptionAccuracyVisualiser"
 
 :cli: +robustness=torchattacks robustness.torchattacks.algorithm=PGD robustness.torchattacks.constructor.eps=0.05
 
 :python:
-from raitap.robustness import foolbox, image_pair, perturbation_heatmap, torchattacks
+from raitap.robustness import corruption_accuracy, foolbox, image_pair, imagecorruptions, perturbation_heatmap, torchattacks
 
 robustness = {
     "pgd": torchattacks(
@@ -144,6 +167,12 @@ robustness = {
         constructor={"rel_stepsize": 0.025, "steps": 40},
         call={"eps": 0.03},
         visualisers=[image_pair(), perturbation_heatmap()],
+    ),
+    "avg": imagecorruptions(
+        algorithm="gaussian_noise",
+        constructor={"severity": 3},
+        raitap={"ci_method": "wilson", "ci_level": 0.95},
+        visualisers=[corruption_accuracy()],
     ),
 }
 ```

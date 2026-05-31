@@ -141,6 +141,12 @@ class RobustnessMetrics:
     unknown_rate: float | None = None
     error_rate: float | None = None
     mean_runtime: float | None = None
+    # Average-case (statistical sampling) only
+    corrupted_accuracy: float | None = None
+    accuracy_ci_low: float | None = None
+    accuracy_ci_high: float | None = None
+    n_samples: int | None = None
+    n_correct: int | None = None
     # Overflow
     metrics: dict[str, float] = field(default_factory=dict)
 
@@ -156,6 +162,11 @@ class RobustnessMetrics:
             "unknown_rate",
             "error_rate",
             "mean_runtime",
+            "corrupted_accuracy",
+            "accuracy_ci_low",
+            "accuracy_ci_high",
+            "n_samples",
+            "n_correct",
         ):
             value = getattr(self, name)
             if value is not None:
@@ -261,6 +272,7 @@ class RobustnessResult(Trackable):
             "algorithm": self.algorithm,
             "assessor_name": self.assessor_name,
             "assessment_kind": self.assessment_kind.value,
+            "case": self.semantics.case.value,
             "visualisers": targets,
             "metrics": self.metrics.as_dict(),
             "verdict_codes": {v.value: code for v, code in VERDICT_CODES.items()},

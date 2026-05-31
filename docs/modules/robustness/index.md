@@ -13,13 +13,15 @@ model behaves under input perturbations.
 
 Each `robustness` entry defines one named assessor, its algorithm, and the
 visualisers that should render its outputs. The current implementation supports
-two complementary methods:
+three complementary methods:
 
-- **Empirical attacks** — try to find an adversarial example within a
-  perturbation budget (torchattacks, foolbox).
-- **Formal verification** — prove that no adversarial example exists within the
-  budget. The module shape already accommodates this; concrete adapters
-  (auto_LiRPA, alpha-beta-CROWN) arrive in a follow-up release.
+- **Empirical attacks** (`worst_case`) — try to find an adversarial example
+  within a perturbation budget (torchattacks, foolbox).
+- **Formal verification** (`worst_case`) — prove that no adversarial example
+  exists within the budget. The module shape already accommodates this; concrete
+  adapters (auto_LiRPA, alpha-beta-CROWN) arrive in a follow-up release.
+- **Statistical sampling** (`average_case`) — measure accuracy under a
+  perturbation distribution, e.g. ImageNet-C corruptions (imagecorruptions).
 
 A "non-attack" outcome from an empirical assessor does **not** prove robustness;
 it just means the configured attack failed. Use a formal-verification assessor

@@ -26,8 +26,10 @@ from raitap.configs import resolve_run_dir
 from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
+    import numpy as np
     import torch
 else:
+    np = lazy_import("numpy")
     torch = lazy_import("torch")
 
 from ..contracts import (
@@ -55,6 +57,16 @@ if TYPE_CHECKING:
 _VISUALISATION_ONLY_KWARGS = frozenset({"sample_names", "show_sample_names"})
 
 
+def _require_budget(semantics: Any) -> PerturbationBudget:
+    """Worst-case assessors always carry a PerturbationBudget; narrow for type-safety."""
+    region = semantics.perturbation
+    if not isinstance(region, PerturbationBudget):
+        raise TypeError(
+            f"Expected a PerturbationBudget for a worst-case assessor, got {type(region).__name__}."
+        )
+    return region
+
+
 class BaseAssessor(AdapterMixin, ABC):
     """Root base class for all robustness assessors.
 
@@ -71,7 +83,7 @@ class BaseAssessor(AdapterMixin, ABC):
     #: kwargs (``eps`` / ``alpha`` / ``steps``). ``"init_kwargs"`` means the
     #: adapter forwards them at attack-instance construction (torchattacks);
     #: ``"call_kwargs"`` means they are read at attack-call time (foolbox).
-    #: ``RobustnessSemantics.budget`` is derived from this source so reported
+    #: ``RobustnessSemantics.perturbation`` is derived from this source so reported
     #: metadata always matches what the adapter executed.
     budget_kwarg_source: ClassVar[str] = "init_kwargs"
 
@@ -225,7 +237,8 @@ class EmpiricalAttackAssessor(BaseAssessor, ABC):
         verdicts = encode_verdicts(verdicts_list)
 
         delta = (perturbed - inputs).detach().cpu()
-        per_sample_distance = _per_sample_norm(delta, semantics.budget.norm)
+        budget = _require_budget(semantics)
+        per_sample_distance = _per_sample_norm(delta, budget.norm)
 
         clean_acc = (clean_predictions == targets).float().mean().item()
         adv_acc = (adversarial_predictions == targets).float().mean().item()
@@ -401,7 +414,7 @@ class FormalVerificationAssessor(BaseAssessor, ABC):
                     model,
                     sample,
                     target,
-                    budget=semantics.budget,
+                    budget=_require_budget(semantics),
                     backend=backend,
                     **verify_kwargs,
                 )
@@ -441,7 +454,7 @@ class FormalVerificationAssessor(BaseAssessor, ABC):
             counter_examples=counter_examples,
             verdicts=verdict_list,
             model=model,
-            norm=semantics.budget.norm,
+            norm=_require_budget(semantics).norm,
             backend=backend,
         )
         output_bounds = _stack_optional_bounds(lower_rows, upper_rows)
@@ -489,6 +502,142 @@ class FormalVerificationAssessor(BaseAssessor, ABC):
         )
         result.write_artifacts()
         return result
+
+
+class StatisticalSamplingAssessor(BaseAssessor, ABC):
+    """Average-case adapter: estimate accuracy under a perturbation distribution.
+
+    The framework owns ``assess()``: it perturbs every image in pixel space,
+    forwards the corrupted batch, scores each sample as CORRECT / MISCLASSIFIED
+    against its label, and aggregates into corrupted accuracy + a binomial CI.
+    Subclasses implement only ``apply_perturbation`` on a single HWC uint8 image.
+    """
+
+    assessment_kind: ClassVar[AssessmentKind] = AssessmentKind.STATISTICAL_SAMPLING
+
+    def check_backend_compat(self, backend: object) -> None:
+        """Statistical sampling operates in pixel space; any backend (or none) is fine."""
+
+    @abstractmethod
+    def apply_perturbation(self, image: np.ndarray) -> np.ndarray:
+        """Corrupt one HWC uint8 [0,255] image; return the same shape and dtype."""
+
+    def assess(
+        self,
+        model: nn.Module,
+        inputs: torch.Tensor,
+        targets: torch.Tensor,
+        *,
+        backend: object | None = None,
+        run_dir: str | Path | None = None,
+        output_root: str | Path | None = None,
+        experiment_name: str | None = None,
+        assessor_target: str | None = None,
+        assessor_name: str | None = None,
+        visualisers: list[ConfiguredRobustnessVisualiser] | None = None,
+        raitap_kwargs: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> RobustnessResult:
+        from .._ci_router import resolve_ci_settings
+        from ._ci import binomial_ci
+
+        _require_non_empty_batch(inputs, type(self).__name__)
+        visualisers_list = [] if visualisers is None else visualisers
+        rk = {} if raitap_kwargs is None else dict(raitap_kwargs)
+        call_kwargs = {k: v for k, v in kwargs.items() if k not in _VISUALISATION_ONLY_KWARGS}
+
+        self.check_backend_compat(backend)
+
+        sample_ids = _normalise_optional_str_list(rk.get("sample_ids"))
+        sample_names = _normalise_optional_str_list(rk.get("sample_names"))
+        ci_method, ci_level = resolve_ci_settings(rk)
+
+        semantics = assessor_semantics(
+            self,
+            call_kwargs=call_kwargs,
+            raitap_kwargs=rk,
+            inputs=inputs,
+            targets=targets,
+            sample_ids=sample_ids,
+            sample_names=sample_names,
+        )
+
+        clean_predictions = _argmax_predictions(model, inputs, backend=backend)
+        corrupted = self._corrupt_batch(inputs)
+        corrupted_predictions = _argmax_predictions(model, corrupted, backend=backend)
+
+        correct_mask = corrupted_predictions == targets
+        verdict_list = [
+            RobustnessVerdict.CORRECT_UNDER_PERTURBATION
+            if hit
+            else RobustnessVerdict.MISCLASSIFIED_UNDER_PERTURBATION
+            for hit in correct_mask.tolist()
+        ]
+        verdicts = encode_verdicts(verdict_list)
+
+        n_samples = int(targets.shape[0])
+        n_correct = int(correct_mask.sum().item())
+        accuracy = n_correct / n_samples if n_samples else 0.0
+        ci_low, ci_high = binomial_ci(n_correct, n_samples, level=ci_level, method=ci_method)
+
+        clean_acc = (clean_predictions == targets).float().mean().item()
+        metrics = RobustnessMetrics(
+            clean_accuracy=float(clean_acc),
+            corrupted_accuracy=float(accuracy),
+            accuracy_ci_low=float(ci_low),
+            accuracy_ci_high=float(ci_high),
+            n_samples=n_samples,
+            n_correct=n_correct,
+        )
+
+        result = RobustnessResult(
+            clean_inputs=inputs,
+            targets=targets,
+            clean_predictions=clean_predictions,
+            verdicts=verdicts,
+            metrics=metrics,
+            run_dir=(
+                Path(run_dir)
+                if run_dir is not None
+                else resolve_run_dir(output_root=output_root, subdir="robustness")
+            ),
+            experiment_name=experiment_name,
+            assessor_target=assessor_target or f"{type(self).__module__}.{type(self).__name__}",
+            algorithm=str(getattr(self, "algorithm", "")),
+            assessor_name=assessor_name,
+            kwargs={
+                "sample_ids": sample_ids,
+                "sample_names": sample_names,
+                "show_sample_names": bool(rk.get("show_sample_names", False)),
+                # Persist the resolved CI settings so saved average-case artifacts
+                # are self-describing (which interval + level produced the bounds).
+                "ci_method": ci_method,
+                "ci_level": ci_level,
+            },
+            call_kwargs=call_kwargs,
+            visualisers=visualisers_list,
+            perturbed_inputs=corrupted,
+            perturbed_predictions=corrupted_predictions,
+            perturbation_distance=None,
+            output_bounds=None,
+            runtime_per_sample=None,
+            semantics=semantics,
+        )
+        result.write_artifacts()
+        return result
+
+    def _corrupt_batch(self, inputs: torch.Tensor) -> torch.Tensor:
+        """Apply ``apply_perturbation`` to every image (NCHW [0,1] -> NCHW [0,1])."""
+        out = torch.empty_like(inputs)
+        for i in range(int(inputs.shape[0])):
+            chw = inputs[i].detach().cpu().clamp(0.0, 1.0)
+            hwc_uint8 = (chw.permute(1, 2, 0).numpy() * 255.0).round().astype(np.uint8)
+            corrupted_hwc = np.asarray(self.apply_perturbation(hwc_uint8), dtype=np.uint8)
+            corrupted_chw = torch.from_numpy(corrupted_hwc.astype(np.float32) / 255.0).permute(
+                2, 0, 1
+            )
+            out[i] = corrupted_chw.to(out.dtype)
+        return out
 
 
 # ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ from .base_assessor import (
     FormalVerificationAssessor,
 )
 from .foolbox_assessor import FoolboxAssessor
+from .imagecorruptions_assessor import ImageCorruptionsAssessor
 from .marabou_assessor import MarabouAssessor
 from .torchattacks_assessor import TorchattacksAssessor
 
@@ -12,6 +13,7 @@ __all__ = [
     "EmpiricalAttackAssessor",
     "FoolboxAssessor",
     "FormalVerificationAssessor",
+    "ImageCorruptionsAssessor",
     "MarabouAssessor",
     "TorchattacksAssessor",
 ]

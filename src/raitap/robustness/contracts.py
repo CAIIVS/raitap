@@ -1,7 +1,7 @@
 """
 Shared robustness contracts: assessment-kind taxonomy, threat model, and verdict typing.
 
-The robustness module distinguishes two fundamentally different ways to assess a
+The robustness module distinguishes three fundamentally different ways to assess a
 model's robustness against perturbations:
 
 * ``AssessmentKind.EMPIRICAL_ATTACK`` — try to find an adversarial example within a
@@ -10,10 +10,14 @@ model's robustness against perturbations:
 * ``AssessmentKind.FORMAL_VERIFICATION`` — prove (or refute) that no adversarial
   example exists within the budget (auto_LiRPA, alpha-beta-CROWN, ...). Outcomes are
   verified / falsified / unknown.
+* ``AssessmentKind.STATISTICAL_SAMPLING`` — measure average-case accuracy under a
+  perturbation distribution (ImageNet-C corruptions, …). Outcomes are per-sample
+  correct / misclassified.
 
-A single ``RobustnessSemantics`` carries this distinction so that downstream
-result handling, reporting, and visualiser-compatibility checks can branch on
-``assessment_kind`` instead of duck-typing.
+Each procedure belongs to exactly one ``RobustnessCase`` (worst-case or average-case),
+derived via ``case_for(kind)``.  A single ``RobustnessSemantics`` carries this
+distinction so that downstream result handling, reporting, and visualiser-compatibility
+checks can branch on ``assessment_kind`` instead of duck-typing.
 """
 
 from __future__ import annotations
@@ -33,10 +37,55 @@ Tensor = Any
 
 
 class AssessmentKind(StrEnum):
-    """High-level taxonomy distinguishing empirical attacks from formal verification."""
+    """LEVEL 1 — procedure-level taxonomy; coarsens into RobustnessCase via case_for().
+
+    Distinguishes three assessment procedures:
+    * EMPIRICAL_ATTACK — adversarial example search (worst-case).
+    * FORMAL_VERIFICATION — sound proof or refutation (worst-case).
+    * STATISTICAL_SAMPLING — accuracy under a perturbation distribution (average-case).
+    """
 
     EMPIRICAL_ATTACK = "empirical_attack"
     FORMAL_VERIFICATION = "formal_verification"
+    STATISTICAL_SAMPLING = "statistical_sampling"
+
+
+class RobustnessCase(StrEnum):
+    """LEVEL 2 — the worst/average 'case' from thesis §2.4; a coarsening of AssessmentKind.
+
+    Not an independent axis: every procedure belongs to exactly one case and no
+    procedure spans cases, so case is *derived* from kind, never stored.
+    """
+
+    WORST_CASE = "worst_case"
+    AVERAGE_CASE = "average_case"
+
+
+_CASE_BY_KIND: dict[AssessmentKind, RobustnessCase] = {
+    AssessmentKind.EMPIRICAL_ATTACK: RobustnessCase.WORST_CASE,
+    AssessmentKind.FORMAL_VERIFICATION: RobustnessCase.WORST_CASE,
+    AssessmentKind.STATISTICAL_SAMPLING: RobustnessCase.AVERAGE_CASE,
+}
+
+
+def case_for(kind: AssessmentKind) -> RobustnessCase:
+    """Return the robustness case a procedure belongs to."""
+    return _CASE_BY_KIND[kind]
+
+
+class ReportFigureScope(StrEnum):
+    """Where a robustness visualiser's figure belongs in the report layout.
+
+    Read by the reporting layer to place each staged figure: ``ASSESSOR`` figures
+    summarise the whole assessment (one chart per assessor — e.g. clean-vs-corrupted
+    accuracy, verdict-count summary, output-bound cohorts); ``PER_SAMPLE`` figures
+    show one input each (e.g. original/perturbed image pairs). Defaults to
+    ``PER_SAMPLE`` on the visualiser base so empirical image visualisers keep their
+    existing per-sample placement without opting in.
+    """
+
+    ASSESSOR = "assessor"
+    PER_SAMPLE = "per_sample"
 
 
 class RobustnessVerdict(StrEnum):
@@ -47,6 +96,9 @@ class RobustnessVerdict(StrEnum):
     an adversarial example within the budget).
     Formal verification assessors emit ``VERIFIED`` / ``FALSIFIED`` / ``UNKNOWN``
     (and ``ERROR`` for per-sample crashes / timeouts).
+    Statistical-sampling assessors emit ``CORRECT_UNDER_PERTURBATION`` /
+    ``MISCLASSIFIED_UNDER_PERTURBATION`` (whether the corrupted input was still
+    classified as its ground-truth label).
     """
 
     ATTACK_SUCCEEDED = "attack_succeeded"
@@ -55,6 +107,8 @@ class RobustnessVerdict(StrEnum):
     FALSIFIED = "falsified"
     UNKNOWN = "unknown"
     ERROR = "error"
+    CORRECT_UNDER_PERTURBATION = "correct_under_perturbation"
+    MISCLASSIFIED_UNDER_PERTURBATION = "misclassified_under_perturbation"
 
 
 # Stable integer encoding for storing verdicts inside a torch tensor.
@@ -66,6 +120,8 @@ VERDICT_CODES: dict[RobustnessVerdict, int] = {
     RobustnessVerdict.FALSIFIED: 4,
     RobustnessVerdict.UNKNOWN: 5,
     RobustnessVerdict.ERROR: 6,
+    RobustnessVerdict.CORRECT_UNDER_PERTURBATION: 7,
+    RobustnessVerdict.MISCLASSIFIED_UNDER_PERTURBATION: 8,
 }
 VERDICT_FROM_CODE: dict[int, RobustnessVerdict] = {code: v for v, code in VERDICT_CODES.items()}
 
@@ -87,6 +143,7 @@ class ThreatModel(StrEnum):
     WHITE_BOX = "white_box"
     BLACK_BOX_SCORE = "black_box_score"
     BLACK_BOX_DECISION = "black_box_decision"
+    NOT_APPLICABLE = "not_applicable"
 
 
 class Objective(StrEnum):
@@ -106,13 +163,26 @@ class PerturbationNorm(StrEnum):
 
 
 @dataclass(frozen=True)
-class PerturbationBudget:
-    """Region of inputs an adversary is allowed to explore."""
+class PerturbationRegion:
+    """Base for the region of inputs an assessment explores. Kind-specific subclasses."""
+
+
+@dataclass(frozen=True)
+class PerturbationBudget(PerturbationRegion):
+    """Worst-case norm ball an adversary may explore."""
 
     norm: PerturbationNorm
     epsilon: float | None = None
     step_size: float | None = None
     steps: int | None = None
+
+
+@dataclass(frozen=True)
+class PerturbationDistribution(PerturbationRegion):
+    """Average-case perturbation distribution (one ImageNet-C corruption at one severity)."""
+
+    corruption_name: str
+    severity: int
 
 
 @dataclass(frozen=True)
@@ -123,10 +193,15 @@ class RobustnessSemantics:
     threat_model: ThreatModel
     objective: Objective
     families: frozenset[str]
-    budget: PerturbationBudget
+    perturbation: PerturbationRegion
     target_classes: Sequence[int] | None = None
     sample_selection: SampleSelection | None = None
     input_spec: InputSpec | None = None
+
+    @property
+    def case(self) -> RobustnessCase:
+        """Robustness case this assessment belongs to (derived from ``assessment_kind``)."""
+        return case_for(self.assessment_kind)
 
 
 @dataclass(frozen=True)

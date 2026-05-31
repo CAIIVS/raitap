@@ -7,6 +7,7 @@ from raitap.robustness.assessors import FoolboxAssessor, TorchattacksAssessor
 from raitap.robustness.contracts import (
     AssessmentKind,
     Objective,
+    PerturbationBudget,
     PerturbationNorm,
     ThreatModel,
 )
@@ -53,9 +54,10 @@ def test_assessor_semantics_reads_budget_from_constructor_kwargs() -> None:
         inputs=inputs,
         targets=targets,
     )
-    assert semantics.budget.epsilon == 0.04
-    assert semantics.budget.step_size == 0.005
-    assert semantics.budget.steps == 12
+    assert isinstance(semantics.perturbation, PerturbationBudget)
+    assert semantics.perturbation.epsilon == 0.04
+    assert semantics.perturbation.step_size == 0.005
+    assert semantics.perturbation.steps == 12
 
 
 def test_assessor_semantics_extracts_targeted_objective_from_call_kwargs() -> None:
@@ -74,9 +76,10 @@ def test_assessor_semantics_extracts_targeted_objective_from_call_kwargs() -> No
     assert semantics.objective == Objective.TARGETED
     assert semantics.target_classes == (3, 4)
     # Budget reflects the constructor (where torchattacks actually reads from).
-    assert semantics.budget.epsilon == 0.05
-    assert semantics.budget.step_size == 0.01
-    assert semantics.budget.steps == 7
+    assert isinstance(semantics.perturbation, PerturbationBudget)
+    assert semantics.perturbation.epsilon == 0.05
+    assert semantics.perturbation.step_size == 0.01
+    assert semantics.perturbation.steps == 7
 
 
 def test_assessor_semantics_foolbox_reads_budget_from_call_kwargs() -> None:
@@ -91,8 +94,9 @@ def test_assessor_semantics_foolbox_reads_budget_from_call_kwargs() -> None:
         inputs=inputs,
         targets=targets,
     )
-    assert semantics.budget.epsilon == 0.07
-    assert semantics.budget.steps == 25
+    assert isinstance(semantics.perturbation, PerturbationBudget)
+    assert semantics.perturbation.epsilon == 0.07
+    assert semantics.perturbation.steps == 25
 
 
 def test_assessor_semantics_warns_on_misplaced_budget_keys() -> None:
@@ -110,4 +114,43 @@ def test_assessor_semantics_warns_on_misplaced_budget_keys() -> None:
         )
     # Misplaced kwargs in call_kwargs are not consumed by the adapter, so the
     # resulting budget reflects init_kwargs (empty) plus registry default.
-    assert semantics.budget.epsilon is None
+    assert isinstance(semantics.perturbation, PerturbationBudget)
+    assert semantics.perturbation.epsilon is None
+
+
+def test_semantics_builds_perturbation_distribution_for_sampling() -> None:
+    from types import SimpleNamespace
+    from typing import ClassVar
+
+    from raitap.robustness.contracts import (
+        AssessmentKind,
+        Objective,
+        PerturbationDistribution,
+        ThreatModel,
+    )
+    from raitap.robustness.semantics import AssessorSemanticsHints, assessor_semantics
+
+    class _Stub:
+        algorithm: ClassVar[str] = "gaussian_noise"
+        algorithm_registry: ClassVar[dict[str, AssessorSemanticsHints]] = {
+            "gaussian_noise": AssessorSemanticsHints(
+                AssessmentKind.STATISTICAL_SAMPLING,
+                ThreatModel.NOT_APPLICABLE,
+                Objective.UNTARGETED,
+                families=frozenset({"common_corruption", "noise"}),
+            )
+        }
+        init_kwargs: ClassVar[dict[str, int]] = {"severity": 4}
+        budget_kwarg_source: ClassVar[str] = "init_kwargs"
+
+    semantics = assessor_semantics(
+        _Stub(),
+        call_kwargs={},
+        raitap_kwargs={},
+        inputs=SimpleNamespace(shape=(2, 3, 8, 8)),
+        targets=None,
+    )
+    assert isinstance(semantics.perturbation, PerturbationDistribution)
+    assert semantics.perturbation.corruption_name == "gaussian_noise"
+    assert semantics.perturbation.severity == 4
+    assert semantics.assessment_kind is AssessmentKind.STATISTICAL_SAMPLING
