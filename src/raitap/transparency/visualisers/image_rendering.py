@@ -8,7 +8,7 @@ automatically from explainer provenance via :func:`resolve_image_renderer`.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import numpy as np
 
@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
     from matplotlib.axes import Axes
     from matplotlib.cm import ScalarMappable
+    from matplotlib.figure import Figure
 
 
 class ImageAttributionRenderer(Protocol):
@@ -196,7 +197,10 @@ class CaptumNativeRenderer:
             method=method,
             sign=sign,
             show_colorbar=show_colorbar,
-            plt_fig_axis=(ax.figure, ax),
+            # ``ax.figure`` is typed ``Figure | SubFigure``; visualisers always
+            # pass a top-level ``Figure``'s axes, and visualize_image_attr's stub
+            # requires ``Figure``.
+            plt_fig_axis=(cast("Figure", ax.figure), ax),
             use_pyplot=False,
             **({"title": title} if title is not None else {}),
             **style,
