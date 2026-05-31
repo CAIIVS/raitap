@@ -81,7 +81,24 @@ Pass `from raitap.transparency import ALL` (or `raitap.robustness.ALL`) instead 
 
 The default `check_backend_compat` enforces this allowlist — algorithms not in the set raise `ExplainerBackendIncompatibilityError` (or `AssessorBackendIncompatibilityError`) when the user picks an ONNX backend.
 
-## 4. Tests
+## 4. Baseline default (transparency only, optional)
+
+Attribution methods that take a *reference input* — Integrated Gradients (`baselines=`) and SHAP (`background_data=`) — have that baseline recorded in `metadata.json` and the report (issue #210). Two class-body attributes on the adapter drive this:
+
+- `baseline_kwarg` — the call kwarg that holds the reference (`"baselines"` for Captum, `"background_data"` for SHAP). `None` (the base-class default) means the family takes no baseline.
+- `baseline_defaults` — a `Mapping[str, BaselineMode]` of *algorithm name → implicit default mode*, used when the user omits the kwarg. Declared **per algorithm** because one adapter wraps many algorithms, most of which take no baseline.
+
+If your new algorithm takes a baseline **and** has a meaningful default when the user omits it, add one entry (use a `BaselineMode` member from `transparency/contracts.py`):
+
+```python
+class CaptumExplainer(AttributionOnlyExplainer):
+    baseline_kwarg = "baselines"
+    baseline_defaults = {"IntegratedGradients": BaselineMode.ZERO, "NewMethod": BaselineMode.ZERO}
+```
+
+Nothing to do if your algorithm only uses a baseline when the user supplies one (no implicit default) — the kwarg-present path records it as `configured`/`user_tensor` automatically — or if it takes no reference at all (Saliency, GradCam).
+
+## 5. Tests
 
 Add a unit test next to the adapter (`src/raitap/<module>/<subdir>/tests/test_<adapter>.py`) that:
 
@@ -100,7 +117,7 @@ The family E2E matrix parametrises over algorithm names — add an entry to keep
 - **Transparency**: `src/raitap/transparency/tests/e2e_case_matrix.py::MATRIX_CASES`. Add a `MatrixCase(id="...", framework=..., algorithm="NewMethod", ...)`.
 - **Robustness**: `src/raitap/robustness/tests/e2e_assessor_matrix.py::MATRIX_CASES`. Add an `AssessorMatrixCase(id="...", family=..., algorithm="NewAlgo", needs_extra=..., constructor_kwargs={...})`. Keep `constructor_kwargs` minimal (low `steps`, low `n_queries`) — the matrix is a wire-up smoke test, not a behaviour-sensitivity test. Each case must finish in under ~5s on CI.
 
-## 5. Docs
+## 6. Docs
 
 Add a row to `docs/modules/<module>/frameworks-and-libraries.md` for the new algorithm so it surfaces in the user-facing "does raitap support X?" lookup. Mention the families it belongs to and whether it is ONNX-compatible.
 
