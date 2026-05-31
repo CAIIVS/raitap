@@ -177,7 +177,7 @@ def test_verify_sample_never_falsified(fake_lirpa: _LirpaState) -> None:
 
 def test_verify_sample_rejects_norm_algorithm_mismatch(fake_lirpa: _LirpaState) -> None:
     # ``crown`` is L∞; an L2 budget must raise rather than silently run L2.
-    with pytest.raises(ValueError, match="Linf|L2"):
+    with pytest.raises(ValueError, match=r"Linf|L2"):
         AutoLiRPAAssessor(algorithm="crown").verify_sample(
             _IdentityModel(),
             torch.zeros(1, 3),
