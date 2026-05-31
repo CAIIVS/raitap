@@ -41,7 +41,6 @@ from .base_assessor import FormalVerificationAssessor
 
 if TYPE_CHECKING:
     import torch
-    from torch import nn
 else:
     torch = lazy_import("torch")
 
@@ -135,7 +134,7 @@ class AutoLiRPAAssessor(FormalVerificationAssessor):
 
     def verify_sample(
         self,
-        model: nn.Module,
+        model: torch.nn.Module,
         sample: torch.Tensor,
         target: torch.Tensor,
         *,
@@ -144,8 +143,18 @@ class AutoLiRPAAssessor(FormalVerificationAssessor):
         **kwargs: Any,
     ) -> VerificationOutcome:
         del backend, kwargs
-        method, _norm = _ALGORITHMS[self.algorithm]
-        norm_value = _norm_to_lirpa(budget.norm)
+        # The algorithm key is the single source of truth for the norm; derive
+        # the auto-LiRPA ``norm=`` value from it (not from ``budget.norm``) and
+        # reject a budget whose norm contradicts the configured algorithm, so a
+        # direct call or a config mismatch can't silently run the wrong combo.
+        method, expected_norm = _ALGORITHMS[self.algorithm]
+        if budget.norm != expected_norm:
+            raise ValueError(
+                f"AutoLiRPAAssessor algorithm {self.algorithm!r} verifies "
+                f"{expected_norm.value} robustness, but the budget specifies "
+                f"{budget.norm.value}. Pick the matching algorithm."
+            )
+        norm_value = _norm_to_lirpa(expected_norm)
         eps = float(budget.epsilon) if budget.epsilon is not None else self.epsilon
 
         device = _model_device(model)
@@ -211,7 +220,7 @@ def _norm_to_lirpa(norm: PerturbationNorm) -> float:
         ) from error
 
 
-def _model_device(model: nn.Module) -> torch.device:
+def _model_device(model: torch.nn.Module) -> torch.device:
     """Return the model's parameter device, falling back to CPU.
 
     Catches ``AttributeError`` for bare callables (mocks) without ``parameters``
