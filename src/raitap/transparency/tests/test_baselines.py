@@ -10,7 +10,12 @@ if TYPE_CHECKING:
 
 import torch
 
-from raitap.transparency.baselines import build_baseline_record
+from raitap.transparency.baselines import (
+    _render_baseline_image as _original_render_baseline_image,
+)
+from raitap.transparency.baselines import (
+    build_baseline_record,
+)
 from raitap.transparency.contracts import InputSpec
 
 
@@ -123,16 +128,13 @@ def test_bfloat16_baseline_renders_and_hashes(tmp_path: Path) -> None:
 def test_render_cache_reuses_rendered_baseline(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import raitap.transparency.baselines as baselines_module
-
     render_calls: list[Path] = []
-    original = baselines_module._render_baseline_image
 
     def _counting_render(baseline: torch.Tensor, run_dir: Path) -> Path:
         render_calls.append(run_dir)
-        return original(baseline, run_dir)
+        return _original_render_baseline_image(baseline, run_dir)
 
-    monkeypatch.setattr(baselines_module, "_render_baseline_image", _counting_render)
+    monkeypatch.setattr("raitap.transparency.baselines._render_baseline_image", _counting_render)
 
     cache: dict[str, Path] = {}
     common = {
