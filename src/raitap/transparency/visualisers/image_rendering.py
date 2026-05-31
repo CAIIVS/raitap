@@ -8,7 +8,7 @@ automatically from explainer provenance via :func:`resolve_image_renderer`.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
 
@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 
     from matplotlib.axes import Axes
     from matplotlib.cm import ScalarMappable
-    from matplotlib.figure import Figure
 
 
 class ImageAttributionRenderer(Protocol):
@@ -33,7 +32,8 @@ class ImageAttributionRenderer(Protocol):
         *,
         sign: str = "all",
         **style: Any,
-    ) -> ScalarMappable | None: ...
+    ) -> ScalarMappable | None:
+        """Render ``attr`` onto ``ax``; return the drawn mappable (or ``None``)."""
 
 
 def _signed_channel_sum(attr: np.ndarray) -> np.ndarray:
@@ -177,6 +177,7 @@ class CaptumNativeRenderer:
         **style: Any,
     ) -> ScalarMappable | None:
         from captum.attr import visualization as viz
+        from matplotlib.figure import Figure
 
         from raitap.transparency.visualisers.captum_visualisers import (
             _captum_normalisation_degenerate,
@@ -191,16 +192,17 @@ class CaptumNativeRenderer:
         if _captum_normalisation_degenerate(np.asarray(attr), sign, outlier_perc):
             _render_flat_attribution(ax, sign, title)
             return None
+        # ``ax.figure`` is typed ``Figure | SubFigure``; visualisers always pass a
+        # top-level ``Figure``'s axes, and visualize_image_attr's stub requires ``Figure``.
+        fig = ax.figure
+        assert isinstance(fig, Figure)
         viz.visualize_image_attr(
             attr,
             image,
             method=method,
             sign=sign,
             show_colorbar=show_colorbar,
-            # ``ax.figure`` is typed ``Figure | SubFigure``; visualisers always
-            # pass a top-level ``Figure``'s axes, and visualize_image_attr's stub
-            # requires ``Figure``.
-            plt_fig_axis=(cast("Figure", ax.figure), ax),
+            plt_fig_axis=(fig, ax),
             use_pyplot=False,
             **({"title": title} if title is not None else {}),
             **style,
