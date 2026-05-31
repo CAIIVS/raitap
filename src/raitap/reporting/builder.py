@@ -19,7 +19,12 @@ else:
     torch = lazy_import("torch")
 from raitap.configs import resolve_run_dir
 from raitap.pipeline.outputs import PredictionSummary, RunOutputs
-from raitap.robustness.contracts import AssessmentKind, PerturbationBudget, PerturbationDistribution
+from raitap.robustness.contracts import (
+    AssessmentKind,
+    PerturbationBudget,
+    PerturbationDistribution,
+    ReportFigureScope,
+)
 from raitap.transparency.contracts import ExplanationScope, VisualisationContext
 from raitap.transparency.visualisers import BaseVisualiser, InputThumbnailVisualiser
 
@@ -334,7 +339,7 @@ def _build_robustness_section(
             result,
             selected_samples=selected_samples,
         )
-        staged_images = (
+        staged = (
             _legacy_robustness_images(
                 visualisations_by_assessor.get(assessor_name, []),
                 assets_dir=assets_dir,
@@ -350,12 +355,17 @@ def _build_robustness_section(
                 sample_indices=robustness_sample_indices,
             )
         )
+        staged_images = [path for path, _ in staged]
+        # Scope is keyed by asset basename so the view model places each figure
+        # (assessor-level vs per-sample) from data instead of parsing filenames.
+        figure_scopes = {path.name: scope for path, scope in staged}
 
         metadata: dict[str, object] = {
             "role": "robustness",
             "assessor_name": assessor_name,
             "algorithm": result.algorithm,
             "assessment_kind": assessment_kind_value,
+            "figure_scopes": figure_scopes,
         }
         if not show_redundant_robustness_panels:
             metadata["sample_indices"] = robustness_sample_indices
@@ -420,26 +430,43 @@ def _output_bounds_table_rows(result: Any) -> list[tuple[str, str]]:
     return rows
 
 
+def _figure_scope_for(result: Any, visualiser_name: str) -> str:
+    """Resolve a staged figure's report scope from the configured visualiser.
+
+    ``visualiser_name`` is ``{ClassName}_{index}``; the trailing index maps back to
+    ``result.visualisers`` to read the declared ``report_figure_scope``. Falls back
+    to per-sample when the index cannot be resolved.
+    """
+    default = ReportFigureScope.PER_SAMPLE.value
+    _, _, suffix = visualiser_name.rpartition("_")
+    try:
+        index = int(suffix)
+        configured = result.visualisers[index]
+    except (ValueError, IndexError, AttributeError):
+        return default
+    return type(configured.visualiser).report_figure_scope.value
+
+
 def _legacy_robustness_images(
     visualisations: list[RobustnessVisualisationResult],
     *,
     assets_dir: Path,
     result_index: int,
     assessor_name: str,
-) -> list[Path]:
-    staged_images: list[Path] = []
+) -> list[tuple[Path, str]]:
+    staged: list[tuple[Path, str]] = []
     for visualisation in visualisations:
-        staged_images.append(
-            _copy_asset(
-                visualisation.output_path,
-                assets_dir=assets_dir,
-                target_name=(
-                    f"robustness_{result_index}_{_safe_name(assessor_name)}_"
-                    f"{visualisation.visualiser_name}{visualisation.output_path.suffix}"
-                ),
-            )
+        path = _copy_asset(
+            visualisation.output_path,
+            assets_dir=assets_dir,
+            target_name=(
+                f"robustness_{result_index}_{_safe_name(assessor_name)}_"
+                f"{visualisation.visualiser_name}{visualisation.output_path.suffix}"
+            ),
         )
-    return staged_images
+        scope = _figure_scope_for(visualisation.result, visualisation.visualiser_name)
+        staged.append((path, scope))
+    return staged
 
 
 def _compact_robustness_images(
@@ -449,7 +476,7 @@ def _compact_robustness_images(
     result_index: int,
     assessor_name: str,
     sample_indices: tuple[int, ...],
-) -> list[Path]:
+) -> list[tuple[Path, str]]:
     configured_visualisers = list(result.visualisers)
     combined_visualiser_index = _combined_robustness_visualiser_index(configured_visualisers)
     owners = (
@@ -457,7 +484,7 @@ def _compact_robustness_images(
         if combined_visualiser_index is not None
         else _canonical_facet_owners(configured_visualisers)
     )
-    staged_images: list[Path] = []
+    staged: list[tuple[Path, str]] = []
     sample_indices_for_render: tuple[int | None, ...] = (
         sample_indices if sample_indices else (None,)
     )
@@ -500,8 +527,9 @@ def _compact_robustness_images(
                 visualisation.figure.savefig(target, bbox_inches="tight", dpi=150)
             finally:
                 plt.close(visualisation.figure)
-            staged_images.append(target)
-    return staged_images
+            scope = type(configured.visualiser).report_figure_scope.value
+            staged.append((target, scope))
+    return staged
 
 
 def _combined_robustness_visualiser_index(visualisers: Any) -> int | None:

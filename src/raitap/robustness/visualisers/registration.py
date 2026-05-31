@@ -12,7 +12,10 @@ from raitap._adapters import AdapterDecoratorOptions, _register_core
 
 # Runtime import: AssessmentKind appears in this public decorator's signature, so
 # typing.get_type_hints() must be able to resolve it from module globals.
-from raitap.robustness.contracts import AssessmentKind  # noqa: TC001
+from raitap.robustness.contracts import (  # noqa: TC001
+    AssessmentKind,
+    ReportFigureScope,
+)
 
 if TYPE_CHECKING:
     from raitap.robustness.visualisers.base_visualiser import BaseRobustnessVisualiser
@@ -32,6 +35,7 @@ def robustness_visualiser(
     supported_assessment_kinds: frozenset[AssessmentKind] | _Unset = _UNSET,
     embeds_clean_input: bool | _Unset = _UNSET,
     embeds_perturbation_map: bool | _Unset = _UNSET,
+    report_figure_scope: ReportFigureScope | _Unset = _UNSET,
     **common: Unpack[AdapterDecoratorOptions],
 ) -> Callable[[type[T]], type[T]]:
     """Register a robustness visualiser. ``registry_name`` required; capability
@@ -42,6 +46,7 @@ def robustness_visualiser(
             ("supported_assessment_kinds", supported_assessment_kinds),
             ("embeds_clean_input", embeds_clean_input),
             ("embeds_perturbation_map", embeds_perturbation_map),
+            ("report_figure_scope", report_figure_scope),
         ):
             if value is not _UNSET:  # identity check on the singleton sentinel
                 setattr(cls, attr, value)

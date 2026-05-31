@@ -20,7 +20,7 @@ import numpy as np
 
 from raitap.robustness.visualisers.registration import robustness_visualiser
 
-from ...contracts import AssessmentKind, RobustnessVerdict
+from ...contracts import AssessmentKind, ReportFigureScope, RobustnessVerdict
 from ..base_visualiser import BaseRobustnessVisualiser
 
 if TYPE_CHECKING:
@@ -47,6 +47,7 @@ _VERDICT_COLORS = {
 @robustness_visualiser(
     registry_name="verdict_summary",
     supported_assessment_kinds=frozenset({AssessmentKind.FORMAL_VERIFICATION}),
+    report_figure_scope=ReportFigureScope.ASSESSOR,
 )
 class VerdictSummaryVisualiser(BaseRobustnessVisualiser):
     """Bar chart of verdict counts plus a runtime histogram."""

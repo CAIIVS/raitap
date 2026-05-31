@@ -11,7 +11,11 @@ from matplotlib.figure import Figure  # noqa: TC002
 
 from raitap._adapters import AdapterMixin
 
-from ..contracts import AssessmentKind, RobustnessVisualisationContext  # noqa: TC001
+from ..contracts import (
+    AssessmentKind,
+    ReportFigureScope,
+    RobustnessVisualisationContext,
+)
 from ..exceptions import AssessmentKindVisualiserIncompatibilityError
 
 if TYPE_CHECKING:
@@ -37,12 +41,20 @@ class BaseRobustnessVisualiser(ABC, AdapterMixin):
     ``include_perturbation_map``) and hide that facet when it is ``False``.
     The flags default to ``False``, so formal verifier visualisers are
     unaffected unless they explicitly opt into the contract.
+
+    ``report_figure_scope`` declares whether the produced figure summarises the
+    whole assessment (``ASSESSOR`` — one chart per assessor) or shows a single
+    input (``PER_SAMPLE``). The reporting layer reads it to choose the layout
+    slot; it defaults to ``PER_SAMPLE`` so empirical image visualisers keep their
+    existing per-sample placement.
     """
 
     supported_assessment_kinds: ClassVar[frozenset[AssessmentKind]] = frozenset()
     # Class-level because embedding robustness facets is a visual layout property.
     embeds_clean_input: ClassVar[bool] = False
     embeds_perturbation_map: ClassVar[bool] = False
+    # Class-level because figure scope is a visual layout property of the visualiser.
+    report_figure_scope: ClassVar[ReportFigureScope] = ReportFigureScope.PER_SAMPLE
 
     def validate_result(self, result: RobustnessResult) -> None:
         if not self.supported_assessment_kinds:

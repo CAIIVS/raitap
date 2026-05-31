@@ -52,6 +52,11 @@ _CORRUPTIONS: dict[str, frozenset[str]] = {
         )
         for name, families in _CORRUPTIONS.items()
     },
+    # imagecorruptions triggers a `pkg_resources is deprecated` UserWarning on
+    # import (last released 2020, upstream won't fix). Silence — not actionable.
+    suppress_warnings=[
+        (r"pkg_resources is deprecated as an API", UserWarning, r"imagecorruptions.*"),
+    ],
 )
 class ImageCorruptionsAssessor(StatisticalSamplingAssessor):
     """Apply one ImageNet-C corruption at one severity to estimate average-case accuracy.

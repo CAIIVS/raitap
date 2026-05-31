@@ -33,6 +33,7 @@ from raitap.robustness.contracts import (
     Objective,
     PerturbationBudget,
     PerturbationNorm,
+    ReportFigureScope,
     RobustnessSemantics,
     RobustnessVerdict,
     RobustnessVisualisationContext,
@@ -164,6 +165,23 @@ class _ErroringRobustnessVisualiser(BaseRobustnessVisualiser):
     ) -> Figure:
         del result, context, kwargs
         raise ValueError("builder visualiser failed")
+
+
+class _AssessorScopeSamplingVisualiser(BaseRobustnessVisualiser):
+    supported_assessment_kinds = frozenset({AssessmentKind.STATISTICAL_SAMPLING})
+    report_figure_scope = ReportFigureScope.ASSESSOR
+
+    def visualise(
+        self,
+        result: RobustnessResult,
+        *,
+        context: RobustnessVisualisationContext,
+        **kwargs: Any,
+    ) -> Figure:
+        del result, context, kwargs
+        fig, ax = plt.subplots()
+        ax.bar([0, 1], [1.0, 0.5])
+        return fig
 
 
 class _StrictPerturbationVisualiser(BaseRobustnessVisualiser):
@@ -2154,6 +2172,56 @@ def test_build_report_sampling_result_renders_without_error(tmp_path: Path) -> N
     assert row_dict.get("severity") == "3"
     assert row_dict.get("case") == "average_case"
     assert row_dict.get("corrupted_accuracy") == "0.5000"
+
+
+def test_build_report_assessor_scope_figure_recorded_in_metadata(tmp_path: Path) -> None:
+    from raitap.robustness.contracts import PerturbationDistribution
+
+    config = AppConfig(experiment_name="sampling_scope")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    semantics = RobustnessSemantics(
+        assessment_kind=AssessmentKind.STATISTICAL_SAMPLING,
+        threat_model=ThreatModel.NOT_APPLICABLE,
+        objective=Objective.UNTARGETED,
+        families=frozenset({"noise"}),
+        perturbation=PerturbationDistribution(corruption_name="fog", severity=3),
+    )
+    result = RobustnessResult(
+        clean_inputs=torch.rand(2, 3, 4, 4),
+        targets=torch.tensor([0, 1]),
+        clean_predictions=torch.tensor([0, 1]),
+        verdicts=encode_verdicts([RobustnessVerdict.CORRECT_UNDER_PERTURBATION] * 2),
+        metrics=RobustnessMetrics(clean_accuracy=1.0, corrupted_accuracy=0.5, n_samples=2),
+        run_dir=tmp_path / "robustness" / "fog",
+        experiment_name="sampling_scope",
+        assessor_target="t",
+        algorithm="fog",
+        assessor_name="fog",
+        semantics=semantics,
+        visualisers=[
+            ConfiguredRobustnessVisualiser(visualiser=_AssessorScopeSamplingVisualiser()),
+        ],
+    )
+    outputs = RunOutputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=_fo(torch.zeros(2, 2)),
+        robustness_results=[result],
+    )
+
+    report = build_report(config, outputs)
+
+    group = report.sections[0].groups[0]
+    assert len(group.images) == 1
+    staged_name = group.images[0].name
+    # Assessor-level figures carry no per-sample token and are tagged in metadata.
+    assert "_sample_" not in staged_name
+    figure_scopes = group.metadata["figure_scopes"]
+    assert isinstance(figure_scopes, dict)
+    assert figure_scopes[staged_name] == ReportFigureScope.ASSESSOR.value
 
 
 def _write_test_image(path: Path) -> Path:

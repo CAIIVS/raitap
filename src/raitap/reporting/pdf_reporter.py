@@ -287,6 +287,11 @@ class PDFReporter(BaseReporter):
 
         For each group: a table is rendered when ``table_rows`` is non-empty,
         followed by image figures when ``images`` is non-empty.
+
+        TODO: the HTML report renders kind-aware robustness headline tiles + badges
+        (see ``view_model._ROBUSTNESS_HEADLINE_KEYS`` and ``_robustness.html.j2``).
+        The PDF still dumps the full ``table_rows`` for every assessment kind. Give
+        the PDF the same kind-aware headline summary treatment in a follow-up.
         """
         reporting = self.config.reporting
         num_groups, num_files = _figure_layout_counts(sections)

@@ -172,3 +172,7 @@ to see at a glance whether a corruption degrades accuracy and how tight the
 estimate is.
 
 Supports `AssessmentKind.STATISTICAL_SAMPLING`. No image-modality requirement.
+Renders as an assessor-level figure (one chart for the whole assessment) rather
+than per-sample.
+
+![CorruptionAccuracyVisualiser preview](../../_static/visualisers/corruption_accuracy_visualiser.png)

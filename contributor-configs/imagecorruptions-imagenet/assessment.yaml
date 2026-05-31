@@ -1,0 +1,54 @@
+# Robustness demo for RAITAP — average-case AND worst-case in one run.
+#
+# Runs two robustness assessors against a torchvision ResNet-18 on the bundled
+# imagenet_samples subset, then emits an HTML report:
+#   * gaussian_noise — average-case (ImageNet-C corruption) → accuracy chart
+#   * pgd            — worst-case (torchattacks PGD attack)  → image-pair + heatmap
+#
+# Self-contained: no external model/data files — reuses the built-in
+# imagenet_samples dataset and a torchvision built-in model.
+
+defaults:
+  - raitap_schema      # required to bind the schema, must come first
+  - reporting: html
+  - metrics: multiclass_classification
+  - _self_
+
+hardware: gpu
+experiment_name: imagecorruptions-imagenet-demo
+
+model:
+  source: resnet18   # built-in torchvision name; loads with default ImageNet weights
+
+data:
+  name: imagenet_samples
+  source: imagenet_samples
+  forward_batch_size: 4
+  labels:
+    source: imagenet_samples    # bundled labels.csv for this sample
+    id_column: image
+    column: label
+
+metrics:
+  num_classes: 1000
+
+robustness:
+  # Average-case: ImageNet-C common corruption at a fixed severity.
+  gaussian_noise:
+    _target_: ImageCorruptionsAssessor
+    algorithm: gaussian_noise   # any of the 15 ImageNet-C corruptions
+    constructor:
+      severity: 3               # 1..5
+    visualisers:
+      - _target_: CorruptionAccuracyVisualiser
+  # Worst-case: bounded PGD adversarial attack (torchattacks).
+  pgd:
+    _target_: TorchattacksAssessor
+    algorithm: PGD
+    constructor:
+      eps: 0.03
+      alpha: 0.008
+      steps: 10
+    visualisers:
+      - _target_: ImagePairVisualiser
+      - _target_: PerturbationHeatmapVisualiser

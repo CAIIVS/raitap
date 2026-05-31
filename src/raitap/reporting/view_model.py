@@ -6,6 +6,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from raitap.robustness.contracts import ReportFigureScope
+
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
@@ -42,6 +44,35 @@ _ROBUSTNESS_SETTING_KEYS = frozenset(
         "severity",
     }
 )
+
+# Headline metric tiles per assessment kind. The report shows these in the
+# metric grid; everything else stays in the "Full settings" table. Keyed by
+# AssessmentKind.value so the report is generic over kind (empirical / formal /
+# statistical-sampling) instead of hardcoding the empirical-attack fields.
+_ROBUSTNESS_HEADLINE_KEYS: dict[str, tuple[str, ...]] = {
+    "empirical_attack": (
+        "clean_accuracy",
+        "adversarial_accuracy",
+        "attack_success_rate",
+        "mean_distance",
+        "max_distance",
+    ),
+    "formal_verification": (
+        "clean_accuracy",
+        "verified_rate",
+        "falsified_rate",
+        "unknown_rate",
+        "error_rate",
+    ),
+    "statistical_sampling": (
+        "clean_accuracy",
+        "corrupted_accuracy",
+        "accuracy_ci_low",
+        "accuracy_ci_high",
+        "n_samples",
+    ),
+}
+_DEFAULT_HEADLINE_KEYS: tuple[str, ...] = ("clean_accuracy",)
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +138,11 @@ class RobustnessAssessorView:
     settings: dict[str, str]
     metrics: dict[str, str]
     samples: tuple[RobustnessSampleEvidence, ...]
+    # Assessor-level figures (one per batch — e.g. corruption accuracy, verdict
+    # summary). Per-sample figures live on ``samples`` instead.
+    assessor_figure_srcs: tuple[str, ...] = ()
+    # Ordered (key, value) metric tiles chosen by assessment kind.
+    headline_metrics: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -447,15 +483,18 @@ def _build_robustness_assessors(section: ReportSection) -> tuple[RobustnessAsses
             key: value for key, value in group.table_rows if key not in _ROBUSTNESS_SETTING_KEYS
         }
         assessor_name = str(group.metadata.get("assessor_name") or rows.get("assessor") or "n/a")
+        assessment_kind = str(
+            group.metadata.get("assessment_kind") or rows.get("assessment_kind") or "n/a"
+        )
         sample_order = _robustness_sample_order(group)
         evidence_by_index = _robustness_evidence_by_index(group)
+        headline_keys = _ROBUSTNESS_HEADLINE_KEYS.get(assessment_kind, _DEFAULT_HEADLINE_KEYS)
+        headline_metrics = tuple((key, metrics.get(key, "n/a")) for key in headline_keys)
         assessors.append(
             RobustnessAssessorView(
                 assessor_name=assessor_name,
                 algorithm=str(group.metadata.get("algorithm") or rows.get("algorithm") or "n/a"),
-                assessment_kind=str(
-                    group.metadata.get("assessment_kind") or rows.get("assessment_kind") or "n/a"
-                ),
+                assessment_kind=assessment_kind,
                 heading=group.heading,
                 rows=group.table_rows,
                 settings=settings,
@@ -467,9 +506,34 @@ def _build_robustness_assessors(section: ReportSection) -> tuple[RobustnessAsses
                     )
                     for sample_index in sample_order
                 ),
+                assessor_figure_srcs=_assessor_figure_srcs(group),
+                headline_metrics=headline_metrics,
             )
         )
     return tuple(assessors)
+
+
+def _assessor_figure_srcs(group: ReportGroup) -> tuple[str, ...]:
+    """Collect assessor-level (whole-batch) figure srcs for a robustness group.
+
+    Scope comes from ``group.metadata['figure_scopes']`` (basename → scope value),
+    written by the builder. When that mapping is absent (older manifests), fall back
+    to "no ``_sample_`` token" — i.e. anything the per-sample regex doesn't claim.
+    """
+    scopes = group.metadata.get("figure_scopes")
+    scopes = scopes if isinstance(scopes, dict) else {}
+    srcs: list[str] = []
+    for image in group.images:
+        name = Path(image).name
+        scope = scopes.get(name)
+        is_assessor = (
+            scope == ReportFigureScope.ASSESSOR.value
+            if scope is not None
+            else _ROBUSTNESS_IMAGE_RE.search(name) is None
+        )
+        if is_assessor:
+            srcs.append(_image_src(image))
+    return tuple(srcs)
 
 
 def _robustness_sample_order(group: ReportGroup) -> tuple[int, ...]:

@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 from raitap.robustness.visualisers.registration import robustness_visualiser
 
-from ...contracts import AssessmentKind, PerturbationDistribution
+from ...contracts import AssessmentKind, PerturbationDistribution, ReportFigureScope
 from ..base_visualiser import BaseRobustnessVisualiser
 
 if TYPE_CHECKING:
@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 @robustness_visualiser(
     registry_name="corruption_accuracy",
     supported_assessment_kinds=frozenset({AssessmentKind.STATISTICAL_SAMPLING}),
+    report_figure_scope=ReportFigureScope.ASSESSOR,
 )
 class CorruptionAccuracyVisualiser(BaseRobustnessVisualiser):
     """Clean vs corrupted accuracy bars with a CI whisker."""

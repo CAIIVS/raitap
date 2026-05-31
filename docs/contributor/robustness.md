@@ -190,3 +190,9 @@ decorator scaffolding). Robustness-specific notes:
 - If your visualiser slots into compact reporting, set
   `embeds_clean_input` / `embeds_perturbation_map` and honour the matching
   runtime kwargs (`include_clean_input` / `include_perturbation_map`).
+- Set `report_figure_scope` to declare where the report places the figure:
+  `PER_SAMPLE` (default — one figure per input, e.g. image pairs) or `ASSESSOR`
+  (one figure summarising the whole assessment, e.g. accuracy bars, verdict
+  summaries, output-bound plots). The reporting layer reads it to pick the layout
+  slot, so an assessor-level visualiser renders correctly with no reporting-layer
+  changes. (Consumed by the HTML report today; PDF is a tracked follow-up.)

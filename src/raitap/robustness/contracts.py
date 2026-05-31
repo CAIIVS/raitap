@@ -73,6 +73,21 @@ def case_for(kind: AssessmentKind) -> RobustnessCase:
     return _CASE_BY_KIND[kind]
 
 
+class ReportFigureScope(StrEnum):
+    """Where a robustness visualiser's figure belongs in the report layout.
+
+    Read by the reporting layer to place each staged figure: ``ASSESSOR`` figures
+    summarise the whole assessment (one chart per assessor — e.g. clean-vs-corrupted
+    accuracy, verdict-count summary, output-bound cohorts); ``PER_SAMPLE`` figures
+    show one input each (e.g. original/perturbed image pairs). Defaults to
+    ``PER_SAMPLE`` on the visualiser base so empirical image visualisers keep their
+    existing per-sample placement without opting in.
+    """
+
+    ASSESSOR = "assessor"
+    PER_SAMPLE = "per_sample"
+
+
 class RobustnessVerdict(StrEnum):
     """Per-sample assessment outcome.
 
