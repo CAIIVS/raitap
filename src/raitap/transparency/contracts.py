@@ -109,7 +109,7 @@ class ExplainerSemanticsHints:
     The transparency analogue of robustness's ``AssessorSemanticsHints``: one entry
     per algorithm an adapter wraps, holding everything the framework tracks and
     reports for that algorithm. ``baseline_default`` is the implicit
-    :class:`BaselineMode` used when the user omits the baseline kwarg (``None`` for
+    ``BaselineMode`` used when the user omits the baseline kwarg (``None`` for
     algorithms with no meaningful default, e.g. Saliency / TreeExplainer).
     """
 
