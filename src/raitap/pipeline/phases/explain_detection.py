@@ -115,6 +115,10 @@ def explain_detection(
 
     base_model = backend.as_model_for_explanation()
 
+    # One baseline preview is shared by every box of a sample (same inputs +
+    # call kwargs). Render it once and copy for the rest, keyed by content hash.
+    baseline_render_cache: dict[str, Path] = {}
+
     for sample_index, predictions_i in enumerate(detection_predictions):
         scores = predictions_i.get("scores", torch.zeros(0))
         boxes = predictions_i.get("boxes", torch.zeros((0, 4)))
@@ -185,6 +189,7 @@ def explain_detection(
                 visualisers=list(visualisers),
                 raitap_kwargs=per_box_raitap,
                 call_provenance=call_provenance,
+                baseline_render_cache=baseline_render_cache,
                 **normalised_call_kwargs,
             )
             result.detection_box = DetectionBox(

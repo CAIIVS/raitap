@@ -120,6 +120,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
         visualisers: list[ConfiguredVisualiser] | None = None,
         raitap_kwargs: dict[str, Any] | None = None,
         call_provenance: Mapping[str, Mapping[str, Any]] | None = None,
+        baseline_render_cache: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> ExplanationResult:
         """
@@ -190,6 +191,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
                 call_provenance=call_provenance,
                 input_spec=input_spec,
                 run_dir=resolved_run_dir,
+                render_cache=baseline_render_cache,
             )
         except Exception:
             # Baseline capture is documentation only. A render/hash failure must

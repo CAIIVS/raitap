@@ -15,6 +15,7 @@ cross-module coupling on another module's private functions; ``matplotlib`` /
 from __future__ import annotations
 
 import hashlib
+import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -45,12 +46,18 @@ def build_baseline_record(
     call_provenance: Mapping[str, Mapping[str, Any]] | None,
     input_spec: object,
     run_dir: Path,
+    render_cache: dict[str, Path] | None = None,
 ) -> BaselineRecord | None:
     """Return a :class:`BaselineRecord` for *explainer*, or ``None``.
 
     ``None`` when the explainer family takes no baseline, or the kwarg is absent
     and the algorithm has no meaningful implicit default (e.g. Saliency,
     TreeExplainer-without-background).
+
+    ``render_cache`` (keyed by the baseline ``sha256``) lets callers that invoke
+    this helper repeatedly for the *same* baseline — e.g. the detection K-loop,
+    one ``explain`` per box — render the preview image once and copy it for the
+    rest, instead of re-running matplotlib per box.
     """
     kwarg_name = getattr(explainer, "baseline_kwarg", None)
     if kwarg_name is None:
@@ -89,7 +96,7 @@ def build_baseline_record(
     sha256 = _hash_tensor(baseline_tensor)
     image_path: Path | None = None
     if _is_image_modality(input_spec):
-        image_path = _render_baseline_image(baseline_tensor, run_dir)
+        image_path = _resolve_baseline_image(baseline_tensor, run_dir, sha256, render_cache)
 
     return BaselineRecord(
         kwarg_name=str(kwarg_name),
@@ -117,6 +124,35 @@ def _is_image_modality(input_spec: object) -> bool:
         return str(kind).lower() == "image"
     layout = getattr(input_spec, "layout", None)
     return str(layout or "").upper().replace(" ", "") == "NCHW"
+
+
+def _resolve_baseline_image(
+    baseline: torch.Tensor,
+    run_dir: Path,
+    sha256: str,
+    render_cache: dict[str, Path] | None,
+) -> Path:
+    """Render the baseline preview, or copy a cached render of the same content.
+
+    The expensive matplotlib render runs once per distinct ``sha256``; repeat
+    callers (detection's per-box K-loop) get a cheap file copy into their own
+    ``run_dir`` so every artefact stays self-contained.
+    """
+    if render_cache is not None:
+        cached = render_cache.get(sha256)
+        if cached is not None and cached.exists():
+            return _copy_baseline_image(cached, run_dir)
+
+    image_path = _render_baseline_image(baseline, run_dir)
+    if render_cache is not None:
+        render_cache[sha256] = run_dir / image_path
+    return image_path
+
+
+def _copy_baseline_image(source: Path, run_dir: Path) -> Path:
+    run_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, run_dir / _BASELINE_IMAGE_NAME)
+    return Path(_BASELINE_IMAGE_NAME)
 
 
 def _montage_caption(shown: int, total: int) -> str | None:

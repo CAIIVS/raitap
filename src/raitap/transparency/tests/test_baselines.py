@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
+    import pytest
+
 import torch
 
 from raitap.transparency.baselines import build_baseline_record
@@ -116,6 +118,45 @@ def test_bfloat16_baseline_renders_and_hashes(tmp_path: Path) -> None:
     assert record.sha256  # bf16 hashed without crashing
     assert record.image_path is not None
     assert (tmp_path / record.image_path).exists()  # bf16 rendered without crashing
+
+
+def test_render_cache_reuses_rendered_baseline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import raitap.transparency.baselines as baselines_module
+
+    render_calls: list[Path] = []
+    original = baselines_module._render_baseline_image
+
+    def _counting_render(baseline: torch.Tensor, run_dir: Path) -> Path:
+        render_calls.append(run_dir)
+        return original(baseline, run_dir)
+
+    monkeypatch.setattr(baselines_module, "_render_baseline_image", _counting_render)
+
+    cache: dict[str, Path] = {}
+    common = {
+        "explainer": _captum_ig(),
+        "inputs": torch.rand(1, 3, 4, 4),
+        "call_kwargs": {},
+        "call_provenance": None,
+        "input_spec": _image_input_spec((1, 3, 4, 4)),
+    }
+    box0 = tmp_path / "box0"
+    box1 = tmp_path / "box1"
+    record0 = build_baseline_record(**common, run_dir=box0, render_cache=cache)
+    record1 = build_baseline_record(**common, run_dir=box1, render_cache=cache)
+
+    assert record0 is not None
+    assert record1 is not None
+    assert record0.sha256 == record1.sha256
+    # matplotlib ran exactly once; the second box reused the rendered image.
+    assert len(render_calls) == 1
+    assert record0.image_path is not None
+    assert record1.image_path is not None
+    assert (box0 / record0.image_path).exists()
+    assert (box1 / record1.image_path).exists()
+    assert (box0 / "baseline.png").read_bytes() == (box1 / "baseline.png").read_bytes()
 
 
 def test_montage_caption_only_when_capped() -> None:
