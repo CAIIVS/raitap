@@ -23,7 +23,8 @@ BaseAssessor                            # root — declares assessment_kind + bu
 │   ├── TorchattacksAssessor
 │   └── FoolboxAssessor
 ├── FormalVerificationAssessor          # you implement verify_sample(); framework owns assess()
-│   └── (alpha-beta-CROWN, auto_LiRPA — follow-up adapters)
+│   ├── MarabouAssessor                 # complete SMT (ONNX MLPs)
+│   └── AutoLiRPAAssessor               # sound+incomplete bound propagation (CROWN/IBP)
 └── StatisticalSamplingAssessor         # you implement apply_perturbation(image); framework owns assess()
     └── ImageCorruptionsAssessor
 ```
@@ -135,6 +136,13 @@ there is no adversary; in contrast empirical and formal assessors use
   (verdict badge, certified-bounds plot).
 - `assessors/imagecorruptions_assessor.py` — `ImageCorruptionsAssessor`; wraps
   the ImageNet-C 15 common corruptions via `imagecorruptions`.
+- `assessors/auto_lirpa_assessor.py` — `AutoLiRPAAssessor`; sound+incomplete
+  bound-propagation verifier (CROWN / IBP) via `auto_LiRPA`. The algorithm key
+  is the single source of truth for both the bound method and the norm
+  (`crown`/`ibp`/`crown-ibp` → L∞, `crown-l2` → L2); `verify_sample` reads the
+  norm off `budget.norm` and maps it to `PerturbationLpNorm`. It extends (does
+  not override) the base `check_backend_compat` to keep the autograd/ONNX-reject
+  contract and adds the Intel-XPU warning.
 - `visualisers/average_case/corruption_accuracy_visualiser.py` —
   `CorruptionAccuracyVisualiser`; renders clean vs corrupted accuracy bars with
   a CI whisker.
@@ -171,6 +179,28 @@ well-defined reference (a warning is logged).
   backend constraints (e.g. white-box attacks require
   `supports_torch_autograd`).
 - **New top-level module** — see {doc}`adding-a-module`.
+
+## The auto-LiRPA dependency and the torch 2.8 project pin
+
+`auto_LiRPA` is the one robustness dependency that is **git-only**: its last PyPI
+release (0.3, Sept 2022) supports only `torch<1.13`; torch-2.x support lives on
+GitHub master. Two consequences contributors should know:
+
+- **PyPI-legal declaration.** The `auto-lirpa` extra lists the requirement by
+  bare name (`auto-LiRPA`); the git URL lives in `[tool.uv.sources]`. uv sources
+  are not written into wheel metadata, so raitap's published wheel stays
+  installable from PyPI. A direct `@ git+https://…` reference in
+  `[project.optional-dependencies]` would land in `Requires-Dist` and make
+  `twine upload` reject the wheel. Never inline the URL into the extra.
+- **Project-wide torch 2.8 pin.** auto-LiRPA master pins `torch>=2.0.0,<2.9.0`,
+  so all torch/onnx extras floor at `torch>=2.8.0,<2.9.0` (down from the original
+  `>=2.10.0` scaffolding default — no code used a torch 2.9/2.10-only API). This
+  keeps a single coherent environment instead of a forked lockfile, at the cost
+  of the 2.9–2.12 line. xpu/cpu/cuda wheels exist for cp311/312/313, covering
+  `requires-python >=3.11,<3.14`. `uv lock` resolves the git build on Linux/CI;
+  the upstream `setup.py` reads a file without an explicit UTF-8 encoding, so the
+  build (and thus `uv sync --extra auto-lirpa`) fails on Windows — verify lock
+  resolution on CI, not a Windows checkout.
 
 ## Adding a new visualiser
 

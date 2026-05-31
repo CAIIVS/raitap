@@ -161,6 +161,41 @@ returned bound is the loosest still-certified value, never a falsely tight
 one. If every probe for a given class/mode is inconclusive the assessor
 emits a `WARNING` log so vacuous bounds are obvious.
 
+### auto-LiRPA
+
+`AutoLiRPAAssessor` (registry `auto_lirpa`) wraps
+[auto-LiRPA](https://github.com/Verified-Intelligence/auto_LiRPA) — a **sound but
+incomplete** verifier that propagates certified per-class logit bounds (CROWN /
+IBP) directly over a torch model. Unlike Marabou it needs no ONNX export and
+scales to CNNs and L2 / L∞ budgets. Torch backend only (needs autograd + the
+live `nn.Module`); ONNX backends are rejected.
+
+Verdicts are `VERIFIED` (`lb[true] > max(ub[other classes])`) or `UNKNOWN` —
+**never `FALSIFIED`** (sound + incomplete, so no counter-example). Certified
+`lower_bounds` / `upper_bounds` populate `RobustnessResult.output_bounds` for
+both VERIFIED and UNKNOWN samples (the bounds *are* the certificate), so all
+`FORMAL_VERIFICATION` visualisers above apply.
+
+| `algorithm` | Method | Norm |
+| --- | --- | --- |
+| `crown` (default) | CROWN (backward) | L∞ |
+| `ibp` | IBP (interval) | L∞ |
+| `crown-ibp` | CROWN-IBP (hybrid) | L∞ |
+| `crown-l2` | CROWN (backward) | L2 |
+
+`constructor.epsilon` sets the default budget radius (overridden per-call by
+`eps`). Install: `uv sync --extra auto-lirpa` (git-only; resolved from GitHub
+master — see below). It is **not** part of the `robustness` umbrella.
+
+```{note}
+auto-LiRPA has no upstream Intel XPU support. The adapter runs on the active
+backend's device but emits a warning on an Intel XPU backend (less-common ops
+may hit XPU gaps); fall back to a CPU backend if you hit `operator not
+implemented for XPU`. auto-LiRPA also has no PyPI release supporting torch 2.x,
+so it installs from GitHub master and pins the project to the **torch 2.8**
+window — see {doc}`../../contributor/robustness`.
+```
+
 ### ImageCorruptions
 
 `ImageCorruptionsAssessor` (registry `imagecorruptions`) wraps the

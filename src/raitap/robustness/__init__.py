@@ -5,8 +5,8 @@ Provides per-sample robustness assessments under a perturbation budget. The
 module distinguishes two complementary methods:
 
 * **Empirical attacks** — try to find an adversarial example (torchattacks, foolbox).
-* **Formal verification** — prove no adversarial example exists (auto_LiRPA,
-  alpha-beta-CROWN; arrives in a follow-up PR — the module shape already accommodates it).
+* **Formal verification** — prove no adversarial example exists (Marabou complete
+  SMT; auto_LiRPA sound+incomplete bound propagation).
 
 Public Surface
 --------------

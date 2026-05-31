@@ -83,10 +83,10 @@ Source = "https://github.com/CAIIVS/raitap/"
 
 [project.optional-dependencies]
 # Backend module
-torch-cpu = ["torch>=2.10.0", "torchvision>=0.20.0"]
-torch-cuda = ["torch>=2.10.0", "torchvision>=0.20.0"]
+torch-cpu = ["torch>=2.8.0,<2.9.0", "torchvision>=0.20.0"]
+torch-cuda = ["torch>=2.8.0,<2.9.0", "torchvision>=0.20.0"]
 torch-intel = [
-  "torch>=2.10.0; python_full_version < '3.14' and sys_platform != 'darwin'",
+  "torch>=2.8.0,<2.9.0; python_full_version < '3.14' and sys_platform != 'darwin'",
   "torchvision>=0.20.0; python_full_version < '3.14' and sys_platform != 'darwin'",
   # Pin triton-xpu>=3.0.0 — its only PyPI release (0.0.2) is yanked. The
   # 3.x wheels live on the pytorch-intel index (routed via [tool.uv.sources]
@@ -97,20 +97,20 @@ torch-intel = [
 onnx-cpu = [
   "onnx>=1.21.0",
   "onnxruntime>=1.24.4",
-  "torch>=2.10.0",
+  "torch>=2.8.0,<2.9.0",
   "torchvision>=0.20.0",
 ]
 onnx-cuda = [
   "onnx>=1.21.0",
   "onnxruntime-gpu>=1.24.4",
-  "torch>=2.10.0",
+  "torch>=2.8.0,<2.9.0",
   "torchvision>=0.20.0",
 ]
 onnx-intel = [
   "onnx>=1.21.0; sys_platform != 'darwin'",
   "onnxruntime-openvino>=1.24.1; sys_platform != 'darwin'",
   "openvino>=2025.1.0; sys_platform == 'win32'",
-  "torch>=2.10.0; python_full_version < '3.14' and sys_platform != 'darwin'",
+  "torch>=2.8.0,<2.9.0; python_full_version < '3.14' and sys_platform != 'darwin'",
   "torchvision>=0.20.0; python_full_version < '3.14' and sys_platform != 'darwin'",
   "triton-xpu>=3.0.0; python_full_version < '3.14' and sys_platform != 'darwin'",
 ]
@@ -135,6 +135,15 @@ marabou = [
     "maraboupy>=2.0.0,<3.0; python_full_version < '3.12' and sys_platform != 'win32'",
     "onnx>=1.15",
 ]
+# auto-LiRPA certified-robustness adapter (sound, incomplete bound propagation).
+# Resolved from GitHub master via [tool.uv.sources] below — auto-LiRPA has no
+# PyPI release supporting torch 2.x (PyPI tops out at 0.3, torch<1.13). The
+# requirement is listed by bare name (no `@ git+...`) so it stays PyPI-legal:
+# a direct-URL Requires-Dist would make raitap's own wheel unpublishable. Not
+# folded into the ``robustness`` umbrella for the same reason ``marabou`` isn't —
+# a git-only dep makes ``pip install raitap[robustness]`` unresolvable for
+# non-uv users, and bound-propagation verification is a niche opt-in.
+auto-lirpa = ["auto-LiRPA"]
 robustness = ["raitap[torchattacks,foolbox,marabou,imagecorruptions]"]
 
 # Job launcher / batch scheduler support
@@ -227,6 +236,11 @@ conflicts = [
 
 # Map runtime extras to the correct package indexes.
 [tool.uv.sources]
+# auto-LiRPA's torch-2.x support lives only on GitHub master (no PyPI release
+# past 0.3 / torch<1.13). uv sources are NOT written into wheel metadata, so
+# resolving from git here keeps the published raitap wheel PyPI-legal while the
+# `auto-lirpa` extra installs the working version for dev/CI.
+auto-LiRPA = { git = "https://github.com/Verified-Intelligence/auto_LiRPA" }
 torch = [
   { index = "pytorch-cpu", extra = "torch-cpu" },
   { index = "pytorch-cpu", extra = "onnx-cpu" },
