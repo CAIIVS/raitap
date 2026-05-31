@@ -213,7 +213,6 @@ def test_html_reporter_renders_baseline_image_and_view_link(tmp_path: Path) -> N
                         "explainer_name": "shap_grad",
                         "algorithm": "GradientExplainer",
                         "visualiser_name": "SHAP",
-                        "has_baseline_image": True,
                         "baseline_image": "reports/_assets/baseline_sample_0_shap_grad.png",
                     },
                 ),

@@ -97,7 +97,7 @@ def test_build_view_ignores_multirun_heading_prefixes_when_metadata_is_present()
     assert view.local_samples[0].explainers[0].algorithm == "LayerGradCam"
 
 
-def test_build_view_carries_baseline_image_and_link_flag_onto_explainer() -> None:
+def test_build_view_carries_baseline_image_onto_explainer() -> None:
     section = ReportSection.from_groups(
         "Local Explanations",
         [
@@ -118,7 +118,6 @@ def test_build_view_carries_baseline_image_and_link_flag_onto_explainer() -> Non
                     "explainer_name": "shap_grad",
                     "algorithm": "GradientExplainer",
                     "visualiser_name": "SHAP",
-                    "has_baseline_image": True,
                     "baseline_image": "reports/_assets/baseline_sample_0_shap_grad.png",
                 },
             ),
@@ -129,7 +128,7 @@ def test_build_view_carries_baseline_image_and_link_flag_onto_explainer() -> Non
     view = build_view((section,), {})
 
     explainer = view.local_samples[0].explainers[0]
-    assert explainer.has_baseline_image is True
+    # One field drives both the link and the reference-card anchor (review #6).
     assert explainer.baseline_image_src == "_assets/baseline_sample_0_shap_grad.png"
     # The local-panel image is the visualiser render, not the baseline.
     assert explainer.image_srcs[0] == "_assets/sample_0_shap_grad.png"
