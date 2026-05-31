@@ -8,9 +8,12 @@ automatically from explainer provenance via :func:`resolve_image_renderer`.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
+
+from raitap.transparency.contracts import MethodFamily
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -82,3 +85,30 @@ class RaitapHouseRenderer:
         ax.set_xticks([])
         ax.set_yticks([])
         return im
+
+
+IMAGE_RENDERER_REGISTRY: dict[str, ImageAttributionRenderer] = {}
+
+
+def image_renderer(*, for_library: str) -> Callable[[type], type]:
+    """Register a renderer instance under a library name (``source_library``).
+
+    Public surface for plugin authors. The renderer auto-applies to any explainer
+    whose ``registry_name`` equals ``for_library``.
+    """
+
+    def wrap(cls: type) -> type:
+        IMAGE_RENDERER_REGISTRY[for_library] = cls()
+        return cls
+
+    return wrap
+
+
+def resolve_image_renderer(
+    source_library: str | None,
+    method_families: frozenset[MethodFamily],
+) -> tuple[ImageAttributionRenderer, str]:
+    """Pick (renderer, sign) from provenance. Unknown/None library -> house."""
+    renderer = IMAGE_RENDERER_REGISTRY.get(source_library or "", RaitapHouseRenderer())
+    sign = "positive" if MethodFamily.CAM in method_families else "all"
+    return renderer, sign
