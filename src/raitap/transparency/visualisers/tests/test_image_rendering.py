@@ -74,3 +74,28 @@ def test_shap_native_matches_manual_recipe():
     assert im.get_clim() == (vmin, vmax)
     np.testing.assert_allclose(im.get_array(), expected)
     plt.close(fig)
+
+
+def test_captum_native_draws_and_returns_mappable():
+    pytest.importorskip("captum")
+    import matplotlib.pyplot as plt
+    from raitap.transparency.visualisers.image_rendering import CaptumNativeRenderer
+
+    attr = np.linspace(-1, 1, 8 * 8 * 3).reshape(8, 8, 3).astype(np.float32)
+    image = np.abs(attr)
+    fig, ax = plt.subplots()
+    im = CaptumNativeRenderer().draw(ax, attr, image, sign="all", method="heat_map")
+    assert im is not None
+    plt.close(fig)
+
+
+def test_captum_native_flat_for_degenerate():
+    pytest.importorskip("captum")
+    import matplotlib.pyplot as plt
+    from raitap.transparency.visualisers.image_rendering import CaptumNativeRenderer
+
+    attr = np.zeros((8, 8, 3), dtype=np.float32)
+    fig, ax = plt.subplots()
+    im = CaptumNativeRenderer().draw(ax, attr, np.zeros_like(attr), sign="all")
+    assert im is None  # flat-rendered, no mappable; must not raise
+    plt.close(fig)

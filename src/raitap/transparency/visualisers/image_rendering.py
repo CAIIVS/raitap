@@ -138,3 +138,42 @@ class ShapNativeRenderer:
         if image is not None:
             ax.imshow(_rgb_to_grayscale(image), cmap="gray", alpha=overlay_alpha)
         return ax.imshow(heatmap, cmap=cmap, vmin=vmin, vmax=vmax)
+
+
+class CaptumNativeRenderer:
+    """Captum-native recipe via ``captum.attr.visualization.visualize_image_attr``.
+
+    ``attr`` channels-last (H,W,C); ``image`` normalised (H,W,C). ``method``
+    (default ``"blended_heat_map"``) and other Captum styling are forwarded via
+    ``**style``. Returns the drawn mappable, or ``None`` when the slice is a valid
+    all-zero map (rendered flat instead of crashing — see #206/#207).
+    """
+
+    def draw(self, ax, attr, image, *, sign: str = "all", **style: Any):
+        from captum.attr import visualization as viz
+
+        from raitap.transparency.visualisers.captum_visualisers import (
+            _captum_normalisation_degenerate,
+            _last_mappable,
+            _render_flat_attribution,
+        )
+
+        method = style.pop("method", "blended_heat_map")
+        title = style.pop("title", None)
+        show_colorbar = bool(style.pop("show_colorbar", False))
+        outlier_perc = float(style.get("outlier_perc", 2.0))
+        if _captum_normalisation_degenerate(np.asarray(attr), sign, outlier_perc):
+            _render_flat_attribution(ax, sign, title)
+            return None
+        viz.visualize_image_attr(
+            attr,
+            image,
+            method=method,
+            sign=sign,
+            show_colorbar=show_colorbar,
+            plt_fig_axis=(ax.figure, ax),
+            use_pyplot=False,
+            **({"title": title} if title is not None else {}),
+            **style,
+        )
+        return _last_mappable(ax)

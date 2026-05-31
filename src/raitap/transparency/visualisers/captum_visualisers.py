@@ -13,6 +13,7 @@ from raitap.transparency.contracts import (
     ExplanationScope,
     MethodFamily,
 )
+from raitap.transparency.visualisers.image_rendering import CaptumNativeRenderer
 from raitap.transparency.visualisers.registration import transparency_visualiser
 
 from .base_visualiser import BaseVisualiser
@@ -448,23 +449,15 @@ class CaptumImageVisualiser(BaseVisualiser):
                         title=original_title,
                     )
 
-                attr_viz_kwargs = dict(kwargs)
-                attr_viz_kwargs["title"] = attr_title
-                if _captum_normalisation_degenerate(
-                    attr_i, self.sign, float(kwargs.get("outlier_perc", 2))
-                ):
-                    _render_flat_attribution(attr_ax, self.sign, attr_title)
-                else:
-                    _, _ = viz.visualize_image_attr(
-                        attr_i,
-                        orig_i,
-                        method=self.method,
-                        sign=self.sign,
-                        show_colorbar=False,
-                        plt_fig_axis=(fig, attr_ax),
-                        use_pyplot=False,
-                        **attr_viz_kwargs,
-                    )
+                CaptumNativeRenderer().draw(
+                    attr_ax,
+                    attr_i,
+                    orig_i,
+                    sign=self.sign,
+                    method=self.method,
+                    title=attr_title,
+                    **{k: v for k, v in kwargs.items() if k != "title"},
+                )
                 if self.show_colorbar and colorbar_ax is not None:
                     mappable = _last_mappable(attr_ax)
                     if mappable is None:
@@ -478,22 +471,16 @@ class CaptumImageVisualiser(BaseVisualiser):
             if self.title is not None and "title" not in viz_kwargs:
                 viz_kwargs["title"] = self.title
 
-            if _captum_normalisation_degenerate(
-                attr_i, self.sign, float(kwargs.get("outlier_perc", 2))
-            ):
-                _render_flat_attribution(ax, self.sign, viz_kwargs.get("title"))
-            else:
-                # Let Captum render into our existing axes
-                _, _ = viz.visualize_image_attr(
-                    attr_i,
-                    orig_i,
-                    method=self.method,
-                    sign=self.sign,
-                    show_colorbar=self.show_colorbar,
-                    plt_fig_axis=(fig, ax),
-                    use_pyplot=False,
-                    **viz_kwargs,
-                )
+            CaptumNativeRenderer().draw(
+                ax,
+                attr_i,
+                orig_i,
+                sign=self.sign,
+                method=self.method,
+                show_colorbar=self.show_colorbar,
+                title=viz_kwargs.get("title"),
+                **{k: v for k, v in viz_kwargs.items() if k != "title"},
+            )
             if show_sample_names and i < len(names):
                 base_title = ax.get_title().strip()
                 label = f"{base_title}: {names[i]}" if base_title else names[i]
