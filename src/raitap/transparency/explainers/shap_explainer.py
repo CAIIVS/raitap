@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 else:
     torch = lazy_import("torch")
     nn = lazy_import("torch.nn")
-from raitap.transparency.contracts import MethodFamily
+from raitap.transparency.contracts import BaselineMode, MethodFamily
 from raitap.transparency.explainers.registration import transparency_adapter
 
 from .base_explainer import AttributionOnlyExplainer
@@ -99,10 +99,10 @@ class ShapExplainer(AttributionOnlyExplainer):
     """
 
     baseline_kwarg: ClassVar[str | None] = "background_data"
-    baseline_defaults: ClassVar[Mapping[str, str]] = {
-        "GradientExplainer": "input_batch",
-        "DeepExplainer": "input_batch",
-        "KernelExplainer": "input_batch",
+    baseline_defaults: ClassVar[Mapping[str, BaselineMode]] = {
+        "GradientExplainer": BaselineMode.INPUT_BATCH,
+        "DeepExplainer": BaselineMode.INPUT_BATCH,
+        "KernelExplainer": BaselineMode.INPUT_BATCH,
     }
 
     def __init__(self, algorithm: str, **init_kwargs):

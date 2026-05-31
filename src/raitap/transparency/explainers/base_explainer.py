@@ -21,6 +21,7 @@ else:
 
 from ..baselines import build_baseline_record
 from ..contracts import (
+    BaselineMode,
     ExplanationOutputSpace,
     ExplanationPayloadKind,
     ExplanationScope,
@@ -65,7 +66,7 @@ class BaseExplainer(AdapterMixin, ABC):
     # default mode used when that kwarg is absent. Declared per-algorithm
     # because one adapter class wraps many algorithms (most take no baseline).
     baseline_kwarg: ClassVar[str | None] = None
-    baseline_defaults: ClassVar[Mapping[str, str]] = {}
+    baseline_defaults: ClassVar[Mapping[str, BaselineMode]] = {}
 
     def check_backend_compat(self, backend: object) -> None:
         """Default: enforce the ONNX-allowlist contract.

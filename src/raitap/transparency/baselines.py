@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 
 from raitap.utils.lazy import lazy_import
 
-from .contracts import BaselineRecord
+from .contracts import BaselineMode, BaselineRecord
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -65,22 +65,23 @@ def build_baseline_record(
     if isinstance(value, torch.Tensor):
         provenance = (call_provenance or {}).get(kwarg_name)
         if provenance is not None:
-            mode = "configured"
+            mode: BaselineMode | None = BaselineMode.CONFIGURED
             raw_source = provenance.get("source")
             source = None if raw_source is None else str(raw_source)
             raw_n = provenance.get("n_samples")
             n_samples = None if raw_n is None else int(raw_n)
         else:
-            mode = "user_tensor"
+            mode = BaselineMode.USER_TENSOR
         baseline_tensor = value
     else:
-        defaults = getattr(explainer, "baseline_defaults", {})
-        mode = defaults.get(algorithm)
+        # ``baseline_defaults`` values are ``BaselineMode`` members; comparison
+        # also accepts the bare-string equivalents (StrEnum) for forward compat.
+        mode = getattr(explainer, "baseline_defaults", {}).get(algorithm)
         if mode is None:
             return None
-        if mode == "zero":
+        if mode == BaselineMode.ZERO:
             baseline_tensor = torch.zeros_like(inputs[:1])
-        elif mode == "input_batch":
+        elif mode == BaselineMode.INPUT_BATCH:
             baseline_tensor = inputs
         else:  # defensive: unknown declared default
             return None

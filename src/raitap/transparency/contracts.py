@@ -31,6 +31,19 @@ class ExplanationPayloadKind(StrEnum):
     STRUCTURED = "structured"
 
 
+class BaselineMode(StrEnum):
+    """How an attribution baseline (IG ``baselines`` / SHAP ``background_data``) was obtained.
+
+    Serialised by value into ``metadata.json`` and the report, so these string
+    values are a stable contract.
+    """
+
+    CONFIGURED = "configured"  # resolved from a YAML data source (has provenance)
+    USER_TENSOR = "user_tensor"  # tensor passed directly via the Python API
+    ZERO = "zero"  # synthesized all-zeros (Captum's implicit default)
+    INPUT_BATCH = "input_batch"  # the input batch (SHAP's implicit default)
+
+
 class ExplanationScope(StrEnum):
     """Semantic breadth represented by an explanation artifact."""
 

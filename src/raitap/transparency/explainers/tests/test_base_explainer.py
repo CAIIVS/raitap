@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 import raitap.transparency.explainers.base_explainer as base_explainer_module
 from raitap.transparency.contracts import (
+    BaselineMode,
     ExplanationOutputSpace,
     ExplanationPayloadKind,
     ExplanationScope,
@@ -93,7 +94,9 @@ class _BatchRecordingExplainer(AttributionOnlyExplainer):
 class _BaselineDeclaringExplainer(AttributionOnlyExplainer):
     algorithm = "IntegratedGradients"
     baseline_kwarg = "baselines"
-    baseline_defaults: ClassVar[Mapping[str, str]] = {"IntegratedGradients": "zero"}
+    baseline_defaults: ClassVar[Mapping[str, BaselineMode]] = {
+        "IntegratedGradients": BaselineMode.ZERO
+    }
 
     def compute_attributions(
         self,

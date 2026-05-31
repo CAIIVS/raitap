@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
-from raitap.transparency.contracts import MethodFamily
+from raitap.transparency.contracts import BaselineMode, MethodFamily
 from raitap.transparency.explainers.registration import transparency_adapter
 
 from .base_explainer import AttributionOnlyExplainer
@@ -61,7 +61,9 @@ class CaptumExplainer(AttributionOnlyExplainer):
     """
 
     baseline_kwarg: ClassVar[str | None] = "baselines"
-    baseline_defaults: ClassVar[Mapping[str, str]] = {"IntegratedGradients": "zero"}
+    baseline_defaults: ClassVar[Mapping[str, BaselineMode]] = {
+        "IntegratedGradients": BaselineMode.ZERO
+    }
 
     def __init__(self, algorithm: str, **init_kwargs):
         """
