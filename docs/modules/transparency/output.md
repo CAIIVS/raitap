@@ -36,7 +36,7 @@ metadata. It also keeps two separate runtime buckets:
 values are stored directly, while tensor-like values are summarized rather than
 embedded verbatim so `metadata.json` stays lightweight and readable.
 
-### `baseline` block
+## `baseline` block
 
 For attribution methods that use a reference input — Integrated Gradients
 (`baselines`) and SHAP (`background_data`) — `metadata.json` carries a `baseline`
