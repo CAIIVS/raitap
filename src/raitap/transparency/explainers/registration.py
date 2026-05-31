@@ -42,7 +42,7 @@ def transparency_adapter(
     algorithm_registry: Mapping[str, ExplainerSemanticsHints],
     output_payload_kind: ExplanationPayloadKind = ExplanationPayloadKind.ATTRIBUTIONS,
     onnx_compatible_algorithms: frozenset[str] | _AllAlgorithmsSentinel = frozenset(),
-    baseline_kwarg: str | None = None,
+    baseline_kwarg_name: str | None = None,
     **common: Unpack[AdapterDecoratorOptions],
 ) -> Callable[[type[T]], type[T]]:
     """Decorator: register a transparency explainer.
@@ -58,7 +58,7 @@ def transparency_adapter(
         rare). Pass an explicit ``frozenset({"name1", "name2"})`` to enable a
         subset, or :data:`raitap.transparency.ALL` to enable every algorithm in
         ``algorithm_registry``.
-        ``baseline_kwarg`` is the call kwarg holding this family's reference
+        ``baseline_kwarg_name`` is the call kwarg holding this family's reference
         input (``"baselines"`` for Captum, ``"background_data"`` for SHAP);
         ``None`` (default) means the family takes no baseline. The per-algorithm
         implicit default mode lives on each ``ExplainerSemanticsHints.baseline_default``.
@@ -67,7 +67,7 @@ def transparency_adapter(
     def wrap(cls: type[T]) -> type[T]:
         cls.algorithm_registry = algorithm_registry  # type: ignore[misc]
         cls.output_payload_kind = output_payload_kind
-        cls.baseline_kwarg = baseline_kwarg
+        cls.baseline_kwarg_name = baseline_kwarg_name
         cls.ONNX_COMPATIBLE_ALGORITHMS = (  # type: ignore[misc]
             frozenset(algorithm_registry.keys())
             if onnx_compatible_algorithms is ALL

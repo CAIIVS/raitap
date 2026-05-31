@@ -136,6 +136,7 @@ def _assess_transparency_detection(
     from raitap.configs import resolve_run_dir
     from raitap.configs.adapter_factory import resolve_per_image_transform
     from raitap.pipeline.phases.explain_detection import explain_detection
+    from raitap.transparency.baselines import apply_config_baseline
     from raitap.transparency.factory import (
         _PARSED_EXPLAINER_CONFIG_CACHE,
         _parse_explainer_config,
@@ -178,6 +179,12 @@ def _assess_transparency_detection(
                 raitap_cfg["sample_names"] = data.sample_ids
             if input_metadata is not None:
                 raitap_cfg["input_metadata"] = input_metadata
+
+            call_from_config = apply_config_baseline(
+                explainer=explainer,
+                call_kwargs=call_from_config,
+                raitap_kwargs=raitap_cfg,
+            )
 
             call_provenance: dict[str, dict[str, Any]] = {}
             merged_kwargs = resolve_call_data_sources(

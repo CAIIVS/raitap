@@ -46,7 +46,8 @@ myst:
 :default: null
 :description: Keyword arguments passed verbatim to the underlying library when
   computing attributions. Any nested dict with a `source` key is treated as a
-  runtime data source.
+  runtime data source. For a baseline / reference input prefer `raitap.baseline`
+  (library-agnostic name) over the raw library kwarg here.
 
 :option: raitap
 :allowed: dict
@@ -109,6 +110,22 @@ myst:
   controlled by `data.input_metadata.shape` instead — see
   {doc}`../data/configuration`.
 
+:option: raitap.baseline
+:allowed: dict | tensor
+:default: null
+:description: Library-agnostic baseline / reference input for attribution methods
+  that take one (Captum `baselines`, SHAP `background_data`). Preferred over the raw
+  library kwarg under `call:` — the name stays the same when you switch libraries.
+  Same value shape as a `call:` data source: `{source, n_samples}` (or a tensor via
+  the Python API). If the baseline is also set via the library's own kwarg (under
+  `call:` or passed at runtime), `raitap.baseline` wins and a warning is logged —
+  it is never overridden silently. Setting it on an explainer that
+  takes no baseline (e.g. Saliency) raises `raitap.utils.errors.RaitapError`. A
+  single-reference method (e.g. Integrated Gradients) warns if given a multi-sample
+  baseline (`n_samples > 1`) — that shape only works for a sample-set method like
+  SHAP; use `n_samples: 1` for a broadcast reference. Omit it to fall back to the
+  method's implicit default (zeros for IG, the input batch for SHAP).
+
 :option: visualisers
 :allowed: list[dict]
 :default: []
@@ -126,6 +143,8 @@ transparency:
     call:
       target: 0
     raitap:
+      baseline:                 # library-agnostic; routed to Captum's `baselines`
+        source: "./data/baseline"
       input_metadata:
         kind: image
         layout: NCHW
@@ -138,10 +157,10 @@ transparency:
     algorithm: "KernelExplainer"
     call:
       target: 0
-      background_data:
+    raitap:
+      baseline:
         source: "./data/background"
         n_samples: 32
-    raitap:
       batch_size: 1
       input_metadata:
         kind: tabular
@@ -159,19 +178,17 @@ transparency = {
     "my_first_explainer": captum(
         algorithm="IntegratedGradients",
         call={"target": 0},
-        raitap={"input_metadata": {"kind": "image", "layout": "NCHW"}},
+        raitap={
+            "baseline": {"source": "./data/baseline"},  # routed to Captum's `baselines`
+            "input_metadata": {"kind": "image", "layout": "NCHW"},
+        },
         visualisers=[captum_image(call={"max_samples": 1})],
     ),
     "my_second_explainer": shap(
         algorithm="KernelExplainer",
-        call={
-            "target": 0,
-            "background_data": {
-                "source": "./data/background",
-                "n_samples": 32,
-            },
-        },
+        call={"target": 0},
         raitap={
+            "baseline": {"source": "./data/background", "n_samples": 32},
             "batch_size": 1,
             "input_metadata": {
                 "kind": "tabular",

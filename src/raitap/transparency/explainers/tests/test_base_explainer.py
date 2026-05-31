@@ -94,7 +94,7 @@ class _BatchRecordingExplainer(AttributionOnlyExplainer):
 
 class _BaselineDeclaringExplainer(AttributionOnlyExplainer):
     algorithm = "IntegratedGradients"
-    baseline_kwarg = "baselines"
+    baseline_kwarg_name = "baselines"
     algorithm_registry: ClassVar[Mapping[str, ExplainerSemanticsHints]] = {
         "IntegratedGradients": ExplainerSemanticsHints(
             frozenset({MethodFamily.GRADIENT}), baseline_default=BaselineMode.ZERO
@@ -561,16 +561,16 @@ def test_explainer_baseline_declarations() -> None:
     from raitap.transparency.explainers.shap_explainer import ShapExplainer
 
     # Base default: no baseline kwarg.
-    assert BaseExplainer.baseline_kwarg is None
+    assert BaseExplainer.baseline_kwarg_name is None
 
     # Captum: only IntegratedGradients has a meaningful zero default; the rest
     # carry no implicit baseline (``baseline_default`` is None).
-    assert CaptumExplainer.baseline_kwarg == "baselines"
+    assert CaptumExplainer.baseline_kwarg_name == "baselines"
     assert CaptumExplainer.algorithm_registry["IntegratedGradients"].baseline_default == "zero"
     assert CaptumExplainer.algorithm_registry["Saliency"].baseline_default is None
 
     # SHAP: Gradient/Deep/Kernel fall back to the input batch; Tree does not.
-    assert ShapExplainer.baseline_kwarg == "background_data"
+    assert ShapExplainer.baseline_kwarg_name == "background_data"
     assert {
         algorithm: hints.baseline_default
         for algorithm, hints in ShapExplainer.algorithm_registry.items()

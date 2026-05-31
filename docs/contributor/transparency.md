@@ -36,12 +36,13 @@ BaseExplainer                       # root — owns output_payload_kind + check_
 
 ### Baseline contract (reference-input methods)
 
-Methods that take a *reference input* (IG `baselines=`, SHAP `background_data=`) document that baseline in `metadata.json` + the report (issue #210). Two declarations on the adapter drive it:
+Methods that take a *reference input* (IG `baselines=`, SHAP `background_data=`) document that baseline in `metadata.json` + the report (issue #210). The user sets it library-agnostically via `raitap.baseline`, routed to the adapter's own kwarg. Three declarations on the adapter drive this:
 
 | Declaration | Where | Purpose |
 | --- | --- | --- |
-| `baseline_kwarg` | `@adapters.transparency` decorator kwarg | The call kwarg holding the reference (`"baselines"`, `"background_data"`); omitted (default `None`) = no baseline. Per-**adapter**. |
+| `baseline_kwarg_name` | `@adapters.transparency` decorator kwarg | The call kwarg holding the reference (`"baselines"`, `"background_data"`); omitted (default `None`) = no baseline. Per-**adapter**. Also names where `raitap.baseline` is routed. |
 | `ExplainerSemanticsHints.baseline_default` | per-algorithm `algorithm_registry` entry | Per-**algorithm** implicit default mode (`BaselineMode.ZERO` / `INPUT_BATCH`) used when the kwarg is omitted; `None` when the algorithm takes no baseline. |
+| `ExplainerSemanticsHints.baseline_cardinality` | per-algorithm `algorithm_registry` entry | `BaselineCardinality.SINGLE` (one broadcast reference, e.g. IG) or `SET` (a sample distribution, e.g. SHAP). Used to *warn* on a mismatched `raitap.baseline` (never to reshape it); `None` skips the check. |
 
 Capture happens once at the `AttributionOnlyExplainer.explain` chokepoint via `build_baseline_record` (`transparency/baselines.py`), which resolves the `BaselineMode` (`configured` / `user_tensor` / `zero` / `input_batch`), hashes the tensor, and renders an image preview. It is wrapped so a render/hash failure degrades to no baseline rather than discarding attributions. See [Adding an algorithm](adding-an-algorithm.md).
 

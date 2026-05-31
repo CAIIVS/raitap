@@ -38,11 +38,8 @@ embedded verbatim so `metadata.json` stays lightweight and readable.
 
 ## `baseline` block
 
-For attribution methods that use a reference input — Integrated Gradients
-(`baselines`) and SHAP (`background_data`) — `metadata.json` carries a `baseline`
-block documenting the exact reference the explanation was computed against
-(issue #210). The recognised baseline kwarg is moved out of `call_kwargs` into
-this block; runs without a baseline omit it entirely.
+For attribution methods that use a reference input (baseline data), `metadata.json` carries a `baseline`
+block documenting the exact reference the explanation was computed against.
 
 ```json
 "baseline": {
@@ -57,15 +54,15 @@ this block; runs without a baseline omit it entirely.
 }
 ```
 
-- `mode` — how the baseline was obtained: `configured` (resolved from a YAML
+- `mode`: how the baseline was obtained: `configured` (resolved from a YAML
   data source), `user_tensor` (passed directly via the Python API), `zero`
   (Captum's implicit all-zeros default), or `input_batch` (SHAP's implicit
   default of using the input batch).
-- `source` / `n_samples` — set only for `configured` baselines (the YAML
+- `source` / `n_samples`: set only for `configured` baselines (the YAML
   provenance).
-- `sha256` — content hash of the tensor actually used as the baseline; recorded
+- `sha256`: content hash of the tensor actually used as the baseline; recorded
   here only, never shown in the report.
-- `image_path` — a rendered preview (image modality only), relative to the run
+- `image_path`: a rendered preview (image modality only), relative to the run
   directory; a single tile for one image, or a capped grid for a multi-image
   baseline. The report shows this image and the descriptor fields, but not the
   hash.

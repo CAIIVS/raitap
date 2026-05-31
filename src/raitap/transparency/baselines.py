@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 from raitap.utils.lazy import lazy_import
 
-from .contracts import BaselineMode, BaselineRecord
+from .contracts import BaselineCardinality, BaselineMode, BaselineRecord
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 else:
     torch = lazy_import("torch")
 
+_BASELINE_CONFIG_KEY = "baseline"
 _BASELINE_IMAGE_NAME = "baseline.png"
 # A multi-image baseline (e.g. a SHAP background set) is rendered as a grid
 # preview: up to ``_BASELINE_GRID_CAP`` tiles, ``_BASELINE_GRID_COLS`` per row.
@@ -59,7 +60,7 @@ def build_baseline_record(
     one ``explain`` per box — render the preview image once and copy it for the
     rest, instead of re-running matplotlib per box.
     """
-    kwarg_name = getattr(explainer, "baseline_kwarg", None)
+    kwarg_name = getattr(explainer, "baseline_kwarg_name", None)
     if kwarg_name is None:
         return None
 
@@ -112,6 +113,92 @@ def build_baseline_record(
         dtype=str(baseline_tensor.dtype),
         sha256=sha256,
         image_path=image_path,
+    )
+
+
+def apply_config_baseline(
+    *,
+    explainer: object,
+    call_kwargs: dict[str, Any],
+    raitap_kwargs: dict[str, Any],
+) -> dict[str, Any]:
+    """Route the library-agnostic ``raitap.baseline`` field to the adapter's call kwarg.
+
+    Users set the baseline by one stable name — ``raitap.baseline`` — regardless of
+    the underlying library's own kwarg (Captum ``baselines``, SHAP ``background_data``);
+    the adapter's ``baseline_kwarg_name`` ClassVar names the destination. The value is the
+    same ``{source, n_samples}`` data-source descriptor (or a tensor via the Python API)
+    accepted under ``call:``, so the existing :func:`resolve_call_data_sources` /
+    :func:`build_baseline_record` path resolves and documents it unchanged.
+
+    Call this on the *final* call dict (config ``call:`` merged with any runtime
+    Python-API kwargs) so the precedence rule is uniform regardless of source.
+    Mutates and returns ``call_kwargs`` with the baseline injected; pops ``baseline``
+    from ``raitap_kwargs`` so it is not mistaken for a runtime option. Precedence: when
+    the baseline is *also* set via the adapter's own kwarg (in ``call:`` or passed at
+    runtime), ``raitap.baseline`` wins and a warning fires — it is never overridden
+    silently. Raises :class:`RaitapError` when ``raitap.baseline`` is set on an
+    explainer whose family takes no baseline.
+    """
+    baseline = raitap_kwargs.pop(_BASELINE_CONFIG_KEY, None)
+    if baseline is None:
+        return call_kwargs
+
+    kwarg_name = getattr(explainer, "baseline_kwarg_name", None)
+    if kwarg_name is None:
+        from raitap.utils.errors import RaitapError
+
+        algorithm = str(getattr(explainer, "algorithm", "")) or "<unknown>"
+        raise RaitapError(
+            f"raitap.baseline was set, but explainer {type(explainer).__name__} "
+            f"(algorithm {algorithm!r}) takes no baseline. Remove raitap.baseline."
+        )
+
+    if kwarg_name in call_kwargs:
+        from raitap import raitap_log
+
+        raitap_log.warn(
+            "Baseline set both via raitap.baseline and the %r kwarg (call: block or "
+            "runtime); using raitap.baseline and ignoring the %r kwarg.",
+            kwarg_name,
+            kwarg_name,
+        )
+
+    _warn_on_baseline_cardinality_mismatch(explainer=explainer, baseline=baseline)
+
+    call_kwargs[kwarg_name] = baseline
+    return call_kwargs
+
+
+def _warn_on_baseline_cardinality_mismatch(*, explainer: object, baseline: Any) -> None:
+    """Flag (never reshape) a baseline whose sample count contradicts the method.
+
+    A ``SINGLE``-reference method (e.g. Integrated Gradients) given a multi-sample
+    data-source baseline — typically a SHAP background set reused by mistake — will
+    fail unless it happens to match the input batch. We can't know the batch here,
+    so we warn rather than block the rare valid per-sample case. ``SET`` methods and
+    direct tensors (advanced Python-API use) are left alone.
+    """
+    if not isinstance(baseline, dict):
+        return
+    n_samples = baseline.get("n_samples")
+    if not isinstance(n_samples, int) or n_samples <= 1:
+        return
+
+    algorithm = str(getattr(explainer, "algorithm", ""))
+    registry = getattr(explainer, "algorithm_registry", None) or {}
+    hints = registry.get(algorithm)
+    if getattr(hints, "baseline_cardinality", None) is not BaselineCardinality.SINGLE:
+        return
+
+    from raitap import raitap_log
+
+    raitap_log.warn(
+        "%s takes a single baseline reference, but raitap.baseline sets "
+        "n_samples=%d (a sample-set baseline). It will fail unless it matches the "
+        "input batch; use n_samples=1 for a broadcast baseline.",
+        algorithm or type(explainer).__name__,
+        n_samples,
     )
 
 

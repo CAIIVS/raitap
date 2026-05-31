@@ -37,7 +37,7 @@ from raitap import adapters
             frozenset({MethodFamily.GRADIENT, MethodFamily.PERTURBATION})
         ),
     },
-    baseline_kwarg="baselines",
+    baseline_kwarg_name="baselines",
     onnx_compatible_algorithms=frozenset({...}),
 )
 class CaptumExplainer(AttributionOnlyExplainer): ...
@@ -88,23 +88,28 @@ The default `check_backend_compat` enforces this allowlist — algorithms not in
 
 ## 4. Baseline default (transparency only, optional)
 
-Attribution methods that take a *reference input* — Integrated Gradients (`baselines=`) and SHAP (`background_data=`) — have that baseline recorded in `metadata.json` and the report (issue #210). Two declarations drive this:
+Attribution methods that take a *reference input* — Integrated Gradients (`baselines=`) and SHAP (`background_data=`) — have that baseline recorded in `metadata.json` and the report (issue #210), and users set it library-agnostically via `raitap.baseline`. Three declarations drive this:
 
-- `baseline_kwarg` — a `@adapters.transparency` decorator kwarg naming the call kwarg that holds the reference (`"baselines"` for Captum, `"background_data"` for SHAP). Omitted (the default) means the family takes no baseline. It's per-**adapter** (one library, one kwarg name).
+- `baseline_kwarg_name` — a `@adapters.transparency` decorator kwarg naming the call kwarg that holds the reference (`"baselines"` for Captum, `"background_data"` for SHAP). Omitted (the default) means the family takes no baseline. It's per-**adapter** (one library, one kwarg name), and is where `raitap.baseline` gets routed.
 - `ExplainerSemanticsHints.baseline_default` — the per-**algorithm** implicit default mode, used when the user omits the kwarg. Lives on the algorithm's registry entry because one adapter wraps many algorithms, most of which take no baseline (so they leave it `None`).
+- `ExplainerSemanticsHints.baseline_cardinality` — `BaselineCardinality.SINGLE` (one broadcast reference, e.g. IG) or `SET` (a sample distribution, e.g. SHAP). Used only to *warn* on a mismatched `raitap.baseline` (never to reshape it); leave `None` to skip the check.
 
-If your new algorithm takes a baseline **and** has a meaningful default when the user omits it, set `baseline_default` on its registry entry (use a `BaselineMode` member from `transparency/contracts.py`):
+If your new algorithm takes a baseline **and** has a meaningful default when the user omits it, set `baseline_default` (and, ideally, `baseline_cardinality`) on its registry entry:
 
 ```python
 @adapters.transparency(
     registry_name="captum",
-    baseline_kwarg="baselines",
+    baseline_kwarg_name="baselines",
     algorithm_registry={
         "IntegratedGradients": ExplainerSemanticsHints(
-            frozenset({MethodFamily.GRADIENT}), baseline_default=BaselineMode.ZERO
+            frozenset({MethodFamily.GRADIENT}),
+            baseline_default=BaselineMode.ZERO,
+            baseline_cardinality=BaselineCardinality.SINGLE,
         ),
         "NewMethod": ExplainerSemanticsHints(
-            frozenset({MethodFamily.GRADIENT}), baseline_default=BaselineMode.ZERO
+            frozenset({MethodFamily.GRADIENT}),
+            baseline_default=BaselineMode.ZERO,
+            baseline_cardinality=BaselineCardinality.SINGLE,
         ),
     },
 )

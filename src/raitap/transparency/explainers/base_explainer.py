@@ -59,12 +59,12 @@ class BaseExplainer(AdapterMixin, ABC):
     # ``@adapters.transparency`` decorator overrides per-adapter.
     ONNX_COMPATIBLE_ALGORITHMS: ClassVar[frozenset[str]] = frozenset()
 
-    # Baseline documentation (issue #210). ``baseline_kwarg`` is the call kwarg
+    # Baseline documentation (issue #210). ``baseline_kwarg_name`` is the call kwarg
     # that holds this family's reference input (``None`` → family takes no
     # baseline); set via the ``@adapters.transparency`` decorator kwarg. The
     # per-algorithm implicit default mode lives on each algorithm's
     # ``ExplainerSemanticsHints.baseline_default`` in ``algorithm_registry``.
-    baseline_kwarg: ClassVar[str | None] = None
+    baseline_kwarg_name: ClassVar[str | None] = None
 
     def check_backend_compat(self, backend: object) -> None:
         """Default: enforce the ONNX-allowlist contract.

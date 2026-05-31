@@ -45,6 +45,9 @@ transparency:
     algorithm: IntegratedGradients
     call:
       target: 0
+    raitap:
+      baseline:
+        source: ./data/baseline
     visualisers:
       - _target_: CaptumImageVisualiser
 
@@ -87,6 +90,8 @@ cfg = AppConfig(
         "default": captum(
             algorithm="IntegratedGradients",
             call={"target": 0},
+            # Library-agnostic baseline; routed to Captum's `baselines`.
+            raitap={"baseline": {"source": "./data/baseline"}},
             visualisers=[captum_image()],
         ),
     },
@@ -104,7 +109,7 @@ outputs = run(cfg, auto_install_deps=True)
 :output:
 outputs/<date>/<time>/
 ├── metrics/{metrics.json, artifacts.json, metadata.json, metrics_overview.png}
-├── transparency/default/{attributions.pt, CaptumImageVisualiser_0.png, metadata.json}
+├── transparency/default/{attributions.pt, baseline.png, CaptumImageVisualiser_0.png, metadata.json}
 ├── robustness/pgd/{robustness_data.pt, ImagePairVisualiser_0.png, metadata.json}
 └── reports/{report.html, report.zip, _assets/…}
 ```

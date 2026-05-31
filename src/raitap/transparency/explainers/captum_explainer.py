@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from raitap.transparency.contracts import BaselineMode, ExplainerSemanticsHints, MethodFamily
+from raitap.transparency.contracts import (
+    BaselineCardinality,
+    BaselineMode,
+    ExplainerSemanticsHints,
+    MethodFamily,
+)
 from raitap.transparency.explainers.registration import transparency_adapter
 
 from .base_explainer import AttributionOnlyExplainer
@@ -26,7 +31,9 @@ if TYPE_CHECKING:
     # rest take no reference input, so their ``baseline_default`` stays ``None``.
     algorithm_registry={
         "IntegratedGradients": ExplainerSemanticsHints(
-            frozenset({MethodFamily.GRADIENT}), baseline_default=BaselineMode.ZERO
+            frozenset({MethodFamily.GRADIENT}),
+            baseline_default=BaselineMode.ZERO,
+            baseline_cardinality=BaselineCardinality.SINGLE,
         ),
         "Saliency": ExplainerSemanticsHints(frozenset({MethodFamily.GRADIENT})),
         "FeatureAblation": ExplainerSemanticsHints(frozenset({MethodFamily.PERTURBATION})),
@@ -55,7 +62,7 @@ if TYPE_CHECKING:
             frozenset({MethodFamily.GRADIENT, MethodFamily.CAM})
         ),
     },
-    baseline_kwarg="baselines",
+    baseline_kwarg_name="baselines",
     onnx_compatible_algorithms=frozenset(
         {
             "FeatureAblation",

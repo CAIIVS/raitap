@@ -6,17 +6,18 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
-    import pytest
-
+import pytest
 import torch
 
 from raitap.transparency.baselines import (
     _render_baseline_image as _original_render_baseline_image,
 )
 from raitap.transparency.baselines import (
+    apply_config_baseline,
     build_baseline_record,
 )
 from raitap.transparency.contracts import (
+    BaselineCardinality,
     BaselineMode,
     ExplainerSemanticsHints,
     InputSpec,
@@ -38,7 +39,7 @@ def _tabular_input_spec(shape: tuple[int, ...]) -> InputSpec:
 def _captum_ig() -> SimpleNamespace:
     return SimpleNamespace(
         algorithm="IntegratedGradients",
-        baseline_kwarg="baselines",
+        baseline_kwarg_name="baselines",
         algorithm_registry={
             "IntegratedGradients": ExplainerSemanticsHints(
                 frozenset({MethodFamily.GRADIENT}), baseline_default=BaselineMode.ZERO
@@ -50,7 +51,7 @@ def _captum_ig() -> SimpleNamespace:
 def _shap_gradient() -> SimpleNamespace:
     return SimpleNamespace(
         algorithm="GradientExplainer",
-        baseline_kwarg="background_data",
+        baseline_kwarg_name="background_data",
         algorithm_registry={
             "GradientExplainer": ExplainerSemanticsHints(
                 frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
@@ -225,7 +226,7 @@ def test_shap_input_batch_default_when_absent(tmp_path: Path) -> None:
 def test_no_record_for_algorithm_without_baseline(tmp_path: Path) -> None:
     saliency = SimpleNamespace(
         algorithm="Saliency",
-        baseline_kwarg="baselines",
+        baseline_kwarg_name="baselines",
         # Saliency is absent from the registry → no implicit baseline.
         algorithm_registry={
             "IntegratedGradients": ExplainerSemanticsHints(
@@ -245,7 +246,7 @@ def test_no_record_for_algorithm_without_baseline(tmp_path: Path) -> None:
 
 
 def test_no_record_when_family_takes_no_baseline(tmp_path: Path) -> None:
-    explainer = SimpleNamespace(algorithm="X", baseline_kwarg=None, algorithm_registry={})
+    explainer = SimpleNamespace(algorithm="X", baseline_kwarg_name=None, algorithm_registry={})
     record = build_baseline_record(
         explainer=explainer,
         inputs=torch.rand(2, 3, 4, 4),
@@ -270,3 +271,98 @@ def test_no_image_for_non_image_modality(tmp_path: Path) -> None:
     assert record.mode == "zero"
     assert record.image_path is None
     assert not (tmp_path / "baseline.png").exists()
+
+
+def test_apply_config_baseline_routes_to_adapter_kwarg() -> None:
+    explainer = SimpleNamespace(algorithm="IntegratedGradients", baseline_kwarg_name="baselines")
+    raitap_kwargs = {"baseline": {"source": "./bg"}, "batch_size": 1}
+    call_kwargs = apply_config_baseline(
+        explainer=explainer, call_kwargs={"target": 0}, raitap_kwargs=raitap_kwargs
+    )
+    # Routed under the adapter's own kwarg name; popped from the raitap block.
+    assert call_kwargs == {"target": 0, "baselines": {"source": "./bg"}}
+    assert "baseline" not in raitap_kwargs
+    assert raitap_kwargs == {"batch_size": 1}
+
+
+def test_apply_config_baseline_noop_when_absent() -> None:
+    explainer = SimpleNamespace(algorithm="IntegratedGradients", baseline_kwarg_name="baselines")
+    raitap_kwargs = {"batch_size": 1}
+    call_kwargs = apply_config_baseline(
+        explainer=explainer, call_kwargs={"target": 0}, raitap_kwargs=raitap_kwargs
+    )
+    assert call_kwargs == {"target": 0}
+    assert raitap_kwargs == {"batch_size": 1}
+
+
+def test_apply_config_baseline_raitap_wins_over_call_kwarg() -> None:
+    explainer = SimpleNamespace(
+        algorithm="GradientExplainer", baseline_kwarg_name="background_data"
+    )
+    raitap_kwargs = {"baseline": {"source": "./preferred"}}
+    call_kwargs = apply_config_baseline(
+        explainer=explainer,
+        call_kwargs={"background_data": {"source": "./ignored"}},
+        raitap_kwargs=raitap_kwargs,
+    )
+    assert call_kwargs == {"background_data": {"source": "./preferred"}}
+
+
+def test_apply_config_baseline_errors_when_family_takes_no_baseline() -> None:
+    from raitap.utils.errors import RaitapError
+
+    explainer = SimpleNamespace(algorithm="Saliency", baseline_kwarg_name=None)
+    with pytest.raises(RaitapError, match="takes no baseline"):
+        apply_config_baseline(
+            explainer=explainer, call_kwargs={}, raitap_kwargs={"baseline": {"source": "./bg"}}
+        )
+
+
+def _explainer_with_cardinality(
+    algorithm: str, kwarg: str, cardinality: BaselineCardinality
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        algorithm=algorithm,
+        baseline_kwarg_name=kwarg,
+        algorithm_registry={
+            algorithm: ExplainerSemanticsHints(frozenset(), baseline_cardinality=cardinality)
+        },
+    )
+
+
+def test_single_cardinality_warns_on_multi_sample_baseline() -> None:
+    explainer = _explainer_with_cardinality(
+        "IntegratedGradients", "baselines", BaselineCardinality.SINGLE
+    )
+    with pytest.warns(UserWarning, match="single baseline reference"):
+        call_kwargs = apply_config_baseline(
+            explainer=explainer,
+            call_kwargs={},
+            raitap_kwargs={"baseline": {"source": "./bg", "n_samples": 32}},
+        )
+    # Warns but still routes (never reshapes or drops).
+    assert call_kwargs == {"baselines": {"source": "./bg", "n_samples": 32}}
+
+
+def test_single_cardinality_silent_for_single_sample(recwarn: pytest.WarningsRecorder) -> None:
+    explainer = _explainer_with_cardinality(
+        "IntegratedGradients", "baselines", BaselineCardinality.SINGLE
+    )
+    apply_config_baseline(
+        explainer=explainer,
+        call_kwargs={},
+        raitap_kwargs={"baseline": {"source": "./bg", "n_samples": 1}},
+    )
+    assert not recwarn.list
+
+
+def test_set_cardinality_silent_for_multi_sample(recwarn: pytest.WarningsRecorder) -> None:
+    explainer = _explainer_with_cardinality(
+        "GradientExplainer", "background_data", BaselineCardinality.SET
+    )
+    apply_config_baseline(
+        explainer=explainer,
+        call_kwargs={},
+        raitap_kwargs={"baseline": {"source": "./bg", "n_samples": 32}},
+    )
+    assert not recwarn.list

@@ -30,9 +30,9 @@ transparency:
       local_smoothing: 0.0
     call:
       target: 0
-      background_data:
-        source: imagenet_samples
     raitap:
+      baseline:
+        source: imagenet_samples
       batch_size: 1
     visualisers:
       - _target_: "ShapImageVisualiser"
@@ -46,11 +46,11 @@ transparency = {
     "my_first_explainer": shap(
         algorithm="GradientExplainer",
         constructor={"local_smoothing": 0.0},
-        call={
-            "target": 0,
-            "background_data": {"source": "imagenet_samples"},
+        call={"target": 0},
+        raitap={
+            "baseline": {"source": "imagenet_samples"},
+            "batch_size": 1,
         },
-        raitap={"batch_size": 1},
         visualisers=[shap_image(call={"max_samples": 1})],
     ),
 }
@@ -162,9 +162,9 @@ transparency:
     constructor: {}
     call:
       target: 0
-      background_data:
-        source: imagenet_samples
     raitap:
+      baseline:
+        source: imagenet_samples
       batch_size: 1
 
 :python:
@@ -173,17 +173,18 @@ from raitap.transparency import shap
 transparency = {
     "my_shap_explainer": shap(
         algorithm="GradientExplainer",
-        call={
-            "target": 0,
-            "background_data": {"source": "imagenet_samples"},
+        call={"target": 0},
+        raitap={
+            "baseline": {"source": "imagenet_samples"},
+            "batch_size": 1,
         },
-        raitap={"batch_size": 1},
     ),
 }
 ```
 
-`GradientExplainer`, `DeepExplainer`, and `KernelExplainer` usually require
-`background_data`. If it is not provided, RAITAP falls back to the input batch.
+`GradientExplainer`, `DeepExplainer`, and `KernelExplainer` usually require a
+background reference. Set it with the library-agnostic `raitap.baseline` (see
+{doc}`configuration`); if omitted, RAITAP falls back to the input batch.
 
 `DeepExplainer` can fail on PyTorch models that use `SiLU` activations (for example EfficientNet variants) due to autograd/in-place limitations. In those cases, use `GradientExplainer`.
 
@@ -276,10 +277,10 @@ transparency:
       local_smoothing: 0.0
     call:
       target: 0
-      background_data:
+    raitap:
+      baseline:
         source: imagenet_samples
         n_samples: 50
-    raitap:
       batch_size: 1
     visualisers:
       # Minimal configuration
@@ -306,14 +307,11 @@ transparency = {
     "my_shap_explainer": shap(
         algorithm="GradientExplainer",
         constructor={"local_smoothing": 0.0},
-        call={
-            "target": 0,
-            "background_data": {
-                "source": "imagenet_samples",
-                "n_samples": 50,
-            },
+        call={"target": 0},
+        raitap={
+            "baseline": {"source": "imagenet_samples", "n_samples": 50},
+            "batch_size": 1,
         },
-        raitap={"batch_size": 1},
         visualisers=[
             # Minimal configuration.
             shap_image(max_samples=1),

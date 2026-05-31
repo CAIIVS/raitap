@@ -14,7 +14,12 @@ if TYPE_CHECKING:
 else:
     torch = lazy_import("torch")
     nn = lazy_import("torch.nn")
-from raitap.transparency.contracts import BaselineMode, ExplainerSemanticsHints, MethodFamily
+from raitap.transparency.contracts import (
+    BaselineCardinality,
+    BaselineMode,
+    ExplainerSemanticsHints,
+    MethodFamily,
+)
 from raitap.transparency.explainers.registration import transparency_adapter
 
 from .base_explainer import AttributionOnlyExplainer
@@ -87,22 +92,25 @@ def _select_target_attributions(
         "GradientExplainer": ExplainerSemanticsHints(
             frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
             baseline_default=BaselineMode.INPUT_BATCH,
+            baseline_cardinality=BaselineCardinality.SET,
         ),
         "DeepExplainer": ExplainerSemanticsHints(
             frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
             baseline_default=BaselineMode.INPUT_BATCH,
+            baseline_cardinality=BaselineCardinality.SET,
         ),
         "KernelExplainer": ExplainerSemanticsHints(
             frozenset(
                 {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC}
             ),
             baseline_default=BaselineMode.INPUT_BATCH,
+            baseline_cardinality=BaselineCardinality.SET,
         ),
         "TreeExplainer": ExplainerSemanticsHints(
             frozenset({MethodFamily.SHAPLEY, MethodFamily.TREE})
         ),
     },
-    baseline_kwarg="background_data",
+    baseline_kwarg_name="background_data",
     onnx_compatible_algorithms=frozenset({"KernelExplainer"}),
 )
 class ShapExplainer(AttributionOnlyExplainer):

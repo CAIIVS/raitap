@@ -102,6 +102,22 @@ class MethodFamily(StrEnum):
     SURROGATE = "surrogate"
 
 
+class BaselineCardinality(StrEnum):
+    """How many reference samples an algorithm's baseline is meant to hold.
+
+    Used to validate (never reshape) a configured baseline against the method:
+
+    * ``SINGLE`` — one reference input that broadcasts to the batch (Captum
+      Integrated Gradients, DeepLift). A many-sample baseline is almost always a
+      mistake (e.g. a SHAP background set reused here).
+    * ``SET`` — a distribution of samples (SHAP ``background_data``); any count is
+      meaningful, more is usually better.
+    """
+
+    SINGLE = "single"
+    SET = "set"
+
+
 @dataclass(frozen=True)
 class ExplainerSemanticsHints:
     """Per-algorithm metadata carried by a transparency adapter's ``algorithm_registry``.
@@ -111,10 +127,14 @@ class ExplainerSemanticsHints:
     reports for that algorithm. ``baseline_default`` is the implicit
     ``BaselineMode`` used when the user omits the baseline kwarg (``None`` for
     algorithms with no meaningful default, e.g. Saliency / TreeExplainer).
+    ``baseline_cardinality`` declares whether the baseline is a single reference or
+    a sample set, so a mismatched ``raitap.baseline`` is flagged (not reshaped);
+    ``None`` skips the check.
     """
 
     families: frozenset[MethodFamily]
     baseline_default: BaselineMode | None = None
+    baseline_cardinality: BaselineCardinality | None = None
 
 
 def explainer_output_kind(explainer: object) -> ExplanationPayloadKind:

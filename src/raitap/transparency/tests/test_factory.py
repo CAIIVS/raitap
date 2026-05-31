@@ -883,6 +883,130 @@ def test_explanation_merges_call_before_run_kwargs(
     assert explainer.last_explain_kwargs["baselines"] == "from_yaml"
 
 
+def test_explanation_routes_raitap_baseline_to_adapter_kwarg(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sample_images: torch.Tensor,
+) -> None:
+    """``raitap.baseline`` is routed to the adapter's own call kwarg end-to-end."""
+
+    class RecordingExplainer:
+        algorithm = "IntegratedGradients"
+        baseline_kwarg_name = "baselines"
+
+        def __init__(self) -> None:
+            self.last_explain_kwargs: dict[str, Any] = {}
+
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
+
+        def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
+            self.last_explain_kwargs = dict(kwargs)
+            return MagicMock(spec=ExplanationResult)
+
+    explainer = RecordingExplainer()
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "IntegratedGradients",
+                "call": {"target": 0},
+                "raitap": {"baseline": "ROUTED"},
+                "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+            }
+        ),
+    )
+
+    vis = MagicMock()
+    vis.compatible_algorithms = frozenset({"IntegratedGradients"})
+
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (explainer, "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_visualisers",
+        lambda _cfg: [ConfiguredVisualiser(visualiser=vis, call_kwargs={})],
+    )
+
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    Explanation(
+        config,
+        "test_explainer",
+        model=model,  # type: ignore[arg-type]
+        inputs=sample_images,
+        target=0,
+    )
+
+    # Routed under the adapter's own kwarg, and popped from the raitap block.
+    assert explainer.last_explain_kwargs["baselines"] == "ROUTED"
+    assert "baseline" not in explainer.last_explain_kwargs["raitap_kwargs"]
+
+
+def test_raitap_baseline_wins_over_runtime_kwarg(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    sample_images: torch.Tensor,
+) -> None:
+    """A runtime baseline kwarg must not silently override ``raitap.baseline``."""
+
+    class RecordingExplainer:
+        algorithm = "IntegratedGradients"
+        baseline_kwarg_name = "baselines"
+
+        def __init__(self) -> None:
+            self.last_explain_kwargs: dict[str, Any] = {}
+
+        def check_backend_compat(self, backend: object) -> None:
+            del backend
+            return None
+
+        def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
+            self.last_explain_kwargs = dict(kwargs)
+            return MagicMock(spec=ExplanationResult)
+
+    explainer = RecordingExplainer()
+    config = _make_config(
+        tmp_path,
+        OmegaConf.create(
+            {
+                "_target_": "raitap.transparency.CaptumExplainer",
+                "algorithm": "IntegratedGradients",
+                "call": {"target": 0},
+                "raitap": {"baseline": "ROUTED"},
+                "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+            }
+        ),
+    )
+
+    vis = MagicMock()
+    vis.compatible_algorithms = frozenset({"IntegratedGradients"})
+
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_explainer",
+        lambda _cfg: (explainer, "raitap.transparency.CaptumExplainer"),
+    )
+    monkeypatch.setattr(
+        "raitap.transparency.factory.create_visualisers",
+        lambda _cfg: [ConfiguredVisualiser(visualiser=vis, call_kwargs={})],
+    )
+
+    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    Explanation(
+        config,
+        "test_explainer",
+        model=model,  # type: ignore[arg-type]
+        inputs=sample_images,
+        target=0,
+        baselines="RUNTIME",  # runtime Python-API override of the same kwarg
+    )
+
+    # raitap.baseline wins over the runtime kwarg (and a warning is logged).
+    assert explainer.last_explain_kwargs["baselines"] == "ROUTED"
+
+
 def test_explanation_uses_real_shap_preset_defaults_and_runtime_overrides(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
