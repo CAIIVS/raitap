@@ -144,7 +144,6 @@ config = AppConfig(
         "captum_ig": captum(
             algorithm="IntegratedGradients",
             call={"target": 0},
-            # Preferred library-agnostic baseline; routed to Captum's `baselines`.
             raitap={"baseline": {"source": "./data/baselines", "n_samples": 8}},
             visualisers=[
                 captum_image(
