@@ -4,6 +4,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+import pytest
 
 from raitap.transparency.contracts import MethodFamily
 from raitap.transparency.visualisers.image_rendering import (
@@ -55,3 +56,21 @@ def test_decorator_registers_by_library():
     renderer, _ = resolve_image_renderer("unittest-lib", frozenset())
     assert isinstance(renderer, _Dummy)
     del IMAGE_RENDERER_REGISTRY["unittest-lib"]
+
+
+def test_shap_native_matches_manual_recipe():
+    pytest.importorskip("shap")
+    import matplotlib.pyplot as plt
+    from raitap.transparency.visualisers.image_rendering import ShapNativeRenderer
+    from raitap.transparency.visualisers.shap_visualisers import (
+        _image_heatmap, _symmetric_vmin_vmax,
+    )
+
+    shap_hwc = np.linspace(-2, 2, 4 * 4 * 3).reshape(4, 4, 3).astype(np.float32)
+    fig, ax = plt.subplots()
+    im = ShapNativeRenderer().draw(ax, shap_hwc, None)
+    expected = _image_heatmap(shap_hwc)
+    vmin, vmax = _symmetric_vmin_vmax(expected, 99.9)
+    assert im.get_clim() == (vmin, vmax)
+    np.testing.assert_allclose(im.get_array(), expected)
+    plt.close(fig)

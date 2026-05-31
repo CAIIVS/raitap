@@ -27,6 +27,7 @@ from raitap.transparency.contracts import (
     ScopeDefinitionStep,
     VisualSummarySpec,
 )
+from raitap.transparency.visualisers.image_rendering import ShapNativeRenderer
 from raitap.transparency.visualisers.registration import transparency_visualiser
 
 from .base_visualiser import BaseVisualiser
@@ -682,9 +683,6 @@ class ShapImageVisualiser(BaseVisualiser):
             shap_i = (
                 np.transpose(shap_vals[i], (1, 2, 0)) if shap_vals[i].ndim == 3 else shap_vals[i]
             )
-            heatmap = _image_heatmap(shap_i)
-            vmin, vmax = _symmetric_vmin_vmax(heatmap, outlier_perc)
-
             sample_name = names[i] if show_sample_names and i < len(names) else None
             original_title = _compose_title("Original Image", sample_name)
             attr_title = _resolve_title(
@@ -713,17 +711,13 @@ class ShapImageVisualiser(BaseVisualiser):
                     attr_ax = axes[i]
                     colorbar_ax = None
 
-            if image_i is not None:
-                attr_ax.imshow(
-                    _rgb_to_grayscale(image_i),
-                    cmap="gray",
-                    alpha=overlay_alpha,
-                )
-            im = attr_ax.imshow(
-                heatmap,
+            im = ShapNativeRenderer().draw(
+                attr_ax,
+                shap_i,
+                image_i,
                 cmap=cmap,
-                vmin=vmin,
-                vmax=vmax,
+                overlay_alpha=overlay_alpha,
+                outlier_perc=outlier_perc,
             )
             attr_ax.set_title(attr_title or "")
             attr_ax.axis("off")
