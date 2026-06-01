@@ -25,6 +25,7 @@ _WRAPPED_LIBS = (
     "foolbox.criteria",
     "imagecorruptions",
     "maraboupy",
+    "auto_LiRPA",
 )
 
 _ADAPTER_MODULES = (
@@ -34,6 +35,7 @@ _ADAPTER_MODULES = (
     "raitap.robustness.assessors.foolbox_assessor",
     "raitap.robustness.assessors.imagecorruptions_assessor",
     "raitap.robustness.assessors.marabou_assessor",
+    "raitap.robustness.assessors.auto_lirpa_assessor",
     "raitap.robustness.visualisers",
 )
 

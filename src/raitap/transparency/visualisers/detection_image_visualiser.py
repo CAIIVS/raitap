@@ -71,14 +71,15 @@ class DetectionImageVisualiser(BaseVisualiser):
         """Optional Captum render-style knobs, mirroring CaptumImageVisualiser.
 
         Defaults are ``None``-sentinels (not classification's concrete defaults)
-        so unset fields reproduce 0.12.0 output byte-for-byte:
+        so unset fields reproduce the current default detection figure:
 
         - ``method``: ``None`` -> renderer default (``blended_heat_map``).
           Options: ``blended_heat_map`` | ``heat_map`` | ``masked_image`` |
           ``alpha_scaling``. Honoured only by the captum-sourced renderer.
         - ``sign``: ``None`` -> family-auto (``positive`` for CAM, else ``all``).
           Options: ``all`` | ``positive`` | ``negative`` | ``absolute_value``.
-        - ``show_colorbar``: ``None`` -> current no-colorbar behaviour.
+        - ``show_colorbar``: gates the attribution colorbar (renderer-agnostic).
+          ``None``/``True`` -> shown; ``False`` -> suppressed.
         - ``title``: ``None`` -> report falls back to ``ClassName_index``.
           When set, surfaces as the report group name (also covers #225's
           detection half). Does NOT change the per-box matplotlib title.
@@ -129,14 +130,11 @@ class DetectionImageVisualiser(BaseVisualiser):
             context.source_library, context.method_families
         )
         final_sign = self.sign if self.sign is not None else auto_sign
-        style = {
-            key: value
-            for key, value in (
-                ("method", self.method),
-                ("show_colorbar", self.show_colorbar),
-            )
-            if value is not None
-        }
+        # ``show_colorbar`` is NOT forwarded to the renderer: it gates the
+        # figure-level colorbar drawn below (renderer-agnostic), so forwarding it
+        # to the captum renderer too would draw a second colorbar. Forward
+        # ``method`` only.
+        style = {key: value for key, value in (("method", self.method),) if value is not None}
 
         source = context.source_library or "the attribution's source library"
         if self.method is not None and not getattr(renderer, "honours_method", True):
@@ -158,7 +156,7 @@ class DetectionImageVisualiser(BaseVisualiser):
                 source,
             )
 
-        fig, ax = plt.subplots(figsize=(6, 6))
+        fig, ax = plt.subplots(figsize=(6, 6), layout="constrained")
         attr_np = attr.numpy() if hasattr(attr, "numpy") else np.asarray(attr)
         if attr_np.ndim == 3:
             attr_np = np.transpose(attr_np, (1, 2, 0))
@@ -168,7 +166,7 @@ class DetectionImageVisualiser(BaseVisualiser):
         # (captum_visualisers._resize_attr_to_hw). Issue #203.
         if attr_np.shape[:2] != img_hwc.shape[:2]:
             attr_np = _resize_attr_to_hw(attr_np, img_hwc.shape[:2])
-        renderer.draw(ax, attr_np, img_hwc, sign=final_sign, **style)
+        heat = renderer.draw(ax, attr_np, img_hwc, sign=final_sign, **style)
 
         x1, y1, x2, y2 = box.xyxy
         rect = mpatches.Rectangle(
@@ -178,8 +176,17 @@ class DetectionImageVisualiser(BaseVisualiser):
             linewidth=2,
             edgecolor="lime",
             facecolor="none",
+            label="reference box",
         )
         ax.add_patch(rect)
+        # Keys so the overlay is legible standalone: a colorbar for the attribution
+        # heat (the renderer returns its mappable) and a legend naming the green
+        # reference box. Both sit outside the axes so they never cover the image.
+        # ``show_colorbar`` gates the colorbar: unset/None/True -> shown,
+        # False -> suppressed.
+        if heat is not None and self.show_colorbar is not False:
+            fig.colorbar(heat, ax=ax).set_label("attribution")
+        fig.legend(handles=[rect], loc="outside upper right", fontsize=8, framealpha=0.9)
 
         label_str = box.label_name if box.label_name else f"class {box.label_index}"
         ax.set_title(
@@ -190,5 +197,4 @@ class DetectionImageVisualiser(BaseVisualiser):
         ax.set_xlim(0, img_hwc.shape[1])
         ax.set_ylim(img_hwc.shape[0], 0)
 
-        fig.tight_layout()
         return fig

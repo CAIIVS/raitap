@@ -239,7 +239,9 @@ def test_visualise_forwards_set_style_into_renderer_draw(monkeypatch: pytest.Mon
 
     assert len(spy.calls) == 1
     _, style = spy.calls[0]
-    assert style == {"method": "heat_map", "show_colorbar": True}
+    # show_colorbar is NOT forwarded to the renderer — it gates the figure-level
+    # colorbar instead. Only method rides in style.
+    assert style == {"method": "heat_map"}
 
 
 def test_visualise_forwards_no_style_when_fields_unset(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -264,6 +266,27 @@ def test_visualise_forwards_no_style_when_fields_unset(monkeypatch: pytest.Monke
     sign, style = spy.calls[0]
     assert style == {}
     assert sign == "all"
+
+
+def test_show_colorbar_gates_the_figure_colorbar() -> None:
+    # The house renderer (used when source_library is unset) returns a mappable,
+    # so the figure-level colorbar is gateable. A colorbar adds one extra Axes.
+    inputs = torch.rand(1, 3, 32, 32)
+    attributions = torch.rand_like(inputs)
+    shown = DetectionImageVisualiser(show_colorbar=True).visualise(
+        attributions, inputs, context=_ctx()
+    )
+    hidden = DetectionImageVisualiser(show_colorbar=False).visualise(
+        attributions, inputs, context=_ctx()
+    )
+    default = DetectionImageVisualiser().visualise(attributions, inputs, context=_ctx())
+    try:
+        assert len(shown.axes) == len(hidden.axes) + 1  # colorbar adds one Axes
+        assert len(default.axes) == len(shown.axes)  # unset -> colorbar shown
+    finally:
+        plt.close(shown)
+        plt.close(hidden)
+        plt.close(default)
 
 
 def _ctx() -> VisualisationContext:

@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import pytest
 import torch
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
 
 from raitap.robustness.contracts import (
     AssessmentKind,
@@ -22,6 +27,11 @@ from raitap.robustness.visualisers import (
     ImagePairVisualiser,
     PerturbationHeatmapVisualiser,
 )
+
+
+def _image_axes(figure: Figure) -> list[Axes]:
+    """Image panels only — drop the colorbar Axes matplotlib appends."""
+    return [ax for ax in figure.axes if ax.get_label() != "<colorbar>"]
 
 
 def _make_result() -> RobustnessResult:
@@ -69,7 +79,7 @@ def test_image_pair_visualiser_renders_figure() -> None:
     visualiser.validate_result(result)
     figure = visualiser.visualise(result, context=_empirical_context())
     try:
-        assert len(figure.axes) == 6  # 2 rows by 3 columns
+        assert len(_image_axes(figure)) == 6  # 2 rows by 3 columns (excl. colorbar)
     finally:
         plt.close(figure)
 
@@ -98,8 +108,9 @@ def test_image_pair_visualiser_honours_facet_kwargs(
     figure = visualiser.visualise(result, context=_empirical_context(), **kwargs)
 
     try:
-        assert len(figure.axes) == expected_axes
-        for axis, expected in zip(figure.axes, expected_titles, strict=True):
+        image_axes = _image_axes(figure)
+        assert len(image_axes) == expected_axes
+        for axis, expected in zip(image_axes, expected_titles, strict=True):
             assert expected in axis.get_title()
     finally:
         plt.close(figure)
@@ -122,7 +133,7 @@ def test_perturbation_heatmap_visualiser_renders_figure() -> None:
         include_clean_input=False,
     )
     try:
-        assert len(figure.axes) == 2
+        assert len(_image_axes(figure)) == 2
     finally:
         plt.close(figure)
 

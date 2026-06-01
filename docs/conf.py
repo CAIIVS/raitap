@@ -19,6 +19,7 @@ extensions = [
     "config_tabs",
     "install_tabs",
     "recipe",
+    "visualiser_card",
     "myst_parser",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
