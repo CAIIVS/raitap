@@ -161,3 +161,24 @@ def test_visualiser_upsamples_low_res_cam_to_full_image_extent() -> None:
         assert abs(top - bottom) == pytest.approx(64.0, abs=2.0)
     finally:
         plt.close(fig)
+
+
+def test_init_stores_render_style_fields() -> None:
+    vis = DetectionImageVisualiser(
+        method="heat_map",
+        sign="positive",
+        show_colorbar=True,
+        title="Integrated Gradients",
+    )
+    assert vis.method == "heat_map"
+    assert vis.sign == "positive"
+    assert vis.show_colorbar is True
+    assert vis.title == "Integrated Gradients"
+
+
+def test_init_defaults_are_none_sentinels() -> None:
+    vis = DetectionImageVisualiser()
+    assert vis.method is None
+    assert vis.sign is None
+    assert vis.show_colorbar is None
+    assert vis.title is None

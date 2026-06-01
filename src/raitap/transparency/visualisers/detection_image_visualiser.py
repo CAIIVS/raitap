@@ -59,6 +59,34 @@ class DetectionImageVisualiser(BaseVisualiser):
     it is rendering until the context is passed in.
     """
 
+    def __init__(
+        self,
+        *,
+        method: str | None = None,
+        sign: str | None = None,
+        show_colorbar: bool | None = None,
+        title: str | None = None,
+    ) -> None:
+        """Optional Captum render-style knobs, mirroring CaptumImageVisualiser.
+
+        Defaults are ``None``-sentinels (not classification's concrete defaults)
+        so unset fields reproduce 0.12.0 output byte-for-byte:
+
+        - ``method``: ``None`` -> renderer default (``blended_heat_map``).
+          Options: ``blended_heat_map`` | ``heat_map`` | ``masked_image`` |
+          ``alpha_scaling``. Honoured only by the captum-sourced renderer.
+        - ``sign``: ``None`` -> family-auto (``positive`` for CAM, else ``all``).
+          Options: ``all`` | ``positive`` | ``negative`` | ``absolute_value``.
+        - ``show_colorbar``: ``None`` -> current no-colorbar behaviour.
+        - ``title``: ``None`` -> report falls back to ``ClassName_index``.
+          When set, surfaces as the report group name (also covers #225's
+          detection half). Does NOT change the per-box matplotlib title.
+        """
+        self.method = method
+        self.sign = sign
+        self.show_colorbar = show_colorbar
+        self.title = title
+
     def visualise(
         self,
         attributions: torch.Tensor,
