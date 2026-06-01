@@ -98,7 +98,7 @@ class DetectionImageVisualiser(BaseVisualiser):
 
         renderer, sign = resolve_image_renderer(context.source_library, context.method_families)
 
-        fig, ax = plt.subplots(figsize=(6, 6))
+        fig, ax = plt.subplots(figsize=(6, 6), layout="constrained")
         attr_np = attr.numpy() if hasattr(attr, "numpy") else np.asarray(attr)
         if attr_np.ndim == 3:
             attr_np = np.transpose(attr_np, (1, 2, 0))
@@ -108,7 +108,7 @@ class DetectionImageVisualiser(BaseVisualiser):
         # (captum_visualisers._resize_attr_to_hw). Issue #203.
         if attr_np.shape[:2] != img_hwc.shape[:2]:
             attr_np = _resize_attr_to_hw(attr_np, img_hwc.shape[:2])
-        renderer.draw(ax, attr_np, img_hwc, sign=sign)
+        heat = renderer.draw(ax, attr_np, img_hwc, sign=sign)
 
         x1, y1, x2, y2 = box.xyxy
         rect = mpatches.Rectangle(
@@ -118,8 +118,15 @@ class DetectionImageVisualiser(BaseVisualiser):
             linewidth=2,
             edgecolor="lime",
             facecolor="none",
+            label="reference box",
         )
         ax.add_patch(rect)
+        # Keys so the overlay is legible standalone: a colorbar for the attribution
+        # heat (the renderer returns its mappable) and a legend naming the green
+        # reference box. Both sit outside the axes so they never cover the image.
+        if heat is not None:
+            fig.colorbar(heat, ax=ax).set_label("attribution")
+        fig.legend(handles=[rect], loc="outside upper right", fontsize=8, framealpha=0.9)
 
         label_str = box.label_name if box.label_name else f"class {box.label_index}"
         ax.set_title(
@@ -130,5 +137,4 @@ class DetectionImageVisualiser(BaseVisualiser):
         ax.set_xlim(0, img_hwc.shape[1])
         ax.set_ylim(img_hwc.shape[0], 0)
 
-        fig.tight_layout()
         return fig

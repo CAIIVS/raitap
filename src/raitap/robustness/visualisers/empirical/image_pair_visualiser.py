@@ -70,7 +70,9 @@ class ImagePairVisualiser(BaseRobustnessVisualiser):
         columns.append("perturbed")
         if include_perturbation_map:
             columns.append("perturbation")
-        fig, axes = plt.subplots(n, len(columns), figsize=(3 * len(columns), 3 * n), squeeze=False)
+        fig, axes = plt.subplots(
+            n, len(columns), figsize=(3 * len(columns), 3 * n), squeeze=False, layout="constrained"
+        )
 
         scale = self.diff_scale
         diff_extreme = float(
@@ -84,6 +86,7 @@ class ImagePairVisualiser(BaseRobustnessVisualiser):
         display_lo, display_hi = _shared_display_range(clean[:n], perturbed[:n])
 
         sample_names = context.sample_names or []
+        diff_image = None  # last-drawn perturbation image, for a shared colorbar.
 
         for row in range(n):
             clean_image = _as_displayable(clean[row], lo=display_lo, hi=display_hi)
@@ -115,11 +118,18 @@ class ImagePairVisualiser(BaseRobustnessVisualiser):
                     )
                     axis.set_title(_format_title("perturbed", adv_pred, target_label, sample_title))
                 else:
-                    axis.imshow(diff, cmap=self.cmap, vmin=-diff_extreme, vmax=diff_extreme)
+                    diff_image = axis.imshow(
+                        diff, cmap=self.cmap, vmin=-diff_extreme, vmax=diff_extreme
+                    )
                     axis.set_title("perturbation")
                 axis.set_axis_off()
         fig.suptitle(f"{context.algorithm} — clean vs perturbed", fontsize=12)
-        fig.tight_layout()
+        if diff_image is not None and include_perturbation_map:
+            # Shared colorbar for the perturbation column: red = positive, blue =
+            # negative; magnitude = how hard each pixel was pushed (shared scale).
+            # Constrained layout places it beside the column without overlap.
+            bar = fig.colorbar(diff_image, ax=axes[:, columns.index("perturbation")].tolist())
+            bar.set_label("signed perturbation")
         return fig
 
 

@@ -54,7 +54,7 @@ they receive. In short:
 | `PerturbationHeatmapVisualiser` | `EMPIRICAL_ATTACK` | Per-sample diverging heatmap of the perturbation. Default channel reduction is `signed_dominant` (preserves sign without cancelling opposing channels). Other modes: `mean`, `mean_abs`, `max_abs`. |
 | `VerdictSummaryVisualiser` | `FORMAL_VERIFICATION` | Two-panel summary: verdict-count bar chart plus a runtime histogram per verified sample. |
 | `OutputBoundsCohortVisualiser` | `FORMAL_VERIFICATION` | Boxplot of certified per-class output-bound widths (`upper - lower`) across the verified batch. Constructor kwargs: `whis`, `show_outliers`. Renders a placeholder figure when `result.output_bounds is None` or all rows are NaN. |
-| `OutputBoundsPinnedVisualiser` | `FORMAL_VERIFICATION` | Per-sample plot of `[lower_k, upper_k]` certified intervals for each output class with the target class highlighted. Constructor kwargs: `max_samples`, `target_color`, `bar_color`, `sample_indices`. Falls back to a placeholder when bounds are absent. |
+| `OutputBoundsPinnedVisualiser` | `FORMAL_VERIFICATION` | Per-sample plot of `[lower_k, upper_k]` certified intervals for each output class with the target class highlighted. Constructor kwargs: `max_samples`, `max_classes` (default 20 — above it, shows the target plus the classes with the largest certified upper bounds so many-class models like ImageNet stay legible), `target_color`, `bar_color`, `sample_indices`. Falls back to a placeholder when bounds are absent. |
 | `OutputBoundsWidthHeatmapVisualiser` | `FORMAL_VERIFICATION` | Heatmap of certified per-class output-bound widths (`upper - lower`) across the verified batch (rows = samples, columns = classes). Constructor kwargs: `cmap`, `max_samples`, `figsize`. Renders a placeholder figure when `result.output_bounds is None` or every row is NaN. |
 | `OutputBoundsMarginHeatmapVisualiser` | `FORMAL_VERIFICATION` | Heatmap of signed per-class margins relative to the target class's lower bound (rows = samples, columns = classes; target cell masked). Constructor kwargs: `cmap`, `max_samples`, `figsize`. Falls back to a placeholder when bounds or targets are absent. |
 | `CorruptionAccuracyVisualiser` | `STATISTICAL_SAMPLING` | Clean vs corrupted accuracy bars with a CI whisker. Annotated with corruption name, severity, and N. |
@@ -160,6 +160,41 @@ during bisection (TIMEOUT / UNKNOWN) break the search conservatively; the
 returned bound is the loosest still-certified value, never a falsely tight
 one. If every probe for a given class/mode is inconclusive the assessor
 emits a `WARNING` log so vacuous bounds are obvious.
+
+### auto-LiRPA
+
+`AutoLiRPAAssessor` (registry `auto_lirpa`) wraps
+[auto-LiRPA](https://github.com/Verified-Intelligence/auto_LiRPA) — a **sound but
+incomplete** verifier that propagates certified per-class logit bounds (CROWN /
+IBP) directly over a torch model. Unlike Marabou it needs no ONNX export and
+scales to CNNs and L2 / L∞ budgets. Torch backend only (needs autograd + the
+live `nn.Module`); ONNX backends are rejected.
+
+Verdicts are `VERIFIED` (`lb[true] > max(ub[other classes])`) or `UNKNOWN` —
+**never `FALSIFIED`** (sound + incomplete, so no counter-example). Certified
+`lower_bounds` / `upper_bounds` populate `RobustnessResult.output_bounds` for
+both VERIFIED and UNKNOWN samples (the bounds *are* the certificate), so all
+`FORMAL_VERIFICATION` visualisers above apply.
+
+| `algorithm` | Method | Norm |
+| --- | --- | --- |
+| `crown` (default) | CROWN (backward) | L∞ |
+| `ibp` | IBP (interval) | L∞ |
+| `crown-ibp` | CROWN-IBP (hybrid) | L∞ |
+| `crown-l2` | CROWN (backward) | L2 |
+
+`constructor.epsilon` sets the default budget radius (overridden per-call by
+`eps`). Install: `uv sync --extra auto-lirpa` (git-only; resolved from GitHub
+master — see below). It is **not** part of the `robustness` umbrella.
+
+```{note}
+auto-LiRPA has no upstream Intel XPU support. The adapter runs on the active
+backend's device but emits a warning on an Intel XPU backend (less-common ops
+may hit XPU gaps); fall back to a CPU backend if you hit `operator not
+implemented for XPU`. auto-LiRPA also has no PyPI release supporting torch 2.x,
+so it installs from GitHub master and pins the project to the **torch 2.8**
+window — see {doc}`../../contributor/robustness`.
+```
 
 ### ImageCorruptions
 

@@ -1,3 +1,4 @@
+from .auto_lirpa_assessor import AutoLiRPAAssessor
 from .base_assessor import (
     BaseAssessor,
     EmpiricalAttackAssessor,
@@ -9,6 +10,7 @@ from .marabou_assessor import MarabouAssessor
 from .torchattacks_assessor import TorchattacksAssessor
 
 __all__ = [
+    "AutoLiRPAAssessor",
     "BaseAssessor",
     "EmpiricalAttackAssessor",
     "FoolboxAssessor",

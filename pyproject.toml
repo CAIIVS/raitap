@@ -83,9 +83,14 @@ Source = "https://github.com/CAIIVS/raitap/"
 
 [project.optional-dependencies]
 # Backend module
-torch-cpu = ["torch>=2.10.0", "torchvision>=0.20.0"]
-torch-cuda = ["torch>=2.10.0", "torchvision>=0.20.0"]
+torch-cpu = ["torch>=2.8.0,<2.9.0", "torchvision>=0.20.0,<0.24.0"]
+torch-cuda = ["torch>=2.8.0,<2.9.0", "torchvision>=0.20.0,<0.24.0"]
 torch-intel = [
+  # Intel XPU stays on torch>=2.10.0 (unchanged from main): the only torch in the
+  # 2.8 window on the xpu index is 2.8.0+xpu, whose pinned pytorch-triton-xpu==3.4.0
+  # is not published there, so the 2.8 floor is unresolvable for XPU. auto-LiRPA
+  # needs torch<2.9 and has no XPU support anyway, so it is declared mutually
+  # exclusive with the intel extras in [tool.uv] conflicts below.
   "torch>=2.10.0; python_full_version < '3.14' and sys_platform != 'darwin'",
   "torchvision>=0.20.0; python_full_version < '3.14' and sys_platform != 'darwin'",
   # Pin triton-xpu>=3.0.0 — its only PyPI release (0.0.2) is yanked. The
@@ -97,19 +102,20 @@ torch-intel = [
 onnx-cpu = [
   "onnx>=1.21.0",
   "onnxruntime>=1.24.4",
-  "torch>=2.10.0",
-  "torchvision>=0.20.0",
+  "torch>=2.8.0,<2.9.0",
+  "torchvision>=0.20.0,<0.24.0",
 ]
 onnx-cuda = [
   "onnx>=1.21.0",
   "onnxruntime-gpu>=1.24.4",
-  "torch>=2.10.0",
-  "torchvision>=0.20.0",
+  "torch>=2.8.0,<2.9.0",
+  "torchvision>=0.20.0,<0.24.0",
 ]
 onnx-intel = [
   "onnx>=1.21.0; sys_platform != 'darwin'",
   "onnxruntime-openvino>=1.24.1; sys_platform != 'darwin'",
   "openvino>=2025.1.0; sys_platform == 'win32'",
+  # Intel XPU stays on torch>=2.10.0 — see the torch-intel comment above.
   "torch>=2.10.0; python_full_version < '3.14' and sys_platform != 'darwin'",
   "torchvision>=0.20.0; python_full_version < '3.14' and sys_platform != 'darwin'",
   "triton-xpu>=3.0.0; python_full_version < '3.14' and sys_platform != 'darwin'",
@@ -135,6 +141,15 @@ marabou = [
     "maraboupy>=2.0.0,<3.0; python_full_version < '3.12' and sys_platform != 'win32'",
     "onnx>=1.15",
 ]
+# auto-LiRPA certified-robustness adapter (sound, incomplete bound propagation).
+# Resolved from GitHub master via [tool.uv.sources] below — auto-LiRPA has no
+# PyPI release supporting torch 2.x (PyPI tops out at 0.3, torch<1.13). The
+# requirement is listed by bare name (no `@ git+...`) so it stays PyPI-legal:
+# a direct-URL Requires-Dist would make raitap's own wheel unpublishable. Not
+# folded into the ``robustness`` umbrella for the same reason ``marabou`` isn't —
+# a git-only dep makes ``pip install raitap[robustness]`` unresolvable for
+# non-uv users, and bound-propagation verification is a niche opt-in.
+auto-lirpa = ["auto-LiRPA"]
 robustness = ["raitap[torchattacks,foolbox,marabou,imagecorruptions]"]
 
 # Job launcher / batch scheduler support
@@ -187,6 +202,11 @@ override-dependencies = [
   "spacy>=3.8.0",
   # torchattacks 3.5.1 pins requests<2.26 which conflicts with sphinx 9.1+; relax.
   "requests>=2.30.0",
+  # auto-LiRPA leaks test deps into install_requires and hard-pins
+  # ``pytest==8.1.1``, conflicting with raitap's ``pytest>=9.0.3`` dev group.
+  # Override the exact pin to raitap's floor (its other leaked test deps —
+  # pylint / pytest-order / pytest-mock — are open ranges and resolve cleanly).
+  "pytest>=9.0.3",
 ]
 conflicts = [
   [
@@ -223,10 +243,27 @@ conflicts = [
     { extra = "onnx-intel" },
     { extra = "torch-cuda" },
   ],
+  # auto-LiRPA needs torch<2.9 but the Intel XPU extras require torch>=2.10.0
+  # (the 2.8 xpu wheel's triton dep is unpublished) — and auto-LiRPA has no XPU
+  # support regardless. Declare them mutually exclusive so uv never resolves the
+  # unsolvable "auto-lirpa + intel" fork.
+  [
+    { extra = "auto-lirpa" },
+    { extra = "torch-intel" },
+  ],
+  [
+    { extra = "auto-lirpa" },
+    { extra = "onnx-intel" },
+  ],
 ]
 
 # Map runtime extras to the correct package indexes.
 [tool.uv.sources]
+# auto-LiRPA's torch-2.x support lives only on GitHub master (no PyPI release
+# past 0.3 / torch<1.13). uv sources are NOT written into wheel metadata, so
+# resolving from git here keeps the published raitap wheel PyPI-legal while the
+# `auto-lirpa` extra installs the working version for dev/CI.
+auto-LiRPA = { git = "https://github.com/Verified-Intelligence/auto_LiRPA" }
 torch = [
   { index = "pytorch-cpu", extra = "torch-cpu" },
   { index = "pytorch-cpu", extra = "onnx-cpu" },
