@@ -13,13 +13,15 @@ from raitap.transparency.contracts import (
     ExplanationScope,
     MethodFamily,
 )
-from raitap.transparency.visualisers.image_rendering import CaptumNativeRenderer
+from raitap.transparency.visualisers.image_rendering import IMAGE_RENDERER_REGISTRY
 from raitap.transparency.visualisers.registration import transparency_visualiser
 
 from .base_visualiser import BaseVisualiser
 
 if TYPE_CHECKING:
     import torch
+    from matplotlib.axes import Axes
+    from matplotlib.cm import ScalarMappable
     from matplotlib.figure import Figure
 
     from raitap.transparency.contracts import VisualisationContext
@@ -672,3 +674,52 @@ class CaptumTextVisualiser(BaseVisualiser):
         ax.grid(axis="x", alpha=0.3)
         fig.tight_layout()
         return fig
+
+
+class CaptumNativeRenderer:
+    """Captum-native recipe via ``captum.attr.visualization.visualize_image_attr``.
+
+    ``attr`` channels-last (H,W,C); ``image`` normalised (H,W,C). ``method``
+    (default ``"blended_heat_map"``) and other Captum styling are forwarded via
+    ``**style``. Returns the drawn mappable, or ``None`` when the slice is a valid
+    all-zero map (rendered flat instead of crashing — see #206/#207).
+    """
+
+    def draw(
+        self,
+        ax: Axes,
+        attr: np.ndarray,
+        image: np.ndarray | None,
+        *,
+        sign: str = "all",
+        **style: Any,
+    ) -> ScalarMappable | None:
+        from captum.attr import visualization as viz
+        from matplotlib.figure import Figure
+
+        method = style.pop("method", "blended_heat_map")
+        title = style.pop("title", None)
+        show_colorbar = bool(style.pop("show_colorbar", False))
+        outlier_perc = float(style.get("outlier_perc", 2.0))
+        if _captum_normalisation_degenerate(np.asarray(attr), sign, outlier_perc):
+            _render_flat_attribution(ax, sign, title)
+            return None
+        # ``ax.figure`` is typed ``Figure | SubFigure``; visualisers always pass a
+        # top-level ``Figure``'s axes, and visualize_image_attr's stub requires ``Figure``.
+        fig = ax.figure
+        assert isinstance(fig, Figure)
+        viz.visualize_image_attr(
+            attr,
+            image,
+            method=method,
+            sign=sign,
+            show_colorbar=show_colorbar,
+            plt_fig_axis=(fig, ax),
+            use_pyplot=False,
+            **({"title": title} if title is not None else {}),
+            **style,
+        )
+        return _last_mappable(ax)
+
+
+IMAGE_RENDERER_REGISTRY["captum"] = CaptumNativeRenderer()

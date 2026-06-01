@@ -89,7 +89,7 @@ def test_captum_native_draws_and_returns_mappable() -> None:
     pytest.importorskip("captum")
     import matplotlib.pyplot as plt
 
-    from raitap.transparency.visualisers.image_rendering import CaptumNativeRenderer
+    from raitap.transparency.visualisers.captum_visualisers import CaptumNativeRenderer
 
     attr = np.linspace(-1, 1, 8 * 8 * 3).reshape(8, 8, 3).astype(np.float32)
     image = np.abs(attr)
@@ -103,7 +103,7 @@ def test_captum_native_flat_for_degenerate() -> None:
     pytest.importorskip("captum")
     import matplotlib.pyplot as plt
 
-    from raitap.transparency.visualisers.image_rendering import CaptumNativeRenderer
+    from raitap.transparency.visualisers.captum_visualisers import CaptumNativeRenderer
 
     attr = np.zeros((8, 8, 3), dtype=np.float32)
     fig, ax = plt.subplots()
@@ -113,10 +113,8 @@ def test_captum_native_flat_for_degenerate() -> None:
 
 
 def test_builtin_libraries_registered() -> None:
-    from raitap.transparency.visualisers.image_rendering import (
-        IMAGE_RENDERER_REGISTRY,
-        CaptumNativeRenderer,
-    )
+    from raitap.transparency.visualisers.captum_visualisers import CaptumNativeRenderer
+    from raitap.transparency.visualisers.image_rendering import IMAGE_RENDERER_REGISTRY
     from raitap.transparency.visualisers.shap_visualisers import ShapNativeRenderer
 
     assert isinstance(IMAGE_RENDERER_REGISTRY["shap"], ShapNativeRenderer)
@@ -125,7 +123,7 @@ def test_builtin_libraries_registered() -> None:
 
 def test_resolver_shap_vs_captum_shapley_trap() -> None:
     from raitap.transparency.contracts import MethodFamily
-    from raitap.transparency.visualisers.image_rendering import CaptumNativeRenderer
+    from raitap.transparency.visualisers.captum_visualisers import CaptumNativeRenderer
     from raitap.transparency.visualisers.shap_visualisers import ShapNativeRenderer
 
     r_shap, _ = resolve_image_renderer("shap", frozenset({MethodFamily.SHAPLEY}))

@@ -65,7 +65,7 @@ def _grayscale(image: np.ndarray) -> np.ndarray:
 
 
 class RaitapHouseRenderer:
-    """Dependency-free default renderer (no shap/captum import).
+    """Dependency-free default renderer (no optional-extra imports).
 
     ``sign="all"`` -> signed diverging (``bwr``, symmetric 99.9-percentile scale).
     ``sign="positive"`` -> non-negative sequential (``inferno``, ``[0, p99.9]``).
@@ -122,58 +122,3 @@ def resolve_image_renderer(
     renderer = IMAGE_RENDERER_REGISTRY.get(source_library or "", RaitapHouseRenderer())
     sign = "positive" if MethodFamily.CAM in method_families else "all"
     return renderer, sign
-
-
-class CaptumNativeRenderer:
-    """Captum-native recipe via ``captum.attr.visualization.visualize_image_attr``.
-
-    ``attr`` channels-last (H,W,C); ``image`` normalised (H,W,C). ``method``
-    (default ``"blended_heat_map"``) and other Captum styling are forwarded via
-    ``**style``. Returns the drawn mappable, or ``None`` when the slice is a valid
-    all-zero map (rendered flat instead of crashing — see #206/#207).
-    """
-
-    def draw(
-        self,
-        ax: Axes,
-        attr: np.ndarray,
-        image: np.ndarray | None,
-        *,
-        sign: str = "all",
-        **style: Any,
-    ) -> ScalarMappable | None:
-        from captum.attr import visualization as viz
-        from matplotlib.figure import Figure
-
-        from raitap.transparency.visualisers.captum_visualisers import (
-            _captum_normalisation_degenerate,
-            _last_mappable,
-            _render_flat_attribution,
-        )
-
-        method = style.pop("method", "blended_heat_map")
-        title = style.pop("title", None)
-        show_colorbar = bool(style.pop("show_colorbar", False))
-        outlier_perc = float(style.get("outlier_perc", 2.0))
-        if _captum_normalisation_degenerate(np.asarray(attr), sign, outlier_perc):
-            _render_flat_attribution(ax, sign, title)
-            return None
-        # ``ax.figure`` is typed ``Figure | SubFigure``; visualisers always pass a
-        # top-level ``Figure``'s axes, and visualize_image_attr's stub requires ``Figure``.
-        fig = ax.figure
-        assert isinstance(fig, Figure)
-        viz.visualize_image_attr(
-            attr,
-            image,
-            method=method,
-            sign=sign,
-            show_colorbar=show_colorbar,
-            plt_fig_axis=(fig, ax),
-            use_pyplot=False,
-            **({"title": title} if title is not None else {}),
-            **style,
-        )
-        return _last_mappable(ax)
-
-
-IMAGE_RENDERER_REGISTRY["captum"] = CaptumNativeRenderer()
