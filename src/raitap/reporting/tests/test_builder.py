@@ -19,6 +19,7 @@ from raitap.reporting.builder import (
     BuiltReport,
     _canonical_facet_owners,
     _copy_asset,
+    _detection_box_heading,
     _render_kwargs_for_robustness_visualiser,
     build_merged_report,
     build_report,
@@ -49,6 +50,7 @@ from raitap.robustness.results import (
 from raitap.robustness.visualisers import ImagePairVisualiser, PerturbationHeatmapVisualiser
 from raitap.robustness.visualisers.base_visualiser import BaseRobustnessVisualiser
 from raitap.transparency.contracts import (
+    DetectionBox,
     ExplanationOutputSpace,
     ExplanationPayloadKind,
     ExplanationScope,
@@ -2424,3 +2426,52 @@ def test_build_report_attaches_baseline_image_once_per_explanation(tmp_path: Pat
     # Two visualisers -> two local_visualiser groups, but the baseline renders once.
     assert len(local_vis_groups) == 2
     assert len(baseline_imgs) == 1
+
+
+# ---------------------------------------------------------------------------
+# _detection_box_heading unit tests (issue #233)
+# ---------------------------------------------------------------------------
+
+
+def test_detection_heading_matched_gt() -> None:
+    box = DetectionBox(
+        display_index=0,
+        raw_index=2,
+        xyxy=(0, 0, 1, 1),
+        score=0.99,
+        label_index=38,
+        label_name="kite",
+        gt_evaluated=True,
+        true_label_index=20,
+        true_label_name="sheep",
+        true_match_iou=0.71,
+    )
+    assert "pred: kite 0.99" in _detection_box_heading(box)
+    assert "gt: sheep, IoU=0.71" in _detection_box_heading(box)
+
+
+def test_detection_heading_no_match() -> None:
+    box = DetectionBox(
+        display_index=0,
+        raw_index=2,
+        xyxy=(0, 0, 1, 1),
+        score=0.99,
+        label_index=38,
+        label_name="kite",
+        gt_evaluated=True,
+    )
+    assert "gt: no match" in _detection_box_heading(box)
+
+
+def test_detection_heading_no_gt_unchanged() -> None:
+    box = DetectionBox(
+        display_index=0,
+        raw_index=2,
+        xyxy=(0, 0, 1, 1),
+        score=0.99,
+        label_index=38,
+        label_name="kite",
+    )
+    h = _detection_box_heading(box)
+    assert "gt:" not in h
+    assert "kite, score=0.99" in h

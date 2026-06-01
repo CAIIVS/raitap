@@ -25,7 +25,7 @@ from raitap.robustness.contracts import (
     PerturbationDistribution,
     ReportFigureScope,
 )
-from raitap.transparency.contracts import ExplanationScope, VisualisationContext
+from raitap.transparency.contracts import DetectionBox, ExplanationScope, VisualisationContext
 from raitap.transparency.visualisers import BaseVisualiser, InputThumbnailVisualiser
 
 from .filenames import report_output_filename
@@ -700,6 +700,25 @@ def _native_scope_groups(
     ]
 
 
+def _detection_box_heading(box: DetectionBox) -> str:
+    """One-line ``Box`` heading clause: predicted label + optional ground-truth match.
+
+    Shows the ``gt:`` clause only when GT was evaluated for the box's sample —
+    a matched box reads ``pred: X 0.99 | gt: Y, IoU=..``; a no-match box reads
+    ``| gt: no match`` (neutral, not "false positive" — GT may be incomplete);
+    with no GT, the legacy ``label, score=..`` form is unchanged.
+    """
+    label = box.label_name or f"class {box.label_index}"
+    if not box.gt_evaluated:
+        return f"{label}, score={box.score:.2f}"
+    if box.true_label_index is None:
+        gt_clause = "no match"
+    else:
+        gt_name = box.true_label_name or f"class {box.true_label_index}"
+        gt_clause = f"{gt_name}, IoU={box.true_match_iou:.2f}"
+    return f"pred: {label} {box.score:.2f} | gt: {gt_clause}"
+
+
 def _build_local_section(
     outputs: RunOutputs,
     *,
@@ -812,10 +831,9 @@ def _build_local_section(
                 }
                 heading_box_part = ""
                 if detection_box is not None:
-                    label = detection_box.label_name or f"class {detection_box.label_index}"
                     heading_box_part = (
                         f" - Box {detection_box.display_index}"
-                        f" ({label}, score={detection_box.score:.2f})"
+                        f" ({_detection_box_heading(detection_box)})"
                     )
                     metadata["detection_box"] = {
                         "display_index": detection_box.display_index,
@@ -824,6 +842,10 @@ def _build_local_section(
                         "label_index": detection_box.label_index,
                         "label_name": detection_box.label_name,
                         "xyxy": list(detection_box.xyxy),
+                        "gt_evaluated": detection_box.gt_evaluated,
+                        "true_label_index": detection_box.true_label_index,
+                        "true_label_name": detection_box.true_label_name,
+                        "true_match_iou": detection_box.true_match_iou,
                     }
                 visualiser_title = getattr(configured.visualiser, "title", None)
                 if visualiser_title:
@@ -1112,10 +1134,20 @@ def _overlay_detection_boxes(figure: Any, *, outputs: RunOutputs, sample_index: 
             )
         )
         label = box.label_name or f"class {box.label_index}"
+        if box.gt_evaluated and box.true_label_index is not None:
+            gt_name = box.true_label_name or f"class {box.true_label_index}"
+            overlay_text = (
+                f"#{box.display_index} {label} ({box.score:.2f}) "
+                f"| gt: {gt_name} (IoU {box.true_match_iou:.2f})"
+            )
+        elif box.gt_evaluated:
+            overlay_text = f"#{box.display_index} {label} ({box.score:.2f}) | gt: no match"
+        else:
+            overlay_text = f"#{box.display_index} {label} ({box.score:.2f})"
         ax.text(
             x1,
             max(y1 - 4, 4),
-            f"#{box.display_index} {label} ({box.score:.2f})",
+            overlay_text,
             color="lime",
             fontsize=7,
             bbox={"facecolor": "black", "alpha": 0.55, "pad": 1, "edgecolor": "none"},
