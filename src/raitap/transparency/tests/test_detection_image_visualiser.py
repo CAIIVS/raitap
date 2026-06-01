@@ -315,3 +315,46 @@ def test_no_warning_when_renderer_has_no_capability_metadata(monkeypatch) -> Non
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         vis.visualise(attributions, inputs, context=_ctx())
+
+
+def test_config_sign_overrides_family_auto(monkeypatch) -> None:
+    spy = _SpyRenderer()
+    # family-auto would yield "positive", but config sign must win.
+    monkeypatch.setattr(
+        "raitap.transparency.visualisers.image_rendering.resolve_image_renderer",
+        lambda source_library, method_families: (spy, "positive"),
+    )
+    vis = DetectionImageVisualiser(sign="negative")
+    inputs = torch.rand(1, 3, 32, 32)
+    attributions = torch.zeros_like(inputs)
+    vis.visualise(attributions, inputs, context=_ctx())
+    sign, _ = spy.calls[0]
+    assert sign == "negative"
+
+
+def test_family_auto_sign_used_when_config_sign_unset(monkeypatch) -> None:
+    spy = _SpyRenderer()
+    monkeypatch.setattr(
+        "raitap.transparency.visualisers.image_rendering.resolve_image_renderer",
+        lambda source_library, method_families: (spy, "positive"),
+    )
+    vis = DetectionImageVisualiser()  # sign unset
+    inputs = torch.rand(1, 3, 32, 32)
+    attributions = torch.zeros_like(inputs)
+    vis.visualise(attributions, inputs, context=_ctx())
+    sign, _ = spy.calls[0]
+    assert sign == "positive"
+
+
+def test_title_surfaces_as_report_group_name() -> None:
+    from raitap.reporting.builder import _visualiser_group_name
+
+    titled = DetectionImageVisualiser(title="Integrated Gradients")
+    assert _visualiser_group_name(titled, 0) == "Integrated Gradients"
+
+
+def test_untitled_visualiser_falls_back_to_class_index_group_name() -> None:
+    from raitap.reporting.builder import _visualiser_group_name
+
+    untitled = DetectionImageVisualiser()
+    assert _visualiser_group_name(untitled, 2) == "DetectionImageVisualiser_2"
