@@ -117,8 +117,11 @@ def test_builtin_libraries_registered() -> None:
     from raitap.transparency.visualisers.image_rendering import IMAGE_RENDERER_REGISTRY
     from raitap.transparency.visualisers.shap_visualisers import ShapNativeRenderer
 
-    assert isinstance(IMAGE_RENDERER_REGISTRY["shap"], ShapNativeRenderer)
-    assert isinstance(IMAGE_RENDERER_REGISTRY["captum"], CaptumNativeRenderer)
+    # Compare by class name, not isinstance: other tests in the suite re-import
+    # the library visualiser modules (sys.modules surgery), which can leave the
+    # registry holding an instance from a different module-load identity.
+    assert type(IMAGE_RENDERER_REGISTRY["shap"]).__name__ == ShapNativeRenderer.__name__
+    assert type(IMAGE_RENDERER_REGISTRY["captum"]).__name__ == CaptumNativeRenderer.__name__
 
 
 def test_resolver_shap_vs_captum_shapley_trap() -> None:
@@ -130,8 +133,10 @@ def test_resolver_shap_vs_captum_shapley_trap() -> None:
     r_cap, sign = resolve_image_renderer(
         "captum", frozenset({MethodFamily.SHAPLEY, MethodFamily.PERTURBATION})
     )
-    assert isinstance(r_shap, ShapNativeRenderer)
-    assert isinstance(r_cap, CaptumNativeRenderer) and sign == "all"
+    # Name comparison (not isinstance): robust to suite-wide module reloads — see
+    # test_builtin_libraries_registered.
+    assert type(r_shap).__name__ == ShapNativeRenderer.__name__
+    assert type(r_cap).__name__ == CaptumNativeRenderer.__name__ and sign == "all"
     _, cam_sign = resolve_image_renderer(
         "captum", frozenset({MethodFamily.GRADIENT, MethodFamily.CAM})
     )
