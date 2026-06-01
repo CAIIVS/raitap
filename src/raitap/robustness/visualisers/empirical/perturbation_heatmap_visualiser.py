@@ -84,22 +84,29 @@ class PerturbationHeatmapVisualiser(BaseRobustnessVisualiser):
         perturbed = _to_image_batch(result.perturbed_inputs)
         delta = (perturbed - clean).detach().cpu().to(torch.float32)
         n = min(int(delta.shape[0]), self.max_samples)
-        fig, axes = plt.subplots(1, n, figsize=(3 * n, 3.2), squeeze=False)
+        fig, axes = plt.subplots(1, n, figsize=(3 * n, 3.2), squeeze=False, layout="constrained")
 
         sample_names = context.sample_names or []
         global_extreme = float(delta[:n].abs().max().item())
         global_extreme = max(global_extreme, 1e-6)
 
+        image = None
         for col in range(n):
             heatmap = _aggregate(delta[col], self.aggregate_channels)
-            axes[0][col].imshow(heatmap, cmap=self.cmap, vmin=-global_extreme, vmax=global_extreme)
+            image = axes[0][col].imshow(
+                heatmap, cmap=self.cmap, vmin=-global_extreme, vmax=global_extreme
+            )
             axes[0][col].set_axis_off()
             sample_title = (
                 sample_names[col] if context.show_sample_names and col < len(sample_names) else ""
             )
             axes[0][col].set_title(sample_title or f"sample {col}")
         fig.suptitle(f"{context.algorithm} — perturbation heatmap", fontsize=12)
-        fig.tight_layout()
+        if image is not None:
+            # Shared colorbar (same scale across samples) so the reader can map
+            # colour to perturbation sign/magnitude without the docs.
+            bar = fig.colorbar(image, ax=axes[0].tolist())
+            bar.set_label("signed perturbation")
         return fig
 
 

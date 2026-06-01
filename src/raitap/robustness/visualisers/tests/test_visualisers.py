@@ -24,6 +24,11 @@ from raitap.robustness.visualisers import (
 )
 
 
+def _image_axes(figure: plt.Figure) -> list[plt.Axes]:
+    """Image panels only — drop the colorbar Axes matplotlib appends."""
+    return [ax for ax in figure.axes if ax.get_label() != "<colorbar>"]
+
+
 def _make_result() -> RobustnessResult:
     inputs = torch.rand(2, 3, 8, 8)
     perturbed = (inputs + 0.05).clamp(0.0, 1.0)
@@ -69,7 +74,7 @@ def test_image_pair_visualiser_renders_figure() -> None:
     visualiser.validate_result(result)
     figure = visualiser.visualise(result, context=_empirical_context())
     try:
-        assert len(figure.axes) == 6  # 2 rows by 3 columns
+        assert len(_image_axes(figure)) == 6  # 2 rows by 3 columns (excl. colorbar)
     finally:
         plt.close(figure)
 
@@ -98,8 +103,9 @@ def test_image_pair_visualiser_honours_facet_kwargs(
     figure = visualiser.visualise(result, context=_empirical_context(), **kwargs)
 
     try:
-        assert len(figure.axes) == expected_axes
-        for axis, expected in zip(figure.axes, expected_titles, strict=True):
+        image_axes = _image_axes(figure)
+        assert len(image_axes) == expected_axes
+        for axis, expected in zip(image_axes, expected_titles, strict=True):
             assert expected in axis.get_title()
     finally:
         plt.close(figure)
@@ -122,7 +128,7 @@ def test_perturbation_heatmap_visualiser_renders_figure() -> None:
         include_clean_input=False,
     )
     try:
-        assert len(figure.axes) == 2
+        assert len(_image_axes(figure)) == 2
     finally:
         plt.close(figure)
 

@@ -179,6 +179,22 @@ def test_pinned_visualiser_default_picks_first_finite_samples() -> None:
         plt.close(figure)
 
 
+def test_pinned_visualiser_caps_classes_and_keeps_target() -> None:
+    # Many output classes (e.g. ImageNet) must not render 1000 overlapping rows;
+    # cap to max_classes and always keep the target class visible.
+    n, k = 2, 60
+    result = _formal_result(n=n, k=k)  # default bounds finite for all classes.
+    figure = OutputBoundsPinnedVisualiser(max_classes=15).visualise(result, context=_ctx())
+    try:
+        ax = figure.axes[0]  # sample 0 → target class 0.
+        labels = [t.get_text() for t in ax.get_yticklabels()]
+        assert len(labels) == 15  # capped, not 60.
+        assert "logit_0" in labels  # target interval guaranteed shown.
+        assert "top 15/60 classes" in ax.get_title()
+    finally:
+        plt.close(figure)
+
+
 def test_pinned_visualiser_uses_sample_indices_kwarg_when_present() -> None:
     result = _formal_result(n=5, k=4)
     visualiser = OutputBoundsPinnedVisualiser(sample_indices=[3])
