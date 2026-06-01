@@ -313,6 +313,7 @@ def _assert_metadata_invariants(
         "experiment_name",
         "target",
         "algorithm",
+        "source_library",
         "visualisers",
         "kwargs",
         "call_kwargs",
@@ -324,6 +325,7 @@ def _assert_metadata_invariants(
     # take a reference input (IG ``baselines`` / SHAP ``background_data``); see
     # issue #210. No other keys are permitted.
     assert set(metadata) - required_keys <= {"baseline"}
+    assert metadata["source_library"] in {"captum", "shap"}
     assert metadata["payload_kind"] == "attributions"
     semantics = cast("dict[str, object]", metadata["semantics"])
     assert semantics["scope"] == "local"

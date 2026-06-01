@@ -94,30 +94,21 @@ class DetectionImageVisualiser(BaseVisualiser):
         if img_hwc.dtype != np.uint8:
             img_hwc = np.clip(img_hwc, 0.0, 1.0)
 
-        attr_arr = attr.numpy() if hasattr(attr, "numpy") else np.asarray(attr)
-        if attr_arr.ndim == 3:
-            attr_2d = np.abs(attr_arr).sum(axis=0)
-        elif attr_arr.ndim == 2:
-            attr_2d = attr_arr
-        else:
-            raise ValueError(
-                f"DetectionImageVisualiser expected (C, H, W) or (H, W) attribution; "
-                f"got shape {attr_arr.shape!r}."
-            )
+        from raitap.transparency.visualisers.image_rendering import resolve_image_renderer
+
+        renderer, sign = resolve_image_renderer(context.source_library, context.method_families)
+
+        fig, ax = plt.subplots(figsize=(6, 6), layout="constrained")
+        attr_np = attr.numpy() if hasattr(attr, "numpy") else np.asarray(attr)
+        if attr_np.ndim == 3:
+            attr_np = np.transpose(attr_np, (1, 2, 0))
         # Layer methods (e.g. LayerGradCam) yield low-res spatial maps; bilinear-
         # upsample to the image so the heat overlay spans the full frame instead
         # of a top-left corner patch. Mirrors the classification path
         # (captum_visualisers._resize_attr_to_hw). Issue #203.
-        target_hw = img_hwc.shape[:2]
-        if attr_2d.shape != target_hw:
-            attr_2d = _resize_attr_to_hw(attr_2d, target_hw)
-        attr_max = float(np.max(np.abs(attr_2d))) if attr_2d.size else 0.0
-        if attr_max > 0:
-            attr_2d = attr_2d / attr_max
-
-        fig, ax = plt.subplots(figsize=(6, 6), layout="constrained")
-        ax.imshow(img_hwc, interpolation="nearest")
-        heat = ax.imshow(attr_2d, cmap="seismic", alpha=0.45, vmin=-1.0, vmax=1.0)
+        if attr_np.shape[:2] != img_hwc.shape[:2]:
+            attr_np = _resize_attr_to_hw(attr_np, img_hwc.shape[:2])
+        heat = renderer.draw(ax, attr_np, img_hwc, sign=sign)
 
         x1, y1, x2, y2 = box.xyxy
         rect = mpatches.Rectangle(
@@ -130,11 +121,11 @@ class DetectionImageVisualiser(BaseVisualiser):
             label="reference box",
         )
         ax.add_patch(rect)
-        # Keys so the overlay is legible standalone: colorbar maps red/blue to
-        # signed attribution; the legend names the green reference box. The legend
-        # sits outside the axes so it never covers the image.
-        bar = fig.colorbar(heat, ax=ax)
-        bar.set_label("attribution (normalised)")
+        # Keys so the overlay is legible standalone: a colorbar for the attribution
+        # heat (the renderer returns its mappable) and a legend naming the green
+        # reference box. Both sit outside the axes so they never cover the image.
+        if heat is not None:
+            fig.colorbar(heat, ax=ax).set_label("attribution")
         fig.legend(handles=[rect], loc="outside upper right", fontsize=8, framealpha=0.9)
 
         label_str = box.label_name if box.label_name else f"class {box.label_index}"

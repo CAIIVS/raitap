@@ -114,15 +114,27 @@ def test_detection_image_visualiser_is_importable_from_visualisers_package() -> 
     import importlib
     import sys
 
-    for mod in list(sys.modules):
-        if mod.startswith("raitap.transparency.visualisers"):
-            del sys.modules[mod]
+    saved = {
+        name: module
+        for name, module in list(sys.modules.items())
+        if name.startswith("raitap.transparency.visualisers")
+    }
+    for name in saved:
+        del sys.modules[name]
 
-    pkg = importlib.import_module("raitap.transparency.visualisers")
-    assert hasattr(pkg, "DetectionImageVisualiser")
-    assert pkg.DetectionImageVisualiser is DetectionImageVisualiser or (
-        pkg.DetectionImageVisualiser.__name__ == "DetectionImageVisualiser"
-    )
+    try:
+        pkg = importlib.import_module("raitap.transparency.visualisers")
+        assert hasattr(pkg, "DetectionImageVisualiser")
+        assert pkg.DetectionImageVisualiser is DetectionImageVisualiser or (
+            pkg.DetectionImageVisualiser.__name__ == "DetectionImageVisualiser"
+        )
+    finally:
+        # Restore the original module instances. Re-importing the package builds
+        # fresh module objects (and a fresh image-renderer registry); leaving
+        # those in sys.modules would desync the singleton registry from
+        # references cached at import time elsewhere (e.g. raitap.adapters),
+        # breaking later tests that rely on the registry being a singleton.
+        sys.modules.update(saved)
 
 
 def test_visualiser_upsamples_low_res_cam_to_full_image_extent() -> None:

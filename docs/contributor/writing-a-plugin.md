@@ -106,6 +106,19 @@ modules — add more decorated classes to your `__init__.py` (e.g. an
 `@adapters.robustness(...)` assessor next to the explainer). Every decorator
 fires when the plugin is imported on discovery.
 
+**Custom rendering.** By default your plugin's image attributions render with raitap's built-in style — nothing extra to declare. If you want to ship a custom look, register one renderer:
+
+```python
+from raitap import adapters
+
+@adapters.image_renderer(for_library="superxai")  # your registry_name
+class SuperXAIRenderer:
+    def draw(self, ax, attr, image, *, sign="all", **style):
+        ...  # paint attr onto ax; return the mappable (or None)
+```
+
+The renderer then applies automatically to both classification and detection attribution maps.
+
 ## 3. Declare the entry point and version pin
 
 Two things to add to your `pyproject.toml`:

@@ -208,6 +208,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
             experiment_name=experiment_name,
             explainer_target=(explainer_target or f"{type(self).__module__}.{type(self).__name__}"),
             algorithm=getattr(self, "algorithm", ""),
+            source_library=getattr(self, "registry_name", None),
             explainer_name=explainer_name,
             kwargs=metadata_kwargs,
             call_kwargs=call_kwargs,

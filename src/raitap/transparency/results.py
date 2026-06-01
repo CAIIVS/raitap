@@ -147,6 +147,7 @@ class ExplanationResult(Trackable):
     payload_kind: ExplanationPayloadKind = ExplanationPayloadKind.ATTRIBUTIONS
     detection_box: DetectionBox | None = None
     original_sample_index: int | None = None
+    source_library: str | None = None
     baseline: BaselineRecord | None = None
     semantics: ExplanationSemantics = field(kw_only=True)
 
@@ -199,6 +200,8 @@ class ExplanationResult(Trackable):
             }
         if self.original_sample_index is not None:
             metadata["original_sample_index"] = self.original_sample_index
+        if self.source_library is not None:
+            metadata["source_library"] = self.source_library
         if self.baseline is not None:
             metadata["baseline"] = {
                 "kwarg_name": self.baseline.kwarg_name,
@@ -250,6 +253,8 @@ class ExplanationResult(Trackable):
                 sample_names=sample_names,
                 show_sample_names=show_sample_names,
                 detection_box=self.detection_box,
+                source_library=self.source_library,
+                method_families=self.semantics.method_families,
             )
 
             vis.validate_explanation(self, attributions, inputs)
@@ -393,6 +398,8 @@ class ExplanationResult(Trackable):
             sample_names=sample_names,
             show_sample_names=show_sample_names,
             detection_box=self.detection_box,
+            source_library=self.source_library,
+            method_families=self.semantics.method_families,
         )
         vis.validate_explanation(self, attributions, inputs)
         original_visualiser_sample_index = getattr(vis, "sample_index", None)

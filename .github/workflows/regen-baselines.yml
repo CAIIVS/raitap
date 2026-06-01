@@ -41,7 +41,9 @@ jobs:
         # baseline to the *raw* (relative) generate-path at test time — so a relative path
         # would land in the ephemeral tmp dir instead of the workspace. See #217.
         run: |
-          uv run pytest src/raitap/transparency/tests/test_e2e_mpl_baseline.py \
+          uv run pytest \
+            src/raitap/transparency/tests/test_e2e_mpl_baseline.py \
+            src/raitap/transparency/tests/test_detection_mpl_baseline.py \
             -m "e2e and visual" \
             --mpl-generate-path="$GITHUB_WORKSPACE/regenerated_baselines" -v
 
