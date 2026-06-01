@@ -65,7 +65,7 @@ if TYPE_CHECKING:
     registry_name="superxai",      # CLI `+transparency=superxai` / Python `from raitap.transparency import superxai`
     library="superxai-lib",        # real name of your PyPI package; drives `self._lazy_import()` (defaults to registry_name)
     error_patterns={               # rewrite cryptic upstream errors at call sites
-        r"some library footgun": "Do X instead.", # raw regex strings (compiled at registration); avoid deep stack traces in RAITAP
+        r"some library footgun": "Do X instead.", # nicer error messages to avoid deep stack traces in RAITAP
     },
     algorithm_registry={
         # the algos your library offers; ExplainerSemanticsHints carries the
