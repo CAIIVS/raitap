@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import warnings
+from typing import Any
 
 import matplotlib.pyplot as plt
 import pytest
@@ -204,13 +205,21 @@ class _SpyRenderer:
     def __init__(self) -> None:
         self.calls: list[tuple[str, dict]] = []
 
-    def draw(self, ax, attr, image, *, sign="all", **style):
+    def draw(
+        self,
+        ax: Any,
+        attr: Any,
+        image: Any,
+        *,
+        sign: str = "all",
+        **style: Any,
+    ) -> None:
         self.calls.append((sign, dict(style)))
         ax.imshow(image if image is not None else attr)
         return None
 
 
-def test_visualise_forwards_set_style_into_renderer_draw(monkeypatch) -> None:
+def test_visualise_forwards_set_style_into_renderer_draw(monkeypatch: pytest.MonkeyPatch) -> None:
     spy = _SpyRenderer()
     monkeypatch.setattr(
         "raitap.transparency.visualisers.image_rendering.resolve_image_renderer",
@@ -233,7 +242,7 @@ def test_visualise_forwards_set_style_into_renderer_draw(monkeypatch) -> None:
     assert style == {"method": "heat_map", "show_colorbar": True}
 
 
-def test_visualise_forwards_no_style_when_fields_unset(monkeypatch) -> None:
+def test_visualise_forwards_no_style_when_fields_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     spy = _SpyRenderer()
     monkeypatch.setattr(
         "raitap.transparency.visualisers.image_rendering.resolve_image_renderer",
@@ -266,7 +275,7 @@ def _ctx() -> VisualisationContext:
     )
 
 
-def test_warns_when_method_set_but_renderer_ignores_method(monkeypatch) -> None:
+def test_warns_when_method_set_but_renderer_ignores_method(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "raitap.transparency.visualisers.image_rendering.resolve_image_renderer",
         lambda source_library, method_families: (RaitapHouseRenderer(), "all"),
@@ -278,7 +287,7 @@ def test_warns_when_method_set_but_renderer_ignores_method(monkeypatch) -> None:
         vis.visualise(attributions, inputs, context=_ctx())
 
 
-def test_warns_when_sign_set_but_renderer_cannot_honour_it(monkeypatch) -> None:
+def test_warns_when_sign_set_but_renderer_cannot_honour_it(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "raitap.transparency.visualisers.image_rendering.resolve_image_renderer",
         lambda source_library, method_families: (RaitapHouseRenderer(), "all"),
@@ -290,7 +299,7 @@ def test_warns_when_sign_set_but_renderer_cannot_honour_it(monkeypatch) -> None:
         vis.visualise(attributions, inputs, context=_ctx())
 
 
-def test_no_warning_when_sign_is_honoured(monkeypatch) -> None:
+def test_no_warning_when_sign_is_honoured(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "raitap.transparency.visualisers.image_rendering.resolve_image_renderer",
         lambda source_library, method_families: (RaitapHouseRenderer(), "all"),
@@ -303,7 +312,9 @@ def test_no_warning_when_sign_is_honoured(monkeypatch) -> None:
         vis.visualise(attributions, inputs, context=_ctx())
 
 
-def test_no_warning_when_renderer_has_no_capability_metadata(monkeypatch) -> None:
+def test_no_warning_when_renderer_has_no_capability_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     spy = _SpyRenderer()  # no capability attrs -> assume honours all
     monkeypatch.setattr(
         "raitap.transparency.visualisers.image_rendering.resolve_image_renderer",
@@ -317,7 +328,7 @@ def test_no_warning_when_renderer_has_no_capability_metadata(monkeypatch) -> Non
         vis.visualise(attributions, inputs, context=_ctx())
 
 
-def test_config_sign_overrides_family_auto(monkeypatch) -> None:
+def test_config_sign_overrides_family_auto(monkeypatch: pytest.MonkeyPatch) -> None:
     spy = _SpyRenderer()
     # family-auto would yield "positive", but config sign must win.
     monkeypatch.setattr(
@@ -332,7 +343,7 @@ def test_config_sign_overrides_family_auto(monkeypatch) -> None:
     assert sign == "negative"
 
 
-def test_family_auto_sign_used_when_config_sign_unset(monkeypatch) -> None:
+def test_family_auto_sign_used_when_config_sign_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     spy = _SpyRenderer()
     monkeypatch.setattr(
         "raitap.transparency.visualisers.image_rendering.resolve_image_renderer",
