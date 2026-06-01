@@ -25,6 +25,7 @@ import importlib
 import inspect
 import os
 import pkgutil
+import re
 from contextlib import contextmanager
 from dataclasses import dataclass
 from importlib import metadata as importlib_metadata
@@ -35,7 +36,6 @@ from hydra_zen import ZenStore, builds
 from raitap.types import TaskKind
 
 if TYPE_CHECKING:
-    import re
     from collections.abc import Iterator, Mapping, Sequence
     from types import ModuleType
 
@@ -95,7 +95,10 @@ class AdapterDecoratorOptions(TypedDict, total=False):
     registry_name: Required[str]
     extra: str
     library: str
-    error_patterns: Mapping[re.Pattern[str], str]
+    # Raw regex strings → friendly messages. Compiled at registration by
+    # ``_register_core`` (mirrors ``suppress_warnings``, which also takes raw
+    # strings). Pass ``r"..."``; add inline flags like ``(?i)`` if needed.
+    error_patterns: Mapping[str, str]
     suppress_warnings: Sequence[tuple[str, type[Warning], str | None]]
     schema: type
 
@@ -118,7 +121,9 @@ class AdapterMixin:
     # Hydra config group ("transparency" / "robustness" / ...). Set by
     # ``_register_core`` and read by :meth:`_rethrow` to scope error chips.
     _adapter_group: str | None = None
-    # Regex → friendly-message map applied automatically by :meth:`_rethrow`.
+    # Compiled regex → friendly-message map applied automatically by
+    # :meth:`_rethrow`. Stored pre-compiled (``_register_core`` compiles the
+    # raw-string ``error_patterns`` decorator kwarg).
     error_patterns: Mapping[re.Pattern[str], str] = {}
     # Task families this adapter accepts. Default classification so legacy
     # adapters stay correct without explicit declaration. Issue #146.
@@ -239,7 +244,9 @@ def _register_core(
     if library is not None:
         cls.library = library
     if error_patterns is not None:
-        cls.error_patterns = error_patterns
+        cls.error_patterns = {
+            re.compile(pattern): message for pattern, message in error_patterns.items()
+        }
     if suppress_warnings:
         for pattern, category, module in suppress_warnings:
             raitap_log.suppress(message=pattern, category=category, module=module or "")

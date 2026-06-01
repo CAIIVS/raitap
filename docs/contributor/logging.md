@@ -66,7 +66,7 @@ from raitap import adapters
     registry_name="shap",
     library="shap",
     error_patterns={
-        re.compile(r"BackwardHookFunctionBackward is a view"): (
+        r"BackwardHookFunctionBackward is a view": (
             "DeepExplainer can fail on PyTorch models that use SiLU "
             "activations (for example EfficientNet variants). Use "
             "alternatives like GradientExplainer."

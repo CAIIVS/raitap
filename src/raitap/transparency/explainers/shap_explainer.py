@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING, Any, cast
 
 from raitap import raitap_log
@@ -77,9 +76,9 @@ def _select_target_attributions(
     registry_name="shap",
     library="shap",
     error_patterns={
-        re.compile(
+        (
             r"Output \d+ of BackwardHookFunctionBackward is a view "
-            r"and is being modified inplace",
+            r"and is being modified inplace"
         ): (
             "DeepExplainer can fail on PyTorch models that use SiLU activations "
             "(for example EfficientNet variants) due to autograd/in-place "

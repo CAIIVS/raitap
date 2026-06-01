@@ -23,7 +23,6 @@ Name the file after the library (e.g. `superxai_explainer.py`). Then:
 ```python
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
 from raitap import adapters
@@ -41,7 +40,7 @@ if TYPE_CHECKING:
     # extra="superxai",            # uv extra name; defaults to `registry_name` (omit unless they differ — see metrics for an exception)
     library="superxai-lib",        # real PyPI package name; drives `self._lazy_import()`
     error_patterns={               # rewrite cryptic upstream errors at call sites
-        re.compile(r"some library footgun"): "Do X instead.",
+        r"some library footgun": "Do X instead.",   # raw regex strings, compiled at registration
     },
     suppress_warnings=[            # optional library-noise filters installed at decoration time
         (r"some noisy.*pattern", UserWarning, r"superxai.*"),
