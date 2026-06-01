@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.12.0](https://github.com/CAIIVS/raitap/compare/v0.11.0...v0.12.0) (2026-06-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* **robustness:** average-case robustness adapter via imagecorruptions (closes #213) ([#214](https://github.com/CAIIVS/raitap/issues/214))
+
+### Features
+
+* **robustness:** average-case robustness adapter via imagecorruptions (closes [#213](https://github.com/CAIIVS/raitap/issues/213)) ([#214](https://github.com/CAIIVS/raitap/issues/214)) ([8fd510c](https://github.com/CAIIVS/raitap/commit/8fd510cb1f97e3a0f1a7fbada947f4b4516c0fd6))
+* **transparency:** document attribution baselines (IG / SHAP) in artefact and report ([#220](https://github.com/CAIIVS/raitap/issues/220)) ([0a9bcd4](https://github.com/CAIIVS/raitap/commit/0a9bcd41e6a630b4661d44ae93e66a781347a193))
+* **transparency:** shared image-attribution renderer; detection renders per-library ([#221](https://github.com/CAIIVS/raitap/issues/221)) ([#222](https://github.com/CAIIVS/raitap/issues/222)) ([bd2b13f](https://github.com/CAIIVS/raitap/commit/bd2b13f27de9b27ac09f7e91547a370baa3a92ac))
+
+
+### Documentation
+
+* add baseline docs ([#224](https://github.com/CAIIVS/raitap/issues/224)) ([5343e40](https://github.com/CAIIVS/raitap/commit/5343e400ff1c1f3fc26b12cdf3d8d2bd48e9c37f))
+
 ## [0.11.0](https://github.com/CAIIVS/raitap/compare/v0.10.1...v0.11.0) (2026-05-30)
 
 
