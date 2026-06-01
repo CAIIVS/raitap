@@ -43,17 +43,40 @@ def enrich_detection_box(
     box: DetectionBox,
     *,
     category_names: Sequence[str] | None = None,
+    gt_for_sample: dict[str, torch.Tensor] | None = None,
+    iou_threshold: float = 0.5,
 ) -> DetectionBox:
-    """Return *box* with display metadata resolved from the category-names table.
+    """Return *box* with display metadata resolved (predicted name + GT match).
 
-    Pure: no model, no I/O. ``explain_detection`` builds the raw box (prediction
-    geometry + ``label_index``); the transparency caller calls this to fill the
-    human-readable ``label_name`` before rendering. A later task extends this
-    helper with the ground-truth match (``gt_*`` params + fields).
+    Pure: no model, no I/O. ``explain_detection`` builds the raw box (geometry +
+    ``label_index``); the transparency caller calls this before rendering.
+
+    - ``label_name`` is resolved from ``category_names`` (``None`` -> numeric id
+      fallback downstream).
+    - When ``gt_for_sample`` is given (the sample's GT dict with ``boxes``/
+      ``labels``), the box is matched to GT by class-agnostic IoU and
+      ``gt_evaluated`` is set ``True`` regardless of whether a match was found.
+      A match fills ``true_label_index`` / ``true_label_name`` / ``true_match_iou``;
+      no match leaves them ``None`` (a false positive). ``gt_for_sample=None``
+      means GT was not configured and leaves ``gt_evaluated`` ``False``.
     """
+    true_label_index: int | None = None
+    true_label_name: str | None = None
+    true_match_iou: float | None = None
+    if gt_for_sample is not None:
+        match = match_box_to_gt(
+            box.xyxy, gt_for_sample["boxes"], gt_for_sample["labels"], iou_threshold
+        )
+        if match is not None:
+            true_label_index, true_match_iou = match
+            true_label_name = label_name_for(true_label_index, category_names)
     return dataclasses.replace(
         box,
         label_name=label_name_for(box.label_index, category_names),
+        gt_evaluated=gt_for_sample is not None,
+        true_label_index=true_label_index,
+        true_label_name=true_label_name,
+        true_match_iou=true_match_iou,
     )
 
 

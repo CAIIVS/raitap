@@ -135,7 +135,10 @@ def _assess_transparency_detection(
     """
     from raitap.configs import resolve_run_dir
     from raitap.configs.adapter_factory import resolve_per_image_transform
-    from raitap.pipeline.phases.explain_detection import explain_detection
+    from raitap.pipeline.phases.explain_detection import (
+        _DEFAULT_IOU_THRESHOLD,
+        explain_detection,
+    )
     from raitap.transparency.baselines import apply_config_baseline
     from raitap.transparency.detection_labels import (
         enrich_detection_box,
@@ -160,6 +163,8 @@ def _assess_transparency_detection(
         getattr(config.model, "class_names", None),
         getattr(backend, "category_names", None),
     )
+    data_labels = getattr(data, "labels", None)
+    detection_gt = data_labels if isinstance(data_labels, list) else None
 
     for name in explainer_names:
         explainer_config = config.transparency[name]
@@ -182,6 +187,11 @@ def _assess_transparency_detection(
 
             call_from_config = dict(parsed.call)
             raitap_cfg = dict(parsed.raitap)
+            gt_iou_threshold = float(
+                dict(parsed.raitap)
+                .get("detection", {})
+                .get("iou_threshold", _DEFAULT_IOU_THRESHOLD)
+            )
             if data.sample_ids is not None:
                 raitap_cfg["sample_ids"] = data.sample_ids
                 raitap_cfg["sample_names"] = data.sample_ids
@@ -222,9 +232,19 @@ def _assess_transparency_detection(
                 call_provenance=call_provenance,
             ):
                 if result.detection_box is not None:
+                    sample_index = result.original_sample_index
+                    gt_for_sample = (
+                        detection_gt[sample_index]
+                        if detection_gt is not None
+                        and sample_index is not None
+                        and sample_index < len(detection_gt)
+                        else None
+                    )
                     result.detection_box = enrich_detection_box(
                         result.detection_box,
                         category_names=category_names,
+                        gt_for_sample=gt_for_sample,
+                        iou_threshold=gt_iou_threshold,
                     )
                 explanations.append(result)
                 visualisations.extend(result.visualise())

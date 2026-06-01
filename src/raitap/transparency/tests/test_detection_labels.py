@@ -106,3 +106,34 @@ def test_match_picks_highest_iou_among_several() -> None:
     out = match_box_to_gt((0.0, 0.0, 9.0, 9.0), gt_boxes, gt_labels, iou_threshold=0.1)
     assert out is not None
     assert out[0] == 2  # exact overlap with the second box
+
+
+NAMES = ["__background__"] + [f"c{i}" for i in range(1, 91)]
+
+
+def test_enrich_matches_gt_class_agnostic() -> None:
+    gt = {"boxes": torch.tensor([[0.0, 0.0, 1.0, 1.0]]), "labels": torch.tensor([20])}
+    out = enrich_detection_box(
+        _raw_box(38), category_names=NAMES, gt_for_sample=gt, iou_threshold=0.5
+    )
+    assert out.gt_evaluated is True
+    assert out.true_label_index == 20
+    assert out.true_label_name == "c20"  # GT class differs from pred -> disagreement shown
+    assert out.true_match_iou == pytest.approx(1.0)
+
+
+def test_enrich_no_match_is_false_positive() -> None:
+    gt = {"boxes": torch.tensor([[100.0, 100.0, 101.0, 101.0]]), "labels": torch.tensor([5])}
+    out = enrich_detection_box(
+        _raw_box(38), category_names=NAMES, gt_for_sample=gt, iou_threshold=0.5
+    )
+    assert out.gt_evaluated is True  # GT present for the sample
+    assert out.true_label_index is None  # nothing overlapped -> no match
+    assert out.true_label_name is None
+    assert out.true_match_iou is None
+
+
+def test_enrich_no_gt_leaves_evaluated_false() -> None:
+    out = enrich_detection_box(_raw_box(38), category_names=NAMES, gt_for_sample=None)
+    assert out.gt_evaluated is False
+    assert out.true_label_index is None

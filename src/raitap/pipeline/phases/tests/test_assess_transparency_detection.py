@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
+import pytest
 import torch
 
 if TYPE_CHECKING:
@@ -317,6 +318,156 @@ def test_detection_transparency_renders_class_name_end_to_end(tmp_path: Path) ->
     # And the enriched name reached a RENDERED per-box title (downstream of visualise()).
     titles = [v.figure.axes[0].get_title() for v in visualisations if hasattr(v, "figure")]
     assert any("kite" in t for t in titles)
+
+
+def test_detection_transparency_matches_ground_truth_end_to_end(tmp_path: Path) -> None:
+    """When ``data.labels`` carries detection GT, the caller matches each box to
+    GT by IoU and the true label + match IoU reach the in-memory box AND the
+    rendered title — exercising the caller GT-wiring branch (positional lookup,
+    bounds guard, threshold pass-through), not just ``enrich_detection_box`` in
+    isolation. The GT class (20) differs from the predicted class (7) so the
+    class-agnostic match surfaces a disagreement, which is the point of the
+    feature."""
+    from raitap.transparency.contracts import (
+        DetectionBox,
+        ExplanationOutputSpace,
+        ExplanationPayloadKind,
+        ExplanationScope,
+        InputSpec,
+        MethodFamily,
+        OutputSpaceSpec,
+        ScopeDefinitionStep,
+    )
+    from raitap.transparency.results import (
+        ConfiguredVisualiser,
+        ExplanationResult,
+        ExplanationSemantics,
+    )
+    from raitap.transparency.visualisers.detection_image_visualiser import (
+        DetectionImageVisualiser,
+    )
+
+    predicted_label_id = 7
+    gt_label_id = 20
+    config = AppConfig(experiment_name="gt-match-test")
+    set_output_root(config, tmp_path)
+    config.model.class_names = ["__background__"] + [f"c{i}" for i in range(1, 91)]
+    config.transparency = {
+        "ig_det": TransparencyConfig(
+            _target_="CaptumExplainer",
+            algorithm="IntegratedGradients",
+            call={"target": 0},
+            raitap={"detection": {"score_threshold": 0.5, "max_boxes": 5, "iou_threshold": 0.5}},
+            visualisers=[{"_target_": "DetectionImageVisualiser"}],
+        )
+    }
+
+    model = _FakeModel()
+    data = _FakeData(num_samples=1)
+    # GT for sample 0: one box at the SAME coords as the predicted box (IoU 1.0)
+    # but a different class id, so the match is spatial (class-agnostic).
+    data.labels = [  # type: ignore[attr-defined]
+        {
+            "boxes": torch.tensor([[10.0, 10.0, 50.0, 50.0]]),
+            "labels": torch.tensor([gt_label_id], dtype=torch.int64),
+        }
+    ]
+    forward = _make_detection_forward_output(num_samples=1)
+
+    semantics = ExplanationSemantics(
+        scope=ExplanationScope.LOCAL,
+        scope_definition_step=ScopeDefinitionStep.EXPLAINER_OUTPUT,
+        payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
+        method_families=frozenset({MethodFamily.GRADIENT}),
+        target=None,
+        sample_selection=None,
+        input_spec=InputSpec(kind="image", shape=(1, 3, 64, 64), layout="NCHW"),
+        output_space=OutputSpaceSpec(
+            space=ExplanationOutputSpace.DETECTION_BOXES,
+            shape=(1, 3, 64, 64),
+            layout="NCHW",
+        ),
+    )
+
+    def fake_explain_detection(**kwargs: Any) -> Iterator[ExplanationResult]:
+        run_dir = kwargs["base_run_dir"] / "sample_0" / "box_0"
+        result = ExplanationResult(
+            attributions=torch.zeros(1, 3, 64, 64),
+            inputs=torch.rand(1, 3, 64, 64),
+            run_dir=run_dir,
+            experiment_name="gt-match-test",
+            explainer_target=kwargs["explainer_target"],
+            algorithm="IntegratedGradients",
+            explainer_name=kwargs["explainer_name"],
+            visualisers=[ConfiguredVisualiser(DetectionImageVisualiser())],
+            semantics=semantics,
+        )
+        result.detection_box = DetectionBox(
+            display_index=0,
+            raw_index=0,
+            xyxy=(10.0, 10.0, 50.0, 50.0),
+            score=0.9,
+            label_index=predicted_label_id,
+            label_name=None,
+        )
+        result.original_sample_index = 0
+        yield result
+
+    class _FakeExplainer:
+        algorithm = "IntegratedGradients"
+
+        def check_backend_compat(self, backend: object) -> None:
+            return None
+
+    with (
+        patch(
+            "raitap.pipeline.phases.assess_transparency.Explanation",
+            side_effect=AssertionError("classification path should not run"),
+        ),
+        patch(
+            "raitap.transparency.factory.create_explainer",
+            return_value=(_FakeExplainer(), "raitap.transparency.CaptumExplainer"),
+        ),
+        patch(
+            "raitap.transparency.factory.create_visualisers",
+            return_value=[ConfiguredVisualiser(DetectionImageVisualiser())],
+        ),
+        patch(
+            "raitap.transparency.factory.check_explainer_visualiser_compat",
+            return_value=None,
+        ),
+        patch(
+            "raitap.transparency.factory.check_explainer_visualiser_payload_compat",
+            return_value=None,
+        ),
+        patch(
+            "raitap.transparency.factory.check_explainer_visualiser_semantic_compat",
+            return_value=None,
+        ),
+        patch(
+            "raitap.pipeline.phases.explain_detection.explain_detection",
+            side_effect=fake_explain_detection,
+        ),
+    ):
+        explanations, visualisations = assess_transparency(
+            config,
+            model,  # type: ignore[arg-type]
+            data,  # type: ignore[arg-type]
+            forward,
+            input_metadata=None,
+            resolved_preprocessing=None,
+        )
+
+    # GT match reached the in-memory box: evaluated, matched, true class = GT (20).
+    box = explanations[0].detection_box
+    assert box is not None
+    assert box.gt_evaluated is True
+    assert box.true_label_index == gt_label_id
+    assert box.true_label_name == f"c{gt_label_id}"
+    assert box.true_match_iou == pytest.approx(1.0)
+    # And the GT clause reached a RENDERED per-box title.
+    titles = [v.figure.axes[0].get_title() for v in visualisations if hasattr(v, "figure")]
+    assert any(f"gt: c{gt_label_id} (IoU 1.00)" in t for t in titles)
 
 
 def test_assess_transparency_detection_skips_when_no_explainers(tmp_path: Path) -> None:
