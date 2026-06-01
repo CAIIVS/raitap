@@ -392,3 +392,93 @@ def test_untitled_visualiser_falls_back_to_class_index_group_name() -> None:
 
     untitled = DetectionImageVisualiser()
     assert _visualiser_group_name(untitled, 2) == "DetectionImageVisualiser_2"
+
+
+# ---------------------------------------------------------------------------
+# GT-label title tests
+# ---------------------------------------------------------------------------
+
+
+def _box_gt(
+    *,
+    label_name: str | None = "kite",
+    score: float = 0.99,
+    gt_evaluated: bool = False,
+    true_label_name: str | None = None,
+    true_label_index: int | None = None,
+    true_match_iou: float | None = None,
+) -> DetectionBox:
+    return DetectionBox(
+        display_index=0,
+        raw_index=0,
+        xyxy=(2.0, 3.0, 22.0, 23.0),
+        score=score,
+        label_index=1,
+        label_name=label_name,
+        gt_evaluated=gt_evaluated,
+        true_label_name=true_label_name,
+        true_label_index=true_label_index,
+        true_match_iou=true_match_iou,
+    )
+
+
+def test_title_includes_gt_when_matched() -> None:
+    vis = DetectionImageVisualiser()
+    inputs = torch.rand(1, 3, 32, 32)
+    attributions = torch.zeros_like(inputs)
+    ctx = VisualisationContext(
+        algorithm="x",
+        sample_names=None,
+        show_sample_names=False,
+        detection_box=_box_gt(
+            label_name="kite",
+            score=0.99,
+            gt_evaluated=True,
+            true_label_name="sheep",
+            true_label_index=3,
+            true_match_iou=0.71,
+        ),
+    )
+    fig = vis.visualise(attributions, inputs, context=ctx)
+    title = fig.axes[0].get_title()
+    assert "kite: 0.99" in title
+    assert "gt: sheep (IoU 0.71)" in title
+
+
+def test_title_no_match() -> None:
+    vis = DetectionImageVisualiser()
+    inputs = torch.rand(1, 3, 32, 32)
+    attributions = torch.zeros_like(inputs)
+    ctx = VisualisationContext(
+        algorithm="x",
+        sample_names=None,
+        show_sample_names=False,
+        detection_box=_box_gt(
+            label_name="kite",
+            score=0.99,
+            gt_evaluated=True,
+            true_label_index=None,
+        ),
+    )
+    fig = vis.visualise(attributions, inputs, context=ctx)
+    title = fig.axes[0].get_title()
+    assert "gt: no match" in title
+
+
+def test_title_unchanged_without_gt() -> None:
+    vis = DetectionImageVisualiser()
+    inputs = torch.rand(1, 3, 32, 32)
+    attributions = torch.zeros_like(inputs)
+    ctx = VisualisationContext(
+        algorithm="x",
+        sample_names=None,
+        show_sample_names=False,
+        detection_box=_box_gt(
+            label_name="kite",
+            score=0.99,
+            gt_evaluated=False,
+        ),
+    )
+    fig = vis.visualise(attributions, inputs, context=ctx)
+    title = fig.axes[0].get_title()
+    assert "gt:" not in title
