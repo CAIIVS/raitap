@@ -26,5 +26,6 @@ from raitap.reporting.registration import reporter
 from raitap.robustness.assessors.registration import robustness_adapter as robustness
 from raitap.tracking.registration import tracker
 from raitap.transparency.explainers.registration import transparency_adapter as transparency
+from raitap.transparency.visualisers.image_rendering import image_renderer
 
-__all__ = ["metrics", "reporter", "robustness", "tracker", "transparency"]
+__all__ = ["image_renderer", "metrics", "reporter", "robustness", "tracker", "transparency"]

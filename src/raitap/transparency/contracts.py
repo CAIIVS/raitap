@@ -13,7 +13,7 @@ APIs before every code path is complete — for example
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence  # noqa: TC003
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path  # noqa: TC003
 from typing import Any, Protocol, runtime_checkable
@@ -343,6 +343,8 @@ class VisualisationContext:
     sample_names: list[str] | None
     show_sample_names: bool
     detection_box: DetectionBox | None = None
+    source_library: str | None = None
+    method_families: frozenset[MethodFamily] = field(default_factory=frozenset)
 
 
 @runtime_checkable

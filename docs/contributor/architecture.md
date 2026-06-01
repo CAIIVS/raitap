@@ -42,6 +42,10 @@ Every concrete adapter (explainer, assessor, metric, reporter, tracker, visualis
 
 See {doc}`adding-an-adapter` / {doc}`adding-an-algorithm` / {doc}`adding-a-module` for the contributor workflow.
 
+## Visualisers and renderers
+
+A **visualiser** owns the figure layout and is selected via YAML config (`@visualisers.transparency`). A **renderer** paints one attribution map onto a single axes and is auto-resolved from the explainer's library name at render time. If no renderer is registered for a library, a built-in dependency-free default is used. Plugin authors can register a custom renderer via `@adapters.image_renderer(for_library="<registry_name>")`.
+
 ## Directory structure
 
 ```text

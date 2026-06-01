@@ -13,12 +13,15 @@ from raitap.transparency.contracts import (
     ExplanationScope,
     MethodFamily,
 )
+from raitap.transparency.visualisers.image_rendering import IMAGE_RENDERER_REGISTRY
 from raitap.transparency.visualisers.registration import transparency_visualiser
 
 from .base_visualiser import BaseVisualiser
 
 if TYPE_CHECKING:
     import torch
+    from matplotlib.axes import Axes
+    from matplotlib.cm import ScalarMappable
     from matplotlib.figure import Figure
 
     from raitap.transparency.contracts import VisualisationContext
@@ -448,23 +451,15 @@ class CaptumImageVisualiser(BaseVisualiser):
                         title=original_title,
                     )
 
-                attr_viz_kwargs = dict(kwargs)
-                attr_viz_kwargs["title"] = attr_title
-                if _captum_normalisation_degenerate(
-                    attr_i, self.sign, float(kwargs.get("outlier_perc", 2))
-                ):
-                    _render_flat_attribution(attr_ax, self.sign, attr_title)
-                else:
-                    _, _ = viz.visualize_image_attr(
-                        attr_i,
-                        orig_i,
-                        method=self.method,
-                        sign=self.sign,
-                        show_colorbar=False,
-                        plt_fig_axis=(fig, attr_ax),
-                        use_pyplot=False,
-                        **attr_viz_kwargs,
-                    )
+                CaptumNativeRenderer().draw(
+                    attr_ax,
+                    attr_i,
+                    orig_i,
+                    sign=self.sign,
+                    method=self.method,
+                    title=attr_title,
+                    **{k: v for k, v in kwargs.items() if k != "title"},
+                )
                 if self.show_colorbar and colorbar_ax is not None:
                     mappable = _last_mappable(attr_ax)
                     if mappable is None:
@@ -478,22 +473,16 @@ class CaptumImageVisualiser(BaseVisualiser):
             if self.title is not None and "title" not in viz_kwargs:
                 viz_kwargs["title"] = self.title
 
-            if _captum_normalisation_degenerate(
-                attr_i, self.sign, float(kwargs.get("outlier_perc", 2))
-            ):
-                _render_flat_attribution(ax, self.sign, viz_kwargs.get("title"))
-            else:
-                # Let Captum render into our existing axes
-                _, _ = viz.visualize_image_attr(
-                    attr_i,
-                    orig_i,
-                    method=self.method,
-                    sign=self.sign,
-                    show_colorbar=self.show_colorbar,
-                    plt_fig_axis=(fig, ax),
-                    use_pyplot=False,
-                    **viz_kwargs,
-                )
+            CaptumNativeRenderer().draw(
+                ax,
+                attr_i,
+                orig_i,
+                sign=self.sign,
+                method=self.method,
+                show_colorbar=self.show_colorbar,
+                title=viz_kwargs.get("title"),
+                **{k: v for k, v in viz_kwargs.items() if k != "title"},
+            )
             if show_sample_names and i < len(names):
                 base_title = ax.get_title().strip()
                 label = f"{base_title}: {names[i]}" if base_title else names[i]
@@ -685,3 +674,52 @@ class CaptumTextVisualiser(BaseVisualiser):
         ax.grid(axis="x", alpha=0.3)
         fig.tight_layout()
         return fig
+
+
+class CaptumNativeRenderer:
+    """Captum-native recipe via ``captum.attr.visualization.visualize_image_attr``.
+
+    ``attr`` channels-last (H,W,C); ``image`` normalised (H,W,C). ``method``
+    (default ``"blended_heat_map"``) and other Captum styling are forwarded via
+    ``**style``. Returns the drawn mappable, or ``None`` when the slice is a valid
+    all-zero map (rendered flat instead of crashing — see #206/#207).
+    """
+
+    def draw(
+        self,
+        ax: Axes,
+        attr: np.ndarray,
+        image: np.ndarray | None,
+        *,
+        sign: str = "all",
+        **style: Any,
+    ) -> ScalarMappable | None:
+        from captum.attr import visualization as viz
+        from matplotlib.figure import Figure
+
+        method = style.pop("method", "blended_heat_map")
+        title = style.pop("title", None)
+        show_colorbar = bool(style.pop("show_colorbar", False))
+        outlier_perc = float(style.get("outlier_perc", 2.0))
+        if _captum_normalisation_degenerate(np.asarray(attr), sign, outlier_perc):
+            _render_flat_attribution(ax, sign, title)
+            return None
+        # ``ax.figure`` is typed ``Figure | SubFigure``; visualisers always pass a
+        # top-level ``Figure``'s axes, and visualize_image_attr's stub requires ``Figure``.
+        fig = ax.figure
+        assert isinstance(fig, Figure)
+        viz.visualize_image_attr(
+            attr,
+            image,
+            method=method,
+            sign=sign,
+            show_colorbar=show_colorbar,
+            plt_fig_axis=(fig, ax),
+            use_pyplot=False,
+            **({"title": title} if title is not None else {}),
+            **style,
+        )
+        return _last_mappable(ax)
+
+
+IMAGE_RENDERER_REGISTRY["captum"] = CaptumNativeRenderer()
