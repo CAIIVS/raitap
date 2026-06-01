@@ -27,13 +27,15 @@ from raitap.transparency.contracts import (
     ScopeDefinitionStep,
     VisualSummarySpec,
 )
-from raitap.transparency.visualisers.image_rendering import ShapNativeRenderer
+from raitap.transparency.visualisers.image_rendering import IMAGE_RENDERER_REGISTRY
 from raitap.transparency.visualisers.registration import transparency_visualiser
 
 from .base_visualiser import BaseVisualiser
 
 if TYPE_CHECKING:
     import torch
+    from matplotlib.axes import Axes
+    from matplotlib.cm import ScalarMappable
     from matplotlib.colors import Colormap
     from matplotlib.figure import Figure
 
@@ -727,3 +729,33 @@ class ShapImageVisualiser(BaseVisualiser):
                 colorbar_ax.set_ylabel("SHAP value")
 
         return fig
+
+
+class ShapNativeRenderer:
+    """SHAP-native recipe (red_transparent_blue, grayscale bg, +/-99.9 percentile).
+
+    Mirrors ``shap.plots.image``. ``attr`` is channels-last (H,W,C) or (H,W);
+    ``image`` is the normalised (H,W,C) original or None. ``sign`` is ignored —
+    SHAP attributions are always signed-diverging.
+    """
+
+    def draw(
+        self,
+        ax: Axes,
+        attr: np.ndarray,
+        image: np.ndarray | None,
+        *,
+        sign: str = "all",
+        **style: Any,
+    ) -> ScalarMappable:
+        cmap = style.get("cmap") or _red_transparent_blue()
+        overlay_alpha = float(style.get("overlay_alpha", 0.15))
+        outlier_perc = float(style.get("outlier_perc", 99.9))
+        heatmap = _image_heatmap(np.asarray(attr, dtype=np.float32))
+        vmin, vmax = _symmetric_vmin_vmax(heatmap, outlier_perc)
+        if image is not None:
+            ax.imshow(_rgb_to_grayscale(image), cmap="gray", alpha=overlay_alpha)
+        return ax.imshow(heatmap, cmap=cmap, vmin=vmin, vmax=vmax)
+
+
+IMAGE_RENDERER_REGISTRY["shap"] = ShapNativeRenderer()

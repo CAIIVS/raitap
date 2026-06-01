@@ -66,8 +66,8 @@ def test_shap_native_matches_manual_recipe() -> None:
     pytest.importorskip("shap")
     import matplotlib.pyplot as plt
 
-    from raitap.transparency.visualisers.image_rendering import ShapNativeRenderer
     from raitap.transparency.visualisers.shap_visualisers import (
+        ShapNativeRenderer,
         _image_heatmap,
         _symmetric_vmin_vmax,
     )
@@ -116,8 +116,8 @@ def test_builtin_libraries_registered() -> None:
     from raitap.transparency.visualisers.image_rendering import (
         IMAGE_RENDERER_REGISTRY,
         CaptumNativeRenderer,
-        ShapNativeRenderer,
     )
+    from raitap.transparency.visualisers.shap_visualisers import ShapNativeRenderer
 
     assert isinstance(IMAGE_RENDERER_REGISTRY["shap"], ShapNativeRenderer)
     assert isinstance(IMAGE_RENDERER_REGISTRY["captum"], CaptumNativeRenderer)
@@ -125,10 +125,8 @@ def test_builtin_libraries_registered() -> None:
 
 def test_resolver_shap_vs_captum_shapley_trap() -> None:
     from raitap.transparency.contracts import MethodFamily
-    from raitap.transparency.visualisers.image_rendering import (
-        CaptumNativeRenderer,
-        ShapNativeRenderer,
-    )
+    from raitap.transparency.visualisers.image_rendering import CaptumNativeRenderer
+    from raitap.transparency.visualisers.shap_visualisers import ShapNativeRenderer
 
     r_shap, _ = resolve_image_renderer("shap", frozenset({MethodFamily.SHAPLEY}))
     r_cap, sign = resolve_image_renderer(

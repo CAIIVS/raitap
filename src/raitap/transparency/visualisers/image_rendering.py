@@ -124,40 +124,6 @@ def resolve_image_renderer(
     return renderer, sign
 
 
-class ShapNativeRenderer:
-    """SHAP-native recipe (red_transparent_blue, grayscale bg, +/-99.9 percentile).
-
-    Mirrors ``shap.plots.image``. ``attr`` is channels-last (H,W,C) or (H,W);
-    ``image`` is the normalised (H,W,C) original or None. ``sign`` is ignored —
-    SHAP attributions are always signed-diverging.
-    """
-
-    def draw(
-        self,
-        ax: Axes,
-        attr: np.ndarray,
-        image: np.ndarray | None,
-        *,
-        sign: str = "all",
-        **style: Any,
-    ) -> ScalarMappable:
-        from raitap.transparency.visualisers.shap_visualisers import (
-            _image_heatmap,
-            _red_transparent_blue,
-            _rgb_to_grayscale,
-            _symmetric_vmin_vmax,
-        )
-
-        cmap = style.get("cmap") or _red_transparent_blue()
-        overlay_alpha = float(style.get("overlay_alpha", 0.15))
-        outlier_perc = float(style.get("outlier_perc", 99.9))
-        heatmap = _image_heatmap(np.asarray(attr, dtype=np.float32))
-        vmin, vmax = _symmetric_vmin_vmax(heatmap, outlier_perc)
-        if image is not None:
-            ax.imshow(_rgb_to_grayscale(image), cmap="gray", alpha=overlay_alpha)
-        return ax.imshow(heatmap, cmap=cmap, vmin=vmin, vmax=vmax)
-
-
 class CaptumNativeRenderer:
     """Captum-native recipe via ``captum.attr.visualization.visualize_image_attr``.
 
@@ -210,5 +176,4 @@ class CaptumNativeRenderer:
         return _last_mappable(ax)
 
 
-IMAGE_RENDERER_REGISTRY["shap"] = ShapNativeRenderer()
 IMAGE_RENDERER_REGISTRY["captum"] = CaptumNativeRenderer()
