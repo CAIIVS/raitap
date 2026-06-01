@@ -72,6 +72,9 @@ class RaitapHouseRenderer:
     Grayscale background of ``image`` at alpha 0.15 when provided.
     """
 
+    honours_method = False
+    honoured_signs = frozenset({"all", "positive"})
+
     def draw(
         self,
         ax: Axes,

@@ -45,11 +45,13 @@ the factory rejects mismatches at YAML parse time. See
 :intro: Side-by-side panels — original image on the left, attribution overlay on the right — for each sample in the batch. Use it as the default first-pass figure whenever the explainer produces pixel-level or spatial-map attributions on image inputs.
 :how-to-read: Per sample, two panels: the original image and the attribution overlay. Warm regions are pixels that pushed the prediction toward the explained class, cool regions push against it (controlled by `sign`), and brightness is attribution strength — read it as "where the model looked". The `method` kwarg picks the render mode (blended heatmap, bare heatmap, masked image, …).
 :kwarg: method
+:allowed: blended_heat_map | heat_map | original_image | masked_image | alpha_scaling
 :default: `"blended_heat_map"`
-:meaning: Captum render mode: `blended_heat_map`, `heat_map`, `original_image`, `masked_image`, `alpha_scaling`.
+:meaning: Captum render mode.
 :kwarg: sign
+:allowed: all | positive | negative | absolute_value
 :default: `"all"`
-:meaning: Which contributions to show: `all`, `positive`, `negative`, `absolute_value`.
+:meaning: Which contributions to show.
 :kwarg: show_colorbar
 :default: `True`
 :meaning: Whether to add a colorbar next to the attribution panel.
@@ -70,11 +72,13 @@ the factory rejects mismatches at YAML parse time. See
 :intro: Overlay of per-channel attribution magnitudes on top of the raw time-series signal. Pick this when the explainer ran on `(T, C)` channels-last inputs and you want to see *when* in the sequence the model focused.
 :how-to-read: The x-axis is the sequence position (time); the raw signal is drawn per channel with the per-step attribution magnitude overlaid as colour/intensity, so the bright stretches mark *when* in the sequence the model focused. The `method` kwarg switches between overlaying channels individually, combined, or as a coloured graph.
 :kwarg: method
+:allowed: overlay_individual | overlay_combined | colored_graph
 :default: `"overlay_individual"`
-:meaning: One of `overlay_individual`, `overlay_combined`, `colored_graph`.
+:meaning: Overlay render mode.
 :kwarg: sign
+:allowed: positive | negative | absolute_value | all
 :default: `"absolute_value"`
-:meaning: One of `positive`, `negative`, `absolute_value`, `all`.
+:meaning: Which contributions to show.
 :compat: Scope: `LOCAL`. Output space: `INPUT_FEATURES`. Requires `InputKind.TIME_SERIES` metadata and `(B, T, C)` or `(T, C)` attribution layouts. The `inputs` argument (the original time series) is mandatory — attributions alone are not enough to render the overlay.
 :::::
 
@@ -209,6 +213,20 @@ the factory rejects mismatches at YAML parse time. See
 :registry: detection_image
 :intro: Renders one figure per detected box for any backend whose `task_kind == detection` (torchvision Faster R-CNN / RetinaNet / SSD). Each figure shows the original image with the reference bounding box outlined and the per-pixel attribution heatmap overlaid.
 :how-to-read: One figure per detected box: the original image with that detection's reference box outlined and the per-pixel attribution heatmap overlaid — warm pixels are the evidence supporting *that* box. The title carries the label name (or `class N`), the detection score, and the `display/raw` box index pair for provenance.
+:kwarg: method
+:allowed: blended_heat_map | heat_map | masked_image | alpha_scaling
+:default: `None` → renderer default (`blended_heat_map`)
+:meaning: Overlay render mode. Honoured only for captum-sourced detections; a set value the resolved renderer can't honour emits a `UserWarning`.
+:kwarg: sign
+:allowed: all | positive | negative | absolute_value
+:default: `None` → family-auto (`positive` for CAM, else `all`)
+:meaning: Which contributions to show. A set value overrides the family-auto sign; an unsupported value emits a `UserWarning`.
+:kwarg: show_colorbar
+:default: `None` → colorbar shown
+:meaning: Gates the attribution colorbar (renderer-agnostic). Set `false` to suppress it.
+:kwarg: title
+:default: `None` → report group falls back to `ClassName_index`
+:meaning: Sets the report group name for this visualiser's figures (covers issue #225's detection half). Does not change the per-box figure title (label + score + box index).
 :notes: Compatible with all attribution method families that produce per-pixel maps (gradient, perturbation, shapley, cam, model-agnostic, surrogate).
 
 ```yaml
@@ -225,11 +243,37 @@ transparency:
         iou_threshold: 0.5       # default; used by reference_match target
     visualisers:
       - _target_: DetectionImageVisualiser
+        # all optional; omit for the default figure. Allowed values per kwarg
+        # are in the table above.
+        method: blended_heat_map
+        sign: positive
+        show_colorbar: true
+        title: "Integrated Gradients"
 ```
 
 The pipeline emits one `ExplanationResult` per detected box (top-K after threshold filtering), each carrying a `DetectionBox` with the reference xyxy / score / label. Results from the same sample share `original_sample_index` so reporting groups them visually via the sample-id chip.
 :compat: Scope: `LOCAL`. Output space: `DETECTION_BOXES`. Supported task: `detection`. Requires `VisualisationContext.detection_box` to be set (populated automatically by the detection explain phase).
 :::::
+
+`method` / `sign` are honoured only when the resolved renderer supports them —
+the renderer is chosen automatically from the attribution's source library, not
+configured directly. The captum renderer honours both; the house renderer
+honours only `sign` `all`/`positive`; the SHAP renderer honours neither. When
+you set a `method`/`sign` the resolved renderer can't honour, raitap emits a
+`UserWarning` naming the field and source library instead of silently ignoring
+it. `show_colorbar` is renderer-agnostic (it gates the figure's attribution
+colorbar directly), so it applies regardless of source library.
+
+:::{note}
+**Adding a renderer (contributors).** `visualise()` forwards style kwargs to the
+resolved renderer's `draw(**style)`. Any renderer registered via
+`@image_renderer` **must** accept `**style` (the `ImageAttributionRenderer`
+protocol declares it); a renderer that omits it raises `TypeError` once a user
+sets `method`. To participate in the unhonoured-field warning, declare the
+optional `honours_method` (bool) and `honoured_signs` (`frozenset[str]`) class
+constants — they are read via `getattr` with honour-all defaults, so they are
+not required.
+:::
 
 ## Reporting helpers
 

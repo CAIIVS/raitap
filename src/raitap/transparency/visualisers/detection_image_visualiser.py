@@ -14,6 +14,7 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 
+from raitap import raitap_log
 from raitap.transparency.contracts import (
     ExplanationOutputSpace,
     ExplanationPayloadKind,
@@ -59,6 +60,35 @@ class DetectionImageVisualiser(BaseVisualiser):
     it is rendering until the context is passed in.
     """
 
+    def __init__(
+        self,
+        *,
+        method: str | None = None,
+        sign: str | None = None,
+        show_colorbar: bool | None = None,
+        title: str | None = None,
+    ) -> None:
+        """Optional Captum render-style knobs, mirroring CaptumImageVisualiser.
+
+        Defaults are ``None``-sentinels (not classification's concrete defaults)
+        so unset fields reproduce the current default detection figure:
+
+        - ``method``: ``None`` -> renderer default (``blended_heat_map``).
+          Options: ``blended_heat_map`` | ``heat_map`` | ``masked_image`` |
+          ``alpha_scaling``. Honoured only by the captum-sourced renderer.
+        - ``sign``: ``None`` -> family-auto (``positive`` for CAM, else ``all``).
+          Options: ``all`` | ``positive`` | ``negative`` | ``absolute_value``.
+        - ``show_colorbar``: gates the attribution colorbar (renderer-agnostic).
+          ``None``/``True`` -> shown; ``False`` -> suppressed.
+        - ``title``: ``None`` -> report falls back to ``ClassName_index``.
+          When set, surfaces as the report group name (also covers #225's
+          detection half). Does NOT change the per-box matplotlib title.
+        """
+        self.method = method
+        self.sign = sign
+        self.show_colorbar = show_colorbar
+        self.title = title
+
     def visualise(
         self,
         attributions: torch.Tensor,
@@ -96,7 +126,35 @@ class DetectionImageVisualiser(BaseVisualiser):
 
         from raitap.transparency.visualisers.image_rendering import resolve_image_renderer
 
-        renderer, sign = resolve_image_renderer(context.source_library, context.method_families)
+        renderer, auto_sign = resolve_image_renderer(
+            context.source_library, context.method_families
+        )
+        final_sign = self.sign if self.sign is not None else auto_sign
+        # ``show_colorbar`` is NOT forwarded to the renderer: it gates the
+        # figure-level colorbar drawn below (renderer-agnostic), so forwarding it
+        # to the captum renderer too would draw a second colorbar. Forward
+        # ``method`` only.
+        style = {key: value for key, value in (("method", self.method),) if value is not None}
+
+        source = context.source_library or "the attribution's source library"
+        if self.method is not None and not getattr(renderer, "honours_method", True):
+            raitap_log.warn(
+                "DetectionImageVisualiser method=%r is ignored: attributions from "
+                "%s have no selectable overlay method. Set method only for "
+                "captum-sourced detections, or leave it unset.",
+                self.method,
+                source,
+            )
+        if self.sign is not None and self.sign not in getattr(
+            renderer, "honoured_signs", frozenset({self.sign})
+        ):
+            raitap_log.warn(
+                "DetectionImageVisualiser sign=%r is ignored: attributions from %s "
+                "do not support that sign and fall back to the default. Use a sign "
+                "that source supports, or leave it unset.",
+                self.sign,
+                source,
+            )
 
         fig, ax = plt.subplots(figsize=(6, 6), layout="constrained")
         attr_np = attr.numpy() if hasattr(attr, "numpy") else np.asarray(attr)
@@ -108,7 +166,7 @@ class DetectionImageVisualiser(BaseVisualiser):
         # (captum_visualisers._resize_attr_to_hw). Issue #203.
         if attr_np.shape[:2] != img_hwc.shape[:2]:
             attr_np = _resize_attr_to_hw(attr_np, img_hwc.shape[:2])
-        heat = renderer.draw(ax, attr_np, img_hwc, sign=sign)
+        heat = renderer.draw(ax, attr_np, img_hwc, sign=final_sign, **style)
 
         x1, y1, x2, y2 = box.xyxy
         rect = mpatches.Rectangle(
@@ -124,7 +182,9 @@ class DetectionImageVisualiser(BaseVisualiser):
         # Keys so the overlay is legible standalone: a colorbar for the attribution
         # heat (the renderer returns its mappable) and a legend naming the green
         # reference box. Both sit outside the axes so they never cover the image.
-        if heat is not None:
+        # ``show_colorbar`` gates the colorbar: unset/None/True -> shown,
+        # False -> suppressed.
+        if heat is not None and self.show_colorbar is not False:
             fig.colorbar(heat, ax=ax).set_label("attribution")
         fig.legend(handles=[rect], loc="outside upper right", fontsize=8, framealpha=0.9)
 

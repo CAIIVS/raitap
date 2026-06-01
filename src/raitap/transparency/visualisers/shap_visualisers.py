@@ -739,6 +739,9 @@ class ShapNativeRenderer:
     SHAP attributions are always signed-diverging.
     """
 
+    honours_method = False
+    honoured_signs = frozenset()
+
     def draw(
         self,
         ax: Axes,
