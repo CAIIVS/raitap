@@ -62,8 +62,9 @@ Visualisers declare which `AssessmentKind` they support; the factory rejects mis
 :default: `"seismic"`
 :meaning: Diverging colormap for the perturbation.
 :kwarg: aggregate_channels
+:allowed: signed_dominant | mean | mean_abs | max_abs
 :default: `"signed_dominant"`
-:meaning: Channel reduction: `signed_dominant`, `mean`, `mean_abs`, or `max_abs`.
+:meaning: Per-pixel channel reduction applied before colouring.
 :compat: Supports `AssessmentKind.EMPIRICAL_ATTACK`. Rejects non-image results.
 :::::
 

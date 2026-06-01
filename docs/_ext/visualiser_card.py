@@ -17,15 +17,19 @@ Usage (colon fence so inner ``` code blocks nest cleanly)::
     :kwarg: max_samples
     :default: `4`
     :meaning: Maximum number of samples to render.
-    :kwarg: max_classes
-    :default: `20`
-    :meaning: Classes drawn per sub-plot ...
+    :kwarg: method
+    :allowed: blended_heat_map | heat_map | masked_image
+    :default: `blended_heat_map`
+    :meaning: Overlay render mode.
     :compat: Supports `AssessmentKind.FORMAL_VERIFICATION`.
     :notes: Optional extra prose; may contain fenced code blocks.
     :::::
 
-``:preview:`` overrides the image path; otherwise it is derived from
-``:registry:`` as ``../../_static/visualisers/<registry>_visualiser.png``.
+``:allowed:`` is optional per kwarg: a ``|``-separated list of values (rendered
+as code spans). When any kwarg declares it the table grows an "Allowed" column;
+otherwise it stays Kwarg | Default | Meaning. ``:preview:`` overrides the image
+path; otherwise it is derived from ``:registry:`` as
+``../../_static/visualisers/<registry>_visualiser.png``.
 """
 
 from __future__ import annotations
@@ -46,9 +50,12 @@ if TYPE_CHECKING:
 _INLINE_FIELDS = ("name", "registry", "wraps", "preview")
 _BLOCK_FIELDS = ("intro", "how-to-read", "compat", "notes")
 _PAGE_FIELDS = _INLINE_FIELDS + _BLOCK_FIELDS
-_KWARG_FIELDS = ("kwarg", "default", "meaning")
+# ``allowed`` is optional per kwarg — when any kwarg in a card declares it the
+# table grows an "Allowed" column (matching the ``config-options`` directive);
+# otherwise the table stays Kwarg | Default | Meaning.
+_KWARG_FIELDS = ("kwarg", "allowed", "default", "meaning")
+_KWARG_REQUIRED = ("kwarg", "default", "meaning")
 _REQUIRED = ("name", "intro", "how-to-read")
-_KWARG_HEADERS = ("Kwarg", "Default", "Meaning")
 
 
 @dataclass
@@ -80,7 +87,7 @@ def _parse(lines: list[str]) -> _Card:
     def close_kwarg() -> None:
         nonlocal current_kwarg
         if current_kwarg is not None:
-            missing = [f for f in _KWARG_FIELDS if not current_kwarg.get(f)]
+            missing = [f for f in _KWARG_REQUIRED if not current_kwarg.get(f)]
             if missing:
                 raise ValueError(
                     "`visualiser-card`: kwarg entry missing "
@@ -100,10 +107,12 @@ def _parse(lines: list[str]) -> _Card:
             elif name == "kwarg":
                 close_kwarg()
                 current_page = None
-                current_kwarg = {"kwarg": value, "default": "", "meaning": ""}
-            else:  # default / meaning
+                current_kwarg = {"kwarg": value, "allowed": "", "default": "", "meaning": ""}
+            else:  # allowed / default / meaning
                 if current_kwarg is None:
-                    raise ValueError("`visualiser-card`: `:default:`/`:meaning:` need a `:kwarg:`.")
+                    raise ValueError(
+                        "`visualiser-card`: `:allowed:`/`:default:`/`:meaning:` need a `:kwarg:`."
+                    )
                 current_page = None
                 current_kwarg[name] = value
             continue
@@ -139,22 +148,37 @@ def _literal(value: str) -> str:
     return f"`{stripped}`"
 
 
+def _format_allowed(value: str) -> str:
+    """Render a ``|``-separated allowed-value list as code spans, or ``—`` if unset."""
+    value = value.strip()
+    if not value:
+        return "—"
+    parts = [p.strip() for p in value.split("|") if p.strip()]
+    return r" \| ".join(_literal(p) for p in parts)
+
+
 def _kwargs_table(rows: list[dict[str, str]]) -> list[str]:
-    header = "| " + " | ".join(_KWARG_HEADERS) + " |"
-    sep = "| " + " | ".join("---" for _ in _KWARG_HEADERS) + " |"
-    body = [
-        "| "
-        + " | ".join(
-            (
-                _literal(r["kwarg"]).replace("|", r"\|"),
-                _literal(r["default"]).replace("|", r"\|"),
-                r["meaning"].replace("|", r"\|"),
-            )
+    # Grow an "Allowed" column only when at least one kwarg declares allowed
+    # values — otherwise the column is all ``—`` noise.
+    has_allowed = any(r.get("allowed", "").strip() for r in rows)
+    headers = (
+        ("Kwarg", "Allowed", "Default", "Meaning")
+        if has_allowed
+        else (
+            "Kwarg",
+            "Default",
+            "Meaning",
         )
-        + " |"
-        for r in rows
-    ]
-    return [header, sep, *body]
+    )
+    lines = ["| " + " | ".join(headers) + " |", "| " + " | ".join("---" for _ in headers) + " |"]
+    for r in rows:
+        cells = [_literal(r["kwarg"]).replace("|", r"\|")]
+        if has_allowed:
+            cells.append(_format_allowed(r.get("allowed", "")))
+        cells.append(_literal(r["default"]).replace("|", r"\|"))
+        cells.append(r["meaning"].replace("|", r"\|"))
+        lines.append("| " + " | ".join(cells) + " |")
+    return lines
 
 
 def _prefix_how_to_read(block: list[str]) -> list[str]:

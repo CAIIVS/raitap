@@ -45,11 +45,13 @@ the factory rejects mismatches at YAML parse time. See
 :intro: Side-by-side panels — original image on the left, attribution overlay on the right — for each sample in the batch. Use it as the default first-pass figure whenever the explainer produces pixel-level or spatial-map attributions on image inputs.
 :how-to-read: Per sample, two panels: the original image and the attribution overlay. Warm regions are pixels that pushed the prediction toward the explained class, cool regions push against it (controlled by `sign`), and brightness is attribution strength — read it as "where the model looked". The `method` kwarg picks the render mode (blended heatmap, bare heatmap, masked image, …).
 :kwarg: method
+:allowed: blended_heat_map | heat_map | original_image | masked_image | alpha_scaling
 :default: `"blended_heat_map"`
-:meaning: Captum render mode: `blended_heat_map`, `heat_map`, `original_image`, `masked_image`, `alpha_scaling`.
+:meaning: Captum render mode.
 :kwarg: sign
+:allowed: all | positive | negative | absolute_value
 :default: `"all"`
-:meaning: Which contributions to show: `all`, `positive`, `negative`, `absolute_value`.
+:meaning: Which contributions to show.
 :kwarg: show_colorbar
 :default: `True`
 :meaning: Whether to add a colorbar next to the attribution panel.
@@ -70,11 +72,13 @@ the factory rejects mismatches at YAML parse time. See
 :intro: Overlay of per-channel attribution magnitudes on top of the raw time-series signal. Pick this when the explainer ran on `(T, C)` channels-last inputs and you want to see *when* in the sequence the model focused.
 :how-to-read: The x-axis is the sequence position (time); the raw signal is drawn per channel with the per-step attribution magnitude overlaid as colour/intensity, so the bright stretches mark *when* in the sequence the model focused. The `method` kwarg switches between overlaying channels individually, combined, or as a coloured graph.
 :kwarg: method
+:allowed: overlay_individual | overlay_combined | colored_graph
 :default: `"overlay_individual"`
-:meaning: One of `overlay_individual`, `overlay_combined`, `colored_graph`.
+:meaning: Overlay render mode.
 :kwarg: sign
+:allowed: positive | negative | absolute_value | all
 :default: `"absolute_value"`
-:meaning: One of `positive`, `negative`, `absolute_value`, `all`.
+:meaning: Which contributions to show.
 :compat: Scope: `LOCAL`. Output space: `INPUT_FEATURES`. Requires `InputKind.TIME_SERIES` metadata and `(B, T, C)` or `(T, C)` attribution layouts. The `inputs` argument (the original time series) is mandatory — attributions alone are not enough to render the overlay.
 :::::
 
@@ -210,11 +214,13 @@ the factory rejects mismatches at YAML parse time. See
 :intro: Renders one figure per detected box for any backend whose `task_kind == detection` (torchvision Faster R-CNN / RetinaNet / SSD). Each figure shows the original image with the reference bounding box outlined and the per-pixel attribution heatmap overlaid.
 :how-to-read: One figure per detected box: the original image with that detection's reference box outlined and the per-pixel attribution heatmap overlaid — warm pixels are the evidence supporting *that* box. The title carries the label name (or `class N`), the detection score, and the `display/raw` box index pair for provenance.
 :kwarg: method
+:allowed: blended_heat_map | heat_map | masked_image | alpha_scaling
 :default: `None` → renderer default (`blended_heat_map`)
-:meaning: Overlay mode: `blended_heat_map`, `heat_map`, `masked_image`, `alpha_scaling`. Honoured only for captum-sourced detections; a set value the resolved renderer can't honour emits a `UserWarning`.
+:meaning: Overlay render mode. Honoured only for captum-sourced detections; a set value the resolved renderer can't honour emits a `UserWarning`.
 :kwarg: sign
+:allowed: all | positive | negative | absolute_value
 :default: `None` → family-auto (`positive` for CAM, else `all`)
-:meaning: Which contributions to show: `all`, `positive`, `negative`, `absolute_value`. A set value overrides the family-auto sign; an unsupported value emits a `UserWarning`.
+:meaning: Which contributions to show. A set value overrides the family-auto sign; an unsupported value emits a `UserWarning`.
 :kwarg: show_colorbar
 :default: `None` → colorbar shown
 :meaning: Gates the attribution colorbar (renderer-agnostic). Set `false` to suppress it.
@@ -237,10 +243,11 @@ transparency:
         iou_threshold: 0.5       # default; used by reference_match target
     visualisers:
       - _target_: DetectionImageVisualiser
-        # all optional; omit for the default figure
-        method: blended_heat_map   # | heat_map | masked_image | alpha_scaling
-        sign: positive             # | all | negative | absolute_value
-        show_colorbar: true        # set false to suppress the colorbar
+        # all optional; omit for the default figure. Allowed values per kwarg
+        # are in the table above.
+        method: blended_heat_map
+        sign: positive
+        show_colorbar: true
         title: "Integrated Gradients"
 ```
 
