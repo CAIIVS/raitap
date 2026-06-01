@@ -704,7 +704,7 @@ def _detection_box_heading(box: DetectionBox) -> str:
     """One-line ``Box`` heading clause: predicted label + optional ground-truth match.
 
     Shows the ``gt:`` clause only when GT was evaluated for the box's sample —
-    a matched box reads ``pred: X 0.99 | gt: Y, IoU=..``; a no-match box reads
+    a matched box reads ``pred: X 0.99 | gt: Y (IoU ..)``; a no-match box reads
     ``| gt: no match`` (neutral, not "false positive" — GT may be incomplete);
     with no GT, the legacy ``label, score=..`` form is unchanged.
     """
@@ -715,7 +715,7 @@ def _detection_box_heading(box: DetectionBox) -> str:
         gt_clause = "no match"
     else:
         gt_name = box.true_label_name or f"class {box.true_label_index}"
-        gt_clause = f"{gt_name}, IoU={box.true_match_iou:.2f}"
+        gt_clause = f"{gt_name} (IoU {box.true_match_iou:.2f})"
     return f"pred: {label} {box.score:.2f} | gt: {gt_clause}"
 
 

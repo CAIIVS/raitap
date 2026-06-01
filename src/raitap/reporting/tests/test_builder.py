@@ -2447,7 +2447,7 @@ def test_detection_heading_matched_gt() -> None:
         true_match_iou=0.71,
     )
     assert "pred: kite 0.99" in _detection_box_heading(box)
-    assert "gt: sheep, IoU=0.71" in _detection_box_heading(box)
+    assert "gt: sheep (IoU 0.71)" in _detection_box_heading(box)
 
 
 def test_detection_heading_no_match() -> None:

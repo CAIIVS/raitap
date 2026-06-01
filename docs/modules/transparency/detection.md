@@ -101,7 +101,7 @@ class-name source is available:
 (`data.labels.source` with `data.labels.kind: detection`), each box is matched
 to the ground-truth object it overlaps most and shows that object's label plus
 the overlap as `gt: <name> (IoU <value>)`. The match is by overlap alone, so a
-disagreement is visible directly — e.g. `pred: dog 0.92 | gt: cat, IoU=0.71`.
+disagreement is visible directly — e.g. `pred: dog 0.92 | gt: cat (IoU 0.71)`.
 A box that overlaps no labelled object reads `gt: no match`. IoU (intersection
 over union) ranges 0–1; the match uses the same `raitap.detection.iou_threshold`
 as the explanation, and a higher value means a tighter overlap.
