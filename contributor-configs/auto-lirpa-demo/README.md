@@ -1,12 +1,24 @@
 # auto-LiRPA certified-robustness demo
 
-Certified L∞ robustness of a **tiny verifiable CNN** on the bundled
-`imagenet_samples` subset via `AutoLiRPAAssessor` (IBP / CROWN bound
-propagation), rendered to an HTML report (verdict summary + certified output
-bounds).
+Certified L∞ robustness via `AutoLiRPAAssessor` (CROWN bound propagation),
+rendered to an HTML report (verdict summary + certified output bounds). It is a
+**Python script** (`assessment.py`), not a YAML config — see below.
 
-This demo is a **Python script** (`assessment.py`), not a YAML config — see
-"Why a script" below.
+At the default epsilon you get a genuine **VERIFIED / UNKNOWN mix** (~half each):
+the report actually shows certified-robust samples, not a wall of `UNKNOWN`.
+
+## Why it trains a tiny net on a synthetic dataset
+
+Verification is against the **ground-truth label**: a sample is `VERIFIED` only
+when the true class's certified lower bound beats every other class's upper bound
+across the whole perturbation budget. A *randomly-initialised* net mispredicts
+every sample, so the true-label logit is never the maximum and **nothing can
+ever verify** — everything lands `UNKNOWN`. So, like auto-LiRPA's own
+CIFAR/MNIST examples, the demo trains first.
+
+To stay self-contained it synthesises a tiny labelled dataset (4 colour classes,
+3×32×32, written as PNGs + `labels.csv` under `~/.cache/raitap/auto_lirpa_demo/`)
+and trains a small net on it in a few hundred steps.
 
 ## Why a tiny custom CNN (not ResNet / VGG)
 
@@ -21,8 +33,6 @@ Off-the-shelf torchvision ImageNet models trip its bound-graph converter:
 | ViT / ConvNeXt | attention / LayerNorm — unsupported |
 
 auto-LiRPA's own examples are small CIFAR/MNIST conv nets for the same reason.
-This demo therefore builds a tiny `conv + ReLU + MaxPool(k=2,s=2)` net (random
-weights — swap in trained ones for meaningful accuracy).
 
 ## Why a script, not a YAML config
 
@@ -64,17 +74,18 @@ uv sync --extra torch-cpu --extra auto-lirpa --extra metrics --extra reporting
 ## Run
 
 ```powershell
-uv run --no-sync python contributor-configs/auto-lirpa-imagenet/assessment.py
+uv run --no-sync python `
+  contributor-configs/auto-lirpa-demo/assessment.py
 ```
 
 The HTML report lands under `outputs/<date>/<time>/reports/report.html`.
 
 ## Knobs (edit `assessment.py`)
 
-- `algorithm` — `ibp` (cheap, default) / `crown` / `crown-ibp` (L∞) or
-  `crown-l2` (L2).
-- `constructor={"epsilon": ...}` — perturbation radius. Bounds on a random net
-  are loose, so most samples land `UNKNOWN` (sound + incomplete → never
-  `FALSIFIED`).
+- `epsilon` — perturbation radius. `0.025` gives the even VERIFIED/UNKNOWN
+  split; raise it for more `UNKNOWN`, lower it (e.g. `0.005`) to verify (almost)
+  everything. Sound + incomplete → never `FALSIFIED`.
+- `algorithm` — `crown` (tight, default) / `ibp` (cheap, much looser) /
+  `crown-ibp` (L∞) or `crown-l2` (L2).
 - `TinyVerifiableNet` — keep it to conv / ReLU / non-overlapping pool / linear;
   adding Dropout or an overlapping MaxPool will break bound propagation.
