@@ -115,9 +115,9 @@ class DetectionImageVisualiser(BaseVisualiser):
         if attr_max > 0:
             attr_2d = attr_2d / attr_max
 
-        fig, ax = plt.subplots(figsize=(6, 6))
+        fig, ax = plt.subplots(figsize=(6, 6), layout="constrained")
         ax.imshow(img_hwc, interpolation="nearest")
-        ax.imshow(attr_2d, cmap="seismic", alpha=0.45, vmin=-1.0, vmax=1.0)
+        heat = ax.imshow(attr_2d, cmap="seismic", alpha=0.45, vmin=-1.0, vmax=1.0)
 
         x1, y1, x2, y2 = box.xyxy
         rect = mpatches.Rectangle(
@@ -127,8 +127,15 @@ class DetectionImageVisualiser(BaseVisualiser):
             linewidth=2,
             edgecolor="lime",
             facecolor="none",
+            label="reference box",
         )
         ax.add_patch(rect)
+        # Keys so the overlay is legible standalone: colorbar maps red/blue to
+        # signed attribution; the legend names the green reference box. The legend
+        # sits outside the axes so it never covers the image.
+        bar = fig.colorbar(heat, ax=ax)
+        bar.set_label("attribution (normalised)")
+        fig.legend(handles=[rect], loc="outside upper right", fontsize=8, framealpha=0.9)
 
         label_str = box.label_name if box.label_name else f"class {box.label_index}"
         ax.set_title(
@@ -139,5 +146,4 @@ class DetectionImageVisualiser(BaseVisualiser):
         ax.set_xlim(0, img_hwc.shape[1])
         ax.set_ylim(img_hwc.shape[0], 0)
 
-        fig.tight_layout()
         return fig
