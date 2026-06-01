@@ -244,9 +244,16 @@ def _register_core(
     if library is not None:
         cls.library = library
     if error_patterns is not None:
-        cls.error_patterns = {
-            re.compile(pattern): message for pattern, message in error_patterns.items()
-        }
+        compiled: dict[re.Pattern[str], str] = {}
+        for pattern, message in error_patterns.items():
+            try:
+                compiled[re.compile(pattern)] = message
+            except re.error as exc:
+                raise ValueError(
+                    f"{cls.__name__} (registry_name={registry_name!r}) declares an invalid "
+                    f"error_patterns regex {pattern!r}: {exc}"
+                ) from exc
+        cls.error_patterns = compiled
     if suppress_warnings:
         for pattern, category, module in suppress_warnings:
             raitap_log.suppress(message=pattern, category=category, module=module or "")
