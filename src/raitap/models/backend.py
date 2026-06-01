@@ -135,6 +135,9 @@ class ModelBackend(ABC):
     # Declared per-sample input shape with ``None`` marking dynamic dims
     # (typically the batch dim). ``None`` overall = no rank adaptation.
     expected_input_shape: tuple[int | None, ...] | None = None
+    # Optional id->name table for the model's output classes (e.g. torchvision
+    # detection ``weights.meta["categories"]``). ``None`` when unavailable.
+    category_names: list[str] | None = None
 
     @property
     @abstractmethod
@@ -173,10 +176,12 @@ class TorchBackend(ModelBackend):
         *,
         device: torch.device | None = None,
         task_kind: TaskKind | None = None,
+        category_names: list[str] | None = None,
     ) -> None:
         self.model = model
         self.device = torch.device("cpu") if device is None else device
         self._task_kind = task_kind if task_kind is not None else self._infer_task_kind(model)
+        self.category_names = category_names
 
     @staticmethod
     def _infer_task_kind(model: nn.Module) -> TaskKind:

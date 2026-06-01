@@ -345,6 +345,26 @@ def _load_torch_module_from_path(
     raise ValueError(f"Expected an nn.Module or state-dict in {path}, got {type(obj).__name__}.")
 
 
+def _default_category_names(model_name: str) -> list[str] | None:
+    """Return the torchvision default weights' ``categories`` for *model_name*.
+
+    Detection weights carry an index-aligned ``categories`` list (id 0 first,
+    ``"N/A"`` placeholders for unused ids). ``None`` for models whose default
+    weights expose no categories (e.g. plain classifiers carry ImageNet labels
+    we don't use here) or when resolution fails.
+    """
+    try:
+        from torchvision.models import get_model_weights
+
+        default = get_model_weights(model_name).DEFAULT  # type: ignore[attr-defined]
+        categories = default.meta.get("categories")
+    except Exception:  # best-effort metadata; never block model load
+        return None
+    if categories is None:
+        return None
+    return list(categories)
+
+
 def _load_pretrained(model_name: str, *, hardware: str) -> ModelBackend:
     """
     Load a torchvision model with its default pre-trained weights.
@@ -370,7 +390,7 @@ def _load_pretrained(model_name: str, *, hardware: str) -> ModelBackend:
     model = factory(weights="DEFAULT")
     model.to(device)
     model.eval()
-    return TorchBackend(model, device=device)
+    return TorchBackend(model, device=device, category_names=_default_category_names(model_name))
 
 
 def _supported_model_formats() -> list[str]:

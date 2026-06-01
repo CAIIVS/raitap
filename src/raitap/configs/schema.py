@@ -55,6 +55,12 @@ class ModelConfig:
     # before loading the state-dict. Usually ``False`` since weights come from
     # the state-dict itself.
     pretrained: bool = False
+    # Optional explicit id->name table for detection class labels. Index-aligned
+    # with the model's label ids (id 0 first). When set, overrides any names
+    # captured from torchvision ``weights.meta["categories"]``. Leave unset to
+    # use the model's bundled category names (pretrained torchvision detectors)
+    # or fall back to numeric ids.
+    class_names: list[str] | None = None
 
 
 @dataclass
