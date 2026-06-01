@@ -50,7 +50,6 @@ instead of the in-tree relative import. Decorate it with the public
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
 from raitap import adapters
@@ -66,7 +65,7 @@ if TYPE_CHECKING:
     registry_name="superxai",      # CLI `+transparency=superxai` / Python `from raitap.transparency import superxai`
     library="superxai-lib",        # real name of your PyPI package; drives `self._lazy_import()` (defaults to registry_name)
     error_patterns={               # rewrite cryptic upstream errors at call sites
-        re.compile(r"some library footgun"): "Do X instead.", # nicer error messages to avoid deep stack traces in RAITAP
+        r"some library footgun": "Do X instead.", # nicer error messages to avoid deep stack traces in RAITAP
     },
     algorithm_registry={
         # the algos your library offers; ExplainerSemanticsHints carries the

@@ -21,7 +21,6 @@ Contract mapping onto :class:`FormalVerificationAssessor`:
 from __future__ import annotations
 
 import contextlib
-import re
 import time
 from collections.abc import Mapping  # noqa: TC003 — runtime use in module-level annotation
 from typing import TYPE_CHECKING, Any
@@ -69,8 +68,8 @@ _NORM_TO_LIRPA: dict[PerturbationNorm, float] = {
 
 # Curated rewrites for opaque auto-LiRPA errors. Matched against ``str(exc)``;
 # first hit wins. See :func:`raitap.utils.errors.rethrow`.
-_AUTO_LIRPA_ERROR_MESSAGES: Mapping[re.Pattern[str], str] = {
-    re.compile(r"self\.stride .* != self\.kernel_size"): (
+_AUTO_LIRPA_ERROR_MESSAGES: Mapping[str, str] = {
+    r"self\.stride .* != self\.kernel_size": (
         "auto-LiRPA's MaxPool bound propagator only supports non-overlapping "
         "pooling (stride == kernel_size). This model has an overlapping MaxPool "
         "(e.g. ResNet's k=3, s=2 stem), which bound propagation cannot handle. "

@@ -6,7 +6,9 @@ $ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # Translate the Windows script path into the WSL view (D:\... -> /mnt/d/...).
-$WslDir = (& wsl wslpath -a -u $ScriptDir).Trim()
+# wsl.exe strips backslashes from forwarded args, so feed wslpath a
+# forward-slash path (D:/... which wslpath -a also accepts).
+$WslDir = (& wsl wslpath -a -u ($ScriptDir -replace '\\', '/')).Trim()
 
 # Quote each forwarded arg for the bash side.
 $ForwardedArgs = ($args | ForEach-Object {

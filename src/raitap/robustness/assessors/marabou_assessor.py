@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import logging
 import math
-import re
 import shutil
 import tempfile
 import time
@@ -49,8 +48,8 @@ from .base_assessor import FormalVerificationAssessor
 
 # Curated error patterns for confusing maraboupy errors. Matched against
 # ``str(exc)``; first hit wins. See :func:`raitap.utils.errors.rethrow`.
-_MARABOUPY_ERROR_MESSAGES: Mapping[re.Pattern[str], str] = {
-    re.compile(r"Invoked with: <class 'maraboupy\.MarabouCore\.Equation\.EquationType'>"): (
+_MARABOUPY_ERROR_MESSAGES: Mapping[str, str] = {
+    r"Invoked with: <class 'maraboupy\.MarabouCore\.Equation\.EquationType'>": (
         "Equation construction trap: `MarabouCore.Equation` (the C++ class) "
         "stores its type on the class, not the instance, so "
         "`InputQueryBuilder.getInputQuery` accessing `e.EquationType` returns "
@@ -60,7 +59,7 @@ _MARABOUPY_ERROR_MESSAGES: Mapping[re.Pattern[str], str] = {
         "https://github.com/NeuralNetworkVerification/Marabou/blob/master/"
         "maraboupy/MarabouUtils.py."
     ),
-    re.compile(r"Operation \S+ not implemented"): (
+    r"Operation \S+ not implemented": (
         "Marabou's ONNX parser does not implement an op used by the model. "
         "Re-export with the Marabou-supported subset only — see "
         "https://github.com/NeuralNetworkVerification/Marabou/blob/master/"
