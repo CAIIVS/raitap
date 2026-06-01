@@ -50,11 +50,21 @@ class TinyVerifiableNet(nn.Module):
     def __init__(self, num_classes: int = 1000) -> None:
         super().__init__()
         self.features = nn.Sequential(
-            nn.Conv2d(3, 8, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),  # 224 -> 112
-            nn.Conv2d(8, 8, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),  # 112 -> 56
-            nn.Conv2d(8, 8, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),  # 56 -> 28
-            nn.Conv2d(8, 8, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),  # 28 -> 14
-            nn.Conv2d(8, 8, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),  # 14 -> 7
+            nn.Conv2d(3, 8, 3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),  # 224 -> 112
+            nn.Conv2d(8, 8, 3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),  # 112 -> 56
+            nn.Conv2d(8, 8, 3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),  # 56 -> 28
+            nn.Conv2d(8, 8, 3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),  # 28 -> 14
+            nn.Conv2d(8, 8, 3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),  # 14 -> 7
         )
         self.classifier = nn.Sequential(nn.Flatten(), nn.Linear(8 * 7 * 7, num_classes))
 
