@@ -5,6 +5,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import pytest
 import torch
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 
 from raitap.robustness.contracts import (
     AssessmentKind,
@@ -24,7 +26,7 @@ from raitap.robustness.visualisers import (
 )
 
 
-def _image_axes(figure: plt.Figure) -> list[plt.Axes]:
+def _image_axes(figure: Figure) -> list[Axes]:
     """Image panels only — drop the colorbar Axes matplotlib appends."""
     return [ax for ax in figure.axes if ax.get_label() != "<colorbar>"]
 
