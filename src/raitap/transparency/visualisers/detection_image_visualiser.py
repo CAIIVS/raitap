@@ -124,7 +124,18 @@ class DetectionImageVisualiser(BaseVisualiser):
 
         from raitap.transparency.visualisers.image_rendering import resolve_image_renderer
 
-        renderer, sign = resolve_image_renderer(context.source_library, context.method_families)
+        renderer, auto_sign = resolve_image_renderer(
+            context.source_library, context.method_families
+        )
+        final_sign = self.sign if self.sign is not None else auto_sign
+        style = {
+            key: value
+            for key, value in (
+                ("method", self.method),
+                ("show_colorbar", self.show_colorbar),
+            )
+            if value is not None
+        }
 
         fig, ax = plt.subplots(figsize=(6, 6))
         attr_np = attr.numpy() if hasattr(attr, "numpy") else np.asarray(attr)
@@ -136,7 +147,7 @@ class DetectionImageVisualiser(BaseVisualiser):
         # (captum_visualisers._resize_attr_to_hw). Issue #203.
         if attr_np.shape[:2] != img_hwc.shape[:2]:
             attr_np = _resize_attr_to_hw(attr_np, img_hwc.shape[:2])
-        renderer.draw(ax, attr_np, img_hwc, sign=sign)
+        renderer.draw(ax, attr_np, img_hwc, sign=final_sign, **style)
 
         x1, y1, x2, y2 = box.xyxy
         rect = mpatches.Rectangle(

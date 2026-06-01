@@ -135,6 +135,17 @@ def test_detection_image_visualiser_is_importable_from_visualisers_package() -> 
         # references cached at import time elsewhere (e.g. raitap.adapters),
         # breaking later tests that rely on the registry being a singleton.
         sys.modules.update(saved)
+        # importlib.import_module rebinds parent-package attributes (e.g.
+        # raitap.transparency.visualisers) to the freshly-created modules.
+        # Restoring sys.modules alone leaves those dangling, so attribute-walk
+        # resolution (monkeypatch by dotted path) and sys.modules resolution
+        # (a lazy `from ... import`) disagree. Re-bind each saved module onto
+        # its parent to fully restore the prior state.
+        for name, module in saved.items():
+            parent_name, _, child = name.rpartition(".")
+            parent = sys.modules.get(parent_name)
+            if parent is not None and child:
+                setattr(parent, child, module)
 
 
 def test_visualiser_upsamples_low_res_cam_to_full_image_extent() -> None:
@@ -182,3 +193,62 @@ def test_init_defaults_are_none_sentinels() -> None:
     assert vis.sign is None
     assert vis.show_colorbar is None
     assert vis.title is None
+
+
+class _SpyRenderer:
+    """Records the sign + style kwargs forwarded by the visualiser."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict]] = []
+
+    def draw(self, ax, attr, image, *, sign="all", **style):
+        self.calls.append((sign, dict(style)))
+        ax.imshow(image if image is not None else attr)
+        return None
+
+
+def test_visualise_forwards_set_style_into_renderer_draw(monkeypatch) -> None:
+    spy = _SpyRenderer()
+    monkeypatch.setattr(
+        "raitap.transparency.visualisers.image_rendering.resolve_image_renderer",
+        lambda source_library, method_families: (spy, "all"),
+    )
+    vis = DetectionImageVisualiser(method="heat_map", show_colorbar=True)
+    inputs = torch.rand(1, 3, 32, 32)
+    attributions = torch.zeros_like(inputs)
+    ctx = VisualisationContext(
+        algorithm="x",
+        sample_names=None,
+        show_sample_names=False,
+        detection_box=_box(label_name="car"),
+    )
+
+    vis.visualise(attributions, inputs, context=ctx)
+
+    assert len(spy.calls) == 1
+    _, style = spy.calls[0]
+    assert style == {"method": "heat_map", "show_colorbar": True}
+
+
+def test_visualise_forwards_no_style_when_fields_unset(monkeypatch) -> None:
+    spy = _SpyRenderer()
+    monkeypatch.setattr(
+        "raitap.transparency.visualisers.image_rendering.resolve_image_renderer",
+        lambda source_library, method_families: (spy, "all"),
+    )
+    vis = DetectionImageVisualiser()
+    inputs = torch.rand(1, 3, 32, 32)
+    attributions = torch.zeros_like(inputs)
+    ctx = VisualisationContext(
+        algorithm="x",
+        sample_names=None,
+        show_sample_names=False,
+        detection_box=_box(label_name="car"),
+    )
+
+    vis.visualise(attributions, inputs, context=ctx)
+
+    assert len(spy.calls) == 1
+    sign, style = spy.calls[0]
+    assert style == {}
+    assert sign == "all"
