@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.13.0](https://github.com/CAIIVS/raitap/compare/v0.12.0...v0.13.0) (2026-06-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* **robustness:** add auto-LiRPA certified bound-propagation assessor (closes #212) ([#227](https://github.com/CAIIVS/raitap/issues/227))
+
+### Features
+
+* **robustness:** add auto-LiRPA certified bound-propagation assessor (closes [#212](https://github.com/CAIIVS/raitap/issues/212)) ([#227](https://github.com/CAIIVS/raitap/issues/227)) ([ae2d683](https://github.com/CAIIVS/raitap/commit/ae2d68350a3408e89352ce758a153cb2aee648c5))
+* **transparency:** expose render-style config on detection visualiser ([#230](https://github.com/CAIIVS/raitap/issues/230)) ([a71f25b](https://github.com/CAIIVS/raitap/commit/a71f25bf25c07a2e5a6d7265b512e2a4e4c4ed1d))
+
+
+### Documentation
+
+* **robustness:** trained, self-consistent auto-LiRPA demo ([#232](https://github.com/CAIIVS/raitap/issues/232)) ([5d51f79](https://github.com/CAIIVS/raitap/commit/5d51f790c33432127259ed83b6ecdda185e37bf6))
+
 ## [0.12.0](https://github.com/CAIIVS/raitap/compare/v0.11.0...v0.12.0) (2026-06-01)
 
 
