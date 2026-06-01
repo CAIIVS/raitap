@@ -685,6 +685,9 @@ class CaptumNativeRenderer:
     all-zero map (rendered flat instead of crashing — see #206/#207).
     """
 
+    honours_method = True
+    honoured_signs = frozenset({"all", "positive", "negative", "absolute_value"})
+
     def draw(
         self,
         ax: Axes,

@@ -14,6 +14,7 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 
+from raitap import raitap_log
 from raitap.transparency.contracts import (
     ExplanationOutputSpace,
     ExplanationPayloadKind,
@@ -136,6 +137,26 @@ class DetectionImageVisualiser(BaseVisualiser):
             )
             if value is not None
         }
+
+        source = context.source_library or "the attribution's source library"
+        if self.method is not None and not getattr(renderer, "honours_method", True):
+            raitap_log.warn(
+                "DetectionImageVisualiser method=%r is ignored: attributions from "
+                "%s have no selectable overlay method. Set method only for "
+                "captum-sourced detections, or leave it unset.",
+                self.method,
+                source,
+            )
+        if self.sign is not None and self.sign not in getattr(
+            renderer, "honoured_signs", frozenset({self.sign})
+        ):
+            raitap_log.warn(
+                "DetectionImageVisualiser sign=%r is ignored: attributions from %s "
+                "do not support that sign and fall back to the default. Use a sign "
+                "that source supports, or leave it unset.",
+                self.sign,
+                source,
+            )
 
         fig, ax = plt.subplots(figsize=(6, 6))
         attr_np = attr.numpy() if hasattr(attr, "numpy") else np.asarray(attr)

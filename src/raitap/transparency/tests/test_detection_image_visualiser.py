@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import matplotlib.pyplot as plt
 import pytest
 import torch
@@ -16,6 +18,7 @@ from raitap.transparency.contracts import (
 from raitap.transparency.visualisers.detection_image_visualiser import (
     DetectionImageVisualiser,
 )
+from raitap.transparency.visualisers.image_rendering import RaitapHouseRenderer
 from raitap.types import TaskKind
 
 
@@ -252,3 +255,63 @@ def test_visualise_forwards_no_style_when_fields_unset(monkeypatch) -> None:
     sign, style = spy.calls[0]
     assert style == {}
     assert sign == "all"
+
+
+def _ctx() -> VisualisationContext:
+    return VisualisationContext(
+        algorithm="x",
+        sample_names=None,
+        show_sample_names=False,
+        detection_box=_box(label_name="car"),
+    )
+
+
+def test_warns_when_method_set_but_renderer_ignores_method(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "raitap.transparency.visualisers.image_rendering.resolve_image_renderer",
+        lambda source_library, method_families: (RaitapHouseRenderer(), "all"),
+    )
+    vis = DetectionImageVisualiser(method="heat_map")
+    inputs = torch.rand(1, 3, 32, 32)
+    attributions = torch.zeros_like(inputs)
+    with pytest.warns(UserWarning, match="method"):
+        vis.visualise(attributions, inputs, context=_ctx())
+
+
+def test_warns_when_sign_set_but_renderer_cannot_honour_it(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "raitap.transparency.visualisers.image_rendering.resolve_image_renderer",
+        lambda source_library, method_families: (RaitapHouseRenderer(), "all"),
+    )
+    vis = DetectionImageVisualiser(sign="negative")
+    inputs = torch.rand(1, 3, 32, 32)
+    attributions = torch.zeros_like(inputs)
+    with pytest.warns(UserWarning, match="sign"):
+        vis.visualise(attributions, inputs, context=_ctx())
+
+
+def test_no_warning_when_sign_is_honoured(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "raitap.transparency.visualisers.image_rendering.resolve_image_renderer",
+        lambda source_library, method_families: (RaitapHouseRenderer(), "all"),
+    )
+    vis = DetectionImageVisualiser(sign="positive")
+    inputs = torch.rand(1, 3, 32, 32)
+    attributions = torch.zeros_like(inputs)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        vis.visualise(attributions, inputs, context=_ctx())
+
+
+def test_no_warning_when_renderer_has_no_capability_metadata(monkeypatch) -> None:
+    spy = _SpyRenderer()  # no capability attrs -> assume honours all
+    monkeypatch.setattr(
+        "raitap.transparency.visualisers.image_rendering.resolve_image_renderer",
+        lambda source_library, method_families: (spy, "all"),
+    )
+    vis = DetectionImageVisualiser(method="heat_map", sign="negative")
+    inputs = torch.rand(1, 3, 32, 32)
+    attributions = torch.zeros_like(inputs)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        vis.visualise(attributions, inputs, context=_ctx())
