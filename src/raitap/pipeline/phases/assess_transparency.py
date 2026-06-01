@@ -137,6 +137,10 @@ def _assess_transparency_detection(
     from raitap.configs.adapter_factory import resolve_per_image_transform
     from raitap.pipeline.phases.explain_detection import explain_detection
     from raitap.transparency.baselines import apply_config_baseline
+    from raitap.transparency.detection_labels import (
+        enrich_detection_box,
+        resolve_category_names,
+    )
     from raitap.transparency.factory import (
         _PARSED_EXPLAINER_CONFIG_CACHE,
         _parse_explainer_config,
@@ -152,6 +156,10 @@ def _assess_transparency_detection(
     explanations: list[ExplanationResult] = []
     visualisations: list[VisualisationResult] = []
     backend = _require_model_backend(model)
+    category_names = resolve_category_names(
+        getattr(config.model, "class_names", None),
+        getattr(backend, "category_names", None),
+    )
 
     for name in explainer_names:
         explainer_config = config.transparency[name]
@@ -213,6 +221,11 @@ def _assess_transparency_detection(
                 call_kwargs=merged_kwargs,
                 call_provenance=call_provenance,
             ):
+                if result.detection_box is not None:
+                    result.detection_box = enrich_detection_box(
+                        result.detection_box,
+                        category_names=category_names,
+                    )
                 explanations.append(result)
                 visualisations.extend(result.visualise())
         finally:

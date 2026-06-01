@@ -173,6 +173,152 @@ def test_assess_transparency_routes_detection_kind_to_explain_detection(
     assert len(explanations) == 2
 
 
+def test_detection_transparency_renders_class_name_end_to_end(tmp_path: Path) -> None:
+    """Caller-side enrichment must fill ``DetectionBox.label_name`` from the
+    resolved category-names table BEFORE ``result.visualise()`` renders the
+    figure, so a configured class name reaches both the in-memory box and the
+    rendered per-box title.
+
+    ``explain_detection`` is mocked to yield a *real* ``ExplanationResult`` that
+    carries a raw box (``label_name=None``) plus a real
+    ``DetectionImageVisualiser``; the only thing under test is that the
+    transparency caller enriches the box ahead of the render path."""
+    from raitap.transparency.contracts import (
+        DetectionBox,
+        ExplanationOutputSpace,
+        ExplanationPayloadKind,
+        ExplanationScope,
+        InputSpec,
+        MethodFamily,
+        OutputSpaceSpec,
+        ScopeDefinitionStep,
+    )
+    from raitap.transparency.results import (
+        ConfiguredVisualiser,
+        ExplanationResult,
+        ExplanationSemantics,
+    )
+    from raitap.transparency.visualisers.detection_image_visualiser import (
+        DetectionImageVisualiser,
+    )
+
+    predicted_label_id = 7
+    config = AppConfig(experiment_name="render-test")
+    set_output_root(config, tmp_path)
+    config.model.class_names = (
+        ["__background__"]
+        + [f"c{i}" for i in range(1, predicted_label_id)]
+        + ["kite"]
+        + [f"c{i}" for i in range(predicted_label_id + 1, 91)]
+    )
+    config.transparency = {
+        "ig_det": TransparencyConfig(
+            _target_="CaptumExplainer",
+            algorithm="IntegratedGradients",
+            call={"target": 0},
+            raitap={"detection": {"score_threshold": 0.5, "max_boxes": 5}},
+            visualisers=[{"_target_": "DetectionImageVisualiser"}],
+        )
+    }
+
+    model = _FakeModel()
+    data = _FakeData(num_samples=1)
+    forward = _make_detection_forward_output(num_samples=1)
+
+    semantics = ExplanationSemantics(
+        scope=ExplanationScope.LOCAL,
+        scope_definition_step=ScopeDefinitionStep.EXPLAINER_OUTPUT,
+        payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
+        method_families=frozenset({MethodFamily.GRADIENT}),
+        target=None,
+        sample_selection=None,
+        input_spec=InputSpec(kind="image", shape=(1, 3, 64, 64), layout="NCHW"),
+        output_space=OutputSpaceSpec(
+            space=ExplanationOutputSpace.DETECTION_BOXES,
+            shape=(1, 3, 64, 64),
+            layout="NCHW",
+        ),
+    )
+
+    def fake_explain_detection(**kwargs: Any) -> Iterator[ExplanationResult]:
+        run_dir = kwargs["base_run_dir"] / "sample_0" / "box_0"
+        result = ExplanationResult(
+            attributions=torch.zeros(1, 3, 64, 64),
+            inputs=torch.rand(1, 3, 64, 64),
+            run_dir=run_dir,
+            experiment_name="render-test",
+            explainer_target=kwargs["explainer_target"],
+            algorithm="IntegratedGradients",
+            explainer_name=kwargs["explainer_name"],
+            visualisers=[ConfiguredVisualiser(DetectionImageVisualiser())],
+            semantics=semantics,
+        )
+        # Raw box as explain_detection emits it: label_name is unresolved (None).
+        result.detection_box = DetectionBox(
+            display_index=0,
+            raw_index=0,
+            xyxy=(10.0, 10.0, 50.0, 50.0),
+            score=0.9,
+            label_index=predicted_label_id,
+            label_name=None,
+        )
+        result.original_sample_index = 0
+        yield result
+
+    class _FakeExplainer:
+        algorithm = "IntegratedGradients"
+
+        def check_backend_compat(self, backend: object) -> None:
+            return None
+
+    with (
+        patch(
+            "raitap.pipeline.phases.assess_transparency.Explanation",
+            side_effect=AssertionError("classification path should not run"),
+        ),
+        patch(
+            "raitap.transparency.factory.create_explainer",
+            return_value=(_FakeExplainer(), "raitap.transparency.CaptumExplainer"),
+        ),
+        patch(
+            "raitap.transparency.factory.create_visualisers",
+            return_value=[ConfiguredVisualiser(DetectionImageVisualiser())],
+        ),
+        patch(
+            "raitap.transparency.factory.check_explainer_visualiser_compat",
+            return_value=None,
+        ),
+        patch(
+            "raitap.transparency.factory.check_explainer_visualiser_payload_compat",
+            return_value=None,
+        ),
+        patch(
+            "raitap.transparency.factory.check_explainer_visualiser_semantic_compat",
+            return_value=None,
+        ),
+        patch(
+            "raitap.pipeline.phases.explain_detection.explain_detection",
+            side_effect=fake_explain_detection,
+        ),
+    ):
+        explanations, visualisations = assess_transparency(
+            config,
+            model,  # type: ignore[arg-type]
+            data,  # type: ignore[arg-type]
+            forward,
+            input_metadata=None,
+            resolved_preprocessing=None,
+        )
+
+    # In-memory box was enriched before visualise().
+    assert any(
+        e.detection_box is not None and e.detection_box.label_name == "kite" for e in explanations
+    )
+    # And the enriched name reached a RENDERED per-box title (downstream of visualise()).
+    titles = [v.figure.axes[0].get_title() for v in visualisations if hasattr(v, "figure")]
+    assert any("kite" in t for t in titles)
+
+
 def test_assess_transparency_detection_skips_when_no_explainers(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="empty")
     set_output_root(config, tmp_path)

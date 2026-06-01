@@ -7,10 +7,13 @@ precedence (explicit config > backend weights.meta > None) in one place.
 
 from __future__ import annotations
 
+import dataclasses
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from raitap.transparency.contracts import DetectionBox
 
 
 def resolve_category_names(
@@ -32,3 +35,21 @@ def label_name_for(index: int, names: Sequence[str] | None) -> str | None:
     if 0 <= index < len(names):
         return names[index]
     return None
+
+
+def enrich_detection_box(
+    box: DetectionBox,
+    *,
+    category_names: Sequence[str] | None = None,
+) -> DetectionBox:
+    """Return *box* with display metadata resolved from the category-names table.
+
+    Pure: no model, no I/O. ``explain_detection`` builds the raw box (prediction
+    geometry + ``label_index``); the transparency caller calls this to fill the
+    human-readable ``label_name`` before rendering. A later task extends this
+    helper with the ground-truth match (``gt_*`` params + fields).
+    """
+    return dataclasses.replace(
+        box,
+        label_name=label_name_for(box.label_index, category_names),
+    )
