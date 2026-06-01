@@ -275,6 +275,49 @@ transparency:
       - _target_: DetectionImageVisualiser
 ```
 
+#### Render style (optional)
+
+The same render-style fields as `CaptumImageVisualiser`, so the detection
+overlay vocabulary matches classification. Every field is **optional** — a bare
+`- _target_: DetectionImageVisualiser` is unchanged. Defaults are `None`
+sentinels (not the classification defaults), so omitting them reproduces the
+prior output exactly:
+
+| Kwarg | Default | Meaning |
+|---|---|---|
+| `method` | `None` → renderer default (`blended_heat_map`) | Overlay mode: `blended_heat_map`, `heat_map`, `masked_image`, `alpha_scaling`. Honoured only for captum-sourced detections. |
+| `sign` | `None` → family-auto (`positive` for CAM, else `all`) | Which contributions to show: `all`, `positive`, `negative`, `absolute_value`. A set value overrides the family-auto sign. |
+| `show_colorbar` | `None` → no colorbar | Add a colorbar to the overlay. |
+| `title` | `None` → report group falls back to `ClassName_index` | Sets the report group name for this visualiser's figures (also covers issue #225's detection half). Does not change the per-box figure title (label + score + box index). |
+
+```yaml
+    visualisers:
+      - _target_: DetectionImageVisualiser
+        method: blended_heat_map   # | heat_map | masked_image | alpha_scaling
+        sign: positive             # | all | negative | absolute_value
+        show_colorbar: true
+        title: "Integrated Gradients"
+```
+
+`method` / `sign` are honoured only when the resolved renderer supports them —
+the renderer is chosen automatically from the attribution's source library, not
+configured directly. The captum renderer honours both; the house renderer
+honours only `sign` `all`/`positive`; the SHAP renderer honours neither. When
+you set a `method`/`sign` the resolved renderer can't honour, raitap emits a
+`UserWarning` naming the field and source library instead of silently ignoring
+it.
+
+:::{note}
+**Adding a renderer (contributors).** `visualise()` forwards style kwargs to the
+resolved renderer's `draw(**style)`. Any renderer registered via
+`@image_renderer` **must** accept `**style` (the `ImageAttributionRenderer`
+protocol declares it); a renderer that omits it raises `TypeError` once a user
+sets `method`. To participate in the unhonoured-field warning, declare the
+optional `honours_method` (bool) and `honoured_signs` (`frozenset[str]`) class
+constants — they are read via `getattr` with honour-all defaults, so they are
+not required.
+:::
+
 The pipeline emits one `ExplanationResult` per detected box (top-K after
 threshold filtering), each carrying a `DetectionBox` with the reference
 xyxy / score / label. Results from the same sample share
