@@ -81,3 +81,29 @@ transparency = {
     ),
 }
 ```
+
+## Box labels and ground truth
+
+Each explained box is labelled in the report headings, figure titles, and
+thumbnail overlay with its **predicted class name** and, when ground truth is
+available, the **true label** of the closest real object.
+
+**Predicted class names.** A box reads `kite` instead of `class 38` whenever a
+class-name source is available:
+
+- For pretrained torchvision detectors, the model's bundled category names are
+  used automatically — no configuration needed.
+- For your own model, set `model.class_names` to the id-ordered list of names
+  (index 0 first). This takes precedence over any bundled names.
+- With neither, boxes fall back to the numeric form `class <id>`.
+
+**True labels.** When you configure detection ground truth
+(`data.labels.source` with `data.labels.kind: detection`), each box is matched
+to the ground-truth object it overlaps most and shows that object's label plus
+the overlap as `gt: <name> (IoU <value>)`. The match is by overlap alone, so a
+disagreement is visible directly — e.g. `pred: dog 0.92 | gt: cat, IoU=0.71`.
+A box that overlaps no labelled object reads `gt: no match`. IoU (intersection
+over union) ranges 0–1; the match uses the same `raitap.detection.iou_threshold`
+as the explanation, and a higher value means a tighter overlap.
+
+With no ground truth configured, no `gt:` line is shown.
