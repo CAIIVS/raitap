@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import pytest
+import torch
+
 from raitap.transparency.contracts import DetectionBox
 from raitap.transparency.detection_labels import (
     enrich_detection_box,
     label_name_for,
+    match_box_to_gt,
     resolve_category_names,
 )
 
@@ -67,3 +71,38 @@ def test_enrich_returns_new_frozen_instance() -> None:
     out = enrich_detection_box(raw, category_names=["__background__", "kite"])
     assert out is not raw
     assert out.label_index == raw.label_index  # untouched fields preserved
+
+
+def test_match_returns_best_iou_gt_class_agnostic() -> None:
+    gt_boxes = torch.tensor([[0.0, 0.0, 10.0, 10.0], [50.0, 50.0, 60.0, 60.0]])
+    gt_labels = torch.tensor([7, 3])
+    out = match_box_to_gt((0.0, 0.0, 10.0, 10.0), gt_boxes, gt_labels, iou_threshold=0.5)
+    assert out is not None
+    idx, iou = out
+    assert idx == 7
+    assert iou == pytest.approx(1.0)
+
+
+def test_match_below_threshold_returns_none() -> None:
+    gt_boxes = torch.tensor([[0.0, 0.0, 10.0, 10.0]])
+    gt_labels = torch.tensor([7])
+    out = match_box_to_gt((100.0, 100.0, 110.0, 110.0), gt_boxes, gt_labels, iou_threshold=0.5)
+    assert out is None
+
+
+def test_match_empty_gt_returns_none() -> None:
+    out = match_box_to_gt(
+        (0.0, 0.0, 10.0, 10.0),
+        torch.zeros((0, 4)),
+        torch.zeros(0, dtype=torch.int64),
+        iou_threshold=0.5,
+    )
+    assert out is None
+
+
+def test_match_picks_highest_iou_among_several() -> None:
+    gt_boxes = torch.tensor([[0.0, 0.0, 10.0, 10.0], [0.0, 0.0, 9.0, 9.0]])
+    gt_labels = torch.tensor([1, 2])
+    out = match_box_to_gt((0.0, 0.0, 9.0, 9.0), gt_boxes, gt_labels, iou_threshold=0.1)
+    assert out is not None
+    assert out[0] == 2  # exact overlap with the second box
