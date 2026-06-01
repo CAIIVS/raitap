@@ -21,7 +21,9 @@ Contract mapping onto :class:`FormalVerificationAssessor`:
 from __future__ import annotations
 
 import contextlib
+import re
 import time
+from collections.abc import Mapping  # noqa: TC003 — runtime use in module-level annotation
 from typing import TYPE_CHECKING, Any
 
 from raitap.robustness.assessors.registration import robustness_adapter
@@ -65,11 +67,28 @@ _NORM_TO_LIRPA: dict[PerturbationNorm, float] = {
     PerturbationNorm.L1: 1.0,
 }
 
+# Curated rewrites for opaque auto-LiRPA errors. Matched against ``str(exc)``;
+# first hit wins. See :func:`raitap.utils.errors.rethrow`.
+_AUTO_LIRPA_ERROR_MESSAGES: Mapping[re.Pattern[str], str] = {
+    re.compile(r"self\.stride .* != self\.kernel_size"): (
+        "auto-LiRPA's MaxPool bound propagator only supports non-overlapping "
+        "pooling (stride == kernel_size). This model has an overlapping MaxPool "
+        "(e.g. ResNet's k=3, s=2 stem), which bound propagation cannot handle. "
+        "Use a VGG-style net (k=2, s=2 pools) or a plain conv/ReLU/linear network."
+    ),
+}
+
 
 @robustness_adapter(
     registry_name="auto_lirpa",
     extra="auto-lirpa",
     library="auto_LiRPA",
+    error_patterns=_AUTO_LIRPA_ERROR_MESSAGES,
+    # auto-LiRPA uses ``torch.jit.script`` internally; torch 2.x emits a
+    # DeprecationWarning we can't fix upstream. Silence — not actionable.
+    suppress_warnings=[
+        (r"`torch\.jit\.script` is deprecated", DeprecationWarning, None),
+    ],
     algorithm_registry={
         name: AssessorSemanticsHints(
             AssessmentKind.FORMAL_VERIFICATION,

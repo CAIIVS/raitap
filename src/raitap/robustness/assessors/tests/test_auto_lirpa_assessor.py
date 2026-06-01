@@ -33,6 +33,7 @@ class _LirpaState:
     norm: float | None = None
     eps: float | None = None
     constructed_with: list[Any] = field(default_factory=list)
+    compute_bounds_error: Exception | None = None
 
 
 @pytest.fixture
@@ -46,6 +47,8 @@ def fake_lirpa(monkeypatch: pytest.MonkeyPatch) -> _LirpaState:
 
         def compute_bounds(self, x: Any, method: str = "CROWN") -> tuple[Any, Any]:
             state.method = method
+            if state.compute_bounds_error is not None:
+                raise state.compute_bounds_error
             return state.lower, state.upper
 
     class _FakePerturbationLpNorm:
@@ -183,6 +186,21 @@ def test_verify_sample_rejects_norm_algorithm_mismatch(fake_lirpa: _LirpaState) 
             torch.zeros(1, 3),
             torch.tensor([0]),
             budget=PerturbationBudget(norm=PerturbationNorm.L2, epsilon=0.1),
+        )
+
+
+def test_overlapping_maxpool_error_is_rewritten(fake_lirpa: _LirpaState) -> None:
+    # auto-LiRPA raises a cryptic ValueError on overlapping MaxPool (e.g. ResNet);
+    # the decorator's error_patterns rewrite it into an actionable message.
+    fake_lirpa.compute_bounds_error = ValueError(
+        "self.stride ([2, 2]) != self.kernel_size ([3, 3])"
+    )
+    with pytest.raises(Exception, match="non-overlapping pooling"):
+        AutoLiRPAAssessor(algorithm="crown").verify_sample(
+            _IdentityModel(),
+            torch.zeros(1, 3),
+            torch.tensor([0]),
+            budget=_linf_budget(),
         )
 
 
