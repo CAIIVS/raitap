@@ -287,7 +287,7 @@ prior output exactly:
 |---|---|---|
 | `method` | `None` → renderer default (`blended_heat_map`) | Overlay mode: `blended_heat_map`, `heat_map`, `masked_image`, `alpha_scaling`. Honoured only for captum-sourced detections. |
 | `sign` | `None` → family-auto (`positive` for CAM, else `all`) | Which contributions to show: `all`, `positive`, `negative`, `absolute_value`. A set value overrides the family-auto sign. |
-| `show_colorbar` | `None` → no colorbar | Add a colorbar to the overlay. |
+| `show_colorbar` | `None` → no colorbar | Add a colorbar to the overlay. Honoured only for captum-sourced detections; ignored (without warning) by the house and SHAP renderers. |
 | `title` | `None` → report group falls back to `ClassName_index` | Sets the report group name for this visualiser's figures (also covers issue #225's detection half). Does not change the per-box figure title (label + score + box index). |
 
 ```yaml
