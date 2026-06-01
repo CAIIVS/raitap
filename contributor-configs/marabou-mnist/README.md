@@ -30,5 +30,8 @@ Marabou wheels are Python 3.11 + Linux/WSL only. On Windows, run via WSL.
    contributor-configs/marabou-mnist/run.sh hardware=cpu
    ```
 
+   The script syncs the required extras itself and passes `--custom-deps`
+   to raitap, so the auto-deps gate is skipped — no `-y`/consent needed.
+
 2. **Inspect outputs.** Marabou verification results land under the Hydra
    run directory (`outputs/<date>/<time>/robustness/`).

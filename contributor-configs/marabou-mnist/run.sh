@@ -27,4 +27,5 @@ uv run -p 3.11 \
   raitap \
     --config-dir "$SCRIPT_DIR" \
     --config-name assessment \
+    --custom-deps \
     "$@"
