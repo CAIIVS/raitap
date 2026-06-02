@@ -13,7 +13,7 @@ import dataclasses
 import io
 from contextlib import redirect_stdout
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import pytest
 from hydra import compose, initialize_config_dir
@@ -36,6 +36,24 @@ from raitap.pipeline.outputs import RunOutputs
 from raitap.robustness import foolbox, torchattacks
 from raitap.transparency import captum, shap
 from raitap.types import Hardware
+
+if TYPE_CHECKING:
+    from raitap.metrics.factory import MetricsEvaluation
+    from raitap.robustness.report import RobustnessPhaseResult
+    from raitap.transparency.report import TransparencyPhaseResult
+
+
+def _transparency(outputs: RunOutputs) -> TransparencyPhaseResult:
+    return cast("TransparencyPhaseResult", outputs.phase_results["transparency"])
+
+
+def _robustness(outputs: RunOutputs) -> RobustnessPhaseResult:
+    return cast("RobustnessPhaseResult", outputs.phase_results["robustness"])
+
+
+def _metrics(outputs: RunOutputs) -> MetricsEvaluation | None:
+    return cast("MetricsEvaluation | None", outputs.phase_results.get("metrics"))
+
 
 FIXTURE = (
     Path(__file__).resolve().parents[1] / "data" / "tests" / "fixtures" / "preproc_imagenet.py"
@@ -259,10 +277,11 @@ def _demo_run() -> RunOutputs:
 def test_run_smoke_with_verbose_false_drives_full_pipeline(_demo_run: RunOutputs) -> None:
     """`raitap.run(cfg, verbose=False)` exits cleanly with non-empty outputs."""
     assert isinstance(_demo_run, RunOutputs)
-    assert len(_demo_run.explanations) >= 1
-    assert len(_demo_run.robustness_results) >= 1
-    assert _demo_run.metrics is not None
-    assert _demo_run.metrics.result.metrics  # at least one scalar metric
+    assert len(_transparency(_demo_run).explanations) >= 1
+    assert len(_robustness(_demo_run).robustness_results) >= 1
+    demo_metrics = _metrics(_demo_run)
+    assert demo_metrics is not None
+    assert demo_metrics.result.metrics  # at least one scalar metric
 
 
 @pytest.mark.e2e
@@ -278,10 +297,20 @@ def test_run_parity_with_yaml_demo(_demo_run: RunOutputs) -> None:
 
     yaml_outputs = run(cast("AppConfig", yaml_cfg), verbose=False)
 
-    assert len(_demo_run.explanations) == len(yaml_outputs.explanations)
-    assert len(_demo_run.robustness_results) == len(yaml_outputs.robustness_results)
-    assert (_demo_run.metrics is None) == (yaml_outputs.metrics is None)
-    if _demo_run.metrics is not None and yaml_outputs.metrics is not None:
-        assert set(_demo_run.metrics.result.metrics.keys()) == set(
-            yaml_outputs.metrics.result.metrics.keys()
+    # Same phases ran in both invocations.
+    assert set(_demo_run.phase_results) == set(yaml_outputs.phase_results)
+
+    if "transparency" in _demo_run.phase_results:
+        assert len(_transparency(_demo_run).explanations) == len(
+            _transparency(yaml_outputs).explanations
         )
+    if "robustness" in _demo_run.phase_results:
+        assert len(_robustness(_demo_run).robustness_results) == len(
+            _robustness(yaml_outputs).robustness_results
+        )
+
+    demo_metrics = _metrics(_demo_run)
+    yaml_metrics = _metrics(yaml_outputs)
+    assert (demo_metrics is None) == (yaml_metrics is None)
+    if demo_metrics is not None and yaml_metrics is not None:
+        assert set(demo_metrics.result.metrics.keys()) == set(yaml_metrics.result.metrics.keys())

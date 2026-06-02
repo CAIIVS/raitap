@@ -19,7 +19,7 @@ gated behind the ``e2e`` marker (declared in ``[tool.pytest.ini_options]``)
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, TypedDict, cast
 
 import pytest
 
@@ -37,6 +37,27 @@ from raitap.transparency import captum, captum_image
 
 if TYPE_CHECKING:
     from raitap.configs.schema import MetricsConfig, ReportingConfig
+    from raitap.robustness.report import RobustnessPhaseResult
+    from raitap.transparency.report import TransparencyPhaseResult
+
+
+def _explanations(outputs: RunOutputs) -> list:
+    result = outputs.phase_results.get("transparency")
+    return list(cast("TransparencyPhaseResult", result).explanations) if result is not None else []
+
+
+def _visualisations(outputs: RunOutputs) -> list:
+    result = outputs.phase_results.get("transparency")
+    return (
+        list(cast("TransparencyPhaseResult", result).visualisations) if result is not None else []
+    )
+
+
+def _robustness_results(outputs: RunOutputs) -> list:
+    result = outputs.phase_results.get("robustness")
+    return (
+        list(cast("RobustnessPhaseResult", result).robustness_results) if result is not None else []
+    )
 
 
 class _BaseKwargs(TypedDict):
@@ -92,8 +113,8 @@ def test_recipe_imagenet_captum_ig_pgd() -> None:
     )
     outputs = run(cfg, verbose=False)
     assert isinstance(outputs, RunOutputs)
-    assert len(outputs.explanations) == 1
-    assert len(outputs.robustness_results) == 1
+    assert len(_explanations(outputs)) == 1
+    assert len(_robustness_results(outputs)) == 1
 
 
 @pytest.mark.e2e
@@ -114,8 +135,8 @@ def test_recipe_multi_explainer() -> None:
         },
     )
     outputs = run(cfg, verbose=False)
-    assert len(outputs.explanations) == 2
-    assert {er.explainer_name for er in outputs.explanations} == {"ig", "saliency"}
+    assert len(_explanations(outputs)) == 2
+    assert {er.explainer_name for er in _explanations(outputs)} == {"ig", "saliency"}
 
 
 @pytest.mark.e2e
@@ -142,9 +163,9 @@ def test_recipe_multi_visualiser() -> None:
         },
     )
     outputs = run(cfg, verbose=False)
-    assert len(outputs.explanations) == 1
+    assert len(_explanations(outputs)) == 1
     # Each visualiser renders one figure per sample-batch.
-    assert len(outputs.visualisations) >= 2
+    assert len(_visualisations(outputs)) >= 2
 
 
 @pytest.mark.e2e
@@ -172,5 +193,5 @@ def test_recipe_multi_assessor() -> None:
         },
     )
     outputs = run(cfg, verbose=False)
-    assert len(outputs.robustness_results) == 2
-    assert {rr.assessor_name for rr in outputs.robustness_results} == {"pgd", "fgsm"}
+    assert len(_robustness_results(outputs)) == 2
+    assert {rr.assessor_name for rr in _robustness_results(outputs)} == {"pgd", "fgsm"}
