@@ -715,7 +715,13 @@ def _detection_box_heading(box: DetectionBox) -> str:
         ground_truth_clause = "no match"
     else:
         ground_truth_name = box.true_label_name or f"class {box.true_label_index}"
-        ground_truth_clause = f"{ground_truth_name} (IoU {box.true_match_iou:.2f})"
+        # ``true_match_iou`` is normally set alongside the index by the matcher;
+        # guard the format in case a caller populates only the label.
+        ground_truth_clause = (
+            f"{ground_truth_name} (IoU {box.true_match_iou:.2f})"
+            if box.true_match_iou is not None
+            else ground_truth_name
+        )
     return f"pred: {label} {box.score:.2f} | gt: {ground_truth_clause}"
 
 
@@ -1175,6 +1181,8 @@ def _overlay_legend_line(box: DetectionBox) -> str:
     if box.true_label_index is None:
         return f"{base} | gt: no match"
     ground_truth_name = box.true_label_name or f"class {box.true_label_index}"
+    if box.true_match_iou is None:  # label without a match IoU — show name alone
+        return f"{base} | gt: {ground_truth_name}"
     return f"{base} | gt: {ground_truth_name} (IoU {box.true_match_iou:.2f})"
 
 

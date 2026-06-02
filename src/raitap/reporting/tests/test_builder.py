@@ -2452,6 +2452,22 @@ def test_detection_heading_matched_gt() -> None:
     assert "gt: sheep (IoU 0.71)" in _detection_box_heading(box)
 
 
+def test_detection_heading_matched_gt_without_iou() -> None:
+    # Defensive: true label set but no match IoU -> name shown, no "(IoU ...)".
+    box = DetectionBox(
+        display_index=0,
+        raw_index=2,
+        xyxy=(0, 0, 1, 1),
+        score=0.99,
+        label_index=38,
+        label_name="kite",
+        ground_truth_evaluated=True,
+        true_label_index=20,
+        true_label_name="sheep",
+    )
+    assert _detection_box_heading(box) == "pred: kite 0.99 | gt: sheep"
+
+
 def test_detection_heading_no_match() -> None:
     box = DetectionBox(
         display_index=0,
@@ -2518,6 +2534,16 @@ def test_overlay_legend_line_covers_all_branches() -> None:
     assert _overlay_legend_line(no_match) == "#1 dog (0.92) | gt: no match"
     no_gt = _det_box(display_index=2, label_name="boat", score=0.81)
     assert _overlay_legend_line(no_gt) == "#2 boat (0.81)"
+    # Defensive: a true label without a match IoU shows the name, no "(IoU ...)".
+    label_only = _det_box(
+        display_index=3,
+        label_name="cat",
+        score=0.7,
+        ground_truth_evaluated=True,
+        true_label_name="cat",
+        true_label_index=5,
+    )
+    assert _overlay_legend_line(label_only) == "#3 cat (0.70) | gt: cat"
 
 
 class _DetExpl:

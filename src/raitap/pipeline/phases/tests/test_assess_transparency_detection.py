@@ -176,9 +176,10 @@ def test_assess_transparency_routes_detection_kind_to_explain_detection(
 
 def test_detection_transparency_renders_class_name_end_to_end(tmp_path: Path) -> None:
     """Caller-side enrichment must fill ``DetectionBox.label_name`` from the
-    resolved category-names table BEFORE ``result.visualise()`` renders the
-    figure, so a configured class name reaches both the in-memory box and the
-    rendered per-box title.
+    resolved category-names table BEFORE ``result.visualise()`` runs, so the
+    configured class name lands on the in-memory box that the report builder
+    later reads for the heading + overlay. The per-box figure itself stays
+    title-less (asserted below).
 
     ``explain_detection`` is mocked to yield a *real* ``ExplanationResult`` that
     carries a raw box (``label_name=None``) plus a real
@@ -326,12 +327,13 @@ def test_detection_transparency_renders_class_name_end_to_end(tmp_path: Path) ->
 
 def test_detection_transparency_matches_ground_truth_end_to_end(tmp_path: Path) -> None:
     """When ``data.labels`` carries detection GT, the caller matches each box to
-    GT by IoU and the true label + match IoU reach the in-memory box AND the
-    rendered title — exercising the caller GT-wiring branch (positional lookup,
-    bounds guard, threshold pass-through), not just ``enrich_detection_box`` in
-    isolation. The GT class (20) differs from the predicted class (7) so the
-    class-agnostic match surfaces a disagreement, which is the point of the
-    feature."""
+    GT by IoU and the true label + match IoU land on the in-memory box (which the
+    report builder renders on the heading + overlay) — exercising the caller
+    GT-wiring branch (positional lookup, bounds guard, threshold pass-through),
+    not just ``enrich_detection_box`` in isolation. The per-box figure stays
+    title-less (asserted below). The GT class (20) differs from the predicted
+    class (7) so the class-agnostic match surfaces a disagreement, which is the
+    point of the feature."""
     from raitap.transparency.contracts import (
         DetectionBox,
         ExplanationOutputSpace,
