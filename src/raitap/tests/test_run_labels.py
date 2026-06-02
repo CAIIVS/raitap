@@ -7,7 +7,13 @@ import pytest
 import torch
 
 import raitap.pipeline.orchestrator as run_pipeline
+
+# Bind the phase submodules as objects so ``monkeypatch.setattr`` patches the module
+# directly — the lazy adapter ``__getattr__`` on ``raitap.metrics`` / ``raitap.transparency``
+# makes dotted-string monkeypatch targets unreliable once another test unbinds them.
+from raitap.metrics import phase as _metrics_phase
 from raitap.metrics import resolve_metric_targets
+from raitap.transparency import phase as _transparency_phase
 from raitap.types import TaskKind
 
 if TYPE_CHECKING:
@@ -96,9 +102,9 @@ def test_run_without_tracking_passes_ground_truth_labels_to_metrics(
         captured["targets"] = targets
         return SimpleNamespace()
 
-    monkeypatch.setattr("raitap.metrics.phase.metrics_run_enabled", lambda _cfg: True)
-    monkeypatch.setattr("raitap.metrics.phase.Metrics", fake_metrics)
-    monkeypatch.setattr("raitap.transparency.phase.Explanation", DummyExplanation)
+    monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: True)
+    monkeypatch.setattr(_metrics_phase, "Metrics", fake_metrics)
+    monkeypatch.setattr(_transparency_phase, "Explanation", DummyExplanation)
 
     outputs = run_pipeline.run_without_tracking(
         cast("AppConfig", cast("object", config)),

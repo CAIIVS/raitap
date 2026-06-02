@@ -21,12 +21,19 @@ import raitap.pipeline.orchestrator as run_pipeline
 from raitap import pipeline as run_module
 from raitap.data.preprocessing import ResolvedPreprocessing
 from raitap.metrics import metrics_prediction_pair
+
+# Bind the phase submodules as objects: ``raitap.metrics`` / ``raitap.transparency``
+# expose a lazy adapter ``__getattr__`` that shadows submodule attribute access once
+# another test unbinds them from ``sys.modules`` — so ``monkeypatch.setattr`` with a
+# dotted string path is unreliable. Patching the module object sidesteps that.
+from raitap.metrics import phase as _metrics_phase
 from raitap.pipeline import __main__ as run_entry
 from raitap.pipeline import extract_primary_tensor
 from raitap.pipeline.outputs import ForwardOutput as _ForwardOutput
 from raitap.pipeline.phases import forward_pass as run_pipeline_forward
 from raitap.robustness.report import RobustnessPhaseResult
 from raitap.tracking import BaseTracker
+from raitap.transparency import phase as _transparency_phase
 from raitap.transparency.report import TransparencyPhaseResult
 from raitap.types import TaskKind as _TaskKind
 
@@ -688,7 +695,7 @@ def test_run_without_tracking_allows_metrics_only(monkeypatch: MonkeyPatch) -> N
         robustness={},
         metrics=SimpleNamespace(_target_="MulticlassClassificationMetrics", num_classes=None),
     )
-    monkeypatch.setattr("raitap.metrics.phase.Metrics", lambda _c, _p, _t: SimpleNamespace())
+    monkeypatch.setattr(_metrics_phase, "Metrics", lambda _c, _p, _t: SimpleNamespace())
 
     outputs = run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
@@ -717,8 +724,8 @@ def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: M
         transparency={"one": {}},
         metrics=SimpleNamespace(_target_="MulticlassClassificationMetrics", num_classes=None),
     )
-    monkeypatch.setattr("raitap.transparency.phase.Explanation", _fake_explanation)
-    monkeypatch.setattr("raitap.metrics.phase.Metrics", _fake_metrics)
+    monkeypatch.setattr(_transparency_phase, "Explanation", _fake_explanation)
+    monkeypatch.setattr(_metrics_phase, "Metrics", _fake_metrics)
 
     outputs = run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
@@ -748,8 +755,8 @@ def test_run_without_tracking_uses_provided_num_classes(monkeypatch: MonkeyPatch
         transparency={"one": {}},
         metrics=SimpleNamespace(_target_="MulticlassClassificationMetrics", num_classes=10),
     )
-    monkeypatch.setattr("raitap.transparency.phase.Explanation", _fake_explanation)
-    monkeypatch.setattr("raitap.metrics.phase.Metrics", lambda _c, _p, _t: SimpleNamespace())
+    monkeypatch.setattr(_transparency_phase, "Explanation", _fake_explanation)
+    monkeypatch.setattr(_metrics_phase, "Metrics", lambda _c, _p, _t: SimpleNamespace())
 
     run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
@@ -774,8 +781,8 @@ def test_run_without_tracking_passes_sample_names_to_explanation(monkeypatch: Mo
         transparency={"one": {}},
         metrics=SimpleNamespace(num_classes=None),
     )
-    monkeypatch.setattr("raitap.metrics.phase.metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr("raitap.transparency.phase.Explanation", _fake_explanation)
+    monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr(_transparency_phase, "Explanation", _fake_explanation)
 
     run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
@@ -805,8 +812,8 @@ def test_run_without_tracking_passes_resolved_preprocessing_to_explanation(
         transparency={"one": {}},
         metrics=SimpleNamespace(num_classes=None),
     )
-    monkeypatch.setattr("raitap.metrics.phase.metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr("raitap.transparency.phase.Explanation", _fake_explanation)
+    monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr(_transparency_phase, "Explanation", _fake_explanation)
 
     run_pipeline.run_without_tracking(
         config,  # type: ignore[arg-type]
@@ -843,8 +850,8 @@ def test_run_without_tracking_threads_sample_ids_and_image_metadata_to_explanati
         transparency={"one": {}},
         metrics=SimpleNamespace(num_classes=None),
     )
-    monkeypatch.setattr("raitap.metrics.phase.metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr("raitap.transparency.phase.Explanation", _fake_explanation)
+    monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr(_transparency_phase, "Explanation", _fake_explanation)
 
     run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
@@ -881,8 +888,8 @@ def test_run_without_tracking_threads_tabular_metadata_to_explanation(
         transparency={"one": {}},
         metrics=SimpleNamespace(num_classes=None),
     )
-    monkeypatch.setattr("raitap.metrics.phase.metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr("raitap.transparency.phase.Explanation", _fake_explanation)
+    monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr(_transparency_phase, "Explanation", _fake_explanation)
 
     run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
@@ -921,8 +928,8 @@ def test_run_without_tracking_passes_none_when_inference_cant_determine_kind(
         transparency={"one": {}},
         metrics=SimpleNamespace(num_classes=None),
     )
-    monkeypatch.setattr("raitap.metrics.phase.metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr("raitap.transparency.phase.Explanation", _fake_explanation)
+    monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr(_transparency_phase, "Explanation", _fake_explanation)
 
     run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
@@ -960,8 +967,8 @@ def test_run_without_tracking_preserves_layout_only_input_metadata(
         transparency={"one": {}},
         metrics=SimpleNamespace(num_classes=None),
     )
-    monkeypatch.setattr("raitap.metrics.phase.metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr("raitap.transparency.phase.Explanation", _fake_explanation)
+    monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr(_transparency_phase, "Explanation", _fake_explanation)
 
     run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
@@ -990,8 +997,8 @@ def test_run_without_tracking_resolves_auto_pred_target(monkeypatch: MonkeyPatch
         transparency={"one": {"call": {"target": "auto_pred"}}},
         metrics=SimpleNamespace(num_classes=None),
     )
-    monkeypatch.setattr("raitap.metrics.phase.metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr("raitap.transparency.phase.Explanation", _fake_explanation)
+    monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
+    monkeypatch.setattr(_transparency_phase, "Explanation", _fake_explanation)
 
     run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
