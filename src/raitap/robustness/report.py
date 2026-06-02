@@ -53,7 +53,7 @@ class RobustnessPhase(AssessmentPhase):
         return bool(getattr(config, "robustness", None))
 
     def run(self, ctx: PhaseContext) -> PhaseResult | None:
-        results, visualisations = assess_robustness(
+        results = assess_robustness(
             ctx.config,
             ctx.model,
             ctx.data,
@@ -62,17 +62,25 @@ class RobustnessPhase(AssessmentPhase):
             input_metadata=ctx.input_metadata,
             resolved_preprocessing=ctx.resolved_preprocessing,
         )
-        return RobustnessPhaseResult(results=results, visualisations=visualisations)
+        return RobustnessPhaseResult(results=results)
 
 
 @dataclass
 class RobustnessPhaseResult(Trackable):
-    """Robustness phase output: assessor results + their report visualisations."""
+    """Robustness phase output: the assessor results, each owning its visualisations.
+
+    ``visualisations`` is a derived view that flattens every result's own
+    visualisations (issue #243) — the results are the single source of truth;
+    there is no separately-stored parallel list.
+    """
 
     results: list[RobustnessResult] = field(default_factory=list)
-    visualisations: list[RobustnessVisualisationResult] = field(default_factory=list)
 
     report_order: ClassVar[int] = 30
+
+    @property
+    def visualisations(self) -> list[RobustnessVisualisationResult]:
+        return [visualisation for result in self.results for visualisation in result.visualisations]
 
     def log(self, tracker: BaseTracker | None, **kwargs: Any) -> None:
         if tracker is None:
@@ -111,12 +119,6 @@ def _build_robustness_section(
     if not outputs.results:
         return None
 
-    visualisations_by_assessor: dict[str, list[RobustnessVisualisationResult]] = {}
-    if show_redundant_robustness_panels:
-        for visualisation in outputs.visualisations:
-            assessor_name = visualisation.result.assessor_name or visualisation.result.run_dir.name
-            visualisations_by_assessor.setdefault(assessor_name, []).append(visualisation)
-
     groups: list[ReportGroup] = []
     for index, result in enumerate(outputs.results):
         assessor_name = result.assessor_name or result.run_dir.name
@@ -154,7 +156,7 @@ def _build_robustness_section(
         )
         staged = (
             _legacy_robustness_images(
-                visualisations_by_assessor.get(assessor_name, []),
+                result.visualisations,
                 assets_dir=assets_dir,
                 result_index=index,
                 assessor_name=assessor_name,

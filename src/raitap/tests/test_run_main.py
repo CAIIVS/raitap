@@ -60,14 +60,22 @@ def _fake_run_outputs(
     if metrics is not None:
         phase_results["metrics"] = metrics
     if explanations or visualisations:
+        # Visualisations now live on their owning result (issue #243); attach each
+        # to its back-referenced explanation so the derived phase view flattens them.
+        for visualisation in visualisations or []:
+            owned = visualisation.explanation.visualisations
+            if visualisation not in owned:
+                owned.append(visualisation)
         phase_results["transparency"] = TransparencyPhaseResult(
             explanations=list(explanations or []),
-            visualisations=list(visualisations or []),
         )
     if robustness_results or robustness_visualisations:
+        for visualisation in robustness_visualisations or []:
+            owned = visualisation.result.visualisations
+            if visualisation not in owned:
+                owned.append(visualisation)
         phase_results["robustness"] = RobustnessPhaseResult(
             results=list(robustness_results or []),
-            visualisations=list(robustness_visualisations or []),
         )
     return run_module.RunOutputs(
         forward_output=forward_output,
@@ -196,10 +204,14 @@ class _FakeExplainerResult:
         self.name = name
         self.log_calls: list[bool] = []
         self.visualise_calls = 0
+        # Mirrors the real ExplanationResult: the result owns its visualisations
+        # (issue #243), populated by ``visualise()``.
+        self.visualisations: list[_FakeVisualisationResult] = []
 
     def visualise(self) -> list[_FakeVisualisationResult]:
         self.visualise_calls += 1
-        return [_FakeVisualisationResult(self.name)]
+        self.visualisations = [_FakeVisualisationResult(self.name, self)]
+        return self.visualisations
 
     def log(self, tracker: object, use_subdirectory: bool = True) -> None:
         del tracker
@@ -207,8 +219,9 @@ class _FakeExplainerResult:
 
 
 class _FakeVisualisationResult:
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, explanation: _FakeExplainerResult) -> None:
         self.name = name
+        self.explanation = explanation
         self.log_calls: list[bool] = []
 
     def log(self, tracker: object, use_subdirectory: bool = True) -> None:

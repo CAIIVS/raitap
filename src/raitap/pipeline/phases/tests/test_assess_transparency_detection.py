@@ -154,7 +154,7 @@ def test_assess_transparency_routes_detection_kind_to_explain_detection(
             side_effect=fake_explain_detection,
         ),
     ):
-        explanations, _visualisations = assess_transparency(
+        explanations = assess_transparency(
             config,
             model,  # type: ignore[arg-type]
             data,  # type: ignore[arg-type]
@@ -303,7 +303,7 @@ def test_detection_transparency_renders_class_name_end_to_end(tmp_path: Path) ->
             side_effect=fake_explain_detection,
         ),
     ):
-        explanations, visualisations = assess_transparency(
+        explanations = assess_transparency(
             config,
             model,  # type: ignore[arg-type]
             data,  # type: ignore[arg-type]
@@ -311,6 +311,7 @@ def test_detection_transparency_renders_class_name_end_to_end(tmp_path: Path) ->
             input_metadata=None,
             resolved_preprocessing=None,
         )
+    visualisations = [v for e in explanations for v in e.visualisations]
 
     # Caller enrichment populated the in-memory box that the report builder
     # later reads for the heading + overlay.
@@ -455,7 +456,7 @@ def test_detection_transparency_matches_ground_truth_end_to_end(tmp_path: Path) 
             side_effect=fake_explain_detection,
         ),
     ):
-        explanations, visualisations = assess_transparency(
+        explanations = assess_transparency(
             config,
             model,  # type: ignore[arg-type]
             data,  # type: ignore[arg-type]
@@ -463,6 +464,7 @@ def test_detection_transparency_matches_ground_truth_end_to_end(tmp_path: Path) 
             input_metadata=None,
             resolved_preprocessing=None,
         )
+    visualisations = [v for e in explanations for v in e.visualisations]
 
     # GT match reached the in-memory box: evaluated, matched, true class = GT (20).
     # The builder renders this on the heading + overlay; the per-box figure has
@@ -550,7 +552,7 @@ def test_assess_transparency_detection_skips_when_no_explainers(tmp_path: Path) 
     set_output_root(config, tmp_path)
     forward = _make_detection_forward_output(num_samples=1)
 
-    explanations, visualisations = assess_transparency(
+    explanations = assess_transparency(
         config,
         _FakeModel(),  # type: ignore[arg-type]
         _FakeData(num_samples=1),  # type: ignore[arg-type]
@@ -559,4 +561,3 @@ def test_assess_transparency_detection_skips_when_no_explainers(tmp_path: Path) 
         resolved_preprocessing=None,
     )
     assert explanations == []
-    assert visualisations == []

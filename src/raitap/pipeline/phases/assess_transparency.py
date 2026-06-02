@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from raitap.models import Model
     from raitap.pipeline.outputs import ForwardOutput
     from raitap.transparency.contracts import InputSpec
-    from raitap.transparency.results import ExplanationResult, VisualisationResult
+    from raitap.transparency.results import ExplanationResult
 
 
 def resolve_explainer_runtime_kwargs(
@@ -55,15 +55,16 @@ def assess_transparency(
     *,
     input_metadata: InputSpec | None,
     resolved_preprocessing: ResolvedPreprocessing | None = None,
-) -> tuple[list[ExplanationResult], list[VisualisationResult]]:
+) -> list[ExplanationResult]:
     """Run every explainer declared under ``config.transparency``.
 
-    Returns ``(explanations, visualisations)``. Each explanation's
-    ``visualise()`` output is flattened into the visualisations list.
+    Returns the explanation results. Each explanation owns its report
+    visualisations (``ExplanationResult.visualisations``), populated here via
+    ``visualise()``.
     """
     explainers = list((getattr(config, "transparency", None) or {}).items())
     if not explainers:
-        return [], []
+        return []
 
     suffix = "s" if len(explainers) > 1 else ""
     raitap_log.info("Performing transparency assessment%s (%d)...", suffix, len(explainers))
@@ -89,7 +90,6 @@ def assess_transparency(
     )
 
     explanations: list[ExplanationResult] = []
-    visualisations: list[VisualisationResult] = []
     for name, _explainer_cfg in explainers:
         runtime_kwargs: dict[str, Any] = {}
         if predictions_tensor is not None:
@@ -110,9 +110,9 @@ def assess_transparency(
             resolved_preprocessing=resolved_preprocessing,
             **runtime_kwargs,
         )
+        explanation.visualise()  # populates explanation.visualisations
         explanations.append(explanation)
-        visualisations.extend(explanation.visualise())
-    return explanations, visualisations
+    return explanations
 
 
 def _assess_transparency_detection(
@@ -124,7 +124,7 @@ def _assess_transparency_detection(
     input_metadata: InputSpec | None,
     resolved_preprocessing: ResolvedPreprocessing | None,
     explainer_names: list[str],
-) -> tuple[list[ExplanationResult], list[VisualisationResult]]:
+) -> list[ExplanationResult]:
     """Detection-task branch — one ExplanationResult per detected box.
 
     Replicates the per-explainer setup that
@@ -157,7 +157,6 @@ def _assess_transparency_detection(
     )
 
     explanations: list[ExplanationResult] = []
-    visualisations: list[VisualisationResult] = []
     backend = _require_model_backend(model)
     category_names = resolve_category_names(
         config.model.class_names,
@@ -252,9 +251,9 @@ def _assess_transparency_detection(
                         ground_truth_for_sample=ground_truth_for_sample,
                         iou_threshold=ground_truth_iou_threshold,
                     )
+                result.visualise()  # populates result.visualisations
                 explanations.append(result)
-                visualisations.extend(result.visualise())
         finally:
             _PARSED_EXPLAINER_CONFIG_CACHE.pop(cache_key, None)
 
-    return explanations, visualisations
+    return explanations

@@ -74,7 +74,7 @@ def test_assess_robustness_detection_returns_empty_and_skips_robustness_assessme
         "raitap.pipeline.phases.assess_robustness.RobustnessAssessment",
         side_effect=AssertionError("RobustnessAssessment must not be reached for detection"),
     ):
-        results, visualisations = assess_robustness(
+        results = assess_robustness(
             config,
             model=None,  # type: ignore[arg-type]
             data=data,  # type: ignore[arg-type]
@@ -85,4 +85,3 @@ def test_assess_robustness_detection_returns_empty_and_skips_robustness_assessme
         )
 
     assert results == [], "expected empty results for detection task"
-    assert visualisations == [], "expected empty visualisations for detection task"

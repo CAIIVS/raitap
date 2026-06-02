@@ -125,8 +125,8 @@ Each value in `phase_results` is a `PhaseResult` (a `Trackable` + `Reportable`).
 | Key              | Value type                 | Carries                                                                  |
 | ---------------- | -------------------------- | ------------------------------------------------------------------------ |
 | `"metrics"`      | `MetricsEvaluation`        | Aggregated metrics (`.result`).                                          |
-| `"transparency"` | `TransparencyPhaseResult`  | `.explanations` (attribution tensors + metadata), `.visualisations`.     |
-| `"robustness"`   | `RobustnessPhaseResult`    | `.robustness_results` (adversarial tensors + per-sample flags), `.robustness_visualisations`. |
+| `"transparency"` | `TransparencyPhaseResult`  | `.explanations` (attribution tensors + metadata); each owns its `.visualisations`. |
+| `"robustness"`   | `RobustnessPhaseResult`    | `.results` (adversarial tensors + per-sample flags); each owns its `.visualisations`. |
 
 `RunOutputs` is a mapping over its phases: `result.get(name)`, `result[name]`, and `name in result` all work (delegating to `phase_results`, which stays the source of truth). In-tree and out-of-tree phases are reached the same way:
 

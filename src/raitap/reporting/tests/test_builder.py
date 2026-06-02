@@ -138,14 +138,18 @@ def _run_outputs(
     if metrics is not None:
         phase_results["metrics"] = metrics
     if explanations or visualisations:
+        # Visualisations now live on their owning result (issue #243); attach each
+        # to its back-referenced explanation so the derived phase view flattens them.
+        for visualisation in visualisations or []:
+            visualisation.explanation.visualisations.append(visualisation)
         phase_results["transparency"] = TransparencyPhaseResult(
             explanations=list(explanations or []),
-            visualisations=list(visualisations or []),
         )
     if robustness_results or robustness_visualisations:
+        for visualisation in robustness_visualisations or []:
+            visualisation.result.visualisations.append(visualisation)
         phase_results["robustness"] = RobustnessPhaseResult(
             results=list(robustness_results or []),
-            visualisations=list(robustness_visualisations or []),
         )
     return RunOutputs(
         forward_output=forward_output,

@@ -162,15 +162,22 @@ The pipeline is generic dispatch over `ASSESSMENT_PHASES` — you do **not** edi
 
 **a. The phase work** (`pipeline/phases/assess_fairness.py`) — mirror `assess_transparency` / `assess_robustness`:
 
+Each result **owns its visualisations** (`FairnessResult.visualisations`, a `list`
+populated by the result's own `visualise()`); there is no parallel phase-level
+list. So the work function returns just the results:
+
 ```python
 def assess_fairness(config, model, data, forward_output, *, ...):
     """Run every adapter declared under ``config.fairness``."""
+    results = []
     for name, adapter_config in config.fairness.items():
-        ...  # instantiate via the factory, run, write artefacts
-    return results, visualisations
+        result = ...  # instantiate via the factory, run, write artefacts
+        result.visualise()  # populates result.visualisations
+        results.append(result)
+    return results
 ```
 
-**b. The phase result** (`fairness/report.py`) — a `PhaseResult`: `Trackable` (how it logs) + `Reportable` (how it reports). Mirror `transparency/report.py` / `robustness/report.py`:
+**b. The phase result** (`fairness/report.py`) — a `PhaseResult`: `Trackable` (how it logs) + `Reportable` (how it reports). Mirror `transparency/report.py` / `robustness/report.py`. It holds only the results and reaches each result's figures via `result.visualisations`:
 
 ```python
 @dataclass
@@ -181,9 +188,11 @@ class FairnessPhaseResult(Trackable):
     def log(self, tracker, **kwargs) -> None:
         for result in self.fairness_results:
             result.log(tracker)
+            for visualisation in result.visualisations:
+                visualisation.log(tracker)
 
     def report_sections(self, ctx: ReportContext) -> tuple[ReportSection, ...]:
-        ...  # stage figures into ctx.assets_dir, return ordered sections
+        ...  # iterate results -> result.visualisations, stage into ctx.assets_dir
 ```
 
 **c. The phase class** lives in your module (`fairness/report.py`, alongside the result), subclassing `AssessmentPhase` from `raitap.pipeline.phases.base`:

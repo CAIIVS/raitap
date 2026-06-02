@@ -58,7 +58,7 @@ class TransparencyPhase(AssessmentPhase):
         return bool(getattr(config, "transparency", None))
 
     def run(self, ctx: PhaseContext) -> PhaseResult | None:
-        explanations, visualisations = assess_transparency(
+        explanations = assess_transparency(
             ctx.config,
             ctx.model,
             ctx.data,
@@ -66,7 +66,7 @@ class TransparencyPhase(AssessmentPhase):
             input_metadata=ctx.input_metadata,
             resolved_preprocessing=ctx.resolved_preprocessing,
         )
-        return TransparencyPhaseResult(explanations=explanations, visualisations=visualisations)
+        return TransparencyPhaseResult(explanations=explanations)
 
 
 _DISPLAY_ONLY_VISUALISER_KWARGS = frozenset(
@@ -91,12 +91,24 @@ class _StagedThumbnail:
 
 @dataclass
 class TransparencyPhaseResult(Trackable):
-    """Transparency phase output: explanations + their flattened visualisations."""
+    """Transparency phase output: the explanations, each owning its visualisations.
+
+    ``visualisations`` is a derived view that flattens every explanation's own
+    visualisations (issue #243) — the explanations are the single source of truth;
+    there is no separately-stored parallel list.
+    """
 
     explanations: list[ExplanationResult] = field(default_factory=list)
-    visualisations: list[VisualisationResult] = field(default_factory=list)
 
     report_order: ClassVar[int] = 20
+
+    @property
+    def visualisations(self) -> list[VisualisationResult]:
+        return [
+            visualisation
+            for explanation in self.explanations
+            for visualisation in explanation.visualisations
+        ]
 
     def log(self, tracker: BaseTracker | None, **kwargs: Any) -> None:
         if tracker is None:

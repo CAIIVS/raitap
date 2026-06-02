@@ -144,6 +144,12 @@ class ExplanationResult(Trackable):
     call_kwargs: dict[str, Any] = field(default_factory=dict)
     visualiser_targets: list[str] = field(default_factory=list)
     visualisers: list[ConfiguredVisualiser] = field(default_factory=list, repr=False)
+    # The visualisations this explanation owns (1:N). Populated by ``visualise()``;
+    # ``compare=False``/``repr=False`` because each ``VisualisationResult`` back-references
+    # this result, so the default dataclass ``__eq__``/``__repr__`` would recurse.
+    visualisations: list[VisualisationResult] = field(
+        default_factory=list, repr=False, compare=False
+    )
     payload_kind: ExplanationPayloadKind = ExplanationPayloadKind.ATTRIBUTIONS
     detection_box: DetectionBox | None = None
     original_sample_index: int | None = None
@@ -314,6 +320,9 @@ class ExplanationResult(Trackable):
             self.visualiser_targets.extend(new_targets)
             self._write_metadata()
 
+        # The explanation owns its persisted visualisations (issue #243); report +
+        # tracking read them off the result instead of a parallel phase-level list.
+        self.visualisations = results
         return results
 
     def has_visualisations_for_scope(self, scope: ExplanationScope | str) -> bool:

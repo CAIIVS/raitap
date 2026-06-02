@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from raitap.data.preprocessing import ResolvedPreprocessing
     from raitap.models import Model
     from raitap.pipeline.outputs import ForwardOutput
-    from raitap.robustness.results import RobustnessResult, RobustnessVisualisationResult
+    from raitap.robustness.results import RobustnessResult
     from raitap.transparency.contracts import InputSpec
 
 
@@ -65,21 +65,21 @@ def assess_robustness(
     labels: torch.Tensor | list[dict[str, torch.Tensor]] | None,
     input_metadata: InputSpec | None,
     resolved_preprocessing: ResolvedPreprocessing | None = None,
-) -> tuple[list[RobustnessResult], list[RobustnessVisualisationResult]]:
+) -> list[RobustnessResult]:
     """Run every assessor declared under ``config.robustness``.
 
-    Returns ``(results, visualisations)``. Each result's ``visualise()`` output
-    is flattened into the visualisations list.
+    Returns the assessor results. Each result owns its report visualisations
+    (``RobustnessResult.visualisations``), populated here via ``visualise()``.
     """
     assessors = getattr(config, "robustness", None) or {}
     if not assessors:
-        return [], []
+        return []
 
     if forward_output.task_kind is not TaskKind.classification:
         # Robustness against detection models is a Phase 4 deliverable
         # (DetectionAdversarialLoss). Empirical / formal robustness in this
         # phase supports classification only.
-        return [], []
+        return []
 
     suffix = "s" if len(assessors) > 1 else ""
     raitap_log.info("Performing robustness assessment%s (%d)...", suffix, len(assessors))
@@ -89,7 +89,6 @@ def assess_robustness(
         labels=classification_labels, forward_output=forward_output
     )
     results: list[RobustnessResult] = []
-    visualisations: list[RobustnessVisualisationResult] = []
     for name in assessors:
         result = RobustnessAssessment(
             config,
@@ -104,6 +103,6 @@ def assess_robustness(
             sample_names=data.sample_ids,
             resolved_preprocessing=resolved_preprocessing,
         )
+        result.visualise()  # populates result.visualisations
         results.append(result)
-        visualisations.extend(result.visualise())
-    return results, visualisations
+    return results

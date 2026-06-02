@@ -209,6 +209,12 @@ class RobustnessResult(Trackable):
     call_kwargs: dict[str, Any] = field(default_factory=dict)
     visualiser_targets: list[str] = field(default_factory=list)
     visualisers: list[ConfiguredRobustnessVisualiser] = field(default_factory=list, repr=False)
+    # The visualisations this result owns (1:N). Populated by ``visualise()``;
+    # ``compare=False``/``repr=False`` because each ``RobustnessVisualisationResult``
+    # back-references this result, so the default ``__eq__``/``__repr__`` would recurse.
+    visualisations: list[RobustnessVisualisationResult] = field(
+        default_factory=list, repr=False, compare=False
+    )
     perturbed_inputs: torch.Tensor | None = None
     perturbed_predictions: torch.Tensor | None = None
     perturbation_distance: torch.Tensor | None = None
@@ -350,6 +356,9 @@ class RobustnessResult(Trackable):
             self.visualiser_targets.extend(new_targets)
             self._write_metadata()
 
+        # The result owns its persisted visualisations (issue #243); report +
+        # tracking read them off the result instead of a parallel phase-level list.
+        self.visualisations = results
         return results
 
     def render_visualisation_for_report(
