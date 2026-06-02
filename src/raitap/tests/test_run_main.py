@@ -64,7 +64,9 @@ def _fake_run_outputs(
         # to its back-referenced explanation so the derived phase view flattens them.
         for visualisation in visualisations or []:
             owned = visualisation.explanation.visualisations
-            if visualisation not in owned:
+            # Identity de-dupe: real *VisualisationResult.__eq__ compares
+            # tensor-bearing results and would raise; ``is`` sidesteps it.
+            if not any(existing is visualisation for existing in owned):
                 owned.append(visualisation)
         phase_results["transparency"] = TransparencyPhaseResult(
             explanations=list(explanations or []),
@@ -72,7 +74,7 @@ def _fake_run_outputs(
     if robustness_results or robustness_visualisations:
         for visualisation in robustness_visualisations or []:
             owned = visualisation.result.visualisations
-            if visualisation not in owned:
+            if not any(existing is visualisation for existing in owned):
                 owned.append(visualisation)
         phase_results["robustness"] = RobustnessPhaseResult(
             results=list(robustness_results or []),
