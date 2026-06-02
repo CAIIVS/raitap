@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.13.1](https://github.com/CAIIVS/raitap/compare/v0.13.0...v0.13.1) (2026-06-02)
+
+
+### Features
+
+* **transparency:** class names and true labels for detection boxes ([#233](https://github.com/CAIIVS/raitap/issues/233)) ([#236](https://github.com/CAIIVS/raitap/issues/236)) ([c75235c](https://github.com/CAIIVS/raitap/commit/c75235cdfd361f68a86c9d3f22d0edcc7d514cc9))
+
+
+### Bug fixes
+
+* **metrics:** allow metrics-only pipeline runs ([#237](https://github.com/CAIIVS/raitap/issues/237)) ([#238](https://github.com/CAIIVS/raitap/issues/238)) ([886fba7](https://github.com/CAIIVS/raitap/commit/886fba752f31ac1bbb059e33533d48d80c45890b))
+
+
+### Internal code refactoring
+
+* **infra:** raw-string error_patterns + fix marabou demo runner ([#234](https://github.com/CAIIVS/raitap/issues/234)) ([eb97eaf](https://github.com/CAIIVS/raitap/commit/eb97eafdcd40009cd198f423e7544c8957d87ebc))
+
 ## [0.13.0](https://github.com/CAIIVS/raitap/compare/v0.12.0...v0.13.0) (2026-06-01)
 
 
