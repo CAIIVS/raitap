@@ -160,8 +160,8 @@ def _assess_transparency_detection(
     visualisations: list[VisualisationResult] = []
     backend = _require_model_backend(model)
     category_names = resolve_category_names(
-        getattr(config.model, "class_names", None),
-        getattr(backend, "category_names", None),
+        config.model.class_names,
+        backend.category_names,
     )
     data_labels = getattr(data, "labels", None)
     detection_gt = data_labels if isinstance(data_labels, list) else None
@@ -188,9 +188,7 @@ def _assess_transparency_detection(
             call_from_config = dict(parsed.call)
             raitap_cfg = dict(parsed.raitap)
             gt_iou_threshold = float(
-                dict(parsed.raitap)
-                .get("detection", {})
-                .get("iou_threshold", _DEFAULT_IOU_THRESHOLD)
+                raitap_cfg.get("detection", {}).get("iou_threshold", _DEFAULT_IOU_THRESHOLD)
             )
             if data.sample_ids is not None:
                 raitap_cfg["sample_ids"] = data.sample_ids
@@ -233,13 +231,21 @@ def _assess_transparency_detection(
             ):
                 if result.detection_box is not None:
                     sample_index = result.original_sample_index
-                    gt_for_sample = (
-                        detection_gt[sample_index]
-                        if detection_gt is not None
-                        and sample_index is not None
-                        and sample_index < len(detection_gt)
-                        else None
-                    )
+                    gt_for_sample = None
+                    if detection_gt is not None and sample_index is not None:
+                        if sample_index < len(detection_gt):
+                            gt_for_sample = detection_gt[sample_index]
+                        else:
+                            # Loader guarantees len(detection_gt) == n_samples, so this
+                            # only fires on a genuine prediction/label misalignment;
+                            # surface it instead of silently skipping the GT match.
+                            raitap_log.warn(
+                                "Detection ground truth has %d entries but an explanation "
+                                "references sample_index=%d; rendering this box without a "
+                                "true label (prediction/label misalignment).",
+                                len(detection_gt),
+                                sample_index,
+                            )
                     result.detection_box = enrich_detection_box(
                         result.detection_box,
                         category_names=category_names,

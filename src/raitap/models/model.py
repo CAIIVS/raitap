@@ -349,9 +349,11 @@ def _default_category_names(model_name: str) -> list[str] | None:
     """Return the torchvision default weights' ``categories`` for *model_name*.
 
     Detection weights carry an index-aligned ``categories`` list (id 0 first,
-    ``"N/A"`` placeholders for unused ids). ``None`` for models whose default
-    weights expose no categories (e.g. plain classifiers carry ImageNet labels
-    we don't use here) or when resolution fails.
+    ``"N/A"`` placeholders for unused ids). Classification weights also expose
+    their ImageNet labels here, so a classifier backend gets ``category_names``
+    populated too — harmless, since only the detection box-labelling path reads
+    it. ``None`` only when the default weights expose no ``categories`` key or
+    when resolution fails.
     """
     try:
         from torchvision.models import get_model_weights

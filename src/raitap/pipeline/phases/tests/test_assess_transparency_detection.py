@@ -321,6 +321,7 @@ def test_detection_transparency_renders_class_name_end_to_end(tmp_path: Path) ->
     titles = [v.figure.axes[0].get_title() for v in visualisations if hasattr(v, "figure")]
     assert titles  # at least one per-box figure rendered
     assert all(t == "" for t in titles)
+    assert all(not v.figure.texts for v in visualisations if hasattr(v, "figure"))  # no suptitle
 
 
 def test_detection_transparency_matches_ground_truth_end_to_end(tmp_path: Path) -> None:
@@ -474,6 +475,72 @@ def test_detection_transparency_matches_ground_truth_end_to_end(tmp_path: Path) 
     titles = [v.figure.axes[0].get_title() for v in visualisations if hasattr(v, "figure")]
     assert titles
     assert all(t == "" for t in titles)
+    assert all(not v.figure.texts for v in visualisations if hasattr(v, "figure"))  # no suptitle
+
+
+def test_detection_per_box_figure_has_no_suptitle_with_sample_names(tmp_path: Path) -> None:
+    # Regression guard (#233): with the axis title removed, the sample-name
+    # suptitle fallback in ExplanationResult.visualise must stay suppressed for
+    # detection per-box figures even when show_sample_names is on — they are
+    # title-less by design (info lives on the overlay + heading).
+    from raitap.transparency.contracts import (
+        DetectionBox,
+        ExplanationOutputSpace,
+        ExplanationPayloadKind,
+        ExplanationScope,
+        InputSpec,
+        MethodFamily,
+        OutputSpaceSpec,
+        ScopeDefinitionStep,
+    )
+    from raitap.transparency.results import (
+        ConfiguredVisualiser,
+        ExplanationResult,
+        ExplanationSemantics,
+    )
+    from raitap.transparency.visualisers.detection_image_visualiser import (
+        DetectionImageVisualiser,
+    )
+
+    sem = ExplanationSemantics(
+        scope=ExplanationScope.LOCAL,
+        scope_definition_step=ScopeDefinitionStep.EXPLAINER_OUTPUT,
+        payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
+        method_families=frozenset({MethodFamily.GRADIENT}),
+        target=None,
+        sample_selection=None,
+        input_spec=InputSpec(kind="image", shape=(1, 3, 32, 32), layout="NCHW"),
+        output_space=OutputSpaceSpec(
+            space=ExplanationOutputSpace.DETECTION_BOXES, shape=(1, 3, 32, 32), layout="NCHW"
+        ),
+    )
+    result = ExplanationResult(
+        attributions=torch.zeros(1, 3, 32, 32),
+        inputs=torch.rand(1, 3, 32, 32),
+        run_dir=tmp_path / "box_0",
+        experiment_name="x",
+        explainer_target="t",
+        algorithm="IntegratedGradients",
+        explainer_name="ig",
+        semantics=sem,
+        visualisers=[ConfiguredVisualiser(DetectionImageVisualiser())],
+        kwargs={"show_sample_names": True, "sample_names": ["street.jpg"]},
+    )
+    result.detection_box = DetectionBox(
+        display_index=0,
+        raw_index=0,
+        xyxy=(2, 3, 22, 23),
+        score=0.9,
+        label_index=1,
+        label_name="kite",
+    )
+    result.original_sample_index = 0
+
+    vis_results = result.visualise()
+    assert vis_results
+    for vr in vis_results:
+        assert vr.figure.axes[0].get_title() == ""
+        assert vr.figure.texts == []  # no sample-name suptitle leaked in
 
 
 def test_assess_transparency_detection_skips_when_no_explainers(tmp_path: Path) -> None:
