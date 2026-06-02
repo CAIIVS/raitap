@@ -1121,6 +1121,9 @@ def _overlay_detection_boxes(figure: Any, *, outputs: RunOutputs, sample_index: 
     if not axes:
         return
     ax = axes[0]
+    # On the image: only a compact ``#index`` tag per box (anchored inside its
+    # top-left corner) so labels never collide when boxes are close. The full
+    # per-box detail goes in a legend below the image, keyed by the same index.
     for box in boxes:
         x1, y1, x2, y2 = box.xyxy
         ax.add_patch(
@@ -1133,25 +1136,46 @@ def _overlay_detection_boxes(figure: Any, *, outputs: RunOutputs, sample_index: 
                 facecolor="none",
             )
         )
-        label = box.label_name or f"class {box.label_index}"
-        if box.gt_evaluated and box.true_label_index is not None:
-            gt_name = box.true_label_name or f"class {box.true_label_index}"
-            overlay_text = (
-                f"#{box.display_index} {label} ({box.score:.2f}) "
-                f"| gt: {gt_name} (IoU {box.true_match_iou:.2f})"
-            )
-        elif box.gt_evaluated:
-            overlay_text = f"#{box.display_index} {label} ({box.score:.2f}) | gt: no match"
-        else:
-            overlay_text = f"#{box.display_index} {label} ({box.score:.2f})"
         ax.text(
-            x1,
-            max(y1 - 4, 4),
-            overlay_text,
-            color="lime",
-            fontsize=7,
-            bbox={"facecolor": "black", "alpha": 0.55, "pad": 1, "edgecolor": "none"},
+            x1 + 2,
+            y1 + 2,
+            f"#{box.display_index}",
+            color="black",
+            fontsize=8,
+            fontweight="bold",
+            va="top",
+            ha="left",
+            bbox={"facecolor": "lime", "alpha": 0.9, "pad": 1, "edgecolor": "none"},
         )
+    # Legend below the image (``bbox_inches="tight"`` at save time keeps it in
+    # frame). One line per box; close boxes stay legible because their detail
+    # lives here, not stacked on the image.
+    legend = "\n".join(_overlay_legend_line(box) for box in boxes)
+    ax.text(
+        0.0,
+        -0.02,
+        legend,
+        transform=ax.transAxes,
+        va="top",
+        ha="left",
+        fontsize=7,
+        family="monospace",
+        color="#222222",
+        bbox={"facecolor": "white", "edgecolor": "#bbbbbb", "boxstyle": "round,pad=0.4"},
+        clip_on=False,
+    )
+
+
+def _overlay_legend_line(box: DetectionBox) -> str:
+    """One legend row for a detection box: ``#i name (score) [| gt: ...]``."""
+    label = box.label_name or f"class {box.label_index}"
+    base = f"#{box.display_index} {label} ({box.score:.2f})"
+    if not box.gt_evaluated:
+        return base
+    if box.true_label_index is None:
+        return f"{base} | gt: no match"
+    gt_name = box.true_label_name or f"class {box.true_label_index}"
+    return f"{base} | gt: {gt_name} (IoU {box.true_match_iou:.2f})"
 
 
 # Human-facing labels for the baseline ``mode`` token. The raw token is kept in

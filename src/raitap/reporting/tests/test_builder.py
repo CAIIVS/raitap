@@ -20,6 +20,8 @@ from raitap.reporting.builder import (
     _canonical_facet_owners,
     _copy_asset,
     _detection_box_heading,
+    _overlay_detection_boxes,
+    _overlay_legend_line,
     _render_kwargs_for_robustness_visualiser,
     build_merged_report,
     build_report,
@@ -2475,3 +2477,90 @@ def test_detection_heading_no_gt_unchanged() -> None:
     h = _detection_box_heading(box)
     assert "gt:" not in h
     assert "kite, score=0.99" in h
+
+
+def _det_box(
+    *,
+    display_index: int,
+    label_name: str,
+    score: float,
+    gt_evaluated: bool = False,
+    true_label_name: str | None = None,
+    true_label_index: int | None = None,
+    true_match_iou: float | None = None,
+) -> DetectionBox:
+    return DetectionBox(
+        display_index=display_index,
+        raw_index=display_index,
+        xyxy=(10.0, 10.0, 40.0, 40.0),
+        score=score,
+        label_index=1,
+        label_name=label_name,
+        gt_evaluated=gt_evaluated,
+        true_label_name=true_label_name,
+        true_label_index=true_label_index,
+        true_match_iou=true_match_iou,
+    )
+
+
+def test_overlay_legend_line_covers_all_branches() -> None:
+    matched = _det_box(
+        display_index=0,
+        label_name="kite",
+        score=0.99,
+        gt_evaluated=True,
+        true_label_name="sheep",
+        true_label_index=3,
+        true_match_iou=0.71,
+    )
+    assert _overlay_legend_line(matched) == "#0 kite (0.99) | gt: sheep (IoU 0.71)"
+    no_match = _det_box(display_index=1, label_name="dog", score=0.92, gt_evaluated=True)
+    assert _overlay_legend_line(no_match) == "#1 dog (0.92) | gt: no match"
+    no_gt = _det_box(display_index=2, label_name="boat", score=0.81)
+    assert _overlay_legend_line(no_gt) == "#2 boat (0.81)"
+
+
+class _DetExpl:
+    def __init__(self, box: DetectionBox, sample_index: int) -> None:
+        self.detection_box = box
+        self.original_sample_index = sample_index
+
+
+class _DetOutputs:
+    def __init__(self, explanations: list[_DetExpl]) -> None:
+        self.explanations = explanations
+
+
+def test_overlay_draws_index_tags_and_legend_below_image() -> None:
+    # Two clustered boxes on one sample: the image carries only compact #i tags
+    # (no long labels that would collide), and one legend text holds both full
+    # lines keyed by index.
+    box0 = _det_box(
+        display_index=0,
+        label_name="kite",
+        score=0.99,
+        gt_evaluated=True,
+        true_label_name="kite",
+        true_label_index=1,
+        true_match_iou=0.83,
+    )
+    box1 = _det_box(display_index=1, label_name="dog", score=0.92, gt_evaluated=True)
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.imshow(torch.zeros(50, 50, 3).numpy())
+    _overlay_detection_boxes(
+        fig,
+        outputs=_DetOutputs([_DetExpl(box0, 0), _DetExpl(box1, 0)]),  # type: ignore[arg-type]
+        sample_index=0,
+    )
+    texts = [t.get_text() for t in ax.texts]
+    # compact tags on the image
+    assert "#0" in texts
+    assert "#1" in texts
+    # full detail in a single legend text, both lines, keyed by index
+    legend = next(t for t in texts if "\n" in t)
+    assert "#0 kite (0.99) | gt: kite (IoU 0.83)" in legend
+    assert "#1 dog (0.92) | gt: no match" in legend
+    # no long per-box label is stamped beside the boxes (only tags + legend)
+    assert not any(t.startswith("#0 kite") for t in texts if "\n" not in t)
+    plt.close(fig)
