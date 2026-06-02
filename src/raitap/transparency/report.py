@@ -2,11 +2,8 @@
 
 ``TransparencyPhaseResult`` is the transparency phase's contribution to a run:
 it is ``Trackable`` (logs its explanations + visualisations) and ``Reportable``
-(builds the Global / Aggregated / Local explanation sections). The
-section-building helpers were relocated verbatim from ``reporting/builder.py`` —
-the only change is that they read explanations/visualisations off the
-``TransparencyPhaseResult`` passed as ``outputs`` instead of the old flat
-``RunOutputs`` fields.
+(builds the Global / Aggregated / Local explanation sections). The phase class +
+work function that produce it live in :mod:`raitap.transparency.phase`.
 """
 
 from __future__ import annotations
@@ -20,8 +17,6 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import matplotlib.pyplot as plt
 
 from raitap import raitap_log
-from raitap.pipeline.phases.assess_transparency import assess_transparency
-from raitap.pipeline.phases.base import AssessmentPhase
 from raitap.reporting.samples import _requested_sample_metadata
 from raitap.reporting.sections import ReportGroup, ReportSection
 from raitap.reporting.staging import (
@@ -40,33 +35,12 @@ if TYPE_CHECKING:
 
     import torch
 
-    from raitap.configs.schema import AppConfig
-    from raitap.pipeline.outputs import PhaseResult
-    from raitap.pipeline.phases.base import PhaseContext
     from raitap.reporting.samples import SelectedSample
     from raitap.reporting.sections import ReportContext
     from raitap.tracking.base_tracker import BaseTracker
     from raitap.transparency.results import ExplanationResult, VisualisationResult
 else:
     torch = lazy_import("torch")
-
-
-class TransparencyPhase(AssessmentPhase):
-    name = "transparency"
-
-    def is_configured(self, config: AppConfig) -> bool:
-        return bool(getattr(config, "transparency", None))
-
-    def run(self, ctx: PhaseContext) -> PhaseResult | None:
-        explanations = assess_transparency(
-            ctx.config,
-            ctx.model,
-            ctx.data,
-            ctx.forward_output,
-            input_metadata=ctx.input_metadata,
-            resolved_preprocessing=ctx.resolved_preprocessing,
-        )
-        return TransparencyPhaseResult(explanations=explanations)
 
 
 _DISPLAY_ONLY_VISUALISER_KWARGS = frozenset(

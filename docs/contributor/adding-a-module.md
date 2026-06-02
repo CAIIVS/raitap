@@ -26,9 +26,9 @@ The walkthrough below uses a fictional `fairness` module.
 | `src/raitap/fairness/assessors/base_assessor.py` | Abstract base — subclasses implement one method |
 | `src/raitap/fairness/assessors/registration.py` | `register_fairness_adapter` family decorator |
 | `src/raitap/fairness/factory.py` | Iterates `config.fairness` dict, instantiates + runs each adapter |
-| `src/raitap/fairness/report.py` | `FairnessPhase(AssessmentPhase)` + `FairnessPhaseResult(Trackable, Reportable)` — your phase (check + run) and its result (logging + report sections), co-located |
+| `src/raitap/fairness/phase.py` | `FairnessPhase(AssessmentPhase)` + the `assess_fairness()` work function — both co-located in the module (mirrors `transparency/phase.py` / `robustness/phase.py`); nothing goes in `pipeline/phases/` |
+| `src/raitap/fairness/report.py` | `FairnessPhaseResult(Trackable, Reportable)` — the result type + its report sections |
 | `src/raitap/configs/schema.py` | Add `FairnessConfig` + `fairness:` field on `AppConfig` |
-| `src/raitap/pipeline/phases/assess_fairness.py` | The phase *work* function the `FairnessPhase.run` calls (mirrors `assess_transparency`) |
 | `src/raitap/pipeline/phases/registry.py` | Import `FairnessPhase` + add one entry to `ASSESSMENT_PHASES` — the only pipeline edit |
 | `pyproject.toml` | Optional: `fairness = [...]` extra if the module wraps libraries |
 | `docs/modules/fairness/*.md` | User-facing docs + `frameworks-and-libraries.md` |
@@ -155,27 +155,35 @@ The dict-of-configs shape mirrors transparency / robustness — multiple named a
 
 Iterate `config.fairness`, instantiate each entry via hydra-zen, run it. Mirror `src/raitap/robustness/factory.py` — same shape, swap module names.
 
-## 6. Pipeline phase + result (`pipeline/phases/assess_fairness.py`, `fairness/report.py`, `pipeline/phases/registry.py`)
+## 6. Pipeline phase + result (`fairness/phase.py`, `fairness/report.py`, `pipeline/phases/registry.py`)
 
 The pipeline is generic dispatch over `ASSESSMENT_PHASES` — you do **not** edit
-`orchestrator.py` or `reporting/builder.py`. Three pieces:
+`orchestrator.py` or `reporting/builder.py`, and you add **no file** under
+`pipeline/phases/` (that package holds only cross-cutting infra). Three pieces,
+all in your module:
 
-**a. The phase work** (`pipeline/phases/assess_fairness.py`) — mirror `assess_transparency` / `assess_robustness`:
+**a. The phase work** (`fairness/phase.py`) — mirror `transparency/phase.py` / `robustness/phase.py`.
 
 Each result **owns its visualisations** (`FairnessResult.visualisations`, a `list`
 populated by the result's own `visualise()`); there is no parallel phase-level
-list. So the work function returns just the results:
+list. Use the shared `run_adapters` helper — it runs the loop, calls each
+result's `visualise()` (so you cannot forget the ownership contract), and
+collects the results:
 
 ```python
+from raitap.pipeline.phases.base import run_adapters
+
 def assess_fairness(config, model, data, forward_output, *, ...):
     """Run every adapter declared under ``config.fairness``."""
-    results = []
-    for name, adapter_config in config.fairness.items():
-        result = ...  # instantiate via the factory, run, write artefacts
-        result.visualise()  # populates result.visualisations
-        results.append(result)
-    return results
+    return run_adapters(
+        config.fairness or {},
+        log_label="fairness",
+        build_one=lambda name: FairnessAssessment(config, name, model, ...),  # -> FairnessResult
+    )
 ```
+
+`run_adapters` is opt-in: a singleton phase with no adapter loop (like metrics)
+just writes its own `run()` instead.
 
 **b. The phase result** (`fairness/report.py`) — a `PhaseResult`: `Trackable` (how it logs) + `Reportable` (how it reports). Mirror `transparency/report.py` / `robustness/report.py`. It holds only the results and reaches each result's figures via `result.visualisations`:
 
@@ -195,7 +203,7 @@ class FairnessPhaseResult(Trackable):
         ...  # iterate results -> result.visualisations, stage into ctx.assets_dir
 ```
 
-**c. The phase class** lives in your module (`fairness/report.py`, alongside the result), subclassing `AssessmentPhase` from `raitap.pipeline.phases.base`:
+**c. The phase class** lives in your module (`fairness/phase.py`, alongside its work function), subclassing `AssessmentPhase` from `raitap.pipeline.phases.base`:
 
 ```python
 class FairnessPhase(AssessmentPhase):
@@ -211,7 +219,7 @@ class FairnessPhase(AssessmentPhase):
 **d. Register it** — the one pipeline edit (`pipeline/phases/registry.py`): import your phase + add it to the list:
 
 ```python
-from raitap.fairness.report import FairnessPhase
+from raitap.fairness.phase import FairnessPhase
 
 ASSESSMENT_PHASES = (MetricsPhase(), TransparencyPhase(), RobustnessPhase(), FairnessPhase())
 ```

@@ -2,10 +2,8 @@
 
 ``RobustnessPhaseResult`` is the robustness phase's contribution to a run: it is
 ``Trackable`` (logs its assessor results + visualisations) and ``Reportable``
-(builds the "Robustness" report section). The section-building helpers were
-relocated verbatim from ``reporting/builder.py`` — the only change is that they
-read the assessor results off the ``RobustnessPhaseResult`` passed as ``outputs``
-instead of the old flat ``RunOutputs`` fields.
+(builds the "Robustness" report section). The phase class + work function that
+produce it live in :mod:`raitap.robustness.phase`.
 """
 
 from __future__ import annotations
@@ -16,8 +14,6 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import matplotlib.pyplot as plt
 
-from raitap.pipeline.phases.assess_robustness import assess_robustness
-from raitap.pipeline.phases.base import AssessmentPhase
 from raitap.reporting.sections import ReportGroup, ReportSection
 from raitap.reporting.staging import _copy_asset, _safe_name, _strip_report_figure_titles
 from raitap.robustness.contracts import (
@@ -34,9 +30,6 @@ if TYPE_CHECKING:
 
     import torch
 
-    from raitap.configs.schema import AppConfig
-    from raitap.pipeline.outputs import PhaseResult
-    from raitap.pipeline.phases.base import PhaseContext
     from raitap.reporting.samples import SelectedSample
     from raitap.reporting.sections import ReportContext
     from raitap.robustness.results import RobustnessResult, RobustnessVisualisationResult
@@ -44,25 +37,6 @@ if TYPE_CHECKING:
     from raitap.tracking.base_tracker import BaseTracker
 else:
     torch = lazy_import("torch")
-
-
-class RobustnessPhase(AssessmentPhase):
-    name = "robustness"
-
-    def is_configured(self, config: AppConfig) -> bool:
-        return bool(getattr(config, "robustness", None))
-
-    def run(self, ctx: PhaseContext) -> PhaseResult | None:
-        results = assess_robustness(
-            ctx.config,
-            ctx.model,
-            ctx.data,
-            ctx.forward_output,
-            labels=ctx.data.labels,
-            input_metadata=ctx.input_metadata,
-            resolved_preprocessing=ctx.resolved_preprocessing,
-        )
-        return RobustnessPhaseResult(results=results)
 
 
 @dataclass

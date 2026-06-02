@@ -97,12 +97,10 @@ src/
     │   ├── orchestrator.py         # _run_pipeline() + run_without_tracking() — runs configured phases; generic tracker loop over phase_results
     │   ├── ui.py                   # print_summary() — the rich panel banner
     │   ├── outputs.py              # PredictionSummary + RunOutputs (keyed phase_results) + PhaseResult protocol (Trackable + Reportable)
-    │   └── phases/                 # one file per phase; filename matches the public function
-    │       ├── registry.py         # AssessmentPhase chain + ASSESSMENT_PHASES: single source of truth for the configured-phase guard + run loop
+    │   └── phases/                 # cross-cutting phase infra only; module-specific work lives in each module's phase.py
+    │       ├── base.py             # AssessmentPhase ABC + PhaseContext + run_adapters() (shared per-adapter loop)
+    │       ├── registry.py         # ASSESSMENT_PHASES: single source of truth for the configured-phase guard + run loop
     │       ├── forward_pass.py     # forward_pass(): batched backend forward; extract_primary_tensor for dict/tuple outputs
-    │       ├── evaluate_metrics.py # evaluate_metrics(): runs metrics when configured, infers num_classes
-    │       ├── assess_transparency.py  # assess_transparency(): instantiates explainers; resolve_explainer_runtime_kwargs (auto_pred)
-    │       ├── assess_robustness.py    # assess_robustness(): instantiates assessors; resolve_robustness_targets (labels or argmax fallback)
     │       ├── prediction_summaries.py # prediction_summaries(): per-sample PredictionSummary rows from logits
     │       └── input_metadata.py   # input_metadata_for_data(): bridges raitap.data → transparency/robustness InputSpec
     │
@@ -116,6 +114,7 @@ src/
     │   └── samples.py              # bundled sample sets (imagenet_samples, mnist_samples, …) + labels CSVs
     │
     ├── metrics/                    # metrics adapters (currently torchmetrics-backed)
+    │   ├── phase.py                # MetricsPhase + evaluate_metrics(): singleton phase (no adapter loop), infers num_classes
     │   ├── factory.py              # metrics_run_enabled, evaluate(), instantiation via adapter_factory
     │   ├── registration.py         # `@adapters.metrics` family decorator
     │   ├── base_metric_computer.py # `BaseMetricComputer` ABC + `MetricResult` dataclass
@@ -123,16 +122,22 @@ src/
     │   └── inputs.py               # target/prediction alignment, fallbacks when labels missing
     │
     ├── transparency/               # XAI adapters
+    │   ├── phase.py                # TransparencyPhase + assess_transparency() (run_adapters) + resolve_explainer_runtime_kwargs + detection routing
+    │   ├── explain_detection.py    # detection-task per-box K-loop (one ExplanationResult per detected box)
+    │   ├── report.py               # TransparencyPhaseResult + Global/Aggregated/Local section builders
     │   ├── factory.py              # create_explainer / create_visualisers; runtime kwargs resolution
     │   ├── contracts.py            # ExplanationPayloadKind, InputSpec, MethodFamily, …
-    │   ├── results.py              # ExplanationResult + Explanation orchestration object
+    │   ├── results.py              # ExplanationResult (owns its .visualisations) + Explanation orchestration object
     │   ├── explainers/             # CaptumExplainer, ShapExplainer + `registration.py`
     │   │                           # (`@adapters.transparency`) + `base_explainer.py`
     │   └── visualisers/            # CaptumImageVisualiser, ShapImageVisualiser, … + `registration.py`
     │                               # (`@visualisers.transparency`) + `base_visualiser.py`
     │
     ├── robustness/                 # adversarial-attack + formal-verification adapters
+    │   ├── phase.py                # RobustnessPhase + assess_robustness() (run_adapters) + resolve_robustness_targets
+    │   ├── report.py               # RobustnessPhaseResult + "Robustness" section builders
     │   ├── factory.py              # create_assessor; raitap-key migration warnings
+    │   ├── results.py              # RobustnessResult (owns its .visualisations)
     │   ├── assessors/              # TorchattacksAssessor, FoolboxAssessor, MarabouAssessor +
     │   │                           # `registration.py` (`@adapters.robustness`) +
     │   │                           # `base_assessor.py`

@@ -1,4 +1,12 @@
-"""Transparency phase — instantiates explainers + collects results."""
+"""Transparency assessment phase — instantiates explainers + collects results.
+
+Co-located with the module it drives (issue #243 follow-up): the phase class,
+its work function, and runtime-kwarg resolution live here; the result type +
+report rendering live in :mod:`raitap.transparency.report`. The classification
+path runs every explainer through the shared
+:func:`~raitap.pipeline.phases.base.run_adapters` loop; the detection path is a
+per-box K-loop and stays bespoke.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +15,9 @@ from typing import TYPE_CHECKING, Any, cast
 from raitap import raitap_log
 from raitap.configs import cfg_to_dict
 from raitap.metrics import metrics_prediction_pair
+from raitap.pipeline.phases.base import AssessmentPhase, run_adapters
 from raitap.transparency.factory import Explanation
+from raitap.transparency.report import TransparencyPhaseResult
 from raitap.types import TaskKind
 
 if TYPE_CHECKING:
@@ -17,9 +27,28 @@ if TYPE_CHECKING:
     from raitap.data import Data
     from raitap.data.preprocessing import ResolvedPreprocessing
     from raitap.models import Model
-    from raitap.pipeline.outputs import ForwardOutput
+    from raitap.pipeline.outputs import ForwardOutput, PhaseResult
+    from raitap.pipeline.phases.base import PhaseContext
     from raitap.transparency.contracts import InputSpec
     from raitap.transparency.results import ExplanationResult
+
+
+class TransparencyPhase(AssessmentPhase):
+    name = "transparency"
+
+    def is_configured(self, config: AppConfig) -> bool:
+        return bool(getattr(config, "transparency", None))
+
+    def run(self, ctx: PhaseContext) -> PhaseResult | None:
+        explanations = assess_transparency(
+            ctx.config,
+            ctx.model,
+            ctx.data,
+            ctx.forward_output,
+            input_metadata=ctx.input_metadata,
+            resolved_preprocessing=ctx.resolved_preprocessing,
+        )
+        return TransparencyPhaseResult(explanations=explanations)
 
 
 def resolve_explainer_runtime_kwargs(
@@ -59,15 +88,13 @@ def assess_transparency(
     """Run every explainer declared under ``config.transparency``.
 
     Returns the explanation results. Each explanation owns its report
-    visualisations (``ExplanationResult.visualisations``), populated here via
-    ``visualise()``.
+    visualisations (``ExplanationResult.visualisations``), populated via the
+    shared :func:`~raitap.pipeline.phases.base.run_adapters` loop (classification)
+    or per-result inside the detection K-loop.
     """
     explainers = list((getattr(config, "transparency", None) or {}).items())
     if not explainers:
         return []
-
-    suffix = "s" if len(explainers) > 1 else ""
-    raitap_log.info("Performing transparency assessment%s (%d)...", suffix, len(explainers))
 
     if forward_output.task_kind is TaskKind.detection:
         return _assess_transparency_detection(
@@ -88,31 +115,34 @@ def assess_transparency(
         if forward_output.task_kind is TaskKind.classification
         else None
     )
+    # Detection routed away above, so this is the dense-NCHW classification
+    # path; narrow the ``Data.tensor`` union.
+    tensor = cast("torch.Tensor", data.tensor)
 
-    explanations: list[ExplanationResult] = []
-    for name, _explainer_cfg in explainers:
+    def _build(name: str) -> ExplanationResult:
         runtime_kwargs: dict[str, Any] = {}
         if predictions_tensor is not None:
             runtime_kwargs = resolve_explainer_runtime_kwargs(
                 config.transparency[name],
                 forward_output=predictions_tensor,
             )
-        explanation = Explanation(
+        return Explanation(
             config,
             name,
             model,
-            # Detection routed away at the task-kind check above, so this is the
-            # dense-NCHW classification path; narrow the ``Data.tensor`` union.
-            cast("torch.Tensor", data.tensor),
+            tensor,
             input_metadata=input_metadata,
             sample_ids=data.sample_ids,
             sample_names=data.sample_ids,
             resolved_preprocessing=resolved_preprocessing,
             **runtime_kwargs,
         )
-        explanation.visualise()  # populates explanation.visualisations
-        explanations.append(explanation)
-    return explanations
+
+    return run_adapters(
+        [name for name, _ in explainers],
+        log_label="transparency",
+        build_one=_build,
+    )
 
 
 def _assess_transparency_detection(
@@ -135,14 +165,14 @@ def _assess_transparency_detection(
     """
     from raitap.configs import resolve_run_dir
     from raitap.configs.adapter_factory import resolve_per_image_transform
-    from raitap.pipeline.phases.explain_detection import (
-        _DEFAULT_IOU_THRESHOLD,
-        explain_detection,
-    )
     from raitap.transparency.baselines import apply_config_baseline
     from raitap.transparency.detection_labels import (
         enrich_detection_box,
         resolve_category_names,
+    )
+    from raitap.transparency.explain_detection import (
+        _DEFAULT_IOU_THRESHOLD,
+        explain_detection,
     )
     from raitap.transparency.factory import (
         _PARSED_EXPLAINER_CONFIG_CACHE,

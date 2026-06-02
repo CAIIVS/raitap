@@ -26,7 +26,7 @@ from raitap.configs import set_output_root
 from raitap.configs.schema import AppConfig, TransparencyConfig
 from raitap.models.backend import ModelBackend
 from raitap.pipeline.outputs import ForwardOutput
-from raitap.pipeline.phases.assess_transparency import assess_transparency
+from raitap.transparency.phase import assess_transparency
 from raitap.types import TaskKind
 
 
@@ -129,7 +129,7 @@ def test_assess_transparency_routes_detection_kind_to_explain_detection(
 
     with (
         patch(
-            "raitap.pipeline.phases.assess_transparency.Explanation",
+            "raitap.transparency.phase.Explanation",
             side_effect=AssertionError("classification path should not run"),
         ),
         patch(
@@ -150,7 +150,7 @@ def test_assess_transparency_routes_detection_kind_to_explain_detection(
             return_value=None,
         ),
         patch(
-            "raitap.pipeline.phases.explain_detection.explain_detection",
+            "raitap.transparency.explain_detection.explain_detection",
             side_effect=fake_explain_detection,
         ),
     ):
@@ -275,7 +275,7 @@ def test_detection_transparency_renders_class_name_end_to_end(tmp_path: Path) ->
 
     with (
         patch(
-            "raitap.pipeline.phases.assess_transparency.Explanation",
+            "raitap.transparency.phase.Explanation",
             side_effect=AssertionError("classification path should not run"),
         ),
         patch(
@@ -299,7 +299,7 @@ def test_detection_transparency_renders_class_name_end_to_end(tmp_path: Path) ->
             return_value=None,
         ),
         patch(
-            "raitap.pipeline.phases.explain_detection.explain_detection",
+            "raitap.transparency.explain_detection.explain_detection",
             side_effect=fake_explain_detection,
         ),
     ):
@@ -428,7 +428,7 @@ def test_detection_transparency_matches_ground_truth_end_to_end(tmp_path: Path) 
 
     with (
         patch(
-            "raitap.pipeline.phases.assess_transparency.Explanation",
+            "raitap.transparency.phase.Explanation",
             side_effect=AssertionError("classification path should not run"),
         ),
         patch(
@@ -452,7 +452,7 @@ def test_detection_transparency_matches_ground_truth_end_to_end(tmp_path: Path) 
             return_value=None,
         ),
         patch(
-            "raitap.pipeline.phases.explain_detection.explain_detection",
+            "raitap.transparency.explain_detection.explain_detection",
             side_effect=fake_explain_detection,
         ),
     ):

@@ -90,12 +90,10 @@ The rich handler decorates warnings with a module chip (Metrics, Robustness, Tra
 When the **logical** module differs from the file path, pass `module=` explicitly:
 
 ```python
-# src/raitap/pipeline/phases/assess_robustness.py — pipeline file,
-# logically a robustness concern.
+# src/raitap/_adapters.py — top-level file, logically a deps concern.
 raitap_log.warn(
-    "No ground-truth labels provided; using model predictions as the "
-    "reference for untargeted attacks.",
-    module=Module.robustness,
+    f"Skipping plugin {ep.name!r}: {why}",
+    module=Module.deps,
 )
 ```
 

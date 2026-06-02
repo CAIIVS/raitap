@@ -138,9 +138,9 @@ Add the equivalent branch for your kind.
 
 Three phases dispatch on `forward_output.task_kind`:
 
-- `src/raitap/pipeline/phases/evaluate_metrics.py:49` — pass the structured payload straight to the family-specific metric computer.
-- `src/raitap/pipeline/phases/assess_transparency.py:71` — route detection to `_assess_transparency_detection` (see step 9).
-- `src/raitap/pipeline/phases/assess_robustness.py:78` — early-return for any non-classification kind until Phase 4 lands (see cross-cutting concerns).
+- `src/raitap/metrics/phase.py` (`evaluate_metrics`) — pass the structured payload straight to the family-specific metric computer.
+- `src/raitap/transparency/phase.py` (`assess_transparency`) — route detection to `_assess_transparency_detection` (see step 9).
+- `src/raitap/robustness/phase.py` (`assess_robustness`) — early-return for any non-classification kind until Phase 4 lands (see cross-cutting concerns).
 
 For metrics, add a typed schema subclass that defaults everything so classification configs stay untouched. Mirror `DetectionMetricsConfig` at `src/raitap/configs/schema.py:227`.
 
@@ -173,8 +173,8 @@ The pre-flight check in `src/raitap/transparency/factory.py:124` resolves the ba
 
 If the new family needs more than one explanation per sample (detection: one per box; segmentation: arguably one per instance mask; seq2seq: per-token), write:
 
-- A new `src/raitap/pipeline/phases/explain_X.py` mirroring `explain_detection.py` (per-box K-loop).
-- An `_assess_transparency_X` helper in `assess_transparency.py` that calls it (mirror `_assess_transparency_detection`).
+- A new `src/raitap/transparency/explain_X.py` mirroring `explain_detection.py` (per-box K-loop).
+- An `_assess_transparency_X` helper in `transparency/phase.py` that calls it (mirror `_assess_transparency_detection`).
 - A per-element metadata dataclass on `transparency/contracts.py` (mirror `DetectionBox` at line 174).
 - A field on `ExplanationResult` carrying that metadata (mirror `detection_box: DetectionBox | None = None` at `src/raitap/transparency/results.py:147`) and a `original_sample_index: int | None = None` short-circuit in `render_visualisation_for_scope` so visualisers only render the original-sample tile when the scope matches (`results.py:348`).
 
@@ -213,7 +213,7 @@ if labels_kind == "detection":
 Three layers:
 
 - **Unit** — one test file per new component (wrapper, target, visualiser, label loader, metric).
-- **Per-phase** — each pipeline phase that dispatches on `task_kind` needs a test asserting it routes correctly when handed a `ForwardOutput(task_kind=<new>)`. Existing examples: `src/raitap/pipeline/phases/tests/test_explain_detection.py`, `src/raitap/metrics/tests/test_detection_metrics.py`, `src/raitap/data/tests/test_detection_labels.py`.
+- **Per-phase** — each pipeline phase that dispatches on `task_kind` needs a test asserting it routes correctly when handed a `ForwardOutput(task_kind=<new>)`. Existing examples: `src/raitap/transparency/tests/test_explain_detection.py`, `src/raitap/metrics/tests/test_detection_metrics.py`, `src/raitap/data/tests/test_detection_labels.py`.
 - **Integration / E2E** — wire the whole pipeline against a real model + small dataset (the detection contributor config below is the artefact).
 
 Backward compatibility is part of the contract: every classification-only path must stay bit-for-bit identical when the new family isn't selected. Add an explicit assertion to one classification E2E test that touching the new family's code didn't perturb it.
@@ -238,18 +238,18 @@ The 24 locked design decisions (D1–D24) made during the brainstorm live in `do
 | 4 | `src/raitap/models/backend.py` | `task_kind` property, `_is_torchvision_detection_model` auto-detect, explicit `task_kind=` kwarg on `TorchBackend` |
 | 5 | `src/raitap/pipeline/outputs.py` | `ForwardOutput.detection_predictions` + `__post_init__` invariant |
 | 6 | `src/raitap/pipeline/phases/forward_pass.py` | task-kind branch collecting `list[dict[str, Tensor]]` |
-| 7 | `src/raitap/pipeline/phases/evaluate_metrics.py`, `assess_transparency.py`, `assess_robustness.py`; `src/raitap/configs/schema.py` (`DetectionMetricsConfig`) | per-phase dispatch + typed metrics schema |
+| 7 | `src/raitap/metrics/phase.py` (`evaluate_metrics`), `transparency/phase.py` (`assess_transparency`), `robustness/phase.py` (`assess_robustness`); `src/raitap/configs/schema.py` (`DetectionMetricsConfig`) | per-phase dispatch + typed metrics schema |
 | 8 | `src/raitap/transparency/contracts.py`, `semantics.py`, `factory.py` | `DETECTION_BOXES` output space, candidate / inference helpers, task-aware pre-flight |
-| 9 | `src/raitap/pipeline/phases/explain_detection.py`, `assess_transparency.py::_assess_transparency_detection`, `transparency/contracts.py::DetectionBox`, `transparency/results.py::ExplanationResult.{detection_box,original_sample_index}` | per-box K-loop + metadata threading |
+| 9 | `src/raitap/transparency/explain_detection.py`, `transparency/phase.py::_assess_transparency_detection`, `transparency/contracts.py::DetectionBox`, `transparency/results.py::ExplanationResult.{detection_box,original_sample_index}` | per-box K-loop + metadata threading |
 | 10 | `src/raitap/transparency/visualisers/detection_image_visualiser.py`, `visualisers/__init__.py` | `DetectionImageVisualiser` registered as `detection_image` |
 | 11 | `src/raitap/data/data.py::_load_detection_labels`, `src/raitap/configs/schema.py::LabelsConfig.kind` | `data.labels.kind == "detection"` discriminator |
-| 12 | `src/raitap/pipeline/phases/tests/test_explain_detection.py`, `src/raitap/metrics/tests/test_detection_metrics.py`, `src/raitap/data/tests/test_detection_labels.py` | per-component + per-phase coverage |
+| 12 | `src/raitap/transparency/tests/test_explain_detection.py`, `src/raitap/metrics/tests/test_detection_metrics.py`, `src/raitap/data/tests/test_detection_labels.py` | per-component + per-phase coverage |
 | 13 | `docs/modules/transparency/configuration.md`, `docs/modules/transparency/visualisers.md`, `contributor-configs/fasterrcnn-udacity/` | user docs + contributor config |
 
 ## Cross-cutting concerns
 
 - **Metrics schema.** mAP-style detection metrics use the typed-schema pattern from main (`DetectionMetricsConfig` at `src/raitap/configs/schema.py:227`) which defaults everything. Classification configs are untouched. Apply the same shape to your family.
 - **Reporting.** The K-results-per-sample layout (decision D15 in the spec) is currently still deferred — the per-sample-grouped report section is planned but not in main. New per-element families inherit that gap until D15 lands.
-- **Robustness.** Per-family robustness is a separate deliverable. `assess_robustness` short-circuits on any non-classification `task_kind` at `src/raitap/pipeline/phases/assess_robustness.py:78`. For detection specifically, Phase 4 (`DetectionAdversarialLoss`) is the planned follow-up.
+- **Robustness.** Per-family robustness is a separate deliverable. `assess_robustness` short-circuits on any non-classification `task_kind` in `src/raitap/robustness/phase.py`. For detection specifically, Phase 4 (`DetectionAdversarialLoss`) is the planned follow-up.
 - **Backward compatibility.** Every classification-only path stays bit-for-bit identical when the new family isn't selected. This is part of the test contract — assert it explicitly in integration.
 - **Visualiser pre-flight.** `transparency/factory.py` resolves the backend *before* the semantic compat check, so a visualiser whose `supported_tasks` excludes the active task_kind raises during config validation, not deep in the K-loop. Keep that ordering when adding family-specific visualisers.
