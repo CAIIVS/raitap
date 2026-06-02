@@ -12,12 +12,10 @@ from raitap.data import Data
 from raitap.data.preprocessing import resolve_preprocessing
 from raitap.models import Model
 from raitap.pipeline.outputs import RunOutputs
-from raitap.pipeline.phases.assess_robustness import assess_robustness
-from raitap.pipeline.phases.assess_transparency import assess_transparency
-from raitap.pipeline.phases.evaluate_metrics import evaluate_metrics
 from raitap.pipeline.phases.forward_pass import forward_pass
 from raitap.pipeline.phases.input_metadata import input_metadata_for_data
 from raitap.pipeline.phases.prediction_summaries import prediction_summaries
+from raitap.pipeline.phases.registry import ASSESSMENT_PHASES, PhaseContext, PhaseContribution
 from raitap.pipeline.ui import print_summary
 from raitap.reporting import build_report, create_report, reporting_enabled
 from raitap.reporting.sample_selection import resolve_report_sample_selection
@@ -131,44 +129,37 @@ def run_without_tracking(
     *,
     resolved_preprocessing: ResolvedPreprocessing | None = None,
 ) -> RunOutputs:
-    """Compose every phase except tracker setup.
+    """Compose every assessment phase except tracker setup.
 
     Public helper for tests and embedded callers that want the pipeline output
-    without instantiating a tracker. Composes the phase modules under
-    :mod:`raitap.pipeline.phases` in order.
+    without instantiating a tracker. Resolves which phases are configured from
+    :data:`~raitap.pipeline.phases.registry.ASSESSMENT_PHASES`, then runs each
+    over a shared :class:`~raitap.pipeline.phases.registry.PhaseContext`.
     """
+    # Config-only guard, before the (potentially expensive) forward pass: a run
+    # with no configured deliverable phase fails fast instead of after the fact.
+    configured_phases = [phase for phase in ASSESSMENT_PHASES if phase.is_configured(config)]
+    if not configured_phases:
+        _raise_no_phase_configured()
+
     raitap_log.info("Running model forward pass...")
     with torch.no_grad():
         forward_output = forward_pass(config, model.backend, data.tensor)
 
-    metrics_eval = evaluate_metrics(config, forward_output, data.labels)
-
-    if not (getattr(config, "transparency", None) or getattr(config, "robustness", None)):
-        raise ValueError("No explainers or robustness assessors configured")
-
-    input_metadata = input_metadata_for_data(config, data)
-    explanations, visualisations = assess_transparency(
-        config,
-        model,
-        data,
-        forward_output,
-        input_metadata=input_metadata,
+    context = PhaseContext(
+        config=config,
+        model=model,
+        data=data,
+        forward_output=forward_output,
+        input_metadata=input_metadata_for_data(config, data),
         resolved_preprocessing=resolved_preprocessing,
     )
-    robustness_results, robustness_visualisations = assess_robustness(
-        config,
-        model,
-        data,
-        forward_output,
-        labels=data.labels,
-        input_metadata=input_metadata,
-        resolved_preprocessing=resolved_preprocessing,
-    )
+    contribution = PhaseContribution.merge(phase.run(context) for phase in configured_phases)
 
     return RunOutputs(
-        explanations=explanations,
-        visualisations=visualisations,
-        metrics=metrics_eval,
+        explanations=contribution.explanations,
+        visualisations=contribution.visualisations,
+        metrics=contribution.metrics,
         forward_output=forward_output,
         sample_ids=data.sample_ids,
         targets=data.labels,
@@ -177,9 +168,14 @@ def run_without_tracking(
             sample_ids=data.sample_ids,
             targets=data.labels,
         ),
-        robustness_results=robustness_results,
-        robustness_visualisations=robustness_visualisations,
+        robustness_results=contribution.robustness_results,
+        robustness_visualisations=contribution.robustness_visualisations,
     )
+
+
+def _raise_no_phase_configured() -> None:
+    available = ", ".join(phase.name for phase in ASSESSMENT_PHASES)
+    raise ValueError(f"No assessment phase configured; configure at least one of: {available}")
 
 
 def _validate_report_sample_selection(config: AppConfig, data: Data) -> None:

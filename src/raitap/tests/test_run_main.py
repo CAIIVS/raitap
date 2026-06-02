@@ -603,23 +603,44 @@ def test_run_with_tracking_config_but_no_target_skips_tracking(monkeypatch: Monk
     tracker_factory.assert_not_called()
 
 
-def test_run_without_tracking_raises_if_no_explainers_or_assessors(
-    monkeypatch: MonkeyPatch,
-) -> None:
+def test_run_without_tracking_raises_if_no_phase_configured() -> None:
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     data = SimpleNamespace(tensor=torch.randn(2, 3), sample_ids=None, labels=None)
+    # No _target_ on metrics, empty transparency/robustness -> no phase configured.
     config = SimpleNamespace(
         transparency={},
         robustness={},
-        metrics=SimpleNamespace(num_classes=None),
+        metrics=SimpleNamespace(_target_=None, num_classes=None),
     )
 
-    monkeypatch.setattr(
-        "raitap.pipeline.phases.evaluate_metrics.metrics_run_enabled", lambda _cfg: False
-    )
-
-    with pytest.raises(ValueError, match="No explainers or robustness assessors configured"):
+    with pytest.raises(ValueError, match="No assessment phase configured"):
         run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
+
+
+def test_run_without_tracking_allows_metrics_only(monkeypatch: MonkeyPatch) -> None:
+    class _Net(torch.nn.Module):
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            del x
+            return torch.tensor([[0.1, 0.9, 0.0], [0.8, 0.1, 0.1]])
+
+    model = SimpleNamespace(backend=_BackendStub(_Net()))
+    data = SimpleNamespace(tensor=torch.randn(2, 4), sample_ids=None, labels=None)
+    # A real (non-empty) _target_ is exactly what metrics_run_enabled checks; no
+    # transparency/robustness configured -> genuine metrics-only run.
+    config = SimpleNamespace(
+        transparency={},
+        robustness={},
+        metrics=SimpleNamespace(_target_="MulticlassClassificationMetrics", num_classes=None),
+    )
+    monkeypatch.setattr(
+        "raitap.pipeline.phases.evaluate_metrics.Metrics", lambda _c, _p, _t: SimpleNamespace()
+    )
+
+    outputs = run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
+
+    assert outputs.metrics is not None
+    assert outputs.explanations == []
+    assert outputs.robustness_results == []
 
 
 def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: MonkeyPatch) -> None:
@@ -642,10 +663,7 @@ def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: M
 
     config = SimpleNamespace(
         transparency={"one": {}},
-        metrics=SimpleNamespace(num_classes=None),
-    )
-    monkeypatch.setattr(
-        "raitap.pipeline.phases.evaluate_metrics.metrics_run_enabled", lambda _cfg: True
+        metrics=SimpleNamespace(_target_="MulticlassClassificationMetrics", num_classes=None),
     )
     monkeypatch.setattr("raitap.pipeline.phases.assess_transparency.Explanation", _fake_explanation)
     monkeypatch.setattr("raitap.pipeline.phases.evaluate_metrics.Metrics", _fake_metrics)
@@ -675,10 +693,7 @@ def test_run_without_tracking_uses_provided_num_classes(monkeypatch: MonkeyPatch
 
     config = SimpleNamespace(
         transparency={"one": {}},
-        metrics=SimpleNamespace(num_classes=10),
-    )
-    monkeypatch.setattr(
-        "raitap.pipeline.phases.evaluate_metrics.metrics_run_enabled", lambda _cfg: True
+        metrics=SimpleNamespace(_target_="MulticlassClassificationMetrics", num_classes=10),
     )
     monkeypatch.setattr("raitap.pipeline.phases.assess_transparency.Explanation", _fake_explanation)
     monkeypatch.setattr(
