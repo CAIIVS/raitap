@@ -96,9 +96,7 @@ def test_run_without_tracking_passes_ground_truth_labels_to_metrics(
         captured["targets"] = targets
         return SimpleNamespace()
 
-    monkeypatch.setattr(
-        "raitap.metrics.phase.metrics_run_enabled", lambda _cfg: True
-    )
+    monkeypatch.setattr("raitap.metrics.phase.metrics_run_enabled", lambda _cfg: True)
     monkeypatch.setattr("raitap.metrics.phase.Metrics", fake_metrics)
     monkeypatch.setattr("raitap.transparency.phase.Explanation", DummyExplanation)
 
