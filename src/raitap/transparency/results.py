@@ -197,6 +197,10 @@ class ExplanationResult(Trackable):
                 "score": self.detection_box.score,
                 "label_index": self.detection_box.label_index,
                 "label_name": self.detection_box.label_name,
+                "ground_truth_evaluated": self.detection_box.ground_truth_evaluated,
+                "true_label_index": self.detection_box.true_label_index,
+                "true_label_name": self.detection_box.true_label_name,
+                "true_match_iou": self.detection_box.true_match_iou,
             }
         if self.original_sample_index is not None:
             metadata["original_sample_index"] = self.original_sample_index
@@ -262,10 +266,15 @@ class ExplanationResult(Trackable):
             # Standard visualise() call with context and library-specific kwargs
             figure = vis.visualise(attributions, inputs=inputs, context=context, **merged_call)
 
-            # Legacy fallback for visualisers that don't handle titles themselves via context
+            # Legacy fallback for visualisers that don't handle titles themselves via
+            # context. Detection per-box figures are title-less by design (label / score
+            # / GT live on the overlay + report heading), so they opt out — otherwise a
+            # sample-name suptitle would silently reappear now that the axis title was
+            # removed (issue #233).
             if (
                 show_sample_names
                 and sample_names
+                and self.detection_box is None
                 and not figure.texts
                 and not any(ax.get_title() for ax in figure.axes)
             ):
@@ -418,9 +427,12 @@ class ExplanationResult(Trackable):
             if visualiser_with_sample_index is not None:
                 visualiser_with_sample_index.sample_index = original_visualiser_sample_index
 
+        # Detection per-box figures opt out of the sample-name suptitle fallback —
+        # they are title-less by design (see the matching guard above, issue #233).
         if (
             show_sample_names
             and sample_names
+            and self.detection_box is None
             and not figure.texts
             and not any(ax.get_title() for ax in figure.axes)
         ):

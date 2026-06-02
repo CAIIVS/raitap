@@ -65,7 +65,9 @@ def test_visualiser_returns_figure_with_axis_limits_matching_image() -> None:
     assert abs(ylim[1] - ylim[0]) == pytest.approx(64.0, abs=2.0)
 
 
-def test_visualiser_title_carries_label_name_and_score() -> None:
+def test_visualiser_sets_no_title() -> None:
+    # The per-box figure carries no title: label / score / GT live only on the
+    # thumbnail overlay and the report heading, never duplicated on the figure.
     vis = DetectionImageVisualiser()
     inputs = torch.rand(1, 3, 32, 32)
     attributions = torch.zeros_like(inputs)
@@ -76,24 +78,7 @@ def test_visualiser_title_carries_label_name_and_score() -> None:
         detection_box=_box(label_name="car"),
     )
     fig = vis.visualise(attributions, inputs, context=ctx)
-    title = fig.get_axes()[0].get_title()
-    assert "car" in title
-    assert "0.87" in title
-
-
-def test_visualiser_falls_back_to_class_id_when_label_name_missing() -> None:
-    vis = DetectionImageVisualiser()
-    inputs = torch.rand(1, 3, 32, 32)
-    attributions = torch.zeros_like(inputs)
-    ctx = VisualisationContext(
-        algorithm="x",
-        sample_names=None,
-        show_sample_names=False,
-        detection_box=_box(label_name=None),
-    )
-    fig = vis.visualise(attributions, inputs, context=ctx)
-    title = fig.get_axes()[0].get_title()
-    assert "class 4" in title
+    assert fig.get_axes()[0].get_title() == ""
 
 
 def test_visualiser_raises_when_detection_box_missing() -> None:
@@ -392,3 +377,35 @@ def test_untitled_visualiser_falls_back_to_class_index_group_name() -> None:
 
     untitled = DetectionImageVisualiser()
     assert _visualiser_group_name(untitled, 2) == "DetectionImageVisualiser_2"
+
+
+# ---------------------------------------------------------------------------
+# No-title invariant (GT info lives on the overlay + report heading, not here)
+# ---------------------------------------------------------------------------
+
+
+def test_visualiser_sets_no_title_even_with_ground_truth() -> None:
+    # GT match details must NOT leak onto the per-box figure title — they are
+    # rendered only on the thumbnail overlay and report heading.
+    vis = DetectionImageVisualiser()
+    inputs = torch.rand(1, 3, 32, 32)
+    attributions = torch.zeros_like(inputs)
+    ctx = VisualisationContext(
+        algorithm="x",
+        sample_names=None,
+        show_sample_names=False,
+        detection_box=DetectionBox(
+            display_index=0,
+            raw_index=0,
+            xyxy=(2.0, 3.0, 22.0, 23.0),
+            score=0.99,
+            label_index=1,
+            label_name="kite",
+            ground_truth_evaluated=True,
+            true_label_name="sheep",
+            true_label_index=3,
+            true_match_iou=0.71,
+        ),
+    )
+    fig = vis.visualise(attributions, inputs, context=ctx)
+    assert fig.axes[0].get_title() == ""

@@ -81,3 +81,20 @@ transparency = {
     ),
 }
 ```
+
+## Box labels and ground truth
+
+Boxes are labelled in the report headings and on the thumbnail overlay; the
+per-box attribution figures stay title-less (a title would only duplicate them).
+
+**Predicted name.** A box reads `kite`, not `class 38`, when a name source is
+available: torchvision detectors use their bundled categories automatically;
+otherwise set `model.class_names` (id-ordered, index 0 first), which takes
+precedence. With neither, boxes fall back to `class <id>`.
+
+**True label.** Set `data.labels.source` + `data.labels.kind: detection` to match
+each box to the ground-truth object it overlaps most, shown as
+`gt: <name> (IoU <value>)`. The match is by overlap alone, so disagreements
+surface (`pred: dog 0.92 | gt: cat (IoU 0.71)`); a box overlapping no labelled
+object reads `gt: no match`, and with no ground truth the `gt:` clause is
+omitted. Matching reuses `raitap.detection.iou_threshold`.

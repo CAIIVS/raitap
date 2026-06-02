@@ -25,7 +25,7 @@ from raitap.robustness.contracts import (
     PerturbationDistribution,
     ReportFigureScope,
 )
-from raitap.transparency.contracts import ExplanationScope, VisualisationContext
+from raitap.transparency.contracts import DetectionBox, ExplanationScope, VisualisationContext
 from raitap.transparency.visualisers import BaseVisualiser, InputThumbnailVisualiser
 
 from .filenames import report_output_filename
@@ -700,6 +700,31 @@ def _native_scope_groups(
     ]
 
 
+def _detection_box_heading(box: DetectionBox) -> str:
+    """One-line ``Box`` heading clause: predicted label + optional ground-truth match.
+
+    Shows the ``gt:`` clause only when GT was evaluated for the box's sample —
+    a matched box reads ``pred: X 0.99 | gt: Y (IoU ..)``; a no-match box reads
+    ``| gt: no match`` (neutral, not "false positive" — GT may be incomplete);
+    with no GT, the legacy ``label, score=..`` form is unchanged.
+    """
+    label = box.label_name or f"class {box.label_index}"
+    if not box.ground_truth_evaluated:
+        return f"{label}, score={box.score:.2f}"
+    if box.true_label_index is None:
+        ground_truth_clause = "no match"
+    else:
+        ground_truth_name = box.true_label_name or f"class {box.true_label_index}"
+        # ``true_match_iou`` is normally set alongside the index by the matcher;
+        # guard the format in case a caller populates only the label.
+        ground_truth_clause = (
+            f"{ground_truth_name} (IoU {box.true_match_iou:.2f})"
+            if box.true_match_iou is not None
+            else ground_truth_name
+        )
+    return f"pred: {label} {box.score:.2f} | gt: {ground_truth_clause}"
+
+
 def _build_local_section(
     outputs: RunOutputs,
     *,
@@ -812,10 +837,9 @@ def _build_local_section(
                 }
                 heading_box_part = ""
                 if detection_box is not None:
-                    label = detection_box.label_name or f"class {detection_box.label_index}"
                     heading_box_part = (
                         f" - Box {detection_box.display_index}"
-                        f" ({label}, score={detection_box.score:.2f})"
+                        f" ({_detection_box_heading(detection_box)})"
                     )
                     metadata["detection_box"] = {
                         "display_index": detection_box.display_index,
@@ -824,6 +848,10 @@ def _build_local_section(
                         "label_index": detection_box.label_index,
                         "label_name": detection_box.label_name,
                         "xyxy": list(detection_box.xyxy),
+                        "ground_truth_evaluated": detection_box.ground_truth_evaluated,
+                        "true_label_index": detection_box.true_label_index,
+                        "true_label_name": detection_box.true_label_name,
+                        "true_match_iou": detection_box.true_match_iou,
                     }
                 visualiser_title = getattr(configured.visualiser, "title", None)
                 if visualiser_title:
@@ -1099,6 +1127,9 @@ def _overlay_detection_boxes(figure: Any, *, outputs: RunOutputs, sample_index: 
     if not axes:
         return
     ax = axes[0]
+    # On the image: only a compact ``#index`` tag per box (anchored inside its
+    # top-left corner) so labels never collide when boxes are close. The full
+    # per-box detail goes in a legend below the image, keyed by the same index.
     for box in boxes:
         x1, y1, x2, y2 = box.xyxy
         ax.add_patch(
@@ -1111,15 +1142,48 @@ def _overlay_detection_boxes(figure: Any, *, outputs: RunOutputs, sample_index: 
                 facecolor="none",
             )
         )
-        label = box.label_name or f"class {box.label_index}"
         ax.text(
-            x1,
-            max(y1 - 4, 4),
-            f"#{box.display_index} {label} ({box.score:.2f})",
-            color="lime",
-            fontsize=7,
-            bbox={"facecolor": "black", "alpha": 0.55, "pad": 1, "edgecolor": "none"},
+            x1 + 2,
+            y1 + 2,
+            f"#{box.display_index}",
+            color="black",
+            fontsize=8,
+            fontweight="bold",
+            va="top",
+            ha="left",
+            bbox={"facecolor": "lime", "alpha": 0.9, "pad": 1, "edgecolor": "none"},
         )
+    # Legend below the image (``bbox_inches="tight"`` at save time keeps it in
+    # frame). One line per box; close boxes stay legible because their detail
+    # lives here, not stacked on the image.
+    legend = "\n".join(_overlay_legend_line(box) for box in boxes)
+    ax.text(
+        0.0,
+        -0.02,
+        legend,
+        transform=ax.transAxes,
+        va="top",
+        ha="left",
+        fontsize=7,
+        family="monospace",
+        color="#222222",
+        bbox={"facecolor": "white", "edgecolor": "#bbbbbb", "boxstyle": "round,pad=0.4"},
+        clip_on=False,
+    )
+
+
+def _overlay_legend_line(box: DetectionBox) -> str:
+    """One legend row for a detection box: ``#i name (score) [| gt: ...]``."""
+    label = box.label_name or f"class {box.label_index}"
+    base = f"#{box.display_index} {label} ({box.score:.2f})"
+    if not box.ground_truth_evaluated:
+        return base
+    if box.true_label_index is None:
+        return f"{base} | gt: no match"
+    ground_truth_name = box.true_label_name or f"class {box.true_label_index}"
+    if box.true_match_iou is None:  # label without a match IoU — show name alone
+        return f"{base} | gt: {ground_truth_name}"
+    return f"{base} | gt: {ground_truth_name} (IoU {box.true_match_iou:.2f})"
 
 
 # Human-facing labels for the baseline ``mode`` token. The raw token is kept in

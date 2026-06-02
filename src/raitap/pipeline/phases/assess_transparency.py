@@ -135,8 +135,15 @@ def _assess_transparency_detection(
     """
     from raitap.configs import resolve_run_dir
     from raitap.configs.adapter_factory import resolve_per_image_transform
-    from raitap.pipeline.phases.explain_detection import explain_detection
+    from raitap.pipeline.phases.explain_detection import (
+        _DEFAULT_IOU_THRESHOLD,
+        explain_detection,
+    )
     from raitap.transparency.baselines import apply_config_baseline
+    from raitap.transparency.detection_labels import (
+        enrich_detection_box,
+        resolve_category_names,
+    )
     from raitap.transparency.factory import (
         _PARSED_EXPLAINER_CONFIG_CACHE,
         _parse_explainer_config,
@@ -152,6 +159,12 @@ def _assess_transparency_detection(
     explanations: list[ExplanationResult] = []
     visualisations: list[VisualisationResult] = []
     backend = _require_model_backend(model)
+    category_names = resolve_category_names(
+        config.model.class_names,
+        backend.category_names,
+    )
+    data_labels = getattr(data, "labels", None)
+    detection_ground_truth = data_labels if isinstance(data_labels, list) else None
 
     for name in explainer_names:
         explainer_config = config.transparency[name]
@@ -174,6 +187,9 @@ def _assess_transparency_detection(
 
             call_from_config = dict(parsed.call)
             raitap_cfg = dict(parsed.raitap)
+            ground_truth_iou_threshold = float(
+                raitap_cfg.get("detection", {}).get("iou_threshold", _DEFAULT_IOU_THRESHOLD)
+            )
             if data.sample_ids is not None:
                 raitap_cfg["sample_ids"] = data.sample_ids
                 raitap_cfg["sample_names"] = data.sample_ids
@@ -213,6 +229,29 @@ def _assess_transparency_detection(
                 call_kwargs=merged_kwargs,
                 call_provenance=call_provenance,
             ):
+                if result.detection_box is not None:
+                    sample_index = result.original_sample_index
+                    ground_truth_for_sample = None
+                    if detection_ground_truth is not None and sample_index is not None:
+                        if sample_index < len(detection_ground_truth):
+                            ground_truth_for_sample = detection_ground_truth[sample_index]
+                        else:
+                            # Loader guarantees len(detection_ground_truth) == n_samples, so this
+                            # only fires on a genuine prediction/label misalignment;
+                            # surface it instead of silently skipping the GT match.
+                            raitap_log.warn(
+                                "Detection ground truth has %d entries but an explanation "
+                                "references sample_index=%d; rendering this box without a "
+                                "true label (prediction/label misalignment).",
+                                len(detection_ground_truth),
+                                sample_index,
+                            )
+                    result.detection_box = enrich_detection_box(
+                        result.detection_box,
+                        category_names=category_names,
+                        ground_truth_for_sample=ground_truth_for_sample,
+                        iou_threshold=ground_truth_iou_threshold,
+                    )
                 explanations.append(result)
                 visualisations.extend(result.visualise())
         finally:

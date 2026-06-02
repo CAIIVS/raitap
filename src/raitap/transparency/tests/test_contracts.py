@@ -290,3 +290,33 @@ def test_baseline_record_is_frozen_and_carries_descriptor() -> None:
     assert record.shape == (50, 3, 224, 224)
     with pytest.raises(dataclasses.FrozenInstanceError):
         record.mode = "zero"  # type: ignore[misc]  # frozen
+
+
+def test_detection_box_gt_fields_default_unset() -> None:
+    from raitap.transparency.contracts import DetectionBox
+
+    box = DetectionBox(display_index=0, raw_index=0, xyxy=(0, 0, 1, 1), score=0.9, label_index=38)
+    assert box.true_label_index is None
+    assert box.true_label_name is None
+    assert box.true_match_iou is None
+    assert box.ground_truth_evaluated is False
+
+
+def test_detection_box_gt_fields_set() -> None:
+    from raitap.transparency.contracts import DetectionBox
+
+    box = DetectionBox(
+        display_index=0,
+        raw_index=0,
+        xyxy=(0, 0, 1, 1),
+        score=0.9,
+        label_index=38,
+        label_name="kite",
+        true_label_index=20,
+        true_label_name="sheep",
+        true_match_iou=0.71,
+        ground_truth_evaluated=True,
+    )
+    assert box.true_label_name == "sheep"
+    assert box.true_match_iou == 0.71
+    assert box.ground_truth_evaluated is True
