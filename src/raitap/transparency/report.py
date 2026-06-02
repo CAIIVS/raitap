@@ -68,6 +68,7 @@ class TransparencyPhase(AssessmentPhase):
         )
         return TransparencyPhaseResult(explanations=explanations, visualisations=visualisations)
 
+
 _DISPLAY_ONLY_VISUALISER_KWARGS = frozenset(
     {
         "max_samples",
