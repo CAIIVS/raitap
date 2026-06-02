@@ -128,11 +128,22 @@ Each value in `phase_results` is a `PhaseResult` (a `Trackable` + `Reportable`).
 | `"transparency"` | `TransparencyPhaseResult`  | `.explanations` (attribution tensors + metadata), `.visualisations`.     |
 | `"robustness"`   | `RobustnessPhaseResult`    | `.robustness_results` (adversarial tensors + per-sample flags), `.robustness_visualisations`. |
 
+For the in-tree phases, convenience properties read straight off `phase_results`, so the ergonomic access keeps working:
+
+| Property | Equivalent |
+| --- | --- |
+| `result.metrics` | `phase_results.get("metrics")` (`MetricsEvaluation \| None`) |
+| `result.explanations` / `result.visualisations` | the transparency result's lists (`[]` if it didn't run) |
+| `result.robustness_results` / `result.robustness_visualisations` | the robustness result's lists (`[]` if it didn't run) |
+
 ```python
 result = run(cfg)
-metrics = result.phase_results.get("metrics")          # None if metrics unconfigured
-if "transparency" in result.phase_results:
-    explanations = result.phase_results["transparency"].explanations
+if result.metrics is not None:
+    print(result.metrics.result.metrics)
+for explanation in result.explanations:        # [] when transparency didn't run
+    ...
+# New / out-of-tree phases: reach them by key.
+fairness = result.phase_results.get("fairness")
 ```
 
 ## Multiruns in Python
@@ -154,6 +165,5 @@ for eps in (0.01, 0.03, 0.06, 0.1):
     results.append((eps, run(copied_cfg, verbose=False)))
 
 for eps, outputs in results:
-    metrics = outputs.phase_results.get("metrics")
-    print(eps, metrics.result.metrics if metrics else None)
+    print(eps, outputs.metrics.result.metrics if outputs.metrics else None)
 ```

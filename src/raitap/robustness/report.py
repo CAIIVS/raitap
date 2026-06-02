@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import matplotlib.pyplot as plt
 
+from raitap.pipeline.phases.assess_robustness import assess_robustness
+from raitap.pipeline.phases.base import AssessmentPhase
 from raitap.reporting.sections import ReportGroup, ReportSection
 from raitap.reporting.staging import _copy_asset, _safe_name, _strip_report_figure_titles
 from raitap.robustness.contracts import (
@@ -32,6 +34,9 @@ if TYPE_CHECKING:
 
     import torch
 
+    from raitap.configs.schema import AppConfig
+    from raitap.pipeline.outputs import PhaseResult
+    from raitap.pipeline.phases.base import PhaseContext
     from raitap.reporting.samples import SelectedSample
     from raitap.reporting.sections import ReportContext
     from raitap.robustness.results import RobustnessResult, RobustnessVisualisationResult
@@ -39,6 +44,28 @@ if TYPE_CHECKING:
     from raitap.tracking.base_tracker import BaseTracker
 else:
     torch = lazy_import("torch")
+
+
+class RobustnessPhase(AssessmentPhase):
+    name = "robustness"
+
+    def is_configured(self, config: AppConfig) -> bool:
+        return bool(getattr(config, "robustness", None))
+
+    def run(self, ctx: PhaseContext) -> PhaseResult | None:
+        results, visualisations = assess_robustness(
+            ctx.config,
+            ctx.model,
+            ctx.data,
+            ctx.forward_output,
+            labels=ctx.data.labels,
+            input_metadata=ctx.input_metadata,
+            resolved_preprocessing=ctx.resolved_preprocessing,
+        )
+        return RobustnessPhaseResult(
+            robustness_results=results,
+            robustness_visualisations=visualisations,
+        )
 
 
 @dataclass

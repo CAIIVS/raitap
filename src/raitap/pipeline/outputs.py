@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, cast, runtime_checkable
 
 from raitap.types import TaskKind
 
@@ -12,8 +12,11 @@ if TYPE_CHECKING:
 
     import torch
 
+    from raitap.metrics import MetricsEvaluation
     from raitap.reporting.sections import ReportContext, ReportSection
+    from raitap.robustness.results import RobustnessResult, RobustnessVisualisationResult
     from raitap.tracking.base_tracker import BaseTracker
+    from raitap.transparency.results import ExplanationResult, VisualisationResult
 
 
 @runtime_checkable
@@ -85,3 +88,31 @@ class RunOutputs:
     sample_ids: list[str] | None = None
     targets: torch.Tensor | list[dict[str, torch.Tensor]] | None = None
     prediction_summaries: tuple[PredictionSummary, ...] = ()
+
+    # Read-only convenience views over ``phase_results`` for the in-tree phases.
+    # ``phase_results`` is the source of truth (and how new modules are reached);
+    # these keep the ergonomic ``outputs.metrics`` / ``outputs.explanations``
+    # access working. Empty / ``None`` when the phase didn't run.
+    @property
+    def metrics(self) -> MetricsEvaluation | None:
+        return cast("MetricsEvaluation | None", self.phase_results.get("metrics"))
+
+    @property
+    def explanations(self) -> list[ExplanationResult]:
+        result = self.phase_results.get("transparency")
+        return list(getattr(result, "explanations", [])) if result is not None else []
+
+    @property
+    def visualisations(self) -> list[VisualisationResult]:
+        result = self.phase_results.get("transparency")
+        return list(getattr(result, "visualisations", [])) if result is not None else []
+
+    @property
+    def robustness_results(self) -> list[RobustnessResult]:
+        result = self.phase_results.get("robustness")
+        return list(getattr(result, "robustness_results", [])) if result is not None else []
+
+    @property
+    def robustness_visualisations(self) -> list[RobustnessVisualisationResult]:
+        result = self.phase_results.get("robustness")
+        return list(getattr(result, "robustness_visualisations", [])) if result is not None else []

@@ -20,6 +20,8 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import matplotlib.pyplot as plt
 
 from raitap import raitap_log
+from raitap.pipeline.phases.assess_transparency import assess_transparency
+from raitap.pipeline.phases.base import AssessmentPhase
 from raitap.reporting.samples import _requested_sample_metadata
 from raitap.reporting.sections import ReportGroup, ReportSection
 from raitap.reporting.staging import (
@@ -38,12 +40,33 @@ if TYPE_CHECKING:
 
     import torch
 
+    from raitap.configs.schema import AppConfig
+    from raitap.pipeline.outputs import PhaseResult
+    from raitap.pipeline.phases.base import PhaseContext
     from raitap.reporting.samples import SelectedSample
     from raitap.reporting.sections import ReportContext
     from raitap.tracking.base_tracker import BaseTracker
     from raitap.transparency.results import ExplanationResult, VisualisationResult
 else:
     torch = lazy_import("torch")
+
+
+class TransparencyPhase(AssessmentPhase):
+    name = "transparency"
+
+    def is_configured(self, config: AppConfig) -> bool:
+        return bool(getattr(config, "transparency", None))
+
+    def run(self, ctx: PhaseContext) -> PhaseResult | None:
+        explanations, visualisations = assess_transparency(
+            ctx.config,
+            ctx.model,
+            ctx.data,
+            ctx.forward_output,
+            input_metadata=ctx.input_metadata,
+            resolved_preprocessing=ctx.resolved_preprocessing,
+        )
+        return TransparencyPhaseResult(explanations=explanations, visualisations=visualisations)
 
 _DISPLAY_ONLY_VISUALISER_KWARGS = frozenset(
     {

@@ -26,10 +26,10 @@ The walkthrough below uses a fictional `fairness` module.
 | `src/raitap/fairness/assessors/base_assessor.py` | Abstract base — subclasses implement one method |
 | `src/raitap/fairness/assessors/registration.py` | `register_fairness_adapter` family decorator |
 | `src/raitap/fairness/factory.py` | Iterates `config.fairness` dict, instantiates + runs each adapter |
-| `src/raitap/fairness/report.py` | `FairnessPhaseResult(Trackable, Reportable)` — owns tracker logging + report sections |
+| `src/raitap/fairness/report.py` | `FairnessPhase(AssessmentPhase)` + `FairnessPhaseResult(Trackable, Reportable)` — your phase (check + run) and its result (logging + report sections), co-located |
 | `src/raitap/configs/schema.py` | Add `FairnessConfig` + `fairness:` field on `AppConfig` |
-| `src/raitap/pipeline/phases/assess_fairness.py` | Pipeline phase that calls the factory |
-| `src/raitap/pipeline/phases/registry.py` | Add a `FairnessPhase` and list it in `ASSESSMENT_PHASES` |
+| `src/raitap/pipeline/phases/assess_fairness.py` | The phase *work* function the `FairnessPhase.run` calls (mirrors `assess_transparency`) |
+| `src/raitap/pipeline/phases/registry.py` | Import `FairnessPhase` + add one entry to `ASSESSMENT_PHASES` — the only pipeline edit |
 | `pyproject.toml` | Optional: `fairness = [...]` extra if the module wraps libraries |
 | `docs/modules/fairness/*.md` | User-facing docs + `frameworks-and-libraries.md` |
 | `tests/...` | Per-adapter tests + family E2E + `test_partial_extras_safe.py` |
@@ -186,7 +186,7 @@ class FairnessPhaseResult(Trackable):
         ...  # stage figures into ctx.assets_dir, return ordered sections
 ```
 
-**c. Register the phase** (`pipeline/phases/registry.py`) — add an `AssessmentPhase` whose `run` returns the result, and list it in `ASSESSMENT_PHASES`:
+**c. The phase class** lives in your module (`fairness/report.py`, alongside the result), subclassing `AssessmentPhase` from `raitap.pipeline.phases.base`:
 
 ```python
 class FairnessPhase(AssessmentPhase):
@@ -197,6 +197,12 @@ class FairnessPhase(AssessmentPhase):
 
     def run(self, ctx) -> PhaseResult | None:
         return FairnessPhaseResult(fairness_results=list(assess_fairness(ctx.config, ...)))
+```
+
+**d. Register it** — the one pipeline edit (`pipeline/phases/registry.py`): import your phase + add it to the list:
+
+```python
+from raitap.fairness.report import FairnessPhase
 
 ASSESSMENT_PHASES = (MetricsPhase(), TransparencyPhase(), RobustnessPhase(), FairnessPhase())
 ```
