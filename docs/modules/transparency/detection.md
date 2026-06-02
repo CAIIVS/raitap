@@ -84,28 +84,17 @@ transparency = {
 
 ## Box labels and ground truth
 
-Each explained box is labelled in the report headings and on the original-image
-thumbnail overlay with its **predicted class name** and, when ground truth is
-available, the **true label** of the closest real object. The per-box
-attribution figures carry no title — the label, score, and ground-truth match
-would only duplicate what the overlay and heading already show.
+Boxes are labelled in the report headings and on the thumbnail overlay; the
+per-box attribution figures stay title-less (a title would only duplicate them).
 
-**Predicted class names.** A box reads `kite` instead of `class 38` whenever a
-class-name source is available:
+**Predicted name.** A box reads `kite`, not `class 38`, when a name source is
+available: torchvision detectors use their bundled categories automatically;
+otherwise set `model.class_names` (id-ordered, index 0 first), which takes
+precedence. With neither, boxes fall back to `class <id>`.
 
-- For pretrained torchvision detectors, the model's bundled category names are
-  used automatically — no configuration needed.
-- For your own model, set `model.class_names` to the id-ordered list of names
-  (index 0 first). This takes precedence over any bundled names.
-- With neither, boxes fall back to the numeric form `class <id>`.
-
-**True labels.** When you configure detection ground truth
-(`data.labels.source` with `data.labels.kind: detection`), each box is matched
-to the ground-truth object it overlaps most and shows that object's label plus
-the overlap as `gt: <name> (IoU <value>)`. The match is by overlap alone, so a
-disagreement is visible directly — e.g. `pred: dog 0.92 | gt: cat (IoU 0.71)`.
-A box that overlaps no labelled object reads `gt: no match`. IoU (intersection
-over union) ranges 0–1; the match uses the same `raitap.detection.iou_threshold`
-as the explanation, and a higher value means a tighter overlap.
-
-With no ground truth configured, no `gt:` line is shown.
+**True label.** Set `data.labels.source` + `data.labels.kind: detection` to match
+each box to the ground-truth object it overlaps most, shown as
+`gt: <name> (IoU <value>)`. The match is by overlap alone, so disagreements
+surface (`pred: dog 0.92 | gt: cat (IoU 0.71)`); a box overlapping no labelled
+object reads `gt: no match`, and with no ground truth the `gt:` clause is
+omitted. Matching reuses `raitap.detection.iou_threshold`.
