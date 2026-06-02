@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import shutil
-from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
-from enum import Enum, StrEnum
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -18,7 +17,6 @@ if TYPE_CHECKING:
 else:
     torch = lazy_import("torch")
 from raitap.configs import resolve_run_dir
-from raitap.pipeline.outputs import PredictionSummary, RunOutputs
 from raitap.robustness.contracts import (
     AssessmentKind,
     PerturbationBudget,
@@ -30,7 +28,14 @@ from raitap.transparency.visualisers import BaseVisualiser, InputThumbnailVisual
 
 from .filenames import report_output_filename
 from .manifest import ReportManifest
-from .sample_selection import ResolvedReportSample, resolve_report_sample_selection
+from .sample_selection import resolve_report_sample_selection
+from .samples import (
+    EdgecaseSelectorStrategy,
+    SampleSelectionStrategy,
+    SelectedSample,
+    UserSelectorStrategy,
+    report_batch_size,
+)
 from .sections import ReportGroup, ReportSection
 from .staging import (
     _copy_asset,
@@ -41,13 +46,11 @@ from .staging import (
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
+    from raitap.pipeline.outputs import RunOutputs
     from raitap.robustness.results import RobustnessVisualisationResult
     from raitap.robustness.visualisers.base_visualiser import BaseRobustnessVisualiser
     from raitap.transparency.results import VisualisationResult
 
-# Caps both the selected sample pool and, after reserving the first item for the
-# overview, the number of detail groups shown in the local section.
-_MAX_LOCAL_DETAIL_SAMPLES = 3
 _DISPLAY_ONLY_VISUALISER_KWARGS = frozenset(
     {
         "max_samples",
@@ -60,19 +63,6 @@ _DISPLAY_ONLY_VISUALISER_KWARGS = frozenset(
         "colorbar",
     }
 )
-
-
-class SelectionSource(StrEnum):
-    AUTOMATIC = "automatic"
-    USER = "user"
-
-
-@dataclass(frozen=True)
-class SelectedSample:
-    label: str
-    summary: PredictionSummary
-    selection_source: SelectionSource = SelectionSource.AUTOMATIC
-    requested_sample: object | None = None
 
 
 @dataclass(frozen=True)
@@ -98,7 +88,7 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
     explicit_samples = resolve_report_sample_selection(
         configured_selection,
         sample_ids=outputs.sample_ids,
-        batch_size=_batch_size(outputs),
+        batch_size=report_batch_size(outputs),
     )
     sample_strategy: SampleSelectionStrategy = (
         UserSelectorStrategy(explicit_samples)
@@ -1420,92 +1410,6 @@ def _render_kwargs_for_visualiser(
     if not visualiser.renders_attribution_only_when_original_hidden():
         return {}
     return {"include_original_input": False}
-
-
-class SampleSelectionStrategy(ABC):
-    @abstractmethod
-    def select(self, outputs: RunOutputs) -> list[SelectedSample]:
-        """Return the samples that should be highlighted in the local section."""
-
-
-class UserSelectorStrategy(SampleSelectionStrategy):
-    def __init__(self, resolved_samples: list[ResolvedReportSample]) -> None:
-        self._resolved_samples = resolved_samples
-
-    def select(self, outputs: RunOutputs) -> list[SelectedSample]:
-        summaries = {summary.sample_index: summary for summary in outputs.prediction_summaries}
-        return [
-            SelectedSample(
-                label="user_selected",
-                summary=summaries.get(
-                    resolved.sample_index,
-                    PredictionSummary(
-                        sample_index=resolved.sample_index,
-                        predicted_class=-1,
-                        confidence=0.0,
-                        sample_id=resolved.sample_id,
-                    ),
-                ),
-                selection_source=SelectionSource.USER,
-                requested_sample=resolved.requested_sample,
-            )
-            for resolved in self._resolved_samples
-        ]
-
-
-class EdgecaseSelectorStrategy(SampleSelectionStrategy):
-    def select(self, outputs: RunOutputs) -> list[SelectedSample]:
-        summaries = list(outputs.prediction_summaries)
-        if summaries:
-            picked = self._pick_tiered(summaries)
-            if picked:
-                return picked
-        return self._placeholder_samples(outputs)
-
-    def _pick_tiered(self, summaries: list[PredictionSummary]) -> list[SelectedSample]:
-        selected: list[SelectedSample] = []
-        seen: set[int] = set()
-        tiers = (
-            ("wrong", [s for s in summaries if s.correct is False], True),
-            ("insecure", summaries, False),
-            ("high_confidence", [s for s in summaries if s.correct is not False], True),
-        )
-        for label, candidates, reverse in tiers:
-            if not candidates:
-                continue
-            ordered = sorted(candidates, key=lambda item: item.confidence, reverse=reverse)
-            for candidate in ordered:
-                if candidate.sample_index in seen:
-                    continue
-                selected.append(SelectedSample(label=label, summary=candidate))
-                seen.add(candidate.sample_index)
-                break
-            if len(selected) >= _MAX_LOCAL_DETAIL_SAMPLES:
-                break
-        return selected
-
-    def _placeholder_samples(self, outputs: RunOutputs) -> list[SelectedSample]:
-        total = _batch_size(outputs)
-        if total <= 0:
-            return []
-        count = min(total, _MAX_LOCAL_DETAIL_SAMPLES)
-        sample_ids = outputs.sample_ids or []
-        return [
-            SelectedSample(
-                label="sample",
-                summary=PredictionSummary(
-                    sample_index=index,
-                    predicted_class=-1,
-                    confidence=0.0,
-                    sample_id=sample_ids[index] if index < len(sample_ids) else None,
-                ),
-            )
-            for index in range(count)
-        ]
-
-
-def _batch_size(outputs: RunOutputs) -> int:
-    return outputs.forward_output.batch_size
 
 
 def _sample_names_for_explanation(explanation: object, sample_index: int) -> list[str]:
