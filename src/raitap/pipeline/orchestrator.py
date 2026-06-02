@@ -26,12 +26,39 @@ from raitap.tracking import BaseTracker
 from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import torch
 
     from raitap.configs.schema import AppConfig
     from raitap.data.preprocessing import ResolvedPreprocessing
 else:
     torch = lazy_import("torch")
+
+
+# Pipeline "deliverable" phases: each produces output a run can stand on, and a
+# run must configure at least one. This tuple is the single source of truth for
+# the metrics-only / transparency-only / …-only guard — adding a new assessment
+# module (e.g. fairness) means adding one entry here, and both the guard and its
+# error message pick it up automatically. (This makes the *guard* extensible; the
+# per-phase calls, RunOutputs fields, and report sections remain hardcoded.)
+_ASSESSMENT_PHASES: tuple[tuple[str, Callable[[AppConfig], bool]], ...] = (
+    ("metrics", metrics_run_enabled),
+    ("transparency", lambda config: bool(getattr(config, "transparency", None))),
+    ("robustness", lambda config: bool(getattr(config, "robustness", None))),
+)
+
+
+def _require_configured_assessment(config: AppConfig) -> None:
+    """Raise unless at least one assessment phase is configured.
+
+    Config-only check — call it before any expensive phase work (forward pass,
+    metrics) so a no-deliverable run fails fast instead of after the fact.
+    """
+    if any(is_configured(config) for _name, is_configured in _ASSESSMENT_PHASES):
+        return
+    available = ", ".join(name for name, _ in _ASSESSMENT_PHASES)
+    raise ValueError(f"No assessment phase configured; configure at least one of: {available}")
 
 
 def _run_pipeline(
@@ -138,18 +165,13 @@ def run_without_tracking(
     without instantiating a tracker. Composes the phase modules under
     :mod:`raitap.pipeline.phases` in order.
     """
+    _require_configured_assessment(config)
+
     raitap_log.info("Running model forward pass...")
     with torch.no_grad():
         forward_output = forward_pass(config, model.backend, data.tensor)
 
     metrics_eval = evaluate_metrics(config, forward_output, data.labels)
-
-    if not (
-        metrics_run_enabled(config)
-        or getattr(config, "transparency", None)
-        or getattr(config, "robustness", None)
-    ):
-        raise ValueError("No metrics, explainers, or robustness assessors configured")
 
     input_metadata = input_metadata_for_data(config, data)
     explanations, visualisations = assess_transparency(
