@@ -227,6 +227,7 @@ def test_pipeline_allows_robustness_only_runs(tmp_path: Path) -> None:
 
     outputs = _run_without_tracking(config, raitap_model, data_stub)  # type: ignore[arg-type]
 
-    assert outputs.explanations == []
-    assert len(outputs.robustness_results) == 1
-    assert outputs.robustness_results[0].assessor_name == "pgd"
+    assert "transparency" not in outputs.phase_results
+    robustness = outputs.phase_results["robustness"]
+    assert len(robustness.robustness_results) == 1
+    assert robustness.robustness_results[0].assessor_name == "pgd"

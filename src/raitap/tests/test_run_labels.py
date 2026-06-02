@@ -108,6 +108,6 @@ def test_run_without_tracking_passes_ground_truth_labels_to_metrics(
         cast("Data", cast("object", data)),
     )
 
-    assert outputs.metrics is not None
+    assert "metrics" in outputs.phase_results
     assert torch.equal(captured["predictions"], torch.tensor([1, 0]))
     assert torch.equal(captured["targets"], data.labels)

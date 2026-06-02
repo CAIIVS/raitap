@@ -41,6 +41,12 @@ def report_batch_size(outputs: RunOutputs) -> int:
     return outputs.forward_output.batch_size
 
 
+def _requested_sample_metadata(sample: SelectedSample) -> dict[str, object]:
+    if sample.requested_sample is None:
+        return {}
+    return {"requested_sample": sample.requested_sample}
+
+
 class SampleSelectionStrategy(ABC):
     @abstractmethod
     def select(self, outputs: RunOutputs) -> list[SelectedSample]:

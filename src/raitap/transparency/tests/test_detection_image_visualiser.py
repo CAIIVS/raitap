@@ -366,14 +366,14 @@ def test_family_auto_sign_used_when_config_sign_unset(monkeypatch: pytest.Monkey
 
 
 def test_title_surfaces_as_report_group_name() -> None:
-    from raitap.reporting.builder import _visualiser_group_name
+    from raitap.transparency.report import _visualiser_group_name
 
     titled = DetectionImageVisualiser(title="Integrated Gradients")
     assert _visualiser_group_name(titled, 0) == "Integrated Gradients"
 
 
 def test_untitled_visualiser_falls_back_to_class_index_group_name() -> None:
-    from raitap.reporting.builder import _visualiser_group_name
+    from raitap.transparency.report import _visualiser_group_name
 
     untitled = DetectionImageVisualiser()
     assert _visualiser_group_name(untitled, 2) == "DetectionImageVisualiser_2"

@@ -11,18 +11,13 @@ import torch
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
-import raitap.reporting.builder as reporting_builder
+import raitap.robustness.report as robustness_report
+import raitap.transparency.report as transparency_report
 from raitap.configs import set_output_root
 from raitap.configs.schema import AppConfig, ReportingConfig
 from raitap.pipeline.outputs import ForwardOutput, PredictionSummary, RunOutputs
 from raitap.reporting.builder import (
     BuiltReport,
-    _canonical_facet_owners,
-    _copy_asset,
-    _detection_box_heading,
-    _overlay_detection_boxes,
-    _overlay_legend_line,
-    _render_kwargs_for_robustness_visualiser,
     build_merged_report,
     build_report,
 )
@@ -31,6 +26,7 @@ from raitap.reporting.hydra_callback import ReportingSweepCallback
 from raitap.reporting.manifest import ReportManifest
 from raitap.reporting.sample_selection import ReportSampleSelectionEntry
 from raitap.reporting.sections import ReportGroup, ReportSection
+from raitap.reporting.staging import _copy_asset
 from raitap.robustness.contracts import (
     AssessmentKind,
     Objective,
@@ -41,6 +37,11 @@ from raitap.robustness.contracts import (
     RobustnessVerdict,
     RobustnessVisualisationContext,
     ThreatModel,
+)
+from raitap.robustness.report import (
+    RobustnessPhaseResult,
+    _canonical_facet_owners,
+    _render_kwargs_for_robustness_visualiser,
 )
 from raitap.robustness.results import (
     ConfiguredRobustnessVisualiser,
@@ -63,6 +64,12 @@ from raitap.transparency.contracts import (
     OutputSpaceSpec,
     ScopeDefinitionStep,
 )
+from raitap.transparency.report import (
+    TransparencyPhaseResult,
+    _detection_box_heading,
+    _overlay_detection_boxes,
+    _overlay_legend_line,
+)
 from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult, VisualisationResult
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
 from raitap.types import TaskKind
@@ -81,6 +88,10 @@ if TYPE_CHECKING:
 
 
 class _MetricsStub:
+    """Stand-in MetricsEvaluation: a Trackable + Reportable metrics phase result."""
+
+    report_order = 10
+
     def __init__(self, image_path: Path) -> None:
         self._image_path = image_path
 
@@ -90,6 +101,60 @@ class _MetricsStub:
             images=(self._image_path,),
             table_rows=(("accuracy", "0.9000"),),
         )
+
+    def log(self, tracker: Any, **kwargs: Any) -> None:
+        del tracker, kwargs
+
+    def report_sections(self, ctx: Any) -> tuple[ReportSection, ...]:
+        source_group = self.to_report_group()
+        staged = tuple(
+            _copy_asset(p, assets_dir=ctx.assets_dir, target_name=f"metrics_{i}{p.suffix}")
+            for i, p in enumerate(source_group.images)
+        )
+        group = ReportGroup(
+            heading=source_group.heading,
+            images=staged,
+            table_rows=source_group.table_rows,
+            metadata={"role": "metrics"},
+        )
+        return (
+            ReportSection.from_groups("Metrics", [group], metadata={"section_role": "metrics"}),
+        )
+
+
+def _run_outputs(
+    *,
+    forward_output: ForwardOutput,
+    explanations: list[Any] | None = None,
+    visualisations: list[Any] | None = None,
+    metrics: Any | None = None,
+    robustness_results: list[Any] | None = None,
+    robustness_visualisations: list[Any] | None = None,
+    sample_ids: list[str] | None = None,
+    targets: Any | None = None,
+    prediction_summaries: tuple[PredictionSummary, ...] = (),
+) -> RunOutputs:
+    """Build a keyed-``RunOutputs`` from the legacy flat fields (test helper)."""
+    phase_results: dict[str, Any] = {}
+    if metrics is not None:
+        phase_results["metrics"] = metrics
+    if explanations or visualisations:
+        phase_results["transparency"] = TransparencyPhaseResult(
+            explanations=list(explanations or []),
+            visualisations=list(visualisations or []),
+        )
+    if robustness_results or robustness_visualisations:
+        phase_results["robustness"] = RobustnessPhaseResult(
+            robustness_results=list(robustness_results or []),
+            robustness_visualisations=list(robustness_visualisations or []),
+        )
+    return RunOutputs(
+        forward_output=forward_output,
+        phase_results=phase_results,
+        sample_ids=sample_ids,
+        targets=targets,
+        prediction_summaries=prediction_summaries,
+    )
 
 
 class _LocalImageVisualiser(BaseVisualiser):
@@ -332,7 +397,7 @@ def test_build_report_orders_sections_and_ranks_samples(tmp_path: Path) -> None:
         scope=ExplanationScope.GLOBAL,
     )
 
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[explanation],
         visualisations=[native_global],
         metrics=_MetricsStub(metrics_image),  # type: ignore[arg-type]
@@ -426,7 +491,7 @@ def test_build_report_skips_global_section_for_local_only_outputs(tmp_path: Path
         explainer_name="captum_ig",
         visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[explanation],
         visualisations=[],
         metrics=None,
@@ -471,7 +536,7 @@ def test_build_report_places_aggregated_visualisations_between_global_and_local(
         output_path=native_aggregated_path,
         scope=ExplanationScope.AGGREGATED,
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[explanation],
         visualisations=[native_aggregated],
         metrics=_MetricsStub(metrics_image),  # type: ignore[arg-type]
@@ -510,7 +575,7 @@ def test_build_report_local_assets_are_staged_and_closed(tmp_path: Path) -> None
         kwargs={"sample_names": ["a", "b", "c"], "show_sample_names": True},
         visualisers=[ConfiguredVisualiser(visualiser=visualiser)],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[explanation],
         visualisations=[],
         metrics=None,
@@ -563,7 +628,7 @@ def test_build_report_compact_local_thumbnail_titles_are_stripped(
         return fig
 
     monkeypatch.setattr(
-        "raitap.reporting.builder.InputThumbnailVisualiser.visualise",
+        "raitap.transparency.report.InputThumbnailVisualiser.visualise",
         _titled_thumbnail,
     )
 
@@ -578,7 +643,7 @@ def test_build_report_compact_local_thumbnail_titles_are_stripped(
         explainer_name="captum_ig",
         visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[explanation],
         visualisations=[],
         metrics=None,
@@ -618,7 +683,7 @@ def test_build_report_compact_mode_omits_repeated_original_for_capable_visualise
             ConfiguredVisualiser(visualiser=masked_visualiser),
         ],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[explanation],
         visualisations=[],
         metrics=None,
@@ -690,7 +755,7 @@ def test_build_report_local_explainer_group_includes_curated_transparency_rows(
             ),
         ],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[explanation],
         visualisations=[],
         metrics=None,
@@ -767,7 +832,7 @@ def test_build_report_show_original_per_explainer_uses_legacy_local_layout(
         kwargs={"sample_names": ["legacy-a", "legacy-b"], "show_sample_names": True},
         visualisers=[ConfiguredVisualiser(visualiser=visualiser)],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[explanation],
         visualisations=[],
         metrics=None,
@@ -818,7 +883,7 @@ def test_build_report_thumbnail_uses_first_compatible_explanation_in_order(
         explainer_name="tabular_exp",
         visualisers=[ConfiguredVisualiser(visualiser=tabular_visualiser)],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[tabular_explanation, image_explanation],
         visualisations=[],
         metrics=None,
@@ -853,7 +918,7 @@ def test_build_report_thumbnail_falls_back_to_later_explanation_after_runtime_er
     set_output_root(config, tmp_path)
     config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
 
-    original_visualise = reporting_builder.InputThumbnailVisualiser.visualise
+    original_visualise = transparency_report.InputThumbnailVisualiser.visualise
     call_count = {"n": 0}
 
     def _fail_first_then_delegate(self: Any, *args: Any, **kwargs: Any) -> Any:
@@ -863,7 +928,7 @@ def test_build_report_thumbnail_falls_back_to_later_explanation_after_runtime_er
         return original_visualise(self, *args, **kwargs)
 
     monkeypatch.setattr(
-        "raitap.reporting.builder.InputThumbnailVisualiser.visualise",
+        "raitap.transparency.report.InputThumbnailVisualiser.visualise",
         _fail_first_then_delegate,
     )
 
@@ -889,7 +954,7 @@ def test_build_report_thumbnail_falls_back_to_later_explanation_after_runtime_er
         explainer_name="second_exp",
         visualisers=[ConfiguredVisualiser(visualiser=_EmbeddedOriginalVisualiser())],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[first_explanation, second_explanation],
         visualisations=[],
         metrics=None,
@@ -929,7 +994,7 @@ def test_build_report_thumbnail_failure_falls_back_for_that_sample_only(
         explainer_name="tabular_exp",
         visualisers=[ConfiguredVisualiser(visualiser=visualiser)],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[explanation],
         visualisations=[],
         metrics=None,
@@ -960,7 +1025,7 @@ def test_build_report_thumbnail_runtime_failure_logs_traceback_and_falls_back(
         raise RuntimeError("thumbnail render failed")
 
     monkeypatch.setattr(
-        "raitap.reporting.builder.InputThumbnailVisualiser.visualise",
+        "raitap.transparency.report.InputThumbnailVisualiser.visualise",
         _raise_runtime_error,
     )
 
@@ -976,7 +1041,7 @@ def test_build_report_thumbnail_runtime_failure_logs_traceback_and_falls_back(
         explainer_name="captum_ig",
         visualisers=[ConfiguredVisualiser(visualiser=visualiser)],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[explanation],
         visualisations=[],
         metrics=None,
@@ -1011,7 +1076,7 @@ def test_build_report_thumbnail_programmer_error_is_not_swallowed(
         raise TypeError("programmer error")
 
     monkeypatch.setattr(
-        "raitap.reporting.builder.InputThumbnailVisualiser.visualise",
+        "raitap.transparency.report.InputThumbnailVisualiser.visualise",
         _raise_type_error,
     )
 
@@ -1026,7 +1091,7 @@ def test_build_report_thumbnail_programmer_error_is_not_swallowed(
         explainer_name="captum_ig",
         visualisers=[ConfiguredVisualiser(visualiser=_EmbeddedOriginalVisualiser())],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[explanation],
         visualisations=[],
         metrics=None,
@@ -1227,7 +1292,7 @@ def test_build_report_skips_local_groups_when_no_local_visualisations(tmp_path: 
         semantics=_local_image_semantics((2, 1, 4, 4)),
         visualisers=[ConfiguredVisualiser(visualiser=_GlobalOnlyVisualiser())],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[explanation],
         visualisations=[],
         metrics=None,
@@ -1298,7 +1363,7 @@ def test_build_report_compact_robustness_omits_non_owner_perturbation_panel(
             ConfiguredRobustnessVisualiser(visualiser=PerturbationHeatmapVisualiser(max_samples=1)),
         ],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[],
         visualisations=[],
         metrics=None,
@@ -1337,7 +1402,7 @@ def test_build_report_compact_robustness_skips_redundant_single_facet_visualiser
             ConfiguredRobustnessVisualiser(visualiser=redundant),
         ],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[],
         visualisations=[],
         metrics=None,
@@ -1369,7 +1434,7 @@ def test_build_report_compact_robustness_propagates_visualiser_errors(
             ConfiguredRobustnessVisualiser(visualiser=_ErroringRobustnessVisualiser()),
         ],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[],
         visualisations=[],
         metrics=None,
@@ -1397,7 +1462,7 @@ def test_build_report_compact_robustness_renders_selected_samples_per_assessor(
             ConfiguredRobustnessVisualiser(visualiser=PerturbationHeatmapVisualiser(max_samples=4)),
         ],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[],
         visualisations=[],
         metrics=None,
@@ -1425,7 +1490,7 @@ def test_build_report_compact_robustness_renders_selected_samples_per_assessor(
         robustness_results=[result],
     )
     stripped_figures: list[tuple[str, tuple[str, ...]]] = []
-    original_strip = reporting_builder._strip_report_figure_titles
+    original_strip = robustness_report._strip_report_figure_titles
 
     def _record_stripped_titles(figure: Figure) -> None:
         original_strip(figure)
@@ -1433,7 +1498,7 @@ def test_build_report_compact_robustness_renders_selected_samples_per_assessor(
         suptitle = suptitle_artist.get_text() if suptitle_artist is not None else ""
         stripped_figures.append((suptitle, tuple(ax.get_title() for ax in figure.axes)))
 
-    monkeypatch.setattr(reporting_builder, "_strip_report_figure_titles", _record_stripped_titles)
+    monkeypatch.setattr(robustness_report, "_strip_report_figure_titles", _record_stripped_titles)
 
     report = build_report(config, outputs)
 
@@ -1468,7 +1533,7 @@ def test_build_report_robustness_single_pair_keeps_all_panels(tmp_path: Path) ->
         tmp_path,
         visualisers=[ConfiguredRobustnessVisualiser(visualiser=ImagePairVisualiser(max_samples=1))],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[],
         visualisations=[],
         metrics=None,
@@ -1505,7 +1570,7 @@ def test_build_report_legacy_robustness_reuses_existing_visualisations_without_k
         visualiser_target="test._RobustnessRecordingVisualiser_0",
         output_path=existing_image,
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[],
         visualisations=[],
         metrics=None,
@@ -1534,7 +1599,7 @@ def test_build_report_robustness_redundant_single_facet_without_kwarg_support_is
             ConfiguredRobustnessVisualiser(visualiser=_StrictPerturbationVisualiser()),
         ],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[],
         visualisations=[],
         metrics=None,
@@ -1563,7 +1628,7 @@ def test_report_manifest_round_trip_preserves_relative_images(tmp_path: Path) ->
         explainer_name="captum_ig",
         visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[explanation],
         visualisations=[],
         metrics=None,
@@ -1751,7 +1816,7 @@ def test_build_report_manifest_filename_matches_selected_reporter(
     expected_html_name: str,
     expected_pdf_name: str,
 ) -> None:
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[],
         visualisations=[],
         metrics=None,
@@ -2041,7 +2106,7 @@ def _explicit_selection_case(
         kwargs={"sample_names": ids, "show_sample_names": True},
         visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[explanation],
         visualisations=[],
         metrics=None,
@@ -2156,7 +2221,7 @@ def test_build_report_sampling_result_renders_without_error(tmp_path: Path) -> N
         semantics=semantics,
         visualisers=[],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[],
         visualisations=[],
         metrics=None,
@@ -2208,7 +2273,7 @@ def test_build_report_assessor_scope_figure_recorded_in_metadata(tmp_path: Path)
             ConfiguredRobustnessVisualiser(visualiser=_AssessorScopeSamplingVisualiser()),
         ],
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[],
         visualisations=[],
         metrics=None,
@@ -2239,7 +2304,7 @@ def _write_test_image(path: Path) -> Path:
 
 
 def test_baseline_mode_label_humanises_known_tokens() -> None:
-    from raitap.reporting.builder import _baseline_mode_label
+    from raitap.transparency.report import _baseline_mode_label
 
     assert _baseline_mode_label("configured") == "configured dataset"
     assert _baseline_mode_label("user_tensor") == "user-provided tensor"
@@ -2251,8 +2316,8 @@ def test_baseline_mode_label_humanises_known_tokens() -> None:
 def test_transparency_table_rows_include_baseline_and_hide_opaque_kwarg(tmp_path: Path) -> None:
     from pathlib import Path as _Path
 
-    from raitap.reporting.builder import _transparency_table_rows
     from raitap.transparency.contracts import BaselineRecord
+    from raitap.transparency.report import _transparency_table_rows
 
     record = BaselineRecord(
         kwarg_name="background_data",
@@ -2300,8 +2365,8 @@ def test_stage_baseline_image_copies_when_present(tmp_path: Path) -> None:
     from pathlib import Path as _Path
     from types import SimpleNamespace
 
-    from raitap.reporting.builder import _stage_baseline_image
     from raitap.transparency.contracts import BaselineRecord
+    from raitap.transparency.report import _stage_baseline_image
 
     run_dir = tmp_path / "exp"
     run_dir.mkdir()
@@ -2328,8 +2393,8 @@ def test_stage_baseline_image_none_when_no_baseline_or_missing_file(tmp_path: Pa
     from pathlib import Path as _Path
     from types import SimpleNamespace
 
-    from raitap.reporting.builder import _stage_baseline_image
     from raitap.transparency.contracts import BaselineRecord
+    from raitap.transparency.report import _stage_baseline_image
 
     no_baseline = SimpleNamespace(baseline=None, run_dir=tmp_path)
     assert _stage_baseline_image(no_baseline, assets_dir=tmp_path / "a", stem="s") is None
@@ -2400,7 +2465,7 @@ def test_build_report_attaches_baseline_image_once_per_explanation(tmp_path: Pat
         ],
         baseline=record,
     )
-    outputs = RunOutputs(
+    outputs = _run_outputs(
         explanations=[explanation],
         visualisations=[],
         metrics=None,

@@ -25,7 +25,9 @@ from raitap.pipeline import __main__ as run_entry
 from raitap.pipeline import extract_primary_tensor
 from raitap.pipeline.outputs import ForwardOutput as _ForwardOutput
 from raitap.pipeline.phases import forward_pass as run_pipeline_forward
+from raitap.robustness.report import RobustnessPhaseResult
 from raitap.tracking import BaseTracker
+from raitap.transparency.report import TransparencyPhaseResult
 from raitap.types import TaskKind as _TaskKind
 
 
@@ -34,6 +36,45 @@ def _fo(tensor: torch.Tensor) -> _ForwardOutput:
         task_kind=_TaskKind.classification,
         batch_size=int(tensor.shape[0]) if tensor.ndim > 0 else 0,
         predictions_tensor=tensor,
+    )
+
+
+def _fake_run_outputs(
+    *,
+    forward_output: _ForwardOutput,
+    explanations: list | None = None,
+    visualisations: list | None = None,
+    metrics: object | None = None,
+    robustness_results: list | None = None,
+    robustness_visualisations: list | None = None,
+    sample_ids: list[str] | None = None,
+    targets: torch.Tensor | None = None,
+    prediction_summaries: tuple = (),
+) -> run_module.RunOutputs:
+    """Build a keyed ``RunOutputs`` from legacy flat fields (test helper).
+
+    Transparency/robustness fakes are wrapped in the real phase-result types so
+    the generic tracker loop exercises their ``log()`` (incl. use_subdirectory).
+    """
+    phase_results: dict[str, object] = {}
+    if metrics is not None:
+        phase_results["metrics"] = metrics
+    if explanations or visualisations:
+        phase_results["transparency"] = TransparencyPhaseResult(
+            explanations=list(explanations or []),
+            visualisations=list(visualisations or []),
+        )
+    if robustness_results or robustness_visualisations:
+        phase_results["robustness"] = RobustnessPhaseResult(
+            robustness_results=list(robustness_results or []),
+            robustness_visualisations=list(robustness_visualisations or []),
+        )
+    return run_module.RunOutputs(
+        forward_output=forward_output,
+        phase_results=phase_results,  # type: ignore[arg-type]
+        sample_ids=sample_ids,
+        targets=targets,
+        prediction_summaries=prediction_summaries,
     )
 
 
@@ -315,7 +356,7 @@ def test_run_without_tracking_returns_outputs(monkeypatch: MonkeyPatch) -> None:
         log=MagicMock(),
     )
     data = SimpleNamespace(tensor=torch.randn(2, 3))
-    fake_output = run_module.RunOutputs(
+    fake_output = _fake_run_outputs(
         explanations=[],
         visualisations=[],
         metrics=None,
@@ -346,7 +387,7 @@ def test_run_resolves_preprocessing_once_for_model_and_data(monkeypatch: MonkeyP
         resolved_preprocessing=resolved_preprocessing,
     )
     data = SimpleNamespace(tensor=torch.randn(2, 3), labels=None, sample_ids=None, log=MagicMock())
-    fake_output = run_module.RunOutputs(
+    fake_output = _fake_run_outputs(
         explanations=[],
         visualisations=[],
         metrics=None,
@@ -408,7 +449,7 @@ def test_run_invalid_report_sample_selection_fails_before_pipeline_work(
         sample_ids=["case_alpha.png"],
         labels=None,
     )
-    fake_output = run_module.RunOutputs(
+    fake_output = _fake_run_outputs(
         explanations=[],
         visualisations=[],
         metrics=None,
@@ -450,7 +491,7 @@ def test_run_with_tracking_logs_all_outputs(monkeypatch: MonkeyPatch) -> None:
     explanation = _FakeExplainerResult("exp1")
     visualisation = explanation.visualise()[0]
     metrics_eval = SimpleNamespace(log=MagicMock())
-    fake_output = run_module.RunOutputs(
+    fake_output = _fake_run_outputs(
         explanations=[explanation],  # type: ignore[list-item]
         visualisations=[visualisation],  # type: ignore[list-item]
         metrics=metrics_eval,  # type: ignore[arg-type]
@@ -495,7 +536,7 @@ def test_run_with_tracking_skips_model_logging_when_disabled(monkeypatch: Monkey
     data = SimpleNamespace(tensor=torch.randn(1, 3), log=MagicMock())
     explanation = _FakeExplainerResult("exp1")
     visualisation = explanation.visualise()[0]
-    fake_output = run_module.RunOutputs(
+    fake_output = _fake_run_outputs(
         explanations=[explanation],  # type: ignore[list-item]
         visualisations=[visualisation],  # type: ignore[list-item]
         metrics=None,
@@ -538,7 +579,7 @@ def test_run_with_multiple_explainers_uses_subdirs(monkeypatch: MonkeyPatch) -> 
     vis1 = exp1.visualise()[0]
     exp2 = _FakeExplainerResult("exp2")
     vis2 = exp2.visualise()[0]
-    fake_output = run_module.RunOutputs(
+    fake_output = _fake_run_outputs(
         explanations=[exp1, exp2],  # type: ignore[list-item]
         visualisations=[vis1, vis2],  # type: ignore[list-item]
         metrics=None,
@@ -579,7 +620,7 @@ def test_run_with_tracking_config_but_no_target_skips_tracking(monkeypatch: Monk
         log=MagicMock(),
     )
     data = SimpleNamespace(tensor=torch.randn(2, 3))
-    fake_output = run_module.RunOutputs(
+    fake_output = _fake_run_outputs(
         explanations=[],
         visualisations=[],
         metrics=None,
@@ -638,9 +679,7 @@ def test_run_without_tracking_allows_metrics_only(monkeypatch: MonkeyPatch) -> N
 
     outputs = run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
-    assert outputs.metrics is not None
-    assert outputs.explanations == []
-    assert outputs.robustness_results == []
+    assert set(outputs.phase_results) == {"metrics"}
 
 
 def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: MonkeyPatch) -> None:
@@ -671,7 +710,8 @@ def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: M
     outputs = run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
     assert config.metrics.num_classes == 3
-    assert outputs.metrics is not None
+    assert "metrics" in outputs.phase_results
+    assert "transparency" in outputs.phase_results
     assert len(metrics_calls) == 1
     _, preds, targs = metrics_calls[0]
     assert torch.equal(preds, targs)
