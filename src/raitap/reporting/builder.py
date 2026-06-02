@@ -32,6 +32,12 @@ from .filenames import report_output_filename
 from .manifest import ReportManifest
 from .sample_selection import ResolvedReportSample, resolve_report_sample_selection
 from .sections import ReportGroup, ReportSection
+from .staging import (
+    _copy_asset,
+    _safe_name,
+    _stage_rendered_visualisations,
+    _strip_report_figure_titles,
+)
 
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
@@ -1502,45 +1508,6 @@ def _batch_size(outputs: RunOutputs) -> int:
     return outputs.forward_output.batch_size
 
 
-def _copy_asset(source: Path, *, assets_dir: Path, target_name: str) -> Path:
-    target_name_path = Path(target_name)
-    if target_name_path.is_absolute() or len(target_name_path.parts) != 1:
-        raise ValueError(f"Asset target names must be simple filenames, got {target_name!r}.")
-
-    target = assets_dir / target_name_path.name
-    target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source, target)
-    return target
-
-
-def _stage_rendered_visualisations(
-    visualisations: list[VisualisationResult],
-    *,
-    assets_dir: Path,
-    file_stem_prefix: str,
-    strip_titles: bool = False,
-) -> tuple[Path, ...]:
-    staged: list[Path] = []
-    for visualisation in visualisations:
-        target = assets_dir / f"{file_stem_prefix}_{visualisation.visualiser_name}.png"
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if strip_titles:
-            _strip_report_figure_titles(visualisation.figure)
-        try:
-            visualisation.figure.savefig(target, bbox_inches="tight", dpi=150)
-        finally:
-            plt.close(visualisation.figure)
-        staged.append(target)
-    return tuple(staged)
-
-
-def _strip_report_figure_titles(figure: Any) -> None:
-    if hasattr(figure, "suptitle"):
-        figure.suptitle("")
-    for ax in getattr(figure, "axes", []):
-        ax.set_title("")
-
-
 def _sample_names_for_explanation(explanation: object, sample_index: int) -> list[str]:
     kwargs = getattr(explanation, "kwargs", {})
     value = kwargs.get("sample_names") if isinstance(kwargs, dict) else None
@@ -1604,10 +1571,6 @@ def _requested_sample_metadata(sample: SelectedSample) -> dict[str, object]:
     if sample.requested_sample is None:
         return {}
     return {"requested_sample": sample.requested_sample}
-
-
-def _safe_name(value: str) -> str:
-    return "".join(ch if ch.isalnum() else "_" for ch in value).strip("_") or "asset"
 
 
 def _stage_baseline_image(
