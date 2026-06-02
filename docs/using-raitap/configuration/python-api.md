@@ -112,17 +112,28 @@ Library-forwarded kwargs (unchecked at schema time):
 
 `raitap.run` returns a frozen `RunOutputs` dataclass:
 
-| Field                       | Type                                  | Meaning                                                                                              |
-| --------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `explanations`              | `list[ExplanationResult]`             | One result per `(transparency_run, sample_batch)` pair; carries the attribution tensor and metadata. |
-| `visualisations`            | `list[VisualisationResult]`           | Rendered transparency outputs (images, HTML fragments) ready for reporting.                          |
-| `metrics`                   | `MetricsEvaluation \| None`           | Aggregated classification metrics. `None` when `metrics` is unconfigured.                            |
-| `forward_output`            | `torch.Tensor`                        | Raw output of `model(data)` — the source for both predictions and metric inputs.                     |
-| `sample_ids`                | `list[str] \| None`                   | Stable ids aligned with `forward_output` rows; `None` when the data source doesn't supply them.      |
-| `targets`                   | `torch.Tensor \| None`                | Ground-truth labels when labels are configured.                                                      |
-| `prediction_summaries`      | `tuple[PredictionSummary, ...]`       | Per-sample `(index, predicted_class, confidence, sample_id, target_class, correct)`.                 |
-| `robustness_results`        | `list[RobustnessResult]`              | One per `(robustness_run, sample_batch)`; carries adversarial tensors and per-sample success flags.  |
-| `robustness_visualisations` | `list[RobustnessVisualisationResult]` | Rendered robustness outputs (image pairs, heat maps).                                                |
+| Field                  | Type                            | Meaning                                                                                          |
+| ---------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `forward_output`       | `ForwardOutput`                 | Typed model forward output (predictions tensor or detection predictions) + batch size.           |
+| `phase_results`        | `dict[str, PhaseResult]`        | Each configured assessment phase's result, keyed by phase name (see below). Only configured phases appear. |
+| `sample_ids`           | `list[str] \| None`             | Stable ids aligned with `forward_output` rows; `None` when the data source doesn't supply them.  |
+| `targets`              | `torch.Tensor \| None`          | Ground-truth labels when labels are configured.                                                  |
+| `prediction_summaries` | `tuple[PredictionSummary, ...]` | Per-sample `(index, predicted_class, confidence, sample_id, target_class, correct)`.             |
+
+Each value in `phase_results` is a `PhaseResult` (a `Trackable` + `Reportable`). Access by phase name:
+
+| Key              | Value type                 | Carries                                                                  |
+| ---------------- | -------------------------- | ------------------------------------------------------------------------ |
+| `"metrics"`      | `MetricsEvaluation`        | Aggregated metrics (`.result`).                                          |
+| `"transparency"` | `TransparencyPhaseResult`  | `.explanations` (attribution tensors + metadata), `.visualisations`.     |
+| `"robustness"`   | `RobustnessPhaseResult`    | `.robustness_results` (adversarial tensors + per-sample flags), `.robustness_visualisations`. |
+
+```python
+result = run(cfg)
+metrics = result.phase_results.get("metrics")          # None if metrics unconfigured
+if "transparency" in result.phase_results:
+    explanations = result.phase_results["transparency"].explanations
+```
 
 ## Multiruns in Python
 
@@ -143,5 +154,6 @@ for eps in (0.01, 0.03, 0.06, 0.1):
     results.append((eps, run(copied_cfg, verbose=False)))
 
 for eps, outputs in results:
-    print(eps, outputs.metrics.result.metrics if outputs.metrics else None)
+    metrics = outputs.phase_results.get("metrics")
+    print(eps, metrics.result.metrics if metrics else None)
 ```

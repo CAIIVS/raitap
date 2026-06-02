@@ -94,10 +94,11 @@ src/
     │
     ├── pipeline/                   # the assessment run, split by phase
     │   ├── __main__.py             # @hydra.main entry; composes config (incl. raitap_schema) → orchestrator._run_pipeline()
-    │   ├── orchestrator.py         # _run_pipeline() + run_without_tracking() — wires the phases together; tracker context
+    │   ├── orchestrator.py         # _run_pipeline() + run_without_tracking() — runs configured phases; generic tracker loop over phase_results
     │   ├── ui.py                   # print_summary() — the rich panel banner
-    │   ├── outputs.py              # PredictionSummary + RunOutputs dataclasses (typed return)
+    │   ├── outputs.py              # PredictionSummary + RunOutputs (keyed phase_results) + PhaseResult protocol (Trackable + Reportable)
     │   └── phases/                 # one file per phase; filename matches the public function
+    │       ├── registry.py         # AssessmentPhase chain + ASSESSMENT_PHASES: single source of truth for the configured-phase guard + run loop
     │       ├── forward_pass.py     # forward_pass(): batched backend forward; extract_primary_tensor for dict/tuple outputs
     │       ├── evaluate_metrics.py # evaluate_metrics(): runs metrics when configured, infers num_classes
     │       ├── assess_transparency.py  # assess_transparency(): instantiates explainers; resolve_explainer_runtime_kwargs (auto_pred)
@@ -141,7 +142,9 @@ src/
     ├── reporting/                  # HTML + PDF report builders + multirun aggregation
     │   ├── registration.py         # `@adapters.reporter` family decorator
     │   ├── base_reporter.py        # `BaseReporter` ABC
-    │   ├── builder.py              # build_report(): assembles sections from RunOutputs
+    │   ├── builder.py              # build_report(): generic dispatch — asks each phase result (Reportable) for its sections, ordered by report_order
+    │   ├── staging.py              # shared figure/asset staging helpers (used by each phase's report renderer)
+    │   ├── samples.py              # sample-selection model + strategies (phase-agnostic; keys off predictions)
     │   ├── html_reporter.py        # Jinja2-backed HTML renderer
     │   ├── pdf_reporter.py         # borb-backed PDF renderer
     │   ├── hydra_callback.py       # ReportingSweepCallback wired by reporting/{html,pdf}.yaml

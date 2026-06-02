@@ -26,9 +26,10 @@ The walkthrough below uses a fictional `fairness` module.
 | `src/raitap/fairness/assessors/base_assessor.py` | Abstract base — subclasses implement one method |
 | `src/raitap/fairness/assessors/registration.py` | `register_fairness_adapter` family decorator |
 | `src/raitap/fairness/factory.py` | Iterates `config.fairness` dict, instantiates + runs each adapter |
+| `src/raitap/fairness/report.py` | `FairnessPhaseResult(Trackable, Reportable)` — owns tracker logging + report sections |
 | `src/raitap/configs/schema.py` | Add `FairnessConfig` + `fairness:` field on `AppConfig` |
 | `src/raitap/pipeline/phases/assess_fairness.py` | Pipeline phase that calls the factory |
-| `src/raitap/pipeline/orchestrator.py` | Register the phase in the pipeline sequence |
+| `src/raitap/pipeline/phases/registry.py` | Add a `FairnessPhase` and list it in `ASSESSMENT_PHASES` |
 | `pyproject.toml` | Optional: `fairness = [...]` extra if the module wraps libraries |
 | `docs/modules/fairness/*.md` | User-facing docs + `frameworks-and-libraries.md` |
 | `tests/...` | Per-adapter tests + family E2E + `test_partial_extras_safe.py` |
@@ -154,17 +155,55 @@ The dict-of-configs shape mirrors transparency / robustness — multiple named a
 
 Iterate `config.fairness`, instantiate each entry via hydra-zen, run it. Mirror `src/raitap/robustness/factory.py` — same shape, swap module names.
 
-## 6. Pipeline phase (`pipeline/phases/assess_fairness.py`)
+## 6. Pipeline phase + result (`pipeline/phases/assess_fairness.py`, `fairness/report.py`, `pipeline/phases/registry.py`)
+
+The pipeline is generic dispatch over `ASSESSMENT_PHASES` — you do **not** edit
+`orchestrator.py` or `reporting/builder.py`. Three pieces:
+
+**a. The phase work** (`pipeline/phases/assess_fairness.py`) — mirror `assess_transparency` / `assess_robustness`:
 
 ```python
-def assess_fairness(config, run_dir, ...):
+def assess_fairness(config, model, data, forward_output, *, ...):
     """Run every adapter declared under ``config.fairness``."""
     for name, adapter_config in config.fairness.items():
-        # instantiate via the factory, run, write artefacts
-        ...
+        ...  # instantiate via the factory, run, write artefacts
+    return results, visualisations
 ```
 
-Wire it into `src/raitap/pipeline/orchestrator.py` between the existing phases — pick the right ordering relative to transparency / robustness / metrics based on whether you need their outputs.
+**b. The phase result** (`fairness/report.py`) — a `PhaseResult`: `Trackable` (how it logs) + `Reportable` (how it reports). Mirror `transparency/report.py` / `robustness/report.py`:
+
+```python
+@dataclass
+class FairnessPhaseResult(Trackable):
+    fairness_results: list[FairnessResult] = field(default_factory=list)
+    report_order: ClassVar[int] = 40  # orders sections vs metrics(10)/transparency(20)/robustness(30)
+
+    def log(self, tracker, **kwargs) -> None:
+        for result in self.fairness_results:
+            result.log(tracker)
+
+    def report_sections(self, ctx: ReportContext) -> tuple[ReportSection, ...]:
+        ...  # stage figures into ctx.assets_dir, return ordered sections
+```
+
+**c. Register the phase** (`pipeline/phases/registry.py`) — add an `AssessmentPhase` whose `run` returns the result, and list it in `ASSESSMENT_PHASES`:
+
+```python
+class FairnessPhase(AssessmentPhase):
+    name = "fairness"
+
+    def is_configured(self, config) -> bool:
+        return bool(getattr(config, "fairness", None))
+
+    def run(self, ctx) -> PhaseResult | None:
+        return FairnessPhaseResult(fairness_results=list(assess_fairness(ctx.config, ...)))
+
+ASSESSMENT_PHASES = (MetricsPhase(), TransparencyPhase(), RobustnessPhase(), FairnessPhase())
+```
+
+The configured-phase guard, tracker loop, and report builder all iterate
+`ASSESSMENT_PHASES` / `RunOutputs.phase_results`, so they pick up the new phase
+automatically. `report_order` decides where your sections land in the report.
 
 ## 7. Lazy module surface (`fairness/__init__.py`)
 
