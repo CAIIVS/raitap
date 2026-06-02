@@ -663,10 +663,7 @@ def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: M
 
     config = SimpleNamespace(
         transparency={"one": {}},
-        metrics=SimpleNamespace(num_classes=None),
-    )
-    monkeypatch.setattr(
-        "raitap.pipeline.phases.evaluate_metrics.metrics_run_enabled", lambda _cfg: True
+        metrics=SimpleNamespace(_target_="MulticlassClassificationMetrics", num_classes=None),
     )
     monkeypatch.setattr("raitap.pipeline.phases.assess_transparency.Explanation", _fake_explanation)
     monkeypatch.setattr("raitap.pipeline.phases.evaluate_metrics.Metrics", _fake_metrics)
@@ -696,10 +693,7 @@ def test_run_without_tracking_uses_provided_num_classes(monkeypatch: MonkeyPatch
 
     config = SimpleNamespace(
         transparency={"one": {}},
-        metrics=SimpleNamespace(num_classes=10),
-    )
-    monkeypatch.setattr(
-        "raitap.pipeline.phases.evaluate_metrics.metrics_run_enabled", lambda _cfg: True
+        metrics=SimpleNamespace(_target_="MulticlassClassificationMetrics", num_classes=10),
     )
     monkeypatch.setattr("raitap.pipeline.phases.assess_transparency.Explanation", _fake_explanation)
     monkeypatch.setattr(
