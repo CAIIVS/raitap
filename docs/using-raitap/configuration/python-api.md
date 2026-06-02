@@ -128,23 +128,24 @@ Each value in `phase_results` is a `PhaseResult` (a `Trackable` + `Reportable`).
 | `"transparency"` | `TransparencyPhaseResult`  | `.explanations` (attribution tensors + metadata), `.visualisations`.     |
 | `"robustness"`   | `RobustnessPhaseResult`    | `.robustness_results` (adversarial tensors + per-sample flags), `.robustness_visualisations`. |
 
-For the in-tree phases, convenience properties read straight off `phase_results`, so the ergonomic access keeps working:
-
-| Property | Equivalent |
-| --- | --- |
-| `result.metrics` | `phase_results.get("metrics")` (`MetricsEvaluation \| None`) |
-| `result.explanations` / `result.visualisations` | the transparency result's lists (`[]` if it didn't run) |
-| `result.robustness_results` / `result.robustness_visualisations` | the robustness result's lists (`[]` if it didn't run) |
+Access results by phase key. `phase_results` is the single source of truth — in-tree and out-of-tree phases are reached the same way:
 
 ```python
 result = run(cfg)
-if result.metrics is not None:
-    print(result.metrics.result.metrics)
-for explanation in result.explanations:        # [] when transparency didn't run
-    ...
-# New / out-of-tree phases: reach them by key.
-fairness = result.phase_results.get("fairness")
+
+metrics = result.phase_results.get("metrics")        # MetricsEvaluation | None
+if metrics is not None:
+    print(metrics.result.metrics)
+
+transparency = result.phase_results.get("transparency")
+if transparency is not None:
+    for explanation in transparency.explanations:
+        ...
+
+fairness = result.phase_results.get("fairness")       # any future phase, same pattern
 ```
+
+Values are typed as the `PhaseResult` protocol (`report_order` / `log` / `report_sections`); narrow to a concrete result (e.g. `MetricsEvaluation`, `TransparencyPhaseResult`) to read its phase-specific attributes.
 
 ## Multiruns in Python
 
@@ -165,5 +166,6 @@ for eps in (0.01, 0.03, 0.06, 0.1):
     results.append((eps, run(copied_cfg, verbose=False)))
 
 for eps, outputs in results:
-    print(eps, outputs.metrics.result.metrics if outputs.metrics else None)
+    metrics = outputs.phase_results.get("metrics")
+    print(eps, metrics.result.metrics if metrics else None)
 ```
