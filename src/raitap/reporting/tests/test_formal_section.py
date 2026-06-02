@@ -85,7 +85,7 @@ def test_build_report_renders_robustness_certification_section(tmp_path: Path) -
     outputs = RunOutputs(
         forward_output=_fo(torch.zeros(3, 5)),
         sample_ids=None,
-        phase_results={"robustness": RobustnessPhaseResult(robustness_results=[result])},
+        phase_results={"robustness": RobustnessPhaseResult(results=[result])},
     )
 
     report = build_report(config, outputs)
@@ -130,7 +130,7 @@ def test_build_report_includes_per_class_bound_rows_for_formal_results(
     outputs = RunOutputs(
         forward_output=_fo(torch.zeros(3, 5)),
         sample_ids=None,
-        phase_results={"robustness": RobustnessPhaseResult(robustness_results=[result])},
+        phase_results={"robustness": RobustnessPhaseResult(results=[result])},
     )
 
     report = build_report(config, outputs)
@@ -172,7 +172,7 @@ def test_build_report_excludes_rows_with_only_lower_bound(tmp_path: Path) -> Non
     outputs = RunOutputs(
         forward_output=_fo(torch.zeros(3, 5)),
         sample_ids=None,
-        phase_results={"robustness": RobustnessPhaseResult(robustness_results=[result])},
+        phase_results={"robustness": RobustnessPhaseResult(results=[result])},
     )
 
     report = build_report(config, outputs)
@@ -208,7 +208,7 @@ def test_build_report_skips_bound_rows_for_empirical_attack_results(
     outputs = RunOutputs(
         forward_output=_fo(torch.zeros(3, 5)),
         sample_ids=None,
-        phase_results={"robustness": RobustnessPhaseResult(robustness_results=[result])},
+        phase_results={"robustness": RobustnessPhaseResult(results=[result])},
     )
 
     report = build_report(config, outputs)

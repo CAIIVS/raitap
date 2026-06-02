@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, cast, runtime_checkable
 
 from raitap.types import TaskKind
 
@@ -12,8 +12,11 @@ if TYPE_CHECKING:
 
     import torch
 
+    from raitap.metrics import MetricsEvaluation
     from raitap.reporting.sections import ReportContext, ReportSection
+    from raitap.robustness.results import RobustnessResult, RobustnessVisualisationResult
     from raitap.tracking.base_tracker import BaseTracker
+    from raitap.transparency.results import ExplanationResult, VisualisationResult
 
 
 @runtime_checkable
@@ -89,3 +92,43 @@ class RunOutputs:
     sample_ids: list[str] | None = None
     targets: torch.Tensor | list[dict[str, torch.Tensor]] | None = None
     prediction_summaries: tuple[PredictionSummary, ...] = ()
+
+    # Generic, phase-agnostic mapping access — for any phase, incl. future
+    # modules: ``outputs.get("fairness")`` / ``outputs["metrics"]`` / ``"x" in outputs``.
+    def get(self, phase: str, default: PhaseResult | None = None) -> PhaseResult | None:
+        return self.phase_results.get(phase, default)
+
+    def __getitem__(self, phase: str) -> PhaseResult:
+        return self.phase_results[phase]
+
+    def __contains__(self, phase: object) -> bool:
+        return phase in self.phase_results
+
+    # --- Typed convenience views (THE per-phase coupling point) -------------
+    # Ergonomic, statically-typed access to the in-tree phases' outputs. Adding
+    # a module's typed accessor = add one property block below (or skip it and
+    # use the generic ``outputs.get("<phase>")`` above). ``phase_results`` stays
+    # the source of truth; these only read from it.
+    @property
+    def metrics(self) -> MetricsEvaluation | None:
+        return cast("MetricsEvaluation | None", self.phase_results.get("metrics"))
+
+    @property
+    def explanations(self) -> list[ExplanationResult]:
+        result = self.phase_results.get("transparency")
+        return list(getattr(result, "explanations", []))
+
+    @property
+    def visualisations(self) -> list[VisualisationResult]:
+        result = self.phase_results.get("transparency")
+        return list(getattr(result, "visualisations", []))
+
+    @property
+    def robustness_results(self) -> list[RobustnessResult]:
+        result = self.phase_results.get("robustness")
+        return list(getattr(result, "results", []))
+
+    @property
+    def robustness_visualisations(self) -> list[RobustnessVisualisationResult]:
+        result = self.phase_results.get("robustness")
+        return list(getattr(result, "visualisations", []))

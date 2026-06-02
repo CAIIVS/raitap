@@ -31,33 +31,11 @@ from raitap.configs.schema import (
 )
 from raitap.data.preprocessing import resolve_preprocessing
 from raitap.metrics import multiclass_classification as classification_metrics
-from raitap.metrics.factory import MetricsEvaluation
 from raitap.models.model import Model
 from raitap.pipeline.outputs import RunOutputs
 from raitap.robustness import foolbox, torchattacks
-from raitap.robustness.report import RobustnessPhaseResult
 from raitap.transparency import captum, shap
-from raitap.transparency.report import TransparencyPhaseResult
 from raitap.types import Hardware
-
-
-def _transparency(outputs: RunOutputs) -> TransparencyPhaseResult:
-    result = outputs.phase_results["transparency"]
-    assert isinstance(result, TransparencyPhaseResult)
-    return result
-
-
-def _robustness(outputs: RunOutputs) -> RobustnessPhaseResult:
-    result = outputs.phase_results["robustness"]
-    assert isinstance(result, RobustnessPhaseResult)
-    return result
-
-
-def _metrics(outputs: RunOutputs) -> MetricsEvaluation | None:
-    result = outputs.phase_results.get("metrics")
-    assert result is None or isinstance(result, MetricsEvaluation)
-    return result
-
 
 FIXTURE = (
     Path(__file__).resolve().parents[1] / "data" / "tests" / "fixtures" / "preproc_imagenet.py"
@@ -281,11 +259,10 @@ def _demo_run() -> RunOutputs:
 def test_run_smoke_with_verbose_false_drives_full_pipeline(_demo_run: RunOutputs) -> None:
     """`raitap.run(cfg, verbose=False)` exits cleanly with non-empty outputs."""
     assert isinstance(_demo_run, RunOutputs)
-    assert len(_transparency(_demo_run).explanations) >= 1
-    assert len(_robustness(_demo_run).robustness_results) >= 1
-    demo_metrics = _metrics(_demo_run)
-    assert demo_metrics is not None
-    assert demo_metrics.result.metrics  # at least one scalar metric
+    assert len(_demo_run.explanations) >= 1
+    assert len(_demo_run.robustness_results) >= 1
+    assert _demo_run.metrics is not None
+    assert _demo_run.metrics.result.metrics  # at least one scalar metric
 
 
 @pytest.mark.e2e
@@ -303,18 +280,11 @@ def test_run_parity_with_yaml_demo(_demo_run: RunOutputs) -> None:
 
     # Same phases ran in both invocations.
     assert set(_demo_run.phase_results) == set(yaml_outputs.phase_results)
+    assert len(_demo_run.explanations) == len(yaml_outputs.explanations)
+    assert len(_demo_run.robustness_results) == len(yaml_outputs.robustness_results)
 
-    if "transparency" in _demo_run.phase_results:
-        assert len(_transparency(_demo_run).explanations) == len(
-            _transparency(yaml_outputs).explanations
-        )
-    if "robustness" in _demo_run.phase_results:
-        assert len(_robustness(_demo_run).robustness_results) == len(
-            _robustness(yaml_outputs).robustness_results
-        )
-
-    demo_metrics = _metrics(_demo_run)
-    yaml_metrics = _metrics(yaml_outputs)
+    demo_metrics = _demo_run.metrics
+    yaml_metrics = yaml_outputs.metrics
     assert (demo_metrics is None) == (yaml_metrics is None)
     if demo_metrics is not None and yaml_metrics is not None:
         assert set(demo_metrics.result.metrics.keys()) == set(yaml_metrics.result.metrics.keys())

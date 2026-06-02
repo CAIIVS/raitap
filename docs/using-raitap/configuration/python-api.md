@@ -128,21 +128,20 @@ Each value in `phase_results` is a `PhaseResult` (a `Trackable` + `Reportable`).
 | `"transparency"` | `TransparencyPhaseResult`  | `.explanations` (attribution tensors + metadata), `.visualisations`.     |
 | `"robustness"`   | `RobustnessPhaseResult`    | `.robustness_results` (adversarial tensors + per-sample flags), `.robustness_visualisations`. |
 
-Access results by phase key. `phase_results` is the single source of truth — in-tree and out-of-tree phases are reached the same way:
+`RunOutputs` is a mapping over its phases: `result.get(name)`, `result[name]`, and `name in result` all work (delegating to `phase_results`, which stays the source of truth). In-tree and out-of-tree phases are reached the same way:
 
 ```python
 result = run(cfg)
 
-metrics = result.phase_results.get("metrics")        # MetricsEvaluation | None
+metrics = result.get("metrics")        # PhaseResult | None
 if metrics is not None:
     print(metrics.result.metrics)
 
-transparency = result.phase_results.get("transparency")
-if transparency is not None:
-    for explanation in transparency.explanations:
+if "transparency" in result:
+    for explanation in result["transparency"].explanations:
         ...
 
-fairness = result.phase_results.get("fairness")       # any future phase, same pattern
+fairness = result.get("fairness")      # any future phase, same pattern
 ```
 
 Values are typed as the `PhaseResult` protocol (`report_order` / `log` / `report_sections`); narrow to a concrete result (e.g. `MetricsEvaluation`, `TransparencyPhaseResult`) to read its phase-specific attributes.
@@ -166,6 +165,6 @@ for eps in (0.01, 0.03, 0.06, 0.1):
     results.append((eps, run(copied_cfg, verbose=False)))
 
 for eps, outputs in results:
-    metrics = outputs.phase_results.get("metrics")
+    metrics = outputs.get("metrics")
     print(eps, metrics.result.metrics if metrics else None)
 ```

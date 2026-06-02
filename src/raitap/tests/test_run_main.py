@@ -66,8 +66,8 @@ def _fake_run_outputs(
         )
     if robustness_results or robustness_visualisations:
         phase_results["robustness"] = RobustnessPhaseResult(
-            robustness_results=list(robustness_results or []),
-            robustness_visualisations=list(robustness_visualisations or []),
+            results=list(robustness_results or []),
+            visualisations=list(robustness_visualisations or []),
         )
     return run_module.RunOutputs(
         forward_output=forward_output,
@@ -710,8 +710,8 @@ def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: M
     outputs = run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
     assert config.metrics.num_classes == 3
-    assert "metrics" in outputs.phase_results
-    assert "transparency" in outputs.phase_results
+    assert "metrics" in outputs
+    assert "transparency" in outputs
     assert len(metrics_calls) == 1
     _, preds, targs = metrics_calls[0]
     assert torch.equal(preds, targs)

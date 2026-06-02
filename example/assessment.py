@@ -22,13 +22,10 @@ import logging
 from raitap import AppConfig, Hardware, run
 from raitap.data import DataConfig, LabelsConfig
 from raitap.metrics import multiclass_classification
-from raitap.metrics.factory import MetricsEvaluation
 from raitap.models import ModelConfig
 from raitap.reporting import html
 from raitap.robustness import image_pair, torchattacks
-from raitap.robustness.report import RobustnessPhaseResult
 from raitap.transparency import captum, captum_image
-from raitap.transparency.report import TransparencyPhaseResult
 
 
 def build_config() -> AppConfig:
@@ -78,26 +75,16 @@ if __name__ == "__main__":
     outputs = run(cfg, auto_install_deps=True)
 
     # Programmatic access demo — ``outputs`` is a ``RunOutputs`` dataclass
-    # (see ``raitap.pipeline.outputs``). All artefacts the report consumes
-    # are already in memory.
-    # Programmatic access: results are keyed by phase name in ``phase_results``
-    # (each value is a ``PhaseResult``). Only configured phases are present.
+    # (see ``raitap.pipeline.outputs``). Typed convenience views read straight
+    # off the keyed ``phase_results``; ``outputs.metrics`` is ``None`` and the
+    # lists are empty when the phase wasn't configured.
     print("\n--- programmatic access demo -----------------------------------")
-    transparency = outputs.phase_results.get("transparency")
-    robustness = outputs.phase_results.get("robustness")
-    metrics = outputs.phase_results.get("metrics")
-    assert transparency is None or isinstance(transparency, TransparencyPhaseResult)
-    assert robustness is None or isinstance(robustness, RobustnessPhaseResult)
-    assert metrics is None or isinstance(metrics, MetricsEvaluation)
-
-    explanations = transparency.explanations if transparency is not None else []
-    robustness_results = robustness.robustness_results if robustness is not None else []
-    print(f"explanations:          {len(explanations)}")
-    print(f"robustness results:    {len(robustness_results)}")
+    print(f"explanations:          {len(outputs.explanations)}")
+    print(f"robustness results:    {len(outputs.robustness_results)}")
     print(f"forward batch size:    {outputs.forward_output.batch_size}")
 
-    if metrics is not None:
-        scalars = metrics.result.metrics  # dict[str, float]
+    if outputs.metrics is not None:
+        scalars = outputs.metrics.result.metrics  # dict[str, float]
         print("metrics (scalar):")
         for name, value in sorted(scalars.items()):
             print(f"  {name:30s} {value:.4f}")
@@ -107,12 +94,12 @@ if __name__ == "__main__":
     if total:
         print(f"accuracy (recomputed): {correct}/{total} = {correct / total:.2%}")
 
-    for rr in robustness_results:
+    for rr in outputs.robustness_results:
         rate = rr.metrics.attack_success_rate
         if rate is not None:
             print(f"{rr.assessor_name or rr.algorithm:22s} attack success: {rate:.2%}")
 
-    for er in explanations:
+    for er in outputs.explanations:
         attrs = er.attributions  # torch.Tensor, shape (N, C, H, W) for images
         magnitudes = attrs.abs().flatten(1).mean(dim=1)
         print(f"mean |attr| per sample: {[round(m.item(), 4) for m in magnitudes]}")

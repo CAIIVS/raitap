@@ -144,8 +144,8 @@ def _run_outputs(
         )
     if robustness_results or robustness_visualisations:
         phase_results["robustness"] = RobustnessPhaseResult(
-            robustness_results=list(robustness_results or []),
-            robustness_visualisations=list(robustness_visualisations or []),
+            results=list(robustness_results or []),
+            visualisations=list(robustness_visualisations or []),
         )
     return RunOutputs(
         forward_output=forward_output,

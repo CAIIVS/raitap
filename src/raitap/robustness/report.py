@@ -62,28 +62,25 @@ class RobustnessPhase(AssessmentPhase):
             input_metadata=ctx.input_metadata,
             resolved_preprocessing=ctx.resolved_preprocessing,
         )
-        return RobustnessPhaseResult(
-            robustness_results=results,
-            robustness_visualisations=visualisations,
-        )
+        return RobustnessPhaseResult(results=results, visualisations=visualisations)
 
 
 @dataclass
 class RobustnessPhaseResult(Trackable):
     """Robustness phase output: assessor results + their report visualisations."""
 
-    robustness_results: list[RobustnessResult] = field(default_factory=list)
-    robustness_visualisations: list[RobustnessVisualisationResult] = field(default_factory=list)
+    results: list[RobustnessResult] = field(default_factory=list)
+    visualisations: list[RobustnessVisualisationResult] = field(default_factory=list)
 
     report_order: ClassVar[int] = 30
 
     def log(self, tracker: BaseTracker | None, **kwargs: Any) -> None:
         if tracker is None:
             return
-        use_subdirs = len(self.robustness_results) > 1
-        for result in self.robustness_results:
+        use_subdirs = len(self.results) > 1
+        for result in self.results:
             result.log(tracker, use_subdirectory=use_subdirs)
-        for visualisation in self.robustness_visualisations:
+        for visualisation in self.visualisations:
             visualisation.log(tracker, use_subdirectory=use_subdirs)
 
     def report_sections(self, ctx: ReportContext) -> tuple[ReportSection, ...]:
@@ -111,17 +108,17 @@ def _build_robustness_section(
     ``metadata.json``. This adds extra report-only renders only where compact
     layout kwargs are needed; legacy mode reuses pre-rendered artifacts.
     """
-    if not outputs.robustness_results:
+    if not outputs.results:
         return None
 
     visualisations_by_assessor: dict[str, list[RobustnessVisualisationResult]] = {}
     if show_redundant_robustness_panels:
-        for visualisation in outputs.robustness_visualisations:
+        for visualisation in outputs.visualisations:
             assessor_name = visualisation.result.assessor_name or visualisation.result.run_dir.name
             visualisations_by_assessor.setdefault(assessor_name, []).append(visualisation)
 
     groups: list[ReportGroup] = []
-    for index, result in enumerate(outputs.robustness_results):
+    for index, result in enumerate(outputs.results):
         assessor_name = result.assessor_name or result.run_dir.name
         assessment_kind_value = result.assessment_kind.value
         if result.assessment_kind == AssessmentKind.EMPIRICAL_ATTACK:
