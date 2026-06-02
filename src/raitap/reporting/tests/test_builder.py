@@ -11,8 +11,6 @@ import torch
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
-import raitap.robustness.report as robustness_report
-import raitap.transparency.report as transparency_report
 from raitap.configs import set_output_root
 from raitap.configs.schema import AppConfig, ReportingConfig
 from raitap.pipeline.outputs import ForwardOutput, PredictionSummary, RunOutputs
@@ -26,7 +24,7 @@ from raitap.reporting.hydra_callback import ReportingSweepCallback
 from raitap.reporting.manifest import ReportManifest
 from raitap.reporting.sample_selection import ReportSampleSelectionEntry
 from raitap.reporting.sections import ReportGroup, ReportSection
-from raitap.reporting.staging import _copy_asset
+from raitap.reporting.staging import _copy_asset, _strip_report_figure_titles
 from raitap.robustness.contracts import (
     AssessmentKind,
     Objective,
@@ -71,6 +69,7 @@ from raitap.transparency.report import (
     _overlay_legend_line,
 )
 from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult, VisualisationResult
+from raitap.transparency.visualisers import InputThumbnailVisualiser
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
 from raitap.types import TaskKind
 
@@ -918,7 +917,7 @@ def test_build_report_thumbnail_falls_back_to_later_explanation_after_runtime_er
     set_output_root(config, tmp_path)
     config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
 
-    original_visualise = transparency_report.InputThumbnailVisualiser.visualise
+    original_visualise = InputThumbnailVisualiser.visualise
     call_count = {"n": 0}
 
     def _fail_first_then_delegate(self: Any, *args: Any, **kwargs: Any) -> Any:
@@ -1490,7 +1489,7 @@ def test_build_report_compact_robustness_renders_selected_samples_per_assessor(
         robustness_results=[result],
     )
     stripped_figures: list[tuple[str, tuple[str, ...]]] = []
-    original_strip = robustness_report._strip_report_figure_titles
+    original_strip = _strip_report_figure_titles
 
     def _record_stripped_titles(figure: Figure) -> None:
         original_strip(figure)
@@ -1498,7 +1497,9 @@ def test_build_report_compact_robustness_renders_selected_samples_per_assessor(
         suptitle = suptitle_artist.get_text() if suptitle_artist is not None else ""
         stripped_figures.append((suptitle, tuple(ax.get_title() for ax in figure.axes)))
 
-    monkeypatch.setattr(robustness_report, "_strip_report_figure_titles", _record_stripped_titles)
+    monkeypatch.setattr(
+        "raitap.robustness.report._strip_report_figure_titles", _record_stripped_titles
+    )
 
     report = build_report(config, outputs)
 

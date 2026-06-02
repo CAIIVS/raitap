@@ -117,7 +117,7 @@ Library-forwarded kwargs (unchecked at schema time):
 | `forward_output`       | `ForwardOutput`                 | Typed model forward output (predictions tensor or detection predictions) + batch size.           |
 | `phase_results`        | `dict[str, PhaseResult]`        | Each configured assessment phase's result, keyed by phase name (see below). Only configured phases appear. |
 | `sample_ids`           | `list[str] \| None`             | Stable ids aligned with `forward_output` rows; `None` when the data source doesn't supply them.  |
-| `targets`              | `torch.Tensor \| None`          | Ground-truth labels when labels are configured.                                                  |
+| `targets`              | `torch.Tensor \| list[dict[str, torch.Tensor]] \| None` | Ground-truth labels when configured — a tensor (classification) or `list[dict]` (detection). |
 | `prediction_summaries` | `tuple[PredictionSummary, ...]` | Per-sample `(index, predicted_class, confidence, sample_id, target_class, correct)`.             |
 
 Each value in `phase_results` is a `PhaseResult` (a `Trackable` + `Reportable`). Access by phase name:

@@ -28,9 +28,13 @@ class PhaseResult(Protocol):
 
     report_order: ClassVar[int]
 
-    def log(self, tracker: BaseTracker | None, **kwargs: Any) -> None: ...
+    def log(self, tracker: BaseTracker | None, **kwargs: Any) -> None:
+        """Log this phase's artifacts / metrics to the tracker."""
+        raise NotImplementedError
 
-    def report_sections(self, ctx: ReportContext) -> Sequence[ReportSection]: ...
+    def report_sections(self, ctx: ReportContext) -> Sequence[ReportSection]:
+        """Return this phase's contribution as ordered report sections."""
+        raise NotImplementedError
 
 
 @dataclass(frozen=True)

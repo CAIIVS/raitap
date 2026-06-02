@@ -13,7 +13,7 @@ import dataclasses
 import io
 from contextlib import redirect_stdout
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 import pytest
 from hydra import compose, initialize_config_dir
@@ -31,28 +31,32 @@ from raitap.configs.schema import (
 )
 from raitap.data.preprocessing import resolve_preprocessing
 from raitap.metrics import multiclass_classification as classification_metrics
+from raitap.metrics.factory import MetricsEvaluation
 from raitap.models.model import Model
 from raitap.pipeline.outputs import RunOutputs
 from raitap.robustness import foolbox, torchattacks
+from raitap.robustness.report import RobustnessPhaseResult
 from raitap.transparency import captum, shap
+from raitap.transparency.report import TransparencyPhaseResult
 from raitap.types import Hardware
-
-if TYPE_CHECKING:
-    from raitap.metrics.factory import MetricsEvaluation
-    from raitap.robustness.report import RobustnessPhaseResult
-    from raitap.transparency.report import TransparencyPhaseResult
 
 
 def _transparency(outputs: RunOutputs) -> TransparencyPhaseResult:
-    return cast("TransparencyPhaseResult", outputs.phase_results["transparency"])
+    result = outputs.phase_results["transparency"]
+    assert isinstance(result, TransparencyPhaseResult)
+    return result
 
 
 def _robustness(outputs: RunOutputs) -> RobustnessPhaseResult:
-    return cast("RobustnessPhaseResult", outputs.phase_results["robustness"])
+    result = outputs.phase_results["robustness"]
+    assert isinstance(result, RobustnessPhaseResult)
+    return result
 
 
 def _metrics(outputs: RunOutputs) -> MetricsEvaluation | None:
-    return cast("MetricsEvaluation | None", outputs.phase_results.get("metrics"))
+    result = outputs.phase_results.get("metrics")
+    assert result is None or isinstance(result, MetricsEvaluation)
+    return result
 
 
 FIXTURE = (

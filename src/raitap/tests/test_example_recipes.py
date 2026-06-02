@@ -19,7 +19,7 @@ gated behind the ``e2e`` marker (declared in ``[tool.pytest.ini_options]``)
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypedDict, cast
+from typing import TYPE_CHECKING, TypedDict
 
 import pytest
 
@@ -33,31 +33,34 @@ from raitap.metrics import multiclass_classification as classification
 from raitap.models import ModelConfig
 from raitap.pipeline.outputs import RunOutputs
 from raitap.robustness import image_pair, torchattacks
+from raitap.robustness.report import RobustnessPhaseResult
 from raitap.transparency import captum, captum_image
+from raitap.transparency.report import TransparencyPhaseResult
 
 if TYPE_CHECKING:
     from raitap.configs.schema import MetricsConfig, ReportingConfig
-    from raitap.robustness.report import RobustnessPhaseResult
-    from raitap.transparency.report import TransparencyPhaseResult
+
+
+def _transparency(outputs: RunOutputs) -> TransparencyPhaseResult | None:
+    result = outputs.phase_results.get("transparency")
+    assert result is None or isinstance(result, TransparencyPhaseResult)
+    return result
 
 
 def _explanations(outputs: RunOutputs) -> list:
-    result = outputs.phase_results.get("transparency")
-    return list(cast("TransparencyPhaseResult", result).explanations) if result is not None else []
+    result = _transparency(outputs)
+    return list(result.explanations) if result is not None else []
 
 
 def _visualisations(outputs: RunOutputs) -> list:
-    result = outputs.phase_results.get("transparency")
-    return (
-        list(cast("TransparencyPhaseResult", result).visualisations) if result is not None else []
-    )
+    result = _transparency(outputs)
+    return list(result.visualisations) if result is not None else []
 
 
 def _robustness_results(outputs: RunOutputs) -> list:
     result = outputs.phase_results.get("robustness")
-    return (
-        list(cast("RobustnessPhaseResult", result).robustness_results) if result is not None else []
-    )
+    assert result is None or isinstance(result, RobustnessPhaseResult)
+    return list(result.robustness_results) if result is not None else []
 
 
 class _BaseKwargs(TypedDict):
