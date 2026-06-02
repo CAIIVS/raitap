@@ -19,6 +19,19 @@ CaptumImageVisualiser, CaptumTimeSeriesVisualiser, CaptumTextVisualiser
 ShapBarVisualiser, ShapBeeswarmVisualiser, ShapWaterfallVisualiser,
 ShapForceVisualiser, ShapImageVisualiser
 TabularBarChartVisualiser
+
+Module layout (for contributors)
+--------------------------------
+``phase.py``            Pipeline entry point: ``TransparencyPhase`` (what the
+                        registry assembles) + ``assess_transparency`` work fn.
+                        Start here to follow a run.
+``explain_detection.py``  Detection-task per-box K-loop (one result per box).
+``factory.py``          Builds explainer + visualiser instances from config.
+``results.py``          ``ExplanationResult`` (owns its ``.visualisations``) +
+                        ``VisualisationResult``.
+``report.py``           ``TransparencyPhaseResult`` + report-section builders.
+``explainers/``         The XAI adapters (Captum, SHAP).
+``visualisers/``        The figure renderers.
 """
 
 from __future__ import annotations
