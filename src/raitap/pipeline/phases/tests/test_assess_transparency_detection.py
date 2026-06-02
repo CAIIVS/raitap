@@ -311,13 +311,16 @@ def test_detection_transparency_renders_class_name_end_to_end(tmp_path: Path) ->
             resolved_preprocessing=None,
         )
 
-    # In-memory box was enriched before visualise().
+    # Caller enrichment populated the in-memory box that the report builder
+    # later reads for the heading + overlay.
     assert any(
         e.detection_box is not None and e.detection_box.label_name == "kite" for e in explanations
     )
-    # And the enriched name reached a RENDERED per-box title (downstream of visualise()).
+    # The render path ran end-to-end through the real visualiser and produced a
+    # figure with NO title (label/score/GT live on the overlay + heading only).
     titles = [v.figure.axes[0].get_title() for v in visualisations if hasattr(v, "figure")]
-    assert any("kite" in t for t in titles)
+    assert titles  # at least one per-box figure rendered
+    assert all(t == "" for t in titles)
 
 
 def test_detection_transparency_matches_ground_truth_end_to_end(tmp_path: Path) -> None:
@@ -459,15 +462,18 @@ def test_detection_transparency_matches_ground_truth_end_to_end(tmp_path: Path) 
         )
 
     # GT match reached the in-memory box: evaluated, matched, true class = GT (20).
+    # The builder renders this on the heading + overlay; the per-box figure has
+    # no title (asserted below), so the GT detail is carried by the box itself.
     box = explanations[0].detection_box
     assert box is not None
     assert box.gt_evaluated is True
     assert box.true_label_index == gt_label_id
     assert box.true_label_name == f"c{gt_label_id}"
     assert box.true_match_iou == pytest.approx(1.0)
-    # And the GT clause reached a RENDERED per-box title.
+    # The render path ran and produced a title-less figure.
     titles = [v.figure.axes[0].get_title() for v in visualisations if hasattr(v, "figure")]
-    assert any(f"gt: c{gt_label_id} (IoU 1.00)" in t for t in titles)
+    assert titles
+    assert all(t == "" for t in titles)
 
 
 def test_assess_transparency_detection_skips_when_no_explainers(tmp_path: Path) -> None:

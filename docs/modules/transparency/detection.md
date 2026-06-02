@@ -84,9 +84,11 @@ transparency = {
 
 ## Box labels and ground truth
 
-Each explained box is labelled in the report headings, figure titles, and
+Each explained box is labelled in the report headings and on the original-image
 thumbnail overlay with its **predicted class name** and, when ground truth is
-available, the **true label** of the closest real object.
+available, the **true label** of the closest real object. The per-box
+attribution figures carry no title — the label, score, and ground-truth match
+would only duplicate what the overlay and heading already show.
 
 **Predicted class names.** A box reads `kite` instead of `class 38` whenever a
 class-name source is available:

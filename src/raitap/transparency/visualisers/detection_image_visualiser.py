@@ -188,15 +188,9 @@ class DetectionImageVisualiser(BaseVisualiser):
             fig.colorbar(heat, ax=ax).set_label("attribution")
         fig.legend(handles=[rect], loc="outside upper right", fontsize=8, framealpha=0.9)
 
-        label_str = box.label_name if box.label_name else f"class {box.label_index}"
-        title = f"{label_str}: {box.score:.2f}    [box {box.display_index} (raw {box.raw_index})]"
-        if box.gt_evaluated:
-            if box.true_label_index is not None:
-                gt_name = box.true_label_name or f"class {box.true_label_index}"
-                title += f"    gt: {gt_name} (IoU {box.true_match_iou:.2f})"
-            else:
-                title += "    gt: no match"
-        ax.set_title(title)
+        # No per-box title: the predicted label, score, and ground-truth match
+        # are shown on the thumbnail overlay (every box on the original image)
+        # and in the report heading, so a title here would only duplicate them.
         ax.set_xticks([])
         ax.set_yticks([])
         ax.set_xlim(0, img_hwc.shape[1])
