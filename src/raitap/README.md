@@ -14,7 +14,7 @@ src/raitap/
 ├── deps/                # dependency inference + auto-install (runs first, pre-torch)
 ├── data/                # dataset loading, preprocessing, sample selection
 ├── models/              # load any model into a uniform ModelBackend
-├── pipeline/            # orchestrator + phases/ (one file per pipeline step)
+├── pipeline/            # orchestrator + phases/ (shared phase infra: base, registry, run_adapters, forward pass)
 ├── transparency/        # attribution / explainability family
 ├── robustness/          # adversarial + formal robustness family
 ├── metrics/             # task metrics (classification / detection)
@@ -30,6 +30,11 @@ src/raitap/
   `tracking`) use the adapter pattern: `factory.py` + `registration.py` +
   `base_*.py` + concrete adapters in a subpackage. Each adapter registers
   itself through the matching decorator in `_adapters.py`.
+- **Phase entry point**: each assessment family (`metrics`, `transparency`,
+  `robustness`) owns a `phase.py` — its `AssessmentPhase` subclass + work
+  function — which the orchestrator assembles via `pipeline/phases/registry.py`.
+  Start there to trace a run. `pipeline/phases/` itself holds only cross-cutting
+  infra, so adding a module touches it for exactly one registry line.
 - **`tests/`** subdirs is colocated to the code they cover, in every module.
 - **Import weight matters.** `types.py` and `utils/lazy.py` exist so that
   importing config/CLI code doesn't drag in torch before the deps bootstrap
