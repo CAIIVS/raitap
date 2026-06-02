@@ -618,8 +618,38 @@ def test_run_without_tracking_raises_if_no_explainers_or_assessors(
         "raitap.pipeline.phases.evaluate_metrics.metrics_run_enabled", lambda _cfg: False
     )
 
-    with pytest.raises(ValueError, match="No explainers or robustness assessors configured"):
+    with pytest.raises(
+        ValueError, match="No metrics, explainers, or robustness assessors configured"
+    ):
         run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
+
+
+def test_run_without_tracking_allows_metrics_only(monkeypatch: MonkeyPatch) -> None:
+    class _Net(torch.nn.Module):
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            del x
+            return torch.tensor([[0.1, 0.9, 0.0], [0.8, 0.1, 0.1]])
+
+    model = SimpleNamespace(backend=_BackendStub(_Net()))
+    data = SimpleNamespace(tensor=torch.randn(2, 4), sample_ids=None, labels=None)
+    config = SimpleNamespace(
+        transparency={},
+        robustness={},
+        metrics=SimpleNamespace(num_classes=None),
+    )
+    monkeypatch.setattr(
+        "raitap.pipeline.phases.evaluate_metrics.metrics_run_enabled", lambda _cfg: True
+    )
+    monkeypatch.setattr("raitap.pipeline.orchestrator.metrics_run_enabled", lambda _cfg: True)
+    monkeypatch.setattr(
+        "raitap.pipeline.phases.evaluate_metrics.Metrics", lambda _c, _p, _t: SimpleNamespace()
+    )
+
+    outputs = run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
+
+    assert outputs.metrics is not None
+    assert outputs.explanations == []
+    assert outputs.robustness_results == []
 
 
 def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: MonkeyPatch) -> None:

@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from raitap import raitap_log
 from raitap.data import Data
 from raitap.data.preprocessing import resolve_preprocessing
+from raitap.metrics import metrics_run_enabled
 from raitap.models import Model
 from raitap.pipeline.outputs import RunOutputs
 from raitap.pipeline.phases.assess_robustness import assess_robustness
@@ -143,8 +144,12 @@ def run_without_tracking(
 
     metrics_eval = evaluate_metrics(config, forward_output, data.labels)
 
-    if not (getattr(config, "transparency", None) or getattr(config, "robustness", None)):
-        raise ValueError("No explainers or robustness assessors configured")
+    if not (
+        metrics_run_enabled(config)
+        or getattr(config, "transparency", None)
+        or getattr(config, "robustness", None)
+    ):
+        raise ValueError("No metrics, explainers, or robustness assessors configured")
 
     input_metadata = input_metadata_for_data(config, data)
     explanations, visualisations = assess_transparency(
