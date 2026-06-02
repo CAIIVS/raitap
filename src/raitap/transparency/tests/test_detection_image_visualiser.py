@@ -401,7 +401,7 @@ def test_visualiser_sets_no_title_even_with_ground_truth() -> None:
             score=0.99,
             label_index=1,
             label_name="kite",
-            gt_evaluated=True,
+            ground_truth_evaluated=True,
             true_label_name="sheep",
             true_label_index=3,
             true_match_iou=0.71,

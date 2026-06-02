@@ -197,7 +197,7 @@ class ExplanationResult(Trackable):
                 "score": self.detection_box.score,
                 "label_index": self.detection_box.label_index,
                 "label_name": self.detection_box.label_name,
-                "gt_evaluated": self.detection_box.gt_evaluated,
+                "ground_truth_evaluated": self.detection_box.ground_truth_evaluated,
                 "true_label_index": self.detection_box.true_label_index,
                 "true_label_name": self.detection_box.true_label_name,
                 "true_match_iou": self.detection_box.true_match_iou,

@@ -467,7 +467,7 @@ def test_detection_transparency_matches_ground_truth_end_to_end(tmp_path: Path) 
     # no title (asserted below), so the GT detail is carried by the box itself.
     box = explanations[0].detection_box
     assert box is not None
-    assert box.gt_evaluated is True
+    assert box.ground_truth_evaluated is True
     assert box.true_label_index == gt_label_id
     assert box.true_label_name == f"c{gt_label_id}"
     assert box.true_match_iou == pytest.approx(1.0)

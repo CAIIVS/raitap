@@ -234,13 +234,13 @@ class DetectionBox:
     score: float
     label_index: int
     label_name: str | None = None
-    # Ground-truth match (issue #233 Part 2). ``gt_evaluated`` is True whenever
+    # Ground-truth match (issue #233 Part 2). ``ground_truth_evaluated`` is True whenever
     # GT was available for this box's sample (so an unmatched box is a genuine
     # false positive, distinct from "no GT configured"). When matched,
     # ``true_label_index`` / ``true_label_name`` / ``true_match_iou`` describe the
     # highest-IoU GT box (class-agnostic match). All three stay None on a false
-    # positive (gt_evaluated True, no match) and when GT is absent.
-    gt_evaluated: bool = False
+    # positive (ground_truth_evaluated True, no match) and when GT is absent.
+    ground_truth_evaluated: bool = False
     true_label_index: int | None = None
     true_label_name: str | None = None
     true_match_iou: float | None = None

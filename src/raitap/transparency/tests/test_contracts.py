@@ -299,7 +299,7 @@ def test_detection_box_gt_fields_default_unset() -> None:
     assert box.true_label_index is None
     assert box.true_label_name is None
     assert box.true_match_iou is None
-    assert box.gt_evaluated is False
+    assert box.ground_truth_evaluated is False
 
 
 def test_detection_box_gt_fields_set() -> None:
@@ -315,8 +315,8 @@ def test_detection_box_gt_fields_set() -> None:
         true_label_index=20,
         true_label_name="sheep",
         true_match_iou=0.71,
-        gt_evaluated=True,
+        ground_truth_evaluated=True,
     )
     assert box.true_label_name == "sheep"
     assert box.true_match_iou == 0.71
-    assert box.gt_evaluated is True
+    assert box.ground_truth_evaluated is True

@@ -2443,7 +2443,7 @@ def test_detection_heading_matched_gt() -> None:
         score=0.99,
         label_index=38,
         label_name="kite",
-        gt_evaluated=True,
+        ground_truth_evaluated=True,
         true_label_index=20,
         true_label_name="sheep",
         true_match_iou=0.71,
@@ -2460,7 +2460,7 @@ def test_detection_heading_no_match() -> None:
         score=0.99,
         label_index=38,
         label_name="kite",
-        gt_evaluated=True,
+        ground_truth_evaluated=True,
     )
     assert "gt: no match" in _detection_box_heading(box)
 
@@ -2484,7 +2484,7 @@ def _det_box(
     display_index: int,
     label_name: str,
     score: float,
-    gt_evaluated: bool = False,
+    ground_truth_evaluated: bool = False,
     true_label_name: str | None = None,
     true_label_index: int | None = None,
     true_match_iou: float | None = None,
@@ -2496,7 +2496,7 @@ def _det_box(
         score=score,
         label_index=1,
         label_name=label_name,
-        gt_evaluated=gt_evaluated,
+        ground_truth_evaluated=ground_truth_evaluated,
         true_label_name=true_label_name,
         true_label_index=true_label_index,
         true_match_iou=true_match_iou,
@@ -2508,13 +2508,13 @@ def test_overlay_legend_line_covers_all_branches() -> None:
         display_index=0,
         label_name="kite",
         score=0.99,
-        gt_evaluated=True,
+        ground_truth_evaluated=True,
         true_label_name="sheep",
         true_label_index=3,
         true_match_iou=0.71,
     )
     assert _overlay_legend_line(matched) == "#0 kite (0.99) | gt: sheep (IoU 0.71)"
-    no_match = _det_box(display_index=1, label_name="dog", score=0.92, gt_evaluated=True)
+    no_match = _det_box(display_index=1, label_name="dog", score=0.92, ground_truth_evaluated=True)
     assert _overlay_legend_line(no_match) == "#1 dog (0.92) | gt: no match"
     no_gt = _det_box(display_index=2, label_name="boat", score=0.81)
     assert _overlay_legend_line(no_gt) == "#2 boat (0.81)"
@@ -2539,12 +2539,12 @@ def test_overlay_draws_index_tags_and_legend_below_image() -> None:
         display_index=0,
         label_name="kite",
         score=0.99,
-        gt_evaluated=True,
+        ground_truth_evaluated=True,
         true_label_name="kite",
         true_label_index=1,
         true_match_iou=0.83,
     )
-    box1 = _det_box(display_index=1, label_name="dog", score=0.92, gt_evaluated=True)
+    box1 = _det_box(display_index=1, label_name="dog", score=0.92, ground_truth_evaluated=True)
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.imshow(torch.zeros(50, 50, 3).numpy())

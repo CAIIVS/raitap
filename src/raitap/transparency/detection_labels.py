@@ -43,7 +43,7 @@ def enrich_detection_box(
     box: DetectionBox,
     *,
     category_names: Sequence[str] | None = None,
-    gt_for_sample: dict[str, torch.Tensor] | None = None,
+    ground_truth_for_sample: dict[str, torch.Tensor] | None = None,
     iou_threshold: float = 0.5,
 ) -> DetectionBox:
     """Return *box* with display metadata resolved (predicted name + GT match).
@@ -53,19 +53,22 @@ def enrich_detection_box(
 
     - ``label_name`` is resolved from ``category_names`` (``None`` -> numeric id
       fallback downstream).
-    - When ``gt_for_sample`` is given (the sample's GT dict with ``boxes``/
+    - When ``ground_truth_for_sample`` is given (the sample's GT dict with ``boxes``/
       ``labels``), the box is matched to GT by class-agnostic IoU and
-      ``gt_evaluated`` is set ``True`` regardless of whether a match was found.
+      ``ground_truth_evaluated`` is set ``True`` regardless of whether a match was found.
       A match fills ``true_label_index`` / ``true_label_name`` / ``true_match_iou``;
-      no match leaves them ``None`` (a false positive). ``gt_for_sample=None``
-      means GT was not configured and leaves ``gt_evaluated`` ``False``.
+      no match leaves them ``None`` (a false positive). ``ground_truth_for_sample=None``
+      means GT was not configured and leaves ``ground_truth_evaluated`` ``False``.
     """
     true_label_index: int | None = None
     true_label_name: str | None = None
     true_match_iou: float | None = None
-    if gt_for_sample is not None:
-        match = match_box_to_gt(
-            box.xyxy, gt_for_sample["boxes"], gt_for_sample["labels"], iou_threshold
+    if ground_truth_for_sample is not None:
+        match = match_box_to_ground_truth(
+            box.xyxy,
+            ground_truth_for_sample["boxes"],
+            ground_truth_for_sample["labels"],
+            iou_threshold,
         )
         if match is not None:
             true_label_index, true_match_iou = match
@@ -73,27 +76,27 @@ def enrich_detection_box(
     return dataclasses.replace(
         box,
         label_name=label_name_for(box.label_index, category_names),
-        gt_evaluated=gt_for_sample is not None,
+        ground_truth_evaluated=ground_truth_for_sample is not None,
         true_label_index=true_label_index,
         true_label_name=true_label_name,
         true_match_iou=true_match_iou,
     )
 
 
-def match_box_to_gt(
+def match_box_to_ground_truth(
     pred_xyxy: tuple[float, float, float, float],
-    gt_boxes: torch.Tensor,
-    gt_labels: torch.Tensor,
+    ground_truth_boxes: torch.Tensor,
+    ground_truth_labels: torch.Tensor,
     iou_threshold: float,
 ) -> tuple[int, float] | None:
     """Class-agnostic best-IoU match of a predicted box to ground truth.
 
-    Returns ``(gt_label_index, iou)`` for the highest-IoU GT box at or above
+    Returns ``(ground_truth_label_index, iou)`` for the highest-IoU GT box at or above
     ``iou_threshold``, else ``None`` (no match -> the prediction is a false
     positive). Matching ignores class so "predicted X, truth Y" disagreements
     surface; the GT class is reported, not required to equal the prediction.
 
-    ``gt_boxes`` is ``(M, 4)`` xyxy and ``gt_labels`` is ``(M,)`` int, both in
+    ``ground_truth_boxes`` is ``(M, 4)`` xyxy and ``ground_truth_labels`` is ``(M,)`` int, both in
     the same pixel space as ``pred_xyxy`` (the detection forward-pass space).
 
     ``torch`` / ``torchvision`` are imported lazily here so the module's pure
@@ -102,12 +105,14 @@ def match_box_to_gt(
     import torch
     from torchvision.ops import box_iou
 
-    if gt_boxes.numel() == 0:
+    if ground_truth_boxes.numel() == 0:
         return None
-    pred = torch.tensor([pred_xyxy], dtype=gt_boxes.dtype, device=gt_boxes.device)
-    ious = box_iou(pred, gt_boxes)[0]  # (M,)
+    pred = torch.tensor(
+        [pred_xyxy], dtype=ground_truth_boxes.dtype, device=ground_truth_boxes.device
+    )
+    ious = box_iou(pred, ground_truth_boxes)[0]  # (M,)
     best = int(ious.argmax().item())
     best_iou = float(ious[best].item())
     if best_iou < iou_threshold:
         return None
-    return int(gt_labels[best].item()), best_iou
+    return int(ground_truth_labels[best].item()), best_iou

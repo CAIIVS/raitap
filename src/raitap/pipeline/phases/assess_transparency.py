@@ -164,7 +164,7 @@ def _assess_transparency_detection(
         backend.category_names,
     )
     data_labels = getattr(data, "labels", None)
-    detection_gt = data_labels if isinstance(data_labels, list) else None
+    detection_ground_truth = data_labels if isinstance(data_labels, list) else None
 
     for name in explainer_names:
         explainer_config = config.transparency[name]
@@ -187,7 +187,7 @@ def _assess_transparency_detection(
 
             call_from_config = dict(parsed.call)
             raitap_cfg = dict(parsed.raitap)
-            gt_iou_threshold = float(
+            ground_truth_iou_threshold = float(
                 raitap_cfg.get("detection", {}).get("iou_threshold", _DEFAULT_IOU_THRESHOLD)
             )
             if data.sample_ids is not None:
@@ -231,26 +231,26 @@ def _assess_transparency_detection(
             ):
                 if result.detection_box is not None:
                     sample_index = result.original_sample_index
-                    gt_for_sample = None
-                    if detection_gt is not None and sample_index is not None:
-                        if sample_index < len(detection_gt):
-                            gt_for_sample = detection_gt[sample_index]
+                    ground_truth_for_sample = None
+                    if detection_ground_truth is not None and sample_index is not None:
+                        if sample_index < len(detection_ground_truth):
+                            ground_truth_for_sample = detection_ground_truth[sample_index]
                         else:
-                            # Loader guarantees len(detection_gt) == n_samples, so this
+                            # Loader guarantees len(detection_ground_truth) == n_samples, so this
                             # only fires on a genuine prediction/label misalignment;
                             # surface it instead of silently skipping the GT match.
                             raitap_log.warn(
                                 "Detection ground truth has %d entries but an explanation "
                                 "references sample_index=%d; rendering this box without a "
                                 "true label (prediction/label misalignment).",
-                                len(detection_gt),
+                                len(detection_ground_truth),
                                 sample_index,
                             )
                     result.detection_box = enrich_detection_box(
                         result.detection_box,
                         category_names=category_names,
-                        gt_for_sample=gt_for_sample,
-                        iou_threshold=gt_iou_threshold,
+                        ground_truth_for_sample=ground_truth_for_sample,
+                        iou_threshold=ground_truth_iou_threshold,
                     )
                 explanations.append(result)
                 visualisations.extend(result.visualise())

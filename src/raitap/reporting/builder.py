@@ -709,14 +709,14 @@ def _detection_box_heading(box: DetectionBox) -> str:
     with no GT, the legacy ``label, score=..`` form is unchanged.
     """
     label = box.label_name or f"class {box.label_index}"
-    if not box.gt_evaluated:
+    if not box.ground_truth_evaluated:
         return f"{label}, score={box.score:.2f}"
     if box.true_label_index is None:
-        gt_clause = "no match"
+        ground_truth_clause = "no match"
     else:
-        gt_name = box.true_label_name or f"class {box.true_label_index}"
-        gt_clause = f"{gt_name} (IoU {box.true_match_iou:.2f})"
-    return f"pred: {label} {box.score:.2f} | gt: {gt_clause}"
+        ground_truth_name = box.true_label_name or f"class {box.true_label_index}"
+        ground_truth_clause = f"{ground_truth_name} (IoU {box.true_match_iou:.2f})"
+    return f"pred: {label} {box.score:.2f} | gt: {ground_truth_clause}"
 
 
 def _build_local_section(
@@ -842,7 +842,7 @@ def _build_local_section(
                         "label_index": detection_box.label_index,
                         "label_name": detection_box.label_name,
                         "xyxy": list(detection_box.xyxy),
-                        "gt_evaluated": detection_box.gt_evaluated,
+                        "ground_truth_evaluated": detection_box.ground_truth_evaluated,
                         "true_label_index": detection_box.true_label_index,
                         "true_label_name": detection_box.true_label_name,
                         "true_match_iou": detection_box.true_match_iou,
@@ -1170,12 +1170,12 @@ def _overlay_legend_line(box: DetectionBox) -> str:
     """One legend row for a detection box: ``#i name (score) [| gt: ...]``."""
     label = box.label_name or f"class {box.label_index}"
     base = f"#{box.display_index} {label} ({box.score:.2f})"
-    if not box.gt_evaluated:
+    if not box.ground_truth_evaluated:
         return base
     if box.true_label_index is None:
         return f"{base} | gt: no match"
-    gt_name = box.true_label_name or f"class {box.true_label_index}"
-    return f"{base} | gt: {gt_name} (IoU {box.true_match_iou:.2f})"
+    ground_truth_name = box.true_label_name or f"class {box.true_label_index}"
+    return f"{base} | gt: {ground_truth_name} (IoU {box.true_match_iou:.2f})"
 
 
 # Human-facing labels for the baseline ``mode`` token. The raw token is kept in
