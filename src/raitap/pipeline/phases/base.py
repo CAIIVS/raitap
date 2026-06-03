@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, Protocol
+from typing import TYPE_CHECKING, ClassVar, TypeVar
 
 from raitap import raitap_log
 
@@ -20,27 +20,27 @@ if TYPE_CHECKING:
     from raitap.data import Data
     from raitap.data.preprocessing import ResolvedPreprocessing
     from raitap.models import Model
-    from raitap.pipeline.outputs import ForwardOutput, PhaseResult
+    from raitap.pipeline.outputs import ForwardOutput, PhaseResult, _RenderableResult
     from raitap.transparency.contracts import InputSpec
 
 
-class _Visualisable(Protocol):
-    """A per-adapter result that owns + renders its report visualisations."""
-
-    def visualise(self) -> object: ...
+# Bound to the AdapterResult envelope (+ ``_visualise``): pyright proves every
+# phase's result satisfies the contract — including the thesis-critical
+# ``semantics`` — at the ``run_adapters`` call site.
+ResultT = TypeVar("ResultT", bound="_RenderableResult")
 
 
 def run_adapters(
     names: Iterable[str],
     *,
     log_label: str,
-    build_one: Callable[[str], _Visualisable | None],
-) -> list:
+    build_one: Callable[[str], ResultT | None],
+) -> list[ResultT]:
     """Run the adapter loop shared by adapter-style phases (transparency, robustness, …).
 
     For each configured adapter ``name``, ``build_one(name)`` instantiates the
     module's result (or returns ``None`` to skip it). This helper then calls the
-    result's ``visualise()`` — so every result owns its visualisations (issue
+    result's ``_visualise()`` — so every result owns its visualisations (issue
     #243) and a contributor cannot forget that contract — and collects the
     results in ``names`` order. Metrics is a singleton (no adapter loop) and does
     not use this helper.
@@ -50,12 +50,12 @@ def run_adapters(
         return []
     suffix = "s" if len(names) > 1 else ""
     raitap_log.info("Performing %s assessment%s (%d)...", log_label, suffix, len(names))
-    results: list = []
+    results: list[ResultT] = []
     for name in names:
         result = build_one(name)
         if result is None:
             continue
-        result.visualise()  # populates result.visualisations
+        result._visualise()  # populates result.visualisations
         results.append(result)
     return results
 

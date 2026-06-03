@@ -9,13 +9,14 @@ from raitap.types import TaskKind
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from pathlib import Path
 
     import torch
 
     from raitap.metrics import MetricsEvaluation
     from raitap.reporting.sections import ReportContext, ReportSection
     from raitap.robustness.results import RobustnessResult, RobustnessVisualisationResult
-    from raitap.tracking.base_tracker import BaseTracker
+    from raitap.tracking.base_tracker import BaseTracker, Trackable
     from raitap.transparency.results import ExplanationResult, VisualisationResult
 
 
@@ -38,6 +39,34 @@ class PhaseResult(Protocol):
     def report_sections(self, ctx: ReportContext) -> Sequence[ReportSection]:
         """Return this phase's contribution as ordered report sections."""
         raise NotImplementedError
+
+
+@runtime_checkable
+class AdapterResult(Protocol):
+    """Common envelope every per-adapter assessment result implements.
+
+    Identity (config key / library class / method), provenance (``run_dir``),
+    the figures it owns (1:N), and — load-bearing for RAITAP's semantic-
+    transparency thesis — its ``semantics``. The domain *payload* (attributions
+    vs adversarial tensors vs …) is deliberately NOT part of this contract; it
+    differs per module. Metrics is a singleton (no adapter loop, no figures) and
+    does NOT implement it.
+    """
+
+    name: str | None
+    adapter_target: str
+    algorithm: str
+    semantics: object
+    run_dir: Path
+    visualisations: Sequence[Trackable]
+
+
+class _RenderableResult(AdapterResult, Protocol):
+    """Internal: what ``run_adapters`` consumes — the envelope plus the
+    persist-and-render step it drives. ``_visualise`` is underscored because it
+    is pipeline-internal (side-effecting: writes PNGs, mutates state)."""
+
+    def _visualise(self, **kwargs: Any) -> Sequence[Trackable]: ...
 
 
 @dataclass(frozen=True)
