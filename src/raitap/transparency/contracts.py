@@ -16,7 +16,10 @@ from collections.abc import Mapping, Sequence  # noqa: TC003
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path  # noqa: TC003
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from raitap.types import Capability
 
 ConfiguredVisualiser = Any
 ExplanationResult = Any
@@ -135,6 +138,7 @@ class ExplainerSemanticsHints:
     families: frozenset[MethodFamily]
     baseline_default: BaselineMode | None = None
     baseline_cardinality: BaselineCardinality | None = None
+    requires: frozenset[Capability] = frozenset()
 
 
 def explainer_output_kind(explainer: object) -> ExplanationPayloadKind:

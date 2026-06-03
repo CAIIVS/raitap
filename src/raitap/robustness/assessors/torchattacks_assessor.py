@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from raitap.robustness.assessors.registration import robustness_adapter
+from raitap.types import Capability
 from raitap.utils.lazy import lazy_import
 
 from ..contracts import AssessmentKind, Objective, PerturbationNorm, ThreatModel
@@ -28,6 +29,7 @@ else:
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
             families=frozenset({"gradient_sign"}),
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
         "BIM": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -35,6 +37,7 @@ else:
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
             families=frozenset({"gradient_sign", "iterative"}),
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
         "PGD": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -42,6 +45,7 @@ else:
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
             families=frozenset({"gradient_sign", "iterative"}),
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
         "PGDL2": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -49,6 +53,7 @@ else:
             Objective.UNTARGETED,
             PerturbationNorm.L2,
             families=frozenset({"gradient_sign", "iterative"}),
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
         "MIFGSM": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -56,6 +61,7 @@ else:
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
             families=frozenset({"gradient_sign", "iterative", "momentum"}),
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
         "CW": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -63,6 +69,7 @@ else:
             Objective.UNTARGETED,
             PerturbationNorm.L2,
             families=frozenset({"optimization"}),
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
         "DeepFool": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -70,6 +77,7 @@ else:
             Objective.UNTARGETED,
             PerturbationNorm.L2,
             families=frozenset({"optimization"}),
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
         "AutoAttack": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -77,6 +85,7 @@ else:
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
             families=frozenset({"ensemble", "auto"}),
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
         "Square": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -84,6 +93,7 @@ else:
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
             families=frozenset({"score_based"}),
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
         "OnePixel": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -91,6 +101,7 @@ else:
             Objective.UNTARGETED,
             PerturbationNorm.L0,
             families=frozenset({"score_based", "evolutionary"}),
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
     },
 )

@@ -26,6 +26,7 @@ from collections.abc import Mapping  # noqa: TC003 — runtime use in module-lev
 from typing import TYPE_CHECKING, Any
 
 from raitap.robustness.assessors.registration import robustness_adapter
+from raitap.types import Capability
 from raitap.utils.lazy import lazy_import
 
 from ..contracts import (
@@ -95,6 +96,7 @@ _AUTO_LIRPA_ERROR_MESSAGES: Mapping[str, str] = {
             Objective.UNTARGETED,
             norm,
             families=_FAMILIES,
+            requires=frozenset({Capability.AUTOGRAD}),
         )
         for name, (_method, norm) in _ALGORITHMS.items()
     },
@@ -130,14 +132,12 @@ class AutoLiRPAAssessor(FormalVerificationAssessor):
     # ------------------------------------------------------------------
 
     def check_backend_compat(self, backend: object) -> None:
-        """Enforce the torch-autograd contract, then warn on Intel XPU.
+        """Inherit the autograd gate, then warn on Intel XPU.
 
-        Extends (does not replace) the base autograd enforcement — auto-LiRPA
-        needs the live ``nn.Module`` and autograd, so ONNX backends are
-        rejected. auto-LiRPA has no upstream XPU support; it runs on the active
-        device but less-common ops (Patches-mode conv bounds) may hit XPU op
-        gaps. Warn once per ``assess()`` rather than erroring so XPU users can
-        fall back to a CPU backend themselves.
+        auto-LiRPA needs the live ``nn.Module`` + autograd, so non-autograd
+        backends are rejected by the shared gate via ``requires={AUTOGRAD}``. It
+        has no upstream XPU support; warn rather than error so XPU users can fall
+        back to a CPU backend themselves.
         """
         super().check_backend_compat(backend)
         device = getattr(backend, "device", None)

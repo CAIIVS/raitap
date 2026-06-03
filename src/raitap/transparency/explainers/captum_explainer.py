@@ -11,6 +11,7 @@ from raitap.transparency.contracts import (
     MethodFamily,
 )
 from raitap.transparency.explainers.registration import transparency_adapter
+from raitap.types import Capability
 
 from .base_explainer import AttributionOnlyExplainer
 
@@ -34,8 +35,12 @@ if TYPE_CHECKING:
             frozenset({MethodFamily.GRADIENT}),
             baseline_default=BaselineMode.ZERO,
             baseline_cardinality=BaselineCardinality.SINGLE,
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
-        "Saliency": ExplainerSemanticsHints(frozenset({MethodFamily.GRADIENT})),
+        "Saliency": ExplainerSemanticsHints(
+            frozenset({MethodFamily.GRADIENT}),
+            requires=frozenset({Capability.AUTOGRAD}),
+        ),
         "FeatureAblation": ExplainerSemanticsHints(frozenset({MethodFamily.PERTURBATION})),
         "FeaturePermutation": ExplainerSemanticsHints(frozenset({MethodFamily.PERTURBATION})),
         "Occlusion": ExplainerSemanticsHints(frozenset({MethodFamily.PERTURBATION})),
@@ -56,10 +61,12 @@ if TYPE_CHECKING:
             )
         ),
         "LayerGradCam": ExplainerSemanticsHints(
-            frozenset({MethodFamily.GRADIENT, MethodFamily.CAM})
+            frozenset({MethodFamily.GRADIENT, MethodFamily.CAM}),
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
         "GuidedGradCam": ExplainerSemanticsHints(
-            frozenset({MethodFamily.GRADIENT, MethodFamily.CAM})
+            frozenset({MethodFamily.GRADIENT, MethodFamily.CAM}),
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
     },
     baseline_kwarg_name="baselines",

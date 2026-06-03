@@ -26,6 +26,7 @@ import inspect
 import os
 import pkgutil
 import re
+from collections.abc import Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from importlib import metadata as importlib_metadata
@@ -36,8 +37,10 @@ from hydra_zen import ZenStore, builds
 from raitap.types import TaskKind
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Mapping, Sequence
+    from collections.abc import Iterator, Sequence
     from types import ModuleType
+
+    from raitap.types import Capability
 
 # Our own ``overwrite_ok=True`` store so re-importing a module — or pytest
 # collecting the same class twice via slightly different paths — doesn't
@@ -168,6 +171,36 @@ class AdapterMixin:
             base_exc=base_exc,
         ):
             yield
+
+    def required_capabilities(self) -> frozenset[Capability]:
+        """Capabilities the configured algorithm needs.
+
+        Reads the per-algorithm ``requires`` from this adapter's
+        ``algorithm_registry``. Defaults to ``frozenset()`` (model-agnostic, runs
+        on any backend) for adapters without a registry or matching algorithm.
+        """
+        registry = getattr(type(self), "algorithm_registry", None)
+        if not isinstance(registry, Mapping):
+            return frozenset()
+        hints = registry.get(getattr(self, "algorithm", ""))
+        return getattr(hints, "requires", frozenset())
+
+    def check_backend_compat(self, backend: object) -> None:
+        """Default backend gate: every required capability must be provided.
+
+        Override only for a non-capability contract (e.g. ``MarabouAssessor`` uses
+        the hook for per-call setup; ``AutoLiRPAAssessor`` adds an XPU warning).
+        """
+        from raitap.utils.errors import BackendIncompatibilityError
+
+        provided = getattr(backend, "provides", frozenset())
+        missing = self.required_capabilities() - provided
+        if missing:
+            raise BackendIncompatibilityError(
+                adapter=type(self).__name__,
+                backend=type(backend).__name__,
+                missing=sorted(str(c) for c in missing),
+            )
 
 
 def _build_schema_adapter(cls: type, schema: type) -> type:

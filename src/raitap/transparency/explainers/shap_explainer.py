@@ -93,11 +93,13 @@ def _select_target_attributions(
             frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
         "DeepExplainer": ExplainerSemanticsHints(
             frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
         "KernelExplainer": ExplainerSemanticsHints(
             frozenset(
@@ -107,7 +109,8 @@ def _select_target_attributions(
             baseline_cardinality=BaselineCardinality.SET,
         ),
         "TreeExplainer": ExplainerSemanticsHints(
-            frozenset({MethodFamily.SHAPLEY, MethodFamily.TREE})
+            frozenset({MethodFamily.SHAPLEY, MethodFamily.TREE}),
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
     },
     baseline_kwarg_name="background_data",

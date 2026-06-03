@@ -33,6 +33,8 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from raitap.types import Capability
+
 
 @dataclass(frozen=True)
 class AssessorSemanticsHints:
@@ -44,6 +46,7 @@ class AssessorSemanticsHints:
     norm: PerturbationNorm | None = None
     families: frozenset[str] = frozenset()
     default_epsilon: float | None = None
+    requires: frozenset[Capability] = frozenset()
 
 
 _TARGET_KWARG_KEYS: frozenset[str] = frozenset(

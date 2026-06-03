@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 from raitap import raitap_log
 from raitap._adapters import AdapterMixin
 from raitap.configs import resolve_run_dir
-from raitap.types import Capability
 from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
@@ -45,8 +44,8 @@ class BaseExplainer(AdapterMixin, ABC):
 
     Owns the shared interface: ``output_payload_kind`` and ``algorithm_registry``
     class variables (algorithm_registry is validated at decoration time by
-    ``TRANSPARENCY.has_algorithm_registry=True``) and the ``check_backend_compat``
-    no-op default.
+    ``TRANSPARENCY.has_algorithm_registry=True``). The capability gate
+    (``check_backend_compat``) is inherited from ``AdapterMixin``.
 
     Extend via ``AttributionOnlyExplainer`` when the framework should manage the
     full ``explain`` pipeline and you only need to implement ``compute_attributions``,
@@ -56,9 +55,6 @@ class BaseExplainer(AdapterMixin, ABC):
     output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
     output_scope: ClassVar[ExplanationScope] = ExplanationScope.LOCAL
     algorithm_registry: ClassVar[Mapping[str, ExplainerSemanticsHints]]
-    # Adapter-specific; defaults to "no ONNX support". The
-    # ``@adapters.transparency`` decorator overrides per-adapter.
-    ONNX_COMPATIBLE_ALGORITHMS: ClassVar[frozenset[str]] = frozenset()
 
     # Baseline documentation (issue #210). ``baseline_kwarg_name`` is the call kwarg
     # that holds this family's reference input (``None`` → family takes no
@@ -66,31 +62,6 @@ class BaseExplainer(AdapterMixin, ABC):
     # per-algorithm implicit default mode lives on each algorithm's
     # ``ExplainerSemanticsHints.baseline_default`` in ``algorithm_registry``.
     baseline_kwarg_name: ClassVar[str | None] = None
-
-    def check_backend_compat(self, backend: object) -> None:
-        """Default: enforce the ONNX-allowlist contract.
-
-        Passes when the backend supports torch autograd, OR when the explainer's
-        selected algorithm is in ``ONNX_COMPATIBLE_ALGORITHMS`` (set by the
-        decorator's ``onnx_compatible_algorithms`` kwarg). Otherwise raises
-        :class:`raitap.transparency.exceptions.ExplainerBackendIncompatibilityError`.
-        Override only if your
-        explainer has a backend contract that doesn't fit this pattern.
-        """
-        from ..exceptions import ExplainerBackendIncompatibilityError
-
-        if Capability.AUTOGRAD in getattr(backend, "provides", frozenset()):
-            return
-        algorithm = getattr(self, "algorithm", "")
-        compatible: frozenset[str] = type(self).ONNX_COMPATIBLE_ALGORITHMS
-        if algorithm in compatible:
-            return
-        raise ExplainerBackendIncompatibilityError(
-            explainer=type(self).__name__,
-            backend=type(backend).__name__,
-            algorithm=str(algorithm),
-            compatible_algorithms=sorted(compatible),
-        )
 
 
 class AttributionOnlyExplainer(BaseExplainer, ABC):

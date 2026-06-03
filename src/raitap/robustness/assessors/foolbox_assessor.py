@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from raitap.robustness.assessors.registration import robustness_adapter
+from raitap.types import Capability
 from raitap.utils.lazy import lazy_import
 
 from ..contracts import AssessmentKind, Objective, PerturbationNorm, ThreatModel
@@ -29,6 +30,7 @@ else:
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
             families=frozenset({"gradient_sign", "iterative"}),
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
         "L2PGD": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -36,6 +38,7 @@ else:
             Objective.UNTARGETED,
             PerturbationNorm.L2,
             families=frozenset({"gradient_sign", "iterative"}),
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
         "LinfFastGradientAttack": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -43,6 +46,7 @@ else:
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
             families=frozenset({"gradient_sign"}),
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
         "L2FastGradientAttack": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -50,6 +54,7 @@ else:
             Objective.UNTARGETED,
             PerturbationNorm.L2,
             families=frozenset({"gradient_sign"}),
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
         "L2CarliniWagnerAttack": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -57,6 +62,7 @@ else:
             Objective.UNTARGETED,
             PerturbationNorm.L2,
             families=frozenset({"optimization"}),
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
         "L2DeepFoolAttack": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -64,6 +70,7 @@ else:
             Objective.UNTARGETED,
             PerturbationNorm.L2,
             families=frozenset({"optimization"}),
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
         "BoundaryAttack": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -71,6 +78,9 @@ else:
             Objective.UNTARGETED,
             PerturbationNorm.L2,
             families=frozenset({"decision_boundary", "query_efficient"}),
+            # requires=AUTOGRAD preserves current gating; conceptually black-box,
+            # could be relaxed later.
+            requires=frozenset({Capability.AUTOGRAD}),
         ),
     },
 )
