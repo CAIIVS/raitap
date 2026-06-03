@@ -30,6 +30,7 @@ from rich.traceback import install as install_rich_traceback
 
 from raitap.utils.colour import THEME, Status, colour
 from raitap.utils.diagnostics import (
+    _DOC_SUBSYSTEMS,
     Diagnostic,
     Module,
     docs_url,
@@ -172,6 +173,11 @@ _LEVEL_STATUS: dict[int, Status] = {
     logging.CRITICAL: Status.ERROR,
 }
 
+# Pad every INFO level-prefix to this width so the ``▷`` arrows line up in a
+# column regardless of module-name length (e.g. "Transparency" vs "Models").
+# Infra modules (pipeline/cli/configs/deps/utils) get no chip — just padding.
+_MODULE_COLUMN_WIDTH = max(len(module.capitalize()) for module in _DOC_SUBSYSTEMS)
+
 
 class RaitapRichHandler(RichHandler):
     """RichHandler with icon level-prefix and Panel rendering for multi-line warnings/errors."""
@@ -194,14 +200,17 @@ class RaitapRichHandler(RichHandler):
             style = shades.base
         icon = Text(status.icon.rstrip(), style=style)
         # INFO is a single line (WARNING+ go through the panel path, never here):
-        # prefix a module chip — ``Robustness ▷ …`` — reusing the same chip the
-        # warning/error frames use, classified via :func:`_record_module`.
+        # prefix a fixed-width module label — ``Robustness ▷ …`` — so the arrows
+        # column-align regardless of name length. Only user-facing subsystems get
+        # a label; infra modules (pipeline/cli/…) render as blank padding so their
+        # arrow still lines up. Plain styled label, not ``chip()`` (which prefixes
+        # a ``· `` separator meant to follow a panel title).
         if record.levelno < logging.WARNING:
             module = _record_module(record)
-            if module is not None:
-                # Plain styled label (not ``chip()``, which prefixes a ``· ``
-                # separator meant to follow a panel title): ``Robustness ▷``.
-                return Text.assemble(Text(module.capitalize(), style=shades.light), " ", icon)
+            label = module.capitalize() if module is not None and module in _DOC_SUBSYSTEMS else ""
+            return Text.assemble(
+                Text(label.ljust(_MODULE_COLUMN_WIDTH), style=shades.light), " ", icon
+            )
         return icon
 
     def render_message(self, record: logging.LogRecord, message: str) -> Any:

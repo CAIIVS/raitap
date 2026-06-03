@@ -165,6 +165,25 @@ class TestInfoModuleChip:
             m in out for m in ("Robustness", "Metrics", "Transparency", "Pipeline", "Models")
         )
 
+    def test_infra_module_gets_no_label(self) -> None:
+        # pipeline is infra (not a user-facing subsystem) → blank label, no chip.
+        out = self._level("raitap.pipeline.phases.forward_pass")
+        assert "Pipeline" not in out
+
+    def test_arrows_are_column_aligned_across_modules(self) -> None:
+        # Fixed-width label → the ``▷`` sits at the same column for every module
+        # (and for the blank infra/non-raitap case).
+        widths = {
+            len(self._level(name))
+            for name in (
+                "raitap.metrics.phase",
+                "raitap.transparency.phase",
+                "raitap.pipeline.phases.forward_pass",
+                "__main__",
+            )
+        }
+        assert len(widths) == 1
+
 
 class TestRichHandlerErrorPanel:
     def test_plain_logger_exception_renders_module_chip_from_traceback(self) -> None:

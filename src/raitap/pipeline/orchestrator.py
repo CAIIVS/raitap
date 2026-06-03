@@ -93,7 +93,8 @@ def _run_pipeline(
     report_generation = None
     if reporting_enabled(config):
         if verbose:
-            raitap_log.info("Generating report...")
+            # Logged from the orchestrator but logically a reporting concern.
+            raitap_log.info("Generating report...", module="reporting")
         report = build_report(config, outputs)
         report_generation = create_report(config=config, report=report)
 
