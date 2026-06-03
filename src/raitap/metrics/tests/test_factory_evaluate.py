@@ -115,7 +115,7 @@ def test_evaluate_prepares_metric_inputs_before_update(
             self.update_called_with = (predictions, targets)
 
         def compute(self) -> MetricResult:
-            return MetricResult(metrics={"accuracy": 1.0})
+            return MetricResult(scalars={"accuracy": 1.0})
 
     cfg = _config(tmp_path)
     fake_metric = FakeMetric()

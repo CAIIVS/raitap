@@ -9,7 +9,7 @@ from raitap.metrics.visualizers import MetricsVisualizer
 def test_metrics_visualizer_creates_overview_chart() -> None:
     """Test basic chart generation from metrics."""
     result = MetricResult(
-        metrics={"accuracy": 0.95, "precision": 0.92, "recall": 0.88},
+        scalars={"accuracy": 0.95, "precision": 0.92, "recall": 0.88},
         artifacts={},
     )
 
@@ -25,7 +25,7 @@ def test_metrics_visualizer_creates_overview_chart() -> None:
 def test_metrics_visualizer_overview_axis_does_not_auto_scale() -> None:
     """Low scores should still render against the fixed normalized score range."""
     result = MetricResult(
-        metrics={"accuracy": 0.2, "precision": 0.4, "recall": 0.6},
+        scalars={"accuracy": 0.2, "precision": 0.4, "recall": 0.6},
         artifacts={},
     )
 
@@ -37,7 +37,7 @@ def test_metrics_visualizer_overview_axis_does_not_auto_scale() -> None:
 def test_metrics_visualizer_empty_metrics() -> None:
     """Test that empty metrics doesn't crash."""
     result = MetricResult(
-        metrics={},
+        scalars={},
         artifacts={},
     )
 
@@ -54,7 +54,7 @@ def test_metrics_visualizer_with_confusion_matrix() -> None:
 
     cm = np.array([[10, 2], [3, 15]])
     result = MetricResult(
-        metrics={"accuracy": 0.89},
+        scalars={"accuracy": 0.89},
         artifacts={"confusion_matrix": cm},
     )
 

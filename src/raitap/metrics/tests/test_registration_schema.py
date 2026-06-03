@@ -27,7 +27,7 @@ class _DummyMetric(BaseMetricComputer):
         del predictions, targets
 
     def compute(self) -> MetricResult:
-        return MetricResult(metrics={"knob": float(self.knob)})
+        return MetricResult(scalars={"knob": float(self.knob)})
 
 
 # Module-level registration is required so hydra-zen's ``builds(...)`` can

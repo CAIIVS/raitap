@@ -87,7 +87,7 @@ class MetricsEvaluation(Trackable, Reportable):
 
     def to_report_group(self) -> ReportGroup:
         table_rows = tuple(
-            (str(name), f"{float(value):.4f}") for name, value in self.result.metrics.items()
+            (str(name), f"{float(value):.4f}") for name, value in self.result.scalars.items()
         )
         images = tuple(sorted(self.run_dir.glob("*.png")))
         return ReportGroup(
@@ -135,7 +135,7 @@ class Metrics:
         run_dir.mkdir(parents=True, exist_ok=True)
 
         (run_dir / "metrics.json").write_text(
-            json.dumps(to_json_serialisable(result.metrics), indent=2),
+            json.dumps(to_json_serialisable(result.scalars), indent=2),
             encoding="utf-8",
         )
         (run_dir / "artifacts.json").write_text(

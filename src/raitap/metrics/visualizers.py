@@ -27,10 +27,10 @@ class MetricsVisualizer:
         figures = {}
 
         # Metrics overview bar chart
-        if result.metrics:
+        if result.scalars:
             fig, ax = plt.subplots(figsize=(10, 6), dpi=150)
-            metric_names = list(result.metrics.keys())
-            metric_values = [float(v) for v in result.metrics.values()]
+            metric_names = list(result.scalars.keys())
+            metric_values = [float(v) for v in result.scalars.values()]
 
             ax.bar(metric_names, metric_values)
             ax.set_xlabel("Metric")

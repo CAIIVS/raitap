@@ -71,7 +71,7 @@ class _ClassificationBase(BaseMetricComputer):
             metrics["precision"] = float(tensor_to_python(prec))
             metrics["recall"] = float(tensor_to_python(rec))
             metrics["f1"] = float(tensor_to_python(f1))
-        return MetricResult(metrics=metrics, artifacts=artifacts)
+        return MetricResult(scalars=metrics, artifacts=artifacts)
 
     def reset(self) -> None:
         self.accuracy.reset()
