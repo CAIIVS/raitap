@@ -72,7 +72,7 @@ class AdapterResult(Protocol):
     def visualisations(self) -> Sequence[Trackable]: ...
 
 
-class _RenderableResult(AdapterResult, Protocol):
+class _RenderableResult(AdapterResult, Protocol):  # noqa: PYI046  # used as the run_adapters TypeVar bound (TYPE_CHECKING string ref)
     """Internal: what ``run_adapters`` consumes — the envelope plus the
     persist-and-render step it drives. ``_visualise`` is underscored because it
     is pipeline-internal (side-effecting: writes PNGs, mutates state)."""
