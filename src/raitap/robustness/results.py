@@ -202,9 +202,9 @@ class RobustnessResult(Trackable):
     metrics: RobustnessMetrics
     run_dir: Path
     experiment_name: str | None
-    assessor_target: str
+    adapter_target: str
     algorithm: str
-    assessor_name: str | None = None
+    name: str | None = None
     kwargs: dict[str, Any] = field(default_factory=dict)
     call_kwargs: dict[str, Any] = field(default_factory=dict)
     visualiser_targets: list[str] = field(default_factory=list)
@@ -274,9 +274,9 @@ class RobustnessResult(Trackable):
         targets = self.visualiser_targets if visualiser_targets is None else visualiser_targets
         return {
             "experiment_name": self.experiment_name,
-            "target": self.assessor_target,
+            "target": self.adapter_target,
             "algorithm": self.algorithm,
-            "assessor_name": self.assessor_name,
+            "assessor_name": self.name,
             "assessment_kind": self.assessment_kind.value,
             "case": self.semantics.case.value,
             "visualisers": targets,
@@ -295,7 +295,7 @@ class RobustnessResult(Trackable):
             encoding="utf-8",
         )
 
-    def visualise(self, **kwargs: Any) -> list[RobustnessVisualisationResult]:
+    def _visualise(self, **kwargs: Any) -> list[RobustnessVisualisationResult]:
         results: list[RobustnessVisualisationResult] = []
         new_targets: list[str] = []
 
@@ -408,9 +408,9 @@ class RobustnessResult(Trackable):
                 metrics=self.metrics,
                 run_dir=self.run_dir,
                 experiment_name=self.experiment_name,
-                assessor_target=self.assessor_target,
+                adapter_target=self.adapter_target,
                 algorithm=self.algorithm,
-                assessor_name=self.assessor_name,
+                name=self.name,
                 kwargs=dict(self.kwargs),
                 call_kwargs=dict(self.call_kwargs),
                 visualiser_targets=list(self.visualiser_targets),
@@ -497,11 +497,11 @@ class RobustnessResult(Trackable):
             )
             tracker.log_artifacts(staging_dir, target_subdirectory=target_path)
 
-    def _log_assessor_name(self) -> str:
-        return self.assessor_name or self.run_dir.name
+    def _log_name(self) -> str:
+        return self.name or self.run_dir.name
 
     def _log_target_path(self, *, artifact_path: str, use_subdirectory: bool) -> str:
-        assessor_name = self._log_assessor_name()
+        assessor_name = self._log_name()
         return f"{artifact_path}/{assessor_name}" if use_subdirectory else artifact_path
 
 
@@ -529,7 +529,7 @@ class RobustnessVisualisationResult(Trackable):
         if tracker is None:
             return
         with tempfile.TemporaryDirectory() as tmp_dir:
-            assessor_name = self.result._log_assessor_name()
+            assessor_name = self.result._log_name()
             staging_dir = Path(tmp_dir) / assessor_name
             staging_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy2(self.output_path, staging_dir / self.output_path.name)

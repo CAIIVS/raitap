@@ -137,9 +137,9 @@ class ExplanationResult(Trackable):
     inputs: torch.Tensor
     run_dir: Path
     experiment_name: str | None
-    explainer_target: str
+    adapter_target: str
     algorithm: str
-    explainer_name: str | None = None
+    name: str | None = None
     kwargs: dict[str, Any] = field(default_factory=dict)
     call_kwargs: dict[str, Any] = field(default_factory=dict)
     visualiser_targets: list[str] = field(default_factory=list)
@@ -183,7 +183,7 @@ class ExplanationResult(Trackable):
         targets = self.visualiser_targets if visualiser_targets is None else visualiser_targets
         metadata: dict[str, Any] = {
             "experiment_name": self.experiment_name,
-            "target": self.explainer_target,
+            "target": self.adapter_target,
             "algorithm": self.algorithm,
             "visualisers": targets,
             "payload_kind": self.payload_kind.value,
@@ -234,7 +234,7 @@ class ExplanationResult(Trackable):
             encoding="utf-8",
         )
 
-    def visualise(self, **kwargs: Any) -> list[VisualisationResult]:
+    def _visualise(self, **kwargs: Any) -> list[VisualisationResult]:
         results: list[VisualisationResult] = []
         new_targets: list[str] = []
 
@@ -507,18 +507,18 @@ class ExplanationResult(Trackable):
             )
             tracker.log_artifacts(staging_dir, target_subdirectory=target_path)
 
-    def _log_explainer_name(self) -> str:
+    def _log_name(self) -> str:
         """
         Name used for the tracker artifact subdirectory.
 
         Keep fallback logic consistent with `VisualisationResult.log()` to avoid artifacts
-        being split across different subdirectories when `explainer_name` is unset.
+        being split across different subdirectories when `name` is unset.
         """
 
-        return self.explainer_name or self.run_dir.name
+        return self.name or self.run_dir.name
 
     def _log_target_path(self, *, artifact_path: str, use_subdirectory: bool) -> str:
-        explainer_name = self._log_explainer_name()
+        explainer_name = self._log_name()
         return f"{artifact_path}/{explainer_name}" if use_subdirectory else artifact_path
 
 
@@ -550,7 +550,7 @@ class VisualisationResult(Trackable):
         if tracker is None:
             return
         with tempfile.TemporaryDirectory() as tmp_dir:
-            explainer_name = self.explanation._log_explainer_name()
+            explainer_name = self.explanation._log_name()
             staging_dir = Path(tmp_dir) / explainer_name
             staging_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy2(self.output_path, staging_dir / self.output_path.name)
