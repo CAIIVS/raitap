@@ -76,9 +76,12 @@ def _run_pipeline(
             resolved_preprocessing=resolved_preprocessing,
             task_kind=model.backend.task_kind,
         )
-    _validate_report_sample_selection(config, data)
-    if verbose:
-        print_summary(config, model)
+        _validate_report_sample_selection(config, data)
+        # Render the summary panel inside the deferred block: it prints
+        # immediately (direct rich console), so the deferred construction logs
+        # ("Preprocessing: …") + any setup warnings replay *after* the panel.
+        if verbose:
+            print_summary(config, model)
 
     outputs = run_without_tracking(
         config,

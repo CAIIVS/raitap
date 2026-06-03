@@ -156,6 +156,8 @@ def _apply_preprocessing(
         raitap_log.warn(warning)
 
     if resolved.is_active:
+        # Deferred by ``_run_pipeline`` (this runs inside ``raitap_log.deferred()``)
+        # so the line replays after the summary panel, not before it.
         raitap_log.info(f"Preprocessing: {resolved.description}")
 
     return resolved

@@ -73,6 +73,12 @@ def _caller_logger(stacklevel: int) -> logging.Logger:
 class _RaitapLog:
     """Singleton facade. Import the module-level :data:`raitap_log` instance."""
 
+    def __init__(self) -> None:
+        # When inside a ``deferred()`` block this holds buffered INFO/DEBUG
+        # records ``(logger, level, message, args, kwargs)`` to replay on exit;
+        # ``None`` means "emit immediately". Errors/criticals are never deferred.
+        self._deferred_records: list[tuple[logging.Logger, int, object, tuple, dict]] | None = None
+
     def warn(
         self,
         message: str,
@@ -119,11 +125,19 @@ class _RaitapLog:
 
     def info(self, message: object, *args: object, stacklevel: int = 2, **kwargs: Any) -> None:
         """Log at INFO level on the caller's module logger."""
-        _caller_logger(stacklevel).info(message, *args, stacklevel=stacklevel, **kwargs)
+        logger = _caller_logger(stacklevel)
+        if self._deferred_records is not None:
+            self._deferred_records.append((logger, logging.INFO, message, args, kwargs))
+            return
+        logger.info(message, *args, stacklevel=stacklevel, **kwargs)
 
     def debug(self, message: object, *args: object, stacklevel: int = 2, **kwargs: Any) -> None:
         """Log at DEBUG level on the caller's module logger."""
-        _caller_logger(stacklevel).debug(message, *args, stacklevel=stacklevel, **kwargs)
+        logger = _caller_logger(stacklevel)
+        if self._deferred_records is not None:
+            self._deferred_records.append((logger, logging.DEBUG, message, args, kwargs))
+            return
+        logger.debug(message, *args, stacklevel=stacklevel, **kwargs)
 
     def error(self, message: object, *args: object, stacklevel: int = 2, **kwargs: Any) -> None:
         """Log at ERROR level on the caller's module logger.
@@ -157,18 +171,26 @@ class _RaitapLog:
 
     @contextmanager
     def deferred(self) -> Iterator[None]:
-        """Capture every warning emitted inside the ``with`` block and replay
-        them after it exits.
+        """Capture warnings **and** INFO/DEBUG logs emitted inside the ``with``
+        block, and replay them after it exits.
 
         Use this when an early, ordered block of console output (e.g. the
-        startup summary panel) would otherwise be interleaved with
-        warnings raised during setup. Replayed warnings preserve their
-        original ``filename`` / ``lineno`` so the rich handler still
-        locates the source.
+        startup summary panel) would otherwise be interleaved with messages
+        raised during setup — render the panel inside the block, and the
+        deferred messages replay after it. Warnings keep their original
+        ``filename`` / ``lineno`` so the rich handler still locates the source;
+        INFO/DEBUG keep their caller's module logger (captured at call time).
+        Errors/criticals are never deferred — they surface immediately.
         """
-        with warnings.catch_warnings(record=True) as captured:
-            warnings.simplefilter("always")
-            yield
+        records: list[tuple[logging.Logger, int, object, tuple, dict]] = []
+        previous_records = self._deferred_records
+        self._deferred_records = records
+        try:
+            with warnings.catch_warnings(record=True) as captured:
+                warnings.simplefilter("always")
+                yield
+        finally:
+            self._deferred_records = previous_records
         for entry in captured:
             warnings.warn_explicit(
                 entry.message,
@@ -177,6 +199,8 @@ class _RaitapLog:
                 entry.lineno,
                 source=entry.source,
             )
+        for logger, level, message, args, kwargs in records:
+            logger.log(level, message, *args, **kwargs)
 
 
 raitap_log = _RaitapLog()
