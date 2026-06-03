@@ -26,14 +26,12 @@ MultilabelClassificationMetrics
 DetectionMetrics
     Computes mean average precision (mAP) and related metrics for object detection tasks.
 
-Module layout (for contributors)
---------------------------------
-``phase.py``       Pipeline entry point: ``MetricsPhase`` (what the registry
-                   assembles) + ``evaluate_metrics`` work fn. Singleton phase
-                   (no adapter loop). Start here to follow a run.
-``factory.py``     ``metrics_run_enabled`` + ``evaluate`` (instantiation).
-``*_metrics.py``   The metric adapters (classification, detection).
-``inputs.py``      Target / prediction alignment + label fallbacks.
+Module layout (for contributors):
+
+- ``phase.py`` — pipeline entry point: ``MetricsPhase`` (what the registry assembles) + the ``evaluate_metrics`` work fn. Singleton phase (no adapter loop). Start here to follow a run.
+- ``factory.py`` — ``metrics_run_enabled`` + ``evaluate`` (instantiation).
+- ``*_metrics.py`` — the metric adapters (classification, detection).
+- ``inputs.py`` — target / prediction alignment + label fallbacks.
 """
 
 from __future__ import annotations

@@ -16,17 +16,14 @@ Assessor classes (``_target_`` values; live under ``raitap.robustness.assessors.
 Visualiser classes (``_target_`` values; live under ``raitap.robustness.visualisers.``):
     ImagePairVisualiser, PerturbationHeatmapVisualiser
 
-Module layout (for contributors)
---------------------------------
-``phase.py``       Pipeline entry point: ``RobustnessPhase`` (what the registry
-                   assembles) + ``assess_robustness`` work fn + target
-                   resolution. Start here to follow a run.
-``factory.py``     Builds assessor instances from config.
-``results.py``     ``RobustnessResult`` (owns its ``.visualisations``) +
-                   ``RobustnessVisualisationResult``.
-``report.py``      ``RobustnessPhaseResult`` + report-section builders.
-``assessors/``     The attack / verification adapters.
-``visualisers/``   The figure renderers.
+Module layout (for contributors):
+
+- ``phase.py`` — pipeline entry point: ``RobustnessPhase`` (what the registry assembles) + the ``assess_robustness`` work fn + target resolution. Start here to follow a run.
+- ``factory.py`` — builds assessor instances from config.
+- ``results.py`` — ``RobustnessResult`` (owns its ``.visualisations``) + ``RobustnessVisualisationResult``.
+- ``report.py`` — ``RobustnessPhaseResult`` + report-section builders.
+- ``assessors/`` — the attack / verification adapters.
+- ``visualisers/`` — the figure renderers.
 """
 
 from __future__ import annotations
