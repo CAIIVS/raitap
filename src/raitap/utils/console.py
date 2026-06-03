@@ -201,9 +201,7 @@ class RaitapRichHandler(RichHandler):
             if module is not None:
                 # Plain styled label (not ``chip()``, which prefixes a ``· ``
                 # separator meant to follow a panel title): ``Robustness ▷``.
-                return Text.assemble(
-                    Text(module.capitalize(), style=shades.light), " ", icon
-                )
+                return Text.assemble(Text(module.capitalize(), style=shades.light), " ", icon)
         return icon
 
     def render_message(self, record: logging.LogRecord, message: str) -> Any:
