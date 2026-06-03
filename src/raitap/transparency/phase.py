@@ -281,7 +281,7 @@ def _assess_transparency_detection(
                         ground_truth_for_sample=ground_truth_for_sample,
                         iou_threshold=ground_truth_iou_threshold,
                     )
-                result.visualise()  # populates result.visualisations
+                result._visualise()  # populates result.visualisations
                 explanations.append(result)
         finally:
             _PARSED_EXPLAINER_CONFIG_CACHE.pop(cache_key, None)

@@ -67,22 +67,14 @@ class _StagedThumbnail:
 class TransparencyPhaseResult(Trackable):
     """Transparency phase output: the explanations, each owning its visualisations.
 
-    ``visualisations`` is a derived view that flattens every explanation's own
-    visualisations (issue #243) — the explanations are the single source of truth;
-    there is no separately-stored parallel list.
+    Each :class:`ExplanationResult` owns its ``.visualisations`` (issue #243) — the
+    explanations are the single source of truth; there is no parallel phase-level
+    visualisation list.
     """
 
     explanations: list[ExplanationResult] = field(default_factory=list)
 
     report_order: ClassVar[int] = 20
-
-    @property
-    def visualisations(self) -> list[VisualisationResult]:
-        return [
-            visualisation
-            for explanation in self.explanations
-            for visualisation in explanation.visualisations
-        ]
 
     def log(self, tracker: BaseTracker | None, **kwargs: Any) -> None:
         if tracker is None:
@@ -90,8 +82,8 @@ class TransparencyPhaseResult(Trackable):
         use_subdirs = len(self.explanations) > 1
         for explanation in self.explanations:
             explanation.log(tracker, use_subdirectory=use_subdirs)
-        for visualisation in self.visualisations:
-            visualisation.log(tracker, use_subdirectory=use_subdirs)
+            for visualisation in explanation.visualisations:
+                visualisation.log(tracker, use_subdirectory=use_subdirs)
 
     def report_sections(self, ctx: ReportContext) -> tuple[ReportSection, ...]:
         sections: list[ReportSection] = []
@@ -117,7 +109,7 @@ def _build_global_section(
     outputs: TransparencyPhaseResult, *, assets_dir: Path
 ) -> ReportSection | None:
     groups = _native_scope_groups(
-        outputs.visualisations,
+        [v for explanation in outputs.explanations for v in explanation.visualisations],
         scope=ExplanationScope.GLOBAL,
         role="global",
         assets_dir=assets_dir,
@@ -135,7 +127,7 @@ def _build_aggregated_section(
     outputs: TransparencyPhaseResult, *, assets_dir: Path
 ) -> ReportSection | None:
     groups = _native_scope_groups(
-        outputs.visualisations,
+        [v for explanation in outputs.explanations for v in explanation.visualisations],
         scope=ExplanationScope.AGGREGATED,
         role="aggregated",
         assets_dir=assets_dir,
@@ -161,7 +153,7 @@ def _native_scope_groups(
         if visualisation.scope != scope:
             continue
         explainer_name = (
-            visualisation.explanation.explainer_name or visualisation.explanation.run_dir.name
+            visualisation.explanation.name or visualisation.explanation.run_dir.name
         )
         staged = _copy_asset(
             visualisation.output_path,
@@ -250,7 +242,7 @@ def _build_local_section(
         for explanation in outputs.explanations:
             if not explanation.has_visualisations_for_scope(ExplanationScope.LOCAL):
                 continue
-            explainer_name = explanation.explainer_name or explanation.run_dir.name
+            explainer_name = explanation.name or explanation.run_dir.name
             box_suffix_for_baseline = (
                 f"_box_{explanation.detection_box.display_index}_{explanation.detection_box.raw_index}"
                 if explanation.detection_box is not None
@@ -410,7 +402,7 @@ def _build_legacy_local_section(
                 assets_dir=assets_dir,
                 file_stem_prefix=(
                     "overview_"
-                    f"{_safe_name(explanation.explainer_name or explanation.run_dir.name)}_"
+                    f"{_safe_name(explanation.name or explanation.run_dir.name)}_"
                     f"{overview_sample.summary.sample_index}"
                 ),
             )
@@ -420,7 +412,7 @@ def _build_legacy_local_section(
                 ReportGroup(
                     heading=(
                         "Overview - "
-                        f"Explainer: {explanation.explainer_name or explanation.algorithm} - "
+                        f"Explainer: {explanation.name or explanation.algorithm} - "
                         f"{_sample_label(overview_sample)}"
                     ),
                     images=images,
@@ -429,7 +421,7 @@ def _build_legacy_local_section(
                         "bucket": overview_sample.label,
                         "sample_index": overview_sample.summary.sample_index,
                         "selection_source": overview_sample.selection_source.value,
-                        "explainer_name": explanation.explainer_name or explanation.run_dir.name,
+                        "explainer_name": explanation.name or explanation.run_dir.name,
                     },
                 )
             )
@@ -448,7 +440,7 @@ def _build_legacy_local_section(
                     assets_dir=assets_dir,
                     file_stem_prefix=(
                         f"detail_{selected.label}_"
-                        f"{_safe_name(explanation.explainer_name or explanation.run_dir.name)}_"
+                        f"{_safe_name(explanation.name or explanation.run_dir.name)}_"
                         f"{selected.summary.sample_index}"
                     ),
                 )
@@ -586,7 +578,7 @@ def _stage_sample_thumbnail(
 
         return _StagedThumbnail(
             path=target,
-            source_explainer_name=explanation.explainer_name or explanation.run_dir.name,
+            source_explainer_name=explanation.name or explanation.run_dir.name,
         )
 
     if last_error is not None:
@@ -697,7 +689,7 @@ def _transparency_table_rows(
     visualiser_index: int,
 ) -> tuple[tuple[str, str], ...]:
     rows: list[tuple[str, str]] = []
-    explainer_name = explanation.explainer_name or explanation.run_dir.name
+    explainer_name = explanation.name or explanation.run_dir.name
     semantics = explanation.semantics
     input_spec = semantics.input_spec
     output_space = semantics.output_space

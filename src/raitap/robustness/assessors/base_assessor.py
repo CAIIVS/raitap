@@ -270,9 +270,9 @@ class EmpiricalAttackAssessor(BaseAssessor, ABC):
                 else resolve_run_dir(output_root=output_root, subdir="robustness")
             ),
             experiment_name=experiment_name,
-            assessor_target=assessor_target or f"{type(self).__module__}.{type(self).__name__}",
+            adapter_target=assessor_target or f"{type(self).__module__}.{type(self).__name__}",
             algorithm=str(getattr(self, "algorithm", "")),
-            assessor_name=assessor_name,
+            name=assessor_name,
             kwargs={
                 "sample_ids": sample_ids,
                 "sample_names": sample_names,
@@ -483,9 +483,9 @@ class FormalVerificationAssessor(BaseAssessor, ABC):
                 else resolve_run_dir(output_root=output_root, subdir="robustness")
             ),
             experiment_name=experiment_name,
-            assessor_target=assessor_target or f"{type(self).__module__}.{type(self).__name__}",
+            adapter_target=assessor_target or f"{type(self).__module__}.{type(self).__name__}",
             algorithm=str(getattr(self, "algorithm", "")),
-            assessor_name=assessor_name,
+            name=assessor_name,
             kwargs={
                 "sample_ids": sample_ids,
                 "sample_names": sample_names,
@@ -602,9 +602,9 @@ class StatisticalSamplingAssessor(BaseAssessor, ABC):
                 else resolve_run_dir(output_root=output_root, subdir="robustness")
             ),
             experiment_name=experiment_name,
-            assessor_target=assessor_target or f"{type(self).__module__}.{type(self).__name__}",
+            adapter_target=assessor_target or f"{type(self).__module__}.{type(self).__name__}",
             algorithm=str(getattr(self, "algorithm", "")),
-            assessor_name=assessor_name,
+            name=assessor_name,
             kwargs={
                 "sample_ids": sample_ids,
                 "sample_names": sample_names,

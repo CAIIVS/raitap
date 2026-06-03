@@ -14,10 +14,11 @@ if TYPE_CHECKING:
     import torch
 
     from raitap.metrics import MetricsEvaluation
+    from raitap.metrics.base_metric_computer import MetricResult
     from raitap.reporting.sections import ReportContext, ReportSection
-    from raitap.robustness.results import RobustnessResult, RobustnessVisualisationResult
+    from raitap.robustness.results import RobustnessResult
     from raitap.tracking.base_tracker import BaseTracker, Trackable
-    from raitap.transparency.results import ExplanationResult, VisualisationResult
+    from raitap.transparency.results import ExplanationResult
 
 
 @runtime_checkable
@@ -53,12 +54,22 @@ class AdapterResult(Protocol):
     does NOT implement it.
     """
 
-    name: str | None
-    adapter_target: str
-    algorithm: str
-    semantics: object
-    run_dir: Path
-    visualisations: Sequence[Trackable]
+    # Read-only properties (not bare attributes) so the members are covariant —
+    # a concrete result's ``semantics: ExplanationSemantics`` / ``visualisations:
+    # list[VisualisationResult]`` satisfy ``object`` / ``Sequence[Trackable]``.
+    # Dataclass fields satisfy a read-only protocol property.
+    @property
+    def name(self) -> str | None: ...
+    @property
+    def adapter_target(self) -> str: ...
+    @property
+    def algorithm(self) -> str: ...
+    @property
+    def semantics(self) -> object: ...
+    @property
+    def run_dir(self) -> Path: ...
+    @property
+    def visualisations(self) -> Sequence[Trackable]: ...
 
 
 class _RenderableResult(AdapterResult, Protocol):
@@ -134,30 +145,22 @@ class RunOutputs:
         return phase in self.phase_results
 
     # --- Typed convenience views (THE per-phase coupling point) -------------
-    # Ergonomic, statically-typed access to the in-tree phases' outputs. Adding
-    # a module's typed accessor = add one property block below (or skip it and
-    # use the generic ``outputs.get("<phase>")`` above). ``phase_results`` stays
-    # the source of truth; these only read from it.
+    # Ergonomic, statically-typed access to each in-tree phase's result(s):
+    # ``outputs.<phase>`` returns the result data (a list for the per-adapter
+    # families, the single ``MetricResult`` for metrics). Each per-adapter
+    # result owns its ``.visualisations``. ``phase_results`` stays the source of
+    # truth; these only read from it. Future/dynamic phases: ``outputs.get(...)``.
     @property
-    def metrics(self) -> MetricsEvaluation | None:
-        return cast("MetricsEvaluation | None", self.phase_results.get("metrics"))
+    def metrics(self) -> MetricResult | None:
+        evaluation = cast("MetricsEvaluation | None", self.phase_results.get("metrics"))
+        return evaluation.result if evaluation is not None else None
 
     @property
-    def explanations(self) -> list[ExplanationResult]:
+    def transparency(self) -> list[ExplanationResult]:
         result = self.phase_results.get("transparency")
         return list(getattr(result, "explanations", []))
 
     @property
-    def visualisations(self) -> list[VisualisationResult]:
-        result = self.phase_results.get("transparency")
-        return list(getattr(result, "visualisations", []))
-
-    @property
-    def robustness_results(self) -> list[RobustnessResult]:
+    def robustness(self) -> list[RobustnessResult]:
         result = self.phase_results.get("robustness")
         return list(getattr(result, "results", []))
-
-    @property
-    def robustness_visualisations(self) -> list[RobustnessVisualisationResult]:
-        result = self.phase_results.get("robustness")
-        return list(getattr(result, "visualisations", []))

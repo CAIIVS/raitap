@@ -43,18 +43,14 @@ else:
 class RobustnessPhaseResult(Trackable):
     """Robustness phase output: the assessor results, each owning its visualisations.
 
-    ``visualisations`` is a derived view that flattens every result's own
-    visualisations (issue #243) — the results are the single source of truth;
-    there is no separately-stored parallel list.
+    Each :class:`RobustnessResult` owns its ``.visualisations`` (issue #243) — the
+    results are the single source of truth; there is no parallel phase-level
+    visualisation list.
     """
 
     results: list[RobustnessResult] = field(default_factory=list)
 
     report_order: ClassVar[int] = 30
-
-    @property
-    def visualisations(self) -> list[RobustnessVisualisationResult]:
-        return [visualisation for result in self.results for visualisation in result.visualisations]
 
     def log(self, tracker: BaseTracker | None, **kwargs: Any) -> None:
         if tracker is None:
@@ -62,8 +58,8 @@ class RobustnessPhaseResult(Trackable):
         use_subdirs = len(self.results) > 1
         for result in self.results:
             result.log(tracker, use_subdirectory=use_subdirs)
-        for visualisation in self.visualisations:
-            visualisation.log(tracker, use_subdirectory=use_subdirs)
+            for visualisation in result.visualisations:
+                visualisation.log(tracker, use_subdirectory=use_subdirs)
 
     def report_sections(self, ctx: ReportContext) -> tuple[ReportSection, ...]:
         section = _build_robustness_section(
@@ -95,7 +91,7 @@ def _build_robustness_section(
 
     groups: list[ReportGroup] = []
     for index, result in enumerate(outputs.results):
-        assessor_name = result.assessor_name or result.run_dir.name
+        assessor_name = result.name or result.run_dir.name
         assessment_kind_value = result.assessment_kind.value
         if result.assessment_kind == AssessmentKind.EMPIRICAL_ATTACK:
             heading = f"Adversarial attack - {result.algorithm} ({assessor_name})"
