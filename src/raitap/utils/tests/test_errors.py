@@ -113,6 +113,17 @@ class TestRaitapError:
         assert str(err) == "boom"
 
 
+def test_backend_incompatibility_message_lists_missing() -> None:
+    from raitap.utils.errors import BackendIncompatibilityError
+
+    err = BackendIncompatibilityError(adapter="PGD", backend="OnnxBackend", missing=["autograd"])
+    assert err.adapter == "PGD"
+    assert err.backend == "OnnxBackend"
+    assert err.missing == ["autograd"]
+    text = str(err)
+    assert "PGD" in text and "OnnxBackend" in text and "autograd" in text
+
+
 def _make_tb(filename: str, lineno: int, tb_next: object) -> object:
     """Build a duck-typed traceback object good enough for our walker.
 
