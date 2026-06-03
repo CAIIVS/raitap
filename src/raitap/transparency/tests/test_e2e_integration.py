@@ -123,7 +123,7 @@ def test_end_to_end_captum_object_api(
         },
         visualisers=[ConfiguredVisualiser(visualiser=CaptumImageVisualiser())],
     )
-    visualisations = explanation.visualise()
+    visualisations = explanation._visualise()
 
     assert isinstance(explanation, ExplanationResult)
     assert len(visualisations) == 1
@@ -163,7 +163,7 @@ def test_tabular_visualisation_object_api(
             visualiser=TabularBarChartVisualiser(feature_names=[f"feature_{i}" for i in range(10)])
         )
     ]
-    visualisations = explanation.visualise()
+    visualisations = explanation._visualise()
 
     assert len(visualisations) == 1
     assert isinstance(visualisations[0], VisualisationResult)
@@ -193,7 +193,7 @@ def test_config_helpers_support_visualiser_for_loop(
         ),
         target=0,
     )
-    visualisations = explanation.visualise()
+    visualisations = explanation._visualise()
 
     assert isinstance(explanation, ExplanationResult)
     assert len(visualisations) == 1
@@ -223,7 +223,7 @@ def test_explanation_log_only_uploads_explanation_artifacts(
         },
         visualisers=[ConfiguredVisualiser(visualiser=CaptumImageVisualiser())],
     )
-    _ = explanation.visualise()
+    _ = explanation._visualise()
 
     explanation.log(tracker, use_subdirectory=False)  # type: ignore[arg-type]
 
@@ -257,7 +257,7 @@ def test_visualisation_log_uploads_only_visualisation_artifact(
         },
         visualisers=[ConfiguredVisualiser(visualiser=CaptumImageVisualiser())],
     )
-    visualisations = explanation.visualise()
+    visualisations = explanation._visualise()
 
     assert len(visualisations) == 1
     visualisations[0].log(tracker, use_subdirectory=False)  # type: ignore[arg-type]

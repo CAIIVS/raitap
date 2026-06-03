@@ -64,7 +64,7 @@ def test_explanation_result_detaches_tensors() -> None:
         inputs=inputs,
         run_dir=Path("/tmp/test"),
         experiment_name="test",
-        explainer_target="test_target",
+        adapter_target="test_target",
         algorithm="test_alg",
         payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
         semantics=_minimal_semantics((2, 3)),
@@ -93,7 +93,7 @@ def test_explanation_result_moves_tensors_to_cpu(device: str) -> None:
         inputs=inputs,
         run_dir=Path("/tmp/test"),
         experiment_name="test",
-        explainer_target="test_target",
+        adapter_target="test_target",
         algorithm="test_alg",
         payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
         semantics=_minimal_semantics((2, 3)),
@@ -170,7 +170,7 @@ def test_run_without_tracking_forward_output_is_cpu_and_detached() -> None:
     config.data.forward_batch_size = None
 
     fake_explanation = MagicMock()
-    fake_explanation.visualise.return_value = []
+    fake_explanation._visualise.return_value = []
 
     with (
         patch("raitap.metrics.phase.metrics_run_enabled", return_value=False),

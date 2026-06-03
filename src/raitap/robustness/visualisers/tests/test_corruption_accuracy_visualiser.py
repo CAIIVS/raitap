@@ -51,7 +51,7 @@ def _make_result(tmp_path: Path) -> RobustnessResult:
         ),
         run_dir=tmp_path,
         experiment_name="t",
-        assessor_target="x",
+        adapter_target="x",
         algorithm="gaussian_noise",
         semantics=semantics,
     )

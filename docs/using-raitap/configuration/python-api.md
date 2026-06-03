@@ -120,31 +120,32 @@ Library-forwarded kwargs (unchecked at schema time):
 | `targets`              | `torch.Tensor \| list[dict[str, torch.Tensor]] \| None` | Ground-truth labels when configured — a tensor (classification) or `list[dict]` (detection). |
 | `prediction_summaries` | `tuple[PredictionSummary, ...]` | Per-sample `(index, predicted_class, confidence, sample_id, target_class, correct)`.             |
 
-Each value in `phase_results` is a `PhaseResult` (a `Trackable` + `Reportable`). Access by phase name:
+**Typed accessors** (the common path) return each phase's result data:
 
-| Key              | Value type                 | Carries                                                                  |
-| ---------------- | -------------------------- | ------------------------------------------------------------------------ |
-| `"metrics"`      | `MetricsEvaluation`        | Aggregated metrics (`.result`).                                          |
-| `"transparency"` | `TransparencyPhaseResult`  | `.explanations` (attribution tensors + metadata); each owns its `.visualisations`. |
-| `"robustness"`   | `RobustnessPhaseResult`    | `.results` (adversarial tensors + per-sample flags); each owns its `.visualisations`. |
+| Accessor               | Type                        | Notes                                          |
+| ---------------------- | --------------------------- | ---------------------------------------------- |
+| `outputs.metrics`      | `MetricResult \| None`      | `.scalars` (`dict[str, float]`), `.artifacts`. |
+| `outputs.transparency` | `list[ExplanationResult]`   | one per explainer; `[]` if not run.            |
+| `outputs.robustness`   | `list[RobustnessResult]`    | one per assessor; `[]` if not run.             |
 
-`RunOutputs` is a mapping over its phases: `result.get(name)`, `result[name]`, and `name in result` all work (delegating to `phase_results`, which stays the source of truth). In-tree and out-of-tree phases are reached the same way:
+Every per-adapter result (`ExplanationResult`, `RobustnessResult`) shares one envelope — the `AdapterResult` contract: `.name` (the config key, e.g. `"ig"`), `.adapter_target` (the `_target_` class), `.algorithm`, `.semantics`, `.run_dir`, and `.visualisations` (the figures that result owns) — plus its own domain payload (`.attributions` / `.verdicts` / …).
+
+**Mapping access** reaches the underlying `PhaseResult` wrapper for any (incl. future) phase: `outputs.get(name)`, `outputs[name]`, `name in outputs`.
 
 ```python
 result = run(cfg)
 
-metrics = result.get("metrics")        # PhaseResult | None
-if metrics is not None:
-    print(metrics.result.metrics)
+if result.metrics is not None:
+    print(result.metrics.scalars)             # dict[str, float]
 
-if "transparency" in result:
-    for explanation in result["transparency"].explanations:
-        ...
+for explanation in result.transparency:       # list[ExplanationResult]
+    print(explanation.name, explanation.algorithm, len(explanation.visualisations))
 
-fairness = result.get("fairness")      # any future phase, same pattern
+for assessment in result.robustness:          # list[RobustnessResult]
+    print(assessment.name, assessment.metrics.attack_success_rate)
+
+fairness = result.get("fairness")             # any future phase → PhaseResult | None
 ```
-
-Values are typed as the `PhaseResult` protocol (`report_order` / `log` / `report_sections`); narrow to a concrete result (e.g. `MetricsEvaluation`, `TransparencyPhaseResult`) to read its phase-specific attributes.
 
 ## Multiruns in Python
 

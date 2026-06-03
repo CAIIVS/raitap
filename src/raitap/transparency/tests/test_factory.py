@@ -143,7 +143,7 @@ def test_explanation_returns_explanation_result(
     assert (explanation.run_dir / "attributions.pt").exists()
     assert (explanation.run_dir / "metadata.json").exists()
 
-    visualisations = explanation.visualise()
+    visualisations = explanation._visualise()
     assert len(visualisations) == 1
     assert (explanation.run_dir / "CaptumImageVisualiser_0.png").exists()
 

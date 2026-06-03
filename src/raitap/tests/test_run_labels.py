@@ -90,7 +90,7 @@ def test_run_without_tracking_passes_ground_truth_labels_to_metrics(
         def __init__(self, *_args: object, **_kwargs: object) -> None:
             pass
 
-        def visualise(self) -> list[object]:
+        def _visualise(self) -> list[object]:
             return []
 
     def fake_metrics(

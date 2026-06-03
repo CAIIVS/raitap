@@ -78,9 +78,9 @@ def test_robustness_result_writes_pt_and_metadata(tmp_path: Path) -> None:
         metrics=_empirical_metrics(),
         run_dir=tmp_path / "robustness/pgd",
         experiment_name="unit-test",
-        assessor_target="raitap.robustness.assessors.TorchattacksAssessor",
+        adapter_target="raitap.robustness.assessors.TorchattacksAssessor",
         algorithm="PGD",
-        assessor_name="pgd",
+        name="pgd",
         perturbed_inputs=perturbed,
         perturbed_predictions=adv_preds,
         perturbation_distance=torch.tensor([0.02, 0.02]),
@@ -111,9 +111,9 @@ def _result_for_visualiser_tests(tmp_path: Path) -> RobustnessResult:
         metrics=_empirical_metrics(),
         run_dir=tmp_path / "robustness/pgd",
         experiment_name="unit-test",
-        assessor_target="raitap.robustness.assessors.TorchattacksAssessor",
+        adapter_target="raitap.robustness.assessors.TorchattacksAssessor",
         algorithm="PGD",
-        assessor_name="pgd",
+        name="pgd",
         perturbed_inputs=inputs + 0.01,
         perturbed_predictions=torch.tensor([1, 1]),
         perturbation_distance=torch.tensor([0.02, 0.02]),
@@ -243,7 +243,7 @@ def test_visualise_does_not_swallow_visualiser_errors(tmp_path: Path) -> None:
     result.visualisers = [ConfiguredRobustnessVisualiser(visualiser=_ErrorRobustnessVisualiser())]
 
     with pytest.raises(ValueError, match="visualiser failed"):
-        result.visualise()
+        result._visualise()
 
     assert result.visualiser_targets == []
     assert not any(result.run_dir.glob("*.png"))
@@ -270,9 +270,9 @@ def _result_with_sample_names(
         metrics=_empirical_metrics(),
         run_dir=tmp_path / "robustness/pgd",
         experiment_name="test_sample_names",
-        assessor_target="raitap.robustness.assessors.TorchattacksAssessor",
+        adapter_target="raitap.robustness.assessors.TorchattacksAssessor",
         algorithm="PGD",
-        assessor_name="pgd",
+        name="pgd",
         semantics=_semantics_for_test(),
     )
     result.kwargs["sample_names"] = sample_names
@@ -287,7 +287,7 @@ def test_robustness_visualise_raises_on_mismatched_sample_names(tmp_path: Path) 
     from raitap.utils.errors import SampleNamesLengthError
 
     with pytest.raises(SampleNamesLengthError) as info:
-        result.visualise()
+        result._visualise()
     assert info.value.got == 3
     assert info.value.expected == 2
 
@@ -312,14 +312,14 @@ def test_robustness_render_per_sample_raises_on_mismatched_sample_names(tmp_path
 def test_robustness_visualise_passes_with_matching_sample_names(tmp_path: Path) -> None:
     result = _result_with_sample_names(tmp_path, batch=2, sample_names=["a", "b"])
     # Must not raise; close the figure to avoid resource leak.
-    vis_results = result.visualise()
+    vis_results = result._visualise()
     for vr in vis_results:
         plt.close(vr.figure)
 
 
 def test_robustness_visualise_passes_with_none_sample_names(tmp_path: Path) -> None:
     result = _result_with_sample_names(tmp_path, batch=2, sample_names=None)
-    vis_results = result.visualise()
+    vis_results = result._visualise()
     for vr in vis_results:
         plt.close(vr.figure)
 
@@ -365,7 +365,7 @@ def test_metadata_includes_case(tmp_path: Path) -> None:
         ),
         run_dir=tmp_path,
         experiment_name="t",
-        assessor_target="x",
+        adapter_target="x",
         algorithm="fog",
         semantics=semantics,
     )

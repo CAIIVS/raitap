@@ -152,9 +152,7 @@ def _native_scope_groups(
     for visualisation in visualisations:
         if visualisation.scope != scope:
             continue
-        explainer_name = (
-            visualisation.explanation.name or visualisation.explanation.run_dir.name
-        )
+        explainer_name = visualisation.explanation.name or visualisation.explanation.run_dir.name
         staged = _copy_asset(
             visualisation.output_path,
             assets_dir=assets_dir,

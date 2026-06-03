@@ -110,9 +110,9 @@ class _RecordingExplainer:
             inputs=inputs,
             run_dir=Path(run_dir),
             experiment_name=experiment_name,
-            explainer_target=explainer_target or "x",
+            adapter_target=explainer_target or "x",
             algorithm=self.algorithm,
-            explainer_name=explainer_name,
+            name=explainer_name,
             visualisers=[],
             semantics=semantics,
         )

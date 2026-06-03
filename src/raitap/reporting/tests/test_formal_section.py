@@ -59,9 +59,9 @@ def _formal_result(run_dir: Path) -> RobustnessResult:
         ),
         run_dir=run_dir,
         experiment_name="exp",
-        assessor_target="raitap.robustness.assessors.MarabouAssessor",
+        adapter_target="raitap.robustness.assessors.MarabouAssessor",
         algorithm="linf-box",
-        assessor_name="marabou_linf",
+        name="marabou_linf",
         runtime_per_sample=torch.tensor([0.2, 0.4, 0.6]),
         semantics=RobustnessSemantics(
             assessment_kind=AssessmentKind.FORMAL_VERIFICATION,

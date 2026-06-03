@@ -217,7 +217,7 @@ class _FakeExplainerResult:
         # (issue #243), populated by ``visualise()``.
         self.visualisations: list[_FakeVisualisationResult] = []
 
-    def visualise(self) -> list[_FakeVisualisationResult]:
+    def _visualise(self) -> list[_FakeVisualisationResult]:
         self.visualise_calls += 1
         self.visualisations = [_FakeVisualisationResult(self.name, self)]
         return self.visualisations
@@ -511,7 +511,7 @@ def test_run_with_tracking_logs_all_outputs(monkeypatch: MonkeyPatch) -> None:
     )
     data = SimpleNamespace(tensor=torch.randn(2, 3), log=MagicMock())
     explanation = _FakeExplainerResult("exp1")
-    visualisation = explanation.visualise()[0]
+    visualisation = explanation._visualise()[0]
     metrics_eval = SimpleNamespace(log=MagicMock())
     fake_output = _fake_run_outputs(
         explanations=[explanation],  # type: ignore[list-item]
@@ -557,7 +557,7 @@ def test_run_with_tracking_skips_model_logging_when_disabled(monkeypatch: Monkey
     )
     data = SimpleNamespace(tensor=torch.randn(1, 3), log=MagicMock())
     explanation = _FakeExplainerResult("exp1")
-    visualisation = explanation.visualise()[0]
+    visualisation = explanation._visualise()[0]
     fake_output = _fake_run_outputs(
         explanations=[explanation],  # type: ignore[list-item]
         visualisations=[visualisation],  # type: ignore[list-item]
@@ -598,9 +598,9 @@ def test_run_with_multiple_explainers_uses_subdirs(monkeypatch: MonkeyPatch) -> 
     )
     data = SimpleNamespace(tensor=torch.randn(2, 3), log=MagicMock())
     exp1 = _FakeExplainerResult("exp1")
-    vis1 = exp1.visualise()[0]
+    vis1 = exp1._visualise()[0]
     exp2 = _FakeExplainerResult("exp2")
-    vis2 = exp2.visualise()[0]
+    vis2 = exp2._visualise()[0]
     fake_output = _fake_run_outputs(
         explanations=[exp1, exp2],  # type: ignore[list-item]
         visualisations=[vis1, vis2],  # type: ignore[list-item]

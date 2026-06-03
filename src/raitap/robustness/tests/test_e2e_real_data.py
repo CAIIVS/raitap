@@ -144,7 +144,7 @@ def test_image_pair_visualiser_diff_uses_diverging_cmap(tmp_path: Path) -> None:
         inputs,
         targets,
     )
-    visualisations = result.visualise()
+    visualisations = result._visualise()
     assert visualisations, "expected at least one rendered visualisation"
     figure = visualisations[0].figure
     try:
@@ -228,5 +228,5 @@ def test_pipeline_allows_robustness_only_runs(tmp_path: Path) -> None:
     outputs = _run_without_tracking(config, raitap_model, data_stub)  # type: ignore[arg-type]
 
     assert "transparency" not in outputs
-    assert len(outputs.robustness_results) == 1
-    assert outputs.robustness_results[0].assessor_name == "pgd"
+    assert len(outputs.robustness) == 1
+    assert outputs.robustness[0].name == "pgd"

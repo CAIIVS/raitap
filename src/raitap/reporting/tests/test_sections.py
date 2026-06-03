@@ -19,7 +19,7 @@ def _metrics_evaluation(run_dir: Path) -> MetricsEvaluation:
     fig = plt.figure()
     fig.savefig(run_dir / "overview.png")
     plt.close(fig)
-    result = SimpleNamespace(metrics={"accuracy": 0.9123, "f1": 0.8})
+    result = SimpleNamespace(scalars={"accuracy": 0.9123, "f1": 0.8})
     return MetricsEvaluation(
         result=cast("object", result),  # type: ignore[arg-type]
         run_dir=run_dir,

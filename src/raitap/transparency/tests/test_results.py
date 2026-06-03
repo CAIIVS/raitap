@@ -77,10 +77,10 @@ def _make_explanation(run_dir: Path, *, explainer_name: str | None = "exp") -> E
         inputs=torch.randn(1, 3, 4, 4),
         run_dir=run_dir,
         experiment_name="test-exp",
-        explainer_target="raitap.transparency.CaptumExplainer",
+        adapter_target="raitap.transparency.CaptumExplainer",
         algorithm="Saliency",
         semantics=_semantics(),
-        explainer_name=explainer_name,
+        name=explainer_name,
     )
 
 
@@ -182,7 +182,7 @@ def test_explanation_result_requires_explicit_semantics(tmp_path: Path) -> None:
             inputs=torch.randn(1, 3, 4, 4),
             run_dir=tmp_path / "exp_missing_semantics",
             experiment_name="e",
-            explainer_target="t",
+            adapter_target="t",
             algorithm="a",
         )
 
@@ -194,7 +194,7 @@ def test_explanation_metadata_summarises_tensor_call_kwargs(tmp_path: Path) -> N
         inputs=torch.randn(1, 3, 4, 4),
         run_dir=run_dir,
         experiment_name="e",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="a",
         semantics=_semantics(),
         kwargs={"show_sample_names": True},
@@ -231,7 +231,7 @@ def test_explanation_metadata_serializes_semantics_to_json(tmp_path: Path) -> No
         inputs=torch.randn(1, 3, 4, 4),
         run_dir=run_dir,
         experiment_name="e",
-        explainer_target="raitap.transparency.CaptumExplainer",
+        adapter_target="raitap.transparency.CaptumExplainer",
         algorithm="Saliency",
         semantics=_semantics(),
     )
@@ -355,7 +355,7 @@ def test_explanation_visualise_merges_inputs_and_attributions_from_kwargs(
         inputs=default_inp,
         run_dir=run_dir,
         experiment_name="e",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="a",
         semantics=_semantics(),
         visualisers=[
@@ -371,7 +371,7 @@ def test_explanation_visualise_merges_inputs_and_attributions_from_kwargs(
     )
     explanation.write_artifacts()
 
-    explanation.visualise()
+    explanation._visualise()
 
     vis = explanation.visualisers[0].visualiser
     assert isinstance(vis, _RecordingVisualiser)
@@ -385,7 +385,7 @@ def test_explanation_visualise_merges_inputs_and_attributions_from_kwargs(
     explanation2.write_artifacts()
     rec = _RecordingVisualiser()
     explanation2.visualisers = [ConfiguredVisualiser(visualiser=rec, call_kwargs={})]
-    explanation2.visualise(inputs=override_inp)
+    explanation2._visualise(inputs=override_inp)
     assert rec.last is not None
     _a, inp2, _e = rec.last
     assert inp2 is not None and torch.equal(inp2, override_inp)
@@ -416,7 +416,7 @@ def test_explanation_visualise_adds_generic_sample_name_title_when_opted_in(tmp_
         inputs=torch.randn(2, 3, 4, 4),
         run_dir=run_dir,
         experiment_name="e",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="a",
         semantics=_semantics(),
         visualisers=[
@@ -429,7 +429,7 @@ def test_explanation_visualise_adds_generic_sample_name_title_when_opted_in(tmp_
     )
     explanation.write_artifacts()
 
-    [result] = explanation.visualise()
+    [result] = explanation._visualise()
 
     assert rec.last_kwargs == {}
     assert result.figure.get_suptitle() == "ISIC_1 (+1)"
@@ -465,7 +465,7 @@ def test_explanation_visualise_uses_explainer_level_show_sample_names_default(
         inputs=torch.randn(2, 3, 4, 4),
         run_dir=run_dir,
         experiment_name="e",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="a",
         semantics=_semantics(),
         visualisers=[ConfiguredVisualiser(visualiser=vis, call_kwargs={})],
@@ -476,7 +476,7 @@ def test_explanation_visualise_uses_explainer_level_show_sample_names_default(
     )
     explanation.write_artifacts()
 
-    explanation.visualise()
+    explanation._visualise()
 
     assert vis.last_show_sample_names is True
     assert vis.last_sample_names == ["ISIC_1", "ISIC_2"]
@@ -490,7 +490,7 @@ def test_explanation_visualise_raises_when_sample_names_longer_than_batch(tmp_pa
         inputs=torch.randn(1, 3, 4, 4),
         run_dir=run_dir,
         experiment_name="e",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="a",
         semantics=_semantics(),
         visualisers=[
@@ -504,7 +504,7 @@ def test_explanation_visualise_raises_when_sample_names_longer_than_batch(tmp_pa
     explanation.write_artifacts()
 
     with pytest.raises(SampleNamesLengthError) as info:
-        explanation.visualise()
+        explanation._visualise()
     assert info.value.got == 3
     assert info.value.expected == 1
 
@@ -538,7 +538,7 @@ def test_report_visualisation_resets_visualiser_sample_index_for_sliced_batch(
         inputs=torch.zeros(3, 1),
         run_dir=run_dir,
         experiment_name="e",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="a",
         semantics=_semantics(),
         visualisers=[ConfiguredVisualiser(visualiser=vis)],
@@ -591,7 +591,7 @@ def test_render_visualisation_for_scope_targets_one_visualiser_and_forwards_kwar
         inputs=torch.zeros(3, 1),
         run_dir=tmp_path / "exp_single_visualiser",
         experiment_name="e",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="a",
         semantics=_semantics(),
         kwargs={"sample_names": ["a", "b", "c"], "show_sample_names": True},
@@ -639,7 +639,7 @@ def test_render_visualisation_for_scope_returns_none_for_scope_mismatch(tmp_path
         inputs=torch.zeros(1, 1),
         run_dir=tmp_path / "exp_scope_mismatch",
         experiment_name="e",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="a",
         semantics=_semantics(),
         visualisers=[ConfiguredVisualiser(visualiser=_AggregatedVisualiser())],
@@ -675,14 +675,14 @@ def test_explanation_visualise_forwards_algorithm_when_supported(tmp_path: Path)
         inputs=torch.randn(1, 3, 4, 4),
         run_dir=run_dir,
         experiment_name="e",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
         semantics=_semantics(),
         visualisers=[ConfiguredVisualiser(visualiser=vis)],
     )
     explanation.write_artifacts()
 
-    explanation.visualise()
+    explanation._visualise()
 
     assert vis.last_algorithm == "IntegratedGradients"
     assert vis.last_kwargs == {}
@@ -695,7 +695,7 @@ def test_explanation_visualise_sets_shap_image_default_title_from_algorithm(tmp_
         inputs=torch.rand(1, 3, 8, 8),
         run_dir=run_dir,
         experiment_name="e",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="GradientExplainer",
         semantics=_semantics(
             method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT})
@@ -704,7 +704,7 @@ def test_explanation_visualise_sets_shap_image_default_title_from_algorithm(tmp_
     )
     explanation.write_artifacts()
 
-    [result] = explanation.visualise()
+    [result] = explanation._visualise()
 
     titles = [ax.get_title() for ax in result.figure.axes if ax.get_title()]
     assert titles == ["Original Image", "GradientExplainer (SHAP)"]
@@ -717,7 +717,7 @@ def test_explanation_visualise_preserves_shap_constructor_title(tmp_path: Path) 
         inputs=torch.rand(1, 3, 8, 8),
         run_dir=run_dir,
         experiment_name="e",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="GradientExplainer",
         semantics=_semantics(
             method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT})
@@ -730,7 +730,7 @@ def test_explanation_visualise_preserves_shap_constructor_title(tmp_path: Path) 
     )
     explanation.write_artifacts()
 
-    [result] = explanation.visualise()
+    [result] = explanation._visualise()
 
     titles = [ax.get_title() for ax in result.figure.axes if ax.get_title()]
     assert titles == ["Original Image", "Configured SHAP"]
@@ -743,7 +743,7 @@ def test_explanation_visualise_preserves_explicit_shap_image_title(tmp_path: Pat
         inputs=torch.rand(1, 3, 8, 8),
         run_dir=run_dir,
         experiment_name="e",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="GradientExplainer",
         semantics=_semantics(
             method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT})
@@ -756,7 +756,7 @@ def test_explanation_visualise_preserves_explicit_shap_image_title(tmp_path: Pat
     )
     explanation.write_artifacts()
 
-    [result] = explanation.visualise(title="Runtime SHAP")
+    [result] = explanation._visualise(title="Runtime SHAP")
 
     titles = [ax.get_title() for ax in result.figure.axes if ax.get_title()]
     assert titles == ["Original Image", "Runtime SHAP"]
@@ -772,7 +772,7 @@ def test_explanation_visualise_forwards_algorithm_to_shap_subclasses(tmp_path: P
         inputs=torch.rand(1, 3, 8, 8),
         run_dir=run_dir,
         experiment_name="e",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="DeepExplainer",
         semantics=_semantics(
             method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT})
@@ -783,7 +783,7 @@ def test_explanation_visualise_forwards_algorithm_to_shap_subclasses(tmp_path: P
     )
     explanation.write_artifacts()
 
-    [result] = explanation.visualise()
+    [result] = explanation._visualise()
 
     titles = [ax.get_title() for ax in result.figure.axes if ax.get_title()]
     assert titles == ["Original Image", "DeepExplainer (SHAP)"]
@@ -802,7 +802,7 @@ def test_explanation_result_visualise_raises_on_mismatched_sample_names(tmp_path
         inputs=torch.randn(2, 3, 4, 4),
         run_dir=run_dir,
         experiment_name="e",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="a",
         semantics=_semantics(),
         visualisers=[
@@ -816,7 +816,7 @@ def test_explanation_result_visualise_raises_on_mismatched_sample_names(tmp_path
     explanation.write_artifacts()
 
     with pytest.raises(SampleNamesLengthError) as info:
-        explanation.visualise()
+        explanation._visualise()
     assert info.value.got == 3
     assert info.value.expected == 2
 
@@ -829,7 +829,7 @@ def test_explanation_result_visualise_passes_with_matching_sample_names(tmp_path
         inputs=torch.randn(2, 3, 4, 4),
         run_dir=run_dir,
         experiment_name="e",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="a",
         semantics=_semantics(),
         visualisers=[
@@ -842,7 +842,7 @@ def test_explanation_result_visualise_passes_with_matching_sample_names(tmp_path
     )
     explanation.write_artifacts()
     # Should not raise.
-    explanation.visualise()
+    explanation._visualise()
 
 
 def test_explanation_result_visualise_passes_with_none_sample_names(tmp_path: Path) -> None:
@@ -853,7 +853,7 @@ def test_explanation_result_visualise_passes_with_none_sample_names(tmp_path: Pa
         inputs=torch.randn(2, 3, 4, 4),
         run_dir=run_dir,
         experiment_name="e",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="a",
         semantics=_semantics(),
         visualisers=[
@@ -866,7 +866,7 @@ def test_explanation_result_visualise_passes_with_none_sample_names(tmp_path: Pa
     )
     explanation.write_artifacts()
     # Should not raise.
-    explanation.visualise()
+    explanation._visualise()
 
 
 def test_render_visualisation_for_scope_raises_on_mismatched_sample_names(
@@ -890,7 +890,7 @@ def test_render_visualisation_for_scope_raises_on_mismatched_sample_names(
         inputs=torch.zeros(2, 3, 4, 4),
         run_dir=tmp_path / "exp_render_mismatch",
         experiment_name="e",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="a",
         semantics=_semantics(),
         kwargs={"sample_names": ["a", "b", "c"], "show_sample_names": True},
@@ -936,7 +936,7 @@ def _result_with_baseline(
         inputs=torch.rand(1, 1, 4, 4),
         run_dir=tmp_path / "exp",
         experiment_name="demo",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
         semantics=_semantics_simple((1, 1, 4, 4)),
         call_kwargs=call_kwargs or {},

@@ -164,11 +164,9 @@ all in your module:
 
 **a. The phase work** (`fairness/phase.py`) — mirror `transparency/phase.py` / `robustness/phase.py`.
 
-Each result **owns its visualisations** (`FairnessResult.visualisations`, a `list`
-populated by the result's own `visualise()`); there is no parallel phase-level
-list. Use the shared `run_adapters` helper — it runs the loop, calls each
-result's `visualise()` (so you cannot forget the ownership contract), and
-collects the results:
+Your `FairnessResult` must satisfy the **`AdapterResult`** contract (`raitap.pipeline.outputs`): `name` (config key), `adapter_target` (the `_target_`), `algorithm`, `semantics` (load-bearing — RAITAP's thesis requires every result to carry it), `run_dir`, and `visualisations` (a `list` it owns, populated by its own `_visualise()`). There is no parallel phase-level visualisation list.
+
+Use the shared `run_adapters` helper — it runs the loop, calls each result's `_visualise()` (so you cannot forget the ownership contract), and collects the results:
 
 ```python
 from raitap.pipeline.phases.base import run_adapters
@@ -182,8 +180,7 @@ def assess_fairness(config, model, data, forward_output, *, ...):
     )
 ```
 
-`run_adapters` is opt-in: a singleton phase with no adapter loop (like metrics)
-just writes its own `run()` instead.
+`run_adapters` is bound to `AdapterResult`, so **pyright fails if `FairnessResult` is missing any envelope field** (e.g. `semantics`) — the contract is enforced at type-check time, not by convention. `run_adapters` is opt-in: a singleton phase with no adapter loop (like metrics) writes its own `run()` instead and does not implement `AdapterResult`.
 
 **b. The phase result** (`fairness/report.py`) — a `PhaseResult`: `Trackable` (how it logs) + `Reportable` (how it reports). Mirror `transparency/report.py` / `robustness/report.py`. It holds only the results and reaches each result's figures via `result.visualisations`:
 

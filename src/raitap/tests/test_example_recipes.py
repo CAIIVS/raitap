@@ -92,8 +92,8 @@ def test_recipe_imagenet_captum_ig_pgd() -> None:
     )
     outputs = run(cfg, verbose=False)
     assert isinstance(outputs, RunOutputs)
-    assert len(outputs.explanations) == 1
-    assert len(outputs.robustness_results) == 1
+    assert len(outputs.transparency) == 1
+    assert len(outputs.robustness) == 1
 
 
 @pytest.mark.e2e
@@ -114,8 +114,8 @@ def test_recipe_multi_explainer() -> None:
         },
     )
     outputs = run(cfg, verbose=False)
-    assert len(outputs.explanations) == 2
-    assert {er.explainer_name for er in outputs.explanations} == {"ig", "saliency"}
+    assert len(outputs.transparency) == 2
+    assert {er.name for er in outputs.transparency} == {"ig", "saliency"}
 
 
 @pytest.mark.e2e
@@ -142,9 +142,9 @@ def test_recipe_multi_visualiser() -> None:
         },
     )
     outputs = run(cfg, verbose=False)
-    assert len(outputs.explanations) == 1
+    assert len(outputs.transparency) == 1
     # Each visualiser renders one figure per sample-batch.
-    assert len(outputs.visualisations) >= 2
+    assert len([v for r in outputs.transparency for v in r.visualisations]) >= 2
 
 
 @pytest.mark.e2e
@@ -172,5 +172,5 @@ def test_recipe_multi_assessor() -> None:
         },
     )
     outputs = run(cfg, verbose=False)
-    assert len(outputs.robustness_results) == 2
-    assert {rr.assessor_name for rr in outputs.robustness_results} == {"pgd", "fgsm"}
+    assert len(outputs.robustness) == 2
+    assert {rr.name for rr in outputs.robustness} == {"pgd", "fgsm"}
