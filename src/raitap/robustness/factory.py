@@ -196,7 +196,7 @@ def create_assessor(assessor_config: Any) -> tuple[AssessorAdapter, str]:
             "(e.g. EmpiricalAttackAssessor or FormalVerificationAssessor subclass)."
         ),
         type_error_hint=(
-            "Configured assessors must have callable assess() and check_backend_compat() methods, "
+            "Configured assessors must have a callable assess() method "
             "and an ``assessment_kind`` attribute."
         ),
         instantiate_fn=instantiate,

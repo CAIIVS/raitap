@@ -277,9 +277,7 @@ def create_explainer(explainer_config: Any) -> tuple[ExplainerAdapter, str]:
             "Check that _target_ points to a valid ExplainerAdapter implementation "
             "(e.g. AttributionOnlyExplainer or FullExplainer subclass)."
         ),
-        type_error_hint=(
-            "Configured explainers must have callable explain() and check_backend_compat() methods."
-        ),
+        type_error_hint=("Configured explainers must have a callable explain() method."),
         instantiate_fn=instantiate,
     )
 

@@ -32,7 +32,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from raitap._adapters import ALL as ALL
+from raitap.utils.errors import BackendIncompatibilityError
 
 from .contracts import (
     VERDICT_CODES,
@@ -202,6 +202,7 @@ __all__ = [  # noqa: RUF022
     "decode_verdict",
     "encode_verdict",
     # Exceptions
+    "BackendIncompatibilityError",
     "AssessorBackendIncompatibilityError",
     "AssessmentKindVisualiserIncompatibilityError",
     "MissingTargetsError",

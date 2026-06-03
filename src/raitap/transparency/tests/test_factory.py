@@ -630,20 +630,25 @@ def test_create_explainer_wraps_instantiation_errors(
         create_explainer(config)
 
 
-def test_create_explainer_rejects_missing_check_backend_compat(
+def test_inherited_check_backend_compat_gates_via_capabilities(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    class _ExplainerWithoutBackendCheck:
+    # A configured explainer never lacks check_backend_compat; it is inherited
+    # from AdapterMixin. Assert the inherited method is present and callable.
+    from raitap._adapters import AdapterMixin
+
+    class _StubExplainerWithInheritance(AdapterMixin):
         def explain(self, *_args: Any, **_kwargs: Any) -> None:
             return None
 
+    stub = _StubExplainerWithInheritance()
     monkeypatch.setattr(
         "raitap.transparency.factory.instantiate",
-        lambda _cfg: _ExplainerWithoutBackendCheck(),
+        lambda _cfg: stub,
     )
     config = OmegaConf.create({"_target_": "CaptumExplainer", "algorithm": "Saliency"})
-    with pytest.raises(ValueError, match="check_backend_compat"):
-        create_explainer(config)
+    explainer, _ = create_explainer(config)
+    assert callable(explainer.check_backend_compat)
 
 
 def test_create_explainer_rejects_unknown_top_level_keys() -> None:

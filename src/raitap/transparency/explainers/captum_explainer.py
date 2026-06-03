@@ -70,17 +70,6 @@ if TYPE_CHECKING:
         ),
     },
     baseline_kwarg_name="baselines",
-    onnx_compatible_algorithms=frozenset(
-        {
-            "FeatureAblation",
-            "FeaturePermutation",
-            "Occlusion",
-            "ShapleyValueSampling",
-            "ShapleyValues",
-            "KernelShap",
-            "Lime",
-        }
-    ),
 )
 class CaptumExplainer(AttributionOnlyExplainer):
     """

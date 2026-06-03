@@ -36,7 +36,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from raitap._adapters import ALL as ALL
+from raitap.utils.errors import BackendIncompatibilityError
 
 from .contracts import (
     ExplainerAdapter,
@@ -57,7 +57,6 @@ from .contracts import (
     VisualSummarySpec,
 )
 from .exceptions import (
-    ExplainerBackendIncompatibilityError,
     PayloadVisualiserIncompatibilityError,
     VisualiserIncompatibilityError,
 )
@@ -230,7 +229,7 @@ __all__ = [  # noqa: RUF022
     "infer_output_space",
     "method_families_for_explainer",
     # Domain errors
-    "ExplainerBackendIncompatibilityError",
+    "BackendIncompatibilityError",
     "PayloadVisualiserIncompatibilityError",
     "VisualiserIncompatibilityError",
     # Rest

@@ -30,7 +30,7 @@ from collections.abc import Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from importlib import metadata as importlib_metadata
-from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, Required, TypedDict, Unpack
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Required, TypedDict, Unpack
 
 from hydra_zen import ZenStore, builds
 
@@ -70,21 +70,6 @@ class FamilyConfig:
     # ``dict[str, Config]`` so multiple named entries can coexist. ``"flat"`` →
     # package=``"<group>"``; the schema field is a single config, names compete.
     package_style: Literal["nested", "flat"]
-
-
-class _AllAlgorithmsSentinel:
-    """Singleton type for the :data:`ALL` marker — pass
-    ``onnx_compatible_algorithms=ALL`` to ``@adapters.transparency`` /
-    ``@adapters.robustness`` to mark every algorithm in the adapter's
-    ``algorithm_registry`` as ONNX-compatible without re-listing them."""
-
-    __slots__ = ()
-
-    def __repr__(self) -> str:
-        return "raitap.ALL"
-
-
-ALL: Final[_AllAlgorithmsSentinel] = _AllAlgorithmsSentinel()
 
 
 class AdapterDecoratorOptions(TypedDict, total=False):

@@ -114,7 +114,6 @@ def _select_target_attributions(
         ),
     },
     baseline_kwarg_name="background_data",
-    onnx_compatible_algorithms=frozenset({"KernelExplainer"}),
 )
 class ShapExplainer(AttributionOnlyExplainer):
     """
