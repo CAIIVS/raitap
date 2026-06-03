@@ -57,3 +57,19 @@ class TaskKind(StrEnum):
     segmentation = "segmentation"
     seq2seq = "seq2seq"
     regression = "regression"
+
+
+class Capability(StrEnum):
+    """A backend capability an algorithm may require.
+
+    Backends declare what they ``provides``; algorithm hints declare what they
+    ``requires``. An algorithm runs on a backend iff ``requires <= provides``.
+    """
+
+    AUTOGRAD = (
+        "autograd"  # differentiable live model + input gradients (PGD, IntegratedGradients, CROWN)
+    )
+    TREE_MODEL = (
+        "tree_model"  # roadmap: tree-ensemble structure (TreeSHAP). No provider/requirer yet.
+    )
+    PREDICT_PROBA = "predict_proba"  # roadmap: class-probability outputs. No provider/requirer yet.
