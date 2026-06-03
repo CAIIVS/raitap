@@ -108,6 +108,8 @@ def _select_target_attributions(
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
         ),
+        # TreeExplainer is a tree-model method; requires=AUTOGRAD preserves current
+        # gating, but it is the natural first consumer of the roadmap TREE_MODEL capability.
         "TreeExplainer": ExplainerSemanticsHints(
             frozenset({MethodFamily.SHAPLEY, MethodFamily.TREE}),
             requires=frozenset({Capability.AUTOGRAD}),

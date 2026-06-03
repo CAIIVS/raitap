@@ -87,6 +87,8 @@ else:
             families=frozenset({"ensemble", "auto"}),
             requires=frozenset({Capability.AUTOGRAD}),
         ),
+        # Square/OnePixel are score-based (conceptually black-box); requires=AUTOGRAD
+        # preserves current gating via the torchattacks torch model, could be relaxed later.
         "Square": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.BLACK_BOX_SCORE,

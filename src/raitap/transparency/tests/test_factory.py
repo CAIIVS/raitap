@@ -630,7 +630,7 @@ def test_create_explainer_wraps_instantiation_errors(
         create_explainer(config)
 
 
-def test_inherited_check_backend_compat_gates_via_capabilities(
+def test_explainer_inherits_check_backend_compat_from_mixin(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # A configured explainer never lacks check_backend_compat; it is inherited
