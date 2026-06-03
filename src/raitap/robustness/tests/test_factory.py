@@ -20,6 +20,7 @@ from raitap.robustness.factory import (
 )
 from raitap.robustness.results import ConfiguredRobustnessVisualiser, RobustnessResult
 from raitap.robustness.visualisers.base_visualiser import BaseRobustnessVisualiser
+from raitap.types import Capability
 from raitap.utils.errors import SampleNamesLengthError
 
 if TYPE_CHECKING:
@@ -29,7 +30,7 @@ if TYPE_CHECKING:
 class _BackendStub(ModelBackend):
     """Minimal ModelBackend stub used by factory tests."""
 
-    supports_torch_autograd = True
+    provides = frozenset({Capability.AUTOGRAD})
 
     def __init__(self, model: torch.nn.Module | None = None) -> None:
         self._model = torch.nn.Identity() if model is None else model

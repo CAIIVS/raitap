@@ -32,6 +32,7 @@ from raitap.transparency.factory import (
 )
 from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
+from raitap.types import Capability
 from raitap.utils.errors import SampleNamesLengthError
 
 if TYPE_CHECKING:
@@ -44,9 +45,9 @@ if TYPE_CHECKING:
 
 
 class _BackendStub(ModelBackend):
-    def __init__(self, model: torch.nn.Module, *, supports_torch_autograd: bool = True) -> None:
+    def __init__(self, model: torch.nn.Module, *, autograd: bool = True) -> None:
         self._model = model
-        self.supports_torch_autograd = supports_torch_autograd
+        self.provides = frozenset({Capability.AUTOGRAD}) if autograd else frozenset()  # type: ignore[misc]
 
     @property
     def hardware_label(self) -> str:
@@ -1500,9 +1501,7 @@ def test_captum_explainer_blocks_integrated_gradients_on_non_autograd_backend() 
     explainer = CaptumExplainer("IntegratedGradients")
 
     with pytest.raises(ExplainerBackendIncompatibilityError):
-        explainer.check_backend_compat(
-            _BackendStub(torch.nn.Identity(), supports_torch_autograd=False)
-        )
+        explainer.check_backend_compat(_BackendStub(torch.nn.Identity(), autograd=False))
 
 
 def test_shap_explainer_blocks_gradient_explainer_on_non_autograd_backend() -> None:
@@ -1511,9 +1510,7 @@ def test_shap_explainer_blocks_gradient_explainer_on_non_autograd_backend() -> N
     explainer = ShapExplainer("GradientExplainer")
 
     with pytest.raises(ExplainerBackendIncompatibilityError):
-        explainer.check_backend_compat(
-            _BackendStub(torch.nn.Identity(), supports_torch_autograd=False)
-        )
+        explainer.check_backend_compat(_BackendStub(torch.nn.Identity(), autograd=False))
 
 
 def test_captum_explainer_allows_feature_ablation_on_non_autograd_backend() -> None:
@@ -1521,7 +1518,7 @@ def test_captum_explainer_allows_feature_ablation_on_non_autograd_backend() -> N
 
     explainer = CaptumExplainer("FeatureAblation")
 
-    explainer.check_backend_compat(_BackendStub(torch.nn.Identity(), supports_torch_autograd=False))
+    explainer.check_backend_compat(_BackendStub(torch.nn.Identity(), autograd=False))
 
 
 def test_shap_explainer_allows_kernel_explainer_on_non_autograd_backend() -> None:
@@ -1529,7 +1526,7 @@ def test_shap_explainer_allows_kernel_explainer_on_non_autograd_backend() -> Non
 
     explainer = ShapExplainer("KernelExplainer")
 
-    explainer.check_backend_compat(_BackendStub(torch.nn.Identity(), supports_torch_autograd=False))
+    explainer.check_backend_compat(_BackendStub(torch.nn.Identity(), autograd=False))
 
 
 def test_create_visualisers_accepts_flat_constructor_kwargs() -> None:

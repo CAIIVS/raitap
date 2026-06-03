@@ -27,7 +27,7 @@ from raitap.configs.schema import AppConfig, TransparencyConfig
 from raitap.models.backend import ModelBackend
 from raitap.pipeline.outputs import ForwardOutput
 from raitap.transparency.phase import assess_transparency
-from raitap.types import TaskKind
+from raitap.types import Capability, TaskKind
 
 
 class _FakeBackend(ModelBackend):
@@ -36,7 +36,7 @@ class _FakeBackend(ModelBackend):
     Subclasses :class:`ModelBackend` so ``_require_model_backend`` accepts it.
     """
 
-    supports_torch_autograd = True
+    provides = frozenset({Capability.AUTOGRAD})
 
     def __init__(self) -> None:
         self._task_kind = TaskKind.detection

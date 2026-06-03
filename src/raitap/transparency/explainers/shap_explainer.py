@@ -20,6 +20,7 @@ from raitap.transparency.contracts import (
     MethodFamily,
 )
 from raitap.transparency.explainers.registration import transparency_adapter
+from raitap.types import Capability
 
 from .base_explainer import AttributionOnlyExplainer
 
@@ -183,7 +184,7 @@ class ShapExplainer(AttributionOnlyExplainer):
             if (
                 self.algorithm == "KernelExplainer"
                 and backend is not None
-                and not getattr(backend, "supports_torch_autograd", False)
+                and Capability.AUTOGRAD not in getattr(backend, "provides", frozenset())
             ):
                 if not callable(backend):
                     raise TypeError(

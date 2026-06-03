@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from raitap import raitap_log
 from raitap._adapters import AdapterMixin
 from raitap.configs import resolve_run_dir
+from raitap.types import Capability
 from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
@@ -102,7 +103,7 @@ class BaseAssessor(AdapterMixin, ABC):
         this pattern (e.g. ``MarabouAssessor`` uses this hook for per-call
         setup rather than backend validation).
         """
-        if getattr(backend, "supports_torch_autograd", False):
+        if Capability.AUTOGRAD in getattr(backend, "provides", frozenset()):
             return
         algorithm = getattr(self, "algorithm", "")
         compatible: frozenset[str] = type(self).ONNX_COMPATIBLE_ALGORITHMS

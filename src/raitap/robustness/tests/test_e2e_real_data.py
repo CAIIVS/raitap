@@ -28,6 +28,7 @@ from raitap.models.backend import ModelBackend
 from raitap.pipeline.orchestrator import run_without_tracking as _run_without_tracking
 from raitap.robustness import RobustnessAssessment, RobustnessResult
 from raitap.testing import make_pixel_linear_classifier
+from raitap.types import Capability
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -39,9 +40,10 @@ torchattacks = pytest.importorskip("torchattacks")
 
 
 class _BackendStub(ModelBackend):
+    provides = frozenset({Capability.AUTOGRAD})
+
     def __init__(self, model: torch.nn.Module) -> None:
         self._model = model
-        self.supports_torch_autograd = True
 
     @property
     def hardware_label(self) -> str:

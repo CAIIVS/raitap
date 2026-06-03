@@ -16,7 +16,7 @@ from torch import nn
 
 from raitap.models.backend import ModelBackend
 from raitap.pipeline.phases.forward_pass import forward_pass
-from raitap.types import TaskKind
+from raitap.types import Capability, TaskKind
 
 # ---------------------------------------------------------------------------
 # Config helpers
@@ -39,7 +39,7 @@ def _make_config(batch_size: int = 32) -> Any:
 class _FakeDetectionBackend(ModelBackend):
     """Minimal detection backend stub that records the inputs it receives."""
 
-    supports_torch_autograd = True
+    provides = frozenset({Capability.AUTOGRAD})
 
     def __init__(self, device: torch.device | None = None) -> None:
         self.device = device or torch.device("cpu")
@@ -76,7 +76,7 @@ class _FakeDetectionBackend(ModelBackend):
 class _FakeClassificationBackend(ModelBackend):
     """Minimal classification backend that echoes a fixed prediction tensor."""
 
-    supports_torch_autograd = True
+    provides = frozenset({Capability.AUTOGRAD})
 
     def __init__(self, num_classes: int = 5) -> None:
         self.num_classes = num_classes
