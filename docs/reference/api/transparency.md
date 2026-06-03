@@ -27,6 +27,7 @@ myst:
    :members:
    :imported-members:
    :show-inheritance:
+   :exclude-members: BackendIncompatibilityError
 ```
 
 ```{eval-rst}
