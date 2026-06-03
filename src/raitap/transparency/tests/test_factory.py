@@ -11,7 +11,6 @@ from omegaconf import OmegaConf
 
 from raitap.models.backend import ModelBackend
 from raitap.transparency import (
-    ExplainerBackendIncompatibilityError,
     PayloadVisualiserIncompatibilityError,
     VisualiserIncompatibilityError,
 )
@@ -33,7 +32,7 @@ from raitap.transparency.factory import (
 from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
 from raitap.types import Capability
-from raitap.utils.errors import SampleNamesLengthError
+from raitap.utils.errors import BackendIncompatibilityError, SampleNamesLengthError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -1500,7 +1499,7 @@ def test_captum_explainer_blocks_integrated_gradients_on_non_autograd_backend() 
 
     explainer = CaptumExplainer("IntegratedGradients")
 
-    with pytest.raises(ExplainerBackendIncompatibilityError):
+    with pytest.raises(BackendIncompatibilityError):
         explainer.check_backend_compat(_BackendStub(torch.nn.Identity(), autograd=False))
 
 
@@ -1509,7 +1508,7 @@ def test_shap_explainer_blocks_gradient_explainer_on_non_autograd_backend() -> N
 
     explainer = ShapExplainer("GradientExplainer")
 
-    with pytest.raises(ExplainerBackendIncompatibilityError):
+    with pytest.raises(BackendIncompatibilityError):
         explainer.check_backend_compat(_BackendStub(torch.nn.Identity(), autograd=False))
 
 

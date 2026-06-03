@@ -16,8 +16,8 @@ from raitap.robustness.contracts import (
     PerturbationNorm,
     RobustnessVerdict,
 )
-from raitap.robustness.exceptions import AssessorBackendIncompatibilityError
 from raitap.types import Capability
+from raitap.utils.errors import BackendIncompatibilityError
 
 # ---------------------------------------------------------------------------
 # auto_LiRPA fake module
@@ -270,7 +270,7 @@ def test_epsilon_falls_back_to_constructor_when_budget_eps_none(fake_lirpa: _Lir
 
 
 def test_check_backend_compat_rejects_onnx_backend() -> None:
-    with pytest.raises(AssessorBackendIncompatibilityError, match="autograd"):
+    with pytest.raises(BackendIncompatibilityError, match="autograd"):
         AutoLiRPAAssessor().check_backend_compat(_OnnxBackend())
 
 

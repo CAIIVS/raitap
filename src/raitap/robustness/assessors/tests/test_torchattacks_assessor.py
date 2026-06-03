@@ -4,9 +4,9 @@ import pytest
 import torch
 
 from raitap.robustness.assessors import TorchattacksAssessor
-from raitap.robustness.exceptions import AssessorBackendIncompatibilityError
 from raitap.testing import make_pixel_linear_classifier
 from raitap.types import Capability
+from raitap.utils.errors import BackendIncompatibilityError
 
 torchattacks = pytest.importorskip("torchattacks")
 
@@ -21,7 +21,7 @@ class _OnnxLikeBackend:
 
 def test_check_backend_compat_rejects_non_autograd_backend() -> None:
     assessor = TorchattacksAssessor(algorithm="FGSM", eps=0.03)
-    with pytest.raises(AssessorBackendIncompatibilityError):
+    with pytest.raises(BackendIncompatibilityError):
         assessor.check_backend_compat(_OnnxLikeBackend())
 
 
