@@ -21,6 +21,7 @@ releases
 logging
 Adding an adapter <adding-an-adapter>
 Adding an algorithm <adding-an-algorithm>
+Adding a backend <adding-a-backend>
 Adding a module <adding-a-module>
 Adding a task family <adding-a-task-family>
 Writing a plugin <writing-a-plugin>

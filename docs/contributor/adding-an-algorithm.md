@@ -1,14 +1,14 @@
 ---
 title: "Adding an algorithm"
-description: "How to expose a new algorithm of an already-wrapped library — extend the existing adapter's algorithm_registry instead of adding a new adapter class."
+description: "How to expose a new algorithm of an already-wrapped library: extend the existing adapter's algorithm_registry instead of adding a new adapter class."
 myst:
   html_meta:
-    "description": "How to expose a new algorithm of an already-wrapped library — extend the existing adapter's algorithm_registry instead of adding a new adapter class."
+    "description": "How to expose a new algorithm of an already-wrapped library: extend the existing adapter's algorithm_registry instead of adding a new adapter class."
 ---
 
 # Adding an algorithm
 
-If the library is already wrapped (e.g. Captum, SHAP, torchattacks, foolbox), exposing a new algorithm is a one-decorator-kwarg edit on the existing adapter — no new class, no new file, no `pyproject.toml` change. If the library is **not** wrapped yet, see [Adding an adapter](adding-an-adapter.md) instead.
+If the library is already wrapped (e.g. Captum, SHAP, torchattacks, foolbox), exposing a new algorithm is a one-decorator-kwarg edit on the existing adapter: no new class, no new file, no `pyproject.toml` change. If the library is **not** wrapped yet, see [Adding an adapter](adding-an-adapter.md) instead.
 
 The walkthrough below uses Captum and a hypothetical new method `NewMethod`.
 
@@ -18,7 +18,7 @@ Adapter classes live under `src/raitap/<module>/<subdir>/`. Look for the file ma
 
 ## 2. Add the algorithm to `algorithm_registry`
 
-`algorithm_registry` is a decorator kwarg on the adapter — a mapping of algorithm name → semantics. Add one entry.
+`algorithm_registry` is a decorator kwarg on the adapter: a mapping of algorithm name to semantics. Add one entry.
 
 **Transparency explainer** (`captum_explainer.py`):
 
@@ -30,15 +30,17 @@ from raitap import adapters
     library="captum",
     algorithm_registry={
         "IntegratedGradients": ExplainerSemanticsHints(
-            frozenset({MethodFamily.GRADIENT}), baseline_default=BaselineMode.ZERO
+            frozenset({MethodFamily.GRADIENT}),
+            baseline_default=BaselineMode.ZERO,
+            requires=frozenset({Capability.AUTOGRAD}),  # gradient method
         ),
         # ... existing entries ...
         "NewMethod": ExplainerSemanticsHints(
-            frozenset({MethodFamily.GRADIENT, MethodFamily.PERTURBATION})
+            frozenset({MethodFamily.GRADIENT, MethodFamily.PERTURBATION}),
+            requires=frozenset({Capability.AUTOGRAD}),  # gradient method
         ),
     },
     baseline_kwarg_name="baselines",
-    onnx_compatible_algorithms=frozenset({...}),
 )
 class CaptumExplainer(AttributionOnlyExplainer): ...
 ```
@@ -59,6 +61,7 @@ from raitap import adapters
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
             families=frozenset({"gradient_sign"}),
+            requires=frozenset({Capability.AUTOGRAD}),  # gradient-based attack
         ),
     },
 )
@@ -66,33 +69,31 @@ class TorchattacksAssessor(EmpiricalAttackAssessor): ...
 ```
 
 The map value carries the semantics RAITAP tracks and reports on:
-- **Transparency** → `ExplainerSemanticsHints` (`families: frozenset[MethodFamily]` + optional `baseline_default`). New `MethodFamily` values go in `src/raitap/transparency/contracts.py`.
-- **Robustness** → `AssessorSemanticsHints` (assessment kind, threat model, objective, norm, family tags). Defined in `src/raitap/robustness/semantics.py`.
+- **Transparency** → `ExplainerSemanticsHints` (`families: frozenset[MethodFamily]` + optional `baseline_default` + optional `requires`). New `MethodFamily` values go in `src/raitap/transparency/contracts.py`.
+- **Robustness** → `AssessorSemanticsHints` (assessment kind, threat model, objective, norm, family tags, optional `requires`). Defined in `src/raitap/robustness/semantics.py`.
 
-A missing entry means the algorithm cannot be selected via config — the family's runtime check fails fast.
+A missing entry means the algorithm cannot be selected via config.
 
-## 3. ONNX compatibility (transparency only, optional)
+## 3. Backend capability (`requires`)
 
-If the new algorithm runs on ONNX-exported models (not just torch), add it to `onnx_compatible_algorithms`:
+The `requires` field on `ExplainerSemanticsHints` / `AssessorSemanticsHints` declares what the algorithm needs from the backend. The rule: an algorithm runs on a backend iff `algorithm.requires <= backend.provides`. The gate is enforced automatically by inherited `AdapterMixin.check_backend_compat`: you write nothing extra.
 
-```python
-@adapters.transparency(
-    ...,
-    onnx_compatible_algorithms=frozenset({"Occlusion", "FeatureAblation", "NewMethod"}),
-)
-```
+| Algorithm type | `requires` value | Effect |
+|---|---|---|
+| Gradient-based (IntegratedGradients, PGD, FGSM, ...) | `frozenset({Capability.AUTOGRAD})` | Blocked on ONNX (forward-only) backends |
+| Model-agnostic (SHAP KernelExplainer, Occlusion, FeatureAblation, ...) | `frozenset()` (default) | Runs on any backend, including ONNX |
 
-Pass `from raitap.transparency import ALL` (or `raitap.robustness.ALL`) instead if **every** algorithm in `algorithm_registry` is ONNX-compatible. Omit the kwarg entirely if no algorithms are ONNX-compatible (the default).
+Import: `from raitap.types import Capability`. `Capability.AUTOGRAD` is the only live value; `TREE_MODEL` and `PREDICT_PROBA` are roadmap placeholders with no current providers.
 
-The default `check_backend_compat` enforces this allowlist — algorithms not in the set raise `ExplainerBackendIncompatibilityError` (or `AssessorBackendIncompatibilityError`) when the user picks an ONNX backend.
+When `requires - backend.provides` is non-empty, `BackendIncompatibilityError` is raised (`from raitap.utils.errors import BackendIncompatibilityError`; also re-exported from `raitap.robustness` and `raitap.transparency`).
 
 ## 4. Baseline default (transparency only, optional)
 
-Attribution methods that take a *reference input* — Integrated Gradients (`baselines=`) and SHAP (`background_data=`) — have that baseline recorded in `metadata.json` and the report (issue #210), and users set it library-agnostically via `raitap.baseline`. Three declarations drive this:
+Attribution methods that take a reference input (Integrated Gradients via `baselines=` and SHAP via `background_data=`) have that baseline recorded in `metadata.json` and the report (issue #210), and users set it library-agnostically via `raitap.baseline`. Three declarations drive this:
 
-- `baseline_kwarg_name` — a `@adapters.transparency` decorator kwarg naming the call kwarg that holds the reference (`"baselines"` for Captum, `"background_data"` for SHAP). Omitted (the default) means the family takes no baseline. It's per-**adapter** (one library, one kwarg name), and is where `raitap.baseline` gets routed.
-- `ExplainerSemanticsHints.baseline_default` — the per-**algorithm** implicit default mode, used when the user omits the kwarg. Lives on the algorithm's registry entry because one adapter wraps many algorithms, most of which take no baseline (so they leave it `None`).
-- `ExplainerSemanticsHints.baseline_cardinality` — `BaselineCardinality.SINGLE` (one broadcast reference, e.g. IG) or `SET` (a sample distribution, e.g. SHAP). Used only to *warn* on a mismatched `raitap.baseline` (never to reshape it); leave `None` to skip the check.
+- `baseline_kwarg_name`: a `@adapters.transparency` decorator kwarg naming the call kwarg that holds the reference (`"baselines"` for Captum, `"background_data"` for SHAP). Omitted (the default) means the family takes no baseline. It is per-**adapter** (one library, one kwarg name), and is where `raitap.baseline` gets routed.
+- `ExplainerSemanticsHints.baseline_default`: the per-**algorithm** implicit default mode, used when the user omits the kwarg. Lives on the algorithm's registry entry because one adapter wraps many algorithms, most of which take no baseline (so they leave it `None`).
+- `ExplainerSemanticsHints.baseline_cardinality`: `BaselineCardinality.SINGLE` (one broadcast reference, e.g. IG) or `SET` (a sample distribution, e.g. SHAP). Used only to *warn* on a mismatched `raitap.baseline` (never to reshape it); leave `None` to skip the check.
 
 If your new algorithm takes a baseline **and** has a meaningful default when the user omits it, set `baseline_default` (and, ideally, `baseline_cardinality`) on its registry entry:
 
@@ -116,7 +117,7 @@ If your new algorithm takes a baseline **and** has a meaningful default when the
 class CaptumExplainer(AttributionOnlyExplainer): ...
 ```
 
-Nothing to do if your algorithm only uses a baseline when the user supplies one (no implicit default) — the kwarg-present path records it as `configured`/`user_tensor` automatically — or if it takes no reference at all (Saliency, GradCam): leave `baseline_default` unset (`None`).
+Nothing to do if your algorithm only uses a baseline when the user supplies one (the kwarg-present path records it as `configured`/`user_tensor` automatically), or if it takes no reference at all (Saliency, GradCam): leave `baseline_default` unset (`None`).
 
 ## 5. Tests
 
@@ -130,15 +131,15 @@ If the algorithm has unusual kwargs (e.g. a custom `baselines=` shape), add an e
 
 Reuse shared helpers instead of re-rolling fixtures: `from raitap.testing import make_tiny_classifier, make_app_config, requires` and the root `seeded` fixture.
 
-If the wrapped library is **deterministic** (Captum, torchattacks with `random_start=False`, foolbox, Marabou — not sampling-based SHAP), add a **parity test** marked `@pytest.mark.e2e @pytest.mark.parity` that asserts `torch.allclose(raitap_output, direct_library_call)` for the same config. Use at least one non-default kwarg so a silently-dropped kwarg fails the assertion. This proves raitap relays the library faithfully.
+If the wrapped library is **deterministic** (Captum, torchattacks with `random_start=False`, foolbox, Marabou; not sampling-based SHAP), add a **parity test** marked `@pytest.mark.e2e @pytest.mark.parity` that asserts `torch.allclose(raitap_output, direct_library_call)` for the same config. Use at least one non-default kwarg so a silently-dropped kwarg fails the assertion. This proves raitap relays the library faithfully.
 
-The family E2E matrix parametrises over algorithm names — add an entry to keep coverage complete:
+The family E2E matrix parametrises over algorithm names. Add an entry to keep coverage complete:
 
 - **Transparency**: `src/raitap/transparency/tests/e2e_case_matrix.py::MATRIX_CASES`. Add a `MatrixCase(id="...", framework=..., algorithm="NewMethod", ...)`.
-- **Robustness**: `src/raitap/robustness/tests/e2e_assessor_matrix.py::MATRIX_CASES`. Add an `AssessorMatrixCase(id="...", family=..., algorithm="NewAlgo", needs_extra=..., constructor_kwargs={...})`. Keep `constructor_kwargs` minimal (low `steps`, low `n_queries`) — the matrix is a wire-up smoke test, not a behaviour-sensitivity test. Each case must finish in under ~5s on CI.
+- **Robustness**: `src/raitap/robustness/tests/e2e_assessor_matrix.py::MATRIX_CASES`. Add an `AssessorMatrixCase(id="...", family=..., algorithm="NewAlgo", needs_extra=..., constructor_kwargs={...})`. Keep `constructor_kwargs` minimal (low `steps`, low `n_queries`): the matrix is a wire-up smoke test, not a behaviour-sensitivity test. Each case must finish in under ~5s on CI.
 
 ## 6. Docs
 
-Add a row to `docs/modules/<module>/frameworks-and-libraries.md` for the new algorithm so it surfaces in the user-facing "does raitap support X?" lookup. Mention the families it belongs to and whether it is ONNX-compatible.
+Add a row to `docs/modules/<module>/frameworks-and-libraries.md` for the new algorithm so it surfaces in the user-facing "does raitap support X?" lookup. Mention the families it belongs to and whether it requires autograd (or is model-agnostic).
 
 That is the whole change. No `pyproject.toml`, no decorator changes, no factory edits.

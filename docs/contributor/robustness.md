@@ -18,7 +18,7 @@ Robustness assessors form a three-level hierarchy in
 `src/raitap/robustness/assessors/base_assessor.py`:
 
 ```text
-BaseAssessor                            # root — declares assessment_kind + budget_kwarg_source
+BaseAssessor                            # root: declares assessment_kind + budget_kwarg_source
 ├── EmpiricalAttackAssessor             # you implement generate_adversarial(); framework owns assess()
 │   ├── TorchattacksAssessor
 │   └── FoolboxAssessor
@@ -29,18 +29,19 @@ BaseAssessor                            # root — declares assessment_kind + bu
     └── ImageCorruptionsAssessor
 ```
 
-- **`BaseAssessor`** — root. Declares `assessment_kind: ClassVar[AssessmentKind]`,
-  `budget_kwarg_source`, and the no-op `check_backend_compat`. Never subclass directly.
-- **`EmpiricalAttackAssessor`** — subclasses implement only
-  `generate_adversarial(model, inputs, targets, ...) → Tensor`. Batching,
+- **`BaseAssessor`**: root. Declares `assessment_kind: ClassVar[AssessmentKind]`
+  and `budget_kwarg_source`. Backend gating is inherited from `AdapterMixin`
+  (`check_backend_compat`), not a no-op on this class. Never subclass directly.
+- **`EmpiricalAttackAssessor`**: subclasses implement only
+  `generate_adversarial(model, inputs, targets, ...) -> Tensor`. Batching,
   prediction, verdict computation, distance computation, semantics inference,
   and persistence are owned by this class.
-- **`FormalVerificationAssessor`** — subclasses implement
-  `verify_sample(model, sample, target, *, budget) → VerificationOutcome`.
+- **`FormalVerificationAssessor`**: subclasses implement
+  `verify_sample(model, sample, target, *, budget) -> VerificationOutcome`.
   The per-sample loop, runtime tracking, output-bounds stacking, and
   counter-example assembly are owned by this class.
-- **`StatisticalSamplingAssessor`** — subclasses implement only
-  `apply_perturbation(image: np.ndarray) → np.ndarray` on a single HWC
+- **`StatisticalSamplingAssessor`**: subclasses implement only
+  `apply_perturbation(image: np.ndarray) -> np.ndarray` on a single HWC
   uint8 image. The framework owns batching, forward passes, verdict assignment,
   CI computation, and persistence.
 
@@ -48,12 +49,12 @@ BaseAssessor                            # root — declares assessment_kind + bu
 
 Every assessor declares two `ClassVar`s the framework relies on:
 
-- `algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]` — maps
+- `algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]`: maps
   algorithm names to their threat model / norm / families. `assessor_semantics`
   uses this to build `RobustnessResult.semantics.perturbation`, so the reported
   metadata always matches what the adapter actually executed. Passed via the
   `@adapters.robustness(algorithm_registry=...)` decorator kwarg.
-- `budget_kwarg_source: ClassVar[str]` — `"init_kwargs"` (torchattacks reads
+- `budget_kwarg_source: ClassVar[str]`: `"init_kwargs"` (torchattacks reads
   the budget at construction time) or `"call_kwargs"` (foolbox reads it at
   call time). Defaults to `"init_kwargs"`.
 
@@ -61,16 +62,16 @@ Every assessor declares two `ClassVar`s the framework relies on:
 
 All robustness visualisers implement `BaseRobustnessVisualiser`:
 
-- `visualise(result, *, context, **kwargs) → Figure` — abstract, required.
-- `supported_assessment_kinds: ClassVar[frozenset[AssessmentKind]]` — empty means
+- `visualise(result, *, context, **kwargs) -> Figure`: abstract, required.
+- `supported_assessment_kinds: ClassVar[frozenset[AssessmentKind]]`: empty means
   "all". The factory's `check_assessor_visualiser_compat` enforces this at
   YAML parse time and raises `AssessmentKindVisualiserIncompatibilityError` on
   mismatch.
-- `embeds_clean_input` / `embeds_perturbation_map` — class-level report layout
+- `embeds_clean_input` / `embeds_perturbation_map`: class-level report layout
   hints for empirical visualisers. A visualiser that sets either flag to
   `True` must accept the matching runtime kwarg (`include_clean_input` /
   `include_perturbation_map`) and omit that facet when it is `False`.
-- `validate_result(result)` — render-time check that the assessor's
+- `validate_result(result)`: render-time check that the assessor's
   `assessment_kind` is in `supported_assessment_kinds`. Image visualisers additionally
   refuse non-image results via `_require_image_modality`.
 
@@ -88,8 +89,8 @@ It records assessment kind, threat model, objective, families, perturbation, tar
 classes (for targeted attacks), sample selection, and input metadata.
 
 `AssessmentKind` is the procedure-level taxonomy (Level 1). Each kind belongs
-to exactly one `RobustnessCase` (Level 2) derived via `case_for(kind)` — never
-stored independently, but surfaced as the `case` key in `metadata.json`.
+to exactly one `RobustnessCase` (Level 2) derived via `case_for(kind)` (never
+stored independently, but surfaced as the `case` key in `metadata.json`).
 
 | Kind | Case | Meaning |
 | --- | --- | --- |
@@ -111,39 +112,41 @@ always matches the configured threat model). Average-case assessors use
 `PerturbationDistribution` (carries `corruption_name` and `severity`).
 
 `ThreatModel.NOT_APPLICABLE` is used by statistical-sampling assessors where
-there is no adversary; in contrast empirical and formal assessors use
+there is no adversary; empirical and formal assessors use
 `WHITE_BOX`, `BLACK_BOX_SCORE`, or `BLACK_BOX_DECISION`.
 
 ## Important files
 
-- `contracts.py` — enums and frozen dataclasses for the typed surface.
-- `semantics.py` — per-framework registries (`TORCHATTACKS_REGISTRY`,
+- `contracts.py`: enums and frozen dataclasses for the typed surface.
+- `semantics.py`: per-framework registries (`TORCHATTACKS_REGISTRY`,
   `FOOLBOX_REGISTRY`) and the `assessor_semantics(...)` resolver.
-- `assessors/base_assessor.py` — the framework-owned `assess()` pipelines for
+- `assessors/base_assessor.py`: the framework-owned `assess()` pipelines for
   both empirical attacks and formal verification.
-- `factory.py` — typed config parsing, `_resolve_call_data_sources`, and the
+- `factory.py`: typed config parsing, `_resolve_call_data_sources`, and the
   `RobustnessAssessment` Hydra entry point. Adapter paths are resolved via the
-  `@adapters.robustness` decorator — no manual path table to maintain.
-- `results.py` — `RobustnessResult`, `RobustnessMetrics`, verdict encoding.
-- `visualisers/base_visualiser.py` — `BaseRobustnessVisualiser` +
+  `@adapters.robustness` decorator (no manual path table to maintain).
+- `results.py`: `RobustnessResult`, `RobustnessMetrics`, verdict encoding.
+- `visualisers/base_visualiser.py`: `BaseRobustnessVisualiser` +
   `AssessmentKind` compatibility check.
-- `visualisers/empirical/` — image-pair and perturbation-heatmap visualisers
+- `visualisers/empirical/`: image-pair and perturbation-heatmap visualisers
   for empirical attacks. The shared `_signed_perturbation_heatmap` helper
   reduces a signed per-channel delta to a 2D scalar map (matplotlib treats
   3-channel arrays as literal RGB and ignores `cmap` / `vmin` / `vmax`, so any
   signed-perturbation render must reduce first).
-- `visualisers/formal/` — reserved for the verifier visualiser follow-up
+- `visualisers/formal/`: reserved for the verifier visualiser follow-up
   (verdict badge, certified-bounds plot).
-- `assessors/imagecorruptions_assessor.py` — `ImageCorruptionsAssessor`; wraps
+- `assessors/imagecorruptions_assessor.py`: `ImageCorruptionsAssessor`; wraps
   the ImageNet-C 15 common corruptions via `imagecorruptions`.
-- `assessors/auto_lirpa_assessor.py` — `AutoLiRPAAssessor`; sound+incomplete
+- `assessors/auto_lirpa_assessor.py`: `AutoLiRPAAssessor`; sound+incomplete
   bound-propagation verifier (CROWN / IBP) via `auto_LiRPA`. The algorithm key
   is the single source of truth for both the bound method and the norm
-  (`crown`/`ibp`/`crown-ibp` → L∞, `crown-l2` → L2); `verify_sample` reads the
-  norm off `budget.norm` and maps it to `PerturbationLpNorm`. It extends (does
-  not override) the base `check_backend_compat` to keep the autograd/ONNX-reject
-  contract and adds the Intel-XPU warning.
-- `visualisers/average_case/corruption_accuracy_visualiser.py` —
+  (`crown`/`ibp`/`crown-ibp` -> L-inf, `crown-l2` -> L2); `verify_sample` reads the
+  norm off `budget.norm` and maps it to `PerturbationLpNorm`. Its algorithms
+  carry `requires=frozenset({Capability.AUTOGRAD})`, so the inherited
+  `check_backend_compat` rejects ONNX/forward-only backends automatically.
+  The class overrides `check_backend_compat` only to call `super()` first and
+  then warn on Intel XPU.
+- `visualisers/average_case/corruption_accuracy_visualiser.py`:
   `CorruptionAccuracyVisualiser`; renders clean vs corrupted accuracy bars with
   a CI whisker.
 
@@ -164,21 +167,27 @@ well-defined reference (a warning is logged).
 
 ## Extending the module
 
-- **New algorithm in an existing adapter (torchattacks, foolbox, ...)** —
+- **New algorithm in an existing adapter (torchattacks, foolbox, ...)**:
   see {doc}`adding-an-algorithm`. For robustness, the `algorithm_registry`
   value is an `AssessorSemanticsHints` (assessment kind, threat model, objective,
   norm, family tags) from `semantics.py`.
-- **New robustness library** — see {doc}`adding-an-adapter`. Pick
+- **New robustness library**: see {doc}`adding-an-adapter`. Pick
   `EmpiricalAttackAssessor`, `FormalVerificationAssessor`, or
   `StatisticalSamplingAssessor` as the base, decorate with
   `@adapters.robustness(...)`, and set `budget_kwarg_source="call_kwargs"` if
-  the library reads the budget at call time. Statistical-sampling adapters
-  implement `apply_perturbation(image)` only; `check_backend_compat` is a
-  no-op because pixel-space corruption requires no specific backend. Override
-  `check_backend_compat` for empirical/formal adapters that impose extra
-  backend constraints (e.g. white-box attacks require
-  `supports_torch_autograd`).
-- **New top-level module** — see {doc}`adding-a-module`.
+  the library reads the budget at call time. Backend gating is automatic: the
+  gate inherited from `AdapterMixin` evaluates whether
+  `algorithm.requires <= backend.provides` and raises
+  `BackendIncompatibilityError` on mismatch. Set
+  `requires=frozenset({Capability.AUTOGRAD})` on `AssessorSemanticsHints`
+  entries for algorithms that need autograd (e.g. white-box empirical attacks).
+  Statistical-sampling adapters implement `apply_perturbation(image)` only;
+  their algorithms carry empty `requires` so the gate always passes.
+  Do NOT override `check_backend_compat` for normal adapters. The only valid
+  override cases are: adding a per-call structural check (Marabou pattern) or
+  extending with a non-capability warning after calling `super()` (auto-LiRPA
+  pattern).
+- **New top-level module**: see {doc}`adding-a-module`.
 
 ## The auto-LiRPA dependency and the torch 2.8 project pin
 
@@ -189,17 +198,17 @@ GitHub master. Two consequences contributors should know:
 - **PyPI-legal declaration.** The `auto-lirpa` extra lists the requirement by
   bare name (`auto-LiRPA`); the git URL lives in `[tool.uv.sources]`. uv sources
   are not written into wheel metadata, so raitap's published wheel stays
-  installable from PyPI. A direct `@ git+https://…` reference in
+  installable from PyPI. A direct `@ git+https://...` reference in
   `[project.optional-dependencies]` would land in `Requires-Dist` and make
   `twine upload` reject the wheel. Never inline the URL into the extra.
 - **Project-wide torch 2.8 pin.** auto-LiRPA master pins `torch>=2.0.0,<2.9.0`,
   so all torch/onnx extras floor at `torch>=2.8.0,<2.9.0` (down from the original
-  `>=2.10.0` scaffolding default — no code used a torch 2.9/2.10-only API). This
-  keeps a single coherent environment instead of a forked lockfile, at the cost
-  of the 2.9–2.12 line. xpu/cpu/cuda wheels exist for cp311/312/313, covering
+  `>=2.10.0` scaffolding default, because no code used a torch 2.9/2.10-only API).
+  This keeps a single coherent environment instead of a forked lockfile, at the cost
+  of the 2.9-2.12 line. xpu/cpu/cuda wheels exist for cp311/312/313, covering
   `requires-python >=3.11,<3.14`. `uv lock` resolves the git build on Linux/CI;
   the upstream `setup.py` reads a file without an explicit UTF-8 encoding, so the
-  build (and thus `uv sync --extra auto-lirpa`) fails on Windows — verify lock
+  build (and thus `uv sync --extra auto-lirpa`) fails on Windows. Verify lock
   resolution on CI, not a Windows checkout.
 
 ## Adding a new visualiser
@@ -215,13 +224,13 @@ decorator scaffolding). Robustness-specific notes:
   so the `(B, C, H, W)` layout assumption is enforced.
 - When rendering signed perturbation deltas, reuse
   `_signed_perturbation_heatmap` from
-  `visualisers/empirical/image_pair_visualiser.py` — it preserves the sign
+  `visualisers/empirical/image_pair_visualiser.py`. It preserves the sign
   of the dominant channel without collapsing opposing-sign channels to ~0.
 - If your visualiser slots into compact reporting, set
   `embeds_clean_input` / `embeds_perturbation_map` and honour the matching
   runtime kwargs (`include_clean_input` / `include_perturbation_map`).
 - Set `report_figure_scope` to declare where the report places the figure:
-  `PER_SAMPLE` (default — one figure per input, e.g. image pairs) or `ASSESSOR`
+  `PER_SAMPLE` (default, one figure per input, e.g. image pairs) or `ASSESSOR`
   (one figure summarising the whole assessment, e.g. accuracy bars, verdict
   summaries, output-bound plots). The reporting layer reads it to pick the layout
   slot, so an assessor-level visualiser renders correctly with no reporting-layer

@@ -61,7 +61,7 @@ src/
     ├── types.py                    # `Hardware` enum + small shared types
     ├── _adapters.py                # registration core: `AdapterMixin` (instance helpers), `FamilyConfig`,
     │                               # `AdapterDecoratorOptions` TypedDict, `_register_core`, `_BUILDERS`,
-    │                               # `ADAPTER_EXTRAS`, `THIRD_PARTY_LIBS`, `ALL` sentinel, `discover`, `lookup`
+    │                               # `ADAPTER_EXTRAS`, `THIRD_PARTY_LIBS`, `discover`, `lookup`
     │
     ├── configs/                    # Hydra config tree shipped with the wheel
     │   ├── schema.py               # AppConfig + nested dataclasses; MISSING-typed required fields
