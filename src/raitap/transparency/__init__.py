@@ -22,7 +22,8 @@ TabularBarChartVisualiser
 
 Module layout (for contributors):
 
-- ``phase.py`` — pipeline entry point: ``TransparencyPhase`` (what the registry assembles) + the ``assess_transparency`` work fn. Start here to follow a run.
+- ``phase.py`` — pipeline entry point: ``TransparencyPhase`` (what the registry
+  assembles) + the ``assess_transparency`` work fn. Start here to follow a run.
 - ``explain_detection.py`` — detection-task per-box K-loop (one result per box).
 - ``factory.py`` — builds explainer + visualiser instances from config.
 - ``results.py`` — ``ExplanationResult`` (owns its ``.visualisations``) + ``VisualisationResult``.
