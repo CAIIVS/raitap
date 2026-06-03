@@ -123,17 +123,46 @@ class _RaitapLog:
         finally:
             _diagnostic_override.value = None
 
-    def info(self, message: object, *args: object, stacklevel: int = 2, **kwargs: Any) -> None:
-        """Log at INFO level on the caller's module logger."""
+    @staticmethod
+    def _with_module(kwargs: dict[str, Any], module: Module | str | None) -> dict[str, Any]:
+        """Stash an explicit module on the record (``extra``) so the rich handler
+        renders its chip even when the *emitting* file differs from the logical
+        module (e.g. the shared ``run_adapters`` loop logging for robustness)."""
+        if module is None:
+            return kwargs
+        extra = {**(kwargs.get("extra") or {}), "_raitap_module": str(module)}
+        return {**kwargs, "extra": extra}
+
+    def info(
+        self,
+        message: object,
+        *args: object,
+        stacklevel: int = 2,
+        module: Module | str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Log at INFO level on the caller's module logger.
+
+        ``module`` overrides the rich handler's module-chip classification (which
+        otherwise infers from the caller's logger name)."""
         logger = _caller_logger(stacklevel)
+        kwargs = self._with_module(kwargs, module)
         if self._deferred_records is not None:
             self._deferred_records.append((logger, logging.INFO, message, args, kwargs))
             return
         logger.info(message, *args, stacklevel=stacklevel, **kwargs)
 
-    def debug(self, message: object, *args: object, stacklevel: int = 2, **kwargs: Any) -> None:
+    def debug(
+        self,
+        message: object,
+        *args: object,
+        stacklevel: int = 2,
+        module: Module | str | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Log at DEBUG level on the caller's module logger."""
         logger = _caller_logger(stacklevel)
+        kwargs = self._with_module(kwargs, module)
         if self._deferred_records is not None:
             self._deferred_records.append((logger, logging.DEBUG, message, args, kwargs))
             return

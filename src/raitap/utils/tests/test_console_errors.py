@@ -141,6 +141,31 @@ def _emit_to_handler(record_factory: Callable[[logging.Logger], None]) -> str:
     return console.file.getvalue()  # type: ignore[attr-defined]
 
 
+class TestInfoModuleChip:
+    """INFO lines get a module chip in the level column (``Robustness ▷ …``)."""
+
+    @staticmethod
+    def _level(name: str, *, module: str | None = None, path: str = "/x/y.py") -> str:
+        handler = RaitapRichHandler()
+        record = logging.LogRecord(name, logging.INFO, path, 1, "m", (), None)
+        if module is not None:
+            record._raitap_module = module  # type: ignore[attr-defined]
+        return handler.get_level_text(record).plain
+
+    def test_explicit_module_wins_over_logger_name(self) -> None:
+        # Emitted from the shared run_adapters loop (pipeline) but logically robustness.
+        assert "Robustness" in self._level("raitap.pipeline.phases.base", module="robustness")
+
+    def test_module_inferred_from_logger_name(self) -> None:
+        assert "Metrics" in self._level("raitap.metrics.phase")
+
+    def test_non_raitap_logger_gets_no_chip(self) -> None:
+        out = self._level("__main__", path="/tmp/script.py")
+        assert not any(
+            m in out for m in ("Robustness", "Metrics", "Transparency", "Pipeline", "Models")
+        )
+
+
 class TestRichHandlerErrorPanel:
     def test_plain_logger_exception_renders_module_chip_from_traceback(self) -> None:
         # Simulate an exception caught inside src/raitap/robustness/ so the

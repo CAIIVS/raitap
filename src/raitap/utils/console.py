@@ -31,6 +31,7 @@ from rich.traceback import install as install_rich_traceback
 from raitap.utils.colour import THEME, Status, colour
 from raitap.utils.diagnostics import (
     Diagnostic,
+    Module,
     docs_url,
     is_dev_install,
     module_from_str,
@@ -63,6 +64,25 @@ _BACKTICK_RE = re.compile(r"`([^`\n]+)`")
 # "Header: rest" pattern for non-warnings.warn WARNING records.
 # Example match: ``logger.warning("Robustness: no labels…")``.
 _LOGGER_HEADER_RE = re.compile(r"^(?P<head>[A-Z][\w\- ]{1,40}):\s+(?P<msg>.+)$", re.DOTALL)
+
+
+def _record_module(record: logging.LogRecord) -> Module | None:
+    """Classify an INFO/DEBUG record to its raitap :class:`Module` for the chip.
+
+    Precedence: an explicit ``module=`` passed to ``raitap_log.info`` (carried on
+    the record as ``_raitap_module`` — needed when the *emitting* file differs
+    from the logical module, e.g. the shared ``run_adapters`` loop), then the
+    caller's logger name (``raitap.robustness.phase`` → ``robustness``; survives
+    deferred replay since the logger is preserved), then the source path.
+    """
+    explicit = getattr(record, "_raitap_module", None)
+    if explicit is not None:
+        return module_from_str(str(explicit))
+    for part in record.name.split("."):
+        found = module_from_str(part)
+        if found is not None:
+            return found
+    return resolve_diagnostic_from_path(record.pathname, record.lineno).module
 
 
 def _src_to_uri(src: str) -> str:
@@ -172,7 +192,19 @@ class RaitapRichHandler(RichHandler):
             style = shades.base + Style(bold=True)
         else:
             style = shades.base
-        return Text(status.icon.rstrip(), style=style)
+        icon = Text(status.icon.rstrip(), style=style)
+        # INFO is a single line (WARNING+ go through the panel path, never here):
+        # prefix a module chip — ``Robustness ▷ …`` — reusing the same chip the
+        # warning/error frames use, classified via :func:`_record_module`.
+        if record.levelno < logging.WARNING:
+            module = _record_module(record)
+            if module is not None:
+                # Plain styled label (not ``chip()``, which prefixes a ``· ``
+                # separator meant to follow a panel title): ``Robustness ▷``.
+                return Text.assemble(
+                    Text(module.capitalize(), style=shades.light), " ", icon
+                )
+        return icon
 
     def render_message(self, record: logging.LogRecord, message: str) -> Any:
         return _linkify_message(message)

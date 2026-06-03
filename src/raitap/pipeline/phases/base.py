@@ -49,7 +49,12 @@ def run_adapters(
     if not names:
         return []
     suffix = "s" if len(names) > 1 else ""
-    raitap_log.info("Performing %s assessment%s (%d)...", log_label, suffix, len(names))
+    # ``module=log_label`` so the chip reads e.g. "Robustness" even though this
+    # shared loop lives under ``pipeline/phases/`` — the logger name alone would
+    # mis-classify it as "pipeline".
+    raitap_log.info(
+        "Performing %s assessment%s (%d)...", log_label, suffix, len(names), module=log_label
+    )
     results: list[ResultT] = []
     for name in names:
         result = build_one(name)
