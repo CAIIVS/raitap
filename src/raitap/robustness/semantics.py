@@ -17,6 +17,11 @@ from typing import TYPE_CHECKING, Any
 from raitap.transparency.contracts import InputSpec, SampleSelection
 from raitap.transparency.semantics import infer_input_spec
 
+# Runtime import (not TYPE_CHECKING): ``Capability`` appears in the public
+# ``AssessorSemanticsHints.requires`` annotation, so ``typing.get_type_hints()``
+# must resolve it from module globals. It is a torch-free StrEnum.
+from raitap.types import Capability  # noqa: TC001
+
 from .contracts import (
     AssessmentKind,
     Objective,
@@ -32,8 +37,6 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-    from raitap.types import Capability
 
 
 @dataclass(frozen=True)

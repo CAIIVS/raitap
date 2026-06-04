@@ -130,7 +130,7 @@ class BackendIncompatibilityError(Exception):
         super().__init__(
             f"Adapter {adapter!r} is not compatible with backend {backend!r}.\n"
             f"Missing capabilities: {joined}. Use a backend that provides them "
-            f"(e.g. a torch backend for {{autograd}})."
+            f"(a torch backend supplies autograd)."
         )
 
 
