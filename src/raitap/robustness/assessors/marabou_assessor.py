@@ -83,7 +83,7 @@ logger = logging.getLogger(__name__)
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
-            families=frozenset({"smt", "complete", "sound"}),
+            families={"smt", "complete", "sound"},
         ),
     },
 )

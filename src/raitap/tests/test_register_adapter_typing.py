@@ -55,7 +55,7 @@ def test_missing_registry_name_is_pyright_error_for_every_family_decorator(
         ("from raitap import adapters", "adapters.tracker(extra='x')", "registry_name"),
         ("from raitap import visualisers", "visualisers.transparency()", "registry_name"),
         ("from raitap import visualisers", "visualisers.robustness()", "registry_name"),
-        ("from raitap import backends", "backends.register()", "supports_torch_autograd"),
+        ("from raitap import backends", "backends.register()", "provides"),
     ]:
         errors = _pyright_errors(
             f"""

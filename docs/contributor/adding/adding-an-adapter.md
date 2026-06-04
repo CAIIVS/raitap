@@ -8,7 +8,7 @@ myst:
 
 # Adding an adapter
 
-Adapters let RAITAP delegate to other libraries. Each family (transparency, robustness, metrics, reporting, tracking, visualisers) exposes its own registration decorator; you drop that decorator on a class, implement the abstract methods, and you are done. There is no central registry file to edit — `registry_name` is the only required kwarg and pyright errors at the decoration site if you forget it.
+Adapters let RAITAP delegate to other libraries. Each family (transparency, robustness, metrics, reporting, tracking, visualisers) exposes its own registration decorator; you drop that decorator on a class, implement the abstract methods, and you are done. There is no central registry file to edit. `registry_name` is the only required kwarg and pyright errors at the decoration site if you forget it.
 
 The walkthrough below uses a fictional `superxai-lib` transparency explainer.
 
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 @adapters.transparency(
     registry_name="superxai",      # CLI `+transparency=superxai` / Python `from raitap.transparency import superxai`
-    # extra="superxai",            # uv extra name; defaults to `registry_name` (omit unless they differ — see metrics for an exception)
+    # extra="superxai",            # uv extra name; defaults to `registry_name` (omit unless they differ, see metrics for an exception)
     library="superxai-lib",        # real PyPI package name; drives `self._lazy_import()`
     error_patterns={               # rewrite cryptic upstream errors at call sites
         r"some library footgun": "Do X instead.",
@@ -46,13 +46,10 @@ if TYPE_CHECKING:
         (r"some noisy.*pattern", UserWarning, r"superxai.*"),
     ],
     algorithm_registry={           # required kwarg, pyright errors at decoration if missing
-        "supertreeshap": ExplainerSemanticsHints(frozenset({MethodFamily.SHAPLEY})),
+        # supertreeshap is model-agnostic (works on any backend): leave requires default empty.
+        "supertreeshap": ExplainerSemanticsHints({MethodFamily.SHAPLEY}),
     },
-    # onnx_compatible_algorithms — optional, defaults to none (ONNX support is rare).
-    # Pass an explicit frozenset to enable a subset, or `ALL` for everything in
-    # algorithm_registry. See bullet below.
-    onnx_compatible_algorithms=frozenset({"supertreeshap"}),
-    # output_payload_kind=ExplanationPayloadKind.ATTRIBUTIONS — optional, this is the default
+    # output_payload_kind=ExplanationPayloadKind.ATTRIBUTIONS  # optional, this is the default
 )
 class SuperXAIExplainer(AttributionOnlyExplainer):
     def __init__(self, algorithm: str, **init_kwargs):
@@ -60,9 +57,9 @@ class SuperXAIExplainer(AttributionOnlyExplainer):
         self.algorithm = algorithm
         self.init_kwargs = init_kwargs
 
-    # check_backend_compat: default implementation enforces ONNX_COMPATIBLE_ALGORITHMS.
-    # Override only if your adapter's backend contract doesn't fit "autograd OR onnx
-    # allowlist" — e.g. MarabouAssessor overrides for per-call setup.
+    # check_backend_compat: inherited from AdapterMixin. Raises BackendIncompatibilityError
+    # when algorithm.requires - backend.provides is non-empty. Write zero gate code here.
+    # Override only for a non-capability contract, e.g. MarabouAssessor per-call setup.
 
     def compute_attributions(
         self,
@@ -78,13 +75,13 @@ class SuperXAIExplainer(AttributionOnlyExplainer):
             )
 ```
 
-- **Base class.** `AttributionOnlyExplainer` provides batching, artefact persistence, and `explain()` orchestration. Other families use other bases (`EmpiricalAttackAssessor` for robustness, `BaseMetricComputer` for metrics, etc.) — find them in files starting with `base_`. The concrete adapter is just a normal class; nothing flags it as abstract (the old `abstract=True` workaround was removed).
-- **Decorator.** `@adapters.transparency(...)` is the sole entry point for registration. `registry_name` is required and pyright-checked at the decoration site via `Required[str]`. Each family has its own facade attribute (`adapters.robustness`, `adapters.metrics`, `adapters.reporter`, `adapters.tracker`, `visualisers.transparency`, `visualisers.robustness`) — pick the one matching your base class.
-- **Registration kwargs.** `library` is the pip name powering `self._lazy_import()` — pass it when you wrap a third-party package (the usual case). `extra` is the uv extra surfaced in install hints and scanned by `raitap.deps.inference`; it **defaults to `registry_name`** so you only need to set it explicitly when they differ (e.g. `classification_metrics` + `detection_metrics` both share `extra="metrics"`). `error_patterns` and `suppress_warnings` are optional polish.
-- **`algorithm_registry` (decorator kwarg).** Transparency and robustness only. Maps algorithm name → a per-algorithm semantics-hints value RAITAP tracks and reports on (`ExplainerSemanticsHints` for transparency, `AssessorSemanticsHints` for robustness). **Required** — pyright errors at the decoration site if you omit it. Missing or misnamed entries make algorithms unselectable. The decorator assigns it onto the class so `type(self).algorithm_registry` still works at runtime.
-- **`output_payload_kind` (decorator kwarg).** Transparency only. Tells the report renderer what artefact shape the explainer emits (`ATTRIBUTIONS`, `SALIENCY_MAP`, ...). Defaults to `ExplanationPayloadKind.ATTRIBUTIONS` — only pass it if your explainer emits something else.
-- **`onnx_compatible_algorithms` (decorator kwarg).** Transparency only. Optional — defaults to "none compatible" (ONNX support is rare). Pass an explicit `frozenset({"name1", "name2"})` to enable a subset, or `from raitap.transparency import ALL; onnx_compatible_algorithms=ALL` to mark every algorithm in `algorithm_registry` ONNX-compatible without re-listing them. The decorator resolves the sentinel and assigns the final frozenset onto the class as `type(self).ONNX_COMPATIBLE_ALGORITHMS` for use inside `check_backend_compat`.
-- **`super().__init__()`.** Cooperative parent init — the base class allocates buffers the framework reads later (e.g. `self.attributions = None`). Forgetting raises `AttributeError` deep inside `explain()`. Always call first when overriding `__init__`.
+- **Base class.** `AttributionOnlyExplainer` provides batching, artefact persistence, and `explain()` orchestration. Other families use other bases (`EmpiricalAttackAssessor` for robustness, `BaseMetricComputer` for metrics, etc.); find them in files starting with `base_`. The concrete adapter is just a normal class; nothing flags it as abstract (the old `abstract=True` workaround was removed).
+- **Decorator.** `@adapters.transparency(...)` is the sole entry point for registration. `registry_name` is required and pyright-checked at the decoration site via `Required[str]`. Each family has its own facade attribute (`adapters.robustness`, `adapters.metrics`, `adapters.reporter`, `adapters.tracker`, `visualisers.transparency`, `visualisers.robustness`): pick the one matching your base class.
+- **Registration kwargs.** `library` is the pip name powering `self._lazy_import()`: pass it when you wrap a third-party package (the usual case). `extra` is the uv extra surfaced in install hints and scanned by `raitap.deps.inference`; it **defaults to `registry_name`** so you only need to set it explicitly when they differ (e.g. `classification_metrics` + `detection_metrics` both share `extra="metrics"`). `error_patterns` and `suppress_warnings` are optional polish.
+- **`algorithm_registry` (decorator kwarg).** Transparency and robustness only. Maps algorithm name to a per-algorithm semantics-hints value RAITAP tracks and reports on (`ExplainerSemanticsHints` for transparency, `AssessorSemanticsHints` for robustness). **Required**: pyright errors at the decoration site if you omit it. Missing or misnamed entries make algorithms unselectable. The decorator assigns it onto the class so `type(self).algorithm_registry` still works at runtime.
+- **`output_payload_kind` (decorator kwarg).** Transparency only. Tells the report renderer what artefact shape the explainer emits (`ATTRIBUTIONS`, `SALIENCY_MAP`, ...). Defaults to `ExplanationPayloadKind.ATTRIBUTIONS`; only pass it if your explainer emits something else.
+- **Backend compatibility.** Inherited `check_backend_compat` (from `AdapterMixin`) raises `BackendIncompatibilityError` when `algorithm.requires - backend.provides` is non-empty. You write zero gate code. Gradient-based algorithms declare `requires={Capability.AUTOGRAD}` on their `ExplainerSemanticsHints` / `AssessorSemanticsHints` entry; model-agnostic algorithms (SHAP KernelExplainer, Occlusion, FeatureAblation) leave `requires` at its default empty frozenset and run on any backend including ONNX. Override `check_backend_compat` only for a non-capability contract (Marabou uses it for per-call setup; auto-LiRPA calls `super()` then warns on XPU). Import: `from raitap.utils.errors import BackendIncompatibilityError` (also re-exported from `raitap.robustness` and `raitap.transparency`). See {doc}`../capabilities` for what each capability means.
+- **`super().__init__()`.** Cooperative parent init: the base class allocates buffers the framework reads later (e.g. `self.attributions = None`). Forgetting raises `AttributeError` deep inside `explain()`. Always call it first when overriding `__init__`.
 - **`self._lazy_import()`.** Inherited from `AdapterMixin`. Imports `library` (or `f"{library}.{submodule}"` if you pass `submodule=`) at call time, keeping `import raitap` cheap and letting users install RAITAP without every wrapped library. Raises a clear install-hint `ImportError` if the library is missing.
 - **Backend libs (`torch`, `torchvision`, `onnxruntime`) need `lazy_import` too.** If your adapter file uses `torch.Tensor` / `torch.nn` / etc, do NOT add `import torch` at module top-level. Use the `from raitap.utils.lazy import lazy_import` pattern (see that module's docstring for the `TYPE_CHECKING` + `lazy_import("torch")` recipe). This preserves the bootstrap-from-zero promise: `raitap.deps.bootstrap._compose` walks every adapter `__init__` on a bare venv (no torch installed yet) to infer extras before it installs them. A top-level `import torch` breaks the whole bootstrap. The per-family `tests/test_partial_extras_safe.py` poisons `torch` in `sys.modules` to catch regressions immediately.
 - **`self._rethrow()`.** Inherited context manager. Catches exceptions from the wrapped library and rewrites known-cryptic ones using your `error_patterns` map.
@@ -110,7 +107,7 @@ Tests go in `tests/raitap/<module>/<subdir>/test_<name>_<entity>.py`. Also add a
 
 Cover at minimum: registry membership, `check_backend_compat`, decorator wiring (the class lands in `_BUILDERS["<group>"]["<name>"]` and in `ADAPTER_EXTRAS`), and one `compute_attributions` / `generate_adversarial` / `compute` happy path. CI enforces module coverage.
 
-No stub workaround needed — concrete adapters are just concrete classes, and the decorator carries every family-required piece of metadata (`algorithm_registry`, `output_payload_kind`, `onnx_compatible_algorithms`). A test stub is just `@adapters.<family>(registry_name="_stub", algorithm_registry={...}, ...)` over a minimal subclass implementing the abstract methods.
+No stub workaround needed. Concrete adapters are just concrete classes, and the decorator carries every family-required piece of metadata (`algorithm_registry`, `output_payload_kind`). A test stub is just `@adapters.<family>(registry_name="_stub", algorithm_registry={...}, ...)` over a minimal subclass implementing the abstract methods.
 
 ## 5. Update the docs
 
@@ -125,18 +122,18 @@ Add a row to `docs/modules/<module>/frameworks-and-libraries.md` documenting the
 | Metric                 | `raitap.metrics.base_metric_computer.BaseMetricComputer`                                                                                    | `@adapters.metrics`                                                 | `metrics`          | `MetricsConfig`      |
 | Reporter               | `raitap.reporting.base_reporter.BaseReporter`                                                                                               | `@adapters.reporter`                                                | `reporting`        | `ReportingConfig`    |
 | Tracker                | `raitap.tracking.base_tracker.BaseTracker`                                                                                                  | `@adapters.tracker`                                                 | `tracking`         | `TrackingConfig`     |
-| Visualiser             | `raitap.transparency.visualisers.base_visualiser.BaseVisualiser` / `raitap.robustness.visualisers.base_visualiser.BaseRobustnessVisualiser` | `@visualisers.transparency` / `@visualisers.robustness`             | — (no Hydra group) | —                    |
+| Visualiser             | `raitap.transparency.visualisers.base_visualiser.BaseVisualiser` / `raitap.robustness.visualisers.base_visualiser.BaseRobustnessVisualiser` | `@visualisers.transparency` / `@visualisers.robustness`             | (no Hydra group) |                    |
 
 ## Adding a new algorithm to an existing adapter
 
-If the library already has an adapter and you just want to expose a new algorithm, add an entry to that adapter's `algorithm_registry` decorator kwarg (and `onnx_compatible_algorithms` if it applies). No new file, no pyproject.toml change. Add a unit test that constructs the adapter with the new algorithm and asserts a successful happy-path call.
+If the library already has an adapter and you just want to expose a new algorithm, add an entry to that adapter's `algorithm_registry` decorator kwarg. Set `requires={Capability.AUTOGRAD}` on the hint if the algorithm needs gradients; leave `requires` at default empty if it is model-agnostic. No new file, no pyproject.toml change. Add a unit test that constructs the adapter with the new algorithm and asserts a successful happy-path call.
 
 ## When the registration decorators aren't enough
 
 A handful of Hydra shapes can't be expressed via the registration decorators alone and live as direct `ConfigStore` writes in `src/raitap/configs/zen.py::register_zen_groups`:
 
-- **`# @package _global_` injections** — e.g. the `reporting=html` / `reporting=pdf` entries push both the `reporting` node **and** a `hydra.callbacks.reporting_sweep` block into the root config so multirun report aggregation auto-wires. The decorators always write under `package="<group>"` or `"<group>.<name>"`; they can't reach `_global_`.
-- **`_target_: null` variants** — e.g. `reporting=disabled` carries `_target_: null` + `multirun_report: false`. The decorators always target a concrete class.
-- **Anything that needs a custom hydra-zen `to_config=` or a non-dataclass node** — same escape hatch.
+- **`# @package _global_` injections.** E.g. the `reporting=html` / `reporting=pdf` entries push both the `reporting` node **and** a `hydra.callbacks.reporting_sweep` block into the root config so multirun report aggregation auto-wires. The decorators always write under `package="<group>"` or `"<group>.<name>"`; they can't reach `_global_`.
+- **`_target_: null` variants.** E.g. `reporting=disabled` carries `_target_: null` + `multirun_report: false`. The decorators always target a concrete class.
+- **Custom hydra-zen `to_config=` or non-dataclass nodes.** Same escape hatch.
 
-If your new adapter only needs to set `_target_` + optional kwargs on its schema (the 95% case), don't touch `zen.py`. Use the decorator, done. If you genuinely need one of the special shapes above, add a `cs.store(group=..., name=..., package=..., node=...)` block in `register_zen_groups` after the `store.add_to_hydra_store(...)` flush — that order lets your specialisation overwrite the decorator-generated entry.
+If your new adapter only needs to set `_target_` + optional kwargs on its schema (the 95% case), don't touch `zen.py`. Use the decorator, done. If you genuinely need one of the special shapes above, add a `cs.store(group=..., name=..., package=..., node=...)` block in `register_zen_groups` after the `store.add_to_hydra_store(...)` flush: that order lets your specialisation overwrite the decorator-generated entry.

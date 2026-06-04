@@ -2,10 +2,8 @@
 
 ``RobustnessPhaseResult`` is the robustness phase's contribution to a run: it is
 ``Trackable`` (logs its assessor results + visualisations) and ``Reportable``
-(builds the "Robustness" report section). The section-building helpers were
-relocated verbatim from ``reporting/builder.py`` — the only change is that they
-read the assessor results off the ``RobustnessPhaseResult`` passed as ``outputs``
-instead of the old flat ``RunOutputs`` fields.
+(builds the "Robustness" report section). The phase class + work function that
+produce it live in :mod:`raitap.robustness.phase`.
 """
 
 from __future__ import annotations
@@ -16,8 +14,6 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import matplotlib.pyplot as plt
 
-from raitap.pipeline.phases.assess_robustness import assess_robustness
-from raitap.pipeline.phases.base import AssessmentPhase
 from raitap.reporting.sections import ReportGroup, ReportSection
 from raitap.reporting.staging import _copy_asset, _safe_name, _strip_report_figure_titles
 from raitap.robustness.contracts import (
@@ -34,9 +30,6 @@ if TYPE_CHECKING:
 
     import torch
 
-    from raitap.configs.schema import AppConfig
-    from raitap.pipeline.outputs import PhaseResult
-    from raitap.pipeline.phases.base import PhaseContext
     from raitap.reporting.samples import SelectedSample
     from raitap.reporting.sections import ReportContext
     from raitap.robustness.results import RobustnessResult, RobustnessVisualisationResult
@@ -46,31 +39,16 @@ else:
     torch = lazy_import("torch")
 
 
-class RobustnessPhase(AssessmentPhase):
-    name = "robustness"
-
-    def is_configured(self, config: AppConfig) -> bool:
-        return bool(getattr(config, "robustness", None))
-
-    def run(self, ctx: PhaseContext) -> PhaseResult | None:
-        results, visualisations = assess_robustness(
-            ctx.config,
-            ctx.model,
-            ctx.data,
-            ctx.forward_output,
-            labels=ctx.data.labels,
-            input_metadata=ctx.input_metadata,
-            resolved_preprocessing=ctx.resolved_preprocessing,
-        )
-        return RobustnessPhaseResult(results=results, visualisations=visualisations)
-
-
 @dataclass
 class RobustnessPhaseResult(Trackable):
-    """Robustness phase output: assessor results + their report visualisations."""
+    """Robustness phase output: the assessor results, each owning its visualisations.
+
+    Each :class:`RobustnessResult` owns its ``.visualisations`` (issue #243) — the
+    results are the single source of truth; there is no parallel phase-level
+    visualisation list.
+    """
 
     results: list[RobustnessResult] = field(default_factory=list)
-    visualisations: list[RobustnessVisualisationResult] = field(default_factory=list)
 
     report_order: ClassVar[int] = 30
 
@@ -80,8 +58,8 @@ class RobustnessPhaseResult(Trackable):
         use_subdirs = len(self.results) > 1
         for result in self.results:
             result.log(tracker, use_subdirectory=use_subdirs)
-        for visualisation in self.visualisations:
-            visualisation.log(tracker, use_subdirectory=use_subdirs)
+            for visualisation in result.visualisations:
+                visualisation.log(tracker, use_subdirectory=use_subdirs)
 
     def report_sections(self, ctx: ReportContext) -> tuple[ReportSection, ...]:
         section = _build_robustness_section(
@@ -111,15 +89,9 @@ def _build_robustness_section(
     if not outputs.results:
         return None
 
-    visualisations_by_assessor: dict[str, list[RobustnessVisualisationResult]] = {}
-    if show_redundant_robustness_panels:
-        for visualisation in outputs.visualisations:
-            assessor_name = visualisation.result.assessor_name or visualisation.result.run_dir.name
-            visualisations_by_assessor.setdefault(assessor_name, []).append(visualisation)
-
     groups: list[ReportGroup] = []
     for index, result in enumerate(outputs.results):
-        assessor_name = result.assessor_name or result.run_dir.name
+        assessor_name = result.name or result.run_dir.name
         assessment_kind_value = result.assessment_kind.value
         if result.assessment_kind == AssessmentKind.EMPIRICAL_ATTACK:
             heading = f"Adversarial attack - {result.algorithm} ({assessor_name})"
@@ -154,7 +126,7 @@ def _build_robustness_section(
         )
         staged = (
             _legacy_robustness_images(
-                visualisations_by_assessor.get(assessor_name, []),
+                result.visualisations,
                 assets_dir=assets_dir,
                 result_index=index,
                 assessor_name=assessor_name,

@@ -1,9 +1,10 @@
 """Assessment-phase chain — the registry that lists the deliverable phases.
 
 Each phase class lives in its owning module (``MetricsPhase`` in
-``metrics/phase.py``, ``TransparencyPhase`` in ``transparency/report.py``,
-``RobustnessPhase`` in ``robustness/report.py``) next to its result type. This
-module only assembles them into :data:`ASSESSMENT_PHASES` — the single list that
+``metrics/phase.py``, ``TransparencyPhase`` in ``transparency/phase.py``,
+``RobustnessPhase`` in ``robustness/phase.py``) next to its work function; the
+result type + report rendering sit alongside in ``*/report.py``. This module
+only assembles them into :data:`ASSESSMENT_PHASES` — the single list that
 the configured-phase guard and the run loop in
 :func:`raitap.pipeline.orchestrator.run_without_tracking` iterate. Adding a
 module means writing its phase + result in that module, then adding one import +
@@ -23,8 +24,8 @@ from __future__ import annotations
 
 from raitap.metrics.phase import MetricsPhase
 from raitap.pipeline.phases.base import AssessmentPhase, PhaseContext
-from raitap.robustness.report import RobustnessPhase
-from raitap.transparency.report import TransparencyPhase
+from raitap.robustness.phase import RobustnessPhase
+from raitap.transparency.phase import TransparencyPhase
 
 __all__ = ["ASSESSMENT_PHASES", "AssessmentPhase", "PhaseContext"]
 

@@ -67,6 +67,45 @@ class TestStacklevelAttribution:
         assert records[0].pathname == __file__
 
 
+class TestDeferred:
+    def test_info_is_buffered_during_block_and_replayed_after(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """INFO inside ``deferred()`` must not emit during the block (so an
+        ordered panel can print first) and must replay on exit, keeping the
+        caller's module logger."""
+        caplog.set_level("INFO")
+        with raitap_log.deferred():
+            raitap_log.info("deferred-line")
+            assert not [r for r in caplog.records if r.message == "deferred-line"]
+        replayed = [r for r in caplog.records if r.message == "deferred-line"]
+        assert len(replayed) == 1
+        assert replayed[0].name == __name__
+
+    def test_error_is_not_deferred(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Errors must surface immediately even inside a deferred block."""
+        caplog.set_level("ERROR")
+        with raitap_log.deferred():
+            raitap_log.error("immediate-error")
+            assert [r for r in caplog.records if r.message == "immediate-error"]
+
+    def test_nested_deferred_replays_only_after_outer_block(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """An inner ``deferred()`` must re-buffer into the outer block, not emit
+        on inner exit, so the whole batch still replays after the OUTER block."""
+        caplog.set_level("INFO")
+        with raitap_log.deferred():
+            with raitap_log.deferred():
+                raitap_log.info("inner-line")
+            # Inner block exited but we are still inside the outer deferred:
+            # the inner record must NOT have emitted yet.
+            assert not [r for r in caplog.records if r.message == "inner-line"]
+            raitap_log.info("outer-line")
+        replayed = [r.message for r in caplog.records if r.message in {"inner-line", "outer-line"}]
+        assert replayed == ["inner-line", "outer-line"]
+
+
 class TestDiagnosticQueueIsThreadLocal:
     def test_pushes_in_one_thread_dont_leak_into_another(self) -> None:
         from raitap.utils.log import _pop_diagnostic, _push_diagnostic

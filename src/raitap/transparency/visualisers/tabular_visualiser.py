@@ -27,13 +27,11 @@ if TYPE_CHECKING:
 
 @transparency_visualiser(
     registry_name="tabular_bar_chart",
-    supported_scopes=frozenset({ExplanationScope.LOCAL}),
-    supported_output_spaces=frozenset(
-        {
-            ExplanationOutputSpace.INPUT_FEATURES,
-            ExplanationOutputSpace.INTERPRETABLE_FEATURES,
-        }
-    ),
+    supported_scopes={ExplanationScope.LOCAL},
+    supported_output_spaces={
+        ExplanationOutputSpace.INPUT_FEATURES,
+        ExplanationOutputSpace.INTERPRETABLE_FEATURES,
+    },
     supported_method_families=frozenset(MethodFamily),
     produces_scope=ExplanationScope.AGGREGATED,
     scope_definition_step=ScopeDefinitionStep.VISUALISER_SUMMARY,

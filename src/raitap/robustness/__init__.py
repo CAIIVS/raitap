@@ -15,13 +15,24 @@ Assessor classes (``_target_`` values; live under ``raitap.robustness.assessors.
 
 Visualiser classes (``_target_`` values; live under ``raitap.robustness.visualisers.``):
     ImagePairVisualiser, PerturbationHeatmapVisualiser
+
+Module layout (for contributors):
+
+- ``phase.py`` — pipeline entry point: ``RobustnessPhase`` (what the registry
+  assembles) + the ``assess_robustness`` work fn + target resolution. Start here.
+- ``factory.py`` — builds assessor instances from config.
+- ``results.py`` — ``RobustnessResult`` (owns its ``.visualisations``) +
+  ``RobustnessVisualisationResult``.
+- ``report.py`` — ``RobustnessPhaseResult`` + report-section builders.
+- ``assessors/`` — the attack / verification adapters.
+- ``visualisers/`` — the figure renderers.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from raitap._adapters import ALL as ALL
+from raitap.utils.errors import BackendIncompatibilityError
 
 from .contracts import (
     VERDICT_CODES,
@@ -191,6 +202,7 @@ __all__ = [  # noqa: RUF022
     "decode_verdict",
     "encode_verdict",
     # Exceptions
+    "BackendIncompatibilityError",
     "AssessorBackendIncompatibilityError",
     "AssessmentKindVisualiserIncompatibilityError",
     "MissingTargetsError",

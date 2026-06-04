@@ -46,7 +46,7 @@ metrics/
 
 ## Runtime flow
 
-`src/raitap/pipeline/phases/evaluate_metrics.py` runs after the forward pass, instantiates the configured metric computer via `src/raitap/metrics/factory.py::evaluate`, calls `update(predictions, targets)` per batch, then calls `compute()` and writes the three output files.
+`src/raitap/metrics/phase.py` (`evaluate_metrics`) runs after the forward pass, instantiates the configured metric computer via `src/raitap/metrics/factory.py::evaluate`, calls `update(predictions, targets)` per batch, then calls `compute()` and writes the three output files.
 
 ## Extension points
 
@@ -54,4 +54,4 @@ The base class handles device management through `_prepare_inputs(predictions, t
 
 ## Adding a new metric computer
 
-See {doc}`adding-an-adapter`.
+See {doc}`../adding/adding-an-adapter`.

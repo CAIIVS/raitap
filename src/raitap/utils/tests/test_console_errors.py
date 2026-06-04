@@ -141,6 +141,50 @@ def _emit_to_handler(record_factory: Callable[[logging.Logger], None]) -> str:
     return console.file.getvalue()  # type: ignore[attr-defined]
 
 
+class TestInfoModuleChip:
+    """INFO lines get a module chip in the level column (``Robustness ▷ …``)."""
+
+    @staticmethod
+    def _level(name: str, *, module: str | None = None, path: str = "/x/y.py") -> str:
+        handler = RaitapRichHandler()
+        record = logging.LogRecord(name, logging.INFO, path, 1, "m", (), None)
+        if module is not None:
+            record._raitap_module = module  # type: ignore[attr-defined]
+        return handler.get_level_text(record).plain
+
+    def test_explicit_module_wins_over_logger_name(self) -> None:
+        # Emitted from the shared run_adapters loop (pipeline) but logically robustness.
+        assert "Robustness" in self._level("raitap.pipeline.phases.base", module="robustness")
+
+    def test_module_inferred_from_logger_name(self) -> None:
+        assert "Metrics" in self._level("raitap.metrics.phase")
+
+    def test_non_raitap_logger_gets_no_chip(self) -> None:
+        out = self._level("__main__", path="/tmp/script.py")
+        assert not any(
+            m in out for m in ("Robustness", "Metrics", "Transparency", "Pipeline", "Models")
+        )
+
+    def test_infra_module_gets_no_label(self) -> None:
+        # pipeline is infra (not a user-facing subsystem) → blank label, no chip.
+        out = self._level("raitap.pipeline.phases.forward_pass")
+        assert "Pipeline" not in out
+
+    def test_arrows_are_column_aligned_across_modules(self) -> None:
+        # Fixed-width label → the ``▷`` sits at the same column for every module
+        # (and for the blank infra/non-raitap case).
+        widths = {
+            len(self._level(name))
+            for name in (
+                "raitap.metrics.phase",
+                "raitap.transparency.phase",
+                "raitap.pipeline.phases.forward_pass",
+                "__main__",
+            )
+        }
+        assert len(widths) == 1
+
+
 class TestRichHandlerErrorPanel:
     def test_plain_logger_exception_renders_module_chip_from_traceback(self) -> None:
         # Simulate an exception caught inside src/raitap/robustness/ so the

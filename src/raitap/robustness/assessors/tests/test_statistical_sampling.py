@@ -45,7 +45,7 @@ class _StubSamplingAssessor(StatisticalSamplingAssessor):
             AssessmentKind.STATISTICAL_SAMPLING,
             ThreatModel.NOT_APPLICABLE,
             Objective.UNTARGETED,
-            families=frozenset({"stub"}),
+            families={"stub"},
         )
     }
 

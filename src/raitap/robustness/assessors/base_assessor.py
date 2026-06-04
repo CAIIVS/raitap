@@ -3,8 +3,8 @@
 Three layers, mirroring transparency's split between framework-owned and
 adapter-owned pipelines:
 
-* ``BaseAssessor`` - root: declares ``assessment_kind`` and the no-op
-  ``check_backend_compat`` default.
+* ``BaseAssessor`` - root: declares ``assessment_kind``. The capability gate
+  (``check_backend_compat``) is inherited from ``AdapterMixin``.
 * ``EmpiricalAttackAssessor`` - framework owns ``assess()``; subclasses
   implement only ``generate_adversarial``.
 * ``FormalVerificationAssessor`` - framework owns ``assess()``; subclasses
@@ -86,44 +86,6 @@ class BaseAssessor(AdapterMixin, ABC):
     #: ``RobustnessSemantics.perturbation`` is derived from this source so reported
     #: metadata always matches what the adapter executed.
     budget_kwarg_source: ClassVar[str] = "init_kwargs"
-
-    #: Adapter-specific; defaults to "no ONNX support". The
-    #: ``@adapters.robustness`` decorator overrides per-adapter.
-    ONNX_COMPATIBLE_ALGORITHMS: ClassVar[frozenset[str]] = frozenset()
-
-    def check_backend_compat(self, backend: object) -> None:
-        """Default: enforce the ONNX-allowlist contract.
-
-        Passes when the backend supports torch autograd, OR when the assessor's
-        selected algorithm is in ``ONNX_COMPATIBLE_ALGORITHMS`` (set by the
-        decorator's ``onnx_compatible_algorithms`` kwarg). Otherwise raises
-        :class:`raitap.robustness.exceptions.AssessorBackendIncompatibilityError`.
-        Override only if your assessor has a backend contract that doesn't fit
-        this pattern (e.g. ``MarabouAssessor`` uses this hook for per-call
-        setup rather than backend validation).
-        """
-        if getattr(backend, "supports_torch_autograd", False):
-            return
-        algorithm = getattr(self, "algorithm", "")
-        compatible: frozenset[str] = type(self).ONNX_COMPATIBLE_ALGORITHMS
-        if algorithm in compatible:
-            return
-        reason = (
-            f"{type(self).__name__} requires a backend that supports torch "
-            "autograd. Use a torch backend (e.g. torch-cpu / torch-cuda / "
-            "torch-intel) rather than ONNX."
-            if not compatible
-            else (
-                f"{type(self).__name__} algorithm {algorithm!r} is not in the "
-                f"ONNX-compatible set {sorted(compatible)!r}."
-            )
-        )
-        raise AssessorBackendIncompatibilityError(
-            assessor=type(self).__name__,
-            backend=type(backend).__name__,
-            algorithm=str(algorithm),
-            reason=reason,
-        )
 
 
 def _resolve_per_sample_target(
@@ -270,9 +232,9 @@ class EmpiricalAttackAssessor(BaseAssessor, ABC):
                 else resolve_run_dir(output_root=output_root, subdir="robustness")
             ),
             experiment_name=experiment_name,
-            assessor_target=assessor_target or f"{type(self).__module__}.{type(self).__name__}",
+            adapter_target=assessor_target or f"{type(self).__module__}.{type(self).__name__}",
             algorithm=str(getattr(self, "algorithm", "")),
-            assessor_name=assessor_name,
+            name=assessor_name,
             kwargs={
                 "sample_ids": sample_ids,
                 "sample_names": sample_names,
@@ -483,9 +445,9 @@ class FormalVerificationAssessor(BaseAssessor, ABC):
                 else resolve_run_dir(output_root=output_root, subdir="robustness")
             ),
             experiment_name=experiment_name,
-            assessor_target=assessor_target or f"{type(self).__module__}.{type(self).__name__}",
+            adapter_target=assessor_target or f"{type(self).__module__}.{type(self).__name__}",
             algorithm=str(getattr(self, "algorithm", "")),
-            assessor_name=assessor_name,
+            name=assessor_name,
             kwargs={
                 "sample_ids": sample_ids,
                 "sample_names": sample_names,
@@ -514,9 +476,6 @@ class StatisticalSamplingAssessor(BaseAssessor, ABC):
     """
 
     assessment_kind: ClassVar[AssessmentKind] = AssessmentKind.STATISTICAL_SAMPLING
-
-    def check_backend_compat(self, backend: object) -> None:
-        """Statistical sampling operates in pixel space; any backend (or none) is fine."""
 
     @abstractmethod
     def apply_perturbation(self, image: np.ndarray) -> np.ndarray:
@@ -602,9 +561,9 @@ class StatisticalSamplingAssessor(BaseAssessor, ABC):
                 else resolve_run_dir(output_root=output_root, subdir="robustness")
             ),
             experiment_name=experiment_name,
-            assessor_target=assessor_target or f"{type(self).__module__}.{type(self).__name__}",
+            adapter_target=assessor_target or f"{type(self).__module__}.{type(self).__name__}",
             algorithm=str(getattr(self, "algorithm", "")),
-            assessor_name=assessor_name,
+            name=assessor_name,
             kwargs={
                 "sample_ids": sample_ids,
                 "sample_names": sample_names,

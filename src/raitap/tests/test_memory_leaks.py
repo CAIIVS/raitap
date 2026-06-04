@@ -64,7 +64,7 @@ def test_explanation_result_detaches_tensors() -> None:
         inputs=inputs,
         run_dir=Path("/tmp/test"),
         experiment_name="test",
-        explainer_target="test_target",
+        adapter_target="test_target",
         algorithm="test_alg",
         payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
         semantics=_minimal_semantics((2, 3)),
@@ -93,7 +93,7 @@ def test_explanation_result_moves_tensors_to_cpu(device: str) -> None:
         inputs=inputs,
         run_dir=Path("/tmp/test"),
         experiment_name="test",
-        explainer_target="test_target",
+        adapter_target="test_target",
         algorithm="test_alg",
         payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
         semantics=_minimal_semantics((2, 3)),
@@ -114,7 +114,7 @@ def test_resolve_explainer_runtime_kwargs_detaches_target() -> None:
     Uses a (N, 1) forward output so metrics_prediction_pair returns squeeze(1),
     a float tensor that *would* keep requires_grad without an explicit .detach().
     """
-    from raitap.pipeline.phases.assess_transparency import (
+    from raitap.transparency.phase import (
         resolve_explainer_runtime_kwargs as _resolve_explainer_runtime_kwargs,
     )
 
@@ -170,13 +170,11 @@ def test_run_without_tracking_forward_output_is_cpu_and_detached() -> None:
     config.data.forward_batch_size = None
 
     fake_explanation = MagicMock()
-    fake_explanation.visualise.return_value = []
+    fake_explanation._visualise.return_value = []
 
     with (
-        patch("raitap.pipeline.phases.evaluate_metrics.metrics_run_enabled", return_value=False),
-        patch(
-            "raitap.pipeline.phases.assess_transparency.Explanation", return_value=fake_explanation
-        ),
+        patch("raitap.metrics.phase.metrics_run_enabled", return_value=False),
+        patch("raitap.transparency.phase.Explanation", return_value=fake_explanation),
     ):
         outputs = _run_without_tracking(config, model, data)
 

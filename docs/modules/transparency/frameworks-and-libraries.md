@@ -81,7 +81,7 @@ visualisers against the explanation artifact they receive. In short:
 
 See {doc}`visualisers` for per-visualiser previews, constructor kwargs, and
 modality constraints. Contributor-facing details about semantic contracts are
-documented in {doc}`../../contributor/transparency`.
+documented in {doc}`../../contributor/modules/transparency`.
 
 ## Explainer libraries
 

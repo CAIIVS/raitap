@@ -7,7 +7,7 @@ import torch
 from torch import nn
 
 from raitap.models.backend import TorchBackend
-from raitap.types import TaskKind
+from raitap.types import Capability, TaskKind
 
 
 class _Linear(nn.Module):
@@ -44,7 +44,7 @@ def test_register_backend_sets_class_constant() -> None:
     from raitap.models.backend import ModelBackend
     from raitap.models.registration import register
 
-    @register(supports_torch_autograd=True)
+    @register(provides=frozenset({Capability.AUTOGRAD}))
     class _B(ModelBackend):
         @property
         def hardware_label(self) -> str:
@@ -56,4 +56,4 @@ def test_register_backend_sets_class_constant() -> None:
         def as_model_for_explanation(self) -> nn.Module:
             return nn.Identity()
 
-    assert _B.supports_torch_autograd is True
+    assert _B.provides == frozenset({Capability.AUTOGRAD})

@@ -26,8 +26,8 @@ from raitap.configs import set_output_root
 from raitap.configs.schema import AppConfig, TransparencyConfig
 from raitap.models.backend import ModelBackend
 from raitap.pipeline.outputs import ForwardOutput
-from raitap.pipeline.phases.assess_transparency import assess_transparency
-from raitap.types import TaskKind
+from raitap.transparency.phase import assess_transparency
+from raitap.types import Capability, TaskKind
 
 
 class _FakeBackend(ModelBackend):
@@ -36,7 +36,7 @@ class _FakeBackend(ModelBackend):
     Subclasses :class:`ModelBackend` so ``_require_model_backend`` accepts it.
     """
 
-    supports_torch_autograd = True
+    provides = frozenset({Capability.AUTOGRAD})
 
     def __init__(self) -> None:
         self._task_kind = TaskKind.detection
@@ -129,7 +129,7 @@ def test_assess_transparency_routes_detection_kind_to_explain_detection(
 
     with (
         patch(
-            "raitap.pipeline.phases.assess_transparency.Explanation",
+            "raitap.transparency.phase.Explanation",
             side_effect=AssertionError("classification path should not run"),
         ),
         patch(
@@ -150,11 +150,11 @@ def test_assess_transparency_routes_detection_kind_to_explain_detection(
             return_value=None,
         ),
         patch(
-            "raitap.pipeline.phases.explain_detection.explain_detection",
+            "raitap.transparency.explain_detection.explain_detection",
             side_effect=fake_explain_detection,
         ),
     ):
-        explanations, _visualisations = assess_transparency(
+        explanations = assess_transparency(
             config,
             model,  # type: ignore[arg-type]
             data,  # type: ignore[arg-type]
@@ -249,9 +249,9 @@ def test_detection_transparency_renders_class_name_end_to_end(tmp_path: Path) ->
             inputs=torch.rand(1, 3, 64, 64),
             run_dir=run_dir,
             experiment_name="render-test",
-            explainer_target=kwargs["explainer_target"],
+            adapter_target=kwargs["explainer_target"],
             algorithm="IntegratedGradients",
-            explainer_name=kwargs["explainer_name"],
+            name=kwargs["explainer_name"],
             visualisers=[ConfiguredVisualiser(DetectionImageVisualiser())],
             semantics=semantics,
         )
@@ -275,7 +275,7 @@ def test_detection_transparency_renders_class_name_end_to_end(tmp_path: Path) ->
 
     with (
         patch(
-            "raitap.pipeline.phases.assess_transparency.Explanation",
+            "raitap.transparency.phase.Explanation",
             side_effect=AssertionError("classification path should not run"),
         ),
         patch(
@@ -299,11 +299,11 @@ def test_detection_transparency_renders_class_name_end_to_end(tmp_path: Path) ->
             return_value=None,
         ),
         patch(
-            "raitap.pipeline.phases.explain_detection.explain_detection",
+            "raitap.transparency.explain_detection.explain_detection",
             side_effect=fake_explain_detection,
         ),
     ):
-        explanations, visualisations = assess_transparency(
+        explanations = assess_transparency(
             config,
             model,  # type: ignore[arg-type]
             data,  # type: ignore[arg-type]
@@ -311,6 +311,7 @@ def test_detection_transparency_renders_class_name_end_to_end(tmp_path: Path) ->
             input_metadata=None,
             resolved_preprocessing=None,
         )
+    visualisations = [v for e in explanations for v in e.visualisations]
 
     # Caller enrichment populated the in-memory box that the report builder
     # later reads for the heading + overlay.
@@ -402,9 +403,9 @@ def test_detection_transparency_matches_ground_truth_end_to_end(tmp_path: Path) 
             inputs=torch.rand(1, 3, 64, 64),
             run_dir=run_dir,
             experiment_name="gt-match-test",
-            explainer_target=kwargs["explainer_target"],
+            adapter_target=kwargs["explainer_target"],
             algorithm="IntegratedGradients",
-            explainer_name=kwargs["explainer_name"],
+            name=kwargs["explainer_name"],
             visualisers=[ConfiguredVisualiser(DetectionImageVisualiser())],
             semantics=semantics,
         )
@@ -427,7 +428,7 @@ def test_detection_transparency_matches_ground_truth_end_to_end(tmp_path: Path) 
 
     with (
         patch(
-            "raitap.pipeline.phases.assess_transparency.Explanation",
+            "raitap.transparency.phase.Explanation",
             side_effect=AssertionError("classification path should not run"),
         ),
         patch(
@@ -451,11 +452,11 @@ def test_detection_transparency_matches_ground_truth_end_to_end(tmp_path: Path) 
             return_value=None,
         ),
         patch(
-            "raitap.pipeline.phases.explain_detection.explain_detection",
+            "raitap.transparency.explain_detection.explain_detection",
             side_effect=fake_explain_detection,
         ),
     ):
-        explanations, visualisations = assess_transparency(
+        explanations = assess_transparency(
             config,
             model,  # type: ignore[arg-type]
             data,  # type: ignore[arg-type]
@@ -463,6 +464,7 @@ def test_detection_transparency_matches_ground_truth_end_to_end(tmp_path: Path) 
             input_metadata=None,
             resolved_preprocessing=None,
         )
+    visualisations = [v for e in explanations for v in e.visualisations]
 
     # GT match reached the in-memory box: evaluated, matched, true class = GT (20).
     # The builder renders this on the heading + overlay; the per-box figure has
@@ -521,9 +523,9 @@ def test_detection_per_box_figure_has_no_suptitle_with_sample_names(tmp_path: Pa
         inputs=torch.rand(1, 3, 32, 32),
         run_dir=tmp_path / "box_0",
         experiment_name="x",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
-        explainer_name="ig",
+        name="ig",
         semantics=sem,
         visualisers=[ConfiguredVisualiser(DetectionImageVisualiser())],
         kwargs={"show_sample_names": True, "sample_names": ["street.jpg"]},
@@ -538,7 +540,7 @@ def test_detection_per_box_figure_has_no_suptitle_with_sample_names(tmp_path: Pa
     )
     result.original_sample_index = 0
 
-    vis_results = result.visualise()
+    vis_results = result._visualise()
     assert vis_results
     for vr in vis_results:
         assert vr.figure.axes[0].get_title() == ""
@@ -550,7 +552,7 @@ def test_assess_transparency_detection_skips_when_no_explainers(tmp_path: Path) 
     set_output_root(config, tmp_path)
     forward = _make_detection_forward_output(num_samples=1)
 
-    explanations, visualisations = assess_transparency(
+    explanations = assess_transparency(
         config,
         _FakeModel(),  # type: ignore[arg-type]
         _FakeData(num_samples=1),  # type: ignore[arg-type]
@@ -559,4 +561,3 @@ def test_assess_transparency_detection_skips_when_no_explainers(tmp_path: Path) 
         resolved_preprocessing=None,
     )
     assert explanations == []
-    assert visualisations == []

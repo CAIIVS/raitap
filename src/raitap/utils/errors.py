@@ -115,6 +115,27 @@ class SampleNamesLengthError(RaitapError):
         super().__init__(message)
 
 
+class BackendIncompatibilityError(Exception):
+    """Raised when an adapter's algorithm needs capabilities the backend lacks.
+
+    ``missing`` is the sorted list of capability values the backend does not
+    provide (``algorithm.requires - backend.provides``).
+    """
+
+    def __init__(self, *, adapter: str, backend: str, missing: list[str]) -> None:
+        self.adapter = adapter
+        self.backend = backend
+        self.missing = missing
+        joined = ", ".join(missing) or "none"
+        # Only the autograd hint is concrete today; other capabilities (e.g. the
+        # seeded tree_model / predict_proba) have no provider yet, so don't claim one.
+        hint = " A torch backend supplies autograd." if "autograd" in missing else ""
+        super().__init__(
+            f"Adapter {adapter!r} is not compatible with backend {backend!r}.\n"
+            f"Missing capabilities: {joined}. Use a backend that provides them.{hint}"
+        )
+
+
 def resolve_diagnostic_from_traceback(
     tb: TracebackType | None,
     *,
@@ -231,6 +252,7 @@ def rethrow(
 
 __all__ = [
     "AdapterError",
+    "BackendIncompatibilityError",
     "ModelInputShapeError",
     "RaitapError",
     "SampleNamesLengthError",

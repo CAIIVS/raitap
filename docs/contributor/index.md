@@ -16,17 +16,11 @@ This section contains documentation meant to help contributors setup the dev env
 
 setup
 architecture
+capabilities
 pull-requests
 releases
 logging
-Adding an adapter <adding-an-adapter>
-Adding an algorithm <adding-an-algorithm>
-Adding a module <adding-a-module>
-Adding a task family <adding-a-task-family>
+adding/index
+modules/index
 Writing a plugin <writing-a-plugin>
-Data module <data>
-Metrics module <metrics>
-Tracking module <tracking>
-Transparency module <transparency>
-Robustness module <robustness>
 ```

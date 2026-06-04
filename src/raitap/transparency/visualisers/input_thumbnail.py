@@ -64,7 +64,7 @@ def _display_image(ax: Any, image: np.ndarray) -> None:
 
 @transparency_visualiser(
     registry_name="input_thumbnail",
-    supported_scopes=frozenset({ExplanationScope.LOCAL}),
+    supported_scopes={ExplanationScope.LOCAL},
     embeds_original_input=False,
 )
 class InputThumbnailVisualiser(BaseVisualiser):

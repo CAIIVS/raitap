@@ -41,7 +41,7 @@ def _placeholder_figure(message: str) -> Figure:
 
 @robustness_visualiser(
     registry_name="output_bounds_cohort",
-    supported_assessment_kinds=frozenset({AssessmentKind.FORMAL_VERIFICATION}),
+    supported_assessment_kinds={AssessmentKind.FORMAL_VERIFICATION},
     report_figure_scope=ReportFigureScope.ASSESSOR,
 )
 class OutputBoundsCohortVisualiser(BaseRobustnessVisualiser):

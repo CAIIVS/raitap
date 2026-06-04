@@ -19,13 +19,24 @@ CaptumImageVisualiser, CaptumTimeSeriesVisualiser, CaptumTextVisualiser
 ShapBarVisualiser, ShapBeeswarmVisualiser, ShapWaterfallVisualiser,
 ShapForceVisualiser, ShapImageVisualiser
 TabularBarChartVisualiser
+
+Module layout (for contributors):
+
+- ``phase.py`` — pipeline entry point: ``TransparencyPhase`` (what the registry
+  assembles) + the ``assess_transparency`` work fn. Start here to follow a run.
+- ``explain_detection.py`` — detection-task per-box K-loop (one result per box).
+- ``factory.py`` — builds explainer + visualiser instances from config.
+- ``results.py`` — ``ExplanationResult`` (owns its ``.visualisations``) + ``VisualisationResult``.
+- ``report.py`` — ``TransparencyPhaseResult`` + report-section builders.
+- ``explainers/`` — the XAI adapters (Captum, SHAP).
+- ``visualisers/`` — the figure renderers.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from raitap._adapters import ALL as ALL
+from raitap.utils.errors import BackendIncompatibilityError
 
 from .contracts import (
     ExplainerAdapter,
@@ -46,7 +57,6 @@ from .contracts import (
     VisualSummarySpec,
 )
 from .exceptions import (
-    ExplainerBackendIncompatibilityError,
     PayloadVisualiserIncompatibilityError,
     VisualiserIncompatibilityError,
 )
@@ -219,7 +229,7 @@ __all__ = [  # noqa: RUF022
     "infer_output_space",
     "method_families_for_explainer",
     # Domain errors
-    "ExplainerBackendIncompatibilityError",
+    "BackendIncompatibilityError",
     "PayloadVisualiserIncompatibilityError",
     "VisualiserIncompatibilityError",
     # Rest

@@ -46,7 +46,7 @@ _VERDICT_COLORS = {
 
 @robustness_visualiser(
     registry_name="verdict_summary",
-    supported_assessment_kinds=frozenset({AssessmentKind.FORMAL_VERIFICATION}),
+    supported_assessment_kinds={AssessmentKind.FORMAL_VERIFICATION},
     report_figure_scope=ReportFigureScope.ASSESSOR,
 )
 class VerdictSummaryVisualiser(BaseRobustnessVisualiser):

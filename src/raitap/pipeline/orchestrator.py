@@ -20,6 +20,7 @@ from raitap.pipeline.ui import print_summary
 from raitap.reporting import build_report, create_report, reporting_enabled
 from raitap.reporting.sample_selection import resolve_report_sample_selection
 from raitap.tracking import BaseTracker
+from raitap.utils.diagnostics import Module
 from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
@@ -76,9 +77,12 @@ def _run_pipeline(
             resolved_preprocessing=resolved_preprocessing,
             task_kind=model.backend.task_kind,
         )
-    _validate_report_sample_selection(config, data)
-    if verbose:
-        print_summary(config, model)
+        _validate_report_sample_selection(config, data)
+        # Render the summary panel inside the deferred block: it prints
+        # immediately (direct rich console), so the deferred construction logs
+        # ("Preprocessing: …") + any setup warnings replay *after* the panel.
+        if verbose:
+            print_summary(config, model)
 
     outputs = run_without_tracking(
         config,
@@ -90,7 +94,8 @@ def _run_pipeline(
     report_generation = None
     if reporting_enabled(config):
         if verbose:
-            raitap_log.info("Generating report...")
+            # Logged from the orchestrator but logically a reporting concern.
+            raitap_log.info("Generating report...", module=Module.reporting)
         report = build_report(config, outputs)
         report_generation = create_report(config=config, report=report)
 
@@ -134,7 +139,9 @@ def run_without_tracking(
     if not configured_phases:
         _raise_no_phase_configured()
 
-    raitap_log.info("Running model forward pass...")
+    # Logged from the orchestrator but logically a model operation (same pattern
+    # as the reporting log below) so the chip reads "Models", not blank/infra.
+    raitap_log.info("Running model forward pass...", module=Module.models)
     with torch.no_grad():
         forward_output = forward_pass(config, model.backend, data.tensor)
 

@@ -11,11 +11,17 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Set as AbstractSet
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from raitap.transparency.contracts import InputSpec, SampleSelection
 from raitap.transparency.semantics import infer_input_spec
+
+# Runtime import (not TYPE_CHECKING): ``Capability`` appears in the public
+# ``AssessorSemanticsHints.requires`` annotation, so ``typing.get_type_hints()``
+# must resolve it from module globals. It is a torch-free StrEnum.
+from raitap.types import Capability  # noqa: TC001
 
 from .contracts import (
     AssessmentKind,
@@ -42,8 +48,13 @@ class AssessorSemanticsHints:
     threat_model: ThreatModel
     objective: Objective
     norm: PerturbationNorm | None = None
-    families: frozenset[str] = frozenset()
+    families: AbstractSet[str] = field(default_factory=frozenset)
     default_epsilon: float | None = None
+    requires: AbstractSet[Capability] = field(default_factory=frozenset)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "families", frozenset(self.families))
+        object.__setattr__(self, "requires", frozenset(self.requires))
 
 
 _TARGET_KWARG_KEYS: frozenset[str] = frozenset(

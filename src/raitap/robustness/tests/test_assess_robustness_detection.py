@@ -16,7 +16,7 @@ import torch
 
 from raitap.configs.schema import AppConfig, RobustnessConfig
 from raitap.pipeline.outputs import ForwardOutput
-from raitap.pipeline.phases.assess_robustness import assess_robustness
+from raitap.robustness.phase import assess_robustness
 from raitap.types import TaskKind
 
 
@@ -71,10 +71,10 @@ def test_assess_robustness_detection_returns_empty_and_skips_robustness_assessme
     # Belt + suspenders: if the task-kind guard is ever removed or reordered,
     # RobustnessAssessment would be called — catch that loudly.
     with patch(
-        "raitap.pipeline.phases.assess_robustness.RobustnessAssessment",
+        "raitap.robustness.phase.RobustnessAssessment",
         side_effect=AssertionError("RobustnessAssessment must not be reached for detection"),
     ):
-        results, visualisations = assess_robustness(
+        results = assess_robustness(
             config,
             model=None,  # type: ignore[arg-type]
             data=data,  # type: ignore[arg-type]
@@ -85,4 +85,3 @@ def test_assess_robustness_detection_returns_empty_and_skips_robustness_assessme
         )
 
     assert results == [], "expected empty results for detection task"
-    assert visualisations == [], "expected empty visualisations for detection task"

@@ -15,15 +15,16 @@ else:
 
 @dataclass
 class MetricResult:
-    metrics: dict[str, float]
+    scalars: dict[str, float]
     artifacts: dict[str, Any] = field(default_factory=dict)
 
 
 def scalar_metrics_for_tracking(result: MetricResult) -> dict[str, float | int | bool]:
     """Keep only JSON-friendly scalars suitable for tracker ``log_metrics``."""
-    metrics = result.metrics
     return {
-        str(key): value for key, value in metrics.items() if isinstance(value, (int, float, bool))
+        str(key): value
+        for key, value in result.scalars.items()
+        if isinstance(value, (int, float, bool))
     }
 
 

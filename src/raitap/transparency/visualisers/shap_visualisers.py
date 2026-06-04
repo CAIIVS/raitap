@@ -508,10 +508,10 @@ class ShapForceVisualiser(BaseVisualiser):
 
 @transparency_visualiser(
     registry_name="shap_image",
-    compatible_algorithms=frozenset({"GradientExplainer", "DeepExplainer"}),
-    supported_scopes=frozenset({ExplanationScope.LOCAL}),
-    supported_output_spaces=frozenset({ExplanationOutputSpace.INPUT_FEATURES}),
-    supported_method_families=frozenset({MethodFamily.GRADIENT}),
+    compatible_algorithms={"GradientExplainer", "DeepExplainer"},
+    supported_scopes={ExplanationScope.LOCAL},
+    supported_output_spaces={ExplanationOutputSpace.INPUT_FEATURES},
+    supported_method_families={MethodFamily.GRADIENT},
     embeds_original_input=True,
 )
 class ShapImageVisualiser(BaseVisualiser):

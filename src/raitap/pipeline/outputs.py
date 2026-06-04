@@ -9,14 +9,16 @@ from raitap.types import TaskKind
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from pathlib import Path
 
     import torch
 
     from raitap.metrics import MetricsEvaluation
+    from raitap.metrics.base_metric_computer import MetricResult
     from raitap.reporting.sections import ReportContext, ReportSection
-    from raitap.robustness.results import RobustnessResult, RobustnessVisualisationResult
-    from raitap.tracking.base_tracker import BaseTracker
-    from raitap.transparency.results import ExplanationResult, VisualisationResult
+    from raitap.robustness.results import RobustnessResult
+    from raitap.tracking.base_tracker import BaseTracker, Trackable
+    from raitap.transparency.results import ExplanationResult
 
 
 @runtime_checkable
@@ -38,6 +40,44 @@ class PhaseResult(Protocol):
     def report_sections(self, ctx: ReportContext) -> Sequence[ReportSection]:
         """Return this phase's contribution as ordered report sections."""
         raise NotImplementedError
+
+
+@runtime_checkable
+class AdapterResult(Protocol):
+    """Common envelope every per-adapter assessment result implements.
+
+    Identity (config key / library class / method), provenance (``run_dir``),
+    the figures it owns (1:N), and — load-bearing for RAITAP's semantic-
+    transparency thesis — its ``semantics``. The domain *payload* (attributions
+    vs adversarial tensors vs …) is deliberately NOT part of this contract; it
+    differs per module. Metrics is a singleton (no adapter loop, no figures) and
+    does NOT implement it.
+    """
+
+    # Read-only properties (not bare attributes) so the members are covariant —
+    # a concrete result's ``semantics: ExplanationSemantics`` / ``visualisations:
+    # list[VisualisationResult]`` satisfy ``object`` / ``Sequence[Trackable]``.
+    # Dataclass fields satisfy a read-only protocol property.
+    @property
+    def name(self) -> str | None: ...
+    @property
+    def adapter_target(self) -> str: ...
+    @property
+    def algorithm(self) -> str: ...
+    @property
+    def semantics(self) -> object: ...
+    @property
+    def run_dir(self) -> Path: ...
+    @property
+    def visualisations(self) -> Sequence[Trackable]: ...
+
+
+class _RenderableResult(AdapterResult, Protocol):  # noqa: PYI046  # used as the run_adapters TypeVar bound (TYPE_CHECKING string ref)
+    """Internal: what ``run_adapters`` consumes — the envelope plus the
+    persist-and-render step it drives. ``_visualise`` is underscored because it
+    is pipeline-internal (side-effecting: writes PNGs, mutates state)."""
+
+    def _visualise(self, **kwargs: Any) -> Sequence[Trackable]: ...
 
 
 @dataclass(frozen=True)
@@ -105,30 +145,22 @@ class RunOutputs:
         return phase in self.phase_results
 
     # --- Typed convenience views (THE per-phase coupling point) -------------
-    # Ergonomic, statically-typed access to the in-tree phases' outputs. Adding
-    # a module's typed accessor = add one property block below (or skip it and
-    # use the generic ``outputs.get("<phase>")`` above). ``phase_results`` stays
-    # the source of truth; these only read from it.
+    # Ergonomic, statically-typed access to each in-tree phase's result(s):
+    # ``outputs.<phase>`` returns the result data (a list for the per-adapter
+    # families, the single ``MetricResult`` for metrics). Each per-adapter
+    # result owns its ``.visualisations``. ``phase_results`` stays the source of
+    # truth; these only read from it. Future/dynamic phases: ``outputs.get(...)``.
     @property
-    def metrics(self) -> MetricsEvaluation | None:
-        return cast("MetricsEvaluation | None", self.phase_results.get("metrics"))
+    def metrics(self) -> MetricResult | None:
+        evaluation = cast("MetricsEvaluation | None", self.phase_results.get("metrics"))
+        return evaluation.result if evaluation is not None else None
 
     @property
-    def explanations(self) -> list[ExplanationResult]:
+    def transparency(self) -> list[ExplanationResult]:
         result = self.phase_results.get("transparency")
         return list(getattr(result, "explanations", []))
 
     @property
-    def visualisations(self) -> list[VisualisationResult]:
-        result = self.phase_results.get("transparency")
-        return list(getattr(result, "visualisations", []))
-
-    @property
-    def robustness_results(self) -> list[RobustnessResult]:
+    def robustness(self) -> list[RobustnessResult]:
         result = self.phase_results.get("robustness")
         return list(getattr(result, "results", []))
-
-    @property
-    def robustness_visualisations(self) -> list[RobustnessVisualisationResult]:
-        result = self.phase_results.get("robustness")
-        return list(getattr(result, "visualisations", []))

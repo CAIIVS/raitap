@@ -17,6 +17,7 @@ from omegaconf import OmegaConf
 from raitap.models.backend import ModelBackend
 from raitap.robustness import RobustnessAssessment, RobustnessResult
 from raitap.testing import make_pixel_linear_classifier
+from raitap.types import Capability
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -26,9 +27,10 @@ if TYPE_CHECKING:
 
 
 class _BackendStub(ModelBackend):
+    provides = frozenset({Capability.AUTOGRAD})
+
     def __init__(self, model: torch.nn.Module) -> None:
         self._model = model
-        self.supports_torch_autograd = True
 
     @property
     def hardware_label(self) -> str:

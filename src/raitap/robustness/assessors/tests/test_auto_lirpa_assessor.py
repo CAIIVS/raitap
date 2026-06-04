@@ -16,7 +16,8 @@ from raitap.robustness.contracts import (
     PerturbationNorm,
     RobustnessVerdict,
 )
-from raitap.robustness.exceptions import AssessorBackendIncompatibilityError
+from raitap.types import Capability
+from raitap.utils.errors import BackendIncompatibilityError
 
 # ---------------------------------------------------------------------------
 # auto_LiRPA fake module
@@ -79,14 +80,14 @@ class _IdentityModel(torch.nn.Module):
 
 
 class _TorchBackend:
-    supports_torch_autograd = True
+    provides = frozenset({Capability.AUTOGRAD})
 
     def __init__(self, device_type: str = "cpu") -> None:
         self.device = torch.device(device_type)
 
 
 class _OnnxBackend:
-    supports_torch_autograd = False
+    provides = frozenset()
 
 
 def _linf_budget(eps: float = 0.05) -> PerturbationBudget:
@@ -269,7 +270,7 @@ def test_epsilon_falls_back_to_constructor_when_budget_eps_none(fake_lirpa: _Lir
 
 
 def test_check_backend_compat_rejects_onnx_backend() -> None:
-    with pytest.raises(AssessorBackendIncompatibilityError, match="autograd"):
+    with pytest.raises(BackendIncompatibilityError, match="autograd"):
         AutoLiRPAAssessor().check_backend_compat(_OnnxBackend())
 
 

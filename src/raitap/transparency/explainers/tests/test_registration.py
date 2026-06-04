@@ -20,7 +20,7 @@ def test_transparency_adapter_registers_and_assigns_classvars() -> None:
         registry_name="_stub_xai",
         extra="_stub_extra",
         library="_stub_lib",
-        algorithm_registry={"alg": ExplainerSemanticsHints(frozenset({MethodFamily.GRADIENT}))},
+        algorithm_registry={"alg": ExplainerSemanticsHints({MethodFamily.GRADIENT})},
     )
     class _StubExplainer(AttributionOnlyExplainer):
         def __init__(self, algorithm: str):

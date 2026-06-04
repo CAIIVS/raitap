@@ -32,7 +32,7 @@ def test_robustness_adapter_registers_under_robustness_group() -> None:
                 ThreatModel.WHITE_BOX,
                 Objective.UNTARGETED,
                 PerturbationNorm.LINF,
-                families=frozenset({"stub"}),
+                families={"stub"},
             ),
         },
     )
@@ -77,7 +77,7 @@ def test_budget_kwarg_source_via_decorator() -> None:
                 ThreatModel.WHITE_BOX,
                 Objective.UNTARGETED,
                 PerturbationNorm.LINF,
-                families=frozenset({"i"}),
+                families={"i"},
             ),
         },
     )

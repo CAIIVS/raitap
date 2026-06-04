@@ -138,14 +138,18 @@ def _run_outputs(
     if metrics is not None:
         phase_results["metrics"] = metrics
     if explanations or visualisations:
+        # Visualisations now live on their owning result (issue #243); attach each
+        # to its back-referenced explanation so the derived phase view flattens them.
+        for visualisation in visualisations or []:
+            visualisation.explanation.visualisations.append(visualisation)
         phase_results["transparency"] = TransparencyPhaseResult(
             explanations=list(explanations or []),
-            visualisations=list(visualisations or []),
         )
     if robustness_results or robustness_visualisations:
+        for visualisation in robustness_visualisations or []:
+            visualisation.result.visualisations.append(visualisation)
         phase_results["robustness"] = RobustnessPhaseResult(
             results=list(robustness_results or []),
-            visualisations=list(robustness_visualisations or []),
         )
     return RunOutputs(
         forward_output=forward_output,
@@ -357,9 +361,9 @@ def _make_robustness_result(
         ),
         run_dir=tmp_path / "robustness" / assessor_name,
         experiment_name="robustness",
-        assessor_target="t",
+        adapter_target="t",
         algorithm="FGSM",
-        assessor_name=assessor_name,
+        name=assessor_name,
         perturbed_inputs=(clean + 0.03).clamp(0.0, 1.0),
         perturbed_predictions=torch.arange(batch_size) + 1,
         perturbation_distance=torch.full((batch_size,), 0.03),
@@ -379,10 +383,10 @@ def test_build_report_orders_sections_and_ranks_samples(tmp_path: Path) -> None:
         inputs=torch.rand(3, 1, 4, 4),
         run_dir=tmp_path / "transparency" / "exp",
         experiment_name="demo",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
         semantics=_local_image_semantics((3, 1, 4, 4)),
-        explainer_name="captum_ig",
+        name="captum_ig",
         kwargs={"sample_names": ["a", "b", "c"], "show_sample_names": True},
         visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
     )
@@ -484,10 +488,10 @@ def test_build_report_skips_global_section_for_local_only_outputs(tmp_path: Path
         inputs=torch.rand(3, 1, 4, 4),
         run_dir=tmp_path / "transparency" / "exp",
         experiment_name="local_only",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
         semantics=_local_image_semantics((3, 1, 4, 4)),
-        explainer_name="captum_ig",
+        name="captum_ig",
         visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
     )
     outputs = _run_outputs(
@@ -520,10 +524,10 @@ def test_build_report_places_aggregated_visualisations_between_global_and_local(
         inputs=torch.rand(2, 1, 4, 4),
         run_dir=tmp_path / "transparency" / "exp",
         experiment_name="aggregated",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
         semantics=_local_image_semantics((2, 1, 4, 4)),
-        explainer_name="captum_ig",
+        name="captum_ig",
         visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
     )
     native_aggregated_path = _write_test_image(tmp_path / "native_aggregated.png")
@@ -567,10 +571,10 @@ def test_build_report_local_assets_are_staged_and_closed(tmp_path: Path) -> None
         inputs=torch.rand(3, 1, 4, 4),
         run_dir=tmp_path / "transparency" / "exp",
         experiment_name="local_assets",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
         semantics=_local_image_semantics((3, 1, 4, 4)),
-        explainer_name="captum_ig",
+        name="captum_ig",
         kwargs={"sample_names": ["a", "b", "c"], "show_sample_names": True},
         visualisers=[ConfiguredVisualiser(visualiser=visualiser)],
     )
@@ -636,10 +640,10 @@ def test_build_report_compact_local_thumbnail_titles_are_stripped(
         inputs=torch.rand(1, 1, 4, 4),
         run_dir=tmp_path / "transparency" / "exp",
         experiment_name="compact_thumbnail_titles",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
         semantics=_local_image_semantics((1, 1, 4, 4)),
-        explainer_name="captum_ig",
+        name="captum_ig",
         visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
     )
     outputs = _run_outputs(
@@ -673,10 +677,10 @@ def test_build_report_compact_mode_omits_repeated_original_for_capable_visualise
         inputs=torch.rand(1, 1, 4, 4),
         run_dir=tmp_path / "transparency" / "exp",
         experiment_name="compact",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
         semantics=_local_image_semantics((1, 1, 4, 4)),
-        explainer_name="captum_ig",
+        name="captum_ig",
         visualisers=[
             ConfiguredVisualiser(visualiser=compact_visualiser),
             ConfiguredVisualiser(visualiser=masked_visualiser),
@@ -730,7 +734,7 @@ def test_build_report_local_explainer_group_includes_curated_transparency_rows(
         inputs=torch.rand(2, 3, 4, 4),
         run_dir=tmp_path / "transparency" / "gradcam",
         experiment_name="transparency_rows",
-        explainer_target="raitap.transparency.CaptumExplainer",
+        adapter_target="raitap.transparency.CaptumExplainer",
         algorithm="LayerGradCam",
         semantics=_local_image_semantics(
             (2, 3, 4, 4),
@@ -741,7 +745,7 @@ def test_build_report_local_explainer_group_includes_curated_transparency_rows(
             layer_path="1.layer4.2.conv3",
             requires_interpolation=True,
         ),
-        explainer_name="gradcam_localisation",
+        name="gradcam_localisation",
         call_kwargs={"relu_attributions": True},
         visualisers=[
             ConfiguredVisualiser(
@@ -824,10 +828,10 @@ def test_build_report_show_original_per_explainer_uses_legacy_local_layout(
         inputs=torch.rand(2, 1, 4, 4),
         run_dir=tmp_path / "transparency" / "exp",
         experiment_name="legacy_originals",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
         semantics=_local_image_semantics((2, 1, 4, 4)),
-        explainer_name="captum_ig",
+        name="captum_ig",
         kwargs={"sample_names": ["legacy-a", "legacy-b"], "show_sample_names": True},
         visualisers=[ConfiguredVisualiser(visualiser=visualiser)],
     )
@@ -865,10 +869,10 @@ def test_build_report_thumbnail_uses_first_compatible_explanation_in_order(
         inputs=torch.rand(1, 1, 4, 4),
         run_dir=tmp_path / "transparency" / "image",
         experiment_name="thumbnail_fallback",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
         semantics=_local_image_semantics((1, 1, 4, 4)),
-        explainer_name="image_exp",
+        name="image_exp",
         visualisers=[ConfiguredVisualiser(visualiser=image_visualiser)],
     )
     tabular_explanation = ExplanationResult(
@@ -876,10 +880,10 @@ def test_build_report_thumbnail_uses_first_compatible_explanation_in_order(
         inputs=torch.rand(1, 4),
         run_dir=tmp_path / "transparency" / "tabular",
         experiment_name="thumbnail_fallback",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
         semantics=_local_tabular_semantics((1, 4)),
-        explainer_name="tabular_exp",
+        name="tabular_exp",
         visualisers=[ConfiguredVisualiser(visualiser=tabular_visualiser)],
     )
     outputs = _run_outputs(
@@ -936,10 +940,10 @@ def test_build_report_thumbnail_falls_back_to_later_explanation_after_runtime_er
         inputs=torch.rand(1, 1, 4, 4),
         run_dir=tmp_path / "transparency" / "first",
         experiment_name="thumbnail_multi_fallback",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
         semantics=_local_image_semantics((1, 1, 4, 4)),
-        explainer_name="first_exp",
+        name="first_exp",
         visualisers=[ConfiguredVisualiser(visualiser=_EmbeddedOriginalVisualiser())],
     )
     second_explanation = ExplanationResult(
@@ -947,10 +951,10 @@ def test_build_report_thumbnail_falls_back_to_later_explanation_after_runtime_er
         inputs=torch.rand(1, 1, 4, 4),
         run_dir=tmp_path / "transparency" / "second",
         experiment_name="thumbnail_multi_fallback",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
         semantics=_local_image_semantics((1, 1, 4, 4)),
-        explainer_name="second_exp",
+        name="second_exp",
         visualisers=[ConfiguredVisualiser(visualiser=_EmbeddedOriginalVisualiser())],
     )
     outputs = _run_outputs(
@@ -987,10 +991,10 @@ def test_build_report_thumbnail_failure_falls_back_for_that_sample_only(
         inputs=torch.rand(1, 4),
         run_dir=tmp_path / "transparency" / "tabular",
         experiment_name="thumbnail_fallback",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
         semantics=_local_tabular_semantics((1, 4)),
-        explainer_name="tabular_exp",
+        name="tabular_exp",
         visualisers=[ConfiguredVisualiser(visualiser=visualiser)],
     )
     outputs = _run_outputs(
@@ -1034,10 +1038,10 @@ def test_build_report_thumbnail_runtime_failure_logs_traceback_and_falls_back(
         inputs=torch.rand(1, 1, 4, 4),
         run_dir=tmp_path / "transparency" / "exp",
         experiment_name="thumbnail_runtime_fallback",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
         semantics=_local_image_semantics((1, 1, 4, 4)),
-        explainer_name="captum_ig",
+        name="captum_ig",
         visualisers=[ConfiguredVisualiser(visualiser=visualiser)],
     )
     outputs = _run_outputs(
@@ -1084,10 +1088,10 @@ def test_build_report_thumbnail_programmer_error_is_not_swallowed(
         inputs=torch.rand(1, 1, 4, 4),
         run_dir=tmp_path / "transparency" / "exp",
         experiment_name="thumbnail_programmer_error",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
         semantics=_local_image_semantics((1, 1, 4, 4)),
-        explainer_name="captum_ig",
+        name="captum_ig",
         visualisers=[ConfiguredVisualiser(visualiser=_EmbeddedOriginalVisualiser())],
     )
     outputs = _run_outputs(
@@ -1286,7 +1290,7 @@ def test_build_report_skips_local_groups_when_no_local_visualisations(tmp_path: 
         inputs=torch.rand(2, 1, 4, 4),
         run_dir=tmp_path / "transparency" / "exp",
         experiment_name="no_local",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
         semantics=_local_image_semantics((2, 1, 4, 4)),
         visualisers=[ConfiguredVisualiser(visualiser=_GlobalOnlyVisualiser())],
@@ -1623,10 +1627,10 @@ def test_report_manifest_round_trip_preserves_relative_images(tmp_path: Path) ->
         inputs=torch.rand(2, 1, 4, 4),
         run_dir=tmp_path / "transparency" / "exp",
         experiment_name="demo",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
         semantics=_local_image_semantics((2, 1, 4, 4)),
-        explainer_name="captum_ig",
+        name="captum_ig",
         visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
     )
     outputs = _run_outputs(
@@ -2100,10 +2104,10 @@ def _explicit_selection_case(
         inputs=torch.rand(len(ids), 1, 4, 4),
         run_dir=tmp_path / "transparency" / "exp",
         experiment_name="explicit_selection",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
         semantics=_local_image_semantics((len(ids), 1, 4, 4)),
-        explainer_name="captum_ig",
+        name="captum_ig",
         kwargs={"sample_names": ids, "show_sample_names": True},
         visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
     )
@@ -2216,9 +2220,9 @@ def test_build_report_sampling_result_renders_without_error(tmp_path: Path) -> N
         ),
         run_dir=tmp_path / "robustness" / "fog",
         experiment_name="sampling_test",
-        assessor_target="t",
+        adapter_target="t",
         algorithm="fog",
-        assessor_name="fog",
+        name="fog",
         semantics=semantics,
         visualisers=[],
     )
@@ -2266,9 +2270,9 @@ def test_build_report_assessor_scope_figure_recorded_in_metadata(tmp_path: Path)
         metrics=RobustnessMetrics(clean_accuracy=1.0, corrupted_accuracy=0.5, n_samples=2),
         run_dir=tmp_path / "robustness" / "fog",
         experiment_name="sampling_scope",
-        assessor_target="t",
+        adapter_target="t",
         algorithm="fog",
-        assessor_name="fog",
+        name="fog",
         semantics=semantics,
         visualisers=[
             ConfiguredRobustnessVisualiser(visualiser=_AssessorScopeSamplingVisualiser()),
@@ -2335,9 +2339,9 @@ def test_transparency_table_rows_include_baseline_and_hide_opaque_kwarg(tmp_path
         inputs=torch.rand(1, 1, 4, 4),
         run_dir=tmp_path / "exp",
         experiment_name="demo",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="GradientExplainer",
-        explainer_name="shap_grad",
+        name="shap_grad",
         semantics=_local_image_semantics((1, 1, 4, 4)),
         # Small tensor (numel == 4) so it WOULD render as call.background_data
         # without suppression — proving the suppression branch is exercised.
@@ -2456,9 +2460,9 @@ def test_build_report_attaches_baseline_image_once_per_explanation(tmp_path: Pat
         inputs=torch.rand(1, 1, 4, 4),
         run_dir=run_dir,
         experiment_name="bl",
-        explainer_target="t",
+        adapter_target="t",
         algorithm="IntegratedGradients",
-        explainer_name="captum_ig",
+        name="captum_ig",
         semantics=_local_image_semantics((1, 1, 4, 4)),
         visualisers=[
             ConfiguredVisualiser(visualiser=_LocalImageVisualiser()),

@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 @robustness_visualiser(
     registry_name="image_pair",
-    supported_assessment_kinds=frozenset({AssessmentKind.EMPIRICAL_ATTACK}),
+    supported_assessment_kinds={AssessmentKind.EMPIRICAL_ATTACK},
     embeds_clean_input=True,
     embeds_perturbation_map=True,
 )
