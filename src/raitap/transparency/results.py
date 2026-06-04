@@ -144,7 +144,7 @@ class ExplanationResult(Trackable):
     call_kwargs: dict[str, Any] = field(default_factory=dict)
     visualiser_targets: list[str] = field(default_factory=list)
     visualisers: list[ConfiguredVisualiser] = field(default_factory=list, repr=False)
-    # The visualisations this explanation owns (1:N). Populated by ``visualise()``;
+    # The visualisations this explanation owns (1:N). Populated by ``_visualise()``;
     # ``compare=False``/``repr=False`` because each ``VisualisationResult`` back-references
     # this result, so the default dataclass ``__eq__``/``__repr__`` would recurse.
     visualisations: list[VisualisationResult] = field(

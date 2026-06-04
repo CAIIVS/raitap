@@ -86,7 +86,7 @@ class AssessmentPhase(ABC):
     """One deliverable-producing phase: a configured-check plus a run step.
 
     Concrete phases live in their owning module (e.g. ``TransparencyPhase`` in
-    ``transparency/report.py``) and are registered in
+    ``transparency/phase.py``) and are registered in
     :data:`raitap.pipeline.phases.registry.ASSESSMENT_PHASES`.
     """
 

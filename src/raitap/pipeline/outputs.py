@@ -59,17 +59,28 @@ class AdapterResult(Protocol):
     # list[VisualisationResult]`` satisfy ``object`` / ``Sequence[Trackable]``.
     # Dataclass fields satisfy a read-only protocol property.
     @property
-    def name(self) -> str | None: ...
+    def name(self) -> str | None:
+        raise NotImplementedError
+
     @property
-    def adapter_target(self) -> str: ...
+    def adapter_target(self) -> str:
+        raise NotImplementedError
+
     @property
-    def algorithm(self) -> str: ...
+    def algorithm(self) -> str:
+        raise NotImplementedError
+
     @property
-    def semantics(self) -> object: ...
+    def semantics(self) -> object:
+        raise NotImplementedError
+
     @property
-    def run_dir(self) -> Path: ...
+    def run_dir(self) -> Path:
+        raise NotImplementedError
+
     @property
-    def visualisations(self) -> Sequence[Trackable]: ...
+    def visualisations(self) -> Sequence[Trackable]:
+        raise NotImplementedError
 
 
 class _RenderableResult(AdapterResult, Protocol):  # noqa: PYI046  # used as the run_adapters TypeVar bound (TYPE_CHECKING string ref)
@@ -77,7 +88,8 @@ class _RenderableResult(AdapterResult, Protocol):  # noqa: PYI046  # used as the
     persist-and-render step it drives. ``_visualise`` is underscored because it
     is pipeline-internal (side-effecting: writes PNGs, mutates state)."""
 
-    def _visualise(self, **kwargs: Any) -> Sequence[Trackable]: ...
+    def _visualise(self, **kwargs: Any) -> Sequence[Trackable]:
+        raise NotImplementedError
 
 
 @dataclass(frozen=True)

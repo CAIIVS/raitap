@@ -4,8 +4,9 @@ Certified L∞ robustness via `AutoLiRPAAssessor` (CROWN bound propagation),
 rendered to an HTML report (verdict summary + certified output bounds). It is a
 **Python script** (`assessment.py`), not a YAML config — see below.
 
-At the default epsilon you get a genuine **VERIFIED / UNKNOWN mix** (~half each):
-the report actually shows certified-robust samples, not a wall of `UNKNOWN`.
+At the default epsilon (`0.0015`) the report certifies **31 of 32** samples with
+one `UNKNOWN`: a genuine VERIFIED / UNKNOWN mix with a real failure, not a wall of
+`UNKNOWN` and not a trivially-everything-passes run.
 
 ## Why it trains a tiny net on a synthetic dataset
 
@@ -20,11 +21,19 @@ To stay self-contained it synthesises a tiny labelled dataset (4 colour classes,
 3×32×32, written as PNGs + `labels.csv` under `~/.cache/raitap/auto_lirpa_demo/`)
 and trains a small net on it in a few hundred steps.
 
-## Why a tiny custom CNN (not ResNet / VGG)
+## Why a tiny custom *residual* CNN (not ResNet / VGG)
 
-auto-LiRPA verifies a *plain* `nn.Module`: conv / ReLU / linear with
-**non-overlapping** pools (`stride == kernel_size`) and **no Dropout**.
-Off-the-shelf torchvision ImageNet models trip its bound-graph converter:
+The net is deliberately small but architecturally non-trivial: a **residual** CNN
+with skip connections (element-wise `Add`), `BatchNorm2d`, and 3→16→32 channel
+widening — a richer graph than a plain conv stack, exercising the branching/
+normalised ops auto-LiRPA's bound propagators support, which the Marabou MLP demo
+can't. Formal verification caps model *size* intrinsically (see below), so the
+point is graph richness, not scale.
+
+The supported op set: conv / `BatchNorm2d` / ReLU / **non-overlapping** MaxPool
+(`stride == kernel_size`) / residual `Add` / linear — **no Dropout, no
+overlapping pool**. Off-the-shelf torchvision ImageNet models trip its
+bound-graph converter:
 
 | Model | Blocker |
 | --- | --- |
@@ -82,10 +91,13 @@ The HTML report lands under `outputs/<date>/<time>/reports/report.html`.
 
 ## Knobs (edit `assessment.py`)
 
-- `epsilon` — perturbation radius. `0.025` gives the even VERIFIED/UNKNOWN
-  split; raise it for more `UNKNOWN`, lower it (e.g. `0.005`) to verify (almost)
-  everything. Sound + incomplete → never `FALSIFIED`.
+- `epsilon` — perturbation radius. `0.0015` certifies 31/32 (one `UNKNOWN`);
+  raise it for more `UNKNOWN` (`~0.002` halves it, `~0.01` quarters it), lower it
+  to verify everything. The richer residual net loosens CROWN bounds, so it needs
+  a smaller radius than a plain conv stack. Sound + incomplete → never
+  `FALSIFIED`.
 - `algorithm` — `crown` (tight, default) / `ibp` (cheap, much looser) /
   `crown-ibp` (L∞) or `crown-l2` (L2).
-- `TinyVerifiableNet` — keep it to conv / ReLU / non-overlapping pool / linear;
-  adding Dropout or an overlapping MaxPool will break bound propagation.
+- `TinyVerifiableNet` / `ResidualBlock` — keep them to conv / `BatchNorm2d` /
+  ReLU / non-overlapping pool / residual `Add` / linear; adding Dropout or an
+  overlapping MaxPool will break bound propagation.

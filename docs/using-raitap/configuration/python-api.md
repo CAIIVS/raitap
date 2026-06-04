@@ -167,5 +167,5 @@ for eps in (0.01, 0.03, 0.06, 0.1):
 
 for eps, outputs in results:
     metrics = outputs.get("metrics")
-    print(eps, metrics.result.metrics if metrics else None)
+    print(eps, metrics.result.scalars if metrics else None)
 ```
