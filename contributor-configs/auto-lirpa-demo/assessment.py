@@ -8,11 +8,9 @@ verify (everything lands `UNKNOWN`). So, like auto-LiRPA's own CIFAR/MNIST
 examples, this demo **trains** a tiny verifiable net first.
 
 To stay self-contained it synthesises a tiny labelled dataset (4 colour classes,
-3x32x32), trains a small **residual** CNN on it — conv / BatchNorm / ReLU +
-non-overlapping MaxPool + residual (skip-connection) Add + linear, all in the op
-set auto-LiRPA's bound propagators support (no overlapping pool, no Dropout) —
-then runs the raitap pipeline with CROWN bound propagation and emits an HTML
-report.
+3x32x32), trains a small conv/ReLU/MaxPool/linear net on it (the op set
+auto-LiRPA's bound propagators support — no overlapping pool, no Dropout), then
+runs the raitap pipeline with CROWN bound propagation and emits an HTML report.
 At the chosen epsilon you get a genuine VERIFIED/UNKNOWN mix (raise epsilon for
 more UNKNOWN, lower it for more VERIFIED). Sound + incomplete → never FALSIFIED.
 
@@ -61,69 +59,24 @@ _BASE_COLOURS = torch.tensor(
 )
 
 
-class ResidualBlock(nn.Module):
-    """Two 3x3 conv / BatchNorm / ReLU layers with an identity skip connection.
-
-    The skip is an **element-wise add** (``out + x``) — the branching-graph op
-    that makes this architecture a genuine residual net rather than a plain
-    stack. auto-LiRPA's whole purpose is bound propagation over ResNets, so
-    ``Add`` and ``BatchNorm2d`` are in its supported set (the only torchvision
-    blocker is the *overlapping* maxpool stem, not the residual structure). The
-    block keeps channels constant so the skip needs no projection conv.
-    """
-
-    def __init__(self, channels: int) -> None:
-        super().__init__()
-        self.conv1 = nn.Conv2d(channels, channels, 3, padding=1)
-        self.bn1 = nn.BatchNorm2d(channels)
-        self.conv2 = nn.Conv2d(channels, channels, 3, padding=1)
-        self.bn2 = nn.BatchNorm2d(channels)
-        self.relu = nn.ReLU()
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        out = self.relu(self.bn1(self.conv1(x)))
-        out = self.bn2(self.conv2(out))
-        return self.relu(out + x)  # element-wise residual add.
-
-
 class TinyVerifiableNet(nn.Module):
-    """A small **residual** CNN over auto-LiRPA's supported op set.
-
-    Conv / BatchNorm / ReLU + non-overlapping ``MaxPool(k=2, s=2)`` + residual
-    ``Add`` + linear — a richer architecture than a plain conv stack (skip
-    connections + normalisation + 3→16→32 channel widening) that still stays
-    entirely within what auto-LiRPA's bound propagators handle. The point is to
-    show the verifier coping with a ResNet-style graph the Marabou MLP demo
-    can't, not to be large (formal verification caps model size intrinsically).
-    ``3x32x32 -> num_classes``.
-    """
+    """Conv / ReLU + non-overlapping ``MaxPool(k=2, s=2)`` + linear — the op set
+    auto-LiRPA's bound propagators support. ``3x32x32 -> num_classes``."""
 
     def __init__(self, num_classes: int = _NUM_CLASSES) -> None:
         super().__init__()
-        self.stem = nn.Sequential(
-            nn.Conv2d(3, 16, 3, padding=1),
-            nn.BatchNorm2d(16),
+        self.features = nn.Sequential(
+            nn.Conv2d(3, 8, 3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2),  # 32 -> 16
-        )
-        self.block1 = ResidualBlock(16)
-        self.down = nn.Sequential(
-            nn.Conv2d(16, 32, 3, padding=1),
-            nn.BatchNorm2d(32),
+            nn.Conv2d(8, 8, 3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2),  # 16 -> 8
         )
-        self.block2 = ResidualBlock(32)
-        self.pool = nn.MaxPool2d(2)  # 8 -> 4
-        self.classifier = nn.Sequential(nn.Flatten(), nn.Linear(32 * 4 * 4, num_classes))
+        self.classifier = nn.Sequential(nn.Flatten(), nn.Linear(8 * 8 * 8, num_classes))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.stem(x)
-        x = self.block1(x)
-        x = self.down(x)
-        x = self.block2(x)
-        x = self.pool(x)
-        return self.classifier(x)
+        return self.classifier(self.features(x))
 
 
 def _synthesise_dataset() -> tuple[torch.Tensor, torch.Tensor]:
@@ -163,9 +116,7 @@ def _prepare_model() -> None:
     torch.manual_seed(0)
     model = TinyVerifiableNet()
     optimiser = torch.optim.Adam(model.parameters(), lr=1e-2)
-    # Deeper residual net + BatchNorm needs a few more steps than a 2-conv stack;
-    # still tiny + separable → overfits to confident predictions.
-    for _ in range(400):
+    for _ in range(150):  # tiny + separable → overfits to confident predictions.
         optimiser.zero_grad()
         loss = nn.functional.cross_entropy(model(inputs), targets)
         loss.backward()
@@ -178,10 +129,6 @@ def _prepare_model() -> None:
 
 def build_config() -> AppConfig:
     return AppConfig(
-        # auto-LiRPA has no *official* Intel XPU support, but its bound
-        # propagators run fine on the XPU backend in practice for this op set.
-        # If you hit "operator not implemented for XPU", fall back to
-        # Hardware.cpu (bounds are device-independent, so verdicts are identical).
         hardware=Hardware.gpu,
         experiment_name="auto-lirpa-demo",
         model=ModelConfig(source=str(_MODEL_PATH)),
@@ -197,16 +144,12 @@ def build_config() -> AppConfig:
         ),
         metrics=multiclass_classification(num_classes=_NUM_CLASSES),
         robustness={
-            # CROWN bounds loosen with depth + residual terms, so this richer
-            # residual net needs a smaller radius than a 2-conv stack to keep a
-            # genuine VERIFIED/UNKNOWN mix. epsilon=0.0015 certifies 31/32 with
-            # one UNKNOWN: enough of a real failure to show the verifier isn't
-            # trivially passing everything, at a radius that isn't suspiciously
-            # tiny. Raise it for more UNKNOWN (~0.002 halves it, ~0.01 quarters
-            # it); lower it to verify everything.
+            # CROWN gives tight enough bounds to certify the confident samples.
+            # epsilon=0.025 lands a roughly even VERIFIED/UNKNOWN split — raise it
+            # for more UNKNOWN, lower it (e.g. 0.005) to verify (almost) everything.
             "auto_lirpa_crown": auto_lirpa(
                 algorithm="crown",
-                constructor={"epsilon": 0.0015},
+                constructor={"epsilon": 0.025},
                 visualisers=[
                     # verdict_summary: VERIFIED/UNKNOWN counts over all samples.
                     # pinned: per-sample certified intervals — the interleaved batch
