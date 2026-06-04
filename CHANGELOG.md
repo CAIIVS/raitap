@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.2](https://github.com/CAIIVS/raitap/compare/v0.13.1...v0.13.2) (2026-06-04)
+
+
+### Internal code refactoring
+
+* **misc:** phase-driven outputs, tracking & reporting ([#239](https://github.com/CAIIVS/raitap/issues/239)) ([#242](https://github.com/CAIIVS/raitap/issues/242)) ([de1d1bc](https://github.com/CAIIVS/raitap/commit/de1d1bcc2b30e9127e9c4fd85c92305fc16a26fa))
+
 ## [0.13.1](https://github.com/CAIIVS/raitap/compare/v0.13.0...v0.13.1) (2026-06-02)
 
 
