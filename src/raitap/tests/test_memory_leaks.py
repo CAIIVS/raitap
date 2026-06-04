@@ -178,8 +178,7 @@ def test_run_without_tracking_forward_output_is_cpu_and_detached() -> None:
     ):
         outputs = _run_without_tracking(config, model, data)
 
-    predictions_tensor = outputs.forward_output.predictions_tensor
-    assert predictions_tensor is not None
+    predictions_tensor = outputs.forward_output.as_classification()
     assert not predictions_tensor.requires_grad, "forward_output tensor must be detached"
     assert predictions_tensor.device.type == "cpu", "forward_output tensor must be on CPU"
 

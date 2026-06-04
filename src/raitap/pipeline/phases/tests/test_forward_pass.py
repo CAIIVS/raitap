@@ -122,8 +122,7 @@ def test_detection_forward_ragged_list_returns_correct_length() -> None:
 
     assert result.task_kind is TaskKind.detection
     assert result.batch_size == 2
-    assert result.detection_predictions is not None
-    assert len(result.detection_predictions) == 2
+    assert len(result.as_detection()) == 2
 
 
 def test_detection_forward_backend_receives_list_of_tensors() -> None:
@@ -158,8 +157,7 @@ def test_detection_forward_chunked_across_batch_size() -> None:
     result = forward_pass(config, backend, inputs)
 
     assert result.batch_size == 3
-    assert result.detection_predictions is not None
-    assert len(result.detection_predictions) == 3
+    assert len(result.as_detection()) == 3
     # Three separate chunks were passed to the model
     assert len(backend.received_inputs) == 3
 
@@ -176,8 +174,7 @@ def test_detection_forward_predictions_are_cpu_detached() -> None:
 
     result = forward_pass(config, backend, inputs)
 
-    assert result.detection_predictions is not None
-    for sample_dict in result.detection_predictions:
+    for sample_dict in result.as_detection():
         for tensor in sample_dict.values():
             assert tensor.device.type == "cpu"
 
@@ -198,8 +195,7 @@ def test_classification_forward_dense_tensor_unchanged() -> None:
 
     assert result.task_kind is TaskKind.classification
     assert result.batch_size == 4
-    assert result.predictions_tensor is not None
-    assert result.predictions_tensor.shape == (4, 10)
+    assert result.as_classification().shape == (4, 10)
 
 
 def test_classification_forward_chunked_regression() -> None:
@@ -213,8 +209,7 @@ def test_classification_forward_chunked_regression() -> None:
 
     assert result.task_kind is TaskKind.classification
     assert result.batch_size == 6
-    assert result.predictions_tensor is not None
-    assert result.predictions_tensor.shape == (6, 5)
+    assert result.as_classification().shape == (6, 5)
 
 
 # ---------------------------------------------------------------------------

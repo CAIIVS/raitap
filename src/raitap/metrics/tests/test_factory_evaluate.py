@@ -162,7 +162,7 @@ def test_evaluate_metrics_dispatches_detection_metrics_on_forward_output(
     forward = ForwardOutput(
         task_kind=TaskKind.detection,
         batch_size=1,
-        detection_predictions=detection_predictions,
+        payload=detection_predictions,
     )
 
     result = evaluate_metrics(cfg, forward, labels)
@@ -183,7 +183,7 @@ def test_evaluate_metrics_skips_detection_without_labels(tmp_path: Path) -> None
     forward = ForwardOutput(
         task_kind=TaskKind.detection,
         batch_size=1,
-        detection_predictions=[
+        payload=[
             {
                 "boxes": torch.zeros(0, 4),
                 "scores": torch.zeros(0),

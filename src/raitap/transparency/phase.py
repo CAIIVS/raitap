@@ -111,7 +111,7 @@ def assess_transparency(
     # task kinds we skip the rewriting and let the explainer use its
     # configured target as-is.
     predictions_tensor = (
-        forward_output.predictions_tensor
+        forward_output.as_classification()
         if forward_output.task_kind is TaskKind.classification
         else None
     )

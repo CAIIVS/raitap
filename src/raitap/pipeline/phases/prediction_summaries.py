@@ -38,8 +38,7 @@ def prediction_summaries(
         # Detection / regression / etc. don't have a "predicted class +
         # confidence" concept per sample. Reporting handles empty.
         return ()
-    predictions_tensor = forward_output.predictions_tensor
-    assert predictions_tensor is not None  # invariant from ForwardOutput.__post_init__
+    predictions_tensor = forward_output.as_classification()
     if predictions_tensor.ndim != 2 or predictions_tensor.shape[1] < 2:
         return ()
 

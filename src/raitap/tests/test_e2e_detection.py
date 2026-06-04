@@ -148,8 +148,7 @@ def test_detection_pipeline_e2e_via_fasterrcnn_mobilenet(tmp_path: Path) -> None
     outputs = run_without_tracking(config, model, data)
 
     assert outputs.forward_output.task_kind is TaskKind.detection
-    assert outputs.forward_output.detection_predictions is not None
-    assert len(outputs.forward_output.detection_predictions) == 1
+    assert len(outputs.forward_output.as_detection()) == 1
 
     assert outputs.metrics is not None
     metrics_evaluation = cast("MetricsEvaluation", outputs.phase_results["metrics"])

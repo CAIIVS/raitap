@@ -52,10 +52,10 @@ def evaluate_metrics(
 ) -> MetricsEvaluation | None:
     """Run metrics on ``forward_output`` if configured; else return ``None``.
 
-    Classification path reads ``forward_output.predictions_tensor`` and threads
+    Classification path reads ``forward_output.as_classification()`` and threads
     it through ``metrics_prediction_pair`` + ``resolve_metric_targets`` (the
     existing fallback-to-argmax pipeline). Detection path passes
-    ``forward_output.detection_predictions`` straight to the configured metric
+    ``forward_output.as_detection()`` straight to the configured metric
     adapter (e.g. ``DetectionMetrics``); targets must be a ``list[dict]`` from
     the D22 detection label loader.
 
@@ -71,8 +71,7 @@ def evaluate_metrics(
     raitap_log.info("Computing metrics...")
 
     if forward_output.task_kind is TaskKind.detection:
-        detection_predictions = forward_output.detection_predictions
-        assert detection_predictions is not None
+        detection_predictions = forward_output.as_detection()
         if labels is None:
             raitap_log.warn(
                 "Detection metrics require dataset labels "
@@ -94,8 +93,7 @@ def evaluate_metrics(
         )
         return None
 
-    predictions_tensor = forward_output.predictions_tensor
-    assert predictions_tensor is not None
+    predictions_tensor = forward_output.as_classification()
     if (
         getattr(config.metrics, "num_classes", None) is None
         and predictions_tensor.ndim == 2

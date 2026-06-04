@@ -42,7 +42,7 @@ def _fo(tensor: torch.Tensor) -> _ForwardOutput:
     return _ForwardOutput(
         task_kind=_TaskKind.classification,
         batch_size=int(tensor.shape[0]) if tensor.ndim > 0 else 0,
-        predictions_tensor=tensor,
+        payload=tensor,
     )
 
 
@@ -203,8 +203,7 @@ def test_forward_primary_tensor_batches_backend_calls() -> None:
     )
 
     assert backend.prepared_batch_sizes == [2, 2, 1]
-    predictions_tensor = output.predictions_tensor
-    assert predictions_tensor is not None
+    predictions_tensor = output.as_classification()
     assert torch.equal(predictions_tensor, torch.tensor([[1.0], [5.0], [9.0], [13.0], [17.0]]))
 
 

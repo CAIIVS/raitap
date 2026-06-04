@@ -122,9 +122,9 @@ def forward_pass(
     """Run the model backend forward in chunks of ``forward_batch_size``.
 
     Returns a typed :class:`ForwardOutput` keyed by ``backend.task_kind``.
-    Classification backends produce ``predictions_tensor`` (CPU-detached);
-    detection backends produce ``detection_predictions`` (a length-N list of
-    per-sample dicts with ``boxes`` / ``scores`` / ``labels`` tensors).
+    Classification backends produce a CPU-detached logits tensor ``payload``;
+    detection backends produce a ``payload`` that is a length-N list of
+    per-sample dicts with ``boxes`` / ``scores`` / ``labels`` tensors.
 
     For detection, ``inputs`` is a ragged ``list[torch.Tensor]`` with one
     native-resolution ``(C, H, W)`` tensor per image (sizes may differ, so
@@ -160,7 +160,7 @@ def forward_pass(
         return ForwardOutput(
             task_kind=TaskKind.detection,
             batch_size=len(detection_predictions),
-            detection_predictions=detection_predictions,
+            payload=detection_predictions,
         )
 
     if total_batch <= batch_size:
@@ -185,5 +185,5 @@ def forward_pass(
     return ForwardOutput(
         task_kind=TaskKind.classification,
         batch_size=int(predictions_tensor.shape[0]),
-        predictions_tensor=predictions_tensor,
+        payload=predictions_tensor,
     )

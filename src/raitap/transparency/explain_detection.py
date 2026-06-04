@@ -62,7 +62,7 @@ def explain_detection(
     """Yield one ExplanationResult per detected box.
 
     Per sample i:
-    - Read pre-computed predictions from ``forward_output.detection_predictions[i]``.
+    - Read pre-computed predictions from ``forward_output.as_detection()[i]``.
     - Filter by ``score_threshold`` then keep top ``max_boxes`` by score
       (using raw-index masking so resulting indices reference the original
       detector output).
@@ -82,8 +82,7 @@ def explain_detection(
             f"(task_kind={forward_output.task_kind!r})."
         )
 
-    detection_predictions = forward_output.detection_predictions
-    assert detection_predictions is not None  # invariant from ForwardOutput.__post_init__
+    detection_predictions = forward_output.as_detection()
 
     detection_cfg = (raitap_kwargs or {}).get("detection", {})
     score_threshold = float(detection_cfg.get("score_threshold", _DEFAULT_SCORE_THRESHOLD))

@@ -1,7 +1,7 @@
 """Classification task family.
 
 Classification is a peer family, not the default (spec D4). The dense-NCHW
-input path, ``predictions_tensor`` payload, and shared-loop transparency all
+input path, the logits-tensor ``payload``, and shared-loop transparency all
 live here. Heavy members (load/forward/explain/metrics) are added in the
 phase-migration tasks; this file starts with the constants + validation.
 """

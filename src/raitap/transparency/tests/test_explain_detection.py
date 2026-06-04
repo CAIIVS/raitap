@@ -125,7 +125,7 @@ def detection_forward_output() -> ForwardOutput:
     return ForwardOutput(
         task_kind=TaskKind.detection,
         batch_size=2,
-        detection_predictions=[
+        payload=[
             {
                 "boxes": torch.tensor(
                     [[0.0, 0.0, 10.0, 10.0], [50.0, 50.0, 60.0, 60.0], [5.0, 5.0, 15.0, 15.0]]

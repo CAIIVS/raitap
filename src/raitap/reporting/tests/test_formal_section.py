@@ -31,7 +31,7 @@ def _fo(tensor: torch.Tensor) -> ForwardOutput:
     return ForwardOutput(
         task_kind=TaskKind.classification,
         batch_size=int(tensor.shape[0]) if tensor.ndim > 0 else 0,
-        predictions_tensor=tensor,
+        payload=tensor,
     )
 
 

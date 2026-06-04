@@ -68,8 +68,7 @@ def resolve_robustness_targets(
         return labels
     if forward_output.task_kind is not TaskKind.classification:
         return None
-    predictions_tensor = forward_output.predictions_tensor
-    assert predictions_tensor is not None
+    predictions_tensor = forward_output.as_classification()
     if predictions_tensor.ndim != 2 or predictions_tensor.shape[1] < 2:
         return None
     predictions, _ = metrics_prediction_pair(predictions_tensor)
