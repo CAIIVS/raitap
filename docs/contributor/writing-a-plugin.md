@@ -41,7 +41,7 @@ raitap-superxai/
 
 ## 2. Write the adapter
 
-Implement the adapter exactly as in {doc}`adding-an-adapter`. The only difference is your class
+Implement the adapter exactly as in {doc}`adding/adding-an-adapter`. The only difference is your class
 lives in your own package, so import the base class by its full path
 (`from raitap.transparency.explainers.base_explainer import ...`) instead of the in-tree relative
 import. Decorate it with the public `@adapters.<family>(...)` surface (`from raitap import adapters`).
@@ -103,7 +103,7 @@ class SuperXAIExplainer(AttributionOnlyExplainer):
 ```
 
 Decorator kwargs (`library`, `algorithm_registry`, `error_patterns`,
-`suppress_warnings`, ...) are documented in {doc}`adding-an-adapter`.
+`suppress_warnings`, ...) are documented in {doc}`adding/adding-an-adapter`.
 
 `AdapterDecoratorOptions` is exported for typing, in case you want additional custom logic on top of
 the decorator: `from raitap import AdapterDecoratorOptions`.

@@ -45,4 +45,4 @@ If `tracking.open_when_done=true`, `terminate()` must open the tracking UI autom
 
 ## Extension points
 
-See {doc}`adding-an-adapter`.
+See {doc}`../adding/adding-an-adapter`.

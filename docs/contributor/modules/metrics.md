@@ -54,4 +54,4 @@ The base class handles device management through `_prepare_inputs(predictions, t
 
 ## Adding a new metric computer
 
-See {doc}`adding-an-adapter`.
+See {doc}`../adding/adding-an-adapter`.

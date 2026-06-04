@@ -10,9 +10,9 @@ myst:
 
 Generic adapter mechanics are covered elsewhere:
 
-- New library wrapper: {doc}`adding-an-adapter`.
-- New algorithm on an existing wrapper: {doc}`adding-an-algorithm`.
-- New top-level module: {doc}`adding-a-module`.
+- New library wrapper: {doc}`../adding/adding-an-adapter`.
+- New algorithm on an existing wrapper: {doc}`../adding/adding-an-algorithm`.
+- New top-level module: {doc}`../adding/adding-a-module`.
 
 This page documents what's *specific* to transparency: the explainer hierarchy, the visualiser semantic contract, and the typed `ExplanationResult.semantics`.
 
@@ -57,7 +57,7 @@ Capture happens once at the `AttributionOnlyExplainer.explain` chokepoint via `b
 (`transparency/baselines.py`), which resolves the `BaselineMode` (`configured` / `user_tensor` /
 `zero` / `input_batch`), hashes the tensor, and renders an image preview. It is wrapped so a
 render/hash failure degrades to no baseline rather than discarding attributions.
-See [Adding an algorithm](adding-an-algorithm.md).
+See [Adding an algorithm](../adding/adding-an-algorithm.md).
 
 ## Visualiser semantic contract
 
@@ -96,7 +96,7 @@ Plus two instance-level hooks:
   backward-compatible (the built-in image visualisers still accept `include_original_image`).
 
 For the decorator/registration scaffolding (`@visualisers.transparency`, `registry_name`, exports),
-see {doc}`adding-an-adapter`. The bullets above are the transparency-specific additions on top of
+see {doc}`../adding/adding-an-adapter`. The bullets above are the transparency-specific additions on top of
 that scaffolding.
 
 ## Typed semantics contract
@@ -172,7 +172,7 @@ Transparency runs after the forward pass via `src/raitap/transparency/phase.py`
 3. `ExplanationResult.write_artifacts()` persists attributions and typed semantics to disk.
 4. `ExplanationResult.visualise()` iterates the configured visualisers, validates each one against the explanation semantics, calls `visualise()`, and saves the figures.
 
-Each explainer writes to its own subdirectory under the Hydra run folder. See {doc}`../using-raitap/understanding-outputs` for the on-disk layout.
+Each explainer writes to its own subdirectory under the Hydra run folder. See {doc}`../../using-raitap/understanding-outputs` for the on-disk layout.
 
 ## Important files
 

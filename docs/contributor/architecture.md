@@ -40,7 +40,7 @@ In prose: the CLI entry (`raitap.cli.main`) routes to either the tracking-stop s
 
 Every concrete adapter (explainer, assessor, metric, reporter, tracker, visualiser) self-registers via a namespaced facade decorator (`@adapters.transparency`, `@adapters.robustness`, `@adapters.metrics`, `@adapters.reporter`, `@adapters.tracker`, `@visualisers.transparency`, `@visualisers.robustness`). The decorator lives in `<module>/registration.py`; it delegates to `raitap._adapters._register_core`, which builds the hydra-zen builder, registers it with the `ConfigStore`, and populates `_BUILDERS` / `ADAPTER_EXTRAS` / `THIRD_PARTY_LIBS`. Lazy `__getattr__` on each family package resolves `raitap.<family>.<name>` via `raitap._adapters.lookup`.
 
-See {doc}`adding-an-adapter` / {doc}`adding-an-algorithm` / {doc}`adding-a-module` for the contributor workflow.
+See {doc}`adding/adding-an-adapter` / {doc}`adding/adding-an-algorithm` / {doc}`adding/adding-a-module` for the contributor workflow.
 
 ## Visualisers and renderers
 

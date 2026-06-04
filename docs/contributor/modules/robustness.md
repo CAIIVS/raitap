@@ -10,7 +10,7 @@ myst:
 
 This page covers what's specific to the robustness module. For the generic
 "how do I plug in a library / algorithm / new module?" walkthroughs see
-{doc}`adding-an-adapter`, {doc}`adding-an-algorithm`, and {doc}`adding-a-module`.
+{doc}`../adding/adding-an-adapter`, {doc}`../adding/adding-an-algorithm`, and {doc}`../adding/adding-a-module`.
 
 ## Assessor hierarchy
 
@@ -168,10 +168,10 @@ well-defined reference (a warning is logged).
 ## Extending the module
 
 - **New algorithm in an existing adapter (torchattacks, foolbox, ...)**:
-  see {doc}`adding-an-algorithm`. For robustness, the `algorithm_registry`
+  see {doc}`../adding/adding-an-algorithm`. For robustness, the `algorithm_registry`
   value is an `AssessorSemanticsHints` (assessment kind, threat model, objective,
   norm, family tags) from `semantics.py`.
-- **New robustness library**: see {doc}`adding-an-adapter`. Pick
+- **New robustness library**: see {doc}`../adding/adding-an-adapter`. Pick
   `EmpiricalAttackAssessor`, `FormalVerificationAssessor`, or
   `StatisticalSamplingAssessor` as the base, decorate with
   `@adapters.robustness(...)`, and set `budget_kwarg_source="call_kwargs"` if
@@ -187,7 +187,7 @@ well-defined reference (a warning is logged).
   override cases are: adding a per-call structural check (Marabou pattern) or
   extending with a non-capability warning after calling `super()` (auto-LiRPA
   pattern).
-- **New top-level module**: see {doc}`adding-a-module`.
+- **New top-level module**: see {doc}`../adding/adding-a-module`.
 
 ## The auto-LiRPA dependency and the torch 2.8 project pin
 
@@ -214,7 +214,7 @@ GitHub master. Two consequences contributors should know:
 ## Adding a new visualiser
 
 Subclass `BaseRobustnessVisualiser` and decorate with
-`@visualisers.robustness(...)` (see {doc}`adding-an-adapter` for the
+`@visualisers.robustness(...)` (see {doc}`../adding/adding-an-adapter` for the
 decorator scaffolding). Robustness-specific notes:
 
 - Set `supported_assessment_kinds` so the factory rejects mismatched assessor
