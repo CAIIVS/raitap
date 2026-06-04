@@ -158,7 +158,11 @@ def _apply_preprocessing(
     if resolved.is_active:
         # Deferred by ``_run_pipeline`` (this runs inside ``raitap_log.deferred()``)
         # so the line replays after the summary panel, not before it.
-        raitap_log.info(f"Preprocessing: {resolved.description}")
+        # ``module="data"``: preprocessing is a data-module concept
+        # (``ResolvedPreprocessing`` lives in ``raitap.data.preprocessing`` and the
+        # line covers the data-side transforms too) even though this wrap is applied
+        # during model construction. Without the override the chip would read "Models".
+        raitap_log.info(f"Preprocessing: {resolved.description}", module="data")
 
     return resolved
 
