@@ -12,72 +12,7 @@ A **backend** wraps a model runtime and exposes a uniform interface to the pipel
 
 ## Steps
 
-### 1. Subclass `ModelBackend`
-
-```python
-from raitap.models.backend import ModelBackend
-from raitap import backends
-from raitap.types import Capability
-
-@backends.register(provides=frozenset({Capability.AUTOGRAD}))
-class MyBackend(ModelBackend):
-    ...
-```
-
-`@backends.register` sets the `provides` class variable at decoration time. It performs a type-check: `provides` must be a `frozenset[Capability]`.
-
-### 2. Implement the abstract methods
-
-`ModelBackend` has three abstract methods you must implement:
-
-```python
-@property
-@abstractmethod
-def hardware_label(self) -> str:
-    """Human-readable label for the runtime (e.g. 'CPU', 'CUDA')."""
-
-@abstractmethod
-def __call__(self, inputs: torch.Tensor) -> Any:
-    """Run inference for ``inputs`` and return raw model output."""
-
-@abstractmethod
-def as_model_for_explanation(self) -> nn.Module:
-    """Return the nn.Module that explainers consume."""
-```
-
-### 3. Declare `provides`
-
-Pass the set of capabilities your backend provides to `@backends.register`:
-
-```python
-# Differentiable PyTorch model: provides autograd
-@backends.register(provides=frozenset({Capability.AUTOGRAD}))
-class TorchBackend(ModelBackend): ...
-
-# Forward-only ONNX runtime: provides nothing
-@backends.register(provides=frozenset())
-class OnnxBackend(ModelBackend): ...
-```
-
-### 4. Optional attributes
-
-Override these class or instance attributes as needed:
-
-| Attribute | Type | Default | Purpose |
-|---|---|---|---|
-| `expected_input_shape` | `tuple[int \| None, ...] \| None` | `None` | Per-sample input shape. `None` dims = dynamic (batch). |
-| `category_names` | `list[str] \| None` | `None` | Class id-to-name table (e.g. from model weights metadata). |
-| `task_kind` | `TaskKind` property | `TaskKind.classification` | Task family this backend serves. Override for detection etc. |
-
-### 5. No gate code needed
-
-Do not write compatibility checks in your backend. The shared gate (`AdapterMixin.check_backend_compat`) is inherited by every adapter and raises `BackendIncompatibilityError` automatically when `algorithm.requires - backend.provides` is non-empty. Rule: an algorithm runs on a backend iff `algorithm.requires <= backend.provides`.
-
-## Which capabilities to declare
-
-Most backends provide `{Capability.AUTOGRAD}` (torch) or nothing (forward-only, e.g. ONNX). See {doc}`../capabilities` for the full list, what each means, and which algorithms require it.
-
-## Example: minimal autograd backend
+Subclass `ModelBackend`, implement three methods, and declare `provides` in the decorator:
 
 ```python
 from typing import Any
@@ -91,17 +26,39 @@ from raitap.types import Capability
 
 
 @backends.register(provides=frozenset({Capability.AUTOGRAD}))
-class MyTorchBackend(ModelBackend):
+class MyBackend(ModelBackend):
     def __init__(self, model: nn.Module) -> None:
         self.model = model
 
     @property
-    def hardware_label(self) -> str:
+    def hardware_label(self) -> str:  # human-readable runtime label, e.g. "CPU" / "CUDA"
         return "CPU"
 
-    def __call__(self, inputs: torch.Tensor) -> Any:
+    def __call__(self, inputs: torch.Tensor) -> Any:  # run inference, return raw output
         return self.model(inputs)
 
-    def as_model_for_explanation(self) -> nn.Module:
+    def as_model_for_explanation(self) -> nn.Module:  # the object explainers consume
         return self.model
 ```
+
+1. **Subclass `ModelBackend`** and decorate with `@backends.register`.
+2. **Implement the three abstract methods**: `hardware_label`, `__call__`, `as_model_for_explanation`.
+3. **Declare `provides`**: the `frozenset[Capability]` your backend offers. The decorator type-checks it and sets it as a class variable. Torch backends pass `{Capability.AUTOGRAD}`; forward-only runtimes (ONNX) pass `frozenset()`.
+
+## Which capabilities to declare
+
+Most backends provide `{Capability.AUTOGRAD}` (torch) or nothing (forward-only, e.g. ONNX). See {doc}`../capabilities` for the full list, what each means, and which algorithms require it.
+
+## Optional attributes
+
+Override these class or instance attributes as needed:
+
+| Attribute | Type | Default | Purpose |
+|---|---|---|---|
+| `expected_input_shape` | `tuple[int \| None, ...] \| None` | `None` | Per-sample input shape. `None` dims = dynamic (batch). |
+| `category_names` | `list[str] \| None` | `None` | Class id-to-name table (e.g. from model weights metadata). |
+| `task_kind` | `TaskKind` property | `TaskKind.classification` | Task family this backend serves. Override for detection etc. |
+
+## No gate code needed
+
+Do not write compatibility checks in your backend. The shared gate (`AdapterMixin.check_backend_compat`) is inherited by every adapter and raises `BackendIncompatibilityError` automatically when `algorithm.requires - backend.provides` is non-empty. Rule: an algorithm runs on a backend iff `algorithm.requires <= backend.provides`.
