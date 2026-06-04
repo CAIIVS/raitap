@@ -58,7 +58,7 @@ def _make_result() -> RobustnessResult:
             assessment_kind=AssessmentKind.EMPIRICAL_ATTACK,
             threat_model=ThreatModel.WHITE_BOX,
             objective=Objective.UNTARGETED,
-            families=frozenset({"gradient_sign"}),
+            families={"gradient_sign"},
             perturbation=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
         ),
     )
@@ -189,7 +189,7 @@ def test_image_pair_visualiser_uses_shared_display_range_for_clean_and_perturbed
             assessment_kind=AssessmentKind.EMPIRICAL_ATTACK,
             threat_model=ThreatModel.WHITE_BOX,
             objective=Objective.UNTARGETED,
-            families=frozenset({"gradient_sign"}),
+            families={"gradient_sign"},
             perturbation=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
         ),
     )

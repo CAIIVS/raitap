@@ -53,7 +53,7 @@ def test_robustness_capability_fields_via_decorator() -> None:
 
     @robustness_visualiser(
         registry_name="_stub_rob_caps",
-        supported_assessment_kinds=frozenset({AssessmentKind.EMPIRICAL_ATTACK}),
+        supported_assessment_kinds={AssessmentKind.EMPIRICAL_ATTACK},
         embeds_clean_input=True,
     )
     class _StubRob(BaseRobustnessVisualiser):

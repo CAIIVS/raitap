@@ -53,7 +53,7 @@ def _make_formal_result() -> RobustnessResult:
             assessment_kind=AssessmentKind.FORMAL_VERIFICATION,
             threat_model=ThreatModel.WHITE_BOX,
             objective=Objective.UNTARGETED,
-            families=frozenset({"smt", "complete", "sound"}),
+            families={"smt", "complete", "sound"},
             perturbation=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
         ),
     )

@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 @robustness_visualiser(
     registry_name="corruption_accuracy",
-    supported_assessment_kinds=frozenset({AssessmentKind.STATISTICAL_SAMPLING}),
+    supported_assessment_kinds={AssessmentKind.STATISTICAL_SAMPLING},
     report_figure_scope=ReportFigureScope.ASSESSOR,
 )
 class CorruptionAccuracyVisualiser(BaseRobustnessVisualiser):

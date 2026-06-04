@@ -166,7 +166,7 @@ class ModelBackend(ABC):
         """Return the model object that explainers should consume."""
 
 
-@register(provides=frozenset({Capability.AUTOGRAD}))
+@register(provides={Capability.AUTOGRAD})
 class TorchBackend(ModelBackend):
     """PyTorch-backed model runtime."""
 

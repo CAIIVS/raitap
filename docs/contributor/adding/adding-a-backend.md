@@ -29,7 +29,7 @@ from raitap.models.backend import ModelBackend
 from raitap.types import Capability
 
 
-@backends.register(provides=frozenset({Capability.AUTOGRAD}))
+@backends.register(provides={Capability.AUTOGRAD})
 class MyBackend(ModelBackend):
     def __init__(self, model: nn.Module) -> None:
         self.model = model

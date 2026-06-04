@@ -53,7 +53,7 @@ def test_capability_fields_settable_via_decorator() -> None:
 
     @transparency_visualiser(
         registry_name="_stub_caps",
-        supported_scopes=frozenset({ExplanationScope.LOCAL}),
+        supported_scopes={ExplanationScope.LOCAL},
         embeds_original_input=True,
     )
     class _StubCaps(BaseVisualiser):

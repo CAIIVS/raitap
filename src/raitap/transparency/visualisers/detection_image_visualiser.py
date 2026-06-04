@@ -36,20 +36,18 @@ if TYPE_CHECKING:
 
 @transparency_visualiser(
     registry_name="detection_image",
-    supported_payload_kinds=frozenset({ExplanationPayloadKind.ATTRIBUTIONS}),
-    supported_output_spaces=frozenset({ExplanationOutputSpace.DETECTION_BOXES}),
-    supported_scopes=frozenset({ExplanationScope.LOCAL}),
-    supported_method_families=frozenset(
-        {
-            MethodFamily.GRADIENT,
-            MethodFamily.PERTURBATION,
-            MethodFamily.SHAPLEY,
-            MethodFamily.CAM,
-            MethodFamily.MODEL_AGNOSTIC,
-            MethodFamily.SURROGATE,
-        }
-    ),
-    supported_tasks=frozenset({TaskKind.detection}),
+    supported_payload_kinds={ExplanationPayloadKind.ATTRIBUTIONS},
+    supported_output_spaces={ExplanationOutputSpace.DETECTION_BOXES},
+    supported_scopes={ExplanationScope.LOCAL},
+    supported_method_families={
+        MethodFamily.GRADIENT,
+        MethodFamily.PERTURBATION,
+        MethodFamily.SHAPLEY,
+        MethodFamily.CAM,
+        MethodFamily.MODEL_AGNOSTIC,
+        MethodFamily.SURROGATE,
+    },
+    supported_tasks={TaskKind.detection},
     embeds_original_input=True,
 )
 class DetectionImageVisualiser(BaseVisualiser):
@@ -127,7 +125,8 @@ class DetectionImageVisualiser(BaseVisualiser):
         from raitap.transparency.visualisers.image_rendering import resolve_image_renderer
 
         renderer, auto_sign = resolve_image_renderer(
-            context.source_library, context.method_families
+            context.source_library,
+            frozenset(context.method_families),
         )
         final_sign = self.sign if self.sign is not None else auto_sign
         # ``show_colorbar`` is NOT forwarded to the renderer: it gates the

@@ -23,6 +23,7 @@ checks can branch on ``assessment_kind`` instead of duck-typing.
 from __future__ import annotations
 
 from collections.abc import Sequence  # noqa: TC003
+from collections.abc import Set as AbstractSet  # noqa: TC003
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path  # noqa: TC003
@@ -192,11 +193,14 @@ class RobustnessSemantics:
     assessment_kind: AssessmentKind
     threat_model: ThreatModel
     objective: Objective
-    families: frozenset[str]
+    families: AbstractSet[str]
     perturbation: PerturbationRegion
     target_classes: Sequence[int] | None = None
     sample_selection: SampleSelection | None = None
     input_spec: InputSpec | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "families", frozenset(self.families))
 
     @property
     def case(self) -> RobustnessCase:

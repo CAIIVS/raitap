@@ -96,7 +96,7 @@ _AUTO_LIRPA_ERROR_MESSAGES: Mapping[str, str] = {
             Objective.UNTARGETED,
             norm,
             families=_FAMILIES,
-            requires=frozenset({Capability.AUTOGRAD}),
+            requires={Capability.AUTOGRAD},
         )
         for name, (_method, norm) in _ALGORITHMS.items()
     },

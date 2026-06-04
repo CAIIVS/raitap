@@ -142,7 +142,7 @@ there is no adversary; empirical and formal assessors use
   is the single source of truth for both the bound method and the norm
   (`crown`/`ibp`/`crown-ibp` -> L-inf, `crown-l2` -> L2); `verify_sample` reads the
   norm off `budget.norm` and maps it to `PerturbationLpNorm`. Its algorithms
-  carry `requires=frozenset({Capability.AUTOGRAD})`, so the inherited
+  carry `requires={Capability.AUTOGRAD}`, so the inherited
   `check_backend_compat` rejects ONNX/forward-only backends automatically.
   The class overrides `check_backend_compat` only to call `super()` first and
   then warn on Intel XPU.
@@ -179,7 +179,7 @@ well-defined reference (a warning is logged).
   gate inherited from `AdapterMixin` evaluates whether
   `algorithm.requires <= backend.provides` and raises
   `BackendIncompatibilityError` on mismatch. Set
-  `requires=frozenset({Capability.AUTOGRAD})` on `AssessorSemanticsHints`
+  `requires={Capability.AUTOGRAD}` on `AssessorSemanticsHints`
   entries for algorithms that need autograd (e.g. white-box empirical attacks).
   Statistical-sampling adapters implement `apply_perturbation(image)` only;
   their algorithms carry empty `requires` so the gate always passes.

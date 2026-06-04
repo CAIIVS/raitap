@@ -75,11 +75,11 @@ if TYPE_CHECKING:
         # method families (+ optional baseline_default for reference-input methods)
         # and the capability requirements for the algorithm.
         # empty requires (default) = model-agnostic, runs on ONNX/forward-only backends
-        "supertreeshap": ExplainerSemanticsHints(frozenset({MethodFamily.SHAPLEY})),
-        # requires=frozenset({Capability.AUTOGRAD}) for algorithms that need autograd,
+        "supertreeshap": ExplainerSemanticsHints({MethodFamily.SHAPLEY}),
+        # requires={Capability.AUTOGRAD} for algorithms that need autograd,
         # e.g. gradient-based methods:
-        # "supergrad": ExplainerSemanticsHints(frozenset({MethodFamily.GRADIENT}),
-        #                                       requires=frozenset({Capability.AUTOGRAD})),
+        # "supergrad": ExplainerSemanticsHints({MethodFamily.GRADIENT},
+        #                                       requires={Capability.AUTOGRAD}),
     },
 )
 class SuperXAIExplainer(AttributionOnlyExplainer):

@@ -30,14 +30,14 @@ from raitap import adapters
     library="captum",
     algorithm_registry={
         "IntegratedGradients": ExplainerSemanticsHints(
-            frozenset({MethodFamily.GRADIENT}),
+            {MethodFamily.GRADIENT},
             baseline_default=BaselineMode.ZERO,
-            requires=frozenset({Capability.AUTOGRAD}),  # gradient method
+            requires={Capability.AUTOGRAD},  # gradient method
         ),
         # ... existing entries ...
         "NewMethod": ExplainerSemanticsHints(
-            frozenset({MethodFamily.GRADIENT, MethodFamily.PERTURBATION}),
-            requires=frozenset({Capability.AUTOGRAD}),  # gradient method
+            {MethodFamily.GRADIENT, MethodFamily.PERTURBATION},
+            requires={Capability.AUTOGRAD},  # gradient method
         ),
     },
     baseline_kwarg_name="baselines",
@@ -60,8 +60,8 @@ from raitap import adapters
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
-            families=frozenset({"gradient_sign"}),
-            requires=frozenset({Capability.AUTOGRAD}),  # gradient-based attack
+            families={"gradient_sign"},
+            requires={Capability.AUTOGRAD},  # gradient-based attack
         ),
     },
 )
@@ -69,7 +69,7 @@ class TorchattacksAssessor(EmpiricalAttackAssessor): ...
 ```
 
 The map value carries the semantics RAITAP tracks and reports on:
-- **Transparency** → `ExplainerSemanticsHints` (`families: frozenset[MethodFamily]` + optional `baseline_default` + optional `requires`). New `MethodFamily` values go in `src/raitap/transparency/contracts.py`.
+- **Transparency** → `ExplainerSemanticsHints` (`families: AbstractSet[MethodFamily]` + optional `baseline_default` + optional `requires`). New `MethodFamily` values go in `src/raitap/transparency/contracts.py`.
 - **Robustness** → `AssessorSemanticsHints` (assessment kind, threat model, objective, norm, family tags, optional `requires`). Defined in `src/raitap/robustness/semantics.py`.
 
 A missing entry means the algorithm cannot be selected via config.
@@ -80,7 +80,7 @@ The `requires` field on `ExplainerSemanticsHints` / `AssessorSemanticsHints` dec
 
 | Algorithm type | `requires` value | Effect |
 |---|---|---|
-| Gradient-based (IntegratedGradients, PGD, FGSM, ...) | `frozenset({Capability.AUTOGRAD})` | Blocked on ONNX (forward-only) backends |
+| Gradient-based (IntegratedGradients, PGD, FGSM, ...) | `{Capability.AUTOGRAD}` | Blocked on ONNX (forward-only) backends |
 | Model-agnostic (SHAP KernelExplainer, Occlusion, FeatureAblation, ...) | `frozenset()` (default) | Runs on any backend, including ONNX |
 
 Import: `from raitap.types import Capability`. `Capability.AUTOGRAD` is the only live value; `TREE_MODEL` and `PREDICT_PROBA` are roadmap placeholders with no current providers. See {doc}`../capabilities` for the full capability reference.
@@ -103,16 +103,16 @@ If your new algorithm takes a baseline **and** has a meaningful default when the
     baseline_kwarg_name="baselines",
     algorithm_registry={
         "IntegratedGradients": ExplainerSemanticsHints(
-            frozenset({MethodFamily.GRADIENT}),
+            {MethodFamily.GRADIENT},
             baseline_default=BaselineMode.ZERO,
             baseline_cardinality=BaselineCardinality.SINGLE,
-            requires=frozenset({Capability.AUTOGRAD}),  # gradient method
+            requires={Capability.AUTOGRAD},  # gradient method
         ),
         "NewMethod": ExplainerSemanticsHints(
-            frozenset({MethodFamily.GRADIENT}),
+            {MethodFamily.GRADIENT},
             baseline_default=BaselineMode.ZERO,
             baseline_cardinality=BaselineCardinality.SINGLE,
-            requires=frozenset({Capability.AUTOGRAD}),  # gradient method
+            requires={Capability.AUTOGRAD},  # gradient method
         ),
     },
 )

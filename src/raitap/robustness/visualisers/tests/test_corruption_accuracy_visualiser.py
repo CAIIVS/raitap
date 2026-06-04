@@ -33,7 +33,7 @@ def _make_result(tmp_path: Path) -> RobustnessResult:
         assessment_kind=AssessmentKind.STATISTICAL_SAMPLING,
         threat_model=ThreatModel.NOT_APPLICABLE,
         objective=Objective.UNTARGETED,
-        families=frozenset({"noise"}),
+        families={"noise"},
         perturbation=PerturbationDistribution(corruption_name="gaussian_noise", severity=3),
     )
     return RobustnessResult(

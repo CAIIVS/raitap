@@ -14,6 +14,7 @@ from raitap._adapters import AdapterDecoratorOptions, _register_core
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from collections.abc import Set as AbstractSet
 
     from raitap.transparency.contracts import (
         ExplanationOutputSpace,
@@ -38,12 +39,12 @@ T = TypeVar("T", bound="BaseVisualiser")
 
 def transparency_visualiser(
     *,
-    supported_payload_kinds: frozenset[ExplanationPayloadKind] | _Unset = _UNSET,
-    supported_scopes: frozenset[ExplanationScope] | _Unset = _UNSET,
-    supported_output_spaces: frozenset[ExplanationOutputSpace] | _Unset = _UNSET,
-    supported_method_families: frozenset[MethodFamily] | _Unset = _UNSET,
-    supported_tasks: frozenset[TaskKind] | _Unset = _UNSET,
-    compatible_algorithms: frozenset[str] | _Unset = _UNSET,
+    supported_payload_kinds: AbstractSet[ExplanationPayloadKind] | _Unset = _UNSET,
+    supported_scopes: AbstractSet[ExplanationScope] | _Unset = _UNSET,
+    supported_output_spaces: AbstractSet[ExplanationOutputSpace] | _Unset = _UNSET,
+    supported_method_families: AbstractSet[MethodFamily] | _Unset = _UNSET,
+    supported_tasks: AbstractSet[TaskKind] | _Unset = _UNSET,
+    compatible_algorithms: AbstractSet[str] | _Unset = _UNSET,
     embeds_original_input: bool | _Unset = _UNSET,
     produces_scope: ExplanationScope | None | _Unset = _UNSET,
     scope_definition_step: ScopeDefinitionStep | None | _Unset = _UNSET,
@@ -54,6 +55,7 @@ def transparency_visualiser(
     capability kwargs optional (omitted → inherit base/mixin default)."""
 
     def wrap(cls: type[T]) -> type[T]:
+        # Set attrs: coerce to frozenset on store.
         for attr, value in (
             ("supported_payload_kinds", supported_payload_kinds),
             ("supported_scopes", supported_scopes),
@@ -61,6 +63,11 @@ def transparency_visualiser(
             ("supported_method_families", supported_method_families),
             ("supported_tasks", supported_tasks),
             ("compatible_algorithms", compatible_algorithms),
+        ):
+            if value is not _UNSET:
+                setattr(cls, attr, frozenset(value))  # type: ignore[arg-type]
+        # Non-set attrs: store as-is.
+        for attr, value in (
             ("embeds_original_input", embeds_original_input),
             ("produces_scope", produces_scope),
             ("scope_definition_step", scope_definition_step),

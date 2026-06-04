@@ -6,6 +6,9 @@ from __future__ import annotations
 from collections.abc import (
     Callable,  # noqa: TC003 — return annotation; get_type_hints() resolves it
 )
+from collections.abc import (
+    Set as AbstractSet,  # noqa: TC003 — AssessmentKind annotation in public signature; get_type_hints() resolves it
+)
 from typing import TYPE_CHECKING, Final, TypeVar, Unpack
 
 from raitap._adapters import AdapterDecoratorOptions, _register_core
@@ -32,7 +35,7 @@ T = TypeVar("T", bound="BaseRobustnessVisualiser")
 
 def robustness_visualiser(
     *,
-    supported_assessment_kinds: frozenset[AssessmentKind] | _Unset = _UNSET,
+    supported_assessment_kinds: AbstractSet[AssessmentKind] | _Unset = _UNSET,
     embeds_clean_input: bool | _Unset = _UNSET,
     embeds_perturbation_map: bool | _Unset = _UNSET,
     report_figure_scope: ReportFigureScope | _Unset = _UNSET,
@@ -42,8 +45,11 @@ def robustness_visualiser(
     kwargs optional (omitted → base default)."""
 
     def wrap(cls: type[T]) -> type[T]:
+        # Set attr: coerce to frozenset on store.
+        if supported_assessment_kinds is not _UNSET:
+            cls.supported_assessment_kinds = frozenset(supported_assessment_kinds)  # type: ignore[arg-type]
+        # Non-set attrs: store as-is.
         for attr, value in (
-            ("supported_assessment_kinds", supported_assessment_kinds),
             ("embeds_clean_input", embeds_clean_input),
             ("embeds_perturbation_map", embeds_perturbation_map),
             ("report_figure_scope", report_figure_scope),

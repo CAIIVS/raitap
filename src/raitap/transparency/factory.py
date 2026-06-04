@@ -141,8 +141,8 @@ def check_explainer_visualiser_semantic_compat(
             getattr(type(visualiser), "supported_method_families", frozenset()),
             MethodFamily,
         )
-        if supported_method_families and not capability.method_families.intersection(
-            supported_method_families
+        if supported_method_families and not (
+            capability.method_families & supported_method_families
         ):
             raise ValueError(
                 f"Visualiser {type(visualiser).__name__!r} does not support explainer "
@@ -157,7 +157,7 @@ def check_explainer_visualiser_semantic_compat(
         )
         if not supported_output_spaces:
             continue
-        if capability.candidate_output_spaces.intersection(supported_output_spaces):
+        if capability.candidate_output_spaces & supported_output_spaces:
             continue
         raise ValueError(
             f"Visualiser {type(visualiser).__name__!r} does not support explainer "

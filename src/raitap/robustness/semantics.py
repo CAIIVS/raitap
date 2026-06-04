@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Set as AbstractSet
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from raitap.transparency.contracts import InputSpec, SampleSelection
@@ -47,9 +48,13 @@ class AssessorSemanticsHints:
     threat_model: ThreatModel
     objective: Objective
     norm: PerturbationNorm | None = None
-    families: frozenset[str] = frozenset()
+    families: AbstractSet[str] = field(default_factory=frozenset)
     default_epsilon: float | None = None
-    requires: frozenset[Capability] = frozenset()
+    requires: AbstractSet[Capability] = field(default_factory=frozenset)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "families", frozenset(self.families))
+        object.__setattr__(self, "requires", frozenset(self.requires))
 
 
 _TARGET_KWARG_KEYS: frozenset[str] = frozenset(

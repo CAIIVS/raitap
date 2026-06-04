@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Required, TypedDict, TypeVar, Unpack
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from collections.abc import Set as AbstractSet
 
     # NOTE: ``ModelBackend`` looks unused to static scanners (CodeQL), but the
     # string TypeVar bound below needs it — without the bound, ``cls`` is
@@ -25,14 +26,14 @@ B = TypeVar("B", bound="ModelBackend")
 
 
 class _BackendRegKwargs(TypedDict):
-    provides: Required[frozenset[Capability]]
+    provides: Required[AbstractSet[Capability]]
 
 
 def register(**kwargs: Unpack[_BackendRegKwargs]) -> Callable[[type[B]], type[B]]:
     """Register a model backend. ``provides`` is required."""
 
     def wrap(cls: type[B]) -> type[B]:
-        cls.provides = kwargs["provides"]
+        cls.provides = frozenset(kwargs["provides"])
         return cls
 
     return wrap

@@ -55,7 +55,7 @@ def _auto_figsize(n: int, k: int) -> tuple[float, float]:
 
 @robustness_visualiser(
     registry_name="output_bounds_margin_heatmap",
-    supported_assessment_kinds=frozenset({AssessmentKind.FORMAL_VERIFICATION}),
+    supported_assessment_kinds={AssessmentKind.FORMAL_VERIFICATION},
     report_figure_scope=ReportFigureScope.ASSESSOR,
 )
 class OutputBoundsMarginHeatmapVisualiser(BaseRobustnessVisualiser):

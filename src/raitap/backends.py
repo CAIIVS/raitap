@@ -3,7 +3,7 @@
     from raitap import backends
     from raitap.types import Capability
 
-    @backends.register(provides=frozenset({Capability.AUTOGRAD}))
+    @backends.register(provides={Capability.AUTOGRAD})
     class MyBackend(ModelBackend): ...
 
 Backends are not Hydra-config adapters (no registry, no entry-point plugins);
