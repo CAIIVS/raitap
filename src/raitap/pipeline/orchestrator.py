@@ -139,7 +139,9 @@ def run_without_tracking(
     if not configured_phases:
         _raise_no_phase_configured()
 
-    raitap_log.info("Running model forward pass...")
+    # Logged from the orchestrator but logically a model operation (same pattern
+    # as the reporting log below) so the chip reads "Models", not blank/infra.
+    raitap_log.info("Running model forward pass...", module=Module.models)
     with torch.no_grad():
         forward_output = forward_pass(config, model.backend, data.tensor)
 
