@@ -8,11 +8,15 @@ myst:
 
 # Adding a backend
 
-A **backend** wraps a model runtime and exposes a uniform interface to the pipeline. Two backends ship today: `TorchBackend` (autograd-capable) and `OnnxBackend` (forward-only). Add a backend when you need a new runtime (e.g. TensorFlow, TFLite, scikit-learn).
+A **backend** wraps a model runtime and exposes a uniform interface to the pipeline. Add a backend when you need a new runtime (e.g. TensorFlow, TFLite, scikit-learn).
 
 ## Steps
 
-Subclass `ModelBackend`, implement three methods, and declare `provides` in the decorator:
+We will use a fictional backend called `MyBackend`. It depends on Torch, but your real backend might not; the following is just an example.
+
+1. **Subclass `ModelBackend`** and decorate with `@backends.register`.
+2. **Implement the three abstract methods**: `hardware_label`, `__call__`, `as_model_for_explanation`.
+3. **Declare `provides`**: the `frozenset[Capability]` your backend offers. The decorator type-checks it and sets it as a class variable. Torch backends pass `{Capability.AUTOGRAD}`; forward-only runtimes (ONNX) pass `frozenset()`.
 
 ```python
 from typing import Any
@@ -32,7 +36,7 @@ class MyBackend(ModelBackend):
 
     @property
     def hardware_label(self) -> str:  # human-readable runtime label, e.g. "CPU" / "CUDA"
-        return "CPU"
+        return get_hardware_label_for_mybackend(self.device)
 
     def __call__(self, inputs: torch.Tensor) -> Any:  # run inference, return raw output
         return self.model(inputs)
@@ -40,10 +44,6 @@ class MyBackend(ModelBackend):
     def as_model_for_explanation(self) -> nn.Module:  # the object explainers consume
         return self.model
 ```
-
-1. **Subclass `ModelBackend`** and decorate with `@backends.register`.
-2. **Implement the three abstract methods**: `hardware_label`, `__call__`, `as_model_for_explanation`.
-3. **Declare `provides`**: the `frozenset[Capability]` your backend offers. The decorator type-checks it and sets it as a class variable. Torch backends pass `{Capability.AUTOGRAD}`; forward-only runtimes (ONNX) pass `frozenset()`.
 
 ## Which capabilities to declare
 
@@ -53,11 +53,11 @@ Most backends provide `{Capability.AUTOGRAD}` (torch) or nothing (forward-only, 
 
 Override these class or instance attributes as needed:
 
-| Attribute | Type | Default | Purpose |
-|---|---|---|---|
-| `expected_input_shape` | `tuple[int \| None, ...] \| None` | `None` | Per-sample input shape. `None` dims = dynamic (batch). |
-| `category_names` | `list[str] \| None` | `None` | Class id-to-name table (e.g. from model weights metadata). |
-| `task_kind` | `TaskKind` property | `TaskKind.classification` | Task family this backend serves. Override for detection etc. |
+| Attribute              | Type                              | Default                   | Purpose                                                      |
+| ---------------------- | --------------------------------- | ------------------------- | ------------------------------------------------------------ |
+| `expected_input_shape` | `tuple[int \| None, ...] \| None` | `None`                    | Per-sample input shape. `None` dims = dynamic (batch).       |
+| `category_names`       | `list[str] \| None`               | `None`                    | Class id-to-name table (e.g. from model weights metadata).   |
+| `task_kind`            | `TaskKind` property               | `TaskKind.classification` | Task family this backend serves. Override for detection etc. |
 
 ## No gate code needed
 
