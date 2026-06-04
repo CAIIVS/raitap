@@ -254,7 +254,7 @@ class ExplanationResult(Trackable):
                 raise SampleNamesLengthError(
                     got=len(sample_names),
                     expected=limit,
-                    source="ExplanationResult.visualise",
+                    source="ExplanationResult._visualise",
                 )
 
             # Standard RAITAP pipeline metadata

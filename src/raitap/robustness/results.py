@@ -313,7 +313,7 @@ class RobustnessResult(Trackable):
                 raise SampleNamesLengthError(
                     got=len(sample_names),
                     expected=limit,
-                    source="RobustnessResult.visualise",
+                    source="RobustnessResult._visualise",
                 )
 
             context = RobustnessVisualisationContext(

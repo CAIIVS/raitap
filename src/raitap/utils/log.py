@@ -228,8 +228,16 @@ class _RaitapLog:
                 entry.lineno,
                 source=entry.source,
             )
-        for logger, level, message, args, kwargs in records:
-            logger.log(level, message, *args, **kwargs)
+        if previous_records is not None:
+            # Nested inside an outer ``deferred()``: re-buffer this block's
+            # records into the outer list so the whole INFO/DEBUG batch still
+            # replays after the OUTER block exits, not immediately. (Warnings
+            # nest naturally: the ``warn_explicit`` re-emit above is recaptured
+            # by the outer ``catch_warnings`` that is still active here.)
+            previous_records.extend(records)
+        else:
+            for logger, level, message, args, kwargs in records:
+                logger.log(level, message, *args, **kwargs)
 
 
 raitap_log = _RaitapLog()
