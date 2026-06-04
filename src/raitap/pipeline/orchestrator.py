@@ -20,6 +20,7 @@ from raitap.pipeline.ui import print_summary
 from raitap.reporting import build_report, create_report, reporting_enabled
 from raitap.reporting.sample_selection import resolve_report_sample_selection
 from raitap.tracking import BaseTracker
+from raitap.utils.diagnostics import Module
 from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
@@ -94,7 +95,7 @@ def _run_pipeline(
     if reporting_enabled(config):
         if verbose:
             # Logged from the orchestrator but logically a reporting concern.
-            raitap_log.info("Generating report...", module="reporting")
+            raitap_log.info("Generating report...", module=Module.reporting)
         report = build_report(config, outputs)
         report_generation = create_report(config=config, report=report)
 

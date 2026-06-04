@@ -138,7 +138,7 @@ class _RaitapLog:
         message: object,
         *args: object,
         stacklevel: int = 2,
-        module: Module | str | None = None,
+        module: Module | None = None,
         **kwargs: Any,
     ) -> None:
         """Log at INFO level on the caller's module logger.

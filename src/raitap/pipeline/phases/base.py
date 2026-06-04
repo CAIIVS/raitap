@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, TypeVar
 
 from raitap import raitap_log
+from raitap.utils.diagnostics import Module
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -53,7 +54,11 @@ def run_adapters(
     # shared loop lives under ``pipeline/phases/`` — the logger name alone would
     # mis-classify it as "pipeline".
     raitap_log.info(
-        "Performing %s assessment%s (%d)...", log_label, suffix, len(names), module=log_label
+        "Performing %s assessment%s (%d)...",
+        log_label,
+        suffix,
+        len(names),
+        module=Module[log_label],
     )
     results: list[ResultT] = []
     for name in names:
