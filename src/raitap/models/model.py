@@ -12,6 +12,7 @@ from raitap.data.metadata import shape_tuple
 from raitap.data.preprocessing import ResolvedPreprocessing, resolve_preprocessing
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 from raitap.types import TaskKind
+from raitap.utils.diagnostics import Module
 from raitap.utils.errors import RaitapError
 from raitap.utils.lazy import lazy_import
 
@@ -162,7 +163,7 @@ def _apply_preprocessing(
         # (``ResolvedPreprocessing`` lives in ``raitap.data.preprocessing`` and the
         # line covers the data-side transforms too) even though this wrap is applied
         # during model construction. Without the override the chip would read "Models".
-        raitap_log.info(f"Preprocessing: {resolved.description}", module="data")
+        raitap_log.info(f"Preprocessing: {resolved.description}", module=Module.data)
 
     return resolved
 
