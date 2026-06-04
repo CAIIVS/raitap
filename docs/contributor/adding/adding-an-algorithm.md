@@ -83,7 +83,7 @@ The `requires` field on `ExplainerSemanticsHints` / `AssessorSemanticsHints` dec
 | Gradient-based (IntegratedGradients, PGD, FGSM, ...) | `frozenset({Capability.AUTOGRAD})` | Blocked on ONNX (forward-only) backends |
 | Model-agnostic (SHAP KernelExplainer, Occlusion, FeatureAblation, ...) | `frozenset()` (default) | Runs on any backend, including ONNX |
 
-Import: `from raitap.types import Capability`. `Capability.AUTOGRAD` is the only live value; `TREE_MODEL` and `PREDICT_PROBA` are roadmap placeholders with no current providers.
+Import: `from raitap.types import Capability`. `Capability.AUTOGRAD` is the only live value; `TREE_MODEL` and `PREDICT_PROBA` are roadmap placeholders with no current providers. See {doc}`../capabilities` for the full capability reference.
 
 When `requires - backend.provides` is non-empty, `BackendIncompatibilityError` is raised (`from raitap.utils.errors import BackendIncompatibilityError`; also re-exported from `raitap.robustness` and `raitap.transparency`).
 

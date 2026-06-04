@@ -16,6 +16,7 @@ This section contains documentation meant to help contributors setup the dev env
 
 setup
 architecture
+capabilities
 pull-requests
 releases
 logging

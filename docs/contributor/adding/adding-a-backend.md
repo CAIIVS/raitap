@@ -73,13 +73,9 @@ Override these class or instance attributes as needed:
 
 Do not write compatibility checks in your backend. The shared gate (`AdapterMixin.check_backend_compat`) is inherited by every adapter and raises `BackendIncompatibilityError` automatically when `algorithm.requires - backend.provides` is non-empty. Rule: an algorithm runs on a backend iff `algorithm.requires <= backend.provides`.
 
-## Capability table
+## Which capabilities to declare
 
-| Capability | Value | Meaning | When to provide |
-|---|---|---|---|
-| `AUTOGRAD` | `"autograd"` | Differentiable live model. Supports input gradients, PGD, IntegratedGradients, CROWN. | PyTorch `nn.Module` with `requires_grad` tensors. |
-| `TREE_MODEL` | `"tree_model"` | Tree-ensemble structure for TreeSHAP-style methods. Roadmap. No provider or requirer yet. | Tree-based runtimes (XGBoost, sklearn ensemble) when TreeSHAP is implemented. |
-| `PREDICT_PROBA` | `"predict_proba"` | Class-probability outputs. Roadmap. No provider or requirer yet. | Probabilistic classifiers that expose calibrated probabilities. |
+Most backends provide `{Capability.AUTOGRAD}` (torch) or nothing (forward-only, e.g. ONNX). See {doc}`../capabilities` for the full list, what each means, and which algorithms require it.
 
 ## Example: minimal autograd backend
 
