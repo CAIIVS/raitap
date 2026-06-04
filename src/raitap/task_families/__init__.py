@@ -13,3 +13,8 @@ __all__ = [
     "resolve_task_family",
     "task_family",
 ]
+
+# Import the concrete families for their registration side effects, so that
+# importing ``raitap.task_families`` populates ``TASK_FAMILIES``.
+from raitap.task_families import classification as _classification
+from raitap.task_families import detection as _detection
