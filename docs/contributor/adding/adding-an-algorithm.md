@@ -106,11 +106,13 @@ If your new algorithm takes a baseline **and** has a meaningful default when the
             frozenset({MethodFamily.GRADIENT}),
             baseline_default=BaselineMode.ZERO,
             baseline_cardinality=BaselineCardinality.SINGLE,
+            requires=frozenset({Capability.AUTOGRAD}),  # gradient method
         ),
         "NewMethod": ExplainerSemanticsHints(
             frozenset({MethodFamily.GRADIENT}),
             baseline_default=BaselineMode.ZERO,
             baseline_cardinality=BaselineCardinality.SINGLE,
+            requires=frozenset({Capability.AUTOGRAD}),  # gradient method
         ),
     },
 )
