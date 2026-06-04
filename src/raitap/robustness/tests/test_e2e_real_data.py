@@ -28,6 +28,7 @@ from raitap.models.backend import ModelBackend
 from raitap.pipeline.orchestrator import run_without_tracking as _run_without_tracking
 from raitap.robustness import RobustnessAssessment, RobustnessResult
 from raitap.testing import make_pixel_linear_classifier
+from raitap.types import Capability
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -39,9 +40,10 @@ torchattacks = pytest.importorskip("torchattacks")
 
 
 class _BackendStub(ModelBackend):
+    provides = frozenset({Capability.AUTOGRAD})
+
     def __init__(self, model: torch.nn.Module) -> None:
         self._model = model
-        self.supports_torch_autograd = True
 
     @property
     def hardware_label(self) -> str:
@@ -144,7 +146,7 @@ def test_image_pair_visualiser_diff_uses_diverging_cmap(tmp_path: Path) -> None:
         inputs,
         targets,
     )
-    visualisations = result.visualise()
+    visualisations = result._visualise()
     assert visualisations, "expected at least one rendered visualisation"
     figure = visualisations[0].figure
     try:
@@ -227,6 +229,6 @@ def test_pipeline_allows_robustness_only_runs(tmp_path: Path) -> None:
 
     outputs = _run_without_tracking(config, raitap_model, data_stub)  # type: ignore[arg-type]
 
-    assert outputs.explanations == []
-    assert len(outputs.robustness_results) == 1
-    assert outputs.robustness_results[0].assessor_name == "pgd"
+    assert "transparency" not in outputs
+    assert len(outputs.robustness) == 1
+    assert outputs.robustness[0].name == "pgd"

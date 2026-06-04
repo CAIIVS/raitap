@@ -4,21 +4,24 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import matplotlib.pyplot as plt
 from hydra.utils import instantiate
 
 from raitap import raitap_log
 from raitap.configs import cfg_to_dict, resolve_run_dir, resolve_target
-from raitap.reporting.sections import Reportable, ReportGroup
+from raitap.reporting.sections import Reportable, ReportGroup, ReportSection
+from raitap.reporting.staging import _copy_asset
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 from raitap.utils.serialization import to_json_serialisable
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from pathlib import Path
 
     from raitap.configs.schema import AppConfig
+    from raitap.reporting.sections import ReportContext
 
 
 from .base_metric_computer import BaseMetricComputer, MetricResult, scalar_metrics_for_tracking
@@ -80,15 +83,37 @@ class MetricsEvaluation(Trackable, Reportable):
             tracker.log_metrics(scalars, prefix=prefix)
         tracker.log_artifacts(self.run_dir, target_subdirectory="metrics")
 
+    report_order: ClassVar[int] = 10
+
     def to_report_group(self) -> ReportGroup:
         table_rows = tuple(
-            (str(name), f"{float(value):.4f}") for name, value in self.result.metrics.items()
+            (str(name), f"{float(value):.4f}") for name, value in self.result.scalars.items()
         )
         images = tuple(sorted(self.run_dir.glob("*.png")))
         return ReportGroup(
             heading="Performance Metrics",
             images=images,
             table_rows=table_rows,
+        )
+
+    def report_sections(self, ctx: ReportContext) -> Sequence[ReportSection]:
+        source_group = self.to_report_group()
+        staged_images = tuple(
+            _copy_asset(
+                image_path,
+                assets_dir=ctx.assets_dir,
+                target_name=f"metrics_{index}{image_path.suffix}",
+            )
+            for index, image_path in enumerate(source_group.images)
+        )
+        group = ReportGroup(
+            heading=source_group.heading,
+            images=staged_images,
+            table_rows=source_group.table_rows,
+            metadata={"role": "metrics"},
+        )
+        return (
+            ReportSection.from_groups("Metrics", [group], metadata={"section_role": "metrics"}),
         )
 
 
@@ -110,7 +135,7 @@ class Metrics:
         run_dir.mkdir(parents=True, exist_ok=True)
 
         (run_dir / "metrics.json").write_text(
-            json.dumps(to_json_serialisable(result.metrics), indent=2),
+            json.dumps(to_json_serialisable(result.scalars), indent=2),
             encoding="utf-8",
         )
         (run_dir / "artifacts.json").write_text(

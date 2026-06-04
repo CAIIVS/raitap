@@ -97,7 +97,7 @@ class _BaselineDeclaringExplainer(AttributionOnlyExplainer):
     baseline_kwarg_name = "baselines"
     algorithm_registry: ClassVar[Mapping[str, ExplainerSemanticsHints]] = {
         "IntegratedGradients": ExplainerSemanticsHints(
-            frozenset({MethodFamily.GRADIENT}), baseline_default=BaselineMode.ZERO
+            {MethodFamily.GRADIENT}, baseline_default=BaselineMode.ZERO
         )
     }
 

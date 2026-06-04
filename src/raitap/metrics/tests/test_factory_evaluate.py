@@ -115,7 +115,7 @@ def test_evaluate_prepares_metric_inputs_before_update(
             self.update_called_with = (predictions, targets)
 
         def compute(self) -> MetricResult:
-            return MetricResult(metrics={"accuracy": 1.0})
+            return MetricResult(scalars={"accuracy": 1.0})
 
     cfg = _config(tmp_path)
     fake_metric = FakeMetric()
@@ -138,8 +138,8 @@ def test_evaluate_metrics_dispatches_detection_metrics_on_forward_output(
 ) -> None:
     """ForwardOutput(detection) + list[dict] labels → DetectionMetrics computes mAP."""
     from raitap.configs.schema import DetectionMetricsConfig
+    from raitap.metrics.phase import evaluate_metrics
     from raitap.pipeline.outputs import ForwardOutput
-    from raitap.pipeline.phases.evaluate_metrics import evaluate_metrics
     from raitap.types import TaskKind
 
     cfg = AppConfig(experiment_name="t")
@@ -172,8 +172,8 @@ def test_evaluate_metrics_dispatches_detection_metrics_on_forward_output(
 
 def test_evaluate_metrics_skips_detection_without_labels(tmp_path: Path) -> None:
     from raitap.configs.schema import DetectionMetricsConfig
+    from raitap.metrics.phase import evaluate_metrics
     from raitap.pipeline.outputs import ForwardOutput
-    from raitap.pipeline.phases.evaluate_metrics import evaluate_metrics
     from raitap.types import TaskKind
 
     cfg = AppConfig(experiment_name="t")

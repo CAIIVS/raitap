@@ -448,7 +448,7 @@ def run_behavior_case(
 
     metadata_before_visualise = read_metadata(explanation.run_dir)
     saved_attributions = load_saved_attributions(explanation.run_dir)
-    visualisations = explanation.visualise()
+    visualisations = explanation._visualise()
     metadata_after_visualise = read_metadata(explanation.run_dir)
 
     return BehaviorRunResult(

@@ -34,7 +34,7 @@ transparency = {
 Visualisers declare which `ExplanationScope`, output space, and method families they support;
 the factory rejects mismatches at YAML parse time. See
 {doc}`frameworks-and-libraries` for the at-a-glance compatibility table and
-{doc}`../../contributor/transparency` for the underlying contract.
+{doc}`../../contributor/modules/transparency` for the underlying contract.
 
 ## Captum
 

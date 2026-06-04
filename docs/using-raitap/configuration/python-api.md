@@ -112,17 +112,40 @@ Library-forwarded kwargs (unchecked at schema time):
 
 `raitap.run` returns a frozen `RunOutputs` dataclass:
 
-| Field                       | Type                                  | Meaning                                                                                              |
-| --------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `explanations`              | `list[ExplanationResult]`             | One result per `(transparency_run, sample_batch)` pair; carries the attribution tensor and metadata. |
-| `visualisations`            | `list[VisualisationResult]`           | Rendered transparency outputs (images, HTML fragments) ready for reporting.                          |
-| `metrics`                   | `MetricsEvaluation \| None`           | Aggregated classification metrics. `None` when `metrics` is unconfigured.                            |
-| `forward_output`            | `torch.Tensor`                        | Raw output of `model(data)` — the source for both predictions and metric inputs.                     |
-| `sample_ids`                | `list[str] \| None`                   | Stable ids aligned with `forward_output` rows; `None` when the data source doesn't supply them.      |
-| `targets`                   | `torch.Tensor \| None`                | Ground-truth labels when labels are configured.                                                      |
-| `prediction_summaries`      | `tuple[PredictionSummary, ...]`       | Per-sample `(index, predicted_class, confidence, sample_id, target_class, correct)`.                 |
-| `robustness_results`        | `list[RobustnessResult]`              | One per `(robustness_run, sample_batch)`; carries adversarial tensors and per-sample success flags.  |
-| `robustness_visualisations` | `list[RobustnessVisualisationResult]` | Rendered robustness outputs (image pairs, heat maps).                                                |
+| Field                  | Type                            | Meaning                                                                                          |
+| ---------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `forward_output`       | `ForwardOutput`                 | Typed model forward output (predictions tensor or detection predictions) + batch size.           |
+| `phase_results`        | `dict[str, PhaseResult]`        | Each configured assessment phase's result, keyed by phase name (see below). Only configured phases appear. |
+| `sample_ids`           | `list[str] \| None`             | Stable ids aligned with `forward_output` rows; `None` when the data source doesn't supply them.  |
+| `targets`              | `torch.Tensor \| list[dict[str, torch.Tensor]] \| None` | Ground-truth labels when configured — a tensor (classification) or `list[dict]` (detection). |
+| `prediction_summaries` | `tuple[PredictionSummary, ...]` | Per-sample `(index, predicted_class, confidence, sample_id, target_class, correct)`.             |
+
+**Typed accessors** (the common path) return each phase's result data:
+
+| Accessor               | Type                        | Notes                                          |
+| ---------------------- | --------------------------- | ---------------------------------------------- |
+| `outputs.metrics`      | `MetricResult \| None`      | `.scalars` (`dict[str, float]`), `.artifacts`. |
+| `outputs.transparency` | `list[ExplanationResult]`   | one per explainer; `[]` if not run.            |
+| `outputs.robustness`   | `list[RobustnessResult]`    | one per assessor; `[]` if not run.             |
+
+Every per-adapter result (`ExplanationResult`, `RobustnessResult`) shares one envelope — the `AdapterResult` contract: `.name` (the config key, e.g. `"ig"`), `.adapter_target` (the `_target_` class), `.algorithm`, `.semantics`, `.run_dir`, and `.visualisations` (the figures that result owns) — plus its own domain payload (`.attributions` / `.verdicts` / …).
+
+**Mapping access** reaches the underlying `PhaseResult` wrapper for any (incl. future) phase: `outputs.get(name)`, `outputs[name]`, `name in outputs`.
+
+```python
+result = run(cfg)
+
+if result.metrics is not None:
+    print(result.metrics.scalars)             # dict[str, float]
+
+for explanation in result.transparency:       # list[ExplanationResult]
+    print(explanation.name, explanation.algorithm, len(explanation.visualisations))
+
+for assessment in result.robustness:          # list[RobustnessResult]
+    print(assessment.name, assessment.metrics.attack_success_rate)
+
+fairness = result.get("fairness")             # any future phase → PhaseResult | None
+```
 
 ## Multiruns in Python
 
@@ -143,5 +166,6 @@ for eps in (0.01, 0.03, 0.06, 0.1):
     results.append((eps, run(copied_cfg, verbose=False)))
 
 for eps, outputs in results:
-    print(eps, outputs.metrics.result.metrics if outputs.metrics else None)
+    metrics = outputs.get("metrics")
+    print(eps, metrics.result.scalars if metrics else None)
 ```

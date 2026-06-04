@@ -25,7 +25,7 @@ class _StubMetric(BaseMetricComputer):
         del predictions, targets
 
     def compute(self) -> MetricResult:
-        return MetricResult(metrics={})
+        return MetricResult(scalars={})
 
 
 # Module-scope registration is required so hydra-zen's ``builds(...)`` can

@@ -246,23 +246,19 @@ def _has_token_layout(explanation: object, attributions: object) -> bool:
 
 @transparency_visualiser(
     registry_name="captum_image",
-    supported_scopes=frozenset({ExplanationScope.LOCAL}),
-    supported_output_spaces=frozenset(
-        {
-            ExplanationOutputSpace.INPUT_FEATURES,
-            ExplanationOutputSpace.IMAGE_SPATIAL_MAP,
-        }
-    ),
-    supported_method_families=frozenset(
-        {
-            MethodFamily.GRADIENT,
-            MethodFamily.PERTURBATION,
-            MethodFamily.SHAPLEY,
-            MethodFamily.CAM,
-            MethodFamily.MODEL_AGNOSTIC,
-            MethodFamily.SURROGATE,
-        }
-    ),
+    supported_scopes={ExplanationScope.LOCAL},
+    supported_output_spaces={
+        ExplanationOutputSpace.INPUT_FEATURES,
+        ExplanationOutputSpace.IMAGE_SPATIAL_MAP,
+    },
+    supported_method_families={
+        MethodFamily.GRADIENT,
+        MethodFamily.PERTURBATION,
+        MethodFamily.SHAPLEY,
+        MethodFamily.CAM,
+        MethodFamily.MODEL_AGNOSTIC,
+        MethodFamily.SURROGATE,
+    },
     embeds_original_input=True,
 )
 class CaptumImageVisualiser(BaseVisualiser):
@@ -494,8 +490,8 @@ class CaptumImageVisualiser(BaseVisualiser):
 
 @transparency_visualiser(
     registry_name="captum_time_series",
-    supported_scopes=frozenset({ExplanationScope.LOCAL}),
-    supported_output_spaces=frozenset({ExplanationOutputSpace.INPUT_FEATURES}),
+    supported_scopes={ExplanationScope.LOCAL},
+    supported_output_spaces={ExplanationOutputSpace.INPUT_FEATURES},
     supported_method_families=_CAPTUM_SEQUENCE_METHOD_FAMILIES,
 )
 class CaptumTimeSeriesVisualiser(BaseVisualiser):
@@ -601,8 +597,8 @@ class CaptumTimeSeriesVisualiser(BaseVisualiser):
 
 @transparency_visualiser(
     registry_name="captum_text",
-    supported_scopes=frozenset({ExplanationScope.LOCAL}),
-    supported_output_spaces=frozenset({ExplanationOutputSpace.TOKEN_SEQUENCE}),
+    supported_scopes={ExplanationScope.LOCAL},
+    supported_output_spaces={ExplanationOutputSpace.TOKEN_SEQUENCE},
     supported_method_families=_CAPTUM_SEQUENCE_METHOD_FAMILIES,
 )
 class CaptumTextVisualiser(BaseVisualiser):

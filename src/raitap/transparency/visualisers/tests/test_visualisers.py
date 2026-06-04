@@ -37,6 +37,7 @@ from raitap.transparency.visualisers import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Set as AbstractSet
     from pathlib import Path
     from typing import Any
 
@@ -48,7 +49,7 @@ def _explanation(
     scope: ExplanationScope = ExplanationScope.LOCAL,
     payload_kind: ExplanationPayloadKind = ExplanationPayloadKind.ATTRIBUTIONS,
     output_space: ExplanationOutputSpace = ExplanationOutputSpace.INPUT_FEATURES,
-    method_families: frozenset[MethodFamily] = frozenset({MethodFamily.GRADIENT}),
+    method_families: AbstractSet[MethodFamily] = frozenset({MethodFamily.GRADIENT}),
     input_kind: str | None = "tabular",
     input_layout: str | None = "(B, F)",
     input_metadata: dict[str, object] | None = None,
@@ -127,7 +128,7 @@ class TestBaseVisualiserContract:
                 "output space",
             ),
             (
-                _explanation(method_families=frozenset({MethodFamily.TREE})),
+                _explanation(method_families={MethodFamily.TREE}),
                 "method family",
             ),
         ],
@@ -157,7 +158,7 @@ class TestCaptumImageVisualiser:
                 input_layout="NCHW",
                 output_layout="NCHW",
                 shape=(2, 3, 32, 32),
-                method_families=frozenset({MethodFamily.GRADIENT}),
+                method_families={MethodFamily.GRADIENT},
             ),
             _explanation(
                 input_kind="image",
@@ -165,7 +166,7 @@ class TestCaptumImageVisualiser:
                 output_layout="NCHW",
                 output_space=ExplanationOutputSpace.IMAGE_SPATIAL_MAP,
                 shape=(2, 1, 8, 8),
-                method_families=frozenset({MethodFamily.GRADIENT, MethodFamily.CAM}),
+                method_families={MethodFamily.GRADIENT, MethodFamily.CAM},
             ),
             _explanation(
                 input_kind=None,
@@ -173,7 +174,7 @@ class TestCaptumImageVisualiser:
                 input_metadata={"modality": "image"},
                 output_layout="NCHW",
                 shape=(2, 3, 32, 32),
-                method_families=frozenset({MethodFamily.GRADIENT}),
+                method_families={MethodFamily.GRADIENT},
             ),
         ],
     )
@@ -632,13 +633,13 @@ class TestCaptumTimeSeriesVisualiser:
     @pytest.mark.parametrize(
         "method_families",
         [
-            frozenset({MethodFamily.TREE}),
-            frozenset({MethodFamily.CAM}),
+            {MethodFamily.TREE},
+            {MethodFamily.CAM},
         ],
     )
     def test_validate_explanation_rejects_unsupported_method_families(
         self,
-        method_families: frozenset[MethodFamily],
+        method_families: AbstractSet[MethodFamily],
     ) -> None:
         explanation = _explanation(
             input_kind="time_series",
@@ -758,13 +759,13 @@ class TestCaptumTextVisualiser:
     @pytest.mark.parametrize(
         "method_families",
         [
-            frozenset({MethodFamily.TREE}),
-            frozenset({MethodFamily.CAM}),
+            {MethodFamily.TREE},
+            {MethodFamily.CAM},
         ],
     )
     def test_validate_explanation_rejects_unsupported_method_families(
         self,
-        method_families: frozenset[MethodFamily],
+        method_families: AbstractSet[MethodFamily],
     ) -> None:
         explanation = _explanation(
             input_kind="text",
@@ -841,7 +842,7 @@ class TestShapBarVisualiser:
 
     def test_validate_explanation_accepts_tabular_shap_semantics(self) -> None:
         explanation = _explanation(
-            method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.TREE}),
+            method_families={MethodFamily.SHAPLEY, MethodFamily.TREE},
         )
 
         ShapBarVisualiser().validate_explanation(explanation, torch.zeros(4, 10), None)
@@ -852,7 +853,7 @@ class TestShapBarVisualiser:
             input_layout="NCHW",
             output_layout="NCHW",
             shape=(2, 3, 32, 32),
-            method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+            method_families={MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
         )
 
         with pytest.raises(ValueError, match=r"ShapBarVisualiser.*tabular layout"):
@@ -864,7 +865,7 @@ class TestShapBarVisualiser:
             input_layout=None,
             output_layout=None,
             shape=(4, 10),
-            method_families=frozenset({MethodFamily.SHAPLEY}),
+            method_families={MethodFamily.SHAPLEY},
         )
 
         with pytest.raises(ValueError, match=r"ShapBarVisualiser.*tabular layout"):
@@ -915,7 +916,7 @@ class TestShapBeeswarmVisualiser:
             input_layout="NCHW",
             output_layout="NCHW",
             shape=(2, 3, 32, 32),
-            method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+            method_families={MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
         )
 
         with pytest.raises(ValueError, match=r"ShapBeeswarmVisualiser.*tabular layout"):
@@ -931,7 +932,7 @@ class TestShapBeeswarmVisualiser:
             input_layout=None,
             output_layout=None,
             shape=(4, 10),
-            method_families=frozenset({MethodFamily.SHAPLEY}),
+            method_families={MethodFamily.SHAPLEY},
         )
 
         with pytest.raises(ValueError, match=r"ShapBeeswarmVisualiser.*tabular layout"):
@@ -1028,7 +1029,7 @@ class TestShapImageVisualiser:
             input_layout="NCHW",
             output_layout="NCHW",
             shape=(2, 3, 32, 32),
-            method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+            method_families={MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
         )
 
         ShapImageVisualiser().validate_explanation(explanation, torch.zeros(2, 3, 32, 32), None)
@@ -1040,7 +1041,7 @@ class TestShapImageVisualiser:
             input_metadata={"modality": "image"},
             output_layout="NCHW",
             shape=(2, 3, 32, 32),
-            method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+            method_families={MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
         )
 
         ShapImageVisualiser().validate_explanation(explanation, torch.zeros(2, 3, 32, 32), None)
@@ -1051,7 +1052,7 @@ class TestShapImageVisualiser:
             input_layout="NCHW",
             output_layout="NCHW",
             shape=(2, 3, 32, 32),
-            method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+            method_families={MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
         )
 
         with pytest.raises(ValueError, match=r"ShapImageVisualiser.*input metadata"):
@@ -1067,7 +1068,7 @@ class TestShapImageVisualiser:
             input_layout="NCHW",
             output_layout="NCHW",
             shape=None,
-            method_families=frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+            method_families={MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
         )
 
         with pytest.raises(ValueError, match=r"ShapImageVisualiser.*input metadata"):
@@ -1076,13 +1077,13 @@ class TestShapImageVisualiser:
     @pytest.mark.parametrize(
         "method_families",
         [
-            frozenset({MethodFamily.SHAPLEY, MethodFamily.PERTURBATION}),
-            frozenset({MethodFamily.SHAPLEY, MethodFamily.TREE}),
+            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION},
+            {MethodFamily.SHAPLEY, MethodFamily.TREE},
         ],
     )
     def test_validate_explanation_rejects_non_gradient_shap_semantics(
         self,
-        method_families: frozenset[MethodFamily],
+        method_families: AbstractSet[MethodFamily],
     ) -> None:
         explanation = _explanation(
             input_kind="image",
@@ -1511,7 +1512,7 @@ def test_detection_uses_shap_renderer_for_shap_library(monkeypatch: pytest.Monke
         show_sample_names=False,
         detection_box=DetectionBox(0, 0, (0.0, 0.0, 2.0, 2.0), 0.9, 1, "cat"),
         source_library="shap",
-        method_families=frozenset({MethodFamily.SHAPLEY}),
+        method_families={MethodFamily.SHAPLEY},
     )
     fig = DetectionImageVisualiser().visualise(attr, inputs=img, context=ctx)
     assert calls.get("used") is True

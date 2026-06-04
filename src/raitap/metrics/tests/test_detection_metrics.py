@@ -291,9 +291,9 @@ class TestDetectionMetricsCompute:
         detection_metrics.update(predictions, targets)
         result = detection_metrics.compute()
 
-        assert hasattr(result, "metrics")
+        assert hasattr(result, "scalars")
         assert hasattr(result, "artifacts")
-        assert isinstance(result.metrics, dict)
+        assert isinstance(result.scalars, dict)
         assert isinstance(result.artifacts, dict)
 
     def test_compute_separates_scalars_and_tensors(
@@ -318,7 +318,7 @@ class TestDetectionMetricsCompute:
         result = detection_metrics.compute()
 
         # Check that metrics contains only float values
-        for key, value in result.metrics.items():
+        for key, value in result.scalars.items():
             assert isinstance(value, float), f"Metric '{key}' should be float, got {type(value)}"
 
         # Check that artifacts contains only non-scalar values (lists)
@@ -345,9 +345,9 @@ class TestDetectionMetricsCompute:
         result = detection_metrics.compute()
 
         # With perfect predictions, mAP should be high
-        assert "map" in result.metrics
-        assert result.metrics["map"] >= 0.0
-        assert result.metrics["map"] <= 1.0
+        assert "map" in result.scalars
+        assert result.scalars["map"] >= 0.0
+        assert result.scalars["map"] <= 1.0
 
     def test_compute_with_multiple_classes(self) -> None:
         """Test compute with multiple object classes."""
@@ -370,7 +370,7 @@ class TestDetectionMetricsCompute:
         metrics.update(predictions, targets)
         result = metrics.compute()
 
-        assert "map" in result.metrics
+        assert "map" in result.scalars
 
     def test_compute_empty_predictions_and_targets(
         self, detection_metrics: DetectionMetrics
@@ -394,7 +394,7 @@ class TestDetectionMetricsCompute:
         result = detection_metrics.compute()
 
         # Should still return a valid result structure
-        assert isinstance(result.metrics, dict)
+        assert isinstance(result.scalars, dict)
         assert isinstance(result.artifacts, dict)
 
 
@@ -445,7 +445,7 @@ class TestDetectionMetricsReset:
         result2 = detection_metrics.compute()
 
         # Results should be independent after reset
-        assert isinstance(result2.metrics, dict)
+        assert isinstance(result2.scalars, dict)
         assert isinstance(result2.artifacts, dict)
 
 
@@ -473,8 +473,8 @@ class TestDetectionMetricsEdgeCases:
         metrics.update(predictions, targets)
         result = metrics.compute()
 
-        assert "map" in result.metrics
-        assert 0.0 <= result.metrics["map"] <= 1.0
+        assert "map" in result.scalars
+        assert 0.0 <= result.scalars["map"] <= 1.0
 
     def test_multiple_detections_per_image(self) -> None:
         """Test with multiple detections in a single image."""
@@ -508,7 +508,7 @@ class TestDetectionMetricsEdgeCases:
         metrics.update(predictions, targets)
         result = metrics.compute()
 
-        assert "map" in result.metrics
+        assert "map" in result.scalars
 
     def test_xywh_box_format(self) -> None:
         """Test with xywh box format."""
@@ -532,7 +532,7 @@ class TestDetectionMetricsEdgeCases:
         metrics.update(predictions, targets)
         result = metrics.compute()
 
-        assert "map" in result.metrics
+        assert "map" in result.scalars
 
     def test_large_batch(self) -> None:
         """Test with a large batch of images."""
@@ -560,4 +560,4 @@ class TestDetectionMetricsEdgeCases:
         metrics.update(predictions, targets)
         result = metrics.compute()
 
-        assert "map" in result.metrics
+        assert "map" in result.scalars

@@ -4,23 +4,24 @@ import pytest
 import torch
 
 from raitap.robustness.assessors import FoolboxAssessor
-from raitap.robustness.exceptions import AssessorBackendIncompatibilityError
 from raitap.testing import make_pixel_linear_classifier
+from raitap.types import Capability
+from raitap.utils.errors import BackendIncompatibilityError
 
 foolbox = pytest.importorskip("foolbox")
 
 
 class _AutogradBackend:
-    supports_torch_autograd = True
+    provides = frozenset({Capability.AUTOGRAD})
 
 
 class _OnnxLikeBackend:
-    supports_torch_autograd = False
+    provides = frozenset()
 
 
 def test_foolbox_rejects_non_autograd_backend() -> None:
     assessor = FoolboxAssessor(algorithm="LinfPGD")
-    with pytest.raises(AssessorBackendIncompatibilityError):
+    with pytest.raises(BackendIncompatibilityError):
         assessor.check_backend_compat(_OnnxLikeBackend())
 
 

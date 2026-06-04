@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from typing import Any
 
 from raitap.types import TaskKind
@@ -275,14 +276,14 @@ def _method_families_for_algorithm(algorithm: str) -> frozenset[MethodFamily]:
     from raitap.transparency.explainers.captum_explainer import CaptumExplainer
     from raitap.transparency.explainers.shap_explainer import ShapExplainer
 
-    matches: list[tuple[str, frozenset[MethodFamily]]] = []
+    matches: list[tuple[str, AbstractSet[MethodFamily]]] = []
     for label, adapter_cls in (("SHAP", ShapExplainer), ("Captum", CaptumExplainer)):
         registry = adapter_cls.algorithm_registry
         if algorithm in registry:
             matches.append((label, registry[algorithm].families))
 
     if len(matches) == 1:
-        return matches[0][1]
+        return frozenset(matches[0][1])
     if not matches:
         raise _method_family_error("<unknown>", algorithm)
 

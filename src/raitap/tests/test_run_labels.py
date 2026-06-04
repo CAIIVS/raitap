@@ -7,7 +7,13 @@ import pytest
 import torch
 
 import raitap.pipeline.orchestrator as run_pipeline
+
+# Bind the phase submodules as objects so ``monkeypatch.setattr`` patches the module
+# directly — the lazy adapter ``__getattr__`` on ``raitap.metrics`` / ``raitap.transparency``
+# makes dotted-string monkeypatch targets unreliable once another test unbinds them.
+from raitap.metrics import phase as _metrics_phase
 from raitap.metrics import resolve_metric_targets
+from raitap.transparency import phase as _transparency_phase
 from raitap.types import TaskKind
 
 if TYPE_CHECKING:
@@ -84,7 +90,7 @@ def test_run_without_tracking_passes_ground_truth_labels_to_metrics(
         def __init__(self, *_args: object, **_kwargs: object) -> None:
             pass
 
-        def visualise(self) -> list[object]:
+        def _visualise(self) -> list[object]:
             return []
 
     def fake_metrics(
@@ -96,11 +102,9 @@ def test_run_without_tracking_passes_ground_truth_labels_to_metrics(
         captured["targets"] = targets
         return SimpleNamespace()
 
-    monkeypatch.setattr(
-        "raitap.pipeline.phases.evaluate_metrics.metrics_run_enabled", lambda _cfg: True
-    )
-    monkeypatch.setattr("raitap.pipeline.phases.evaluate_metrics.Metrics", fake_metrics)
-    monkeypatch.setattr("raitap.pipeline.phases.assess_transparency.Explanation", DummyExplanation)
+    monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: True)
+    monkeypatch.setattr(_metrics_phase, "Metrics", fake_metrics)
+    monkeypatch.setattr(_transparency_phase, "Explanation", DummyExplanation)
 
     outputs = run_pipeline.run_without_tracking(
         cast("AppConfig", cast("object", config)),
@@ -108,6 +112,6 @@ def test_run_without_tracking_passes_ground_truth_labels_to_metrics(
         cast("Data", cast("object", data)),
     )
 
-    assert outputs.metrics is not None
+    assert "metrics" in outputs
     assert torch.equal(captured["predictions"], torch.tensor([1, 0]))
     assert torch.equal(captured["targets"], data.labels)

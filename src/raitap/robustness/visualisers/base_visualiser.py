@@ -61,7 +61,7 @@ class BaseRobustnessVisualiser(ABC, AdapterMixin):
             return
         if result.assessment_kind not in self.supported_assessment_kinds:
             raise AssessmentKindVisualiserIncompatibilityError(
-                assessor_target=result.assessor_target,
+                assessor_target=result.adapter_target,
                 visualiser=type(self).__name__,
                 assessor_assessment_kind=result.assessment_kind.value,
                 supported_assessment_kinds=[

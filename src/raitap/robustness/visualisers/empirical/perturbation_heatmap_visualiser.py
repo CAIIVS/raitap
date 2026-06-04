@@ -31,7 +31,7 @@ _SUPPORTED_MODES = frozenset({"signed_dominant", "mean_abs", "mean", "max_abs"})
 
 @robustness_visualiser(
     registry_name="perturbation_heatmap",
-    supported_assessment_kinds=frozenset({AssessmentKind.EMPIRICAL_ATTACK}),
+    supported_assessment_kinds={AssessmentKind.EMPIRICAL_ATTACK},
     embeds_perturbation_map=True,
 )
 class PerturbationHeatmapVisualiser(BaseRobustnessVisualiser):

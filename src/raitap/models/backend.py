@@ -3,12 +3,12 @@ from __future__ import annotations
 import functools
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, overload
+from typing import TYPE_CHECKING, Any, ClassVar, overload
 
 import numpy as np
 
 from raitap.models.registration import register
-from raitap.types import TaskKind
+from raitap.types import Capability, TaskKind
 from raitap.utils.errors import ModelInputShapeError
 from raitap.utils.lazy import lazy_import
 
@@ -131,7 +131,7 @@ _NUMPY_DTYPES_BY_ONNX_TYPE: dict[str, np.dtype[Any]] = {
 class ModelBackend(ABC):
     """Backend-agnostic model runtime interface."""
 
-    supports_torch_autograd: bool
+    provides: ClassVar[frozenset[Capability]] = frozenset()
     # Declared per-sample input shape with ``None`` marking dynamic dims
     # (typically the batch dim). ``None`` overall = no rank adaptation.
     expected_input_shape: tuple[int | None, ...] | None = None
@@ -166,7 +166,7 @@ class ModelBackend(ABC):
         """Return the model object that explainers should consume."""
 
 
-@register(supports_torch_autograd=True)
+@register(provides={Capability.AUTOGRAD})
 class TorchBackend(ModelBackend):
     """PyTorch-backed model runtime."""
 
@@ -245,7 +245,7 @@ def _onnx_explanation_module_cls() -> type:
     return _OnnxExplanationModule
 
 
-@register(supports_torch_autograd=False)
+@register(provides=frozenset())
 class OnnxBackend(ModelBackend):
     """ONNX Runtime-backed model runtime."""
 

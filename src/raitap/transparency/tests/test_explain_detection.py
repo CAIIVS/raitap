@@ -11,7 +11,6 @@ from torch import nn
 
 from raitap.models.backend import TorchBackend
 from raitap.pipeline.outputs import ForwardOutput
-from raitap.pipeline.phases.explain_detection import explain_detection
 from raitap.transparency.contracts import (
     DetectionBox,
     ExplainerSemanticsHints,
@@ -25,6 +24,7 @@ from raitap.transparency.contracts import (
     ScopeDefinitionStep,
     TensorLayout,
 )
+from raitap.transparency.explain_detection import explain_detection
 from raitap.transparency.results import ExplanationResult
 from raitap.types import TaskKind
 from raitap.utils.errors import RaitapError
@@ -110,9 +110,9 @@ class _RecordingExplainer:
             inputs=inputs,
             run_dir=Path(run_dir),
             experiment_name=experiment_name,
-            explainer_target=explainer_target or "x",
+            adapter_target=explainer_target or "x",
             algorithm=self.algorithm,
-            explainer_name=explainer_name,
+            name=explainer_name,
             visualisers=[],
             semantics=semantics,
         )
@@ -397,7 +397,7 @@ def test_explain_detection_forwards_call_provenance(
 
 def test_sample_as_batch_helper_list_and_tensor() -> None:
     """Unit-test _sample_as_batch directly for both list and dense tensor inputs."""
-    from raitap.pipeline.phases.explain_detection import _sample_as_batch
+    from raitap.transparency.explain_detection import _sample_as_batch
 
     # List case — differently-sized tensors.
     t0 = torch.zeros(3, 8, 8)

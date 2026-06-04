@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from raitap.configs.schema import AppConfig
+    from raitap.metrics import MetricsEvaluation
 
 
 @pytest.mark.cuda
@@ -151,14 +152,15 @@ def test_detection_pipeline_e2e_via_fasterrcnn_mobilenet(tmp_path: Path) -> None
     assert len(outputs.forward_output.detection_predictions) == 1
 
     assert outputs.metrics is not None
-    assert outputs.metrics.resolved_target == "raitap.metrics.DetectionMetrics"
+    metrics_evaluation = cast("MetricsEvaluation", outputs.phase_results["metrics"])
+    assert metrics_evaluation.resolved_target == "raitap.metrics.DetectionMetrics"
 
     # At least one detection should pass score_threshold=0.5 in dashcam frames
     # with a COCO-pretrained Faster R-CNN.
-    assert len(outputs.explanations) >= 1, "expected at least one box above score threshold"
+    assert len(outputs.transparency) >= 1, "expected at least one box above score threshold"
 
-    for explanation in outputs.explanations:
+    for explanation in outputs.transparency:
         assert explanation.detection_box is not None
         assert explanation.original_sample_index is not None
 
-    assert len(outputs.visualisations) >= 1
+    assert len([v for r in outputs.transparency for v in r.visualisations]) >= 1

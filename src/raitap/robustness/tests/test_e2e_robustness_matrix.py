@@ -23,6 +23,7 @@ from raitap.models.backend import ModelBackend
 from raitap.robustness import RobustnessAssessment, RobustnessResult
 from raitap.robustness.tests.e2e_assessor_matrix import MATRIX_CASES, AssessorMatrixCase
 from raitap.testing import make_pixel_linear_classifier
+from raitap.types import Capability
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -35,9 +36,10 @@ class _BackendStub(ModelBackend):
     """Minimal backend that wraps a torch nn.Module — no preprocessing, no
     Hydra config dance. Matches the shape used in ``test_e2e_real_data.py``."""
 
+    provides = frozenset({Capability.AUTOGRAD})
+
     def __init__(self, model: torch.nn.Module) -> None:
         self._model = model
-        self.supports_torch_autograd = True
 
     @property
     def hardware_label(self) -> str:

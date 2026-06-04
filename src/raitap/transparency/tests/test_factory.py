@@ -11,7 +11,6 @@ from omegaconf import OmegaConf
 
 from raitap.models.backend import ModelBackend
 from raitap.transparency import (
-    ExplainerBackendIncompatibilityError,
     PayloadVisualiserIncompatibilityError,
     VisualiserIncompatibilityError,
 )
@@ -32,7 +31,8 @@ from raitap.transparency.factory import (
 )
 from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
-from raitap.utils.errors import SampleNamesLengthError
+from raitap.types import Capability
+from raitap.utils.errors import BackendIncompatibilityError, SampleNamesLengthError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -44,9 +44,9 @@ if TYPE_CHECKING:
 
 
 class _BackendStub(ModelBackend):
-    def __init__(self, model: torch.nn.Module, *, supports_torch_autograd: bool = True) -> None:
+    def __init__(self, model: torch.nn.Module, *, autograd: bool = True) -> None:
         self._model = model
-        self.supports_torch_autograd = supports_torch_autograd
+        self.provides = frozenset({Capability.AUTOGRAD}) if autograd else frozenset()  # type: ignore[misc]
 
     @property
     def hardware_label(self) -> str:
@@ -143,7 +143,7 @@ def test_explanation_returns_explanation_result(
     assert (explanation.run_dir / "attributions.pt").exists()
     assert (explanation.run_dir / "metadata.json").exists()
 
-    visualisations = explanation.visualise()
+    visualisations = explanation._visualise()
     assert len(visualisations) == 1
     assert (explanation.run_dir / "CaptumImageVisualiser_0.png").exists()
 
@@ -630,20 +630,25 @@ def test_create_explainer_wraps_instantiation_errors(
         create_explainer(config)
 
 
-def test_create_explainer_rejects_missing_check_backend_compat(
+def test_explainer_inherits_check_backend_compat_from_mixin(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    class _ExplainerWithoutBackendCheck:
+    # A configured explainer never lacks check_backend_compat; it is inherited
+    # from AdapterMixin. Assert the inherited method is present and callable.
+    from raitap._adapters import AdapterMixin
+
+    class _StubExplainerWithInheritance(AdapterMixin):
         def explain(self, *_args: Any, **_kwargs: Any) -> None:
             return None
 
+    stub = _StubExplainerWithInheritance()
     monkeypatch.setattr(
         "raitap.transparency.factory.instantiate",
-        lambda _cfg: _ExplainerWithoutBackendCheck(),
+        lambda _cfg: stub,
     )
     config = OmegaConf.create({"_target_": "CaptumExplainer", "algorithm": "Saliency"})
-    with pytest.raises(ValueError, match="check_backend_compat"):
-        create_explainer(config)
+    explainer, _ = create_explainer(config)
+    assert callable(explainer.check_backend_compat)
 
 
 def test_create_explainer_rejects_unknown_top_level_keys() -> None:
@@ -1499,10 +1504,8 @@ def test_captum_explainer_blocks_integrated_gradients_on_non_autograd_backend() 
 
     explainer = CaptumExplainer("IntegratedGradients")
 
-    with pytest.raises(ExplainerBackendIncompatibilityError):
-        explainer.check_backend_compat(
-            _BackendStub(torch.nn.Identity(), supports_torch_autograd=False)
-        )
+    with pytest.raises(BackendIncompatibilityError):
+        explainer.check_backend_compat(_BackendStub(torch.nn.Identity(), autograd=False))
 
 
 def test_shap_explainer_blocks_gradient_explainer_on_non_autograd_backend() -> None:
@@ -1510,10 +1513,8 @@ def test_shap_explainer_blocks_gradient_explainer_on_non_autograd_backend() -> N
 
     explainer = ShapExplainer("GradientExplainer")
 
-    with pytest.raises(ExplainerBackendIncompatibilityError):
-        explainer.check_backend_compat(
-            _BackendStub(torch.nn.Identity(), supports_torch_autograd=False)
-        )
+    with pytest.raises(BackendIncompatibilityError):
+        explainer.check_backend_compat(_BackendStub(torch.nn.Identity(), autograd=False))
 
 
 def test_captum_explainer_allows_feature_ablation_on_non_autograd_backend() -> None:
@@ -1521,7 +1522,7 @@ def test_captum_explainer_allows_feature_ablation_on_non_autograd_backend() -> N
 
     explainer = CaptumExplainer("FeatureAblation")
 
-    explainer.check_backend_compat(_BackendStub(torch.nn.Identity(), supports_torch_autograd=False))
+    explainer.check_backend_compat(_BackendStub(torch.nn.Identity(), autograd=False))
 
 
 def test_shap_explainer_allows_kernel_explainer_on_non_autograd_backend() -> None:
@@ -1529,7 +1530,7 @@ def test_shap_explainer_allows_kernel_explainer_on_non_autograd_backend() -> Non
 
     explainer = ShapExplainer("KernelExplainer")
 
-    explainer.check_backend_compat(_BackendStub(torch.nn.Identity(), supports_torch_autograd=False))
+    explainer.check_backend_compat(_BackendStub(torch.nn.Identity(), autograd=False))
 
 
 def test_create_visualisers_accepts_flat_constructor_kwargs() -> None:

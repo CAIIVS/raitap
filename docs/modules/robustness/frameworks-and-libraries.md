@@ -68,7 +68,7 @@ Verifier visualisers keep the default facet flags (`False`) and do not need to
 accept these kwargs unless they explicitly opt into the contract.
 
 Contributor-facing details about the assessor / visualiser internals are in
-{doc}`../../contributor/robustness`.
+{doc}`../../contributor/modules/robustness`.
 
 ## Assessor libraries
 
@@ -193,7 +193,7 @@ backend's device but emits a warning on an Intel XPU backend (less-common ops
 may hit XPU gaps); fall back to a CPU backend if you hit `operator not
 implemented for XPU`. auto-LiRPA also has no PyPI release supporting torch 2.x,
 so it installs from GitHub master and pins the project to the **torch 2.8**
-window — see {doc}`../../contributor/robustness`.
+window — see {doc}`../../contributor/modules/robustness`.
 ```
 
 ### ImageCorruptions

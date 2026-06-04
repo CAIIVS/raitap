@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from raitap.robustness.assessors.registration import robustness_adapter
+from raitap.types import Capability
 from raitap.utils.lazy import lazy_import
 
 from ..contracts import AssessmentKind, Objective, PerturbationNorm, ThreatModel
@@ -27,70 +28,82 @@ else:
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
-            families=frozenset({"gradient_sign"}),
+            families={"gradient_sign"},
+            requires={Capability.AUTOGRAD},
         ),
         "BIM": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
-            families=frozenset({"gradient_sign", "iterative"}),
+            families={"gradient_sign", "iterative"},
+            requires={Capability.AUTOGRAD},
         ),
         "PGD": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
-            families=frozenset({"gradient_sign", "iterative"}),
+            families={"gradient_sign", "iterative"},
+            requires={Capability.AUTOGRAD},
         ),
         "PGDL2": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.L2,
-            families=frozenset({"gradient_sign", "iterative"}),
+            families={"gradient_sign", "iterative"},
+            requires={Capability.AUTOGRAD},
         ),
         "MIFGSM": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
-            families=frozenset({"gradient_sign", "iterative", "momentum"}),
+            families={"gradient_sign", "iterative", "momentum"},
+            requires={Capability.AUTOGRAD},
         ),
         "CW": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.L2,
-            families=frozenset({"optimization"}),
+            families={"optimization"},
+            requires={Capability.AUTOGRAD},
         ),
         "DeepFool": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.L2,
-            families=frozenset({"optimization"}),
+            families={"optimization"},
+            requires={Capability.AUTOGRAD},
         ),
         "AutoAttack": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
-            families=frozenset({"ensemble", "auto"}),
+            families={"ensemble", "auto"},
+            requires={Capability.AUTOGRAD},
         ),
+        # Square/OnePixel are score-based (conceptually black-box); requires=AUTOGRAD
+        # preserves current gating via the torchattacks torch model, could be relaxed later.
         "Square": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.BLACK_BOX_SCORE,
             Objective.UNTARGETED,
             PerturbationNorm.LINF,
-            families=frozenset({"score_based"}),
+            families={"score_based"},
+            requires={Capability.AUTOGRAD},
         ),
         "OnePixel": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.BLACK_BOX_SCORE,
             Objective.UNTARGETED,
             PerturbationNorm.L0,
-            families=frozenset({"score_based", "evolutionary"}),
+            families={"score_based", "evolutionary"},
+            requires={Capability.AUTOGRAD},
         ),
     },
 )

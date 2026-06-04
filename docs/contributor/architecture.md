@@ -40,7 +40,7 @@ In prose: the CLI entry (`raitap.cli.main`) routes to either the tracking-stop s
 
 Every concrete adapter (explainer, assessor, metric, reporter, tracker, visualiser) self-registers via a namespaced facade decorator (`@adapters.transparency`, `@adapters.robustness`, `@adapters.metrics`, `@adapters.reporter`, `@adapters.tracker`, `@visualisers.transparency`, `@visualisers.robustness`). The decorator lives in `<module>/registration.py`; it delegates to `raitap._adapters._register_core`, which builds the hydra-zen builder, registers it with the `ConfigStore`, and populates `_BUILDERS` / `ADAPTER_EXTRAS` / `THIRD_PARTY_LIBS`. Lazy `__getattr__` on each family package resolves `raitap.<family>.<name>` via `raitap._adapters.lookup`.
 
-See {doc}`adding-an-adapter` / {doc}`adding-an-algorithm` / {doc}`adding-a-module` for the contributor workflow.
+See {doc}`adding/adding-an-adapter` / {doc}`adding/adding-an-algorithm` / {doc}`adding/adding-a-module` for the contributor workflow.
 
 ## Visualisers and renderers
 
@@ -61,7 +61,7 @@ src/
     ├── types.py                    # `Hardware` enum + small shared types
     ├── _adapters.py                # registration core: `AdapterMixin` (instance helpers), `FamilyConfig`,
     │                               # `AdapterDecoratorOptions` TypedDict, `_register_core`, `_BUILDERS`,
-    │                               # `ADAPTER_EXTRAS`, `THIRD_PARTY_LIBS`, `ALL` sentinel, `discover`, `lookup`
+    │                               # `ADAPTER_EXTRAS`, `THIRD_PARTY_LIBS`, `discover`, `lookup`
     │
     ├── configs/                    # Hydra config tree shipped with the wheel
     │   ├── schema.py               # AppConfig + nested dataclasses; MISSING-typed required fields
@@ -94,14 +94,13 @@ src/
     │
     ├── pipeline/                   # the assessment run, split by phase
     │   ├── __main__.py             # @hydra.main entry; composes config (incl. raitap_schema) → orchestrator._run_pipeline()
-    │   ├── orchestrator.py         # _run_pipeline() + run_without_tracking() — wires the phases together; tracker context
+    │   ├── orchestrator.py         # _run_pipeline() + run_without_tracking() — runs configured phases; generic tracker loop over phase_results
     │   ├── ui.py                   # print_summary() — the rich panel banner
-    │   ├── outputs.py              # PredictionSummary + RunOutputs dataclasses (typed return)
-    │   └── phases/                 # one file per phase; filename matches the public function
+    │   ├── outputs.py              # RunOutputs (keyed phase_results + .metrics/.transparency/.robustness accessors) + PhaseResult + AdapterResult protocols
+    │   └── phases/                 # cross-cutting phase infra only; module-specific work lives in each module's phase.py
+    │       ├── base.py             # AssessmentPhase ABC + PhaseContext + run_adapters() (shared per-adapter loop)
+    │       ├── registry.py         # ASSESSMENT_PHASES: single source of truth for the configured-phase guard + run loop
     │       ├── forward_pass.py     # forward_pass(): batched backend forward; extract_primary_tensor for dict/tuple outputs
-    │       ├── evaluate_metrics.py # evaluate_metrics(): runs metrics when configured, infers num_classes
-    │       ├── assess_transparency.py  # assess_transparency(): instantiates explainers; resolve_explainer_runtime_kwargs (auto_pred)
-    │       ├── assess_robustness.py    # assess_robustness(): instantiates assessors; resolve_robustness_targets (labels or argmax fallback)
     │       ├── prediction_summaries.py # prediction_summaries(): per-sample PredictionSummary rows from logits
     │       └── input_metadata.py   # input_metadata_for_data(): bridges raitap.data → transparency/robustness InputSpec
     │
@@ -115,6 +114,7 @@ src/
     │   └── samples.py              # bundled sample sets (imagenet_samples, mnist_samples, …) + labels CSVs
     │
     ├── metrics/                    # metrics adapters (currently torchmetrics-backed)
+    │   ├── phase.py                # MetricsPhase + evaluate_metrics(): singleton phase (no adapter loop), infers num_classes
     │   ├── factory.py              # metrics_run_enabled, evaluate(), instantiation via adapter_factory
     │   ├── registration.py         # `@adapters.metrics` family decorator
     │   ├── base_metric_computer.py # `BaseMetricComputer` ABC + `MetricResult` dataclass
@@ -122,16 +122,22 @@ src/
     │   └── inputs.py               # target/prediction alignment, fallbacks when labels missing
     │
     ├── transparency/               # XAI adapters
+    │   ├── phase.py                # TransparencyPhase + assess_transparency() (run_adapters) + resolve_explainer_runtime_kwargs + detection routing
+    │   ├── explain_detection.py    # detection-task per-box K-loop (one ExplanationResult per detected box)
+    │   ├── report.py               # TransparencyPhaseResult + Global/Aggregated/Local section builders
     │   ├── factory.py              # create_explainer / create_visualisers; runtime kwargs resolution
     │   ├── contracts.py            # ExplanationPayloadKind, InputSpec, MethodFamily, …
-    │   ├── results.py              # ExplanationResult + Explanation orchestration object
+    │   ├── results.py              # ExplanationResult (AdapterResult: name/adapter_target/algorithm/semantics; owns its .visualisations) + Explanation object
     │   ├── explainers/             # CaptumExplainer, ShapExplainer + `registration.py`
     │   │                           # (`@adapters.transparency`) + `base_explainer.py`
     │   └── visualisers/            # CaptumImageVisualiser, ShapImageVisualiser, … + `registration.py`
     │                               # (`@visualisers.transparency`) + `base_visualiser.py`
     │
     ├── robustness/                 # adversarial-attack + formal-verification adapters
+    │   ├── phase.py                # RobustnessPhase + assess_robustness() (run_adapters) + resolve_robustness_targets
+    │   ├── report.py               # RobustnessPhaseResult + "Robustness" section builders
     │   ├── factory.py              # create_assessor; raitap-key migration warnings
+    │   ├── results.py              # RobustnessResult (AdapterResult: name/adapter_target/algorithm/semantics; owns its .visualisations)
     │   ├── assessors/              # TorchattacksAssessor, FoolboxAssessor, MarabouAssessor +
     │   │                           # `registration.py` (`@adapters.robustness`) +
     │   │                           # `base_assessor.py`
@@ -141,7 +147,9 @@ src/
     ├── reporting/                  # HTML + PDF report builders + multirun aggregation
     │   ├── registration.py         # `@adapters.reporter` family decorator
     │   ├── base_reporter.py        # `BaseReporter` ABC
-    │   ├── builder.py              # build_report(): assembles sections from RunOutputs
+    │   ├── builder.py              # build_report(): generic dispatch — asks each phase result (Reportable) for its sections, ordered by report_order
+    │   ├── staging.py              # shared figure/asset staging helpers (used by each phase's report renderer)
+    │   ├── samples.py              # sample-selection model + strategies (phase-agnostic; keys off predictions)
     │   ├── html_reporter.py        # Jinja2-backed HTML renderer
     │   ├── pdf_reporter.py         # borb-backed PDF renderer
     │   ├── hydra_callback.py       # ReportingSweepCallback wired by reporting/{html,pdf}.yaml

@@ -259,10 +259,10 @@ def _demo_run() -> RunOutputs:
 def test_run_smoke_with_verbose_false_drives_full_pipeline(_demo_run: RunOutputs) -> None:
     """`raitap.run(cfg, verbose=False)` exits cleanly with non-empty outputs."""
     assert isinstance(_demo_run, RunOutputs)
-    assert len(_demo_run.explanations) >= 1
-    assert len(_demo_run.robustness_results) >= 1
+    assert len(_demo_run.transparency) >= 1
+    assert len(_demo_run.robustness) >= 1
     assert _demo_run.metrics is not None
-    assert _demo_run.metrics.result.metrics  # at least one scalar metric
+    assert _demo_run.metrics.scalars  # at least one scalar metric
 
 
 @pytest.mark.e2e
@@ -278,10 +278,13 @@ def test_run_parity_with_yaml_demo(_demo_run: RunOutputs) -> None:
 
     yaml_outputs = run(cast("AppConfig", yaml_cfg), verbose=False)
 
-    assert len(_demo_run.explanations) == len(yaml_outputs.explanations)
-    assert len(_demo_run.robustness_results) == len(yaml_outputs.robustness_results)
-    assert (_demo_run.metrics is None) == (yaml_outputs.metrics is None)
-    if _demo_run.metrics is not None and yaml_outputs.metrics is not None:
-        assert set(_demo_run.metrics.result.metrics.keys()) == set(
-            yaml_outputs.metrics.result.metrics.keys()
-        )
+    # Same phases ran in both invocations.
+    assert set(_demo_run.phase_results) == set(yaml_outputs.phase_results)
+    assert len(_demo_run.transparency) == len(yaml_outputs.transparency)
+    assert len(_demo_run.robustness) == len(yaml_outputs.robustness)
+
+    demo_metrics = _demo_run.metrics
+    yaml_metrics = yaml_outputs.metrics
+    assert (demo_metrics is None) == (yaml_metrics is None)
+    if demo_metrics is not None and yaml_metrics is not None:
+        assert set(demo_metrics.scalars.keys()) == set(yaml_metrics.scalars.keys())

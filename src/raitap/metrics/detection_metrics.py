@@ -113,7 +113,7 @@ class DetectionMetrics(BaseMetricComputer):
             else:
                 artifacts[k] = py
 
-        return MetricResult(metrics=metrics, artifacts=artifacts)
+        return MetricResult(scalars=metrics, artifacts=artifacts)
 
     def reset(self) -> None:
         self.metric.reset()

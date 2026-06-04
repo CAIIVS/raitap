@@ -75,15 +75,17 @@ if __name__ == "__main__":
     outputs = run(cfg, auto_install_deps=True)
 
     # Programmatic access demo — ``outputs`` is a ``RunOutputs`` dataclass
-    # (see ``raitap.pipeline.outputs``). All artefacts the report consumes
-    # are already in memory.
+    # (see ``raitap.pipeline.outputs``). Typed convenience views read straight
+    # off the keyed ``phase_results``: ``outputs.transparency`` / ``.robustness``
+    # are lists of per-adapter results (empty when the phase wasn't configured),
+    # ``outputs.metrics`` is the ``MetricResult`` (or ``None``).
     print("\n--- programmatic access demo -----------------------------------")
-    print(f"explanations:          {len(outputs.explanations)}")
-    print(f"robustness results:    {len(outputs.robustness_results)}")
-    print(f"forward output shape:  {tuple(outputs.forward_output.shape)}")
+    print(f"explanations:          {len(outputs.transparency)}")
+    print(f"robustness results:    {len(outputs.robustness)}")
+    print(f"forward batch size:    {outputs.forward_output.batch_size}")
 
     if outputs.metrics is not None:
-        scalars = outputs.metrics.result.metrics  # dict[str, float]
+        scalars = outputs.metrics.scalars
         print("metrics (scalar):")
         for name, value in sorted(scalars.items()):
             print(f"  {name:30s} {value:.4f}")
@@ -93,12 +95,12 @@ if __name__ == "__main__":
     if total:
         print(f"accuracy (recomputed): {correct}/{total} = {correct / total:.2%}")
 
-    for rr in outputs.robustness_results:
+    for rr in outputs.robustness:
         rate = rr.metrics.attack_success_rate
         if rate is not None:
-            print(f"{rr.assessor_name or rr.algorithm:22s} attack success: {rate:.2%}")
+            print(f"{rr.name or rr.algorithm:22s} attack success: {rate:.2%}")
 
-    for er in outputs.explanations:
+    for er in outputs.transparency:
         attrs = er.attributions  # torch.Tensor, shape (N, C, H, W) for images
         magnitudes = attrs.abs().flatten(1).mean(dim=1)
         print(f"mean |attr| per sample: {[round(m.item(), 4) for m in magnitudes]}")

@@ -13,10 +13,16 @@ APIs before every code path is complete — for example
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence  # noqa: TC003
+from collections.abc import Set as AbstractSet  # noqa: TC003
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path  # noqa: TC003
 from typing import Any, Protocol, runtime_checkable
+
+# Runtime import (not TYPE_CHECKING): ``Capability`` appears in the public
+# ``ExplainerSemanticsHints.requires`` annotation, so ``typing.get_type_hints()``
+# must resolve it from module globals. It is a torch-free StrEnum.
+from raitap.types import Capability  # noqa: TC001
 
 ConfiguredVisualiser = Any
 ExplanationResult = Any
@@ -132,9 +138,14 @@ class ExplainerSemanticsHints:
     ``None`` skips the check.
     """
 
-    families: frozenset[MethodFamily]
+    families: AbstractSet[MethodFamily]
     baseline_default: BaselineMode | None = None
     baseline_cardinality: BaselineCardinality | None = None
+    requires: AbstractSet[Capability] = field(default_factory=frozenset)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "families", frozenset(self.families))
+        object.__setattr__(self, "requires", frozenset(self.requires))
 
 
 def explainer_output_kind(explainer: object) -> ExplanationPayloadKind:
@@ -282,11 +293,14 @@ class ExplanationSemantics:
     scope: ExplanationScope
     scope_definition_step: ScopeDefinitionStep
     payload_kind: ExplanationPayloadKind
-    method_families: frozenset[MethodFamily]
+    method_families: AbstractSet[MethodFamily]
     target: ExplanationTarget | None
     sample_selection: SampleSelection | None
     input_spec: InputSpec | None
     output_space: OutputSpaceSpec
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "method_families", frozenset(self.method_families))
 
 
 @dataclass(frozen=True)
@@ -296,8 +310,12 @@ class ExplainerCapability:
     scope: ExplanationScope
     scope_definition_step: ScopeDefinitionStep
     payload_kind: ExplanationPayloadKind
-    method_families: frozenset[MethodFamily]
-    candidate_output_spaces: frozenset[ExplanationOutputSpace]
+    method_families: AbstractSet[MethodFamily]
+    candidate_output_spaces: AbstractSet[ExplanationOutputSpace]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "method_families", frozenset(self.method_families))
+        object.__setattr__(self, "candidate_output_spaces", frozenset(self.candidate_output_spaces))
 
 
 def normalise_input_kind(value: InputKind | str | None) -> InputKind | None:
@@ -354,7 +372,10 @@ class VisualisationContext:
     show_sample_names: bool
     detection_box: DetectionBox | None = None
     source_library: str | None = None
-    method_families: frozenset[MethodFamily] = field(default_factory=frozenset)
+    method_families: AbstractSet[MethodFamily] = field(default_factory=frozenset)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "method_families", frozenset(self.method_families))
 
 
 @runtime_checkable

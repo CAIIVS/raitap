@@ -43,24 +43,3 @@ class PayloadVisualiserIncompatibilityError(Exception):
             f"{output_payload_kind!r} (from {explainer_target}). "
             f"That visualiser's supported_payload_kinds are: {supported}."
         )
-
-
-class ExplainerBackendIncompatibilityError(Exception):
-    """Raised when an explainer algorithm is not supported by the selected backend."""
-
-    def __init__(
-        self,
-        explainer: str,
-        backend: str,
-        algorithm: str,
-        compatible_algorithms: list[str],
-    ) -> None:
-        self.explainer = explainer
-        self.backend = backend
-        self.algorithm = algorithm
-        self.compatible_algorithms = compatible_algorithms
-        super().__init__(
-            f"Explainer {explainer!r} with algorithm {algorithm!r} is not compatible with "
-            f"backend {backend!r}.\n"
-            f"Compatible algorithms: {', '.join(compatible_algorithms) or 'none'}."
-        )

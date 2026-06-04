@@ -20,6 +20,7 @@ from raitap.transparency.contracts import (
     MethodFamily,
 )
 from raitap.transparency.explainers.registration import transparency_adapter
+from raitap.types import Capability
 
 from .base_explainer import AttributionOnlyExplainer
 
@@ -89,28 +90,30 @@ def _select_target_attributions(
     # is omitted; TreeExplainer takes no reference input (``baseline_default`` None).
     algorithm_registry={
         "GradientExplainer": ExplainerSemanticsHints(
-            frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+            {MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
+            requires={Capability.AUTOGRAD},
         ),
         "DeepExplainer": ExplainerSemanticsHints(
-            frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
+            {MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
+            requires={Capability.AUTOGRAD},
         ),
         "KernelExplainer": ExplainerSemanticsHints(
-            frozenset(
-                {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC}
-            ),
+            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
         ),
+        # TreeExplainer is a tree-model method; requires=AUTOGRAD preserves current
+        # gating, but it is the natural first consumer of the roadmap TREE_MODEL capability.
         "TreeExplainer": ExplainerSemanticsHints(
-            frozenset({MethodFamily.SHAPLEY, MethodFamily.TREE})
+            {MethodFamily.SHAPLEY, MethodFamily.TREE},
+            requires={Capability.AUTOGRAD},
         ),
     },
     baseline_kwarg_name="background_data",
-    onnx_compatible_algorithms=frozenset({"KernelExplainer"}),
 )
 class ShapExplainer(AttributionOnlyExplainer):
     """
@@ -183,7 +186,7 @@ class ShapExplainer(AttributionOnlyExplainer):
             if (
                 self.algorithm == "KernelExplainer"
                 and backend is not None
-                and not getattr(backend, "supports_torch_autograd", False)
+                and Capability.AUTOGRAD not in getattr(backend, "provides", frozenset())
             ):
                 if not callable(backend):
                     raise TypeError(

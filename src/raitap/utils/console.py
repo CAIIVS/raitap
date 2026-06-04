@@ -30,7 +30,9 @@ from rich.traceback import install as install_rich_traceback
 
 from raitap.utils.colour import THEME, Status, colour
 from raitap.utils.diagnostics import (
+    _DOC_SUBSYSTEMS,
     Diagnostic,
+    Module,
     docs_url,
     is_dev_install,
     module_from_str,
@@ -63,6 +65,25 @@ _BACKTICK_RE = re.compile(r"`([^`\n]+)`")
 # "Header: rest" pattern for non-warnings.warn WARNING records.
 # Example match: ``logger.warning("Robustness: no labels…")``.
 _LOGGER_HEADER_RE = re.compile(r"^(?P<head>[A-Z][\w\- ]{1,40}):\s+(?P<msg>.+)$", re.DOTALL)
+
+
+def _record_module(record: logging.LogRecord) -> Module | None:
+    """Classify an INFO/DEBUG record to its raitap :class:`Module` for the chip.
+
+    Precedence: an explicit ``module=`` passed to ``raitap_log.info`` (carried on
+    the record as ``_raitap_module`` — needed when the *emitting* file differs
+    from the logical module, e.g. the shared ``run_adapters`` loop), then the
+    caller's logger name (``raitap.robustness.phase`` → ``robustness``; survives
+    deferred replay since the logger is preserved), then the source path.
+    """
+    explicit = getattr(record, "_raitap_module", None)
+    if explicit is not None:
+        return module_from_str(str(explicit))
+    for part in record.name.split("."):
+        found = module_from_str(part)
+        if found is not None:
+            return found
+    return resolve_diagnostic_from_path(record.pathname, record.lineno).module
 
 
 def _src_to_uri(src: str) -> str:
@@ -152,6 +173,11 @@ _LEVEL_STATUS: dict[int, Status] = {
     logging.CRITICAL: Status.ERROR,
 }
 
+# Pad every INFO level-prefix to this width so the ``▷`` arrows line up in a
+# column regardless of module-name length (e.g. "Transparency" vs "Models").
+# Infra modules (pipeline/cli/configs/deps/utils) get no chip — just padding.
+_MODULE_COLUMN_WIDTH = max(len(module.capitalize()) for module in _DOC_SUBSYSTEMS)
+
 
 class RaitapRichHandler(RichHandler):
     """RichHandler with icon level-prefix and Panel rendering for multi-line warnings/errors."""
@@ -172,7 +198,20 @@ class RaitapRichHandler(RichHandler):
             style = shades.base + Style(bold=True)
         else:
             style = shades.base
-        return Text(status.icon.rstrip(), style=style)
+        icon = Text(status.icon.rstrip(), style=style)
+        # INFO is a single line (WARNING+ go through the panel path, never here):
+        # prefix a fixed-width module label — ``Robustness ▷ …`` — so the arrows
+        # column-align regardless of name length. Only user-facing subsystems get
+        # a label; infra modules (pipeline/cli/…) render as blank padding so their
+        # arrow still lines up. Plain styled label, not ``chip()`` (which prefixes
+        # a ``· `` separator meant to follow a panel title).
+        if record.levelno < logging.WARNING:
+            module = _record_module(record)
+            label = module.capitalize() if module is not None and module in _DOC_SUBSYSTEMS else ""
+            return Text.assemble(
+                Text(label.ljust(_MODULE_COLUMN_WIDTH), style=shades.light), " ", icon
+            )
+        return icon
 
     def render_message(self, record: logging.LogRecord, message: str) -> Any:
         return _linkify_message(message)

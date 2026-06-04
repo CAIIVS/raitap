@@ -15,11 +15,12 @@ from raitap.pipeline.outputs import RunOutputs
 from raitap.pipeline.phases.forward_pass import forward_pass
 from raitap.pipeline.phases.input_metadata import input_metadata_for_data
 from raitap.pipeline.phases.prediction_summaries import prediction_summaries
-from raitap.pipeline.phases.registry import ASSESSMENT_PHASES, PhaseContext, PhaseContribution
+from raitap.pipeline.phases.registry import ASSESSMENT_PHASES, PhaseContext
 from raitap.pipeline.ui import print_summary
 from raitap.reporting import build_report, create_report, reporting_enabled
 from raitap.reporting.sample_selection import resolve_report_sample_selection
 from raitap.tracking import BaseTracker
+from raitap.utils.diagnostics import Module
 from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
 
     from raitap.configs.schema import AppConfig
     from raitap.data.preprocessing import ResolvedPreprocessing
+    from raitap.pipeline.outputs import PhaseResult
 else:
     torch = lazy_import("torch")
 
@@ -75,9 +77,12 @@ def _run_pipeline(
             resolved_preprocessing=resolved_preprocessing,
             task_kind=model.backend.task_kind,
         )
-    _validate_report_sample_selection(config, data)
-    if verbose:
-        print_summary(config, model)
+        _validate_report_sample_selection(config, data)
+        # Render the summary panel inside the deferred block: it prints
+        # immediately (direct rich console), so the deferred construction logs
+        # ("Preprocessing: …") + any setup warnings replay *after* the panel.
+        if verbose:
+            print_summary(config, model)
 
     outputs = run_without_tracking(
         config,
@@ -89,7 +94,8 @@ def _run_pipeline(
     report_generation = None
     if reporting_enabled(config):
         if verbose:
-            raitap_log.info("Generating report...")
+            # Logged from the orchestrator but logically a reporting concern.
+            raitap_log.info("Generating report...", module=Module.reporting)
         report = build_report(config, outputs)
         report_generation = create_report(config=config, report=report)
 
@@ -98,23 +104,14 @@ def _run_pipeline(
     if not has_tracker:
         return outputs
 
-    use_subdirs = len(outputs.explanations) > 1
-    use_robustness_subdirs = len(outputs.robustness_results) > 1
     with BaseTracker.create_tracker(config) as tracker:
         tracker.log_config()
         if getattr(config.tracking, "log_model", False):
             model.log(tracker)
         data.log(tracker)
-        if outputs.metrics is not None:
-            outputs.metrics.log(tracker)
-        for explanation in outputs.explanations:
-            explanation.log(tracker, use_subdirectory=use_subdirs)
-        for visualisation in outputs.visualisations:
-            visualisation.log(tracker, use_subdirectory=use_subdirs)
-        for robustness_result in outputs.robustness_results:
-            robustness_result.log(tracker, use_subdirectory=use_robustness_subdirs)
-        for robustness_visualisation in outputs.robustness_visualisations:
-            robustness_visualisation.log(tracker, use_subdirectory=use_robustness_subdirs)
+        # Each phase result owns how it logs itself (artifacts + subdirectories).
+        for phase_result in outputs.phase_results.values():
+            phase_result.log(tracker)
         reporting_cfg = getattr(config, "reporting", None)
         if report_generation is not None and reporting_cfg is not None:
             report_generation.log(tracker)
@@ -142,7 +139,9 @@ def run_without_tracking(
     if not configured_phases:
         _raise_no_phase_configured()
 
-    raitap_log.info("Running model forward pass...")
+    # Logged from the orchestrator but logically a model operation (same pattern
+    # as the reporting log below) so the chip reads "Models", not blank/infra.
+    raitap_log.info("Running model forward pass...", module=Module.models)
     with torch.no_grad():
         forward_output = forward_pass(config, model.backend, data.tensor)
 
@@ -154,13 +153,15 @@ def run_without_tracking(
         input_metadata=input_metadata_for_data(config, data),
         resolved_preprocessing=resolved_preprocessing,
     )
-    contribution = PhaseContribution.merge(phase.run(context) for phase in configured_phases)
+    phase_results: dict[str, PhaseResult] = {}
+    for phase in configured_phases:
+        result = phase.run(context)
+        if result is not None:
+            phase_results[phase.name] = result
 
     return RunOutputs(
-        explanations=contribution.explanations,
-        visualisations=contribution.visualisations,
-        metrics=contribution.metrics,
         forward_output=forward_output,
+        phase_results=phase_results,
         sample_ids=data.sample_ids,
         targets=data.labels,
         prediction_summaries=prediction_summaries(
@@ -168,8 +169,6 @@ def run_without_tracking(
             sample_ids=data.sample_ids,
             targets=data.labels,
         ),
-        robustness_results=contribution.robustness_results,
-        robustness_visualisations=contribution.robustness_visualisations,
     )
 
 

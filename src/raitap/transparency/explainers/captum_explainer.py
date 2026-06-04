@@ -11,6 +11,7 @@ from raitap.transparency.contracts import (
     MethodFamily,
 )
 from raitap.transparency.explainers.registration import transparency_adapter
+from raitap.types import Capability
 
 from .base_explainer import AttributionOnlyExplainer
 
@@ -31,49 +32,38 @@ if TYPE_CHECKING:
     # rest take no reference input, so their ``baseline_default`` stays ``None``.
     algorithm_registry={
         "IntegratedGradients": ExplainerSemanticsHints(
-            frozenset({MethodFamily.GRADIENT}),
+            {MethodFamily.GRADIENT},
             baseline_default=BaselineMode.ZERO,
             baseline_cardinality=BaselineCardinality.SINGLE,
+            requires={Capability.AUTOGRAD},
         ),
-        "Saliency": ExplainerSemanticsHints(frozenset({MethodFamily.GRADIENT})),
-        "FeatureAblation": ExplainerSemanticsHints(frozenset({MethodFamily.PERTURBATION})),
-        "FeaturePermutation": ExplainerSemanticsHints(frozenset({MethodFamily.PERTURBATION})),
-        "Occlusion": ExplainerSemanticsHints(frozenset({MethodFamily.PERTURBATION})),
+        "Saliency": ExplainerSemanticsHints(
+            {MethodFamily.GRADIENT},
+            requires={Capability.AUTOGRAD},
+        ),
+        "FeatureAblation": ExplainerSemanticsHints({MethodFamily.PERTURBATION}),
+        "FeaturePermutation": ExplainerSemanticsHints({MethodFamily.PERTURBATION}),
+        "Occlusion": ExplainerSemanticsHints({MethodFamily.PERTURBATION}),
         "ShapleyValueSampling": ExplainerSemanticsHints(
-            frozenset({MethodFamily.SHAPLEY, MethodFamily.PERTURBATION})
+            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION}
         ),
-        "ShapleyValues": ExplainerSemanticsHints(
-            frozenset({MethodFamily.SHAPLEY, MethodFamily.PERTURBATION})
-        ),
+        "ShapleyValues": ExplainerSemanticsHints({MethodFamily.SHAPLEY, MethodFamily.PERTURBATION}),
         "KernelShap": ExplainerSemanticsHints(
-            frozenset(
-                {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC}
-            )
+            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC}
         ),
         "Lime": ExplainerSemanticsHints(
-            frozenset(
-                {MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC, MethodFamily.SURROGATE}
-            )
+            {MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC, MethodFamily.SURROGATE}
         ),
         "LayerGradCam": ExplainerSemanticsHints(
-            frozenset({MethodFamily.GRADIENT, MethodFamily.CAM})
+            {MethodFamily.GRADIENT, MethodFamily.CAM},
+            requires={Capability.AUTOGRAD},
         ),
         "GuidedGradCam": ExplainerSemanticsHints(
-            frozenset({MethodFamily.GRADIENT, MethodFamily.CAM})
+            {MethodFamily.GRADIENT, MethodFamily.CAM},
+            requires={Capability.AUTOGRAD},
         ),
     },
     baseline_kwarg_name="baselines",
-    onnx_compatible_algorithms=frozenset(
-        {
-            "FeatureAblation",
-            "FeaturePermutation",
-            "Occlusion",
-            "ShapleyValueSampling",
-            "ShapleyValues",
-            "KernelShap",
-            "Lime",
-        }
-    ),
 )
 class CaptumExplainer(AttributionOnlyExplainer):
     """
