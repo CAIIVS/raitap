@@ -79,3 +79,28 @@ def test_gradient_explainer_int_target_matches_direct_call(
     ref = _stack_select(sv, target=0)
 
     assert torch.allclose(out.detach().cpu(), ref.detach().cpu(), rtol=_RTOL, atol=_ATOL)
+
+
+def test_gradient_explainer_per_sample_target_matches_direct_call(
+    _shap: Any, seeded: Callable[..., None]
+) -> None:
+    """Per-sample list target → class-stack + advanced-index select must match a
+    direct shap call. Exercises the ``_select_target_attributions`` per-sample
+    branch — the wrapper logic with the most surface for wiring bugs."""
+    from raitap.transparency.explainers import ShapExplainer
+
+    seeded()
+    model = make_tiny_classifier(seed=0)
+    x = torch.randn(2, 3, 8, 8)
+    bg = torch.randn(2, 3, 8, 8)
+
+    seeded()
+    out = ShapExplainer("GradientExplainer").compute_attributions(
+        model, x, background_data=bg, target=[0, 1]
+    )
+
+    seeded()
+    sv = _shap.GradientExplainer(model, bg).shap_values(x)
+    ref = _stack_select(sv, target=[0, 1])
+
+    assert torch.allclose(out.detach().cpu(), ref.detach().cpu(), rtol=_RTOL, atol=_ATOL)
