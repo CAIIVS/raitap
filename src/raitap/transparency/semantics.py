@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from collections.abc import Set as AbstractSet
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+from raitap.types import TaskKind  # noqa: TC001  must stay runtime-resolvable for get_type_hints()
 from raitap.utils.diagnostics import Diagnostic, Module
 from raitap.utils.errors import RaitapError
 
@@ -21,9 +22,6 @@ from .contracts import (
     explainer_output_kind,
     explainer_output_scope,
 )
-
-if TYPE_CHECKING:
-    from raitap.types import TaskKind
 
 
 def method_families_for_explainer(explainer: object) -> frozenset[MethodFamily]:

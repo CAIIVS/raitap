@@ -104,6 +104,9 @@ class ClassificationFamily:
                 torch.cuda.empty_cache()
         return torch.cat(chunks, dim=0)
 
+    def payload_batch_size(self, payload: Any) -> int:
+        return int(payload.shape[0])
+
     def explain(self, ctx: ExplainContext) -> list:
         """Build one ``ExplanationResult`` for the whole batch.
 

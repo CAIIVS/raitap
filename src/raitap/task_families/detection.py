@@ -224,6 +224,9 @@ class DetectionFamily:
                 torch.cuda.empty_cache()
         return detection_predictions
 
+    def payload_batch_size(self, payload: Any) -> int:
+        return len(payload)
+
     def explain(self, ctx: ExplainContext) -> list:
         """Yield one ``ExplanationResult`` per detected box (K-loop).
 

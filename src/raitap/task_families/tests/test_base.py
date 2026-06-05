@@ -8,23 +8,47 @@ def test_taskfamily_is_runtime_checkable_protocol() -> None:
         kind = "classification"
         fixed_output_space = None
 
-        def validate_payload(self, payload: object) -> None: ...
-        def adapt_loaded_inputs(self, tensor: object) -> object: ...
-        def validate_inputs(self, tensor: object) -> None: ...
-        def load_labels(self, cfg: object, *, tensor: object, sample_ids: object) -> object: ...
-        def validate_labels(self, labels: object) -> None: ...
-        def extract_forward(self, ctx: object) -> object: ...
-        def explain(self, ctx: object) -> list: ...
-        def metrics_inputs(
-            self, config: object, forward_output: object, labels: object
-        ) -> object: ...
-        def supports_robustness(self) -> bool: ...
+        def validate_payload(self, payload: object) -> None:
+            pass
+
+        def adapt_loaded_inputs(self, tensor: object) -> object:
+            pass
+
+        def validate_inputs(self, tensor: object) -> None:
+            pass
+
+        def load_labels(self, cfg: object, *, tensor: object, sample_ids: object) -> object:
+            pass
+
+        def validate_labels(self, labels: object) -> None:
+            pass
+
+        def extract_forward(self, ctx: object) -> object:
+            pass
+
+        def payload_batch_size(self, payload: object) -> int:
+            raise NotImplementedError
+
+        def explain(self, ctx: object) -> list:
+            raise NotImplementedError
+
+        def metrics_inputs(self, config: object, forward_output: object, labels: object) -> object:
+            pass
+
+        def supports_robustness(self) -> bool:
+            raise NotImplementedError
+
         def prediction_summaries(
             self, payload: object, *, sample_ids: object = None, targets: object = None
-        ) -> list | None: ...
-        def matches_model(self, model: object) -> bool: ...
+        ) -> list | None:
+            pass
+
+        def matches_model(self, model: object) -> bool:
+            raise NotImplementedError
+
         @property
-        def allows_preprocessing(self) -> bool: ...
+        def allows_preprocessing(self) -> bool:
+            raise NotImplementedError
 
     assert isinstance(Dummy(), TaskFamily)
 

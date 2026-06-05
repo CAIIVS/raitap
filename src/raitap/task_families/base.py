@@ -90,6 +90,10 @@ class TaskFamily(Protocol):
         """Run the backend forward and return this family's payload."""
         raise NotImplementedError
 
+    def payload_batch_size(self, payload: Any) -> int:
+        """Number of samples represented by ``payload``."""
+        raise NotImplementedError
+
     def explain(self, ctx: ExplainContext) -> list[ExplanationResult]:
         """Produce explanation results (shared loop or per-element K-loop)."""
         raise NotImplementedError

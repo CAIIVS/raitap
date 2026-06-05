@@ -175,8 +175,11 @@ def __getattr__(name: str) -> Any:
 
     try:
         return importlib.import_module(f"{__name__}.{name}")
-    except ModuleNotFoundError:
-        pass
+    except ModuleNotFoundError as exc:
+        # Only treat "no such submodule" as "fall through to adapter lookup".
+        # A missing dependency *inside* an existing submodule must propagate.
+        if exc.name != f"{__name__}.{name}":
+            raise
 
     from raitap._adapters import lookup
 

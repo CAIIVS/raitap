@@ -141,6 +141,6 @@ def forward_pass(
     )
     return ForwardOutput(
         task_kind=task_kind,
-        batch_size=len(payload) if task_kind is TaskKind.detection else int(payload.shape[0]),
+        batch_size=family.payload_batch_size(payload),
         payload=payload,
     )

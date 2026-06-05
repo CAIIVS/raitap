@@ -33,4 +33,10 @@ def resolve_task_family(kind: TaskKind) -> TaskFamily:
     A backend instance wraps exactly one model, so it carries exactly one
     task family. Raises ``KeyError`` if no family is registered for ``kind``.
     """
-    return TASK_FAMILIES[kind]
+    try:
+        return TASK_FAMILIES[kind]
+    except KeyError as exc:
+        raise KeyError(
+            f"No TaskFamily registered for task kind {kind!r}; "
+            f"registered kinds: {sorted(k.value for k in TASK_FAMILIES)}."
+        ) from exc
