@@ -2,44 +2,33 @@ from __future__ import annotations
 
 
 class VisualiserIncompatibilityError(Exception):
-    """Raised when a visualiser is not compatible with the chosen explainer algorithm."""
+    """A visualiser cannot render an explanation: one declared axis is unsupported.
 
-    def __init__(
-        self,
-        framework: str,
-        visualiser: str,
-        algorithm: str,
-        compatible_algorithms: list[str],
-    ) -> None:
-        self.framework = framework
+    Single typed failure for every transparency visualiser-compat gate — algorithm
+    allowlist, payload kind, and the typed §4.3 semantic axes (output space, scope,
+    method family). The predicate that decides incompatibility (subset / intersection
+    / membership) stays at the call site; this only carries the structured result.
+
+    Fields
+    ------
+    visualiser:
+        Class name of the rejecting visualiser.
+    axis:
+        Human label of the contract axis that failed (``"algorithm"``,
+        ``"payload kind"``, ``"output space"``, ``"scope"``, ``"method family"``,
+        ``"input metadata"``, …).
+    declared:
+        The explanation/explainer value(s) the visualiser rejects.
+    accepted:
+        What the visualiser supports on that axis (``"any"`` when wildcard).
+    """
+
+    def __init__(self, *, visualiser: str, axis: str, declared: str, accepted: str) -> None:
         self.visualiser = visualiser
-        self.algorithm = algorithm
-        self.compatible_algorithms = compatible_algorithms
+        self.axis = axis
+        self.declared = declared
+        self.accepted = accepted
         super().__init__(
-            f"Visualiser {visualiser!r} is not compatible with "
-            f"{framework}/{algorithm}.\n"
-            f"Compatible algorithms: {', '.join(compatible_algorithms) or 'none'}."
-        )
-
-
-class PayloadVisualiserIncompatibilityError(Exception):
-    """Raised when a visualiser does not accept the explainer's output payload kind."""
-
-    def __init__(
-        self,
-        *,
-        explainer_target: str,
-        visualiser: str,
-        output_payload_kind: str,
-        supported_payload_kinds: list[str],
-    ) -> None:
-        self.explainer_target = explainer_target
-        self.visualiser = visualiser
-        self.output_payload_kind = output_payload_kind
-        self.supported_payload_kinds = supported_payload_kinds
-        supported = ", ".join(supported_payload_kinds) if supported_payload_kinds else "none"
-        super().__init__(
-            f"Visualiser {visualiser!r} does not support explainer payload kind "
-            f"{output_payload_kind!r} (from {explainer_target}). "
-            f"That visualiser's supported_payload_kinds are: {supported}."
+            f"Visualiser {visualiser!r} is incompatible with this explanation: "
+            f"{axis} {declared!r} is not supported; expected {accepted}."
         )

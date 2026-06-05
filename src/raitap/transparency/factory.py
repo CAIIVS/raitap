@@ -22,7 +22,7 @@ from .contracts import (
     MethodFamily,
     explainer_output_kind,
 )
-from .exceptions import PayloadVisualiserIncompatibilityError, VisualiserIncompatibilityError
+from .exceptions import VisualiserIncompatibilityError
 from .explainers.captum_explainer import CaptumExplainer
 from .explainers.shap_explainer import ShapExplainer
 from .results import ConfiguredVisualiser
@@ -99,11 +99,11 @@ def check_explainer_visualiser_payload_compat(
         if len(supported) == 0:
             continue
         if kind not in supported:
-            raise PayloadVisualiserIncompatibilityError(
-                explainer_target=explainer_target,
+            raise VisualiserIncompatibilityError(
                 visualiser=type(visualiser).__name__,
-                output_payload_kind=kind.value,
-                supported_payload_kinds=[k.value for k in sorted(supported, key=lambda x: x.value)],
+                axis="payload kind",
+                declared=kind.value,
+                accepted=", ".join(k.value for k in sorted(supported, key=lambda x: x.value)),
             )
 
 
@@ -128,11 +128,11 @@ def check_explainer_visualiser_semantic_compat(
         if supported_method_families and not (
             capability.method_families & supported_method_families
         ):
-            raise ValueError(
-                f"Visualiser {type(visualiser).__name__!r} does not support explainer "
-                f"method families {sorted(f.value for f in capability.method_families)}. "
-                "Its supported method families are "
-                f"{sorted(f.value for f in supported_method_families)}."
+            raise VisualiserIncompatibilityError(
+                visualiser=type(visualiser).__name__,
+                axis="method families",
+                declared=", ".join(sorted(f.value for f in capability.method_families)),
+                accepted=", ".join(sorted(f.value for f in supported_method_families)),
             )
 
         supported_output_spaces = _enum_frozenset(
@@ -143,12 +143,11 @@ def check_explainer_visualiser_semantic_compat(
             continue
         if capability.candidate_output_spaces & supported_output_spaces:
             continue
-        raise ValueError(
-            f"Visualiser {type(visualiser).__name__!r} does not support explainer "
-            "candidate output spaces "
-            f"{sorted(s.value for s in capability.candidate_output_spaces)}. "
-            "Its supported output spaces are "
-            f"{sorted(s.value for s in supported_output_spaces)}."
+        raise VisualiserIncompatibilityError(
+            visualiser=type(visualiser).__name__,
+            axis="candidate output spaces",
+            declared=", ".join(sorted(s.value for s in capability.candidate_output_spaces)),
+            accepted=", ".join(sorted(s.value for s in supported_output_spaces)),
         )
 
 
@@ -189,10 +188,10 @@ def check_explainer_visualiser_compat(
             algorithm,
             visualiser.compatible_algorithms,
             error_cls=VisualiserIncompatibilityError,
-            framework=explainer_target,
             visualiser=type(visualiser).__name__,
-            algorithm=algorithm,
-            compatible_algorithms=sorted(visualiser.compatible_algorithms),
+            axis="algorithm",
+            declared=algorithm,
+            accepted=", ".join(sorted(visualiser.compatible_algorithms)),
         )
 
 

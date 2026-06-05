@@ -18,6 +18,7 @@ from raitap.transparency.contracts import (
     VisualisationContext,
     VisualSummarySpec,
 )
+from raitap.transparency.exceptions import VisualiserIncompatibilityError
 
 if TYPE_CHECKING:
     import torch
@@ -122,9 +123,11 @@ class BaseVisualiser(ABC, AdapterMixin):
             )
 
     def _raise_incompatibility(self, dimension: str, actual: str, expected: str) -> None:
-        raise ValueError(
-            f"Visualiser {type(self).__name__!r} is incompatible with this explanation: "
-            f"{dimension} {actual!r} is not supported; expected {expected}."
+        raise VisualiserIncompatibilityError(
+            visualiser=type(self).__name__,
+            axis=dimension,
+            declared=actual,
+            accepted=expected,
         )
 
     @abstractmethod

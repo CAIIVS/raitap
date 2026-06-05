@@ -57,7 +57,6 @@ from .contracts import (
     VisualSummarySpec,
 )
 from .exceptions import (
-    PayloadVisualiserIncompatibilityError,
     VisualiserIncompatibilityError,
 )
 from .semantics import (
@@ -243,7 +242,6 @@ __all__ = [  # noqa: RUF022
     "method_families_for_explainer",
     # Domain errors
     "BackendIncompatibilityError",
-    "PayloadVisualiserIncompatibilityError",
     "VisualiserIncompatibilityError",
     # Rest
     "create_explainer",

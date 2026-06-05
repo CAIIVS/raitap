@@ -11,7 +11,6 @@ from omegaconf import OmegaConf
 
 from raitap.models.backend import ModelBackend
 from raitap.transparency import (
-    PayloadVisualiserIncompatibilityError,
     VisualiserIncompatibilityError,
 )
 from raitap.transparency.contracts import (
@@ -416,7 +415,7 @@ def test_payload_kind_mismatch_raises(
         lambda _cfg: [ConfiguredVisualiser(visualiser=_StructuredOnlyVisualiser(), call_kwargs={})],
     )
     model = SimpleNamespace(backend=_BackendStub(simple_cnn))
-    with pytest.raises(PayloadVisualiserIncompatibilityError):
+    with pytest.raises(VisualiserIncompatibilityError):
         _prepare_explanation(config, "test_explainer", cast("Model", model), sample_images)
 
 
@@ -543,7 +542,7 @@ def test_explanation_rejects_method_family_mismatch_before_compute(
     )
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-    with pytest.raises(ValueError, match="method families"):
+    with pytest.raises(VisualiserIncompatibilityError, match="method families"):
         _prepare_explanation(
             config,
             "test_explainer",
@@ -610,7 +609,7 @@ def test_explanation_rejects_candidate_output_space_mismatch_before_compute(
     )
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-    with pytest.raises(ValueError, match="candidate output spaces"):
+    with pytest.raises(VisualiserIncompatibilityError, match="candidate output spaces"):
         _prepare_explanation(
             config,
             "test_explainer",

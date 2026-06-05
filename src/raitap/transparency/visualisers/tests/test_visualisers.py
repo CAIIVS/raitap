@@ -34,6 +34,7 @@ from raitap.transparency.visualisers import (
     ShapImageVisualiser,
     ShapWaterfallVisualiser,
     TabularBarChartVisualiser,
+    VisualiserIncompatibilityError,
 )
 
 if TYPE_CHECKING:
@@ -138,7 +139,9 @@ class TestBaseVisualiserContract:
         explanation: SimpleNamespace,
         dimension: str,
     ) -> None:
-        with pytest.raises(ValueError, match=rf"_ContractVisualiser.*{dimension}"):
+        with pytest.raises(
+            VisualiserIncompatibilityError, match=rf"_ContractVisualiser.*{dimension}"
+        ):
             _ContractVisualiser().validate_explanation(explanation, torch.zeros(4, 10), None)
 
 
@@ -187,7 +190,9 @@ class TestCaptumImageVisualiser:
     def test_validate_explanation_rejects_tabular_semantics(self) -> None:
         explanation = _explanation(input_kind="tabular", shape=(2, 10))
 
-        with pytest.raises(ValueError, match=r"CaptumImageVisualiser.*input metadata"):
+        with pytest.raises(
+            VisualiserIncompatibilityError, match=r"CaptumImageVisualiser.*input metadata"
+        ):
             CaptumImageVisualiser().validate_explanation(explanation, torch.zeros(2, 10), None)
 
     def test_validate_explanation_rejects_contradictory_non_image_nchw_metadata(self) -> None:
@@ -198,7 +203,9 @@ class TestCaptumImageVisualiser:
             shape=(2, 3, 32, 32),
         )
 
-        with pytest.raises(ValueError, match=r"CaptumImageVisualiser.*input metadata"):
+        with pytest.raises(
+            VisualiserIncompatibilityError, match=r"CaptumImageVisualiser.*input metadata"
+        ):
             CaptumImageVisualiser().validate_explanation(
                 explanation,
                 torch.zeros(2, 3, 32, 32),
@@ -213,7 +220,9 @@ class TestCaptumImageVisualiser:
             shape=None,
         )
 
-        with pytest.raises(ValueError, match=r"CaptumImageVisualiser.*input metadata"):
+        with pytest.raises(
+            VisualiserIncompatibilityError, match=r"CaptumImageVisualiser.*input metadata"
+        ):
             CaptumImageVisualiser().validate_explanation(explanation, object(), None)  # type: ignore[arg-type]
 
     @pytest.mark.usefixtures("needs_captum")
@@ -556,7 +565,7 @@ class TestTabularBarChartVisualiser:
         self,
         explanation: SimpleNamespace,
     ) -> None:
-        with pytest.raises(ValueError, match="TabularBarChartVisualiser"):
+        with pytest.raises(VisualiserIncompatibilityError, match="TabularBarChartVisualiser"):
             TabularBarChartVisualiser().validate_explanation(explanation, torch.zeros(2, 10), None)
 
     def test_initialization_with_feature_names(self, feature_names: list[str]) -> None:
@@ -623,7 +632,7 @@ class TestCaptumTimeSeriesVisualiser:
         self,
         explanation: SimpleNamespace,
     ) -> None:
-        with pytest.raises(ValueError, match="CaptumTimeSeriesVisualiser"):
+        with pytest.raises(VisualiserIncompatibilityError, match="CaptumTimeSeriesVisualiser"):
             CaptumTimeSeriesVisualiser().validate_explanation(
                 explanation,
                 torch.zeros(12),
@@ -649,7 +658,9 @@ class TestCaptumTimeSeriesVisualiser:
             method_families=method_families,
         )
 
-        with pytest.raises(ValueError, match=r"CaptumTimeSeriesVisualiser.*method family"):
+        with pytest.raises(
+            VisualiserIncompatibilityError, match=r"CaptumTimeSeriesVisualiser.*method family"
+        ):
             CaptumTimeSeriesVisualiser().validate_explanation(
                 explanation,
                 torch.zeros(2, 12, 3),
@@ -674,7 +685,7 @@ class TestCaptumTimeSeriesVisualiser:
         self,
         explanation: SimpleNamespace,
     ) -> None:
-        with pytest.raises(ValueError, match="CaptumTimeSeriesVisualiser"):
+        with pytest.raises(VisualiserIncompatibilityError, match="CaptumTimeSeriesVisualiser"):
             CaptumTimeSeriesVisualiser().validate_explanation(
                 explanation,
                 torch.zeros(2, 12, 3),
@@ -749,7 +760,7 @@ class TestCaptumTextVisualiser:
         self,
         explanation: SimpleNamespace,
     ) -> None:
-        with pytest.raises(ValueError, match="CaptumTextVisualiser"):
+        with pytest.raises(VisualiserIncompatibilityError, match="CaptumTextVisualiser"):
             CaptumTextVisualiser().validate_explanation(
                 explanation,
                 torch.zeros(2, 10),
@@ -776,7 +787,9 @@ class TestCaptumTextVisualiser:
             method_families=method_families,
         )
 
-        with pytest.raises(ValueError, match=r"CaptumTextVisualiser.*method family"):
+        with pytest.raises(
+            VisualiserIncompatibilityError, match=r"CaptumTextVisualiser.*method family"
+        ):
             CaptumTextVisualiser().validate_explanation(explanation, torch.zeros(12), None)
 
     @pytest.mark.parametrize(
@@ -803,7 +816,7 @@ class TestCaptumTextVisualiser:
         self,
         explanation: SimpleNamespace,
     ) -> None:
-        with pytest.raises(ValueError, match="CaptumTextVisualiser"):
+        with pytest.raises(VisualiserIncompatibilityError, match="CaptumTextVisualiser"):
             CaptumTextVisualiser().validate_explanation(explanation, torch.zeros(12), None)
 
     def test_visualise_1d_tensor(self, sample_text_attributions: torch.Tensor) -> None:
@@ -856,7 +869,9 @@ class TestShapBarVisualiser:
             method_families={MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
         )
 
-        with pytest.raises(ValueError, match=r"ShapBarVisualiser.*tabular layout"):
+        with pytest.raises(
+            VisualiserIncompatibilityError, match=r"ShapBarVisualiser.*tabular layout"
+        ):
             ShapBarVisualiser().validate_explanation(explanation, torch.zeros(2, 3, 32, 32), None)
 
     def test_validate_explanation_rejects_shape_only_semantics(self) -> None:
@@ -868,7 +883,9 @@ class TestShapBarVisualiser:
             method_families={MethodFamily.SHAPLEY},
         )
 
-        with pytest.raises(ValueError, match=r"ShapBarVisualiser.*tabular layout"):
+        with pytest.raises(
+            VisualiserIncompatibilityError, match=r"ShapBarVisualiser.*tabular layout"
+        ):
             ShapBarVisualiser().validate_explanation(explanation, torch.zeros(4, 10), None)
 
     @pytest.mark.usefixtures("needs_shap")
@@ -919,7 +936,9 @@ class TestShapBeeswarmVisualiser:
             method_families={MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
         )
 
-        with pytest.raises(ValueError, match=r"ShapBeeswarmVisualiser.*tabular layout"):
+        with pytest.raises(
+            VisualiserIncompatibilityError, match=r"ShapBeeswarmVisualiser.*tabular layout"
+        ):
             ShapBeeswarmVisualiser().validate_explanation(
                 explanation,
                 torch.zeros(2, 3, 32, 32),
@@ -935,7 +954,9 @@ class TestShapBeeswarmVisualiser:
             method_families={MethodFamily.SHAPLEY},
         )
 
-        with pytest.raises(ValueError, match=r"ShapBeeswarmVisualiser.*tabular layout"):
+        with pytest.raises(
+            VisualiserIncompatibilityError, match=r"ShapBeeswarmVisualiser.*tabular layout"
+        ):
             ShapBeeswarmVisualiser().validate_explanation(
                 explanation,
                 torch.zeros(4, 10),
@@ -1055,7 +1076,9 @@ class TestShapImageVisualiser:
             method_families={MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
         )
 
-        with pytest.raises(ValueError, match=r"ShapImageVisualiser.*input metadata"):
+        with pytest.raises(
+            VisualiserIncompatibilityError, match=r"ShapImageVisualiser.*input metadata"
+        ):
             ShapImageVisualiser().validate_explanation(
                 explanation,
                 torch.zeros(2, 3, 32, 32),
@@ -1071,7 +1094,9 @@ class TestShapImageVisualiser:
             method_families={MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
         )
 
-        with pytest.raises(ValueError, match=r"ShapImageVisualiser.*input metadata"):
+        with pytest.raises(
+            VisualiserIncompatibilityError, match=r"ShapImageVisualiser.*input metadata"
+        ):
             ShapImageVisualiser().validate_explanation(explanation, object(), None)  # type: ignore[arg-type]
 
     @pytest.mark.parametrize(
@@ -1093,7 +1118,9 @@ class TestShapImageVisualiser:
             method_families=method_families,
         )
 
-        with pytest.raises(ValueError, match=r"ShapImageVisualiser.*method family"):
+        with pytest.raises(
+            VisualiserIncompatibilityError, match=r"ShapImageVisualiser.*method family"
+        ):
             ShapImageVisualiser().validate_explanation(
                 explanation,
                 torch.zeros(2, 3, 32, 32),
@@ -1349,7 +1376,9 @@ class TestInputThumbnailVisualiser:
     def test_rejects_unsupported_input_kind(self) -> None:
         visualiser = InputThumbnailVisualiser()
 
-        with pytest.raises(ValueError, match=r"InputThumbnailVisualiser.*input metadata"):
+        with pytest.raises(
+            VisualiserIncompatibilityError, match=r"InputThumbnailVisualiser.*input metadata"
+        ):
             visualiser.validate_explanation(
                 _explanation(input_kind="tabular", shape=(1, 4)),
                 torch.zeros(1, 4),

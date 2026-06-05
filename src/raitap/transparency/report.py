@@ -27,6 +27,7 @@ from raitap.reporting.staging import (
 )
 from raitap.tracking.base_tracker import Trackable
 from raitap.transparency.contracts import DetectionBox, ExplanationScope, VisualisationContext
+from raitap.transparency.exceptions import VisualiserIncompatibilityError
 from raitap.transparency.visualisers import BaseVisualiser, InputThumbnailVisualiser
 from raitap.utils.lazy import lazy_import
 
@@ -531,7 +532,7 @@ def _stage_sample_thumbnail(
             )
         try:
             visualiser.validate_explanation(explanation, attributions, inputs)
-        except ValueError as exc:
+        except (ValueError, VisualiserIncompatibilityError) as exc:
             last_error = exc
             continue
 

@@ -81,7 +81,21 @@ class ShapExplainer(AttributionOnlyExplainer):
             return getattr(shap, self.algorithm)(model, ...).shap_values(inputs)
 ```
 
-The original exception is preserved on `__cause__`, so the raw traceback stays for debugging — only the user-facing top is rewritten. `RaitapError` subclasses render with the same `Module · via <lib> · View docs` chips as warnings.
+The original exception is preserved on `__cause__`, so the raw traceback stays for debugging; only the user-facing top is rewritten.
+
+### When to define a custom error type
+
+Default to raw `ValueError` / `TypeError`. The status frame renders any raitap-raised error via traceback classification (`print_failure_panel` / `RaitapRichHandler` walk the traceback to the owning module and draw the `Module · via <lib> · View docs` chips), so a custom type does **not** improve rendering.
+
+Define a `RaitapError` (or domain) subclass only on a **boundary**:
+
+- something `except`s it for control flow (e.g. `AssessorBackendIncompatibilityError` splits batch-fatal from per-sample isolation),
+- a test must assert that *specific* failure, not just "raised",
+- it crosses the public facade as a caller-visible contract.
+
+A subclass additionally carries an explicit `Diagnostic`, which beats the traceback heuristic when the raise site sits outside a classifiable module, or should point at a config knob instead of the raising line.
+
+Otherwise raw is correct. Type lazily, when the boundary appears.
 
 ## Module attribution
 
