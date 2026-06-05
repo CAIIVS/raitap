@@ -60,7 +60,7 @@ class Data(Trackable):
         self.task_kind = task_kind
         self.tensor: torch.Tensor | DetectionInputs
         family = resolve_task_family(task_kind)
-        self.input_modality: InputModality | None
+        self.input_modality: InputModality
         raw_tensor, self.sample_ids, self.input_modality = self._load_data(
             cfg,
             resolved_preprocessing=resolved_preprocessing,
@@ -95,7 +95,11 @@ class Data(Trackable):
             cfg: Application configuration.
 
         Returns:
-            Raw data tensor or ragged list of per-image tensors (detection).
+            ``(tensor, sample_ids, input_modality)`` where ``tensor`` is the raw
+            data tensor (or a ragged ``list[Tensor]`` of per-image tensors for
+            detection), ``sample_ids`` are posix-relative file ids (``None`` for
+            tabular), and ``input_modality`` is the recorded
+            :class:`~raitap.data.types.InputModality`.
         """
         source = cfg.data.source
         if not source or not source.strip():
