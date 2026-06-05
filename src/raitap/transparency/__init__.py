@@ -166,6 +166,18 @@ def __getattr__(name: str) -> Any:
         from raitap.configs.schema import TransparencyConfig
 
         return TransparencyConfig
+
+    # Real submodules (report, phase, factory, results, ...) resolve lazily as
+    # package attributes so dotted-path access / monkeypatch agree with
+    # ``from ... import`` resolution. Imported on access (not eagerly) to avoid a
+    # load-time cycle via reporting -> robustness.contracts.
+    import importlib
+
+    try:
+        return importlib.import_module(f"{__name__}.{name}")
+    except ModuleNotFoundError:
+        pass
+
     from raitap._adapters import lookup
 
     try:

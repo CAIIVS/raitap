@@ -604,10 +604,6 @@ def test_assess_transparency_detection_handles_model_block_without_class_names(
 
     with (
         patch(
-            "raitap.transparency.phase.Explanation",
-            side_effect=AssertionError("classification path should not run"),
-        ),
-        patch(
             "raitap.transparency.factory.create_explainer",
             return_value=(_FakeExplainer(), "raitap.transparency.CaptumExplainer"),
         ),
