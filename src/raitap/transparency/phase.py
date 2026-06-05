@@ -25,15 +25,19 @@ from raitap.transparency.report import TransparencyPhaseResult
 from raitap.utils.diagnostics import Module
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from pathlib import Path
+
     import torch
 
     from raitap.configs.schema import AppConfig
     from raitap.data import Data
     from raitap.data.preprocessing import ResolvedPreprocessing
     from raitap.models import Model
+    from raitap.models.backend import ModelBackend
     from raitap.pipeline.outputs import ForwardOutput, PhaseResult
     from raitap.pipeline.phases.base import PhaseContext
-    from raitap.transparency.contracts import InputSpec
+    from raitap.transparency.contracts import ExplainerAdapter, InputSpec
     from raitap.transparency.results import ExplanationResult
 
 __all__ = [
@@ -105,17 +109,17 @@ class PreparedExplainer:
     """
 
     name: str
-    explainer: object
-    explainer_target: object
+    explainer: ExplainerAdapter
+    explainer_target: str
     visualisers: list
     merged_kwargs: dict
     raitap_kwargs: dict
     call_provenance: dict
-    base_run_dir: object
-    backend: object
+    base_run_dir: Path
+    backend: ModelBackend
     experiment_name: str
-    explainer_config: object
-    class_names: object
+    explainer_config: object  # consumed via resolve_explainer_runtime_kwargs(Any); stays loose
+    class_names: Sequence[str] | None
 
 
 def prepare_explainer(

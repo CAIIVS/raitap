@@ -14,7 +14,8 @@ if TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch
 
     from raitap.configs.schema import AppConfig
-    from raitap.transparency.contracts import InputSpec
+    from raitap.models.backend import ModelBackend
+    from raitap.transparency.contracts import ExplainerAdapter, InputSpec
 
 
 import raitap.pipeline.orchestrator as run_pipeline
@@ -271,14 +272,14 @@ def _make_prepared(
     """
     return _transparency_phase.PreparedExplainer(
         name="one",
-        explainer=explainer,
+        explainer=cast("ExplainerAdapter", explainer),
         explainer_target="raitap.transparency.Fake",
         visualisers=[],
         merged_kwargs=merged_kwargs or {},
         raitap_kwargs=raitap_kwargs or {},
         call_provenance={},
-        base_run_dir=None,
-        backend=backend,
+        base_run_dir=cast("Path", None),
+        backend=cast("ModelBackend", backend),
         experiment_name="test",
         explainer_config=explainer_config,
         class_names=None,

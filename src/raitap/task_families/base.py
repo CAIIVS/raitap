@@ -9,6 +9,14 @@ Method signatures take ``*Context`` objects so a family can carry
 family-specific extras (e.g. a tokenizer or attention masks for seq2seq)
 without changing the shared signatures. Classification and detection ignore
 ``extras``.
+
+Annotation policy: ``payload`` / ``inputs`` / ``labels`` and the
+``extract_forward`` / ``metrics_inputs`` returns are typed ``Any`` on purpose —
+they vary per family (classification ``Tensor`` vs detection ``list[dict]``),
+and a family is resolved at runtime by ``TaskKind``, so no caller knows the
+static payload type and generics would erase to ``Any`` at every call site.
+Pure-input params the implementation narrows itself use ``object`` (see the
+``validate_*`` methods), not ``Any``.
 """
 
 from __future__ import annotations
@@ -17,8 +25,14 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
+    import torch.nn as nn
+
+    from raitap.configs.schema import AppConfig
+    from raitap.data.data import Data
+    from raitap.models.backend import ModelBackend
     from raitap.pipeline.outputs import ForwardOutput
     from raitap.transparency.contracts import ExplanationOutputSpace
+    from raitap.transparency.phase import PreparedExplainer
     from raitap.transparency.results import ExplanationResult
     from raitap.types import TaskKind
 
@@ -27,8 +41,8 @@ if TYPE_CHECKING:
 class ForwardContext:
     """Inputs to :meth:`TaskFamily.extract_forward`."""
 
-    backend: Any
-    inputs: Any
+    backend: ModelBackend
+    inputs: Any  # family payload-shaped: Tensor (classification) | list[Tensor] (detection)
     # ``frozen=True`` blocks reassigning ``extras``, but the dict itself is
     # intentionally mutable so a family can populate it before forwarding the
     # context (e.g. seq2seq stashing a tokenizer). Do not switch to
@@ -45,9 +59,9 @@ class ExplainContext:
     visualisers + resolved kwargs + run dir + backend).
     """
 
-    prepared: Any
-    forward_output: Any
-    data: Any
+    prepared: PreparedExplainer
+    forward_output: ForwardOutput
+    data: Data
     extras: dict[str, Any] = field(default_factory=dict)
 
 
@@ -66,7 +80,7 @@ class TaskFamily(Protocol):
         """
         raise NotImplementedError
 
-    def adapt_loaded_inputs(self, tensor: Any) -> Any:
+    def adapt_loaded_inputs(self, tensor: object) -> Any:
         """Shape the freshly-loaded dense tensor for this family.
 
         Classification keeps the dense ``(N, C, H, W)`` tensor; detection
@@ -74,15 +88,15 @@ class TaskFamily(Protocol):
         """
         raise NotImplementedError
 
-    def validate_inputs(self, tensor: Any) -> None:
+    def validate_inputs(self, tensor: object) -> None:
         """Validate the (post-adapt) inputs match this family's contract."""
         raise NotImplementedError
 
-    def load_labels(self, cfg: Any, *, tensor: Any, sample_ids: Any) -> Any:
+    def load_labels(self, cfg: AppConfig, *, tensor: object, sample_ids: object) -> Any:
         """Load labels in this family's on-disk shape (or None)."""
         raise NotImplementedError
 
-    def validate_labels(self, labels: Any) -> None:
+    def validate_labels(self, labels: object) -> None:
         """Raise if loaded labels don't match this family's expected shape."""
         raise NotImplementedError
 
@@ -90,7 +104,7 @@ class TaskFamily(Protocol):
         """Run the backend forward and return this family's payload."""
         raise NotImplementedError
 
-    def payload_batch_size(self, payload: Any) -> int:
+    def payload_batch_size(self, payload: object) -> int:
         """Number of samples represented by ``payload``."""
         raise NotImplementedError
 
@@ -98,7 +112,9 @@ class TaskFamily(Protocol):
         """Produce explanation results (shared loop or per-element K-loop)."""
         raise NotImplementedError
 
-    def metrics_inputs(self, config: Any, forward_output: ForwardOutput, labels: Any) -> Any:
+    def metrics_inputs(
+        self, config: AppConfig, forward_output: ForwardOutput, labels: object
+    ) -> Any:
         """Adapt payload + labels into ``(preds, targets)`` for the metric
         adapters, or return ``None`` to skip metrics for this input."""
         raise NotImplementedError
@@ -108,7 +124,7 @@ class TaskFamily(Protocol):
         raise NotImplementedError
 
     def prediction_summaries(
-        self, payload: Any, *, sample_ids: Any = None, targets: Any = None
+        self, payload: object, *, sample_ids: object = None, targets: object = None
     ) -> list | None:
         """Per-sample prediction summary rows, or ``None`` if N/A."""
         raise NotImplementedError
@@ -118,7 +134,7 @@ class TaskFamily(Protocol):
         """Whether data/model preprocessing transforms are allowed."""
         raise NotImplementedError
 
-    def matches_model(self, model: Any) -> bool:
+    def matches_model(self, model: nn.Module) -> bool:
         """Whether this family recognises ``model`` by architecture.
 
         Used by backend task-kind auto-inference. Families that aren't

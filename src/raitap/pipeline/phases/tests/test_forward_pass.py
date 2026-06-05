@@ -8,7 +8,7 @@ Covers:
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import torch
@@ -277,7 +277,9 @@ class _StubClsBackend:
 
 def test_classification_family_extract_forward_returns_tensor() -> None:
     fam = resolve_task_family(TaskKind.classification)
-    ctx = ForwardContext(backend=_StubClsBackend(), inputs=torch.zeros(3, 1, 4, 4))
+    ctx = ForwardContext(
+        backend=cast("ModelBackend", _StubClsBackend()), inputs=torch.zeros(3, 1, 4, 4)
+    )
     payload = fam.extract_forward(ctx, batch_size=2)
     assert isinstance(payload, torch.Tensor)
     assert payload.shape[0] == 3

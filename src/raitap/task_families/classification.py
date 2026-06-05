@@ -8,7 +8,7 @@ phase-migration tasks; this file starts with the constants + validation.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from raitap.task_families.registry import task_family
 from raitap.types import TaskKind
@@ -119,7 +119,9 @@ class ClassificationFamily:
         from raitap.utils.errors import SampleNamesLengthError
 
         prepared = ctx.prepared
-        inputs = ctx.data.tensor
+        # Classification data is the dense tensor (enforced by ``validate_inputs``);
+        # ``Data.tensor`` is widened to ``Tensor | DetectionInputs`` for detection.
+        inputs = cast("torch.Tensor", ctx.data.tensor)
 
         runtime_kwargs = resolve_explainer_runtime_kwargs(
             prepared.explainer_config,

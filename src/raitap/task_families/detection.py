@@ -8,13 +8,14 @@ are added in the phase-migration tasks.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from raitap.task_families.registry import task_family
 from raitap.transparency.contracts import ExplanationOutputSpace
 from raitap.types import TaskKind
 
 if TYPE_CHECKING:
+    from raitap.models.backend import TorchBackend
     from raitap.task_families.base import ExplainContext, ForwardContext
 
 
@@ -200,7 +201,10 @@ class DetectionFamily:
     def extract_forward(self, ctx: ForwardContext, *, batch_size: int) -> list[dict]:
         import torch
 
-        backend, inputs = ctx.backend, ctx.inputs
+        # Detection is torchvision-bound (see ``matches_model``); the per-batch
+        # collation helper lives only on ``TorchBackend``, not the ABC.
+        backend = cast("TorchBackend", ctx.backend)
+        inputs = ctx.inputs
         total_batch = len(inputs)
         detection_predictions: list[dict] = []
         for start in range(0, total_batch, batch_size):

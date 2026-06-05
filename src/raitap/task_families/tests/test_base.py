@@ -1,6 +1,14 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, cast
+
 from raitap.task_families.base import ExplainContext, ForwardContext, TaskFamily
+
+if TYPE_CHECKING:
+    from raitap.data.data import Data
+    from raitap.models.backend import ModelBackend
+    from raitap.pipeline.outputs import ForwardOutput
+    from raitap.transparency.phase import PreparedExplainer
 
 
 def test_taskfamily_is_runtime_checkable_protocol() -> None:
@@ -60,7 +68,14 @@ def test_taskfamily_is_runtime_checkable_protocol() -> None:
 
 
 def test_context_dataclasses_carry_extras() -> None:
-    fwd = ForwardContext(backend=object(), inputs=[1, 2], extras={"tokenizer": "x"})
-    exp = ExplainContext(prepared=object(), forward_output=object(), data=object(), extras={})
+    fwd = ForwardContext(
+        backend=cast("ModelBackend", object()), inputs=[1, 2], extras={"tokenizer": "x"}
+    )
+    exp = ExplainContext(
+        prepared=cast("PreparedExplainer", object()),
+        forward_output=cast("ForwardOutput", object()),
+        data=cast("Data", object()),
+        extras={},
+    )
     assert fwd.extras["tokenizer"] == "x"
     assert exp.extras == {}

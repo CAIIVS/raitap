@@ -187,7 +187,7 @@ def test_run_without_tracking_forward_output_is_cpu_and_detached() -> None:
         merged_kwargs={},
         raitap_kwargs={},
         call_provenance={},
-        base_run_dir=None,
+        base_run_dir=cast("Path", None),
         backend=model.backend,
         experiment_name="test",
         explainer_config={},

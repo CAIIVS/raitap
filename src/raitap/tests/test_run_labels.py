@@ -17,9 +17,12 @@ from raitap.transparency import phase as _transparency_phase
 from raitap.types import TaskKind
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from raitap.configs.schema import AppConfig
     from raitap.data import Data
     from raitap.models import Model
+    from raitap.transparency.contracts import ExplainerAdapter
 
 
 class _BackendStub:
@@ -105,13 +108,13 @@ def test_run_without_tracking_passes_ground_truth_labels_to_metrics(
     ) -> _transparency_phase.PreparedExplainer:
         return _transparency_phase.PreparedExplainer(
             name=name,
-            explainer=_DummyExplainer(),
+            explainer=cast("ExplainerAdapter", _DummyExplainer()),
             explainer_target="raitap.transparency.Fake",
             visualisers=[],
             merged_kwargs={},
             raitap_kwargs={},
             call_provenance={},
-            base_run_dir=None,
+            base_run_dir=cast("Path", None),
             backend=model.backend,
             experiment_name="test",
             explainer_config=cfg.transparency[name],  # type: ignore[attr-defined]
