@@ -88,6 +88,21 @@ Both sides (sample ids from disk + label ids from the file) are normalised
 the same way before lookup. Duplicate normalised label ids raise a
 warning and disable label-based metrics for that run.
 
+## Input modality
+
+`Data` records the modality it loaded as `Data.input_modality` (`InputModality.image`
+or `InputModality.tabular`, from `raitap.data.types`). The branch taken in
+`Data._load_data` sets it; nothing re-derives it.
+
+`infer_data_input_metadata` reads `input_modality` to pick `kind`/`layout`
+(`image` -> `NCHW`, `tabular` -> `(B,F)`), falling back to source-path sniffing only
+when no modality is recorded. Extension sets live once in
+`MODALITY_EXTENSIONS` (`raitap.data.types`); `data.py` and `metadata.py` import them.
+
+A new non-image modality adds a member to `InputModality`, an extension entry to
+`MODALITY_EXTENSIONS`, a load branch in `_load_data`, and a `kind`/`layout` branch
+in `infer_data_input_metadata` (which switches on the recorded modality).
+
 ## Image preprocessing internals
 
 User-facing surface lives at {doc}`/modules/data/preprocessing` — that doc is

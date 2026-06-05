@@ -42,3 +42,25 @@ class Preprocessing(StrEnum):
     """
 
     model_bundled = "model-bundled"
+
+
+class InputModality(StrEnum):
+    """Data modality recorded by :class:`raitap.data.data.Data` at load time.
+
+    Only the modalities raitap loads today. A future non-image family adds its
+    member here, an extension entry in ``MODALITY_EXTENSIONS``, a load branch in
+    ``Data._load_data``, and a ``kind``/``layout`` branch in
+    ``infer_data_input_metadata`` (which switches on the recorded modality).
+    """
+
+    image = "image"
+    tabular = "tabular"
+
+
+#: Single source of truth for which file extensions map to which modality.
+#: Imported by ``data.data`` and ``data.metadata`` so the sets are not
+#: redeclared at each call site.
+MODALITY_EXTENSIONS: dict[InputModality, frozenset[str]] = {
+    InputModality.image: frozenset({".jpg", ".jpeg", ".png", ".bmp", ".webp"}),
+    InputModality.tabular: frozenset({".csv", ".tsv", ".parquet"}),
+}

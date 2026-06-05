@@ -11,7 +11,7 @@ from PIL import Image
 
 from raitap import raitap_log
 from raitap.data.preprocessing import module_as_per_image_callable, resolve_preprocessing
-from raitap.data.types import IdStrategy, LabelEncoding
+from raitap.data.types import MODALITY_EXTENSIONS, IdStrategy, InputModality, LabelEncoding
 from raitap.data.utils import download_file
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 from raitap.types import DetectionInputs, TaskKind
@@ -31,8 +31,11 @@ else:
 
 
 _CACHE_DIR = Path.home() / ".cache" / "raitap"
-_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
-_TABULAR_EXTENSIONS = {".csv", ".tsv", ".parquet"}
+_IMAGE_EXTENSIONS = MODALITY_EXTENSIONS[InputModality.image]
+_TABULAR_EXTENSIONS = MODALITY_EXTENSIONS[InputModality.tabular]
+# Pre-formatted for error messages: deterministic order, no ``frozenset(...)`` repr.
+_IMAGE_FORMATS = ", ".join(sorted(_IMAGE_EXTENSIONS))
+_TABULAR_FORMATS = ", ".join(sorted(_TABULAR_EXTENSIONS))
 
 
 class SourceKind(StrEnum):
@@ -57,7 +60,8 @@ class Data(Trackable):
         self.task_kind = task_kind
         self.tensor: torch.Tensor | DetectionInputs
         family = resolve_task_family(task_kind)
-        raw_tensor, self.sample_ids = self._load_data(
+        self.input_modality: InputModality
+        raw_tensor, self.sample_ids, self.input_modality = self._load_data(
             cfg,
             resolved_preprocessing=resolved_preprocessing,
         )
@@ -72,7 +76,7 @@ class Data(Trackable):
         cfg: AppConfig,
         *,
         resolved_preprocessing: ResolvedPreprocessing | None = None,
-    ) -> tuple[torch.Tensor | DetectionInputs, list[str] | None]:
+    ) -> tuple[torch.Tensor | DetectionInputs, list[str] | None, InputModality]:
         """
         Load data from a specified source into a raw tensor.
 
@@ -91,7 +95,11 @@ class Data(Trackable):
             cfg: Application configuration.
 
         Returns:
-            Raw data tensor or ragged list of per-image tensors (detection).
+            ``(tensor, sample_ids, input_modality)`` where ``tensor`` is the raw
+            data tensor (or a ragged ``list[Tensor]`` of per-image tensors for
+            detection), ``sample_ids`` are posix-relative file ids (``None`` for
+            tabular), and ``input_modality`` is the recorded
+            :class:`~raitap.data.types.InputModality`.
         """
         source = cfg.data.source
         if not source or not source.strip():
@@ -124,7 +132,7 @@ class Data(Trackable):
             # at their native resolution instead of pre-squashing them to
             # ``_DEMO_SIZE`` before the bundled Resize/CenterCrop sees them.
             tensor, sample_ids = _load_sample(source, per_image_transform=per_image_transform)
-            return tensor, sample_ids
+            return tensor, sample_ids, InputModality.image
 
         path = get_source_path(source, kind=SourceKind.DATA)
 
@@ -141,36 +149,49 @@ class Data(Trackable):
                     ragged = _load_images_ragged(
                         image_files, per_image_transform=per_image_transform
                     )
-                    return ragged, _resolve_sample_ids(image_files, root=path)
+                    return (
+                        ragged,
+                        _resolve_sample_ids(image_files, root=path),
+                        InputModality.image,
+                    )
                 tensor = torch.from_numpy(
                     _stack_images_numpy(image_files, per_image_transform=per_image_transform)
                 )
-                return tensor, _resolve_sample_ids(image_files, root=path)
+                return tensor, _resolve_sample_ids(image_files, root=path), InputModality.image
             if tabular_files:
                 tensor = torch.from_numpy(_concat_tabular_numpy(tabular_files))
-                return _apply_data_module_to_batch(data_module, tensor), None
+                return (
+                    _apply_data_module_to_batch(data_module, tensor),
+                    None,
+                    InputModality.tabular,
+                )
             raise FileNotFoundError(
                 f"No supported files found in {path}.\n"
-                f"Supported image formats: {_IMAGE_EXTENSIONS}\n"
-                f"Supported tabular formats: {_TABULAR_EXTENSIONS}"
+                f"Supported image formats: {_IMAGE_FORMATS}\n"
+                f"Supported tabular formats: {_TABULAR_FORMATS}"
             )
 
         suffix = path.suffix.lower()
         if suffix in _IMAGE_EXTENSIONS:
             if is_detection:
                 ragged = _load_images_ragged([path], per_image_transform=per_image_transform)
-                return ragged, _resolve_sample_ids([path], root=path.parent)
+                return ragged, _resolve_sample_ids([path], root=path.parent), InputModality.image
             return (
                 _load_images(path, per_image_transform=per_image_transform),
                 _resolve_sample_ids([path], root=path.parent),
+                InputModality.image,
             )
         if suffix in _TABULAR_EXTENSIONS:
-            return _apply_data_module_to_batch(data_module, _load_tabular(path)), None
+            return (
+                _apply_data_module_to_batch(data_module, _load_tabular(path)),
+                None,
+                InputModality.tabular,
+            )
 
         raise ValueError(
             f"Cannot infer data type from extension {suffix!r}.\n"
-            f"Supported image formats: {_IMAGE_EXTENSIONS}\n"
-            f"Supported tabular formats: {_TABULAR_EXTENSIONS}"
+            f"Supported image formats: {_IMAGE_FORMATS}\n"
+            f"Supported tabular formats: {_TABULAR_FORMATS}"
         )
 
     def describe(self) -> dict[str, Any]:
@@ -372,8 +393,8 @@ def _load_numpy_from_path(
             return _concat_tabular_numpy(tabular_files)
         raise FileNotFoundError(
             f"No supported files found in {path}.\n"
-            f"Supported image formats: {_IMAGE_EXTENSIONS}\n"
-            f"Supported tabular formats: {_TABULAR_EXTENSIONS}"
+            f"Supported image formats: {_IMAGE_FORMATS}\n"
+            f"Supported tabular formats: {_TABULAR_FORMATS}"
         )
 
     suffix = path.suffix.lower()
@@ -383,8 +404,8 @@ def _load_numpy_from_path(
         return _load_tabular_numpy(path)
     raise ValueError(
         f"Cannot infer data type from extension {suffix!r}.\n"
-        f"Supported image formats: {_IMAGE_EXTENSIONS}\n"
-        f"Supported tabular formats: {_TABULAR_EXTENSIONS}"
+        f"Supported image formats: {_IMAGE_FORMATS}\n"
+        f"Supported tabular formats: {_TABULAR_FORMATS}"
     )
 
 

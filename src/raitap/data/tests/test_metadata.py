@@ -10,9 +10,47 @@ from raitap.data.metadata import (
     is_tabular_source,
     shape_tuple,
 )
+from raitap.data.types import InputModality
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+class _FakeTensor:
+    shape = (2, 3, 8, 8)
+
+
+def _fake_data(modality: InputModality, source: str) -> SimpleNamespace:
+    return SimpleNamespace(
+        input_modality=modality,
+        tensor=_FakeTensor(),
+        source=source,
+        input_metadata=None,
+    )
+
+
+def test_recorded_image_modality_beats_unsniffable_source() -> None:
+    data = _fake_data(InputModality.image, "opaque://not-a-path")
+    md = infer_data_input_metadata(SimpleNamespace(data=None), data)
+    assert md.kind == "image"
+    assert md.layout == "NCHW"
+    assert md.shape == (2, 3, 8, 8)
+
+
+def test_recorded_tabular_modality_beats_unsniffable_source() -> None:
+    data = _fake_data(InputModality.tabular, "opaque://not-a-path")
+    md = infer_data_input_metadata(SimpleNamespace(data=None), data)
+    assert md.kind == "tabular"
+    assert md.layout == "(B,F)"
+
+
+def test_falls_back_to_source_sniff_when_modality_absent(tmp_path: Path) -> None:
+    csv = tmp_path / "rows.csv"
+    csv.write_text("a,b\n1,2\n", encoding="utf-8")
+    data = SimpleNamespace(input_metadata=None, tensor=_FakeTensor(), source=str(csv))
+    md = infer_data_input_metadata(SimpleNamespace(data=None), data)
+    assert md.kind == "tabular"
+    assert md.layout == "(B,F)"
 
 
 def test_infer_data_input_metadata_prefers_explicit_config_metadata() -> None:
