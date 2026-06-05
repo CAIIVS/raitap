@@ -15,7 +15,7 @@ from raitap.metrics import metrics_prediction_pair
 from raitap.pipeline.phases.base import AssessmentPhase, run_adapters
 from raitap.robustness.factory import RobustnessAssessment
 from raitap.robustness.report import RobustnessPhaseResult
-from raitap.types import TaskKind
+from raitap.task_families import resolve_task_family
 
 if TYPE_CHECKING:
     import torch
@@ -66,7 +66,7 @@ def resolve_robustness_targets(
     """
     if labels is not None:
         return labels
-    if forward_output.task_kind is not TaskKind.classification:
+    if not resolve_task_family(forward_output.task_kind).supports_robustness():
         return None
     predictions_tensor = forward_output.as_classification()
     if predictions_tensor.ndim != 2 or predictions_tensor.shape[1] < 2:
@@ -98,10 +98,10 @@ def assess_robustness(
     (``RobustnessResult.visualisations``), populated via the shared
     :func:`~raitap.pipeline.phases.base.run_adapters` loop.
     """
-    if forward_output.task_kind is not TaskKind.classification:
-        # Robustness against detection models is a Phase 4 deliverable
-        # (DetectionAdversarialLoss). Empirical / formal robustness in this
-        # phase supports classification only.
+    family = resolve_task_family(forward_output.task_kind)
+    if not family.supports_robustness():
+        # Robustness against non-classification models is a later deliverable
+        # (e.g. detection DetectionAdversarialLoss); the family opts out here.
         return []
 
     assessors = getattr(config, "robustness", None) or {}
