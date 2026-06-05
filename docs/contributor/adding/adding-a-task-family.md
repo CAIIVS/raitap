@@ -31,7 +31,40 @@ class TaskKind(StrEnum):
 
 ## 2. Implement the `TaskFamily` subclass
 
-Add `src/raitap/task_families/<family>.py`, decorate the class with `@task_family` (from `raitap.task_families.registry`). The decorator instantiates it once and registers the singleton under its `kind`. Set two class attributes and implement the Protocol members (defined in `src/raitap/task_families/base.py`).
+Add `src/raitap/task_families/<family>.py`. The `@task_family` decorator instantiates the class once and registers that singleton under its `kind`. Two class attributes plus the `TaskFamily` Protocol members (`src/raitap/task_families/base.py`):
+
+```python
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+from raitap.task_families.registry import task_family
+from raitap.transparency.contracts import ExplanationOutputSpace
+from raitap.types import TaskKind
+from raitap.utils.lazy import lazy_import
+
+if TYPE_CHECKING:
+    import torch
+
+    from raitap.task_families.base import ExplainContext, ForwardContext
+else:
+    torch = lazy_import("torch")  # this module is imported at CLI startup, before torch exists
+
+
+@task_family
+class SegmentationFamily:
+    kind: TaskKind = TaskKind.segmentation
+    fixed_output_space: ExplanationOutputSpace | None = ExplanationOutputSpace.IMAGE_SPATIAL_MAP
+
+    def validate_payload(self, payload: object) -> None:
+        if not isinstance(payload, torch.Tensor):
+            raise ValueError("segmentation payload must be a (N, C, H, W) mask tensor.")
+
+    def explain(self, ctx: ExplainContext) -> list:
+        ...  # the rest of the Protocol members below
+```
+
+Use `lazy_import("torch")`, never a top-level `import torch`: this file is imported eagerly for `@task_family` registration, and the bare CLI bootstrap imports it before installing torch. A top-level import crashes `raitap --demo -y` (see {doc}`adding-an-adapter`).
 
 Class attributes:
 
@@ -57,11 +90,34 @@ Methods (signatures take `ctx` / `payload` / `tensor` / `cfg` as the Protocol de
 
 ## 3. Register the metric adapter and visualiser
 
-Same as adding any adapter (see {doc}`adding-an-adapter`). Register the family's metric computer with `@metrics_adapter(...)` and its visualiser with `@transparency_visualiser(supported_tasks={TaskKind.<your_kind>}, ...)`. These use the existing decorator registries; the visualiser's `supported_tasks` is what makes the transparency pre-flight fail fast on an incompatible config instead of deep in the explain loop.
+Same decorators as any adapter ({doc}`adding-an-adapter`). The metric computer ties to your family by `registry_name` (selected via `metrics=<name>`); the visualiser ties to it by `supported_tasks`, which makes the transparency pre-flight reject an incompatible config up front instead of failing deep in the explain loop.
+
+```python
+from raitap.metrics.registration import metrics_adapter
+from raitap.transparency.visualisers.registration import transparency_visualiser
+
+@metrics_adapter(registry_name="segmentation", extra="metrics", schema=SegmentationMetricsConfig)
+class SegmentationMetrics(BaseMetricComputer): ...
+
+@transparency_visualiser(
+    registry_name="segmentation_mask",
+    supported_tasks={TaskKind.segmentation},                          # the pre-flight gate
+    supported_output_spaces={ExplanationOutputSpace.IMAGE_SPATIAL_MAP},
+    supported_payload_kinds={ExplanationPayloadKind.ATTRIBUTIONS},
+)
+class SegmentationMaskVisualiser(BaseVisualiser): ...
+```
 
 ## 4. Declare the model's task
 
-The pipeline reads `backend.task_kind`. Set it explicitly with the `task_kind=` kwarg on `TorchBackend`, or rely on auto-inference: `TorchBackend._infer_task_kind` scans the registered families and calls each family's `matches_model`. Torchvision detectors are auto-detected this way (`DetectionFamily.matches_model` wraps `_is_torchvision_detection_model`). If your family is auto-detectable, implement `matches_model`; otherwise pass `task_kind=` explicitly. Backends have their own page: {doc}`adding-a-backend`.
+The pipeline reads `backend.task_kind`. Pass it explicitly, or rely on auto-inference: `TorchBackend._infer_task_kind` calls each registered family's `matches_model` and raises if more than one matches.
+
+```python
+backend = TorchBackend(model, task_kind=TaskKind.segmentation)  # explicit
+backend = TorchBackend(model)                                   # auto: scans matches_model
+```
+
+Implement `matches_model` only for an architecture-detectable family (torchvision detectors are recognised this way); otherwise pass `task_kind=` explicitly. Backends have their own page: {doc}`adding-a-backend`.
 
 ## 5. Data-layer boundary
 
