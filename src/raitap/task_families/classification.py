@@ -28,6 +28,10 @@ class ClassificationFamily:
     # to the method-family logic instead of using a fixed space.
     fixed_output_space: ExplanationOutputSpace | None = None
 
+    def matches_model(self, model: Any) -> bool:
+        # Classification is the auto-inference fallback, not architecture-detected.
+        return False
+
     def validate_payload(self, payload: object) -> None:
         if not isinstance(payload, torch.Tensor):
             raise ValueError("ForwardOutput(task_kind=classification) requires a tensor payload.")

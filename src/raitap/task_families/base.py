@@ -113,3 +113,11 @@ class TaskFamily(Protocol):
     def allows_preprocessing(self) -> bool:
         """Whether data/model preprocessing transforms are allowed."""
         raise NotImplementedError
+
+    def matches_model(self, model: Any) -> bool:
+        """Whether this family recognises ``model`` by architecture.
+
+        Used by backend task-kind auto-inference. Families that aren't
+        auto-detectable (classification is the fallback) need not implement it.
+        """
+        raise NotImplementedError

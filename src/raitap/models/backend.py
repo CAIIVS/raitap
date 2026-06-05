@@ -185,8 +185,12 @@ class TorchBackend(ModelBackend):
 
     @staticmethod
     def _infer_task_kind(model: nn.Module) -> TaskKind:
-        if _is_torchvision_detection_model(model):
-            return TaskKind.detection
+        from raitap.task_families import TASK_FAMILIES
+
+        for family in TASK_FAMILIES.values():
+            matches = getattr(family, "matches_model", None)
+            if matches is not None and matches(model):
+                return family.kind
         return TaskKind.classification
 
     @property

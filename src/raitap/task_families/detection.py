@@ -23,6 +23,11 @@ class DetectionFamily:
     kind: TaskKind = TaskKind.detection
     fixed_output_space: ExplanationOutputSpace | None = ExplanationOutputSpace.DETECTION_BOXES
 
+    def matches_model(self, model: Any) -> bool:
+        from raitap.models.backend import _is_torchvision_detection_model
+
+        return _is_torchvision_detection_model(model)
+
     def validate_payload(self, payload: object) -> None:
         if not isinstance(payload, list) or not all(isinstance(p, dict) for p in payload):
             raise ValueError("ForwardOutput(task_kind=detection) requires a list[dict] payload.")
