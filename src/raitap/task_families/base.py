@@ -82,6 +82,10 @@ class TaskFamily(Protocol):
         """Load labels in this family's on-disk shape (or None)."""
         raise NotImplementedError
 
+    def validate_labels(self, labels: Any) -> None:
+        """Raise if loaded labels don't match this family's expected shape."""
+        raise NotImplementedError
+
     def extract_forward(self, ctx: ForwardContext, *, batch_size: int) -> Any:
         """Run the backend forward and return this family's payload."""
         raise NotImplementedError

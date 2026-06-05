@@ -22,3 +22,13 @@ def test_validate_payload_requires_list_of_dicts() -> None:
     fam.validate_payload([{"boxes": torch.zeros(0, 4), "labels": torch.zeros(0)}])
     with pytest.raises(ValueError, match="detection"):
         fam.validate_payload(torch.zeros(2, 3))
+
+
+def test_validate_labels_rejects_classification_shaped_labels() -> None:
+    fam = resolve_task_family(TaskKind.detection)
+    # list[dict] / None are detection-shaped → OK.
+    fam.validate_labels([{"boxes": torch.zeros(0, 4), "labels": torch.zeros(0)}])
+    fam.validate_labels(None)
+    # A bare tensor is classification-shaped → model and data disagree.
+    with pytest.raises(ValueError, match="classification-shaped"):
+        fam.validate_labels(torch.zeros(3))

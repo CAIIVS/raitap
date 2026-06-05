@@ -61,6 +61,17 @@ class ClassificationFamily:
 
         return load_classification_labels(cfg, tensor=tensor, sample_ids=sample_ids)
 
+    def validate_labels(self, labels: Any) -> None:
+        # A ``list[dict]`` is a detection-shaped label set; a tensor (or None)
+        # is classification-shaped. Disagreement means model and data declare
+        # different task families.
+        if isinstance(labels, list):
+            raise ValueError(
+                "classification model loaded detection-shaped labels (list[dict]); "
+                "model and data disagree. Set model.task_kind to match your data, "
+                "or point data.labels.source at classification labels."
+            )
+
     def extract_forward(self, ctx: ForwardContext, *, batch_size: int) -> torch.Tensor:
         from raitap.pipeline.phases.forward_pass import extract_primary_tensor
 

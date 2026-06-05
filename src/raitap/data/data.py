@@ -65,6 +65,7 @@ class Data(Trackable):
         family.validate_inputs(self.tensor)
         self.labels: torch.Tensor | list[dict[str, torch.Tensor]] | None
         self.labels = family.load_labels(cfg, tensor=self.tensor, sample_ids=self.sample_ids)
+        family.validate_labels(self.labels)
 
     def _load_data(
         self,

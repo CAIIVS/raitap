@@ -177,15 +177,12 @@ class TestDetectionLabelsWithListTensor:
         ]
         data.sample_ids = ["img_0", "img_1", "img_2"]
 
-        from raitap.data.types import LabelKind
-
         cfg = cast(
             "AppConfig",
             SimpleNamespace(
                 data=SimpleNamespace(
                     labels=SimpleNamespace(
                         source=str(labels_path),
-                        kind=LabelKind.detection,
                     )
                 )
             ),
@@ -203,15 +200,12 @@ class TestDetectionLabelsWithListTensor:
         data.tensor = [torch.zeros(3, 24, 32), torch.zeros(3, 48, 64), torch.zeros(3, 16, 16)]
         data.sample_ids = None  # force row-order path
 
-        from raitap.data.types import LabelKind
-
         cfg = cast(
             "AppConfig",
             SimpleNamespace(
                 data=SimpleNamespace(
                     labels=SimpleNamespace(
                         source=str(labels_path),
-                        kind=LabelKind.detection,
                     )
                 )
             ),

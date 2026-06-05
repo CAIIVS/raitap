@@ -181,6 +181,17 @@ class DetectionFamily:
 
         return out
 
+    def validate_labels(self, labels: Any) -> None:
+        # The detection loader returns ``list[dict]`` or ``None``. A bare tensor
+        # is a classification-shaped label set; disagreement means model and
+        # data declare different task families.
+        if labels is not None and not isinstance(labels, list):
+            raise ValueError(
+                "detection model loaded classification-shaped labels; model and "
+                "data disagree. Set model.task_kind to match your data, or point "
+                "data.labels.source at detection labels (JSON list of records)."
+            )
+
     def extract_forward(self, ctx: ForwardContext, *, batch_size: int) -> list[dict]:
         import torch
 
@@ -288,7 +299,7 @@ class DetectionFamily:
         if labels is None:
             raitap_log.warn(
                 "Detection metrics require dataset labels "
-                "(list[dict] from data.labels.kind=detection); none provided. "
+                "(list[dict] detection targets); none provided. "
                 "Skipping metrics."
             )
             return None

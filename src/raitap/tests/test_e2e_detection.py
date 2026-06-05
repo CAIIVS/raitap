@@ -103,7 +103,7 @@ def test_detection_pipeline_e2e_via_fasterrcnn_mobilenet(tmp_path: Path) -> None
     # pipeline plumbing downstream of Data.
     from raitap.task_families.detection import DetectionFamily
 
-    labels_cfg = SimpleNamespace(source=str(labels_path), kind="detection")
+    labels_cfg = SimpleNamespace(source=str(labels_path))
     load_cfg = cast(
         "AppConfig",
         SimpleNamespace(data=SimpleNamespace(labels=labels_cfg)),
