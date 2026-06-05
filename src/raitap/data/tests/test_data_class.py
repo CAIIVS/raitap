@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
 
 from raitap.data import Data
+from raitap.data.types import InputModality
 
 
 def _write_image(path: Path) -> None:
@@ -351,6 +352,44 @@ class TestDataConstructor:
 
         with pytest.raises(ValueError, match=r"Unsupported data\.labels\.id_strategy"):
             Data(config)
+
+    def test_data_records_image_modality_for_image_dir(self, tmp_path: Path) -> None:
+        img_dir = tmp_path / "imgs"
+        img_dir.mkdir()
+        _write_image(img_dir / "a.png")
+        _write_image(img_dir / "b.png")
+        config = _make_config(str(img_dir))
+
+        data = Data(config)
+
+        assert data.input_modality is InputModality.image
+
+    def test_data_records_tabular_modality_for_csv(self, tmp_path: Path) -> None:
+        csv = tmp_path / "rows.csv"
+        csv.write_text("a,b\n1,2\n3,4\n", encoding="utf-8")
+        config = _make_config(str(csv))
+
+        data = Data(config)
+
+        assert data.input_modality is InputModality.tabular
+
+    def test_data_records_image_modality_for_demo_sample(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Exercise the SAMPLE_SOURCES branch hermetically: stub the networked loader.
+        def _fake_load_sample(
+            name: str, *, per_image_transform: object = None
+        ) -> tuple[torch.Tensor, list[str]]:
+            assert name == "imagenet_samples"
+            assert per_image_transform is None or callable(per_image_transform)
+            return torch.zeros(2, 3, 8, 8), ["x.jpg", "y.jpg"]
+
+        monkeypatch.setattr("raitap.data.data._load_sample", _fake_load_sample)
+        config = _make_config("imagenet_samples")
+
+        data = Data(config)
+
+        assert data.input_modality is InputModality.image
 
     def test_data_raises_for_unsupported_labels_encoding(self, tmp_path: Path) -> None:
         csv_file = tmp_path / "data.csv"
