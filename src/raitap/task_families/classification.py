@@ -10,14 +10,20 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-import torch
-
 from raitap.task_families.registry import task_family
 from raitap.types import TaskKind
+from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
+    import torch
+
     from raitap.task_families.base import ExplainContext, ForwardContext
     from raitap.transparency.contracts import ExplanationOutputSpace
+else:
+    # Lazy so importing this module (eagerly, for @task_family registration)
+    # does not require torch — the bare/no-extras CLI bootstrap imports the
+    # package before installing torch.
+    torch = lazy_import("torch")
 
 
 @task_family
