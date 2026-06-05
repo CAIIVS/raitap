@@ -33,6 +33,8 @@ class ClassificationFamily:
     # INPUT_FEATURES); ``None`` signals ``infer_output_space`` to fall through
     # to the method-family logic instead of using a fixed space.
     fixed_output_space: ExplanationOutputSpace | None = None
+    supports_robustness: bool = True
+    allows_preprocessing: bool = True
 
     def matches_model(self, model: Any) -> bool:
         # Classification is the auto-inference fallback, not architecture-detected.
@@ -41,13 +43,6 @@ class ClassificationFamily:
     def validate_payload(self, payload: object) -> None:
         if not isinstance(payload, torch.Tensor):
             raise ValueError("ForwardOutput(task_kind=classification) requires a tensor payload.")
-
-    def supports_robustness(self) -> bool:
-        return True
-
-    @property
-    def allows_preprocessing(self) -> bool:
-        return True
 
     def adapt_loaded_inputs(self, tensor: Any) -> Any:
         # Classification keeps the dense (N, C, H, W) tensor as-is.

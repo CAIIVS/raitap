@@ -23,6 +23,9 @@ if TYPE_CHECKING:
 class DetectionFamily:
     kind: TaskKind = TaskKind.detection
     fixed_output_space: ExplanationOutputSpace | None = ExplanationOutputSpace.DETECTION_BOXES
+    # Robustness is a Phase 4 deliverable; detection models normalise internally.
+    supports_robustness: bool = False
+    allows_preprocessing: bool = False
 
     def matches_model(self, model: Any) -> bool:
         from raitap.models.backend import _is_torchvision_detection_model
@@ -32,13 +35,6 @@ class DetectionFamily:
     def validate_payload(self, payload: object) -> None:
         if not isinstance(payload, list) or not all(isinstance(p, dict) for p in payload):
             raise ValueError("ForwardOutput(task_kind=detection) requires a list[dict] payload.")
-
-    def supports_robustness(self) -> bool:
-        return False
-
-    @property
-    def allows_preprocessing(self) -> bool:
-        return False
 
     def prediction_summaries(
         self, payload: Any, *, sample_ids: Any = None, targets: Any = None

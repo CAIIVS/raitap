@@ -11,7 +11,7 @@ def test_classification_family_registered() -> None:
     fam = resolve_task_family(TaskKind.classification)
     assert fam.kind is TaskKind.classification
     assert fam.fixed_output_space is None
-    assert fam.supports_robustness() is True
+    assert fam.supports_robustness is True
     assert fam.allows_preprocessing is True
 
 

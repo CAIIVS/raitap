@@ -66,7 +66,7 @@ def resolve_robustness_targets(
     """
     if labels is not None:
         return labels
-    if not resolve_task_family(forward_output.task_kind).supports_robustness():
+    if not resolve_task_family(forward_output.task_kind).supports_robustness:
         return None
     predictions_tensor = forward_output.as_classification()
     if predictions_tensor.ndim != 2 or predictions_tensor.shape[1] < 2:
@@ -99,7 +99,7 @@ def assess_robustness(
     :func:`~raitap.pipeline.phases.base.run_adapters` loop.
     """
     family = resolve_task_family(forward_output.task_kind)
-    if not family.supports_robustness():
+    if not family.supports_robustness:
         # Robustness against non-classification models is a later deliverable
         # (e.g. detection DetectionAdversarialLoss); the family opts out here.
         return []

@@ -15,6 +15,8 @@ def test_taskfamily_is_runtime_checkable_protocol() -> None:
     class Dummy:
         kind = "classification"
         fixed_output_space = None
+        supports_robustness = True
+        allows_preprocessing = True
 
         def validate_payload(self, payload: object) -> None:
             pass
@@ -43,19 +45,12 @@ def test_taskfamily_is_runtime_checkable_protocol() -> None:
         def metrics_inputs(self, config: object, forward_output: object, labels: object) -> object:
             pass
 
-        def supports_robustness(self) -> bool:
-            raise NotImplementedError
-
         def prediction_summaries(
             self, payload: object, *, sample_ids: object = None, targets: object = None
         ) -> list | None:
             pass
 
         def matches_model(self, model: object) -> bool:
-            raise NotImplementedError
-
-        @property
-        def allows_preprocessing(self) -> bool:
             raise NotImplementedError
 
     assert isinstance(Dummy(), TaskFamily)

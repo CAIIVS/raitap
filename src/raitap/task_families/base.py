@@ -71,6 +71,10 @@ class TaskFamily(Protocol):
 
     kind: TaskKind
     fixed_output_space: ExplanationOutputSpace | None
+    #: Whether the robustness phase runs for this family (constant per family).
+    supports_robustness: bool
+    #: Whether data/model preprocessing transforms are allowed (constant per family).
+    allows_preprocessing: bool
 
     def validate_payload(self, payload: object) -> None:
         """Raise ``ValueError`` if ``payload`` is wrong for this family.
@@ -119,19 +123,10 @@ class TaskFamily(Protocol):
         adapters, or return ``None`` to skip metrics for this input."""
         raise NotImplementedError
 
-    def supports_robustness(self) -> bool:
-        """Whether the robustness phase runs for this family."""
-        raise NotImplementedError
-
     def prediction_summaries(
         self, payload: object, *, sample_ids: object = None, targets: object = None
     ) -> list | None:
         """Per-sample prediction summary rows, or ``None`` if N/A."""
-        raise NotImplementedError
-
-    @property
-    def allows_preprocessing(self) -> bool:
-        """Whether data/model preprocessing transforms are allowed."""
         raise NotImplementedError
 
     def matches_model(self, model: nn.Module) -> bool:
