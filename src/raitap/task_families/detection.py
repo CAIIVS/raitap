@@ -280,5 +280,20 @@ class DetectionFamily:
             explanations.append(result)
         return explanations
 
-    def metrics_inputs(self, forward_output: Any, labels: Any) -> Any:
-        raise NotImplementedError
+    def metrics_inputs(self, config: Any, forward_output: Any, labels: Any) -> Any:
+        from raitap import raitap_log
+
+        if labels is None:
+            raitap_log.warn(
+                "Detection metrics require dataset labels "
+                "(list[dict] from data.labels.kind=detection); none provided. "
+                "Skipping metrics."
+            )
+            return None
+        if not isinstance(labels, list):
+            raitap_log.warn(
+                "Detection metrics require list[dict] targets; got "
+                f"{type(labels).__name__}. Skipping metrics."
+            )
+            return None
+        return forward_output.as_detection(), labels

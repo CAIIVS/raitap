@@ -130,8 +130,22 @@ class ClassificationFamily:
         result._visualise()  # populates result.visualisations (was run_adapters)
         return [result]
 
-    def metrics_inputs(self, forward_output: Any, labels: Any) -> Any:  # Task 9
-        raise NotImplementedError
+    def metrics_inputs(self, config: Any, forward_output: Any, labels: Any) -> Any:
+        from raitap.metrics import metrics_prediction_pair, resolve_metric_targets
+
+        predictions_tensor = forward_output.as_classification()
+        if (
+            getattr(config.metrics, "num_classes", None) is None
+            and predictions_tensor.ndim == 2
+            and predictions_tensor.shape[1] >= 2
+        ):
+            # ``MetricsConfig`` base only carries ``_target_``; ``num_classes``
+            # lives on the multiclass typed subclass at runtime.
+            config.metrics.num_classes = int(predictions_tensor.shape[1])  # type: ignore[attr-defined]
+        preds, _ = metrics_prediction_pair(predictions_tensor)
+        classification_labels = labels if not isinstance(labels, list) else None
+        targs = resolve_metric_targets(preds, classification_labels)
+        return preds, targs
 
     def prediction_summaries(self, payload: Any) -> list | None:  # Task 11
         raise NotImplementedError

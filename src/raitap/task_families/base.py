@@ -90,8 +90,9 @@ class TaskFamily(Protocol):
         """Produce explanation results (shared loop or per-element K-loop)."""
         raise NotImplementedError
 
-    def metrics_inputs(self, forward_output: ForwardOutput, labels: Any) -> Any:
-        """Adapt payload + labels into inputs for the existing metric adapters."""
+    def metrics_inputs(self, config: Any, forward_output: ForwardOutput, labels: Any) -> Any:
+        """Adapt payload + labels into ``(preds, targets)`` for the metric
+        adapters, or return ``None`` to skip metrics for this input."""
         raise NotImplementedError
 
     def supports_robustness(self) -> bool:
