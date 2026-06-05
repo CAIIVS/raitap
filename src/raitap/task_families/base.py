@@ -56,7 +56,7 @@ class TaskFamily(Protocol):
     """Strategy object for one task family. See module docstring."""
 
     kind: TaskKind
-    output_space: ExplanationOutputSpace
+    fixed_output_space: ExplanationOutputSpace | None
 
     def validate_payload(self, payload: object) -> None:
         """Raise ``ValueError`` if ``payload`` is wrong for this family.
@@ -99,7 +99,9 @@ class TaskFamily(Protocol):
         """Whether the robustness phase runs for this family."""
         raise NotImplementedError
 
-    def prediction_summaries(self, payload: Any) -> list | None:
+    def prediction_summaries(
+        self, payload: Any, *, sample_ids: Any = None, targets: Any = None
+    ) -> list | None:
         """Per-sample prediction summary rows, or ``None`` if N/A."""
         raise NotImplementedError
 

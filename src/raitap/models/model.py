@@ -10,8 +10,8 @@ from raitap import raitap_log
 from raitap.configs import cfg_to_dict
 from raitap.data.metadata import shape_tuple
 from raitap.data.preprocessing import ResolvedPreprocessing, resolve_preprocessing
+from raitap.task_families import resolve_task_family
 from raitap.tracking.base_tracker import BaseTracker, Trackable
-from raitap.types import TaskKind
 from raitap.utils.diagnostics import Module
 from raitap.utils.errors import RaitapError
 from raitap.utils.lazy import lazy_import
@@ -125,15 +125,16 @@ def _apply_preprocessing(
         else resolve_preprocessing(config.model, config.data)
     )
 
-    # Detection models resize/normalise internally and take native per-image
-    # inputs, so a data-side transform would corrupt box coordinates (labels
-    # are not transformed) and a model-side transform would double-process.
-    detection_preprocessing = resolved.data_module is not None or resolved.model_module is not None
-    if backend.task_kind is TaskKind.detection and detection_preprocessing:
+    # Some families (e.g. detection) resize/normalise internally and take
+    # native per-image inputs, so a data-side transform would corrupt box
+    # coordinates (labels are not transformed) and a model-side transform
+    # would double-process.
+    has_preprocessing = resolved.data_module is not None or resolved.model_module is not None
+    if has_preprocessing and not resolve_task_family(backend.task_kind).allows_preprocessing:
         raise RaitapError(
-            "Preprocessing is not supported for object detection models. "
-            "Unset data.preprocessing and data.model_input_transformation: "
-            "detection takes native per-image inputs and normalises internally."
+            "Preprocessing is not supported for this task family. "
+            "Unset data.preprocessing and data.model_input_transformation: this "
+            "model takes native inputs and normalises internally."
         )
 
     if resolved.model_module is not None:

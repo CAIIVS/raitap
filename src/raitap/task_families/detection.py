@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 @task_family
 class DetectionFamily:
     kind: TaskKind = TaskKind.detection
-    output_space: ExplanationOutputSpace = ExplanationOutputSpace.DETECTION_BOXES
+    fixed_output_space: ExplanationOutputSpace | None = ExplanationOutputSpace.DETECTION_BOXES
 
     def validate_payload(self, payload: object) -> None:
         if not isinstance(payload, list) or not all(isinstance(p, dict) for p in payload):
@@ -34,7 +34,9 @@ class DetectionFamily:
     def allows_preprocessing(self) -> bool:
         return False
 
-    def prediction_summaries(self, payload: Any) -> list | None:
+    def prediction_summaries(
+        self, payload: Any, *, sample_ids: Any = None, targets: Any = None
+    ) -> list | None:
         # Detection has no per-sample "predicted class + confidence" concept.
         return None
 

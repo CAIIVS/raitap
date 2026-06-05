@@ -6,7 +6,7 @@ from raitap.task_families.base import ExplainContext, ForwardContext, TaskFamily
 def test_taskfamily_is_runtime_checkable_protocol() -> None:
     class Dummy:
         kind = "classification"
-        output_space = None
+        fixed_output_space = None
 
         def validate_payload(self, payload: object) -> None: ...
         def adapt_loaded_inputs(self, tensor: object) -> object: ...
@@ -18,7 +18,9 @@ def test_taskfamily_is_runtime_checkable_protocol() -> None:
             self, config: object, forward_output: object, labels: object
         ) -> object: ...
         def supports_robustness(self) -> bool: ...
-        def prediction_summaries(self, payload: object) -> list | None: ...
+        def prediction_summaries(
+            self, payload: object, *, sample_ids: object = None, targets: object = None
+        ) -> list | None: ...
         @property
         def allows_preprocessing(self) -> bool: ...
 
@@ -26,7 +28,7 @@ def test_taskfamily_is_runtime_checkable_protocol() -> None:
 
     class Incomplete:
         kind = "classification"
-        # missing output_space and every method
+        # missing fixed_output_space and every method
 
     assert not isinstance(Incomplete(), TaskFamily)
 

@@ -13,17 +13,20 @@ from typing import TYPE_CHECKING, Any
 import torch
 
 from raitap.task_families.registry import task_family
-from raitap.transparency.contracts import ExplanationOutputSpace
 from raitap.types import TaskKind
 
 if TYPE_CHECKING:
     from raitap.task_families.base import ExplainContext, ForwardContext
+    from raitap.transparency.contracts import ExplanationOutputSpace
 
 
 @task_family
 class ClassificationFamily:
     kind: TaskKind = TaskKind.classification
-    output_space: ExplanationOutputSpace = ExplanationOutputSpace.INPUT_FEATURES
+    # Classification output space is DYNAMIC (CAM -> IMAGE_SPATIAL_MAP, else
+    # INPUT_FEATURES); ``None`` signals ``infer_output_space`` to fall through
+    # to the method-family logic instead of using a fixed space.
+    fixed_output_space: ExplanationOutputSpace | None = None
 
     def validate_payload(self, payload: object) -> None:
         if not isinstance(payload, torch.Tensor):
@@ -147,5 +150,41 @@ class ClassificationFamily:
         targs = resolve_metric_targets(preds, classification_labels)
         return preds, targs
 
-    def prediction_summaries(self, payload: Any) -> list | None:  # Task 11
-        raise NotImplementedError
+    def prediction_summaries(
+        self, payload: Any, *, sample_ids: Any = None, targets: Any = None
+    ) -> list | None:
+        from raitap.pipeline.outputs import PredictionSummary
+        from raitap.pipeline.phases.prediction_summaries import valid_targets_for_reporting
+
+        predictions_tensor = payload
+        if predictions_tensor.ndim != 2 or predictions_tensor.shape[1] < 2:
+            return None
+
+        classification_targets = targets if not isinstance(targets, list) else None
+        probabilities = torch.softmax(predictions_tensor.detach().cpu(), dim=1)
+        confidences, predictions = probabilities.max(dim=1)
+        resolved_targets = valid_targets_for_reporting(
+            targets=classification_targets,
+            expected=int(predictions.shape[0]),
+        )
+
+        summaries: list[PredictionSummary] = []
+        names = [] if sample_ids is None else [str(item) for item in sample_ids]
+        pairs = zip(predictions, confidences, strict=False)
+        for index, (predicted_class, confidence) in enumerate(pairs):
+            target_class: int | None = None
+            correct: bool | None = None
+            if resolved_targets is not None:
+                target_class = int(resolved_targets[index].item())
+                correct = int(predicted_class.item()) == target_class
+            summaries.append(
+                PredictionSummary(
+                    sample_index=index,
+                    sample_id=names[index] if index < len(names) else None,
+                    predicted_class=int(predicted_class.item()),
+                    target_class=target_class,
+                    confidence=float(confidence.item()),
+                    correct=correct,
+                )
+            )
+        return summaries

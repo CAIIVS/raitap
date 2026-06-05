@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from collections.abc import Set as AbstractSet
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from raitap.types import TaskKind
 from raitap.utils.diagnostics import Diagnostic, Module
 from raitap.utils.errors import RaitapError
 
@@ -22,6 +21,9 @@ from .contracts import (
     explainer_output_kind,
     explainer_output_scope,
 )
+
+if TYPE_CHECKING:
+    from raitap.types import TaskKind
 
 
 def method_families_for_explainer(explainer: object) -> frozenset[MethodFamily]:
@@ -165,16 +167,22 @@ def infer_output_space(
 ) -> OutputSpaceSpec:
     """Infer deterministic output-space metadata from input and method semantics."""
 
-    if task_kind is TaskKind.detection:
-        shape = _shape_tuple(getattr(attributions, "shape", None))
-        features = list(feature_names) if feature_names is not None else input_spec.feature_names
-        return OutputSpaceSpec(
-            space=ExplanationOutputSpace.DETECTION_BOXES,
-            shape=shape,
-            layout=input_spec.layout,
-            layer_path=layer_path,
-            feature_names=features,
-        )
+    if task_kind is not None:
+        from raitap.task_families import resolve_task_family
+
+        fixed = resolve_task_family(task_kind).fixed_output_space
+        if fixed is not None:
+            shape = _shape_tuple(getattr(attributions, "shape", None))
+            features = (
+                list(feature_names) if feature_names is not None else input_spec.feature_names
+            )
+            return OutputSpaceSpec(
+                space=fixed,
+                shape=shape,
+                layout=input_spec.layout,
+                layer_path=layer_path,
+                feature_names=features,
+            )
 
     resolved_method_families = _resolve_method_families(
         method_families=method_families,
@@ -332,8 +340,12 @@ def _candidate_output_spaces(
     method_families: frozenset[MethodFamily],
     task_kind: TaskKind | None = None,
 ) -> frozenset[ExplanationOutputSpace]:
-    if task_kind is TaskKind.detection:
-        return frozenset({ExplanationOutputSpace.DETECTION_BOXES})
+    if task_kind is not None:
+        from raitap.task_families import resolve_task_family
+
+        fixed = resolve_task_family(task_kind).fixed_output_space
+        if fixed is not None:
+            return frozenset({fixed})
     if MethodFamily.CAM in method_families:
         return frozenset(
             {
