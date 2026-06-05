@@ -594,12 +594,22 @@ def _overlay_detection_boxes(
     """Draw every detection box for a sample onto the thumbnail figure."""
     from matplotlib import patches as mpatches
 
-    boxes = [
-        explanation.detection_box
-        for explanation in outputs.explanations
-        if explanation.detection_box is not None
-        and explanation.original_sample_index == sample_index
-    ]
+    # Each physical box is explained by every explainer, so ``outputs.explanations``
+    # holds one result per (box x explainer). Dedup by ``display_index`` (the
+    # user-facing ordinal, unique per box in a sample) so each box is drawn once —
+    # one rectangle, one ``#i`` tag, one legend line — instead of once per
+    # explainer (#241). Order-preserving: first occurrence wins.
+    boxes: list[DetectionBox] = []
+    seen: set[int] = set()
+    for explanation in outputs.explanations:
+        box = explanation.detection_box
+        if (
+            box is not None
+            and explanation.original_sample_index == sample_index
+            and box.display_index not in seen
+        ):
+            seen.add(box.display_index)
+            boxes.append(box)
     if not boxes:
         return
     axes = figure.axes

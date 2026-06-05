@@ -2662,6 +2662,47 @@ def test_overlay_draws_index_tags_and_legend_below_image() -> None:
     plt.close(fig)
 
 
+def test_overlay_dedups_boxes_repeated_across_explainers() -> None:
+    """Regression for #241: each physical box is explained by every explainer, so
+    ``outputs.explanations`` holds one result per (box x explainer). The overlay
+    must draw each box ONCE — one rectangle, one ``#i`` tag, one legend line —
+    not once per explainer, and the drawn set must match the legend 1:1.
+    """
+    from matplotlib.patches import Rectangle
+
+    # Two physical boxes, each explained by three explainers => three distinct
+    # DetectionBox instances per box, all sharing one display_index. Distinct
+    # instances (not the same object) prove the dedup keys on display_index value,
+    # not object identity.
+    explanations: list[_DetExpl] = []
+    for _ in range(3):  # IntegratedGradients / LayerGradCam / SHAP
+        explanations.append(_DetExpl(_det_box(display_index=0, label_name="horse", score=0.85), 0))
+        explanations.append(
+            _DetExpl(_det_box(display_index=1, label_name="stop sign", score=0.73), 0)
+        )
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.imshow(torch.zeros(50, 50, 3).numpy())
+    _overlay_detection_boxes(
+        fig,
+        outputs=_DetOutputs(explanations),  # type: ignore[arg-type]
+        sample_index=0,
+    )
+
+    texts = [t.get_text() for t in ax.texts]
+    legend = next(t for t in texts if "\n" in t)
+    legend_lines = legend.split("\n")
+    tags = [t for t in texts if "\n" not in t]  # compact #i image tags
+    rects = [p for p in ax.patches if isinstance(p, Rectangle)]
+
+    # Each physical box drawn once; legend reflects exactly the drawn set (1:1).
+    assert len(rects) == len(legend_lines) == len(tags) == 2
+    assert legend_lines == ["#0 horse (0.85)", "#1 stop sign (0.73)"]
+    assert sorted(tags) == ["#0", "#1"]
+    plt.close(fig)
+
+
 def test_build_report_handles_reporting_block_without_sample_selection(
     tmp_path: Path,
 ) -> None:
