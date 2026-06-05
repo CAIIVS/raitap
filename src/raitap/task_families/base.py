@@ -74,7 +74,7 @@ class TaskFamily(Protocol):
         """Load labels in this family's on-disk shape."""
         raise NotImplementedError
 
-    def extract_forward(self, ctx: ForwardContext) -> Any:
+    def extract_forward(self, ctx: ForwardContext, *, batch_size: int) -> Any:
         """Run the backend forward and return this family's payload."""
         raise NotImplementedError
 

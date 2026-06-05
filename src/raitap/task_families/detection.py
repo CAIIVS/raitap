@@ -45,8 +45,32 @@ class DetectionFamily:
     def load_labels(self, cfg: Any) -> Any:
         raise NotImplementedError
 
-    def extract_forward(self, ctx: ForwardContext) -> Any:
-        raise NotImplementedError
+    def extract_forward(self, ctx: ForwardContext, *, batch_size: int) -> list[dict]:
+        import torch
+
+        backend, inputs = ctx.backend, ctx.inputs
+        total_batch = len(inputs)
+        detection_predictions: list[dict] = []
+        for start in range(0, total_batch, batch_size):
+            end = min(start + batch_size, total_batch)
+            prepared = backend.prepare_detection_inputs(inputs[start:end])
+            raw = backend(prepared)
+            if not isinstance(raw, list):
+                raise TypeError(
+                    "forward_pass(detection) expected list[dict] from backend; "
+                    f"got {type(raw).__name__}."
+                )
+            for sample_dict in raw:
+                if not isinstance(sample_dict, dict):
+                    raise TypeError(
+                        "forward_pass(detection) expected each backend output entry to be a "
+                        f"dict of tensors; got {type(sample_dict).__name__}."
+                    )
+                detection_predictions.append({k: v.detach().cpu() for k, v in sample_dict.items()})
+            del prepared, raw
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        return detection_predictions
 
     def explain(self, ctx: ExplainContext) -> list:
         raise NotImplementedError

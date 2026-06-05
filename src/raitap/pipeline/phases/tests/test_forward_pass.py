@@ -16,6 +16,8 @@ from torch import nn
 
 from raitap.models.backend import ModelBackend
 from raitap.pipeline.phases.forward_pass import forward_pass
+from raitap.task_families.base import ForwardContext
+from raitap.task_families.registry import resolve_task_family
 from raitap.types import Capability, TaskKind
 
 # ---------------------------------------------------------------------------
@@ -256,3 +258,26 @@ def test_classification_forward_rejects_unbatched_tensor() -> None:
 
     with pytest.raises(ValueError, match="ndim >= 2"):
         forward_pass(config, backend, torch.zeros(5))
+
+
+# ---------------------------------------------------------------------------
+# Task family extract_forward tests
+# ---------------------------------------------------------------------------
+
+
+class _StubClsBackend:
+    task_kind = TaskKind.classification
+
+    def _prepare_inputs(self, x: torch.Tensor) -> torch.Tensor:
+        return x
+
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.zeros(x.shape[0], 5)
+
+
+def test_classification_family_extract_forward_returns_tensor() -> None:
+    fam = resolve_task_family(TaskKind.classification)
+    ctx = ForwardContext(backend=_StubClsBackend(), inputs=torch.zeros(3, 1, 4, 4))
+    payload = fam.extract_forward(ctx, batch_size=2)
+    assert isinstance(payload, torch.Tensor)
+    assert payload.shape[0] == 3

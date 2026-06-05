@@ -43,8 +43,27 @@ class ClassificationFamily:
     def load_labels(self, cfg: Any) -> Any:  # Task 8
         raise NotImplementedError
 
-    def extract_forward(self, ctx: ForwardContext) -> Any:  # Task 6
-        raise NotImplementedError
+    def extract_forward(self, ctx: ForwardContext, *, batch_size: int) -> torch.Tensor:
+        from raitap.pipeline.phases.forward_pass import extract_primary_tensor
+
+        backend, inputs = ctx.backend, ctx.inputs
+        total_batch = len(inputs)
+        if total_batch <= batch_size:
+            prepared = backend._prepare_inputs(inputs)
+            out = extract_primary_tensor(backend(prepared)).detach().cpu()
+            del prepared
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            return out
+        chunks: list[torch.Tensor] = []
+        for start in range(0, total_batch, batch_size):
+            end = min(start + batch_size, total_batch)
+            prepared = backend._prepare_inputs(inputs[start:end])
+            chunks.append(extract_primary_tensor(backend(prepared)).detach().cpu())
+            del prepared
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        return torch.cat(chunks, dim=0)
 
     def explain(self, ctx: ExplainContext) -> list:  # Task 7
         raise NotImplementedError

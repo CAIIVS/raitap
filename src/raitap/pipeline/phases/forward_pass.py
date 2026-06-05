@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from raitap.pipeline.outputs import ForwardOutput
+from raitap.task_families import ForwardContext, resolve_task_family
 from raitap.types import DetectionInputs, TaskKind
 from raitap.utils.lazy import lazy_import
 
@@ -134,56 +135,12 @@ def forward_pass(
     batch_size = resolve_forward_batch_size(config)
     task_kind = backend.task_kind
     _validate_inputs_for_task(inputs, task_kind)
-    total_batch = len(inputs)
-
-    if task_kind is TaskKind.detection:
-        detection_predictions: list[dict[str, torch.Tensor]] = []
-        for start in range(0, total_batch, batch_size):
-            end = min(start + batch_size, total_batch)
-            prepared_inputs = backend.prepare_detection_inputs(inputs[start:end])
-            raw_output: Any = backend(prepared_inputs)
-            if not isinstance(raw_output, list):
-                raise TypeError(
-                    "forward_pass(detection) expected list[dict] from backend; "
-                    f"got {type(raw_output).__name__}."
-                )
-            for sample_dict in raw_output:
-                if not isinstance(sample_dict, dict):
-                    raise TypeError(
-                        "forward_pass(detection) expected each backend output entry to be a "
-                        f"dict of tensors; got {type(sample_dict).__name__}."
-                    )
-                detection_predictions.append({k: v.detach().cpu() for k, v in sample_dict.items()})
-            del prepared_inputs, raw_output
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-        return ForwardOutput(
-            task_kind=TaskKind.detection,
-            batch_size=len(detection_predictions),
-            payload=detection_predictions,
-        )
-
-    if total_batch <= batch_size:
-        prepared_inputs = backend._prepare_inputs(inputs)
-        raw_output_any: Any = backend(prepared_inputs)
-        predictions_tensor = extract_primary_tensor(raw_output_any).detach().cpu()
-        del prepared_inputs, raw_output_any
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-    else:
-        chunks: list[torch.Tensor] = []
-        for start in range(0, total_batch, batch_size):
-            end = min(start + batch_size, total_batch)
-            prepared_inputs = backend._prepare_inputs(inputs[start:end])
-            raw_output_any = backend(prepared_inputs)
-            chunks.append(extract_primary_tensor(raw_output_any).detach().cpu())
-            del prepared_inputs, raw_output_any
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-        predictions_tensor = torch.cat(chunks, dim=0)
-
+    family = resolve_task_family(task_kind)
+    payload = family.extract_forward(
+        ForwardContext(backend=backend, inputs=inputs), batch_size=batch_size
+    )
     return ForwardOutput(
-        task_kind=TaskKind.classification,
-        batch_size=int(predictions_tensor.shape[0]),
-        payload=predictions_tensor,
+        task_kind=task_kind,
+        batch_size=len(payload) if task_kind is TaskKind.detection else int(payload.shape[0]),
+        payload=payload,
     )
