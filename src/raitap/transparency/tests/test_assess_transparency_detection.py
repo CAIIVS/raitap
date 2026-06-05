@@ -1,9 +1,9 @@
 """Routing test for ``assess_transparency`` when ``task_kind == detection``.
 
-The detection branch (``_assess_transparency_detection``) duplicates the
-per-explainer setup that ``Explanation.__call__`` does for classification
-(create explainer + visualisers, compat checks, resolve backend +
-run_dir). This test asserts the routing reaches ``explain_detection`` with
+The detection branch reuses the per-explainer setup that
+``prepare_explainer`` runs for every task family (create explainer +
+visualisers, compat checks, resolve backend + run_dir). This test asserts
+the routing reaches ``explain_detection`` with
 the right kwargs and emits one ExplanationResult per kept detection box —
 without booting a real backend or explainer.
 """
@@ -128,10 +128,6 @@ def test_assess_transparency_routes_detection_kind_to_explain_detection(
             return None
 
     with (
-        patch(
-            "raitap.transparency.phase.Explanation",
-            side_effect=AssertionError("classification path should not run"),
-        ),
         patch(
             "raitap.transparency.factory.create_explainer",
             return_value=(_FakeExplainer(), "raitap.transparency.CaptumExplainer"),
@@ -274,10 +270,6 @@ def test_detection_transparency_renders_class_name_end_to_end(tmp_path: Path) ->
             return None
 
     with (
-        patch(
-            "raitap.transparency.phase.Explanation",
-            side_effect=AssertionError("classification path should not run"),
-        ),
         patch(
             "raitap.transparency.factory.create_explainer",
             return_value=(_FakeExplainer(), "raitap.transparency.CaptumExplainer"),
@@ -427,10 +419,6 @@ def test_detection_transparency_matches_ground_truth_end_to_end(tmp_path: Path) 
             return None
 
     with (
-        patch(
-            "raitap.transparency.phase.Explanation",
-            side_effect=AssertionError("classification path should not run"),
-        ),
         patch(
             "raitap.transparency.factory.create_explainer",
             return_value=(_FakeExplainer(), "raitap.transparency.CaptumExplainer"),

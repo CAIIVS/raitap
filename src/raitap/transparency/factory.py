@@ -4,8 +4,6 @@ from typing import TYPE_CHECKING, Any
 
 from hydra.utils import instantiate
 
-from raitap import raitap_log
-from raitap.configs import resolve_run_dir
 from raitap.configs.adapter_factory import (
     AdapterSchema,
     ParsedAdapterConfig,
@@ -14,18 +12,13 @@ from raitap.configs.adapter_factory import (
     parse_adapter_config,
     raw_config_dict,
     resolve_call_data_sources,
-    resolve_per_image_transform,
 )
 from raitap.models.backend import ModelBackend
-from raitap.transparency.baselines import apply_config_baseline
-from raitap.utils.errors import SampleNamesLengthError
-from raitap.utils.lazy import lazy_import
 
 from .algorithm_allowlist import ensure_algorithm_in_allowlist
 from .contracts import (
     ExplainerAdapter,
     ExplanationOutputSpace,
-    InputSpec,
     MethodFamily,
     explainer_output_kind,
 )
@@ -36,16 +29,7 @@ from .results import ConfiguredVisualiser
 from .semantics import explainer_capability
 
 if TYPE_CHECKING:
-    import torch
-
-    from raitap.models import Model
     from raitap.types import TaskKind
-
-    from ..configs.schema import AppConfig
-    from ..data.preprocessing import ResolvedPreprocessing
-    from .results import ExplanationResult
-else:
-    torch = lazy_import("torch")
 
 _TRANSPARENCY_PREFIX = "raitap.transparency."
 
@@ -96,8 +80,8 @@ def _require_model_backend(model: object) -> ModelBackend:
     backend = getattr(model, "backend", None)
     if not isinstance(backend, ModelBackend):
         raise TypeError(
-            "Explanation expects a raitap.models.Model or another object exposing a "
-            "'.backend' that is a ModelBackend instance. "
+            "Transparency setup expects a raitap.models.Model or another object exposing "
+            "a '.backend' that is a ModelBackend instance. "
             f"Got {type(backend).__name__!r} instead."
         )
     return backend
@@ -166,103 +150,6 @@ def check_explainer_visualiser_semantic_compat(
             "Its supported output spaces are "
             f"{sorted(s.value for s in supported_output_spaces)}."
         )
-
-
-class Explanation:
-    def __new__(
-        cls,
-        config: AppConfig,
-        explainer_name: str,
-        model: Model,
-        inputs: torch.Tensor,
-        input_metadata: InputSpec | dict[str, Any] | None = None,
-        sample_ids: list[str] | None = None,
-        sample_names: list[str] | None = None,
-        *,
-        resolved_preprocessing: ResolvedPreprocessing | None = None,
-        **kwargs: Any,
-    ) -> ExplanationResult:
-        explainer_config = config.transparency[explainer_name]
-        parsed = _parse_explainer_config(explainer_config)
-        algorithm = str(parsed.algorithm or "")
-        cache_key = id(explainer_config)
-        _PARSED_EXPLAINER_CONFIG_CACHE[cache_key] = parsed
-        try:
-            explainer, explainer_target = create_explainer(explainer_config)
-            visualisers = create_visualisers(explainer_config)
-            check_explainer_visualiser_compat(explainer_target, algorithm, visualisers)
-            check_explainer_visualiser_payload_compat(explainer, explainer_target, visualisers)
-            backend = _require_model_backend(model)
-            check_explainer_visualiser_semantic_compat(
-                explainer,
-                explainer_target,
-                visualisers,
-                task_kind=backend.task_kind,
-            )
-            explainer.check_backend_compat(backend)
-
-            call_from_config = dict(parsed.call)
-            raitap_cfg = dict(parsed.raitap)
-            if sample_names is not None:
-                if "sample_names" in raitap_cfg and raitap_cfg["sample_names"] != sample_names:
-                    raitap_log.debug(
-                        "Runtime sample_names for explainer %r override "
-                        "raitap.sample_names from config.",
-                        explainer_name,
-                    )
-                raitap_cfg["sample_names"] = sample_names
-            if sample_ids is not None:
-                raitap_cfg["sample_ids"] = sample_ids
-            if input_metadata is not None:
-                raitap_cfg["input_metadata"] = input_metadata
-
-            resolved_sample_names = raitap_cfg.get("sample_names")
-            if resolved_sample_names is not None:
-                resolved_list = list(resolved_sample_names)
-                if resolved_list and len(resolved_list) != int(inputs.shape[0]):
-                    source = "runtime kwarg" if sample_names is not None else "raitap.sample_names"
-                    raise SampleNamesLengthError(
-                        got=len(resolved_list),
-                        expected=int(inputs.shape[0]),
-                        source=source,
-                    )
-
-            # Route raitap.baseline on the *merged* call dict (config + runtime
-            # kwargs) so raitap.baseline wins — with a warning — over the adapter's
-            # own kwarg whether it came from ``call:`` or a runtime override.
-            merged_call = apply_config_baseline(
-                explainer=explainer,
-                call_kwargs={**call_from_config, **kwargs},
-                raitap_kwargs=raitap_cfg,
-            )
-
-            call_provenance: dict[str, dict[str, Any]] = {}
-            merged_kwargs = resolve_call_data_sources(
-                merged_call,
-                log_label="call",
-                per_image_transform=resolve_per_image_transform(
-                    config,
-                    resolved_preprocessing=resolved_preprocessing,
-                ),
-                provenance_out=call_provenance,
-            )
-            merged_kwargs = backend._prepare_kwargs(merged_kwargs)
-
-            return explainer.explain(
-                backend.as_model_for_explanation(),
-                inputs,
-                backend=backend,
-                run_dir=resolve_run_dir(config, subdir=f"transparency/{explainer_name}"),
-                experiment_name=str(getattr(config, "experiment_name", "")),
-                explainer_target=explainer_target,
-                explainer_name=explainer_name,
-                visualisers=visualisers,
-                raitap_kwargs=raitap_cfg,
-                call_provenance=call_provenance,
-                **merged_kwargs,
-            )
-        finally:
-            _PARSED_EXPLAINER_CONFIG_CACHE.pop(cache_key, None)
 
 
 def create_explainer(explainer_config: Any) -> tuple[ExplainerAdapter, str]:

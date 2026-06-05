@@ -97,7 +97,6 @@ try:
         ShapExplainer,
     )
     from .factory import (
-        Explanation,
         check_explainer_visualiser_compat,
         create_explainer,
         create_visualisers,
@@ -127,7 +126,6 @@ except ModuleNotFoundError as error:
     CaptumExplainer = _unavailable("CaptumExplainer", "torch")
     FullExplainer = _unavailable("FullExplainer", "torch")
     ShapExplainer = _unavailable("ShapExplainer", "torch")
-    Explanation = _unavailable("Explanation", "torch")
     check_explainer_visualiser_compat = _unavailable("check_explainer_visualiser_compat", "torch")
     create_explainer = _unavailable("create_explainer", "torch")
     create_visualisers = _unavailable("create_visualisers", "torch")
@@ -233,7 +231,6 @@ __all__ = [  # noqa: RUF022
     "PayloadVisualiserIncompatibilityError",
     "VisualiserIncompatibilityError",
     # Rest
-    "Explanation",
     "create_explainer",
     "create_visualisers",
     "check_explainer_visualiser_compat",

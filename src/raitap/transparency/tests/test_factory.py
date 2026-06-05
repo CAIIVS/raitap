@@ -22,13 +22,13 @@ from raitap.transparency.contracts import (
 )
 from raitap.transparency.factory import (
     _PARSED_EXPLAINER_CONFIG_CACHE,
-    Explanation,
     _resolve_call_data_sources,
     check_explainer_visualiser_compat,
     create_explainer,
     create_visualisers,
     resolve_call_data_sources,
 )
+from raitap.transparency.phase import prepare_explainer
 from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult
 from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
 from raitap.types import Capability
@@ -110,6 +110,112 @@ def _image_input_metadata(inputs: torch.Tensor) -> InputSpec:
     )
 
 
+def _prepare_explanation(
+    config: AppConfig,
+    name: str,
+    model: Model,
+    inputs: torch.Tensor,
+    *,
+    input_metadata: Any = None,
+    sample_ids: list[str] | None = None,
+    sample_names: list[str] | None = None,
+    resolved_preprocessing: Any = None,
+    **call_kwargs: Any,
+) -> Any:
+    """Drive the production *setup* seam with the old ``Explanation`` ergonomics.
+
+    Rebuilds the merged explainer config (runtime ``**call_kwargs`` folded into
+    ``call:``, ``sample_names`` folded into ``raitap.sample_names``), then calls
+    :func:`prepare_explainer`. Setup-only tests (compat errors, kwargs/provenance,
+    run-dir, sample-names length raised in ``explain``) use this and the returned
+    :class:`PreparedExplainer`; build tests pass it on to
+    :func:`_build_explanation`.
+
+    ``sample_names`` is routed through ``raitap.sample_names`` (the new path has
+    no runtime display-name layer; ``data.sample_ids`` doubles as display names).
+    Runtime ``**call_kwargs`` may be raw tensors, so the merged config is a plain
+    dict (OmegaConf rejects tensors) — ``create_explainer`` accepts plain dicts.
+    """
+    from raitap.configs.utils import cfg_to_dict
+
+    raw = cfg_to_dict(config.transparency[name])
+    call = dict(raw.get("call") or {})
+    call.update(call_kwargs)
+    raw["call"] = call
+    if sample_names is not None:
+        raitap_block = dict(raw.get("raitap") or {})
+        raitap_block["sample_names"] = sample_names
+        raw["raitap"] = raitap_block
+    config.transparency[name] = raw  # type: ignore[index]
+
+    if not hasattr(config, "model"):
+        config.model = SimpleNamespace(class_names=None)  # type: ignore[attr-defined]
+    elif not hasattr(config.model, "class_names"):
+        config.model.class_names = None  # type: ignore[attr-defined]
+
+    data = SimpleNamespace(tensor=inputs, sample_ids=sample_ids)
+    return prepare_explainer(
+        config,
+        name,
+        model,
+        resolved_preprocessing=resolved_preprocessing,
+        input_metadata=input_metadata,
+        data=cast("Any", data),
+    )
+
+
+def _build_explanation(
+    config: AppConfig,
+    name: str,
+    model: Model,
+    inputs: torch.Tensor,
+    *,
+    input_metadata: Any = None,
+    sample_ids: list[str] | None = None,
+    sample_names: list[str] | None = None,
+    resolved_preprocessing: Any = None,
+    forward_output: Any = None,
+    **call_kwargs: Any,
+) -> ExplanationResult:
+    """Drive the full production seam: ``prepare_explainer`` -> ``explain`` -> ``[0]``.
+
+    Mirrors the old one-call ``Explanation(...)`` ergonomics for build tests
+    (returned result, visualisations, sample-names length error, auto_pred
+    target). ``forward_output`` defaults to a zeros classification logits batch
+    sized to ``inputs`` (``ClassificationFamily.explain`` always unwraps it).
+    """
+    from raitap.pipeline.outputs import ForwardOutput
+    from raitap.task_families.classification import ClassificationFamily
+    from raitap.types import TaskKind
+
+    prepared = _prepare_explanation(
+        config,
+        name,
+        model,
+        inputs,
+        input_metadata=input_metadata,
+        sample_ids=sample_ids,
+        sample_names=sample_names,
+        resolved_preprocessing=resolved_preprocessing,
+        **call_kwargs,
+    )
+    if forward_output is None:
+        batch = int(inputs.shape[0])
+        forward_output = ForwardOutput(
+            task_kind=TaskKind.classification,
+            batch_size=batch,
+            payload=torch.zeros(batch, 2),
+        )
+    data = SimpleNamespace(tensor=inputs, sample_ids=sample_ids)
+    results = ClassificationFamily().explain(
+        cast(
+            "Any",
+            SimpleNamespace(prepared=prepared, forward_output=forward_output, data=data),
+        )
+    )
+    return cast("ExplanationResult", results[0])
+
+
 @pytest.mark.usefixtures("needs_captum")
 def test_explanation_returns_explanation_result(
     simple_cnn: torch.nn.Module,
@@ -129,12 +235,13 @@ def test_explanation_returns_explanation_result(
     )
 
     model = cast("Model", SimpleNamespace(backend=_BackendStub(simple_cnn)))
-    explanation = Explanation(  # type: ignore[arg-type]
+    explanation = _build_explanation(
         config,
         "test_explainer",
         model,
         sample_images,
         input_metadata=_image_input_metadata(sample_images),
+        target=0,
     )
 
     assert isinstance(explanation, ExplanationResult)
@@ -165,11 +272,11 @@ def test_explanation_rejects_model_without_backend(
     )
 
     with pytest.raises(TypeError, match=r"ModelBackend instance"):
-        Explanation(
+        _prepare_explanation(
             config,
             "test_explainer",
-            model=torch.nn.Identity(),  # type: ignore[arg-type]
-            inputs=sample_images,
+            cast("Model", torch.nn.Identity()),
+            sample_images,
         )
 
 
@@ -209,11 +316,11 @@ def test_explanation_validates_visualisers_before_compute(
 
     with pytest.raises(VisualiserIncompatibilityError):
         model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-        Explanation(
+        _prepare_explanation(
             config,
             "test_explainer",
-            model=model,  # type: ignore[arg-type]
-            inputs=torch.zeros(1, 3, 8, 8),
+            cast("Model", model),
+            torch.zeros(1, 3, 8, 8),
         )
 
     assert dummy_explainer.explain_called is False
@@ -258,12 +365,13 @@ def test_payload_kind_wildcard_visualiser_passes(
         ],
     )
     model = cast("Model", SimpleNamespace(backend=_BackendStub(simple_cnn)))
-    explanation = Explanation(  # type: ignore[arg-type]
+    explanation = _build_explanation(
         config,
         "test_explainer",
         model,
         sample_images,
         input_metadata=_image_input_metadata(sample_images),
+        target=0,
     )
 
     assert isinstance(explanation, ExplanationResult)
@@ -309,7 +417,7 @@ def test_payload_kind_mismatch_raises(
     )
     model = SimpleNamespace(backend=_BackendStub(simple_cnn))
     with pytest.raises(PayloadVisualiserIncompatibilityError):
-        Explanation(config, "test_explainer", model, sample_images)  # type: ignore[arg-type]
+        _prepare_explanation(config, "test_explainer", cast("Model", model), sample_images)
 
 
 def test_explanation_passes_sample_ids_display_names_and_input_metadata(
@@ -350,14 +458,15 @@ def test_explanation_passes_sample_ids_display_names_and_input_metadata(
     monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-    Explanation(
+    # The new path has no distinct runtime display-name layer: ``data.sample_ids``
+    # doubles as both stable ids and display names (see ``prepare_explainer``).
+    _build_explanation(
         config,
         "test_explainer",
-        model=model,  # type: ignore[arg-type]
-        inputs=sample_images,
+        cast("Model", model),
+        sample_images,
         input_metadata={"kind": "image", "shape": sample_images.shape, "layout": "NCHW"},
         sample_ids=["stable-1", "stable-2", "stable-3", "stable-4"],
-        sample_names=["Display 1", "Display 2", "Display 3", "Display 4"],
     )
 
     assert explainer.last_raitap_kwargs["sample_ids"] == [
@@ -367,10 +476,10 @@ def test_explanation_passes_sample_ids_display_names_and_input_metadata(
         "stable-4",
     ]
     assert explainer.last_raitap_kwargs["sample_names"] == [
-        "Display 1",
-        "Display 2",
-        "Display 3",
-        "Display 4",
+        "stable-1",
+        "stable-2",
+        "stable-3",
+        "stable-4",
     ]
     assert explainer.last_raitap_kwargs["input_metadata"]["kind"] == "image"
     assert explainer.last_raitap_kwargs["input_metadata"]["layout"] == "NCHW"
@@ -435,11 +544,11 @@ def test_explanation_rejects_method_family_mismatch_before_compute(
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     with pytest.raises(ValueError, match="method families"):
-        Explanation(
+        _prepare_explanation(
             config,
             "test_explainer",
-            model=model,  # type: ignore[arg-type]
-            inputs=sample_images,
+            cast("Model", model),
+            sample_images,
             input_metadata={"kind": "image", "layout": "NCHW"},
         )
 
@@ -502,11 +611,11 @@ def test_explanation_rejects_candidate_output_space_mismatch_before_compute(
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     with pytest.raises(ValueError, match="candidate output spaces"):
-        Explanation(
+        _prepare_explanation(
             config,
             "test_explainer",
-            model=model,  # type: ignore[arg-type]
-            inputs=sample_images,
+            cast("Model", model),
+            sample_images,
             input_metadata={"kind": "image", "layout": "NCHW"},
         )
 
@@ -570,11 +679,11 @@ def test_explanation_allows_any_supported_candidate_output_space_before_compute(
     )
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-    Explanation(
+    _build_explanation(
         config,
         "test_explainer",
-        model=model,  # type: ignore[arg-type]
-        inputs=sample_images,
+        cast("Model", model),
+        sample_images,
         input_metadata={"kind": "image", "layout": "NCHW"},
     )
 
@@ -876,11 +985,14 @@ def test_explanation_merges_call_before_run_kwargs(
     )
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-    Explanation(
+    # Runtime ``target=7`` is folded into the explainer config's ``call:`` block
+    # by the helper, overriding the YAML default of 0; ``baselines`` keeps its
+    # YAML value.
+    _build_explanation(
         config,
         "test_explainer",
-        model=model,  # type: ignore[arg-type]
-        inputs=sample_images,
+        cast("Model", model),
+        sample_images,
         target=7,
     )
 
@@ -937,11 +1049,11 @@ def test_explanation_routes_raitap_baseline_to_adapter_kwarg(
     )
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-    Explanation(
+    _build_explanation(
         config,
         "test_explainer",
-        model=model,  # type: ignore[arg-type]
-        inputs=sample_images,
+        cast("Model", model),
+        sample_images,
         target=0,
     )
 
@@ -999,13 +1111,13 @@ def test_raitap_baseline_wins_over_runtime_kwarg(
     )
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-    Explanation(
+    _build_explanation(
         config,
         "test_explainer",
-        model=model,  # type: ignore[arg-type]
-        inputs=sample_images,
+        cast("Model", model),
+        sample_images,
         target=0,
-        baselines="RUNTIME",  # runtime Python-API override of the same kwarg
+        baselines="RUNTIME",  # runtime override folded into call: — same kwarg
     )
 
     # raitap.baseline wins over the runtime kwarg (and a warning is logged).
@@ -1058,11 +1170,11 @@ def test_explanation_uses_real_shap_preset_defaults_and_runtime_overrides(
     )
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-    Explanation(
+    _build_explanation(
         config,
         "shap_gradient",
-        model=model,  # type: ignore[arg-type]
-        inputs=sample_images,
+        cast("Model", model),
+        sample_images,
         target=7,
         background_data=background_data,
     )
@@ -1115,11 +1227,11 @@ def test_explanation_injects_runtime_sample_names_into_raitap_kwargs(
     monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-    Explanation(
+    _build_explanation(
         config,
         "test_explainer",
-        model=model,  # type: ignore[arg-type]
-        inputs=sample_images,
+        cast("Model", model),
+        sample_images,
         sample_names=["isic_1", "isic_2", "isic_3", "isic_4"],
     )
 
@@ -1133,7 +1245,6 @@ def test_explanation_runtime_sample_names_override_raitap_config(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     sample_images: torch.Tensor,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
     class RecordingExplainer:
         algorithm = "Saliency"
@@ -1172,20 +1283,21 @@ def test_explanation_runtime_sample_names_override_raitap_config(
     monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-    with caplog.at_level("DEBUG"):
-        Explanation(
-            config,
-            "test_explainer",
-            model=model,  # type: ignore[arg-type]
-            inputs=sample_images,
-            sample_names=["from_runtime_1", "from_runtime_2", "from_runtime_3", "from_runtime_4"],
-        )
+    # Runtime sample_names (folded into raitap.sample_names by the helper) win
+    # over the config block. The old per-name override debug log is gone — the
+    # new path overwrites silently.
+    _build_explanation(
+        config,
+        "test_explainer",
+        cast("Model", model),
+        sample_images,
+        sample_names=["from_runtime_1", "from_runtime_2", "from_runtime_3", "from_runtime_4"],
+    )
 
     assert explainer.last_explain_kwargs["raitap_kwargs"] == {
         "show_sample_names": True,
         "sample_names": ["from_runtime_1", "from_runtime_2", "from_runtime_3", "from_runtime_4"],
     }
-    assert "override raitap.sample_names from config" in caplog.text
 
 
 def test_explanation_warns_on_unknown_raitap_keys(
@@ -1224,11 +1336,11 @@ def test_explanation_warns_on_unknown_raitap_keys(
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     with pytest.warns(UserWarning, match="bacth_size"):
-        Explanation(
+        _prepare_explanation(
             config,
             "test_explainer",
-            model=model,  # type: ignore[arg-type]
-            inputs=sample_images,
+            cast("Model", model),
+            sample_images,
         )
 
 
@@ -1267,11 +1379,11 @@ def test_explanation_warns_once_on_misplaced_raitap_call_keys(
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     with pytest.warns(UserWarning) as caught:
-        Explanation(
+        _prepare_explanation(
             config,
             "test_explainer",
-            model=model,  # type: ignore[arg-type]
-            inputs=sample_images,
+            cast("Model", model),
+            sample_images,
         )
 
     messages = [
@@ -1325,11 +1437,11 @@ def test_explanation_migrates_misplaced_raitap_call_keys_into_raitap_kwargs(
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     with pytest.warns(UserWarning, match="RAITAP-owned keys under 'call:'"):
-        Explanation(
+        _build_explanation(
             config,
             "test_explainer",
-            model=model,  # type: ignore[arg-type]
-            inputs=sample_images,
+            cast("Model", model),
+            sample_images,
         )
 
     assert explainer.last_explain_kwargs["target"] == 0
@@ -1374,11 +1486,11 @@ def test_explanation_clears_parsed_config_cache_on_visualiser_compat_failure(
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     with pytest.raises(VisualiserIncompatibilityError):
-        Explanation(
+        _prepare_explanation(
             config,
             "test_explainer",
-            model=model,  # type: ignore[arg-type]
-            inputs=torch.zeros(1, 3, 8, 8),
+            cast("Model", model),
+            torch.zeros(1, 3, 8, 8),
         )
 
     assert _PARSED_EXPLAINER_CONFIG_CACHE == {}
@@ -1422,11 +1534,11 @@ def test_explanation_rejects_removed_max_batch_size_raitap_key(
         ValueError,
         match=r"raitap\.max_batch_size has been removed; use raitap\.batch_size instead\.",
     ):
-        Explanation(
+        _prepare_explanation(
             config,
             "test_explainer",
-            model=model,  # type: ignore[arg-type]
-            inputs=sample_images,
+            cast("Model", model),
+            sample_images,
         )
 
 
@@ -1476,11 +1588,11 @@ def test_explanation_prepares_runtime_tensor_kwargs_with_backend(
     monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
 
     model = SimpleNamespace(backend=PreparingBackend(torch.nn.Identity()))
-    Explanation(
+    _build_explanation(
         config,
         "test_explainer",
-        model=model,  # type: ignore[arg-type]
-        inputs=sample_images,
+        cast("Model", model),
+        sample_images,
         baselines=sample_images[:1],
     )
 
@@ -1703,7 +1815,7 @@ class TestResolveCallDataSources:
         )
 
         model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-        Explanation(config, "test_explainer", model=model, inputs=sample_images)  # type: ignore[arg-type]
+        _build_explanation(config, "test_explainer", cast("Model", model), sample_images)
 
         assert "background_data" in explainer.last_explain_kwargs
         bg_tensor = explainer.last_explain_kwargs["background_data"]
@@ -1782,11 +1894,11 @@ class TestResolveCallDataSources:
         )
 
         model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-        Explanation(
-            config,  # type: ignore[arg-type]
+        _build_explanation(
+            cast("AppConfig", config),
             "test_explainer",
-            model=model,  # type: ignore[arg-type]
-            inputs=sample_images,
+            cast("Model", model),
+            sample_images,
             resolved_preprocessing=resolved,
         )
 
@@ -1863,16 +1975,18 @@ def test_explanation_raises_when_runtime_sample_names_longer_than_batch(
     inputs = torch.zeros(2, 3, 8, 8)
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     with pytest.raises(SampleNamesLengthError) as info:
-        Explanation(
+        _build_explanation(
             config,
             "test_explainer",
-            model=model,  # type: ignore[arg-type]
-            inputs=inputs,
+            cast("Model", model),
+            inputs,
             sample_names=["a", "b", "c"],
         )
     assert info.value.got == 3
     assert info.value.expected == 2
-    assert "runtime kwarg" in str(info.value)
+    # The new path resolves sample_names from raitap.sample_names (no runtime
+    # display-name layer), so the error source is always "raitap.sample_names".
+    assert "raitap.sample_names" in str(info.value)
 
 
 def test_explanation_raises_when_runtime_sample_names_shorter_than_batch(
@@ -1899,11 +2013,11 @@ def test_explanation_raises_when_runtime_sample_names_shorter_than_batch(
     inputs = torch.zeros(3, 3, 8, 8)
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     with pytest.raises(SampleNamesLengthError):
-        Explanation(
+        _build_explanation(
             config,
             "test_explainer",
-            model=model,  # type: ignore[arg-type]
-            inputs=inputs,
+            cast("Model", model),
+            inputs,
             sample_names=["only-one"],
         )
 
@@ -1934,11 +2048,11 @@ def test_explanation_raises_when_yaml_sample_names_mismatch(
     inputs = torch.zeros(3, 3, 8, 8)
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     with pytest.raises(SampleNamesLengthError) as info:
-        Explanation(
+        _build_explanation(
             config,
             "test_explainer",
-            model=model,  # type: ignore[arg-type]
-            inputs=inputs,
+            cast("Model", model),
+            inputs,
         )
     assert "raitap.sample_names" in str(info.value)
 
@@ -1967,11 +2081,11 @@ def test_explanation_does_not_raise_when_sample_names_is_none(
     inputs = torch.zeros(2, 3, 8, 8)
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     # Should not raise SampleNamesLengthError.
-    Explanation(
+    _build_explanation(
         config,
         "test_explainer",
-        model=model,  # type: ignore[arg-type]
-        inputs=inputs,
+        cast("Model", model),
+        inputs,
         sample_names=None,
     )
 
@@ -2000,10 +2114,10 @@ def test_explanation_does_not_raise_when_sample_names_length_matches(
     inputs = torch.zeros(2, 3, 8, 8)
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     # Should not raise.
-    Explanation(
+    _build_explanation(
         config,
         "test_explainer",
-        model=model,  # type: ignore[arg-type]
-        inputs=inputs,
+        cast("Model", model),
+        inputs,
         sample_names=["a", "b"],
     )

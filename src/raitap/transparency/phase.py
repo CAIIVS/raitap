@@ -21,7 +21,6 @@ from raitap.configs import cfg_to_dict
 from raitap.metrics import metrics_prediction_pair
 from raitap.pipeline.phases.base import AssessmentPhase
 from raitap.task_families import ExplainContext, resolve_task_family
-from raitap.transparency.factory import Explanation
 from raitap.transparency.report import TransparencyPhaseResult
 from raitap.utils.diagnostics import Module
 
@@ -38,7 +37,6 @@ if TYPE_CHECKING:
     from raitap.transparency.results import ExplanationResult
 
 __all__ = [
-    "Explanation",
     "PreparedExplainer",
     "TransparencyPhase",
     "assess_transparency",
