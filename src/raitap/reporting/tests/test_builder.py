@@ -2660,3 +2660,41 @@ def test_overlay_draws_index_tags_and_legend_below_image() -> None:
     # no long per-box label is stamped beside the boxes (only tags + legend)
     assert not any(t.startswith("#0 kite") for t in texts if "\n" not in t)
     plt.close(fig)
+
+
+def test_build_report_handles_reporting_block_without_sample_selection(
+    tmp_path: Path,
+) -> None:
+    """Regression (sibling of #240): a struct-mode ``reporting:`` block that
+    omits the optional ``sample_selection`` key must not crash report building.
+
+    Like ``model.class_names`` in #240, ``build_report`` read
+    ``reporting_cfg.sample_selection`` unconditionally. When ``config.reporting``
+    arrives as a YAML-loaded struct-mode ``DictConfig`` (``object_type=dict``)
+    that never declares the key, the attribute access raised
+    ``ConfigAttributeError`` before ``resolve_report_sample_selection`` could
+    apply its default. The read must be defensive, matching the ``getattr``
+    guard the orchestrator already uses for the same key.
+    """
+    config = AppConfig(experiment_name="no-sample-selection")
+    set_output_root(config, tmp_path)
+    # Build a struct-mode reporting block carrying every ReportingConfig field
+    # EXCEPT ``sample_selection`` — isolates the failure to the line-51 read.
+    reporting_dict = OmegaConf.to_container(
+        OmegaConf.structured(ReportingConfig(_target_="PDFReporter", filename="report.pdf")),
+        resolve=True,
+    )
+    assert isinstance(reporting_dict, dict)
+    reporting_dict.pop("sample_selection", None)
+    reporting_block = OmegaConf.create(reporting_dict)
+    OmegaConf.set_struct(reporting_block, True)
+    config.reporting = reporting_block  # type: ignore[assignment]
+
+    outputs = _run_outputs(
+        forward_output=_fo(torch.tensor([[0.1, 0.9]])),
+        sample_ids=["a"],
+    )
+
+    # Must not raise ConfigAttributeError on the optional-key read.
+    report = build_report(config, outputs)
+    assert report is not None

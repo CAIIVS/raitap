@@ -48,7 +48,13 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
     assets_dir.mkdir(parents=True, exist_ok=True)
 
     reporting_cfg = config.reporting
-    configured_selection = None if reporting_cfg is None else reporting_cfg.sample_selection
+    # ``reporting`` may arrive as a struct-mode DictConfig that omits the
+    # optional ``sample_selection`` key; read defensively so the field's
+    # default applies instead of raising ``ConfigAttributeError`` (sibling of
+    # #240; matches the orchestrator's getattr guard for the same key).
+    configured_selection = (
+        None if reporting_cfg is None else getattr(reporting_cfg, "sample_selection", None)
+    )
     explicit_samples = resolve_report_sample_selection(
         configured_selection,
         sample_ids=outputs.sample_ids,
