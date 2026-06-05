@@ -14,7 +14,8 @@ if TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch
 
     from raitap.configs.schema import AppConfig
-    from raitap.transparency.contracts import InputSpec
+    from raitap.models.backend import ModelBackend
+    from raitap.transparency.contracts import ExplainerAdapter, InputSpec
 
 
 import raitap.pipeline.orchestrator as run_pipeline
@@ -42,7 +43,7 @@ def _fo(tensor: torch.Tensor) -> _ForwardOutput:
     return _ForwardOutput(
         task_kind=_TaskKind.classification,
         batch_size=int(tensor.shape[0]) if tensor.ndim > 0 else 0,
-        predictions_tensor=tensor,
+        payload=tensor,
     )
 
 
@@ -203,8 +204,7 @@ def test_forward_primary_tensor_batches_backend_calls() -> None:
     )
 
     assert backend.prepared_batch_sizes == [2, 2, 1]
-    predictions_tensor = output.predictions_tensor
-    assert predictions_tensor is not None
+    predictions_tensor = output.as_classification()
     assert torch.equal(predictions_tensor, torch.tensor([[1.0], [5.0], [9.0], [13.0], [17.0]]))
 
 
@@ -236,6 +236,100 @@ class _FakeVisualisationResult:
     def log(self, tracker: object, use_subdirectory: bool = True) -> None:
         del tracker
         self.log_calls.append(use_subdirectory)
+
+
+class _CapturingExplainer:
+    """Fake explainer whose ``explain`` records kwargs and returns a result.
+
+    The transparency phase now drives ``prepared.explainer.explain(...)`` (the
+    old ``Explanation(...)`` seam is gone), so the tests capture the explainer
+    call here instead. ``ClassificationFamily.explain`` calls
+    ``result._visualise()`` on the returned object, so a ``_FakeExplainerResult``
+    fits unchanged.
+    """
+
+    def __init__(self, result: _FakeExplainerResult, captured: dict[str, object]) -> None:
+        self._result = result
+        self._captured = captured
+
+    def explain(self, *_args: object, **kwargs: object) -> _FakeExplainerResult:
+        self._captured.update(kwargs)
+        return self._result
+
+
+def _make_prepared(
+    *,
+    explainer: object,
+    explainer_config: object,
+    backend: object,
+    merged_kwargs: dict[str, object] | None = None,
+    raitap_kwargs: dict[str, object] | None = None,
+) -> _transparency_phase.PreparedExplainer:
+    """Build a ``PreparedExplainer`` with test doubles for every field.
+
+    Mirrors what the real ``prepare_explainer`` returns so the genuine
+    ``ClassificationFamily.explain`` path runs against it.
+    """
+    return _transparency_phase.PreparedExplainer(
+        name="one",
+        explainer=cast("ExplainerAdapter", explainer),
+        explainer_target="raitap.transparency.Fake",
+        visualisers=[],
+        merged_kwargs=merged_kwargs or {},
+        raitap_kwargs=raitap_kwargs or {},
+        call_provenance={},
+        base_run_dir=cast("Path", None),
+        backend=cast("ModelBackend", backend),
+        experiment_name="test",
+        explainer_config=explainer_config,
+        class_names=None,
+    )
+
+
+def _patch_prepare_explainer(
+    monkeypatch: MonkeyPatch,
+    *,
+    explainer: object,
+    backend: object,
+    merged_kwargs: dict[str, object] | None = None,
+    raitap_kwargs: dict[str, object] | None = None,
+) -> dict[str, object]:
+    """Patch ``prepare_explainer`` with a capturing wrapper.
+
+    Records the orchestrator->phase contract (config / model / data /
+    input_metadata / resolved_preprocessing) and returns a fake
+    ``PreparedExplainer`` so the real family ``explain`` runs. Returns the
+    capture dict the caller asserts on.
+    """
+    captured: dict[str, object] = {}
+
+    def _fake_prepare(
+        config: object,
+        name: str,
+        model: object,
+        *,
+        resolved_preprocessing: object,
+        input_metadata: object,
+        data: object,
+    ) -> _transparency_phase.PreparedExplainer:
+        captured.update(
+            config=config,
+            name=name,
+            model=model,
+            resolved_preprocessing=resolved_preprocessing,
+            input_metadata=input_metadata,
+            data=data,
+        )
+        return _make_prepared(
+            explainer=explainer,
+            explainer_config=cast("AppConfig", config).transparency[name],
+            backend=backend,
+            merged_kwargs=merged_kwargs,
+            raitap_kwargs=raitap_kwargs,
+        )
+
+    monkeypatch.setattr(_transparency_phase, "prepare_explainer", _fake_prepare)
+    return captured
 
 
 def test_hydra_main_composes_default_config(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
@@ -708,13 +802,11 @@ def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: M
             del x
             return torch.tensor([[0.1, 0.9, 0.0], [0.8, 0.1, 0.1]])
 
-    model = SimpleNamespace(backend=_BackendStub(_Net()))
+    backend = _BackendStub(_Net())
+    model = SimpleNamespace(backend=backend)
     data = SimpleNamespace(tensor=torch.randn(2, 4), sample_ids=None, labels=None)
     explanation = _FakeExplainerResult("exp")
     metrics_calls: list[tuple[object, torch.Tensor, torch.Tensor]] = []
-
-    def _fake_explanation(*_args: object, **_kwargs: object) -> _FakeExplainerResult:
-        return explanation
 
     def _fake_metrics(cfg: object, preds: torch.Tensor, targs: torch.Tensor) -> object:
         metrics_calls.append((cfg, preds, targs))
@@ -724,7 +816,11 @@ def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: M
         transparency={"one": {}},
         metrics=SimpleNamespace(_target_="MulticlassClassificationMetrics", num_classes=None),
     )
-    monkeypatch.setattr(_transparency_phase, "Explanation", _fake_explanation)
+    _patch_prepare_explainer(
+        monkeypatch,
+        explainer=_CapturingExplainer(explanation, {}),
+        backend=backend,
+    )
     monkeypatch.setattr(_metrics_phase, "Metrics", _fake_metrics)
 
     outputs = run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
@@ -744,18 +840,20 @@ def test_run_without_tracking_uses_provided_num_classes(monkeypatch: MonkeyPatch
             del x
             return torch.tensor([[0.1, 0.9, 0.0]])
 
-    model = SimpleNamespace(backend=_BackendStub(_Net()))
+    backend = _BackendStub(_Net())
+    model = SimpleNamespace(backend=backend)
     data = SimpleNamespace(tensor=torch.randn(1, 4), sample_ids=None, labels=None)
     explanation = _FakeExplainerResult("exp")
-
-    def _fake_explanation(*_args: object, **_kwargs: object) -> _FakeExplainerResult:
-        return explanation
 
     config = SimpleNamespace(
         transparency={"one": {}},
         metrics=SimpleNamespace(_target_="MulticlassClassificationMetrics", num_classes=10),
     )
-    monkeypatch.setattr(_transparency_phase, "Explanation", _fake_explanation)
+    _patch_prepare_explainer(
+        monkeypatch,
+        explainer=_CapturingExplainer(explanation, {}),
+        backend=backend,
+    )
     monkeypatch.setattr(_metrics_phase, "Metrics", lambda _c, _p, _t: SimpleNamespace())
 
     run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
@@ -764,38 +862,41 @@ def test_run_without_tracking_uses_provided_num_classes(monkeypatch: MonkeyPatch
 
 
 def test_run_without_tracking_passes_sample_names_to_explanation(monkeypatch: MonkeyPatch) -> None:
-    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    backend = _BackendStub(torch.nn.Identity())
+    model = SimpleNamespace(backend=backend)
     data = SimpleNamespace(
         tensor=torch.randn(2, 3),
         sample_ids=["isic_1", "isic_2"],
         labels=None,
     )
     explanation = _FakeExplainerResult("exp")
-    captured_kwargs: dict[str, object] = {}
-
-    def _fake_explanation(*_args: object, **kwargs: object) -> _FakeExplainerResult:
-        captured_kwargs.update(kwargs)
-        return explanation
 
     config = SimpleNamespace(
         transparency={"one": {}},
         metrics=SimpleNamespace(num_classes=None),
     )
     monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr(_transparency_phase, "Explanation", _fake_explanation)
+    captured = _patch_prepare_explainer(
+        monkeypatch,
+        explainer=_CapturingExplainer(explanation, {}),
+        backend=backend,
+    )
 
     run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
-    assert captured_kwargs["sample_names"] == ["isic_1", "isic_2"]
+    # ``prepare_explainer`` derives sample_names from ``data.sample_ids``; assert
+    # the orchestrator handed it the data carrying those ids.
+    assert captured["data"] is data
+    assert cast("list[str]", captured["data"].sample_ids) == ["isic_1", "isic_2"]  # type: ignore[attr-defined]
 
 
 def test_run_without_tracking_passes_resolved_preprocessing_to_explanation(
     monkeypatch: MonkeyPatch,
 ) -> None:
-    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    backend = _BackendStub(torch.nn.Identity())
+    model = SimpleNamespace(backend=backend)
     data = SimpleNamespace(tensor=torch.randn(2, 3), sample_ids=None, labels=None)
     explanation = _FakeExplainerResult("exp")
-    captured_kwargs: dict[str, object] = {}
     resolved_preprocessing = ResolvedPreprocessing(
         data_module=None,
         model_module=None,
@@ -804,16 +905,16 @@ def test_run_without_tracking_passes_resolved_preprocessing_to_explanation(
         description="test",
     )
 
-    def _fake_explanation(*_args: object, **kwargs: object) -> _FakeExplainerResult:
-        captured_kwargs.update(kwargs)
-        return explanation
-
     config = SimpleNamespace(
         transparency={"one": {}},
         metrics=SimpleNamespace(num_classes=None),
     )
     monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr(_transparency_phase, "Explanation", _fake_explanation)
+    captured = _patch_prepare_explainer(
+        monkeypatch,
+        explainer=_CapturingExplainer(explanation, {}),
+        backend=backend,
+    )
 
     run_pipeline.run_without_tracking(
         config,  # type: ignore[arg-type]
@@ -822,14 +923,15 @@ def test_run_without_tracking_passes_resolved_preprocessing_to_explanation(
         resolved_preprocessing=resolved_preprocessing,
     )
 
-    assert captured_kwargs["resolved_preprocessing"] is resolved_preprocessing
+    assert captured["resolved_preprocessing"] is resolved_preprocessing
 
 
 def test_run_without_tracking_threads_sample_ids_and_image_metadata_to_explanation(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    backend = _BackendStub(torch.nn.Identity())
+    model = SimpleNamespace(backend=backend)
     image_path = tmp_path / "sample.png"
     image_path.write_bytes(b"not-used-by-this-test")
     data = SimpleNamespace(
@@ -839,11 +941,6 @@ def test_run_without_tracking_threads_sample_ids_and_image_metadata_to_explanati
         source=str(image_path),
     )
     explanation = _FakeExplainerResult("exp")
-    captured_kwargs: dict[str, object] = {}
-
-    def _fake_explanation(*_args: object, **kwargs: object) -> _FakeExplainerResult:
-        captured_kwargs.update(kwargs)
-        return explanation
 
     config = SimpleNamespace(
         data=SimpleNamespace(source=str(image_path)),
@@ -851,13 +948,16 @@ def test_run_without_tracking_threads_sample_ids_and_image_metadata_to_explanati
         metrics=SimpleNamespace(num_classes=None),
     )
     monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr(_transparency_phase, "Explanation", _fake_explanation)
+    captured = _patch_prepare_explainer(
+        monkeypatch,
+        explainer=_CapturingExplainer(explanation, {}),
+        backend=backend,
+    )
 
     run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
-    assert captured_kwargs["sample_ids"] == ["stable-1", "stable-2"]
-    assert captured_kwargs["sample_names"] == ["stable-1", "stable-2"]
-    input_metadata = cast("InputSpec", captured_kwargs["input_metadata"])
+    assert cast("list[str]", captured["data"].sample_ids) == ["stable-1", "stable-2"]  # type: ignore[attr-defined]
+    input_metadata = cast("InputSpec", captured["input_metadata"])
     assert input_metadata.kind == "image"
     assert input_metadata.shape == (2, 3, 8, 8)
     assert input_metadata.layout == "NCHW"
@@ -867,7 +967,8 @@ def test_run_without_tracking_threads_tabular_metadata_to_explanation(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    backend = _BackendStub(torch.nn.Identity())
+    model = SimpleNamespace(backend=backend)
     csv_path = tmp_path / "features.csv"
     csv_path.write_text("a,b\n1,2\n3,4")
     data = SimpleNamespace(
@@ -877,11 +978,6 @@ def test_run_without_tracking_threads_tabular_metadata_to_explanation(
         source=str(csv_path),
     )
     explanation = _FakeExplainerResult("exp")
-    captured_kwargs: dict[str, object] = {}
-
-    def _fake_explanation(*_args: object, **kwargs: object) -> _FakeExplainerResult:
-        captured_kwargs.update(kwargs)
-        return explanation
 
     config = SimpleNamespace(
         data=SimpleNamespace(source=str(csv_path)),
@@ -889,11 +985,15 @@ def test_run_without_tracking_threads_tabular_metadata_to_explanation(
         metrics=SimpleNamespace(num_classes=None),
     )
     monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr(_transparency_phase, "Explanation", _fake_explanation)
+    captured = _patch_prepare_explainer(
+        monkeypatch,
+        explainer=_CapturingExplainer(explanation, {}),
+        backend=backend,
+    )
 
     run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
-    input_metadata = cast("InputSpec", captured_kwargs["input_metadata"])
+    input_metadata = cast("InputSpec", captured["input_metadata"])
     assert input_metadata.kind == "tabular"
     assert input_metadata.shape == (2, 2)
     assert input_metadata.layout == "(B,F)"
@@ -907,7 +1007,8 @@ def test_run_without_tracking_passes_none_when_inference_cant_determine_kind(
     # inference returns kind=None. The pipeline must pass ``None`` so that
     # any yaml-provided ``transparency.<explainer>.raitap.input_metadata``
     # is left intact downstream (no silent overwrite with an empty spec).
-    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    backend = _BackendStub(torch.nn.Identity())
+    model = SimpleNamespace(backend=backend)
     empty_dir = tmp_path / "unknown"
     empty_dir.mkdir()
     data = SimpleNamespace(
@@ -917,11 +1018,6 @@ def test_run_without_tracking_passes_none_when_inference_cant_determine_kind(
         source=str(empty_dir),
     )
     explanation = _FakeExplainerResult("exp")
-    captured_kwargs: dict[str, object] = {}
-
-    def _fake_explanation(*_args: object, **kwargs: object) -> _FakeExplainerResult:
-        captured_kwargs.update(kwargs)
-        return explanation
 
     config = SimpleNamespace(
         data=SimpleNamespace(source=str(empty_dir)),
@@ -929,11 +1025,15 @@ def test_run_without_tracking_passes_none_when_inference_cant_determine_kind(
         metrics=SimpleNamespace(num_classes=None),
     )
     monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr(_transparency_phase, "Explanation", _fake_explanation)
+    captured = _patch_prepare_explainer(
+        monkeypatch,
+        explainer=_CapturingExplainer(explanation, {}),
+        backend=backend,
+    )
 
     run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
-    assert captured_kwargs["input_metadata"] is None
+    assert captured["input_metadata"] is None
 
 
 def test_run_without_tracking_preserves_layout_only_input_metadata(
@@ -943,7 +1043,8 @@ def test_run_without_tracking_preserves_layout_only_input_metadata(
     # Source kind can't be inferred from disk, but data.input_metadata in yaml
     # supplies a layout. The pipeline must surface that layout downstream
     # rather than dropping it (output-space inference accepts layout alone).
-    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
+    backend = _BackendStub(torch.nn.Identity())
+    model = SimpleNamespace(backend=backend)
     empty_dir = tmp_path / "unknown"
     empty_dir.mkdir()
     data = SimpleNamespace(
@@ -953,11 +1054,6 @@ def test_run_without_tracking_preserves_layout_only_input_metadata(
         source=str(empty_dir),
     )
     explanation = _FakeExplainerResult("exp")
-    captured_kwargs: dict[str, object] = {}
-
-    def _fake_explanation(*_args: object, **kwargs: object) -> _FakeExplainerResult:
-        captured_kwargs.update(kwargs)
-        return explanation
 
     config = SimpleNamespace(
         data=SimpleNamespace(
@@ -968,11 +1064,15 @@ def test_run_without_tracking_preserves_layout_only_input_metadata(
         metrics=SimpleNamespace(num_classes=None),
     )
     monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr(_transparency_phase, "Explanation", _fake_explanation)
+    captured = _patch_prepare_explainer(
+        monkeypatch,
+        explainer=_CapturingExplainer(explanation, {}),
+        backend=backend,
+    )
 
     run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 
-    spec = captured_kwargs["input_metadata"]
+    spec = captured["input_metadata"]
     assert spec is not None
     assert getattr(spec, "kind", "missing") is None
     assert str(getattr(spec, "layout", None)) == "(B,T,C)"
@@ -984,21 +1084,24 @@ def test_run_without_tracking_resolves_auto_pred_target(monkeypatch: MonkeyPatch
             del x
             return torch.tensor([[0.1, 0.9, 0.0], [0.8, 0.1, 0.1]])
 
-    model = SimpleNamespace(backend=_BackendStub(_Net()))
+    backend = _BackendStub(_Net())
+    model = SimpleNamespace(backend=backend)
     data = SimpleNamespace(tensor=torch.randn(2, 4), sample_ids=None, labels=None)
     explanation = _FakeExplainerResult("exp")
     captured_kwargs: dict[str, object] = {}
-
-    def _fake_explanation(*_args: object, **kwargs: object) -> _FakeExplainerResult:
-        captured_kwargs.update(kwargs)
-        return explanation
 
     config = SimpleNamespace(
         transparency={"one": {"call": {"target": "auto_pred"}}},
         metrics=SimpleNamespace(num_classes=None),
     )
     monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
-    monkeypatch.setattr(_transparency_phase, "Explanation", _fake_explanation)
+    # Real ``ClassificationFamily.explain`` runs against this prepared object and
+    # resolves ``auto_pred`` -> argmax of the forward logits into ``target``.
+    _patch_prepare_explainer(
+        monkeypatch,
+        explainer=_CapturingExplainer(explanation, captured_kwargs),
+        backend=backend,
+    )
 
     run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
 

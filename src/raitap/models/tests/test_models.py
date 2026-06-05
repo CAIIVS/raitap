@@ -965,7 +965,7 @@ class TestModelPreprocessingWrap:
             description="supplied",
         )
 
-        with pytest.raises(RaitapError, match="detection"):
+        with pytest.raises(RaitapError, match="not supported for this task family"):
             _apply_preprocessing(backend, cfg, resolved_preprocessing=resolved)
 
         # The detector must be left untouched (not wrapped).
@@ -993,7 +993,7 @@ class TestModelPreprocessingWrap:
             description="supplied",
         )
 
-        with pytest.raises(RaitapError, match="detection"):
+        with pytest.raises(RaitapError, match="not supported for this task family"):
             _apply_preprocessing(backend, cfg, resolved_preprocessing=resolved)
 
         # The detector must be left untouched (not wrapped).

@@ -13,7 +13,6 @@ from raitap.models.backend import TorchBackend
 from raitap.transparency import ExplanationResult, VisualisationResult
 from raitap.transparency.contracts import InputKind, InputSpec, TensorLayout
 from raitap.transparency.explainers import CaptumExplainer, ShapExplainer
-from raitap.transparency.factory import Explanation
 from raitap.transparency.results import ConfiguredVisualiser
 from raitap.transparency.visualisers import (
     BaseVisualiser,
@@ -151,6 +150,63 @@ def _build_visualisers(case: MatrixCase) -> list[ConfiguredVisualiser]:
             case.visualiser_cls(**case.visualiser_kwargs),
         )
     ]
+
+
+def _run_factory_case(
+    config: AppConfig,
+    name: str,
+    model_wrapper: Model,
+    inputs: torch.Tensor,
+    *,
+    input_metadata: InputSpec,
+    background: torch.Tensor | None,
+) -> ExplanationResult:
+    """Drive the production setup+build seam for a factory-mode case.
+
+    Mirrors the old ``Explanation(...)`` one-call ergonomics via
+    ``prepare_explainer`` + a direct ``explainer.explain``. The direct call (not
+    ``ClassificationFamily.explain``) skips the auto-``_visualise`` so
+    ``run_behavior_case`` keeps its own visualise-then-snapshot flow and its
+    ``metadata_before`` (``visualisers == []``) assertion.
+    """
+    from raitap.configs.utils import cfg_to_dict
+    from raitap.transparency.phase import prepare_explainer
+
+    raw = cfg_to_dict(config.transparency[name])
+    if background is not None:
+        call = dict(raw.get("call") or {})
+        call["background_data"] = background
+        raw["call"] = call
+    config.transparency[name] = raw  # type: ignore[index]
+    if not hasattr(config, "model"):
+        config.model = SimpleNamespace(class_names=None)  # type: ignore[attr-defined]
+
+    data = SimpleNamespace(tensor=inputs, sample_ids=None)
+    prepared = prepare_explainer(
+        config,
+        name,
+        model_wrapper,
+        resolved_preprocessing=None,
+        input_metadata=input_metadata,
+        data=cast("Any", data),
+    )
+    backend = cast("Any", prepared.backend)
+    return cast(
+        "ExplanationResult",
+        prepared.explainer.explain(  # type: ignore[attr-defined]
+            backend.as_model_for_explanation(),
+            inputs,
+            backend=backend,
+            run_dir=prepared.base_run_dir,
+            experiment_name=prepared.experiment_name,
+            explainer_target=prepared.explainer_target,
+            explainer_name=prepared.name,
+            visualisers=prepared.visualisers,
+            raitap_kwargs=prepared.raitap_kwargs,
+            call_provenance=prepared.call_provenance,
+            **prepared.merged_kwargs,
+        ),
+    )
 
 
 def _build_factory_config(case: MatrixCase, tmp_path: Path) -> AppConfig:
@@ -418,23 +474,14 @@ def run_behavior_case(
         config = _build_factory_config(case, tmp_path)
         model_wrapper = cast("Model", SimpleNamespace(backend=TorchBackend(model)))
         input_metadata = _input_metadata_for_case(case, inputs)
-        if background is None:
-            explanation = Explanation(
-                config,
-                cast("str", case.factory_explainer_name),
-                model_wrapper,
-                inputs,
-                input_metadata=input_metadata,
-            )
-        else:
-            explanation = Explanation(
-                config,
-                cast("str", case.factory_explainer_name),
-                model_wrapper,
-                inputs,
-                input_metadata=input_metadata,
-                background_data=background,
-            )
+        explanation = _run_factory_case(
+            config,
+            cast("str", case.factory_explainer_name),
+            model_wrapper,
+            inputs,
+            input_metadata=input_metadata,
+            background=background,
+        )
     else:
         explanation = _run_explain_case(
             case,

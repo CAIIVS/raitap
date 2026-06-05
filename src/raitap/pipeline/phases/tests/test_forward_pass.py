@@ -8,7 +8,7 @@ Covers:
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import torch
@@ -16,6 +16,8 @@ from torch import nn
 
 from raitap.models.backend import ModelBackend
 from raitap.pipeline.phases.forward_pass import forward_pass
+from raitap.task_families.base import ForwardContext
+from raitap.task_families.registry import resolve_task_family
 from raitap.types import Capability, TaskKind
 
 # ---------------------------------------------------------------------------
@@ -122,8 +124,7 @@ def test_detection_forward_ragged_list_returns_correct_length() -> None:
 
     assert result.task_kind is TaskKind.detection
     assert result.batch_size == 2
-    assert result.detection_predictions is not None
-    assert len(result.detection_predictions) == 2
+    assert len(result.as_detection()) == 2
 
 
 def test_detection_forward_backend_receives_list_of_tensors() -> None:
@@ -158,8 +159,7 @@ def test_detection_forward_chunked_across_batch_size() -> None:
     result = forward_pass(config, backend, inputs)
 
     assert result.batch_size == 3
-    assert result.detection_predictions is not None
-    assert len(result.detection_predictions) == 3
+    assert len(result.as_detection()) == 3
     # Three separate chunks were passed to the model
     assert len(backend.received_inputs) == 3
 
@@ -176,8 +176,7 @@ def test_detection_forward_predictions_are_cpu_detached() -> None:
 
     result = forward_pass(config, backend, inputs)
 
-    assert result.detection_predictions is not None
-    for sample_dict in result.detection_predictions:
+    for sample_dict in result.as_detection():
         for tensor in sample_dict.values():
             assert tensor.device.type == "cpu"
 
@@ -198,8 +197,7 @@ def test_classification_forward_dense_tensor_unchanged() -> None:
 
     assert result.task_kind is TaskKind.classification
     assert result.batch_size == 4
-    assert result.predictions_tensor is not None
-    assert result.predictions_tensor.shape == (4, 10)
+    assert result.as_classification().shape == (4, 10)
 
 
 def test_classification_forward_chunked_regression() -> None:
@@ -213,8 +211,7 @@ def test_classification_forward_chunked_regression() -> None:
 
     assert result.task_kind is TaskKind.classification
     assert result.batch_size == 6
-    assert result.predictions_tensor is not None
-    assert result.predictions_tensor.shape == (6, 5)
+    assert result.as_classification().shape == (6, 5)
 
 
 # ---------------------------------------------------------------------------
@@ -261,3 +258,28 @@ def test_classification_forward_rejects_unbatched_tensor() -> None:
 
     with pytest.raises(ValueError, match="ndim >= 2"):
         forward_pass(config, backend, torch.zeros(5))
+
+
+# ---------------------------------------------------------------------------
+# Task family extract_forward tests
+# ---------------------------------------------------------------------------
+
+
+class _StubClsBackend:
+    task_kind = TaskKind.classification
+
+    def _prepare_inputs(self, x: torch.Tensor) -> torch.Tensor:
+        return x
+
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.zeros(x.shape[0], 5)
+
+
+def test_classification_family_extract_forward_returns_tensor() -> None:
+    fam = resolve_task_family(TaskKind.classification)
+    ctx = ForwardContext(
+        backend=cast("ModelBackend", _StubClsBackend()), inputs=torch.zeros(3, 1, 4, 4)
+    )
+    payload = fam.extract_forward(ctx, batch_size=2)
+    assert isinstance(payload, torch.Tensor)
+    assert payload.shape[0] == 3

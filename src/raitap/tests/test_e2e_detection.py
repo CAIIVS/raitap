@@ -97,16 +97,20 @@ def test_detection_pipeline_e2e_via_fasterrcnn_mobilenet(tmp_path: Path) -> None
     labels_path = tmp_path / "detection_labels.json"
     labels_path.write_text(json.dumps(labels_payload))
 
-    # Bypass Data.__init__ and call _load_detection_labels directly; the
-    # discriminator branch (`labels_kind == "detection"`) has its own dedicated
-    # coverage in src/raitap/data/tests/test_detection_labels.py. This test
-    # focuses on the pipeline plumbing downstream of Data.
-    labels_cfg = SimpleNamespace(source=str(labels_path), kind="detection")
+    # Bypass Data.__init__ and call DetectionFamily.load_labels directly; the
+    # detection label loader has its own dedicated coverage in
+    # src/raitap/data/tests/test_detection_labels.py. This test focuses on the
+    # pipeline plumbing downstream of Data.
+    from raitap.task_families.detection import DetectionFamily
+
+    labels_cfg = SimpleNamespace(source=str(labels_path))
     load_cfg = cast(
         "AppConfig",
         SimpleNamespace(data=SimpleNamespace(labels=labels_cfg)),
     )
-    data.labels = data._load_detection_labels(load_cfg)
+    data.labels = DetectionFamily().load_labels(
+        load_cfg, tensor=data.tensor, sample_ids=data.sample_ids
+    )
 
     # --- app config --------------------------------------------------------
     from raitap.configs import set_output_root
@@ -148,8 +152,7 @@ def test_detection_pipeline_e2e_via_fasterrcnn_mobilenet(tmp_path: Path) -> None
     outputs = run_without_tracking(config, model, data)
 
     assert outputs.forward_output.task_kind is TaskKind.detection
-    assert outputs.forward_output.detection_predictions is not None
-    assert len(outputs.forward_output.detection_predictions) == 1
+    assert len(outputs.forward_output.as_detection()) == 1
 
     assert outputs.metrics is not None
     metrics_evaluation = cast("MetricsEvaluation", outputs.phase_results["metrics"])

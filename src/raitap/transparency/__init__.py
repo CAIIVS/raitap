@@ -97,7 +97,6 @@ try:
         ShapExplainer,
     )
     from .factory import (
-        Explanation,
         check_explainer_visualiser_compat,
         create_explainer,
         create_visualisers,
@@ -127,7 +126,6 @@ except ModuleNotFoundError as error:
     CaptumExplainer = _unavailable("CaptumExplainer", "torch")
     FullExplainer = _unavailable("FullExplainer", "torch")
     ShapExplainer = _unavailable("ShapExplainer", "torch")
-    Explanation = _unavailable("Explanation", "torch")
     check_explainer_visualiser_compat = _unavailable("check_explainer_visualiser_compat", "torch")
     create_explainer = _unavailable("create_explainer", "torch")
     create_visualisers = _unavailable("create_visualisers", "torch")
@@ -168,6 +166,21 @@ def __getattr__(name: str) -> Any:
         from raitap.configs.schema import TransparencyConfig
 
         return TransparencyConfig
+
+    # Real submodules (report, phase, factory, results, ...) resolve lazily as
+    # package attributes so dotted-path access / monkeypatch agree with
+    # ``from ... import`` resolution. Imported on access (not eagerly) to avoid a
+    # load-time cycle via reporting -> robustness.contracts.
+    import importlib
+
+    try:
+        return importlib.import_module(f"{__name__}.{name}")
+    except ModuleNotFoundError as exc:
+        # Only treat "no such submodule" as "fall through to adapter lookup".
+        # A missing dependency *inside* an existing submodule must propagate.
+        if exc.name != f"{__name__}.{name}":
+            raise
+
     from raitap._adapters import lookup
 
     try:
@@ -233,7 +246,6 @@ __all__ = [  # noqa: RUF022
     "PayloadVisualiserIncompatibilityError",
     "VisualiserIncompatibilityError",
     # Rest
-    "Explanation",
     "create_explainer",
     "create_visualisers",
     "check_explainer_visualiser_compat",

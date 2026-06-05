@@ -23,6 +23,8 @@ experiment_name: detection-fasterrcnn
 
 model:
   source: fasterrcnn_resnet50_fpn_v2
+  # Optional: torchvision detectors auto-infer this. Set it for custom models.
+  task_kind: detection
 
 data:
   name: udacity-dashcam-demo
@@ -32,7 +34,6 @@ data:
     # JSON list-of-records. Each record: {sample_id, boxes: [[x1,y1,x2,y2], ...], labels: [coco_class_id, ...]}.
     # Coordinates are absolute pixels in xyxy format. See `docs/modules/data/configuration.md`.
     source: ./labels/udacity-boxes.json
-    kind: detection
 
 metrics:
   # `metrics: detection` selects DetectionMetrics; overrides go below.
@@ -63,7 +64,6 @@ transparency:
 :python:
 from raitap import AppConfig, Hardware, run
 from raitap.data import DataConfig, LabelsConfig
-from raitap.data.types import LabelKind
 from raitap.metrics import detection
 from raitap.models import ModelConfig
 from raitap.reporting import html
@@ -72,14 +72,15 @@ from raitap.transparency import captum, detection_image
 cfg = AppConfig(
     hardware=Hardware.cpu,
     experiment_name="detection-fasterrcnn",
-    model=ModelConfig(source="fasterrcnn_resnet50_fpn_v2"),
+    # ``task_kind`` is optional for torchvision detectors (auto-inferred); set
+    # it for custom models the inference can't recognise.
+    model=ModelConfig(source="fasterrcnn_resnet50_fpn_v2", task_kind="detection"),
     data=DataConfig(
         name="udacity-dashcam-demo",
         source="UdacitySelfDriving",
         forward_batch_size=1,
         labels=LabelsConfig(
             source="./labels/udacity-boxes.json",
-            kind=LabelKind.detection,
         ),
     ),
     metrics=detection(

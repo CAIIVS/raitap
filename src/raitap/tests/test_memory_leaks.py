@@ -159,6 +159,9 @@ def test_run_without_tracking_forward_output_is_cpu_and_detached() -> None:
         def __call__(self, x: torch.Tensor) -> torch.Tensor:
             return net(x)
 
+        def as_model_for_explanation(self) -> object:
+            return net
+
     from typing import cast
 
     model = cast("Model", SimpleNamespace(backend=_Backend()))
@@ -172,14 +175,32 @@ def test_run_without_tracking_forward_output_is_cpu_and_detached() -> None:
     fake_explanation = MagicMock()
     fake_explanation._visualise.return_value = []
 
+    from raitap.transparency.phase import PreparedExplainer
+
+    fake_explainer = MagicMock()
+    fake_explainer.explain.return_value = fake_explanation
+    fake_prepared = PreparedExplainer(
+        name="explainer1",
+        explainer=fake_explainer,
+        explainer_target="raitap.transparency.Fake",
+        visualisers=[],
+        merged_kwargs={},
+        raitap_kwargs={},
+        call_provenance={},
+        base_run_dir=cast("Path", None),
+        backend=model.backend,
+        experiment_name="test",
+        explainer_config={},
+        class_names=None,
+    )
+
     with (
         patch("raitap.metrics.phase.metrics_run_enabled", return_value=False),
-        patch("raitap.transparency.phase.Explanation", return_value=fake_explanation),
+        patch("raitap.transparency.phase.prepare_explainer", return_value=fake_prepared),
     ):
         outputs = _run_without_tracking(config, model, data)
 
-    predictions_tensor = outputs.forward_output.predictions_tensor
-    assert predictions_tensor is not None
+    predictions_tensor = outputs.forward_output.as_classification()
     assert not predictions_tensor.requires_grad, "forward_output tensor must be detached"
     assert predictions_tensor.device.type == "cpu", "forward_output tensor must be on CPU"
 

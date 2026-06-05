@@ -17,12 +17,10 @@ from typing import TYPE_CHECKING
 from raitap import raitap_log
 from raitap.metrics import (
     Metrics,
-    metrics_prediction_pair,
     metrics_run_enabled,
-    resolve_metric_targets,
 )
 from raitap.pipeline.phases.base import AssessmentPhase
-from raitap.types import TaskKind
+from raitap.task_families import resolve_task_family
 
 if TYPE_CHECKING:
     import torch
@@ -52,16 +50,9 @@ def evaluate_metrics(
 ) -> MetricsEvaluation | None:
     """Run metrics on ``forward_output`` if configured; else return ``None``.
 
-    Classification path reads ``forward_output.predictions_tensor`` and threads
-    it through ``metrics_prediction_pair`` + ``resolve_metric_targets`` (the
-    existing fallback-to-argmax pipeline). Detection path passes
-    ``forward_output.detection_predictions`` straight to the configured metric
-    adapter (e.g. ``DetectionMetrics``); targets must be a ``list[dict]`` from
-    the D22 detection label loader.
-
-    Side-effect: when ``config.metrics.num_classes`` is unset and the
-    classification forward output is shaped like logits, the resolved class
-    count is written back to the config so downstream consumers see it.
+    Resolves the task family for ``forward_output.task_kind`` and delegates the
+    per-kind ``(preds, targets)`` adaptation to ``TaskFamily.metrics_inputs``,
+    which may return ``None`` to skip metrics (e.g. detection labels missing).
     """
     if not metrics_run_enabled(config):
         return None
@@ -70,41 +61,9 @@ def evaluate_metrics(
 
     raitap_log.info("Computing metrics...")
 
-    if forward_output.task_kind is TaskKind.detection:
-        detection_predictions = forward_output.detection_predictions
-        assert detection_predictions is not None
-        if labels is None:
-            raitap_log.warn(
-                "Detection metrics require dataset labels "
-                "(list[dict] from data.labels.kind=detection); none provided. "
-                "Skipping metrics."
-            )
-            return None
-        if not isinstance(labels, list):
-            raitap_log.warn(
-                "Detection metrics require list[dict] targets; got "
-                f"{type(labels).__name__}. Skipping metrics."
-            )
-            return None
-        return Metrics(config, detection_predictions, labels)
-
-    if forward_output.task_kind is not TaskKind.classification:
-        raitap_log.warn(
-            f"Metrics for task_kind={forward_output.task_kind!r} are not wired; skipping."
-        )
+    family = resolve_task_family(forward_output.task_kind)
+    pair = family.metrics_inputs(config, forward_output, labels)
+    if pair is None:
         return None
-
-    predictions_tensor = forward_output.predictions_tensor
-    assert predictions_tensor is not None
-    if (
-        getattr(config.metrics, "num_classes", None) is None
-        and predictions_tensor.ndim == 2
-        and predictions_tensor.shape[1] >= 2
-    ):
-        # ``MetricsConfig`` base only carries ``_target_``; ``num_classes``
-        # lives on the multiclass typed subclass at runtime.
-        config.metrics.num_classes = int(predictions_tensor.shape[1])  # type: ignore[attr-defined]
-    preds, _ = metrics_prediction_pair(predictions_tensor)
-    classification_labels = labels if not isinstance(labels, list) else None
-    targs = resolve_metric_targets(preds, classification_labels)
+    preds, targs = pair
     return Metrics(config, preds, targs)

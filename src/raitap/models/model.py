@@ -10,8 +10,8 @@ from raitap import raitap_log
 from raitap.configs import cfg_to_dict
 from raitap.data.metadata import shape_tuple
 from raitap.data.preprocessing import ResolvedPreprocessing, resolve_preprocessing
+from raitap.task_families import resolve_task_family
 from raitap.tracking.base_tracker import BaseTracker, Trackable
-from raitap.types import TaskKind
 from raitap.utils.diagnostics import Module
 from raitap.utils.errors import RaitapError
 from raitap.utils.lazy import lazy_import
@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from torchvision.models import detection as _detection_models
 
     from raitap.configs.schema import AppConfig
+    from raitap.types import TaskKind
 else:
     torch = lazy_import("torch")
     nn = lazy_import("torch.nn")
@@ -89,7 +90,9 @@ class Model(Trackable):
 
         name = str(source).lower()
         if _resolve_torchvision_factory(name) is not None:
-            return _load_pretrained(name, hardware=hardware)
+            return _load_pretrained(
+                name, hardware=hardware, task_kind=getattr(config.model, "task_kind", None)
+            )
 
         raise ValueError(
             f"Model source {source!r} is neither an existing path nor a known "
@@ -125,15 +128,16 @@ def _apply_preprocessing(
         else resolve_preprocessing(config.model, config.data)
     )
 
-    # Detection models resize/normalise internally and take native per-image
-    # inputs, so a data-side transform would corrupt box coordinates (labels
-    # are not transformed) and a model-side transform would double-process.
-    detection_preprocessing = resolved.data_module is not None or resolved.model_module is not None
-    if backend.task_kind is TaskKind.detection and detection_preprocessing:
+    # Some families (e.g. detection) resize/normalise internally and take
+    # native per-image inputs, so a data-side transform would corrupt box
+    # coordinates (labels are not transformed) and a model-side transform
+    # would double-process.
+    has_preprocessing = resolved.data_module is not None or resolved.model_module is not None
+    if has_preprocessing and not resolve_task_family(backend.task_kind).allows_preprocessing:
         raise RaitapError(
-            "Preprocessing is not supported for object detection models. "
-            "Unset data.preprocessing and data.model_input_transformation: "
-            "detection takes native per-image inputs and normalises internally."
+            "Preprocessing is not supported for this task family. "
+            "Unset data.preprocessing and data.model_input_transformation: this "
+            "model takes native inputs and normalises internally."
         )
 
     if resolved.model_module is not None:
@@ -237,7 +241,7 @@ def _load_from_path(
             device=device,
             allow_unsafe_pickle=allow_unsafe_pickle,
         )
-        return TorchBackend(module, device=device)
+        return TorchBackend(module, device=device, task_kind=getattr(model_cfg, "task_kind", None))
 
     raise ValueError(
         f"Unsupported model format {path.suffix!r}. Supported formats: {_supported_model_formats()}"
@@ -374,7 +378,9 @@ def _default_category_names(model_name: str) -> list[str] | None:
     return list(categories)
 
 
-def _load_pretrained(model_name: str, *, hardware: str) -> ModelBackend:
+def _load_pretrained(
+    model_name: str, *, hardware: str, task_kind: TaskKind | None = None
+) -> ModelBackend:
     """
     Load a torchvision model with its default pre-trained weights.
 
@@ -399,7 +405,12 @@ def _load_pretrained(model_name: str, *, hardware: str) -> ModelBackend:
     model = factory(weights="DEFAULT")
     model.to(device)
     model.eval()
-    return TorchBackend(model, device=device, category_names=_default_category_names(model_name))
+    return TorchBackend(
+        model,
+        device=device,
+        task_kind=task_kind,
+        category_names=_default_category_names(model_name),
+    )
 
 
 def _supported_model_formats() -> list[str]:

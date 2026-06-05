@@ -1,4 +1,4 @@
-"""Tests for Data._load_detection_labels — list[dict] per-sample boxes + labels."""
+"""Tests for DetectionFamily.load_labels — list[dict] per-sample boxes + labels."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import pytest
 import torch
 
 from raitap.data.data import Data
+from raitap.task_families.detection import DetectionFamily
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -38,12 +39,12 @@ def _write_detection_labels_json(path: Path) -> None:
     path.write_text(json.dumps(payload))
 
 
-def _stub_cfg(labels_source: str | None = None, labels_kind: str | None = None) -> AppConfig:
+def _stub_cfg(labels_source: str | None = None) -> AppConfig:
     return cast(
         "AppConfig",
         SimpleNamespace(
             data=SimpleNamespace(
-                labels=SimpleNamespace(source=labels_source, kind=labels_kind),
+                labels=SimpleNamespace(source=labels_source),
             ),
         ),
     )
@@ -59,10 +60,10 @@ def _make_data(*, num_samples: int = 3, sample_ids: list[str] | None = None) -> 
 def test_load_detection_labels_returns_list_of_dicts(tmp_path: Path) -> None:
     labels_path = tmp_path / "boxes.json"
     _write_detection_labels_json(labels_path)
-    cfg = _stub_cfg(labels_source=str(labels_path), labels_kind="detection")
+    cfg = _stub_cfg(labels_source=str(labels_path))
 
     data = _make_data(num_samples=3)
-    out = data._load_detection_labels(cfg)
+    out = DetectionFamily().load_labels(cfg, tensor=data.tensor, sample_ids=data.sample_ids)
     assert out is not None
     assert isinstance(out, list)
     assert len(out) == 3
@@ -87,10 +88,10 @@ def test_load_detection_labels_aligns_by_sample_id_when_present(tmp_path: Path) 
         {"sample_id": "img_1", "boxes": [], "labels": []},
     ]
     labels_path.write_text(json.dumps(payload))
-    cfg = _stub_cfg(labels_source=str(labels_path), labels_kind="detection")
+    cfg = _stub_cfg(labels_source=str(labels_path))
 
     data = _make_data(num_samples=3, sample_ids=["img_0", "img_1", "img_2"])
-    out = data._load_detection_labels(cfg)
+    out = DetectionFamily().load_labels(cfg, tensor=data.tensor, sample_ids=data.sample_ids)
     assert out is not None
     assert int(out[0]["labels"].item()) == 7
     assert out[1]["labels"].numel() == 0
@@ -105,11 +106,11 @@ def test_load_detection_labels_rejects_missing_sample_id_entries(tmp_path: Path)
         {"sample_id": "img_2", "boxes": [], "labels": []},
     ]
     labels_path.write_text(json.dumps(payload))
-    cfg = _stub_cfg(labels_source=str(labels_path), labels_kind="detection")
+    cfg = _stub_cfg(labels_source=str(labels_path))
 
     data = _make_data(num_samples=3, sample_ids=["img_0", "img_1", "img_2"])
     with pytest.raises(ValueError, match="missing entries"):
-        data._load_detection_labels(cfg)
+        DetectionFamily().load_labels(cfg, tensor=data.tensor, sample_ids=data.sample_ids)
 
 
 def test_load_detection_labels_rejects_duplicate_sample_id(tmp_path: Path) -> None:
@@ -120,11 +121,11 @@ def test_load_detection_labels_rejects_duplicate_sample_id(tmp_path: Path) -> No
         {"sample_id": "img_1", "boxes": [], "labels": []},
     ]
     labels_path.write_text(json.dumps(payload))
-    cfg = _stub_cfg(labels_source=str(labels_path), labels_kind="detection")
+    cfg = _stub_cfg(labels_source=str(labels_path))
 
     data = _make_data(num_samples=2, sample_ids=["img_0", "img_1"])
     with pytest.raises(ValueError, match="duplicate sample_id"):
-        data._load_detection_labels(cfg)
+        DetectionFamily().load_labels(cfg, tensor=data.tensor, sample_ids=data.sample_ids)
 
 
 def test_load_detection_labels_rejects_record_missing_sample_id_field(tmp_path: Path) -> None:
@@ -133,22 +134,22 @@ def test_load_detection_labels_rejects_record_missing_sample_id_field(tmp_path: 
         {"boxes": [], "labels": []},  # no sample_id
     ]
     labels_path.write_text(json.dumps(payload))
-    cfg = _stub_cfg(labels_source=str(labels_path), labels_kind="detection")
+    cfg = _stub_cfg(labels_source=str(labels_path))
 
     data = _make_data(num_samples=1, sample_ids=["img_0"])
     with pytest.raises(ValueError, match="missing 'sample_id'"):
-        data._load_detection_labels(cfg)
+        DetectionFamily().load_labels(cfg, tensor=data.tensor, sample_ids=data.sample_ids)
 
 
 def test_load_detection_labels_rejects_wrong_length_when_no_sample_ids(tmp_path: Path) -> None:
     """Without sample_ids, record count must match dataset length exactly."""
     labels_path = tmp_path / "boxes.json"
     _write_detection_labels_json(labels_path)  # 3 records
-    cfg = _stub_cfg(labels_source=str(labels_path), labels_kind="detection")
+    cfg = _stub_cfg(labels_source=str(labels_path))
 
     data = _make_data(num_samples=5)  # dataset bigger than labels
     with pytest.raises(ValueError, match="5 samples"):
-        data._load_detection_labels(cfg)
+        DetectionFamily().load_labels(cfg, tensor=data.tensor, sample_ids=data.sample_ids)
 
 
 def test_load_detection_labels_rejects_mismatched_box_label_counts(tmp_path: Path) -> None:
@@ -156,47 +157,32 @@ def test_load_detection_labels_rejects_mismatched_box_label_counts(tmp_path: Pat
     labels_path.write_text(
         json.dumps([{"sample_id": "x", "boxes": [[0.0, 0.0, 1.0, 1.0]], "labels": [1, 2]}])
     )
-    cfg = _stub_cfg(labels_source=str(labels_path), labels_kind="detection")
+    cfg = _stub_cfg(labels_source=str(labels_path))
 
     data = _make_data(num_samples=1)
     with pytest.raises(ValueError, match="boxes and labels"):
-        data._load_detection_labels(cfg)
+        DetectionFamily().load_labels(cfg, tensor=data.tensor, sample_ids=data.sample_ids)
 
 
 def test_load_detection_labels_rejects_non_list_root(tmp_path: Path) -> None:
     labels_path = tmp_path / "bad.json"
     labels_path.write_text(json.dumps({"not": "a list"}))
-    cfg = _stub_cfg(labels_source=str(labels_path), labels_kind="detection")
+    cfg = _stub_cfg(labels_source=str(labels_path))
 
     data = _make_data(num_samples=1)
     with pytest.raises(ValueError, match="must be a JSON array"):
-        data._load_detection_labels(cfg)
+        DetectionFamily().load_labels(cfg, tensor=data.tensor, sample_ids=data.sample_ids)
 
 
 def test_load_detection_labels_returns_none_when_no_source_configured(tmp_path: Path) -> None:
-    cfg = _stub_cfg(labels_source=None, labels_kind="detection")
+    cfg = _stub_cfg(labels_source=None)
     data = _make_data(num_samples=1)
-    assert data._load_detection_labels(cfg) is None
+    out = DetectionFamily().load_labels(cfg, tensor=data.tensor, sample_ids=data.sample_ids)
+    assert out is None
 
 
 def test_load_detection_labels_raises_when_source_unresolvable(tmp_path: Path) -> None:
-    cfg = _stub_cfg(labels_source=str(tmp_path / "missing.json"), labels_kind="detection")
+    cfg = _stub_cfg(labels_source=str(tmp_path / "missing.json"))
     data = _make_data(num_samples=1)
     with pytest.raises(ValueError, match="could not be resolved"):
-        data._load_detection_labels(cfg)
-
-
-def test_data_init_dispatches_to_detection_loader_for_enum_kind(tmp_path: Path) -> None:
-    """``LabelKind.detection`` and the raw string ``"detection"`` both route to
-    ``_load_detection_labels`` (Python API + YAML callers stay symmetric)."""
-    from raitap.data.types import LabelKind
-
-    labels_path = tmp_path / "boxes.json"
-    _write_detection_labels_json(labels_path)
-
-    for kind_value in (LabelKind.detection, "detection"):
-        cfg = _stub_cfg(labels_source=str(labels_path), labels_kind=kind_value)
-        data = _make_data(num_samples=3)
-        out = data._load_detection_labels(cfg)
-        assert out is not None
-        assert len(out) == 3
+        DetectionFamily().load_labels(cfg, tensor=data.tensor, sample_ids=data.sample_ids)

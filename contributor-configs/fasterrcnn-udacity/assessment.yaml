@@ -17,6 +17,9 @@ hardware: cpu
 
 model:
   source: fasterrcnn_resnet50_fpn_v2
+  # Optional: torchvision detectors auto-infer ``task_kind = detection``. Set
+  # explicitly here so the declaration is visible in the config.
+  task_kind: detection
 
 data:
   name: udacity-dashcam-demo
@@ -30,7 +33,6 @@ data:
   forward_batch_size: 1
   labels:
     source: ${hydra:runtime.cwd}/contributor-configs/fasterrcnn-udacity/labels/udacity-boxes.json
-    kind: detection
 
 metrics:
   _target_: DetectionMetrics

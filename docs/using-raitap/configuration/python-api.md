@@ -97,7 +97,7 @@ Due to how Hydra works, only some fields are typed.
 
 ### Fully typed
 
-- `hardware: Hardware`, `data.labels.encoding: LabelEncoding`, `data.labels.id_strategy: IdStrategy`, `data.labels.kind: LabelKind` — all four are `enum.StrEnum` subclasses.
+- `hardware: Hardware`, `data.labels.encoding: LabelEncoding`, `data.labels.id_strategy: IdStrategy`, `model.task_kind: TaskKind` — all four are `enum.StrEnum` subclasses.
 - The nested dataclass dicts on `AppConfig.transparency` and `AppConfig.robustness` — keys are arbitrary user-chosen strings, values must be `TransparencyConfig` / `RobustnessConfig` instances (or dicts with the right keys).
 - All scalar fields on `ModelConfig`, `DataConfig`, `LabelsConfig`, `MetricsConfig`, `TrackingConfig`, `ReportingConfig` are checked by OmegaConf's structured-config validation when the orchestrator boots.
 

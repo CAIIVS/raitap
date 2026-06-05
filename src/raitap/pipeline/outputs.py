@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, cast, runtime_checkable
 
-from raitap.types import TaskKind
+from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -19,6 +19,9 @@ if TYPE_CHECKING:
     from raitap.robustness.results import RobustnessResult
     from raitap.tracking.base_tracker import BaseTracker, Trackable
     from raitap.transparency.results import ExplanationResult
+    from raitap.types import TaskKind
+else:
+    torch = lazy_import("torch")
 
 
 @runtime_checkable
@@ -106,27 +109,37 @@ class PredictionSummary:
 
 @dataclass(frozen=True)
 class ForwardOutput:
-    """Typed model forward output.
+    """Typed model forward output, keyed by ``task_kind``.
 
-    Replaces the historical ``RunOutputs.forward_output: torch.Tensor`` so
-    detection backends (whose forward produces ``list[dict[str, Tensor]]``)
-    plug into the same downstream phases without overloading the tensor
-    field. Classification path keeps the original tensor shape on
-    :attr:`predictions_tensor`; detection path populates
-    :attr:`detection_predictions`. :attr:`batch_size` is task-agnostic so
-    reporting + UI callers don't need to branch.
+    ``payload`` is the family-owned structured output: a logits tensor for
+    classification, a ``list[dict[str, Tensor]]`` for detection, etc. The
+    owning :class:`~raitap.task_families.TaskFamily` validates it at
+    construction (recovering the old ``__post_init__`` invariant). Typed
+    accessors (:meth:`as_classification`, :meth:`as_detection`) narrow the
+    union for the dense classification + detection call sites that still want
+    the concrete type. ``batch_size`` stays task-agnostic.
     """
 
     task_kind: TaskKind
     batch_size: int
-    predictions_tensor: torch.Tensor | None = None
-    detection_predictions: list[dict[str, torch.Tensor]] | None = None
+    payload: object
 
     def __post_init__(self) -> None:
-        if self.task_kind is TaskKind.classification and self.predictions_tensor is None:
-            raise ValueError("ForwardOutput(task_kind=classification) requires predictions_tensor.")
-        if self.task_kind is TaskKind.detection and self.detection_predictions is None:
-            raise ValueError("ForwardOutput(task_kind=detection) requires detection_predictions.")
+        from raitap.task_families import resolve_task_family
+
+        resolve_task_family(self.task_kind).validate_payload(self.payload)
+
+    def as_classification(self) -> torch.Tensor:
+        """Return the payload as a classification logits tensor."""
+        if not isinstance(self.payload, torch.Tensor):
+            raise TypeError(f"ForwardOutput(task_kind={self.task_kind}) payload is not a tensor.")
+        return self.payload
+
+    def as_detection(self) -> list[dict[str, torch.Tensor]]:
+        """Return the payload as detection predictions."""
+        if not isinstance(self.payload, list):
+            raise TypeError(f"ForwardOutput(task_kind={self.task_kind}) payload is not a list.")
+        return self.payload
 
 
 @dataclass(frozen=True)

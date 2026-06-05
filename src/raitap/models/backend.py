@@ -185,9 +185,19 @@ class TorchBackend(ModelBackend):
 
     @staticmethod
     def _infer_task_kind(model: nn.Module) -> TaskKind:
-        if _is_torchvision_detection_model(model):
-            return TaskKind.detection
-        return TaskKind.classification
+        from raitap.task_families import TASK_FAMILIES
+
+        matches = [
+            family.kind
+            for family in TASK_FAMILIES.values()
+            if getattr(family, "matches_model", None) and family.matches_model(model)
+        ]
+        if len(matches) > 1:
+            raise ValueError(
+                f"Model matches multiple task families {sorted(k.value for k in matches)}; "
+                "set model.task_kind explicitly to disambiguate."
+            )
+        return matches[0] if matches else TaskKind.classification
 
     @property
     def task_kind(self) -> TaskKind:

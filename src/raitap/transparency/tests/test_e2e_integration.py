@@ -15,7 +15,7 @@ from raitap.models.backend import TorchBackend
 from raitap.transparency import ExplanationResult, VisualisationResult
 from raitap.transparency.contracts import InputSpec
 from raitap.transparency.explainers import CaptumExplainer
-from raitap.transparency.factory import Explanation
+from raitap.transparency.phase import prepare_explainer
 from raitap.transparency.results import ConfiguredVisualiser
 from raitap.transparency.visualisers import (
     CaptumImageVisualiser,
@@ -180,18 +180,37 @@ def test_config_helpers_support_visualiser_for_loop(
     set_output_root(config, tmp_path)
 
     model = SimpleNamespace(backend=TorchBackend(simple_cnn))
-    explanation: ExplanationResult = Explanation(
+    config.model = SimpleNamespace(class_names=None)  # type: ignore[attr-defined]
+    data = SimpleNamespace(tensor=sample_images, sample_ids=None)
+    prepared = prepare_explainer(
         config,
         "test_explainer",
-        model,  # type: ignore[arg-type]
-        sample_images,
+        cast("Any", model),
+        resolved_preprocessing=None,
         input_metadata=InputSpec(
             kind="image",
             shape=tuple(sample_images.shape),
             layout="NCHW",
             metadata={"kind": "image", "layout": "NCHW"},
         ),
-        target=0,
+        data=cast("Any", data),
+    )
+    backend = cast("Any", prepared.backend)
+    explanation: ExplanationResult = cast(
+        "ExplanationResult",
+        prepared.explainer.explain(  # type: ignore[attr-defined]
+            backend.as_model_for_explanation(),
+            sample_images,
+            backend=backend,
+            run_dir=prepared.base_run_dir,
+            experiment_name=prepared.experiment_name,
+            explainer_target=prepared.explainer_target,
+            explainer_name=prepared.name,
+            visualisers=prepared.visualisers,
+            raitap_kwargs=prepared.raitap_kwargs,
+            call_provenance=prepared.call_provenance,
+            **prepared.merged_kwargs,
+        ),
     )
     visualisations = explanation._visualise()
 

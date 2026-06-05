@@ -25,7 +25,7 @@ def _make_detection_forward_output(num_samples: int = 2) -> ForwardOutput:
     return ForwardOutput(
         task_kind=TaskKind.detection,
         batch_size=num_samples,
-        detection_predictions=[
+        payload=[
             {
                 "boxes": torch.zeros((0, 4)),
                 "scores": torch.zeros(0),
