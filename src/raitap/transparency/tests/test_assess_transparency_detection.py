@@ -561,3 +561,93 @@ def test_assess_transparency_detection_skips_when_no_explainers(tmp_path: Path) 
         resolved_preprocessing=None,
     )
     assert explanations == []
+
+
+def test_assess_transparency_detection_handles_model_block_without_class_names(
+    tmp_path: Path,
+) -> None:
+    """Regression for #240: a struct-mode ``model:`` block that omits
+    ``class_names`` must not crash the transparency phase.
+
+    The real pipeline hands ``config.model`` as a YAML-loaded struct-mode
+    ``DictConfig`` (``object_type=dict``). When the block never declares the
+    optional ``class_names`` key, the unconditional attribute read raised
+    ``ConfigAttributeError`` before ``resolve_category_names`` could fall back
+    to ``backend.category_names``. The read must be defensive so the optional
+    field + backend fallback work as designed.
+    """
+    from omegaconf import OmegaConf
+
+    config = AppConfig(experiment_name="no-class-names")
+    set_output_root(config, tmp_path)
+    # Mirror a YAML-loaded model block: a plain struct-mode DictConfig that
+    # never declares ``class_names`` (object_type=dict, struct=True).
+    model_block = OmegaConf.create({"source": "fasterrcnn_resnet50_fpn_v2"})
+    OmegaConf.set_struct(model_block, True)
+    config.model = model_block  # type: ignore[assignment]
+    config.transparency = {
+        "ig_det": TransparencyConfig(
+            _target_="CaptumExplainer",
+            algorithm="IntegratedGradients",
+            call={"target": 0},
+            raitap={"detection": {"score_threshold": 0.5, "max_boxes": 5}},
+            visualisers=[{"_target_": "DetectionImageVisualiser"}],
+        )
+    }
+
+    model = _FakeModel()
+    data = _FakeData(num_samples=1)
+    forward = _make_detection_forward_output(num_samples=1)
+
+    def fake_explain_detection(**kwargs: Any) -> Iterator[ExplanationResult]:
+        from raitap.transparency.results import ExplanationResult as _Result
+
+        r = _Result.__new__(_Result)
+        r.attributions = torch.zeros(1, 3, 64, 64)
+        r.inputs = torch.zeros(1, 3, 64, 64)
+        r.visualisers = []
+        yield r
+
+    class _FakeExplainer:
+        algorithm = "IntegratedGradients"
+
+        def check_backend_compat(self, backend: object) -> None:
+            return None
+
+    with (
+        patch(
+            "raitap.transparency.phase.Explanation",
+            side_effect=AssertionError("classification path should not run"),
+        ),
+        patch(
+            "raitap.transparency.factory.create_explainer",
+            return_value=(_FakeExplainer(), "raitap.transparency.CaptumExplainer"),
+        ),
+        patch("raitap.transparency.factory.create_visualisers", return_value=[]),
+        patch(
+            "raitap.transparency.factory.check_explainer_visualiser_compat",
+            return_value=None,
+        ),
+        patch(
+            "raitap.transparency.factory.check_explainer_visualiser_payload_compat",
+            return_value=None,
+        ),
+        patch(
+            "raitap.transparency.factory.check_explainer_visualiser_semantic_compat",
+            return_value=None,
+        ),
+        patch(
+            "raitap.transparency.explain_detection.explain_detection",
+            side_effect=fake_explain_detection,
+        ),
+    ):
+        explanations = assess_transparency(
+            config,
+            model,  # type: ignore[arg-type]
+            data,  # type: ignore[arg-type]
+            forward,
+            input_metadata=None,
+            resolved_preprocessing=None,
+        )
+
+    assert len(explanations) == 1

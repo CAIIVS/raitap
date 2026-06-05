@@ -2660,3 +2660,82 @@ def test_overlay_draws_index_tags_and_legend_below_image() -> None:
     # no long per-box label is stamped beside the boxes (only tags + legend)
     assert not any(t.startswith("#0 kite") for t in texts if "\n" not in t)
     plt.close(fig)
+
+
+def test_overlay_dedups_boxes_repeated_across_explainers() -> None:
+    """Regression for #241: each physical box is explained by every explainer, so
+    ``outputs.explanations`` holds one result per (box x explainer). The overlay
+    must draw each box ONCE — one rectangle, one ``#i`` tag, one legend line —
+    not once per explainer, and the drawn set must match the legend 1:1.
+    """
+    from matplotlib.patches import Rectangle
+
+    # Two physical boxes, each explained by three explainers => three distinct
+    # DetectionBox instances per box, all sharing one display_index. Distinct
+    # instances (not the same object) prove the dedup keys on display_index value,
+    # not object identity.
+    explanations: list[_DetExpl] = []
+    for _ in range(3):  # IntegratedGradients / LayerGradCam / SHAP
+        explanations.append(_DetExpl(_det_box(display_index=0, label_name="horse", score=0.85), 0))
+        explanations.append(
+            _DetExpl(_det_box(display_index=1, label_name="stop sign", score=0.73), 0)
+        )
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.imshow(torch.zeros(50, 50, 3).numpy())
+    _overlay_detection_boxes(
+        fig,
+        outputs=_DetOutputs(explanations),  # type: ignore[arg-type]
+        sample_index=0,
+    )
+
+    texts = [t.get_text() for t in ax.texts]
+    legend = next(t for t in texts if "\n" in t)
+    legend_lines = legend.split("\n")
+    tags = [t for t in texts if "\n" not in t]  # compact #i image tags
+    rects = [p for p in ax.patches if isinstance(p, Rectangle)]
+
+    # Each physical box drawn once; legend reflects exactly the drawn set (1:1).
+    assert len(rects) == len(legend_lines) == len(tags) == 2
+    assert legend_lines == ["#0 horse (0.85)", "#1 stop sign (0.73)"]
+    assert sorted(tags) == ["#0", "#1"]
+    plt.close(fig)
+
+
+def test_build_report_handles_reporting_block_without_sample_selection(
+    tmp_path: Path,
+) -> None:
+    """Regression (sibling of #240): a struct-mode ``reporting:`` block that
+    omits the optional ``sample_selection`` key must not crash report building.
+
+    Like ``model.class_names`` in #240, ``build_report`` read
+    ``reporting_cfg.sample_selection`` unconditionally. When ``config.reporting``
+    arrives as a YAML-loaded struct-mode ``DictConfig`` (``object_type=dict``)
+    that never declares the key, the attribute access raised
+    ``ConfigAttributeError`` before ``resolve_report_sample_selection`` could
+    apply its default. The read must be defensive, matching the ``getattr``
+    guard the orchestrator already uses for the same key.
+    """
+    config = AppConfig(experiment_name="no-sample-selection")
+    set_output_root(config, tmp_path)
+    # Build a struct-mode reporting block carrying every ReportingConfig field
+    # EXCEPT ``sample_selection`` — isolates the failure to the line-51 read.
+    reporting_dict = OmegaConf.to_container(
+        OmegaConf.structured(ReportingConfig(_target_="PDFReporter", filename="report.pdf")),
+        resolve=True,
+    )
+    assert isinstance(reporting_dict, dict)
+    reporting_dict.pop("sample_selection", None)
+    reporting_block = OmegaConf.create(reporting_dict)
+    OmegaConf.set_struct(reporting_block, True)
+    config.reporting = reporting_block  # type: ignore[assignment]
+
+    outputs = _run_outputs(
+        forward_output=_fo(torch.tensor([[0.1, 0.9]])),
+        sample_ids=["a"],
+    )
+
+    # Must not raise ConfigAttributeError on the optional-key read.
+    report = build_report(config, outputs)
+    assert report is not None

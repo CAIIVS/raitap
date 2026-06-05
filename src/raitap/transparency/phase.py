@@ -188,8 +188,12 @@ def _assess_transparency_detection(
 
     explanations: list[ExplanationResult] = []
     backend = _require_model_backend(model)
+    # ``config.model`` is a struct-mode DictConfig; when the YAML omits the
+    # optional ``class_names`` key an unconditional read raises
+    # ``ConfigAttributeError``. Read defensively so the optional field +
+    # backend fallback in ``resolve_category_names`` work as designed (#240).
     category_names = resolve_category_names(
-        config.model.class_names,
+        getattr(config.model, "class_names", None),
         backend.category_names,
     )
     data_labels = getattr(data, "labels", None)
