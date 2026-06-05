@@ -5,11 +5,12 @@ from pathlib import Path
 from typing import Any
 
 from raitap.configs import cfg_to_dict
+from raitap.data.types import MODALITY_EXTENSIONS, InputModality
 
 from .samples import SAMPLE_SOURCES
 
-_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
-_TABULAR_EXTENSIONS = {".csv", ".tsv", ".parquet"}
+_IMAGE_EXTENSIONS = MODALITY_EXTENSIONS[InputModality.image]
+_TABULAR_EXTENSIONS = MODALITY_EXTENSIONS[InputModality.tabular]
 
 
 @dataclass(frozen=True)
@@ -39,10 +40,19 @@ def infer_data_input_metadata(config: object, data: object) -> DataInputMetadata
             metadata=dict(explicit_mapping),
         )
 
+    shape = shape_tuple(getattr(getattr(data, "tensor", None), "shape", None))
+
+    modality = getattr(data, "input_modality", None)
+    if modality is InputModality.image:
+        return DataInputMetadata(kind="image", shape=shape, layout="NCHW")
+    if modality is InputModality.tabular:
+        return DataInputMetadata(kind="tabular", shape=shape, layout="(B,F)")
+
+    # Fallback for callers with no recorded modality (e.g. direct/test use):
+    # sniff the source path as before.
     source = str(
         getattr(data, "source", None) or getattr(getattr(config, "data", None), "source", "")
     )
-    shape = shape_tuple(getattr(getattr(data, "tensor", None), "shape", None))
     if is_image_source(source):
         return DataInputMetadata(kind="image", shape=shape, layout="NCHW")
     if is_tabular_source(source):
@@ -56,7 +66,7 @@ def _case_insensitive_glob(ext: str) -> str:
     return "*" + "".join(f"[{c.lower()}{c.upper()}]" if c.isalpha() else c for c in ext)
 
 
-def _has_extension_recursive(path: Path, extensions: set[str]) -> bool:
+def _has_extension_recursive(path: Path, extensions: frozenset[str]) -> bool:
     """True if any file under ``path`` (recursively) has a matching extension.
 
     Case-insensitive: ``IMG_001.JPG`` matches ``.jpg``. Iterates per-extension
