@@ -3,7 +3,6 @@ from __future__ import annotations
 import pytest
 import torch
 
-import raitap.task_families.classification  # noqa: F401 - register the family
 from raitap.task_families.registry import resolve_task_family
 from raitap.transparency.contracts import ExplanationOutputSpace
 from raitap.types import TaskKind

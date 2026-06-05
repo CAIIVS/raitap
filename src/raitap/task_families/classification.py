@@ -65,8 +65,55 @@ class ClassificationFamily:
                 torch.cuda.empty_cache()
         return torch.cat(chunks, dim=0)
 
-    def explain(self, ctx: ExplainContext) -> list:  # Task 7
-        raise NotImplementedError
+    def explain(self, ctx: ExplainContext) -> list:
+        """Build one ``ExplanationResult`` for the whole batch.
+
+        Resolves the ``auto_pred`` runtime target from the classification
+        logits (device-moving just that tensor, exactly as the old single
+        full-dict ``_prepare_kwargs`` did), enforces the sample-names length
+        invariant, then drives the explainer once over the dense input tensor.
+        """
+        from raitap.transparency.phase import resolve_explainer_runtime_kwargs
+        from raitap.utils.errors import SampleNamesLengthError
+
+        prepared = ctx.prepared
+        inputs = ctx.data.tensor
+
+        runtime_kwargs = resolve_explainer_runtime_kwargs(
+            prepared.explainer_config,
+            forward_output=ctx.forward_output.as_classification(),
+        )
+        if runtime_kwargs:
+            # Move only the runtime target tensor — ``prepared.merged_kwargs``
+            # was already prepared by ``prepare_explainer``. Each tensor is
+            # device-moved exactly once, matching the pre-refactor behaviour.
+            runtime_kwargs = prepared.backend._prepare_kwargs(runtime_kwargs)
+
+        resolved_sample_names = prepared.raitap_kwargs.get("sample_names")
+        if resolved_sample_names is not None:
+            resolved_list = list(resolved_sample_names)
+            if resolved_list and len(resolved_list) != int(inputs.shape[0]):
+                raise SampleNamesLengthError(
+                    got=len(resolved_list),
+                    expected=int(inputs.shape[0]),
+                    source="raitap.sample_names",
+                )
+
+        result = prepared.explainer.explain(
+            prepared.backend.as_model_for_explanation(),
+            inputs,
+            backend=prepared.backend,
+            run_dir=prepared.base_run_dir,
+            experiment_name=prepared.experiment_name,
+            explainer_target=prepared.explainer_target,
+            explainer_name=prepared.name,
+            visualisers=prepared.visualisers,
+            raitap_kwargs=prepared.raitap_kwargs,
+            call_provenance=prepared.call_provenance,
+            **{**prepared.merged_kwargs, **runtime_kwargs},
+        )
+        result._visualise()  # populates result.visualisations (was run_adapters)
+        return [result]
 
     def metrics_inputs(self, forward_output: Any, labels: Any) -> Any:  # Task 9
         raise NotImplementedError

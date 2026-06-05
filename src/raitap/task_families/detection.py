@@ -73,7 +73,78 @@ class DetectionFamily:
         return detection_predictions
 
     def explain(self, ctx: ExplainContext) -> list:
-        raise NotImplementedError
+        """Yield one ``ExplanationResult`` per detected box (K-loop).
+
+        Resolves the id->name table once (explicit config > backend), drives
+        :func:`explain_detection` over the pre-computed predictions, and enriches
+        each raw box with the predicted name + (optional) ground-truth match
+        before populating its report visualisations.
+        """
+        from raitap import raitap_log
+        from raitap.transparency.detection_labels import (
+            enrich_detection_box,
+            resolve_category_names,
+        )
+        from raitap.transparency.explain_detection import (
+            _DEFAULT_IOU_THRESHOLD,
+            explain_detection,
+        )
+
+        prepared = ctx.prepared
+        backend = prepared.backend
+
+        category_names = resolve_category_names(
+            prepared.class_names,
+            backend.category_names,
+        )
+        data_labels = getattr(ctx.data, "labels", None)
+        detection_ground_truth = data_labels if isinstance(data_labels, list) else None
+
+        raitap_cfg = prepared.raitap_kwargs
+        ground_truth_iou_threshold = float(
+            raitap_cfg.get("detection", {}).get("iou_threshold", _DEFAULT_IOU_THRESHOLD)
+        )
+
+        explanations: list = []
+        for result in explain_detection(
+            inputs=ctx.data.tensor,
+            forward_output=ctx.forward_output,
+            backend=backend,
+            explainer=prepared.explainer,
+            explainer_target=prepared.explainer_target,
+            explainer_name=prepared.name,
+            visualisers=prepared.visualisers,
+            base_run_dir=prepared.base_run_dir,
+            raitap_kwargs=raitap_cfg,
+            call_kwargs=prepared.merged_kwargs,
+            call_provenance=prepared.call_provenance,
+        ):
+            if result.detection_box is not None:
+                sample_index = result.original_sample_index
+                ground_truth_for_sample = None
+                if detection_ground_truth is not None and sample_index is not None:
+                    if sample_index < len(detection_ground_truth):
+                        ground_truth_for_sample = detection_ground_truth[sample_index]
+                    else:
+                        # Loader guarantees len(detection_ground_truth) == n_samples, so this
+                        # only fires on a genuine prediction/label misalignment;
+                        # surface it instead of silently skipping the GT match.
+                        raitap_log.warn(
+                            "Detection ground truth has %d entries but an explanation "
+                            "references sample_index=%d; rendering this box without a "
+                            "true label (prediction/label misalignment).",
+                            len(detection_ground_truth),
+                            sample_index,
+                        )
+                result.detection_box = enrich_detection_box(
+                    result.detection_box,
+                    category_names=category_names,
+                    ground_truth_for_sample=ground_truth_for_sample,
+                    iou_threshold=ground_truth_iou_threshold,
+                )
+            result._visualise()  # populates result.visualisations
+            explanations.append(result)
+        return explanations
 
     def metrics_inputs(self, forward_output: Any, labels: Any) -> Any:
         raise NotImplementedError

@@ -2,23 +2,28 @@
 
 Co-located with the module it drives (issue #243 follow-up): the phase class,
 its work function, and runtime-kwarg resolution live here; the result type +
-report rendering live in :mod:`raitap.transparency.report`. The classification
-path runs every explainer through the shared
-:func:`~raitap.pipeline.phases.base.run_adapters` loop; the detection path is a
-per-box K-loop and stays bespoke.
+report rendering live in :mod:`raitap.transparency.report`.
+
+``assess_transparency`` is a uniform shell: it resolves the ``TaskFamily`` for
+the forward output's kind, runs the shared :func:`prepare_explainer` setup once
+per explainer, then delegates the per-kind scope strategy to
+``family.explain``. Classification builds one ``ExplanationResult`` per
+explainer; detection runs a per-box K-loop. Neither branch lives here anymore.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 from raitap import raitap_log
 from raitap.configs import cfg_to_dict
 from raitap.metrics import metrics_prediction_pair
-from raitap.pipeline.phases.base import AssessmentPhase, run_adapters
+from raitap.pipeline.phases.base import AssessmentPhase
+from raitap.task_families import ExplainContext, resolve_task_family
 from raitap.transparency.factory import Explanation
 from raitap.transparency.report import TransparencyPhaseResult
-from raitap.types import TaskKind
+from raitap.utils.diagnostics import Module
 
 if TYPE_CHECKING:
     import torch
@@ -31,6 +36,15 @@ if TYPE_CHECKING:
     from raitap.pipeline.phases.base import PhaseContext
     from raitap.transparency.contracts import InputSpec
     from raitap.transparency.results import ExplanationResult
+
+__all__ = [
+    "Explanation",
+    "PreparedExplainer",
+    "TransparencyPhase",
+    "assess_transparency",
+    "prepare_explainer",
+    "resolve_explainer_runtime_kwargs",
+]
 
 
 class TransparencyPhase(AssessmentPhase):
@@ -64,7 +78,7 @@ def resolve_explainer_runtime_kwargs(
 
     Accepts a raw classification logits tensor (not the wrapping
     :class:`ForwardOutput`) so the helper stays a pure tensor operation;
-    ``assess_transparency`` is responsible for unwrapping.
+    ``ClassificationFamily.explain`` is responsible for unwrapping.
     """
     raw_config = cfg_to_dict(explainer_config)
     call_config = raw_config.get("call")
@@ -74,6 +88,141 @@ def resolve_explainer_runtime_kwargs(
         return {}
     predictions, _ = metrics_prediction_pair(forward_output)
     return {"target": predictions.detach()}
+
+
+@dataclass(frozen=True)
+class PreparedExplainer:
+    """Per-explainer setup shared by every task family's ``explain``.
+
+    ``prepare_explainer`` runs the full config-derived setup once (instantiate
+    explainer + visualisers, compat checks, baseline routing, call-data-source
+    resolution, backend kwarg prep, run dir). The family-specific scope strategy
+    then consumes these frozen fields.
+
+    ``experiment_name``, ``explainer_config`` and ``class_names`` are
+    family-specific seams: classification passes ``experiment_name`` to the
+    explainer and re-reads ``explainer_config`` to resolve the ``auto_pred``
+    runtime target; detection reads ``class_names`` (the configured id->name
+    table) to enrich each detected box. Neither family uses the other's seam.
+    """
+
+    name: str
+    explainer: object
+    explainer_target: object
+    visualisers: list
+    merged_kwargs: dict
+    raitap_kwargs: dict
+    call_provenance: dict
+    base_run_dir: object
+    backend: object
+    experiment_name: str
+    explainer_config: object
+    class_names: object
+
+
+def prepare_explainer(
+    config: AppConfig,
+    name: str,
+    model: Model,
+    *,
+    resolved_preprocessing: ResolvedPreprocessing | None,
+    input_metadata: InputSpec | None,
+    data: Data,
+) -> PreparedExplainer:
+    """Run the per-explainer setup shared by every task family.
+
+    Instantiates the explainer + visualisers, runs the three compat checks plus
+    ``explainer.check_backend_compat``, applies the config baseline, resolves
+    call-data-source kwargs (with the per-image transform), prepares the backend
+    kwargs, and resolves the run dir. Returns a frozen :class:`PreparedExplainer`.
+
+    This is the single home for the setup that the classification and detection
+    paths used to duplicate. The ``auto_pred`` runtime-target rewrite is NOT done
+    here — it depends on the forward output and is a classification-only concern,
+    so it stays in ``ClassificationFamily.explain``.
+    """
+    from raitap.configs import resolve_run_dir
+    from raitap.configs.adapter_factory import resolve_per_image_transform
+    from raitap.transparency.baselines import apply_config_baseline
+    from raitap.transparency.factory import (
+        _PARSED_EXPLAINER_CONFIG_CACHE,
+        _parse_explainer_config,
+        _require_model_backend,
+        check_explainer_visualiser_compat,
+        check_explainer_visualiser_payload_compat,
+        check_explainer_visualiser_semantic_compat,
+        create_explainer,
+        create_visualisers,
+        resolve_call_data_sources,
+    )
+
+    backend = _require_model_backend(model)
+    explainer_config = config.transparency[name]
+    parsed = _parse_explainer_config(explainer_config)
+    algorithm = str(parsed.algorithm or "")
+    cache_key = id(explainer_config)
+    _PARSED_EXPLAINER_CONFIG_CACHE[cache_key] = parsed
+    try:
+        explainer, explainer_target = create_explainer(explainer_config)
+        viz_list = create_visualisers(explainer_config)
+        check_explainer_visualiser_compat(explainer_target, algorithm, viz_list)
+        check_explainer_visualiser_payload_compat(explainer, explainer_target, viz_list)
+        check_explainer_visualiser_semantic_compat(
+            explainer,
+            explainer_target,
+            viz_list,
+            task_kind=backend.task_kind,
+        )
+        explainer.check_backend_compat(backend)
+
+        call_from_config = dict(parsed.call)
+        raitap_cfg = dict(parsed.raitap)
+        if data.sample_ids is not None:
+            raitap_cfg["sample_ids"] = data.sample_ids
+            raitap_cfg["sample_names"] = data.sample_ids
+        if input_metadata is not None:
+            raitap_cfg["input_metadata"] = input_metadata
+
+        call_from_config = apply_config_baseline(
+            explainer=explainer,
+            call_kwargs=call_from_config,
+            raitap_kwargs=raitap_cfg,
+        )
+
+        call_provenance: dict[str, dict[str, Any]] = {}
+        merged_kwargs = resolve_call_data_sources(
+            call_from_config,
+            log_label="call",
+            per_image_transform=resolve_per_image_transform(
+                config,
+                resolved_preprocessing=resolved_preprocessing,
+            ),
+            provenance_out=call_provenance,
+        )
+        merged_kwargs = backend._prepare_kwargs(merged_kwargs)
+
+        base_run_dir = resolve_run_dir(config, subdir=f"transparency/{name}")
+    finally:
+        _PARSED_EXPLAINER_CONFIG_CACHE.pop(cache_key, None)
+
+    return PreparedExplainer(
+        name=name,
+        explainer=explainer,
+        explainer_target=explainer_target,
+        visualisers=viz_list,
+        merged_kwargs=merged_kwargs,
+        raitap_kwargs=raitap_cfg,
+        call_provenance=call_provenance,
+        base_run_dir=base_run_dir,
+        backend=backend,
+        experiment_name=str(getattr(config, "experiment_name", "")),
+        explainer_config=explainer_config,
+        # ``config.model`` is a struct-mode DictConfig; when the YAML omits the
+        # optional ``class_names`` key an unconditional read raises
+        # ``ConfigAttributeError``. Read defensively so the optional field +
+        # backend fallback in ``resolve_category_names`` work as designed (#240).
+        class_names=getattr(config.model, "class_names", None),
+    )
 
 
 def assess_transparency(
@@ -87,207 +236,35 @@ def assess_transparency(
 ) -> list[ExplanationResult]:
     """Run every explainer declared under ``config.transparency``.
 
-    Returns the explanation results. Each explanation owns its report
-    visualisations (``ExplanationResult.visualisations``), populated via the
-    shared :func:`~raitap.pipeline.phases.base.run_adapters` loop (classification)
-    or per-result inside the detection K-loop.
+    Resolves the ``TaskFamily`` for the forward output's kind, runs the shared
+    :func:`prepare_explainer` setup once per explainer, then delegates the
+    per-kind scope strategy to ``family.explain``. Each explanation owns its
+    report visualisations (``ExplanationResult.visualisations``).
     """
-    explainers = list((getattr(config, "transparency", None) or {}).items())
-    if not explainers:
+    explainer_names = list((getattr(config, "transparency", None) or {}).keys())
+    if not explainer_names:
         return []
 
-    if forward_output.task_kind is TaskKind.detection:
-        return _assess_transparency_detection(
-            config=config,
-            model=model,
-            data=data,
-            forward_output=forward_output,
-            input_metadata=input_metadata,
-            resolved_preprocessing=resolved_preprocessing,
-            explainer_names=[name for name, _ in explainers],
-        )
-
-    # ``auto_pred`` only makes sense for classification logits; for other
-    # task kinds we skip the rewriting and let the explainer use its
-    # configured target as-is.
-    predictions_tensor = (
-        forward_output.as_classification()
-        if forward_output.task_kind is TaskKind.classification
-        else None
+    suffix = "s" if len(explainer_names) > 1 else ""
+    raitap_log.info(
+        "Performing transparency assessment%s (%d)...",
+        suffix,
+        len(explainer_names),
+        module=Module["transparency"],
     )
-    # Detection routed away above, so this is the dense-NCHW classification
-    # path; narrow the ``Data.tensor`` union.
-    tensor = cast("torch.Tensor", data.tensor)
 
-    def _build(name: str) -> ExplanationResult:
-        runtime_kwargs: dict[str, Any] = {}
-        if predictions_tensor is not None:
-            runtime_kwargs = resolve_explainer_runtime_kwargs(
-                config.transparency[name],
-                forward_output=predictions_tensor,
-            )
-        return Explanation(
+    family = resolve_task_family(forward_output.task_kind)
+    results: list[ExplanationResult] = []
+    for name in explainer_names:
+        prepared = prepare_explainer(
             config,
             name,
             model,
-            tensor,
-            input_metadata=input_metadata,
-            sample_ids=data.sample_ids,
-            sample_names=data.sample_ids,
             resolved_preprocessing=resolved_preprocessing,
-            **runtime_kwargs,
+            input_metadata=input_metadata,
+            data=data,
         )
-
-    return run_adapters(
-        [name for name, _ in explainers],
-        log_label="transparency",
-        build_one=_build,
-    )
-
-
-def _assess_transparency_detection(
-    *,
-    config: AppConfig,
-    model: Model,
-    data: Data,
-    forward_output: ForwardOutput,
-    input_metadata: InputSpec | None,
-    resolved_preprocessing: ResolvedPreprocessing | None,
-    explainer_names: list[str],
-) -> list[ExplanationResult]:
-    """Detection-task branch — one ExplanationResult per detected box.
-
-    Replicates the per-explainer setup that
-    :class:`raitap.transparency.factory.Explanation` performs for
-    classification (create explainer + visualisers, compat checks, resolve
-    backend + run_dir), then delegates the K-loop to
-    :func:`explain_detection`.
-    """
-    from raitap.configs import resolve_run_dir
-    from raitap.configs.adapter_factory import resolve_per_image_transform
-    from raitap.transparency.baselines import apply_config_baseline
-    from raitap.transparency.detection_labels import (
-        enrich_detection_box,
-        resolve_category_names,
-    )
-    from raitap.transparency.explain_detection import (
-        _DEFAULT_IOU_THRESHOLD,
-        explain_detection,
-    )
-    from raitap.transparency.factory import (
-        _PARSED_EXPLAINER_CONFIG_CACHE,
-        _parse_explainer_config,
-        _require_model_backend,
-        check_explainer_visualiser_compat,
-        check_explainer_visualiser_payload_compat,
-        check_explainer_visualiser_semantic_compat,
-        create_explainer,
-        create_visualisers,
-        resolve_call_data_sources,
-    )
-
-    explanations: list[ExplanationResult] = []
-    backend = _require_model_backend(model)
-    # ``config.model`` is a struct-mode DictConfig; when the YAML omits the
-    # optional ``class_names`` key an unconditional read raises
-    # ``ConfigAttributeError``. Read defensively so the optional field +
-    # backend fallback in ``resolve_category_names`` work as designed (#240).
-    category_names = resolve_category_names(
-        getattr(config.model, "class_names", None),
-        backend.category_names,
-    )
-    data_labels = getattr(data, "labels", None)
-    detection_ground_truth = data_labels if isinstance(data_labels, list) else None
-
-    for name in explainer_names:
-        explainer_config = config.transparency[name]
-        parsed = _parse_explainer_config(explainer_config)
-        algorithm = str(parsed.algorithm or "")
-        cache_key = id(explainer_config)
-        _PARSED_EXPLAINER_CONFIG_CACHE[cache_key] = parsed
-        try:
-            explainer, explainer_target = create_explainer(explainer_config)
-            viz_list = create_visualisers(explainer_config)
-            check_explainer_visualiser_compat(explainer_target, algorithm, viz_list)
-            check_explainer_visualiser_payload_compat(explainer, explainer_target, viz_list)
-            check_explainer_visualiser_semantic_compat(
-                explainer,
-                explainer_target,
-                viz_list,
-                task_kind=backend.task_kind,
-            )
-            explainer.check_backend_compat(backend)
-
-            call_from_config = dict(parsed.call)
-            raitap_cfg = dict(parsed.raitap)
-            ground_truth_iou_threshold = float(
-                raitap_cfg.get("detection", {}).get("iou_threshold", _DEFAULT_IOU_THRESHOLD)
-            )
-            if data.sample_ids is not None:
-                raitap_cfg["sample_ids"] = data.sample_ids
-                raitap_cfg["sample_names"] = data.sample_ids
-            if input_metadata is not None:
-                raitap_cfg["input_metadata"] = input_metadata
-
-            call_from_config = apply_config_baseline(
-                explainer=explainer,
-                call_kwargs=call_from_config,
-                raitap_kwargs=raitap_cfg,
-            )
-
-            call_provenance: dict[str, dict[str, Any]] = {}
-            merged_kwargs = resolve_call_data_sources(
-                call_from_config,
-                log_label="call",
-                per_image_transform=resolve_per_image_transform(
-                    config,
-                    resolved_preprocessing=resolved_preprocessing,
-                ),
-                provenance_out=call_provenance,
-            )
-            merged_kwargs = backend._prepare_kwargs(merged_kwargs)
-
-            base_run_dir = resolve_run_dir(config, subdir=f"transparency/{name}")
-
-            for result in explain_detection(
-                inputs=data.tensor,
-                forward_output=forward_output,
-                backend=backend,
-                explainer=explainer,
-                explainer_target=explainer_target,
-                explainer_name=name,
-                visualisers=viz_list,
-                base_run_dir=base_run_dir,
-                raitap_kwargs=raitap_cfg,
-                call_kwargs=merged_kwargs,
-                call_provenance=call_provenance,
-            ):
-                if result.detection_box is not None:
-                    sample_index = result.original_sample_index
-                    ground_truth_for_sample = None
-                    if detection_ground_truth is not None and sample_index is not None:
-                        if sample_index < len(detection_ground_truth):
-                            ground_truth_for_sample = detection_ground_truth[sample_index]
-                        else:
-                            # Loader guarantees len(detection_ground_truth) == n_samples, so this
-                            # only fires on a genuine prediction/label misalignment;
-                            # surface it instead of silently skipping the GT match.
-                            raitap_log.warn(
-                                "Detection ground truth has %d entries but an explanation "
-                                "references sample_index=%d; rendering this box without a "
-                                "true label (prediction/label misalignment).",
-                                len(detection_ground_truth),
-                                sample_index,
-                            )
-                    result.detection_box = enrich_detection_box(
-                        result.detection_box,
-                        category_names=category_names,
-                        ground_truth_for_sample=ground_truth_for_sample,
-                        iou_threshold=ground_truth_iou_threshold,
-                    )
-                result._visualise()  # populates result.visualisations
-                explanations.append(result)
-        finally:
-            _PARSED_EXPLAINER_CONFIG_CACHE.pop(cache_key, None)
-
-    return explanations
+        results += family.explain(
+            ExplainContext(prepared=prepared, forward_output=forward_output, data=data)
+        )
+    return results

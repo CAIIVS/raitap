@@ -37,6 +37,9 @@ class _BackendStub:
         del inputs
         return self._output
 
+    def as_model_for_explanation(self) -> object:
+        return torch.nn.Identity()
+
 
 def _minimal_run_config() -> SimpleNamespace:
     return SimpleNamespace(
@@ -86,12 +89,34 @@ def test_run_without_tracking_passes_ground_truth_labels_to_metrics(
     )
     captured: dict[str, torch.Tensor] = {}
 
-    class DummyExplanation:
-        def __init__(self, *_args: object, **_kwargs: object) -> None:
-            pass
-
+    class _DummyResult:
         def _visualise(self) -> list[object]:
             return []
+
+    class _DummyExplainer:
+        def explain(self, *_args: object, **_kwargs: object) -> _DummyResult:
+            return _DummyResult()
+
+    def _fake_prepare(
+        cfg: object,
+        name: str,
+        _model: object,
+        **_kwargs: object,
+    ) -> _transparency_phase.PreparedExplainer:
+        return _transparency_phase.PreparedExplainer(
+            name=name,
+            explainer=_DummyExplainer(),
+            explainer_target="raitap.transparency.Fake",
+            visualisers=[],
+            merged_kwargs={},
+            raitap_kwargs={},
+            call_provenance={},
+            base_run_dir=None,
+            backend=model.backend,
+            experiment_name="test",
+            explainer_config=cfg.transparency[name],  # type: ignore[attr-defined]
+            class_names=None,
+        )
 
     def fake_metrics(
         _config: object,
@@ -104,7 +129,7 @@ def test_run_without_tracking_passes_ground_truth_labels_to_metrics(
 
     monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: True)
     monkeypatch.setattr(_metrics_phase, "Metrics", fake_metrics)
-    monkeypatch.setattr(_transparency_phase, "Explanation", DummyExplanation)
+    monkeypatch.setattr(_transparency_phase, "prepare_explainer", _fake_prepare)
 
     outputs = run_pipeline.run_without_tracking(
         cast("AppConfig", cast("object", config)),

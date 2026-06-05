@@ -16,5 +16,7 @@ __all__ = [
 
 # Import the concrete families for their registration side effects, so that
 # importing ``raitap.task_families`` populates ``TASK_FAMILIES``.
-from raitap.task_families import classification as _classification
-from raitap.task_families import detection as _detection
+from raitap.task_families import (
+    classification as _classification,  # pyright: ignore[reportUnusedImport]
+)
+from raitap.task_families import detection as _detection  # pyright: ignore[reportUnusedImport]
