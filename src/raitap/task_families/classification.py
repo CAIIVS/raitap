@@ -36,12 +36,27 @@ class ClassificationFamily:
     def allows_preprocessing(self) -> bool:
         return True
 
-    # Heavy members filled in by later phase-migration tasks.
-    def load_inputs(self, cfg: Any) -> Any:  # Task 8
-        raise NotImplementedError
+    def adapt_loaded_inputs(self, tensor: Any) -> Any:
+        # Classification keeps the dense (N, C, H, W) tensor as-is.
+        return tensor
 
-    def load_labels(self, cfg: Any) -> Any:  # Task 8
-        raise NotImplementedError
+    def validate_inputs(self, tensor: Any) -> None:
+        if not isinstance(tensor, torch.Tensor):
+            raise TypeError(
+                f"Classification data must be a dense (N, ...) tensor, got {type(tensor).__name__}."
+            )
+        if tensor.ndim < 2:
+            raise ValueError(
+                "Classification data must be a batched (N, ...) tensor with ndim >= 2, "
+                f"got shape {tuple(tensor.shape)}."
+            )
+        if tensor.shape[0] < 1:
+            raise ValueError("Classification data is empty; loaded zero samples.")
+
+    def load_labels(self, cfg: Any, *, tensor: Any, sample_ids: Any) -> Any:
+        from raitap.data.data import load_classification_labels
+
+        return load_classification_labels(cfg, tensor=tensor, sample_ids=sample_ids)
 
     def extract_forward(self, ctx: ForwardContext, *, batch_size: int) -> torch.Tensor:
         from raitap.pipeline.phases.forward_pass import extract_primary_tensor

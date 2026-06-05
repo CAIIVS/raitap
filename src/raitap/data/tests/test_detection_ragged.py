@@ -3,7 +3,7 @@
 Covers:
 - Detection task_kind + differently-sized images → list[Tensor] (no ValueError).
 - Classification task_kind on uniform images → stacked dense tensor (regression guard).
-- _load_detection_labels count validation works when self.tensor is a list.
+- DetectionFamily.load_labels count validation works when the tensor is a list.
 - describe() returns sane metadata for a list-valued tensor.
 """
 
@@ -19,6 +19,8 @@ import torch
 from PIL import Image
 
 from raitap.data.data import Data
+from raitap.task_families.classification import ClassificationFamily
+from raitap.task_families.detection import DetectionFamily
 from raitap.types import TaskKind
 
 if TYPE_CHECKING:
@@ -162,7 +164,7 @@ class TestDetectionLabelsWithListTensor:
         path.write_text(json.dumps(payload))
 
     def test_detection_labels_count_matches_list_tensor(self, tmp_path: Path) -> None:
-        """_load_detection_labels: len(self.tensor) works when tensor is a list."""
+        """DetectionFamily.load_labels: len(tensor) works when tensor is a list."""
         labels_path = tmp_path / "boxes.json"
         self._write_labels_json(labels_path, n=3)
 
@@ -188,7 +190,7 @@ class TestDetectionLabelsWithListTensor:
                 )
             ),
         )
-        out = data._load_detection_labels(cfg)
+        out = DetectionFamily().load_labels(cfg, tensor=data.tensor, sample_ids=data.sample_ids)
         assert out is not None
         assert len(out) == 3
 
@@ -215,7 +217,7 @@ class TestDetectionLabelsWithListTensor:
             ),
         )
         with pytest.raises(ValueError, match="3 samples"):
-            data._load_detection_labels(cfg)
+            DetectionFamily().load_labels(cfg, tensor=data.tensor, sample_ids=data.sample_ids)
 
 
 # ---------------------------------------------------------------------------
@@ -269,46 +271,32 @@ class TestDescribeWithListTensor:
 
 
 class TestValidateLoadedTensor:
-    def _data_with(self, tensor: object, task_kind: TaskKind) -> Data:
-        data = Data.__new__(Data)
-        data.task_kind = task_kind
-        data.tensor = cast("torch.Tensor", tensor)
-        return data
-
     def test_detection_accepts_list_of_chw_tensors(self) -> None:
-        data = self._data_with([torch.zeros(3, 24, 32)], TaskKind.detection)
-        data._validate_loaded_tensor()  # no raise
+        DetectionFamily().validate_inputs([torch.zeros(3, 24, 32)])  # no raise
 
     def test_detection_rejects_dense_tensor(self) -> None:
-        data = self._data_with(torch.zeros(2, 3, 8, 8), TaskKind.detection)
         with pytest.raises(TypeError, match="must be a list"):
-            data._validate_loaded_tensor()
+            DetectionFamily().validate_inputs(torch.zeros(2, 3, 8, 8))
 
     def test_detection_rejects_empty_list(self) -> None:
-        data = self._data_with([], TaskKind.detection)
         with pytest.raises(ValueError, match="empty"):
-            data._validate_loaded_tensor()
+            DetectionFamily().validate_inputs([])
 
     def test_detection_rejects_non_chw_entry(self) -> None:
-        data = self._data_with([torch.zeros(24, 32)], TaskKind.detection)
         with pytest.raises(ValueError, match=r"\(C, H, W\)"):
-            data._validate_loaded_tensor()
+            DetectionFamily().validate_inputs([torch.zeros(24, 32)])
 
     def test_classification_accepts_batched_tensor(self) -> None:
-        data = self._data_with(torch.zeros(4, 3, 8, 8), TaskKind.classification)
-        data._validate_loaded_tensor()  # no raise
+        ClassificationFamily().validate_inputs(torch.zeros(4, 3, 8, 8))  # no raise
 
     def test_classification_rejects_list(self) -> None:
-        data = self._data_with([torch.zeros(3, 8, 8)], TaskKind.classification)
         with pytest.raises(TypeError, match="dense"):
-            data._validate_loaded_tensor()
+            ClassificationFamily().validate_inputs([torch.zeros(3, 8, 8)])
 
     def test_classification_rejects_unbatched_tensor(self) -> None:
-        data = self._data_with(torch.zeros(5), TaskKind.classification)
         with pytest.raises(ValueError, match="ndim >= 2"):
-            data._validate_loaded_tensor()
+            ClassificationFamily().validate_inputs(torch.zeros(5))
 
     def test_classification_rejects_empty_batch(self) -> None:
-        data = self._data_with(torch.zeros(0, 3, 8, 8), TaskKind.classification)
         with pytest.raises(ValueError, match="empty"):
-            data._validate_loaded_tensor()
+            ClassificationFamily().validate_inputs(torch.zeros(0, 3, 8, 8))

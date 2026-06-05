@@ -66,12 +66,20 @@ class TaskFamily(Protocol):
         """
         raise NotImplementedError
 
-    def load_inputs(self, cfg: Any) -> Any:
-        """Load + validate model inputs (dense tensor vs ragged list)."""
+    def adapt_loaded_inputs(self, tensor: Any) -> Any:
+        """Shape the freshly-loaded dense tensor for this family.
+
+        Classification keeps the dense ``(N, C, H, W)`` tensor; detection
+        unbinds it into a ragged ``list[(C, H, W)]``.
+        """
         raise NotImplementedError
 
-    def load_labels(self, cfg: Any) -> Any:
-        """Load labels in this family's on-disk shape."""
+    def validate_inputs(self, tensor: Any) -> None:
+        """Validate the (post-adapt) inputs match this family's contract."""
+        raise NotImplementedError
+
+    def load_labels(self, cfg: Any, *, tensor: Any, sample_ids: Any) -> Any:
+        """Load labels in this family's on-disk shape (or None)."""
         raise NotImplementedError
 
     def extract_forward(self, ctx: ForwardContext, *, batch_size: int) -> Any:
