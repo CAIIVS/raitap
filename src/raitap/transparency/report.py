@@ -532,7 +532,10 @@ def _stage_sample_thumbnail(
             )
         try:
             visualiser.validate_explanation(explanation, attributions, inputs)
-        except (ValueError, VisualiserIncompatibilityError) as exc:
+        except VisualiserIncompatibilityError as exc:
+            # Only an incompatibility means "this visualiser can't render this
+            # explanation, try the next". Any other error is a bug and must
+            # surface rather than be masked as a silently-skipped thumbnail.
             last_error = exc
             continue
 
