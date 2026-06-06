@@ -28,9 +28,7 @@ def _result(name: str | None, algorithm: str, *, stochastic: bool) -> SimpleName
     )
 
 
-def _outputs(
-    transparency: Sequence[object] = (), robustness: Sequence[object] = ()
-) -> RunOutputs:
+def _outputs(transparency: Sequence[object] = (), robustness: Sequence[object] = ()) -> RunOutputs:
     # ``stochastic_methods`` reads results structurally (getattr); a namespace
     # stand-in is enough and avoids constructing a full RunOutputs.
     return cast(
