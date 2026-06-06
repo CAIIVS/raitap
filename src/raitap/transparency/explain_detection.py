@@ -24,8 +24,6 @@ if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping, Sequence
     from pathlib import Path
 
-    import torch.nn as nn
-
     from raitap.models.backend import ModelBackend
     from raitap.pipeline.outputs import ForwardOutput
     from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult
@@ -169,7 +167,7 @@ def explain_detection(
                 reference_label=reference_label,
                 iou_threshold=iou_threshold,
             )
-            wrapped = ScalarDetectionWrapper(cast("nn.Module", base_model), target=target)
+            wrapped = ScalarDetectionWrapper(cast("Any", base_model), target=target)
 
             per_box_run_dir = base_run_dir / f"sample_{sample_index}" / f"box_{raw_index}"
             per_box_run_dir.mkdir(parents=True, exist_ok=True)

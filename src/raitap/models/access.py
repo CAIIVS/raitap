@@ -11,7 +11,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from raitap.types import Capability
-from raitap.utils.errors import BackendIncompatibilityError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -41,10 +40,9 @@ def _require(backend: ModelBackend, proto: type) -> Any:
     so a failure here means the backend declared the capability but did not
     implement its Protocol (a backend-author bug)."""
     if not isinstance(backend, proto):
-        raise BackendIncompatibilityError(
-            adapter="explanation_model",
-            backend=type(backend).__name__,
-            missing=[proto.__name__],
+        raise TypeError(
+            f"{type(backend).__name__} declares its capability but does not implement "
+            f"{proto.__name__}. This is a backend-implementation bug."
         )
     return backend
 
@@ -67,5 +65,10 @@ def explanation_model(backend: ModelBackend, adapter: Any) -> ExplanationModel:
     shapes = adapter.required_capabilities() & SHAPE_CAPABILITIES
     if not shapes:
         return backend.predict_callable()
+    if len(shapes) != 1:
+        raise RuntimeError(
+            f"Adapter {type(adapter).__name__} declares {len(shapes)} model-shape "
+            f"capabilities ({sorted(str(c) for c in shapes)}); exactly one is required."
+        )
     (capability,) = shapes
     return _SHAPE_BY_CAPABILITY[capability](backend)

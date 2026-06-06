@@ -184,6 +184,11 @@ class ShapExplainer(AttributionOnlyExplainer):
                 background_data = inputs
 
             if self.algorithm == "KernelExplainer":
+                if not callable(model):
+                    raise TypeError(
+                        "KernelExplainer requires a callable (predict) model; "
+                        f"got {type(model).__name__}."
+                    )
                 # model-agnostic: ``model`` is a predict callable; SHAP needs a
                 # numpy fn. Wrap it (torch -> numpy) uniformly, regardless of backend.
                 background_np = _to_numpy(background_data)

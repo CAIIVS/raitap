@@ -39,7 +39,7 @@ def register(**kwargs: Unpack[_BackendRegKwargs]) -> Callable[[type[B]], type[B]
 
     def wrap(cls: type[B]) -> type[B]:
         cls.provides = frozenset(kwargs["provides"])
-        exts = frozenset(kwargs.get("extensions", frozenset()))
+        exts = frozenset(e.lower() for e in kwargs.get("extensions", frozenset()))
         cls.extensions = exts
         for ext in exts:
             _BACKENDS_BY_EXTENSION[ext] = cls
@@ -50,7 +50,7 @@ def register(**kwargs: Unpack[_BackendRegKwargs]) -> Callable[[type[B]], type[B]
 
 def backend_for_extension(suffix: str) -> type | None:
     """Return the backend class registered for ``suffix`` (e.g. ``".onnx"``), or None."""
-    return _BACKENDS_BY_EXTENSION.get(suffix)
+    return _BACKENDS_BY_EXTENSION.get(suffix.lower())
 
 
 def supported_model_formats() -> list[str]:

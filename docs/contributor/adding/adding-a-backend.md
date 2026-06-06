@@ -47,7 +47,7 @@ class MyBackend(ModelBackend):
         return self.model(inputs)
 
     @property
-    def hardware_label(self) -> str:  # human-readable runtime label, e.g. "CPU" / "CUDA"
+    def hardware_label(self) -> str:  # free-form display label for the run summary
         return get_hardware_label_for_mybackend(self.device)
 
     def autograd_module(self) -> nn.Module:  # only if AUTOGRAD-capable
