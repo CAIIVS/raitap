@@ -134,7 +134,7 @@ def test_build_view_carries_baseline_image_onto_explainer() -> None:
     assert explainer.image_srcs[0] == "_assets/sample_0_shap_grad.png"
 
 
-def test_build_view_renders_legacy_local_detail_groups_as_samples() -> None:
+def test_build_view_renders_verbose_local_detail_groups_as_samples() -> None:
     section = ReportSection.from_groups(
         "Local Explanations",
         [

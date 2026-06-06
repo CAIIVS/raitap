@@ -214,7 +214,7 @@ def _build_local_section(
         return None
 
     if show_original_per_explainer or explicit_selection:
-        return _build_legacy_local_section(
+        return _build_verbose_local_section(
             outputs,
             selected_samples=selected_samples,
             assets_dir=assets_dir,
@@ -378,7 +378,7 @@ def _build_local_section(
     )
 
 
-def _build_legacy_local_section(
+def _build_verbose_local_section(
     outputs: TransparencyPhaseResult,
     *,
     selected_samples: list[SelectedSample],

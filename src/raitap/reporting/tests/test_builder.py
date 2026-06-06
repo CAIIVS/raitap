@@ -811,7 +811,7 @@ def test_build_report_local_explainer_group_includes_curated_transparency_rows(
     assert "visualiser_call.max_samples" not in second_rows
 
 
-def test_build_report_show_original_per_explainer_uses_legacy_local_layout(
+def test_build_report_show_original_per_explainer_uses_verbose_local_layout(
     tmp_path: Path,
 ) -> None:
     config = AppConfig(experiment_name="legacy_originals")
@@ -1551,7 +1551,7 @@ def test_build_report_robustness_single_pair_keeps_all_panels(tmp_path: Path) ->
     assert len(report.sections[0].groups[0].images) == 1
 
 
-def test_build_report_legacy_robustness_reuses_existing_visualisations_without_kwargs(
+def test_build_report_verbose_robustness_reuses_existing_visualisations_without_kwargs(
     tmp_path: Path,
 ) -> None:
     config = AppConfig(experiment_name="robustness_legacy")

@@ -148,7 +148,7 @@ def test_html_reporter_falls_back_to_na_when_model_source_blank(tmp_path: Path) 
     assert "<dt>Data</dt><dd>isic2018</dd>" in html
 
 
-def test_html_reporter_renders_legacy_local_detail_images(tmp_path: Path) -> None:
+def test_html_reporter_renders_verbose_local_detail_images(tmp_path: Path) -> None:
     sections = (
         ReportSection.from_groups(
             "Local Explanations",
