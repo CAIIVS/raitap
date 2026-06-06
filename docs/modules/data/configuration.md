@@ -72,7 +72,11 @@ myst:
 :description: Optional path to a labels file (CSV, TSV, or Parquet), URL, or
   named sample set. When set to a sample name (e.g. `"imagenet_samples"`),
   raitap resolves to the labels CSV bundled with that sample. Sample sets
-  without bundled labels raise an error.
+  without bundled labels raise an error. The reserved value `"directory"`
+  derives classification labels from each sample's top-level class
+  subdirectory (torchvision `ImageFolder` style; no labels file) — see
+  {doc}`own-vs-built-in`. In that mode `id_column` and `id_strategy` do not
+  apply.
 
 :option: labels.id_column
 :allowed: string, null

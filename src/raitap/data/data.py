@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from enum import StrEnum
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -11,7 +11,13 @@ from PIL import Image
 
 from raitap import raitap_log
 from raitap.data.preprocessing import module_as_per_image_callable, resolve_preprocessing
-from raitap.data.types import MODALITY_EXTENSIONS, IdStrategy, InputModality, LabelEncoding
+from raitap.data.types import (
+    DIRECTORY_LABELS_SOURCE,
+    MODALITY_EXTENSIONS,
+    IdStrategy,
+    InputModality,
+    LabelEncoding,
+)
 from raitap.data.utils import download_file
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 from raitap.types import DetectionInputs, TaskKind
@@ -230,6 +236,31 @@ class Data(Trackable):
         tracker.log_dataset(self.describe())
 
 
+def _load_directory_labels(sample_ids: list[str] | None) -> torch.Tensor | None:
+    """Derive classification labels from each sample's top-level class folder
+    (torchvision ImageFolder semantics). Returns None (with a warning) when
+    labels cannot be derived: no sample ids, or a sample with no class subdir."""
+    if not sample_ids:
+        raitap_log.warn(
+            "data.labels.source='directory' needs image samples organised into "
+            "class subdirectories; none were found. Falling back to predictions "
+            "as metric targets."
+        )
+        return None
+    parts_by_id = [PurePosixPath(sid).parts for sid in sample_ids]
+    if any(len(parts) < 2 for parts in parts_by_id):
+        raitap_log.warn(
+            "data.labels.source='directory' expects a <class>/<file> layout, but "
+            "one or more samples sit directly under the data source root (no class "
+            "subdirectory). Falling back to predictions as metric targets."
+        )
+        return None
+    classes = sorted({parts[0] for parts in parts_by_id})
+    class_to_idx = {name: idx for idx, name in enumerate(classes)}
+    labels = [class_to_idx[parts[0]] for parts in parts_by_id]
+    return torch.tensor(labels, dtype=torch.long)
+
+
 def load_classification_labels(
     cfg: AppConfig,
     *,
@@ -246,6 +277,9 @@ def load_classification_labels(
     labels_source = _get_optional_config_value(labels_cfg, "source")
     if not labels_source:
         return None
+
+    if labels_source == DIRECTORY_LABELS_SOURCE:
+        return _load_directory_labels(sample_ids)
 
     labels_path = get_source_path(labels_source, kind=SourceKind.LABELS)
     labels_df = _load_tabular_frame(labels_path)

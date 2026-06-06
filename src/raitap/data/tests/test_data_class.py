@@ -17,7 +17,8 @@ if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
 
 from raitap.data import Data
-from raitap.data.types import InputModality
+from raitap.data.data import _load_directory_labels, load_classification_labels
+from raitap.data.types import DIRECTORY_LABELS_SOURCE, InputModality
 
 
 def _write_image(path: Path) -> None:
@@ -479,3 +480,56 @@ class TestDataLog:
         assert "num_samples" in call_args
         assert "shape" in call_args
         assert "dtype" in call_args
+
+
+class TestLoadDirectoryLabels:
+    def test_derives_labels_from_top_level_class_folder(self) -> None:
+        result = _load_directory_labels(["NORMAL/a.jpg", "PNEUMONIA/b.jpg", "NORMAL/c.jpg"])
+        assert result is not None
+        assert torch.equal(result, torch.tensor([0, 1, 0]))
+
+    def test_nesting_within_class_stays_top_level(self) -> None:
+        result = _load_directory_labels(["NORMAL/sub/a.jpg", "PNEUMONIA/b.jpg"])
+        assert result is not None
+        assert torch.equal(result, torch.tensor([0, 1]))
+
+    def test_single_class_is_all_zeros_not_error(self) -> None:
+        result = _load_directory_labels(["NORMAL/a.jpg", "NORMAL/b.jpg"])
+        assert result is not None
+        assert torch.equal(result, torch.tensor([0, 0]))
+
+    def test_sample_without_class_subdir_returns_none(self) -> None:
+        with pytest.warns(UserWarning, match="class subdirectory"):
+            result = _load_directory_labels(["a.jpg", "NORMAL/b.jpg"])
+        assert result is None
+
+    def test_none_sample_ids_returns_none(self) -> None:
+        with pytest.warns(UserWarning, match="class subdirectories"):
+            result = _load_directory_labels(None)
+        assert result is None
+
+    def test_empty_sample_ids_returns_none(self) -> None:
+        with pytest.warns(UserWarning, match="class subdirectories"):
+            result = _load_directory_labels([])
+        assert result is None
+
+
+class TestLoadClassificationLabelsDirectorySource:
+    def test_directory_source_derives_labels(self) -> None:
+        config = _make_config("images", labels_source=DIRECTORY_LABELS_SOURCE)
+        sample_ids = ["NORMAL/a.jpg", "PNEUMONIA/b.jpg", "NORMAL/c.jpg"]
+        tensor = torch.zeros(len(sample_ids), 3, 8, 8)
+
+        result = load_classification_labels(config, tensor=tensor, sample_ids=sample_ids)
+
+        assert result is not None
+        assert torch.equal(result, torch.tensor([0, 1, 0]))
+
+    def test_directory_source_none_sample_ids_returns_none(self) -> None:
+        config = _make_config("rows.csv", labels_source=DIRECTORY_LABELS_SOURCE)
+        tensor = torch.zeros(3, 4)
+
+        with pytest.warns(UserWarning, match="class subdirectories"):
+            result = load_classification_labels(config, tensor=tensor, sample_ids=None)
+
+        assert result is None
