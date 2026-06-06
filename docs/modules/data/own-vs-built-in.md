@@ -152,11 +152,11 @@ data:
     source: "directory"
 
 :python:
-from raitap.data import DataConfig, LabelsConfig
+from raitap.data import DIRECTORY_LABELS_SOURCE, DataConfig, LabelsConfig
 
 data = DataConfig(
     source="./data/train",
-    labels=LabelsConfig(source="directory"),
+    labels=LabelsConfig(source=DIRECTORY_LABELS_SOURCE),  # == "directory"
 )
 ```
 

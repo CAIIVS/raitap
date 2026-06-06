@@ -11,7 +11,13 @@ from PIL import Image
 
 from raitap import raitap_log
 from raitap.data.preprocessing import module_as_per_image_callable, resolve_preprocessing
-from raitap.data.types import MODALITY_EXTENSIONS, IdStrategy, InputModality, LabelEncoding
+from raitap.data.types import (
+    DIRECTORY_LABELS_SOURCE,
+    MODALITY_EXTENSIONS,
+    IdStrategy,
+    InputModality,
+    LabelEncoding,
+)
 from raitap.data.utils import download_file
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 from raitap.types import DetectionInputs, TaskKind
@@ -230,9 +236,6 @@ class Data(Trackable):
         tracker.log_dataset(self.describe())
 
 
-_DIRECTORY_LABELS_SOURCE = "directory"
-
-
 def _load_directory_labels(sample_ids: list[str] | None) -> torch.Tensor | None:
     """Derive classification labels from each sample's top-level class folder
     (torchvision ImageFolder semantics). Returns None (with a warning) when
@@ -275,7 +278,7 @@ def load_classification_labels(
     if not labels_source:
         return None
 
-    if labels_source == _DIRECTORY_LABELS_SOURCE:
+    if labels_source == DIRECTORY_LABELS_SOURCE:
         return _load_directory_labels(sample_ids)
 
     labels_path = get_source_path(labels_source, kind=SourceKind.LABELS)

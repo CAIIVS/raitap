@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 from raitap.data import Data
 from raitap.data.data import _load_directory_labels, load_classification_labels
-from raitap.data.types import InputModality
+from raitap.data.types import DIRECTORY_LABELS_SOURCE, InputModality
 
 
 def _write_image(path: Path) -> None:
@@ -516,7 +516,7 @@ class TestLoadDirectoryLabels:
 
 class TestLoadClassificationLabelsDirectorySource:
     def test_directory_source_derives_labels(self) -> None:
-        config = _make_config("images", labels_source="directory")
+        config = _make_config("images", labels_source=DIRECTORY_LABELS_SOURCE)
         sample_ids = ["NORMAL/a.jpg", "PNEUMONIA/b.jpg", "NORMAL/c.jpg"]
         tensor = torch.zeros(len(sample_ids), 3, 8, 8)
 
@@ -526,7 +526,7 @@ class TestLoadClassificationLabelsDirectorySource:
         assert torch.equal(result, torch.tensor([0, 1, 0]))
 
     def test_directory_source_none_sample_ids_returns_none(self) -> None:
-        config = _make_config("rows.csv", labels_source="directory")
+        config = _make_config("rows.csv", labels_source=DIRECTORY_LABELS_SOURCE)
         tensor = torch.zeros(3, 4)
 
         with pytest.warns(UserWarning, match="class subdirectories"):

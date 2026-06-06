@@ -71,8 +71,9 @@ class ModelConfig:
 @dataclass
 class LabelsConfig:
     # Optional path to a labels file (currently CSV/TSV/Parquet), OR the reserved
-    # value "directory" to derive classification labels from each sample's
-    # top-level class subdirectory (torchvision ImageFolder style; no labels file).
+    # value "directory" (exposed as ``raitap.data.DIRECTORY_LABELS_SOURCE``) to
+    # derive classification labels from each sample's top-level class
+    # subdirectory (torchvision ImageFolder style; no labels file).
     source: str | None = None
     # Optional sample-id column for filename alignment (e.g. "image").
     id_column: str | None = None
