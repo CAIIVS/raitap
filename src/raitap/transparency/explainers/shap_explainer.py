@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from raitap import raitap_log
 from raitap.utils.lazy import lazy_import
@@ -183,19 +183,12 @@ class ShapExplainer(AttributionOnlyExplainer):
                 )
                 background_data = inputs
 
-            if (
-                self.algorithm == "KernelExplainer"
-                and backend is not None
-                and Capability.AUTOGRAD not in getattr(backend, "provides", frozenset())
-            ):
-                if not callable(backend):
-                    raise TypeError(
-                        "SHAP ONNX path requires a callable backend for KernelExplainer."
-                    )
-                callable_backend = cast("Callable[[torch.Tensor], torch.Tensor]", backend)
+            if self.algorithm == "KernelExplainer":
+                # model-agnostic: ``model`` is a predict callable; SHAP needs a
+                # numpy fn. Wrap it (torch -> numpy) uniformly, regardless of backend.
                 background_np = _to_numpy(background_data)
                 explainer = explainer_class(
-                    _make_backend_prediction_fn(callable_backend),
+                    _make_backend_prediction_fn(model),
                     background_np,
                     **self.init_kwargs,
                 )

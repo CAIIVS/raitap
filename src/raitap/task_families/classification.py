@@ -110,6 +110,7 @@ class ClassificationFamily:
         full-dict ``_prepare_kwargs`` did), enforces the sample-names length
         invariant, then drives the explainer once over the dense input tensor.
         """
+        from raitap.models.access import explanation_model
         from raitap.transparency.phase import resolve_explainer_runtime_kwargs
         from raitap.utils.errors import SampleNamesLengthError
 
@@ -139,7 +140,7 @@ class ClassificationFamily:
                 )
 
         result = prepared.explainer.explain(
-            prepared.backend.as_model_for_explanation(),
+            explanation_model(prepared.backend, prepared.explainer),
             inputs,
             backend=prepared.backend,
             run_dir=prepared.base_run_dir,

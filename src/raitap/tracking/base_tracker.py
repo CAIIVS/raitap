@@ -14,8 +14,6 @@ _TRACKING_PREFIX = "raitap.tracking."
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from torch import nn
-
     from raitap.configs.schema import AppConfig
     from raitap.models.backend import ModelBackend
 
@@ -82,7 +80,7 @@ class BaseTracker(ABC, AdapterMixin):
     def log_config(self) -> None: ...
 
     @abstractmethod
-    def log_model(self, model: ModelBackend | nn.Module) -> None: ...
+    def log_model(self, model: ModelBackend) -> None: ...
 
     @abstractmethod
     def log_dataset(self, description: dict[str, Any]) -> None: ...

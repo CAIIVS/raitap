@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from raitap import raitap_log
 from raitap.configs import cfg_to_dict, resolve_run_dir
-from raitap.models.backend import OnnxBackend, TorchBackend
+from raitap.models.backend import OnnxBackend
 from raitap.tracking.registration import tracker
 from raitap.utils.diagnostics import Module
 
@@ -408,15 +408,15 @@ class MLFlowTracker(BaseTracker):
             self._log_onnx_model(model, artifact_path)
             return
 
-        if isinstance(model, TorchBackend):
-            pytorch_model = model.as_model_for_explanation()
-        else:
-            pytorch_model = model
+        from raitap.models.access import AutogradModelProvider
 
-        self._mlflow.pytorch.log_model(  # type: ignore[attr-defined]
-            pytorch_model=pytorch_model,
-            artifact_path=artifact_path,
-        )
+        if isinstance(model, AutogradModelProvider):
+            pytorch_model = model.autograd_module()
+            self._mlflow.pytorch.log_model(  # type: ignore[attr-defined]
+                pytorch_model=pytorch_model,
+                artifact_path=artifact_path,
+            )
+        # else: no torch nn.Module to log (e.g. ONNX); skip the pytorch artifact.
 
     def _log_onnx_model(self, model: OnnxBackend, artifact_path: str) -> None:
         if model.model_path is None:

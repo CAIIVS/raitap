@@ -16,6 +16,8 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     import torch
+
+    from raitap.models.access import ExplanationModel
 else:
     torch = lazy_import("torch")
 
@@ -78,7 +80,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
 
     def explain(
         self,
-        model: torch.nn.Module,
+        model: ExplanationModel,
         inputs: torch.Tensor,
         *,
         backend: object | None = None,
@@ -194,7 +196,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
 
     def _compute_with_optional_batches(
         self,
-        model: torch.nn.Module,
+        model: ExplanationModel,
         inputs: torch.Tensor,
         attribution_kwargs: dict[str, Any],
         backend: object | None,
@@ -357,7 +359,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
     @abstractmethod
     def compute_attributions(
         self,
-        model: torch.nn.Module,
+        model: ExplanationModel,
         inputs: torch.Tensor,
         **kwargs,
     ) -> torch.Tensor:
@@ -365,7 +367,8 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
         Compute attributions for the given inputs.
 
         Args:
-            model: PyTorch model to explain.
+            model: The model shape this explainer needs (nn.Module for gradient
+                methods, a predict callable for model-agnostic methods).
             inputs: Input tensor (shape depends on modality).
             **kwargs: Framework-specific keyword arguments (e.g. ``target``,
                 ``baselines``, ``background_data``).

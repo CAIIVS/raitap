@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 import torch
 
 from raitap import raitap_log
+from raitap.models.access import explanation_model
 from raitap.models.task_wrappers import DetectionTarget, ScalarDetectionWrapper
 from raitap.transparency.contracts import DetectionBox
 from raitap.types import DetectionInputs, TaskKind
@@ -112,7 +113,11 @@ def explain_detection(
     normalised_call_kwargs = dict(call_kwargs)
     normalised_call_kwargs["target"] = 0
 
-    base_model = backend.as_model_for_explanation()
+    # Invariant: detection explainers require AUTOGRAD, so the resolver returns a
+    # live ``nn.Module`` here. ``ScalarDetectionWrapper`` below subclasses
+    # ``nn.Module`` and registers this as a submodule, so a model-agnostic
+    # (predict-callable) detection explainer would break it — none exist today.
+    base_model = explanation_model(backend, explainer)
 
     # One baseline preview is shared by every box of a sample (same inputs +
     # call kwargs). Render it once and copy for the rest, keyed by content hash.
