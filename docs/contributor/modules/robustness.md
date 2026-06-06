@@ -122,9 +122,10 @@ there is no adversary; empirical and formal assessors use
   `FOOLBOX_REGISTRY`) and the `assessor_semantics(...)` resolver.
 - `assessors/base_assessor.py`: the framework-owned `assess()` pipelines for
   both empirical attacks and formal verification.
-- `factory.py`: typed config parsing, `_resolve_call_data_sources`, and the
-  `RobustnessAssessment` Hydra entry point. Adapter paths are resolved via the
-  `@adapters.robustness` decorator (no manual path table to maintain).
+- `factory.py`: typed config parsing and the `RobustnessAssessment` Hydra entry
+  point (data-source resolution is shared via `configs/adapter_factory`). Adapter
+  paths are resolved via the `@adapters.robustness` decorator (no manual path
+  table to maintain).
 - `results.py`: `RobustnessResult`, `RobustnessMetrics`, verdict encoding.
 - `visualisers/base_visualiser.py`: `BaseRobustnessVisualiser` +
   `AssessmentKind` compatibility check.
