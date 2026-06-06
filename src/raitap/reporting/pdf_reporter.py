@@ -302,6 +302,10 @@ class PDFReporter(BaseReporter):
         )
 
         for section in sections:
+            if section.metadata.get("section_role") == "reproducibility":
+                self._add_reproducibility(doc, section, b)
+                continue
+
             section_open = False
             layout: Any = None
 
@@ -344,6 +348,32 @@ class PDFReporter(BaseReporter):
                         layout.append_layout_element(
                             b.Paragraph(_pdf_display_text(f"(Failed to load: {image_path.name})"))
                         )
+
+    def _add_reproducibility(
+        self,
+        doc: Any,
+        section: ReportSection,
+        b: SimpleNamespace,
+    ) -> None:
+        """Render the run-level reproducibility caveat as a heading + paragraph.
+
+        The banner group carries only a ``heading`` (no images/table_rows), so the
+        normal ``_add_sections`` group loop would skip it. Issue #251.
+        """
+        text = next((group.heading for group in section.groups if group.heading), None)
+        if not text:
+            return
+        page = b.Page()
+        doc.append_page(page)
+        layout = b.SingleColumnLayout(page)
+        layout.append_layout_element(
+            b.Paragraph(
+                _pdf_display_text(section.title),
+                font_size=20,
+                font="Helvetica-Bold",
+            )
+        )
+        layout.append_layout_element(b.Paragraph(_pdf_display_text(text)))
 
     def _add_table(self, layout: Any, group: ReportGroup, b: SimpleNamespace) -> None:
         """Render ``group.table_rows`` as a two-column borb table."""

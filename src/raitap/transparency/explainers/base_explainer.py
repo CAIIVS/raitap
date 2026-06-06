@@ -35,7 +35,12 @@ from ..contracts import (
     explainer_output_scope,
 )
 from ..results import ConfiguredVisualiser, ExplanationResult
-from ..semantics import infer_input_spec, infer_output_space, method_families_for_explainer
+from ..semantics import (
+    explainer_is_stochastic,
+    infer_input_spec,
+    infer_output_space,
+    method_families_for_explainer,
+)
 
 _NON_BATCHABLE_KWARGS = frozenset({"background_data"})
 
@@ -144,6 +149,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
             ),
             input_spec=input_spec,
             output_space=output_space,
+            stochastic=explainer_is_stochastic(self),
         )
 
         resolved_run_dir = (

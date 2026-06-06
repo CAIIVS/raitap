@@ -47,14 +47,17 @@ if TYPE_CHECKING:
         "FeaturePermutation": ExplainerSemanticsHints({MethodFamily.PERTURBATION}),
         "Occlusion": ExplainerSemanticsHints({MethodFamily.PERTURBATION}),
         "ShapleyValueSampling": ExplainerSemanticsHints(
-            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION}
+            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION},
+            stochastic=True,  # random permutation sampling
         ),
         "ShapleyValues": ExplainerSemanticsHints({MethodFamily.SHAPLEY, MethodFamily.PERTURBATION}),
         "KernelShap": ExplainerSemanticsHints(
-            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC}
+            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
+            stochastic=True,  # random coalition sampling
         ),
         "Lime": ExplainerSemanticsHints(
-            {MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC, MethodFamily.SURROGATE}
+            {MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC, MethodFamily.SURROGATE},
+            stochastic=True,  # random perturbation sampling
         ),
         "LayerGradCam": ExplainerSemanticsHints(
             {MethodFamily.GRADIENT, MethodFamily.CAM},

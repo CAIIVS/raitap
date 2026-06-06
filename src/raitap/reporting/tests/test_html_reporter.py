@@ -242,6 +242,37 @@ def test_html_reporter_renders_baseline_image_and_view_link(tmp_path: Path) -> N
     assert [href for href in parser.fragment_hrefs if href not in parser.ids] == []
 
 
+def test_html_reporter_renders_reproducibility_banner_before_summary(tmp_path: Path) -> None:
+    caveat = (
+        "This run includes stochastic methods (pgd); results are not "
+        "bit-reproducible unless seeds are pinned."
+    )
+    sections = (
+        ReportSection.from_groups(
+            "Reproducibility",
+            [ReportGroup(heading=caveat)],
+            metadata={"section_role": "reproducibility"},
+        ),
+        *_synthetic_sections(),
+    )
+
+    HTMLReporter(_config()).generate(sections, report_dir=tmp_path)
+
+    html = (tmp_path / "report.html").read_text(encoding="utf-8")
+    assert 'id="reproducibility-banner"' in html
+    assert "not bit-reproducible" in html
+    # The banner renders before the summary hero.
+    assert html.index('id="reproducibility-banner"') < html.index('class="report-hero"')
+
+
+def test_html_reporter_omits_reproducibility_banner_for_deterministic_run(tmp_path: Path) -> None:
+    HTMLReporter(_config()).generate(_synthetic_sections(), report_dir=tmp_path)
+
+    html = (tmp_path / "report.html").read_text(encoding="utf-8")
+    assert 'id="reproducibility-banner"' not in html
+    assert 'class="repro-banner"' not in html
+
+
 def _config(*, filename: str = "report.pdf") -> AppConfig:
     config = AppConfig(experiment_name="html-report-test")
     config.reporting = ReportingConfig(

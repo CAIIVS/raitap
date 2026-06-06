@@ -50,10 +50,13 @@ BaseAssessor                            # root: declares assessment_kind + budge
 Every assessor declares two `ClassVar`s the framework relies on:
 
 - `algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]`: maps
-  algorithm names to their threat model / norm / families. `assessor_semantics`
-  uses this to build `RobustnessResult.semantics.perturbation`, so the reported
-  metadata always matches what the adapter actually executed. Passed via the
-  `@adapters.robustness(algorithm_registry=...)` decorator kwarg.
+  algorithm names to their threat model / norm / families / `stochastic` flag.
+  `assessor_semantics` uses this to build `RobustnessResult.semantics`, so the
+  reported metadata always matches what the adapter actually executed. The
+  `stochastic: bool` hint is declared explicitly per algorithm (e.g. `True` for
+  PGD random-start and statistical-sampling corruptions, `False` for FGSM / CW);
+  it flows onto `semantics.stochastic` and drives the reproducibility caveat.
+  Passed via the `@adapters.robustness(algorithm_registry=...)` decorator kwarg.
 - `budget_kwarg_source: ClassVar[str]`: `"init_kwargs"` (torchattacks reads
   the budget at construction time) or `"call_kwargs"` (foolbox reads it at
   call time). Defaults to `"init_kwargs"`.

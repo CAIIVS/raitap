@@ -94,6 +94,8 @@ def _select_target_attributions(
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             requires={Capability.AUTOGRAD},
+            # Samples random points along the path + background choice (rseed/nsamples).
+            stochastic=True,
         ),
         "DeepExplainer": ExplainerSemanticsHints(
             {MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
@@ -105,6 +107,8 @@ def _select_target_attributions(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
+            # Monte Carlo coalition sampling (np.random.choice / permutation).
+            stochastic=True,
         ),
         # TreeExplainer is a tree-model method; requires=AUTOGRAD preserves current
         # gating, but it is the natural first consumer of the roadmap TREE_MODEL capability.

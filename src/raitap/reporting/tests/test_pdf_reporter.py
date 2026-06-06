@@ -185,6 +185,27 @@ def test_pdf_reporter_sanitizes_all_paragraph_text(mock_config: AppConfig) -> No
     )
 
 
+def test_pdf_reporter_renders_reproducibility_caveat_paragraph(mock_config: AppConfig) -> None:
+    """The heading-only reproducibility banner emits a visible heading + paragraph."""
+    caveat = (
+        "This run includes stochastic methods (pgd); results are not "
+        "bit-reproducible unless seeds are pinned."
+    )
+    borb = _mock_borb()
+    section = ReportSection.from_groups(
+        "Reproducibility",
+        [ReportGroup(heading=caveat)],
+        metadata={"section_role": "reproducibility"},
+    )
+
+    with patch("raitap.reporting.pdf_reporter._borb_pdf_ns", return_value=borb):
+        PDFReporter(mock_config).generate((section,))
+
+    paragraph_texts = [call.args[0] for call in borb.Paragraph.call_args_list]
+    assert "Reproducibility" in paragraph_texts
+    assert any("not bit-reproducible" in str(text) for text in paragraph_texts)
+
+
 def test_prepare_raster_scales_large_png_to_bounds(tmp_path: Path) -> None:
     from PIL import Image as PILImage
 

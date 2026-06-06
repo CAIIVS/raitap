@@ -511,6 +511,62 @@ def test_build_report_skips_global_section_for_local_only_outputs(tmp_path: Path
     assert [section.title for section in report.sections] == ["Local Explanations"]
 
 
+def _explanation_with_stochastic(tmp_path: Path, *, stochastic: bool) -> Any:
+    from dataclasses import replace
+
+    semantics = replace(_local_image_semantics((3, 1, 4, 4)), stochastic=stochastic)
+    return ExplanationResult(
+        attributions=torch.rand(3, 1, 4, 4),
+        inputs=torch.rand(3, 1, 4, 4),
+        run_dir=tmp_path / "transparency" / "exp",
+        experiment_name="repro",
+        adapter_target="t",
+        algorithm="GradientExplainer",
+        semantics=semantics,
+        name="shap_grad",
+        visualisers=[ConfiguredVisualiser(visualiser=_LocalImageVisualiser())],
+    )
+
+
+def _repro_outputs(explanation: Any) -> RunOutputs:
+    return _run_outputs(
+        explanations=[explanation],
+        visualisations=[],
+        forward_output=_fo(torch.tensor([[0.1, 0.9], [0.8, 0.2], [0.95, 0.05]])),
+        prediction_summaries=(
+            PredictionSummary(sample_index=0, predicted_class=1, confidence=0.9, correct=None),
+            PredictionSummary(sample_index=1, predicted_class=0, confidence=0.8, correct=None),
+            PredictionSummary(sample_index=2, predicted_class=0, confidence=0.95, correct=None),
+        ),
+    )
+
+
+def test_build_report_prepends_reproducibility_banner_when_stochastic(tmp_path: Path) -> None:
+    config = AppConfig(experiment_name="repro")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    outputs = _repro_outputs(_explanation_with_stochastic(tmp_path, stochastic=True))
+
+    report = build_report(config, outputs)
+
+    assert report.sections[0].title == "Reproducibility"
+    assert "not bit-reproducible" in report.sections[0].groups[0].heading
+    assert "shap_grad" in report.sections[0].groups[0].heading
+
+
+def test_build_report_no_banner_when_all_deterministic(tmp_path: Path) -> None:
+    config = AppConfig(experiment_name="repro")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+
+    outputs = _repro_outputs(_explanation_with_stochastic(tmp_path, stochastic=False))
+
+    report = build_report(config, outputs)
+
+    assert all(section.title != "Reproducibility" for section in report.sections)
+
+
 def test_build_report_places_aggregated_visualisations_between_global_and_local(
     tmp_path: Path,
 ) -> None:

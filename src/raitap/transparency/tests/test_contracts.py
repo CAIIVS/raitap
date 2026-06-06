@@ -119,6 +119,7 @@ def test_explanation_semantics_has_only_contract_fields() -> None:
         "sample_selection",
         "input_spec",
         "output_space",
+        "stochastic",
     ]
     assert "primary_method_family" not in {field.name for field in fields(ExplanationSemantics)}
 

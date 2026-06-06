@@ -31,6 +31,7 @@ else:
             PerturbationNorm.LINF,
             families={"gradient_sign", "iterative"},
             requires={Capability.AUTOGRAD},
+            stochastic=True,  # random_start=True default
         ),
         "L2PGD": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -39,6 +40,7 @@ else:
             PerturbationNorm.L2,
             families={"gradient_sign", "iterative"},
             requires={Capability.AUTOGRAD},
+            stochastic=True,  # random_start=True default
         ),
         "LinfFastGradientAttack": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -81,6 +83,7 @@ else:
             # requires=AUTOGRAD preserves current gating; conceptually black-box,
             # could be relaxed later.
             requires={Capability.AUTOGRAD},
+            stochastic=True,  # gaussian random-walk + stochastic init
         ),
     },
 )

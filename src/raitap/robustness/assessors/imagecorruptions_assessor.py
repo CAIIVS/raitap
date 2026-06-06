@@ -49,6 +49,7 @@ _CORRUPTIONS: dict[str, frozenset[str]] = {
             ThreatModel.NOT_APPLICABLE,
             Objective.UNTARGETED,
             families=families,
+            stochastic=True,  # statistical-sampling corruptions draw RNG
         )
         for name, families in _CORRUPTIONS.items()
     },

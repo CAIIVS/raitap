@@ -41,14 +41,24 @@ curated subset used in the report.
 
 Generated reports use this structure:
 
-1. **Executive Summary**
-2. **Transparency Details**
-3. **Robustness Details**
-4. **Appendix**
+1. **Reproducibility** (only when the run used a stochastic method)
+2. **Executive Summary**
+3. **Transparency Details**
+4. **Robustness Details**
+5. **Appendix**
 
 Missing metrics, global explanations, aggregated explanations, and robustness sections are omitted. If no
 local explanations are present, the transparency details render a short
 placeholder rather than an empty card.
+
+### Reproducibility
+
+When the run used a stochastic method (for example SHAP `GradientExplainer`, a
+PGD attack, or an image-corruption assessor), the report opens with a banner
+noting that the results are not bit-reproducible unless seeds are pinned, naming
+the stochastic methods. A fully deterministic run omits this section. The same
+caveat is written to `REPRODUCIBILITY.md` in the run directory and logged as a
+warning after the run. The banner renders in both HTML and PDF reports.
 
 ### Metrics
 

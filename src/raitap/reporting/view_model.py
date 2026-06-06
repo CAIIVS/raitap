@@ -182,6 +182,9 @@ class ReportView:
     local_samples: tuple[LocalSampleView, ...]
     robustness_assessors: tuple[RobustnessAssessorView, ...]
     appendix: AppendixView
+    # Run-level reproducibility caveat (issue #251); ``None`` for fully
+    # deterministic runs. Rendered as a top banner, not an appendix row.
+    reproducibility: str | None = None
 
 
 def build_view(
@@ -198,6 +201,7 @@ def build_view(
     aggregated_groups: tuple[GenericGroupView, ...] = ()
     local_samples: tuple[LocalSampleView, ...] = ()
     robustness_assessors: tuple[RobustnessAssessorView, ...] = ()
+    reproducibility: str | None = None
 
     for section in sections:
         role = _section_role(section)
@@ -211,6 +215,8 @@ def build_view(
             local_samples = _build_local_samples(section)
         elif role == "robustness":
             robustness_assessors = _build_robustness_assessors(section)
+        elif role == "reproducibility":
+            reproducibility = _reproducibility_text(section)
 
     experiment_name = _none_if_blank(metadata.get("experiment_name")) or "n/a"
     model_name = _compact_model_label(metadata.get("model_source"))
@@ -250,7 +256,12 @@ def build_view(
         aggregated_groups=aggregated_groups,
         local_samples=local_samples,
         robustness_assessors=robustness_assessors,
-        appendix=AppendixView(sections=tuple(sections)),
+        appendix=AppendixView(
+            sections=tuple(
+                section for section in sections if _section_role(section) != "reproducibility"
+            )
+        ),
+        reproducibility=reproducibility,
     )
 
 
@@ -262,6 +273,14 @@ def _section_role(section: ReportSection) -> str:
         "local_explanations": "local",
     }
     return aliases.get(raw, raw)
+
+
+def _reproducibility_text(section: ReportSection) -> str | None:
+    """Caveat text carried as the first non-empty group heading, or ``None``."""
+    for group in section.groups:
+        if group.heading:
+            return group.heading
+    return None
 
 
 def _build_metrics_view(section: ReportSection) -> MetricsView | None:

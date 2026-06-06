@@ -8,6 +8,44 @@ from raitap.reporting.sections import ReportGroup, ReportSection
 from raitap.reporting.view_model import build_view
 
 
+def test_build_view_captures_reproducibility_banner_and_excludes_from_appendix() -> None:
+    caveat = (
+        "This run includes stochastic methods (pgd); results are not "
+        "bit-reproducible unless seeds are pinned."
+    )
+    sections = (
+        ReportSection.from_groups(
+            "Reproducibility",
+            [ReportGroup(heading=caveat)],
+            metadata={"section_role": "reproducibility"},
+        ),
+        ReportSection.from_groups(
+            "Metrics",
+            [ReportGroup(heading="Performance Metrics", table_rows=(("accuracy", "0.9"),))],
+            metadata={"section_role": "metrics"},
+        ),
+    )
+
+    view = build_view(sections)
+
+    assert view.reproducibility == caveat
+    assert "Reproducibility" not in [section.title for section in view.appendix.sections]
+
+
+def test_build_view_reproducibility_none_for_deterministic_run() -> None:
+    sections = (
+        ReportSection.from_groups(
+            "Metrics",
+            [ReportGroup(heading="Performance Metrics", table_rows=(("accuracy", "0.9"),))],
+            metadata={"section_role": "metrics"},
+        ),
+    )
+
+    view = build_view(sections)
+
+    assert view.reproducibility is None
+
+
 def test_build_view_groups_local_explainers_and_splits_metadata_tiers() -> None:
     manifest = _snapshot_manifest()
 
