@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, cast
+
 import pytest
 
 from raitap.models.access import AutogradModelProvider, explanation_model
 from raitap.types import Capability
 from raitap.utils.errors import BackendIncompatibilityError
+
+if TYPE_CHECKING:
+    from raitap.models.backend import ModelBackend
 
 
 class _FakeAdapter:
@@ -34,12 +39,14 @@ class _AutogradBackend(_CallableBackend):
 
 def test_model_agnostic_adapter_gets_predict_callable() -> None:
     backend = _CallableBackend()
-    model = explanation_model(backend, _FakeAdapter(frozenset()))
+    model = explanation_model(cast("ModelBackend", backend), _FakeAdapter(frozenset()))
     assert model == backend.__call__
 
 
 def test_autograd_adapter_gets_autograd_module() -> None:
-    model = explanation_model(_AutogradBackend(), _FakeAdapter(frozenset({Capability.AUTOGRAD})))
+    model = explanation_model(
+        cast("ModelBackend", _AutogradBackend()), _FakeAdapter(frozenset({Capability.AUTOGRAD}))
+    )
     assert model == "the-module"
 
 
@@ -53,4 +60,6 @@ def test_declared_capability_without_impl_raises() -> None:
         provides = frozenset({Capability.AUTOGRAD})
 
     with pytest.raises(BackendIncompatibilityError):
-        explanation_model(_Broken(), _FakeAdapter(frozenset({Capability.AUTOGRAD})))
+        explanation_model(
+            cast("ModelBackend", _Broken()), _FakeAdapter(frozenset({Capability.AUTOGRAD}))
+        )

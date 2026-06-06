@@ -9,6 +9,8 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
+    from raitap.models.access import ExplanationModel
+
 import raitap.transparency.explainers.base_explainer as base_explainer_module
 from raitap.transparency.contracts import (
     BaselineMode,
@@ -31,7 +33,7 @@ class _StrictExplainer(AttributionOnlyExplainer):
 
     def compute_attributions(
         self,
-        model: torch.nn.Module,
+        model: ExplanationModel,
         inputs: torch.Tensor,
         target: int | None = None,
         **kwargs: Any,
@@ -54,7 +56,7 @@ class _UnknownAlgorithmExplainer(AttributionOnlyExplainer):
 
     def compute_attributions(
         self,
-        model: torch.nn.Module,
+        model: ExplanationModel,
         inputs: torch.Tensor,
         **kwargs: Any,
     ) -> torch.Tensor:
@@ -73,7 +75,7 @@ class _BatchRecordingExplainer(AttributionOnlyExplainer):
 
     def compute_attributions(
         self,
-        model: torch.nn.Module,
+        model: ExplanationModel,
         inputs: torch.Tensor,
         target: list[int] | torch.Tensor | None = None,
         background_data: torch.Tensor | None = None,
@@ -103,7 +105,7 @@ class _BaselineDeclaringExplainer(AttributionOnlyExplainer):
 
     def compute_attributions(
         self,
-        model: torch.nn.Module,
+        model: ExplanationModel,
         inputs: torch.Tensor,
         target: int | None = None,
         baselines: torch.Tensor | None = None,
@@ -118,7 +120,7 @@ class _GradTrackingExplainer(AttributionOnlyExplainer):
 
     def compute_attributions(
         self,
-        model: torch.nn.Module,
+        model: ExplanationModel,
         inputs: torch.Tensor,
         **kwargs: Any,
     ) -> torch.Tensor:
@@ -132,7 +134,7 @@ class _TupleExplainer(AttributionOnlyExplainer):
 
     def compute_attributions(
         self,
-        model: torch.nn.Module,
+        model: ExplanationModel,
         inputs: torch.Tensor,
         **kwargs: Any,
     ) -> Any:
@@ -145,7 +147,7 @@ class _ListExplainer(AttributionOnlyExplainer):
 
     def compute_attributions(
         self,
-        model: torch.nn.Module,
+        model: ExplanationModel,
         inputs: torch.Tensor,
         **kwargs: Any,
     ) -> Any:

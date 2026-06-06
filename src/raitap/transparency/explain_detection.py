@@ -9,7 +9,7 @@ second forward pass), filters per sample by ``score_threshold`` then top
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import torch
 
@@ -23,6 +23,8 @@ from raitap.utils.errors import RaitapError
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping, Sequence
     from pathlib import Path
+
+    import torch.nn as nn
 
     from raitap.models.backend import ModelBackend
     from raitap.pipeline.outputs import ForwardOutput
@@ -167,7 +169,7 @@ def explain_detection(
                 reference_label=reference_label,
                 iou_threshold=iou_threshold,
             )
-            wrapped = ScalarDetectionWrapper(base_model, target=target)
+            wrapped = ScalarDetectionWrapper(cast("nn.Module", base_model), target=target)
 
             per_box_run_dir = base_run_dir / f"sample_{sample_index}" / f"box_{raw_index}"
             per_box_run_dir.mkdir(parents=True, exist_ok=True)

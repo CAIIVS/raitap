@@ -9,10 +9,8 @@ from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
     import torch
-    from torch import nn
 else:
     torch = lazy_import("torch")
-    nn = lazy_import("torch.nn")
 from raitap.transparency.contracts import (
     BaselineCardinality,
     BaselineMode,
@@ -26,6 +24,8 @@ from .base_explainer import AttributionOnlyExplainer
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from raitap.models.access import ExplanationModel
 
 
 def _normalise_target_indices(
@@ -135,7 +135,7 @@ class ShapExplainer(AttributionOnlyExplainer):
 
     def compute_attributions(
         self,
-        model: nn.Module,
+        model: ExplanationModel,
         inputs: torch.Tensor,
         backend: object | None = None,
         background_data: torch.Tensor | None = None,

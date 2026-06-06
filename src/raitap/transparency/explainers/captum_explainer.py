@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from raitap.transparency.contracts import (
     BaselineCardinality,
@@ -18,6 +18,8 @@ from .base_explainer import AttributionOnlyExplainer
 if TYPE_CHECKING:
     import torch
     import torch.nn as nn
+
+    from raitap.models.access import ExplanationModel
 
 
 @transparency_adapter(
@@ -86,7 +88,7 @@ class CaptumExplainer(AttributionOnlyExplainer):
 
     def compute_attributions(
         self,
-        model: nn.Module,
+        model: ExplanationModel,
         inputs: torch.Tensor,
         backend: object | None = None,
         target: int | list[int] | torch.Tensor | None = None,
@@ -126,7 +128,9 @@ class CaptumExplainer(AttributionOnlyExplainer):
         if self.algorithm in ("LayerGradCam", "GuidedGradCam"):
             layer_path = init_kwargs.pop("layer_path", None)
             if layer_path is not None and "layer" not in init_kwargs:
-                init_kwargs["layer"] = _resolve_layer(model, str(layer_path))
+                # LayerGradCam/GuidedGradCam require AUTOGRAD, so ``model`` is
+                # always a live ``nn.Module`` here (never a predict callable).
+                init_kwargs["layer"] = _resolve_layer(cast("nn.Module", model), str(layer_path))
 
         if self.algorithm == "Occlusion":
             attr_kwargs = _normalise_occlusion_kwargs(attr_kwargs)
