@@ -55,9 +55,6 @@ class _FakeBackend(ModelBackend):
     def __call__(self, inputs: torch.Tensor) -> Any:
         raise NotImplementedError("routing test mocks the explain path")
 
-    def as_model_for_explanation(self) -> Any:
-        raise NotImplementedError("routing test mocks the explain path")
-
 
 class _FakeModel:
     def __init__(self) -> None:

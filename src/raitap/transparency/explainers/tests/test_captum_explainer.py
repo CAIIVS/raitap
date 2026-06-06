@@ -167,7 +167,7 @@ class TestCaptumExplainer:
 
         explainer.check_backend_compat(onnx_linear_backend)
         result = explainer.explain(
-            onnx_linear_backend.as_model_for_explanation(),
+            onnx_linear_backend.predict_callable(),
             inputs,
             run_dir=tmp_path / "transparency",
             backend=onnx_linear_backend,
@@ -197,7 +197,7 @@ class TestCaptumExplainer:
 
         explainer.check_backend_compat(onnx_linear_backend)
         result = explainer.explain(
-            onnx_linear_backend.as_model_for_explanation(),
+            onnx_linear_backend.predict_callable(),
             inputs,
             run_dir=tmp_path / "transparency",
             backend=onnx_linear_backend,

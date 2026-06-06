@@ -14,7 +14,7 @@ import raitap.pipeline.orchestrator as run_pipeline
 from raitap.metrics import phase as _metrics_phase
 from raitap.metrics import resolve_metric_targets
 from raitap.transparency import phase as _transparency_phase
-from raitap.types import TaskKind
+from raitap.types import Capability, TaskKind
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -40,7 +40,7 @@ class _BackendStub:
         del inputs
         return self._output
 
-    def as_model_for_explanation(self) -> object:
+    def autograd_module(self) -> torch.nn.Module:
         return torch.nn.Identity()
 
 
@@ -99,6 +99,9 @@ def test_run_without_tracking_passes_ground_truth_labels_to_metrics(
     class _DummyExplainer:
         def explain(self, *_args: object, **_kwargs: object) -> _DummyResult:
             return _DummyResult()
+
+        def required_capabilities(self) -> frozenset[Capability]:
+            return frozenset({Capability.AUTOGRAD})
 
     def _fake_prepare(
         cfg: object,

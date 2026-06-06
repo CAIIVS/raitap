@@ -43,6 +43,21 @@ if TYPE_CHECKING:
     from raitap.models import Model
 
 
+#: Explainer algorithms that run forward-only (model-agnostic). Everything else
+#: in these doubles (Saliency, IntegratedGradients, GradientExplainer, ...) is a
+#: gradient method needing the live nn.Module. Mirrors the production registries
+#: in ``captum_explainer``/``shap_explainer``.
+_MODEL_AGNOSTIC_ALGORITHMS = frozenset({"KernelExplainer", "FeatureAblation"})
+
+
+def _caps_for(algorithm: str) -> frozenset[Capability]:
+    """Capabilities a double's algorithm needs, so ``explanation_model`` routes it
+    exactly as the real explainer would (autograd_module vs predict_callable)."""
+    if algorithm in _MODEL_AGNOSTIC_ALGORITHMS:
+        return frozenset()
+    return frozenset({Capability.AUTOGRAD})
+
+
 class _BackendStub(ModelBackend):
     def __init__(self, model: torch.nn.Module, *, autograd: bool = True) -> None:
         self._model = model
@@ -61,7 +76,7 @@ class _BackendStub(ModelBackend):
     def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
         return self._model(inputs)
 
-    def as_model_for_explanation(self) -> torch.nn.Module:
+    def autograd_module(self) -> torch.nn.Module:
         return self._model
 
 
@@ -293,6 +308,9 @@ def test_explanation_validates_visualisers_before_compute(
             del backend
             return None
 
+        def required_capabilities(self) -> frozenset[Capability]:
+            return _caps_for(self.algorithm)
+
         def explain(self, *args: Any, **kwargs: Any) -> None:
             self.explain_called = True
             raise AssertionError("explain() should not be called for incompatible visualisers")
@@ -435,6 +453,9 @@ def test_explanation_passes_sample_ids_display_names_and_input_metadata(
         def check_backend_compat(self, backend: object) -> None:
             del backend
 
+        def required_capabilities(self) -> frozenset[Capability]:
+            return _caps_for(self.algorithm)
+
         def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
             self.last_raitap_kwargs = dict(kwargs["raitap_kwargs"])
             return MagicMock(spec=ExplanationResult)
@@ -500,6 +521,9 @@ def test_explanation_rejects_method_family_mismatch_before_compute(
 
         def check_backend_compat(self, backend: object) -> None:
             del backend
+
+        def required_capabilities(self) -> frozenset[Capability]:
+            return _caps_for(self.algorithm)
 
         def explain(self, *_args: Any, **_kwargs: Any) -> ExplanationResult:
             self.explain_called = True
@@ -570,6 +594,9 @@ def test_explanation_rejects_candidate_output_space_mismatch_before_compute(
         def check_backend_compat(self, backend: object) -> None:
             del backend
 
+        def required_capabilities(self) -> frozenset[Capability]:
+            return _caps_for(self.algorithm)
+
         def explain(self, *_args: Any, **_kwargs: Any) -> ExplanationResult:
             self.explain_called = True
             return MagicMock(spec=ExplanationResult)
@@ -636,6 +663,9 @@ def test_explanation_allows_any_supported_candidate_output_space_before_compute(
 
         def check_backend_compat(self, backend: object) -> None:
             del backend
+
+        def required_capabilities(self) -> frozenset[Capability]:
+            return _caps_for(self.algorithm)
 
         def explain(self, *_args: Any, **_kwargs: Any) -> ExplanationResult:
             self.explain_called = True
@@ -955,6 +985,9 @@ def test_explanation_merges_call_before_run_kwargs(
             del backend
             return None
 
+        def required_capabilities(self) -> frozenset[Capability]:
+            return _caps_for(self.algorithm)
+
         def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
             self.last_explain_kwargs = dict(kwargs)
             return MagicMock(spec=ExplanationResult)
@@ -1018,6 +1051,9 @@ def test_explanation_routes_raitap_baseline_to_adapter_kwarg(
             del backend
             return None
 
+        def required_capabilities(self) -> frozenset[Capability]:
+            return _caps_for(self.algorithm)
+
         def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
             self.last_explain_kwargs = dict(kwargs)
             return MagicMock(spec=ExplanationResult)
@@ -1080,6 +1116,9 @@ def test_raitap_baseline_wins_over_runtime_kwarg(
             del backend
             return None
 
+        def required_capabilities(self) -> frozenset[Capability]:
+            return _caps_for(self.algorithm)
+
         def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
             self.last_explain_kwargs = dict(kwargs)
             return MagicMock(spec=ExplanationResult)
@@ -1138,6 +1177,9 @@ def test_explanation_uses_real_shap_preset_defaults_and_runtime_overrides(
         def check_backend_compat(self, backend: object) -> None:
             del backend
             return None
+
+        def required_capabilities(self) -> frozenset[Capability]:
+            return _caps_for(self.algorithm)
 
         def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
             self.last_explain_kwargs = dict(kwargs)
@@ -1203,6 +1245,9 @@ def test_explanation_injects_runtime_sample_names_into_raitap_kwargs(
             del backend
             return None
 
+        def required_capabilities(self) -> frozenset[Capability]:
+            return _caps_for(self.algorithm)
+
         def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
             self.last_explain_kwargs = dict(kwargs)
             return MagicMock(spec=ExplanationResult)
@@ -1255,6 +1300,9 @@ def test_explanation_runtime_sample_names_override_raitap_config(
         def check_backend_compat(self, backend: object) -> None:
             del backend
             return None
+
+        def required_capabilities(self) -> frozenset[Capability]:
+            return _caps_for(self.algorithm)
 
         def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
             self.last_explain_kwargs = dict(kwargs)
@@ -1313,6 +1361,9 @@ def test_explanation_warns_on_unknown_raitap_keys(
             del backend
             return None
 
+        def required_capabilities(self) -> frozenset[Capability]:
+            return _caps_for(self.algorithm)
+
         def explain(self, *_args: Any, **_kwargs: Any) -> ExplanationResult:
             return MagicMock(spec=ExplanationResult)
 
@@ -1355,6 +1406,9 @@ def test_explanation_warns_once_on_misplaced_raitap_call_keys(
         def check_backend_compat(self, backend: object) -> None:
             del backend
             return None
+
+        def required_capabilities(self) -> frozenset[Capability]:
+            return _caps_for(self.algorithm)
 
         def explain(self, *_args: Any, **_kwargs: Any) -> ExplanationResult:
             return MagicMock(spec=ExplanationResult)
@@ -1407,6 +1461,9 @@ def test_explanation_migrates_misplaced_raitap_call_keys_into_raitap_kwargs(
         def check_backend_compat(self, backend: object) -> None:
             del backend
             return None
+
+        def required_capabilities(self) -> frozenset[Capability]:
+            return _caps_for(self.algorithm)
 
         def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
             self.last_explain_kwargs = dict(kwargs)
@@ -1464,6 +1521,9 @@ def test_explanation_clears_parsed_config_cache_on_visualiser_compat_failure(
             del backend
             return None
 
+        def required_capabilities(self) -> frozenset[Capability]:
+            return _caps_for(self.algorithm)
+
         def explain(self, *_args: Any, **_kwargs: Any) -> ExplanationResult:
             raise AssertionError("explain() should not be called on incompatibility")
 
@@ -1507,6 +1567,9 @@ def test_explanation_rejects_removed_max_batch_size_raitap_key(
         def check_backend_compat(self, backend: object) -> None:
             del backend
             return None
+
+        def required_capabilities(self) -> frozenset[Capability]:
+            return _caps_for(self.algorithm)
 
         def explain(self, *_args: Any, **_kwargs: Any) -> ExplanationResult:
             return MagicMock(spec=ExplanationResult)
@@ -1556,6 +1619,9 @@ def test_explanation_prepares_runtime_tensor_kwargs_with_backend(
         def check_backend_compat(self, backend: object) -> None:
             del backend
             return None
+
+        def required_capabilities(self) -> frozenset[Capability]:
+            return _caps_for(self.algorithm)
 
         def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
             self.last_explain_kwargs = dict(kwargs)
@@ -1776,6 +1842,9 @@ class TestResolveCallDataSources:
                 del backend
                 return None
 
+            def required_capabilities(self) -> frozenset[Capability]:
+                return _caps_for(self.algorithm)
+
             def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
                 self.last_explain_kwargs = dict(kwargs)
                 return MagicMock(spec=ExplanationResult)
@@ -1842,6 +1911,9 @@ class TestResolveCallDataSources:
 
             def check_backend_compat(self, backend: object) -> None:
                 del backend
+
+            def required_capabilities(self) -> frozenset[Capability]:
+                return _caps_for(self.algorithm)
 
             def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
                 self.last_explain_kwargs = dict(kwargs)
@@ -1944,6 +2016,9 @@ def _make_stub_explainer() -> Any:
 
         def check_backend_compat(self, backend: object) -> None:
             del backend
+
+        def required_capabilities(self) -> frozenset[Capability]:
+            return _caps_for(self.algorithm)
 
         def explain(self, *_args: Any, **_kwargs: Any) -> ExplanationResult:
             return MagicMock(spec=ExplanationResult)

@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 from omegaconf import OmegaConf
 
+from raitap.models.access import ExplanationModel, explanation_model
 from raitap.models.backend import TorchBackend
 from raitap.transparency import ExplanationResult, VisualisationResult
 from raitap.transparency.contracts import InputKind, InputSpec, TensorLayout
@@ -194,7 +195,7 @@ def _run_factory_case(
     return cast(
         "ExplanationResult",
         prepared.explainer.explain(  # type: ignore[attr-defined]
-            backend.as_model_for_explanation(),
+            explanation_model(backend, prepared.explainer),
             inputs,
             backend=backend,
             run_dir=prepared.base_run_dir,
@@ -326,7 +327,9 @@ def _run_explain_case(
     visualisers = _build_visualisers(case)
     run_dir = expected_run_dir(case, tmp_path)
     extra_call_kwargs: dict[str, Any] = dict(case.explain_call_kwargs)
-    runtime_model: nn.Module = model if backend is None else backend.as_model_for_explanation()
+    runtime_model: ExplanationModel = (
+        model if backend is None else explanation_model(backend, explainer)
+    )
 
     if backend is not None:
         explainer.check_backend_compat(backend)

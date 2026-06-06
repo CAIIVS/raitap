@@ -26,7 +26,7 @@ from raitap.transparency.contracts import (
 )
 from raitap.transparency.explain_detection import explain_detection
 from raitap.transparency.results import ExplanationResult
-from raitap.types import TaskKind
+from raitap.types import Capability, TaskKind
 from raitap.utils.errors import RaitapError
 
 
@@ -62,6 +62,11 @@ class _RecordingExplainer:
 
     def check_backend_compat(self, backend: Any) -> None:
         del backend
+
+    def required_capabilities(self) -> frozenset[Capability]:
+        # Detection uses gradient methods (IntegratedGradients) -> needs the live
+        # nn.Module, so the resolver routes to autograd_module().
+        return frozenset({Capability.AUTOGRAD})
 
     def explain(
         self,
