@@ -830,7 +830,7 @@ def test_create_explainer_warns_on_unknown_raitap_keys(
         create_explainer(config)
 
 
-def test_create_explainer_warns_on_misplaced_raitap_call_keys(
+def test_create_explainer_rejects_misplaced_raitap_call_keys(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class _StubExplainer:
@@ -858,9 +858,9 @@ def test_create_explainer_warns_on_misplaced_raitap_call_keys(
         }
     )
 
-    with pytest.warns(UserWarning) as caught:
+    with pytest.raises(ValueError) as excinfo:
         create_explainer(config)
-    text = " ".join(str(w.message) for w in caught)
+    text = str(excinfo.value)
     assert "RAITAP-owned keys under 'call:'" in text
     assert "batch_size" in text
     assert "progress_desc" in text
@@ -868,7 +868,7 @@ def test_create_explainer_warns_on_misplaced_raitap_call_keys(
     assert "show_sample_names" in text
 
 
-def test_create_explainer_warns_on_call_show_progress(
+def test_create_explainer_rejects_call_show_progress(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class _StubExplainer:
@@ -891,9 +891,9 @@ def test_create_explainer_warns_on_call_show_progress(
         }
     )
 
-    with pytest.warns(UserWarning) as caught:
+    with pytest.raises(ValueError) as excinfo:
         create_explainer(config)
-    text = " ".join(str(w.message) for w in caught)
+    text = str(excinfo.value)
     assert "RAITAP-owned keys under 'call:'" in text
     assert "show_progress" in text
 
@@ -1395,7 +1395,7 @@ def test_explanation_warns_on_unknown_raitap_keys(
         )
 
 
-def test_explanation_warns_once_on_misplaced_raitap_call_keys(
+def test_explanation_rejects_misplaced_raitap_call_keys(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     sample_images: torch.Tensor,
@@ -1432,7 +1432,7 @@ def test_explanation_warns_once_on_misplaced_raitap_call_keys(
     monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-    with pytest.warns(UserWarning) as caught:
+    with pytest.raises(ValueError) as excinfo:
         _prepare_explanation(
             config,
             "test_explainer",
@@ -1440,74 +1440,9 @@ def test_explanation_warns_once_on_misplaced_raitap_call_keys(
             sample_images,
         )
 
-    messages = [
-        str(w.message) for w in caught if "RAITAP-owned keys under 'call:'" in str(w.message)
-    ]
-    assert len(messages) == 1
-    assert "sample_names" in messages[0]
-
-
-def test_explanation_migrates_misplaced_raitap_call_keys_into_raitap_kwargs(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    sample_images: torch.Tensor,
-) -> None:
-    class RecordingExplainer:
-        algorithm = "Saliency"
-
-        def __init__(self) -> None:
-            self.last_explain_kwargs: dict[str, Any] = {}
-
-        def check_backend_compat(self, backend: object) -> None:
-            del backend
-            return None
-
-        def required_capabilities(self) -> frozenset[Capability]:
-            return _caps_for(self.algorithm)
-
-        def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
-            self.last_explain_kwargs = dict(kwargs)
-            return MagicMock(spec=ExplanationResult)
-
-    explainer = RecordingExplainer()
-    config = _make_config(
-        tmp_path,
-        OmegaConf.create(
-            {
-                "_target_": "raitap.transparency.CaptumExplainer",
-                "algorithm": "Saliency",
-                "call": {
-                    "target": 0,
-                    "show_progress": True,
-                    "batch_size": 2,
-                },
-                "visualisers": [],
-            }
-        ),
-    )
-
-    monkeypatch.setattr(
-        "raitap.transparency.factory.create_explainer",
-        lambda _cfg: (explainer, "raitap.transparency.CaptumExplainer"),
-    )
-    monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
-
-    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-    with pytest.warns(UserWarning, match="RAITAP-owned keys under 'call:'"):
-        _build_explanation(
-            config,
-            "test_explainer",
-            cast("Model", model),
-            sample_images,
-        )
-
-    assert explainer.last_explain_kwargs["target"] == 0
-    assert "show_progress" not in explainer.last_explain_kwargs
-    assert "batch_size" not in explainer.last_explain_kwargs
-    assert explainer.last_explain_kwargs["raitap_kwargs"] == {
-        "show_progress": True,
-        "batch_size": 2,
-    }
+    text = str(excinfo.value)
+    assert "RAITAP-owned keys under 'call:'" in text
+    assert "sample_names" in text
 
 
 def test_explanation_clears_parsed_config_cache_on_visualiser_compat_failure(
@@ -1533,7 +1468,7 @@ def test_explanation_clears_parsed_config_cache_on_visualiser_compat_failure(
             {
                 "_target_": "raitap.transparency.ShapExplainer",
                 "algorithm": "KernelExplainer",
-                "call": {"sample_names": ["cfg_a", "cfg_b"]},
+                "raitap": {"sample_names": ["cfg_a", "cfg_b"]},
                 "visualisers": [{"_target_": "raitap.transparency.ShapImageVisualiser"}],
             }
         ),

@@ -207,27 +207,18 @@ def _validate_raitap_keys(
     )
 
 
-def _warn_on_misplaced_raitap_call_keys(
+def _reject_misplaced_raitap_call_keys(
     call_cfg: dict[str, Any], *, entity_name: str, schema: AdapterSchema
 ) -> None:
     misplaced = sorted(set(call_cfg).intersection(schema.raitap_keys))
     if not misplaced:
         return
     keys = ", ".join(misplaced)
-    raitap_log.warn(
+    raise ValueError(
         f"{schema.entity.capitalize()} {entity_name!r} has RAITAP-owned keys "
-        f"under 'call:': {keys}. These keys belong under 'raitap:' while "
-        "'call:' is intended for library kwargs only.",
+        f"under 'call:': {keys}. These keys belong under 'raitap:' not 'call:' "
+        "('call:' is intended for library kwargs only).",
     )
-
-
-def _migrate_misplaced_raitap_call_keys(
-    call_cfg: dict[str, Any], raitap_cfg: dict[str, Any], schema: AdapterSchema
-) -> None:
-    misplaced = sorted(set(call_cfg).intersection(schema.raitap_keys))
-    for key in misplaced:
-        value = call_cfg.pop(key)
-        raitap_cfg.setdefault(key, value)
 
 
 # ---------------------------------------------------------------------------
@@ -247,8 +238,7 @@ def parse_adapter_config(adapter_config: Any, schema: AdapterSchema) -> ParsedAd
     raitap_plain = _subdict(raw.get("raitap"), label="raitap", schema=schema)
     entity_name = resolved_target or target_path or "?"
     _validate_raitap_keys(raitap_plain, entity_name=entity_name, schema=schema)
-    _warn_on_misplaced_raitap_call_keys(call_plain, entity_name=entity_name, schema=schema)
-    _migrate_misplaced_raitap_call_keys(call_plain, raitap_plain, schema)
+    _reject_misplaced_raitap_call_keys(call_plain, entity_name=entity_name, schema=schema)
 
     return ParsedAdapterConfig(
         raw=raw,

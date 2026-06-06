@@ -116,17 +116,19 @@ def test_parse_validates_top_level_keys() -> None:
         )
 
 
-def test_parse_migrates_misplaced_raitap_keys() -> None:
-    parsed = _parse_assessor_config(
-        {
-            "_target_": "TorchattacksAssessor",
-            "algorithm": "PGD",
-            "call": {"eps": 0.03, "batch_size": 8},
-        }
-    )
-    # batch_size is RAITAP-owned; factory migrates it from `call` to `raitap`.
-    assert "batch_size" not in parsed.call
-    assert parsed.raitap["batch_size"] == 8
+def test_parse_rejects_misplaced_raitap_keys() -> None:
+    # batch_size is RAITAP-owned; placing it under `call:` is a hard error.
+    with pytest.raises(ValueError) as excinfo:
+        _parse_assessor_config(
+            {
+                "_target_": "TorchattacksAssessor",
+                "algorithm": "PGD",
+                "call": {"eps": 0.03, "batch_size": 8},
+            }
+        )
+    text = str(excinfo.value)
+    assert "RAITAP-owned keys under 'call:'" in text
+    assert "batch_size" in text
 
 
 def test_resolve_call_data_sources_passes_through_non_source_dicts() -> None:
