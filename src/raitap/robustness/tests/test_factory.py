@@ -48,7 +48,7 @@ class _BackendStub(ModelBackend):
     def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
         return self._model(inputs)
 
-    def as_model_for_explanation(self) -> torch.nn.Module:
+    def autograd_module(self) -> torch.nn.Module:
         return self._model
 
 
@@ -164,6 +164,11 @@ def test_robustness_uses_model_resolved_preprocessing_for_call_data(
 
         def check_backend_compat(self, backend: object) -> None:
             del backend
+
+        def required_capabilities(self) -> frozenset[Capability]:
+            # PGD is a gradient-based empirical attack -> needs the live nn.Module,
+            # so the resolver routes to autograd_module().
+            return frozenset({Capability.AUTOGRAD})
 
         def assess(self, *_args: Any, **kwargs: Any) -> RobustnessResult:
             self.last_assess_kwargs = dict(kwargs)

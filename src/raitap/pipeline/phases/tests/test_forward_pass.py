@@ -12,7 +12,6 @@ from typing import Any, cast
 
 import pytest
 import torch
-from torch import nn
 
 from raitap.models.backend import ModelBackend
 from raitap.pipeline.phases.forward_pass import forward_pass
@@ -71,9 +70,6 @@ class _FakeDetectionBackend(ModelBackend):
             for _ in inputs
         ]
 
-    def as_model_for_explanation(self) -> nn.Module:
-        raise NotImplementedError
-
 
 class _FakeClassificationBackend(ModelBackend):
     """Minimal classification backend that echoes a fixed prediction tensor."""
@@ -98,9 +94,6 @@ class _FakeClassificationBackend(ModelBackend):
     def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
         n = inputs.shape[0]
         return torch.zeros(n, self.num_classes)
-
-    def as_model_for_explanation(self) -> nn.Module:
-        raise NotImplementedError
 
 
 # ---------------------------------------------------------------------------

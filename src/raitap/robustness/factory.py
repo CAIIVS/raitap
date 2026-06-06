@@ -17,6 +17,7 @@ from raitap.configs.adapter_factory import (
     resolve_call_data_sources,
     resolve_per_image_transform,
 )
+from raitap.models.access import explanation_model
 from raitap.models.backend import ModelBackend
 from raitap.utils.errors import SampleNamesLengthError
 
@@ -167,7 +168,7 @@ class RobustnessAssessment:
             merged_kwargs = backend._prepare_kwargs(merged_kwargs)
 
             return assessor.assess(
-                backend.as_model_for_explanation(),
+                explanation_model(backend, assessor),
                 inputs,
                 targets,
                 backend=backend,

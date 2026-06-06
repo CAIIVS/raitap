@@ -9,11 +9,12 @@ second forward pass), filters per sample by ``score_threshold`` then top
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import torch
 
 from raitap import raitap_log
+from raitap.models.access import explanation_model
 from raitap.models.task_wrappers import DetectionTarget, ScalarDetectionWrapper
 from raitap.transparency.contracts import DetectionBox
 from raitap.types import DetectionInputs, TaskKind
@@ -112,7 +113,11 @@ def explain_detection(
     normalised_call_kwargs = dict(call_kwargs)
     normalised_call_kwargs["target"] = 0
 
-    base_model = backend.as_model_for_explanation()
+    # Invariant: detection explainers require AUTOGRAD, so the resolver returns a
+    # live ``nn.Module`` here. ``ScalarDetectionWrapper`` below subclasses
+    # ``nn.Module`` and registers this as a submodule, so a model-agnostic
+    # (predict-callable) detection explainer would break it — none exist today.
+    base_model = explanation_model(backend, explainer)
 
     # One baseline preview is shared by every box of a sample (same inputs +
     # call kwargs). Render it once and copy for the rest, keyed by content hash.
@@ -162,7 +167,7 @@ def explain_detection(
                 reference_label=reference_label,
                 iou_threshold=iou_threshold,
             )
-            wrapped = ScalarDetectionWrapper(base_model, target=target)
+            wrapped = ScalarDetectionWrapper(cast("Any", base_model), target=target)
 
             per_box_run_dir = base_run_dir / f"sample_{sample_index}" / f"box_{raw_index}"
             per_box_run_dir.mkdir(parents=True, exist_ok=True)

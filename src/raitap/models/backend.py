@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import functools
 import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar, overload
@@ -8,14 +7,14 @@ from typing import TYPE_CHECKING, Any, ClassVar, overload
 import numpy as np
 
 from raitap.models.registration import register
-from raitap.types import Capability, TaskKind
+from raitap.types import FORWARD_ONLY, Capability, TaskKind
 from raitap.utils.errors import ModelInputShapeError
 from raitap.utils.lazy import lazy_import
 
 from .runtime import _ONNX_RUNTIME_INSTALL_HINT, resolve_onnx_providers
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
     from pathlib import Path
 
     import onnxruntime as ort
@@ -132,12 +131,26 @@ class ModelBackend(ABC):
     """Backend-agnostic model runtime interface."""
 
     provides: ClassVar[frozenset[Capability]] = frozenset()
+    extensions: ClassVar[frozenset[str]] = frozenset()
     # Declared per-sample input shape with ``None`` marking dynamic dims
     # (typically the batch dim). ``None`` overall = no rank adaptation.
     expected_input_shape: tuple[int | None, ...] | None = None
     # Optional id->name table for the model's output classes (e.g. torchvision
     # detection ``weights.meta["categories"]``). ``None`` when unavailable.
     category_names: list[str] | None = None
+
+    @classmethod
+    def from_path(
+        cls, path: Path, *, model_cfg: Any, hardware: str, allow_unsafe_pickle: bool = False
+    ) -> ModelBackend:
+        """Construct this backend from a model file.
+
+        Default raises: file loading is not universal (in-memory/test backends
+        never load from a path). File-backed backends declared with
+        ``extensions=`` in ``@register`` override this; the registry calls it
+        from ``model._load_from_path``.
+        """
+        raise NotImplementedError(f"{cls.__name__} does not support construction from a file path.")
 
     @property
     @abstractmethod
@@ -161,12 +174,12 @@ class ModelBackend(ABC):
     def __call__(self, inputs: torch.Tensor) -> Any:
         """Run inference for ``inputs``."""
 
-    @abstractmethod
-    def as_model_for_explanation(self) -> nn.Module:
-        """Return the model object that explainers should consume."""
+    def predict_callable(self) -> Callable[[torch.Tensor], torch.Tensor]:
+        """Forward-only predict fn. Universal shape; defaults to ``__call__``."""
+        return self.__call__
 
 
-@register(provides={Capability.AUTOGRAD})
+@register(provides={Capability.AUTOGRAD}, extensions={".pth", ".pt"})
 class TorchBackend(ModelBackend):
     """PyTorch-backed model runtime."""
 
@@ -182,6 +195,19 @@ class TorchBackend(ModelBackend):
         self.device = torch.device("cpu") if device is None else device
         self._task_kind = task_kind if task_kind is not None else self._infer_task_kind(model)
         self.category_names = category_names
+
+    @classmethod
+    def from_path(
+        cls, path: Path, *, model_cfg: Any, hardware: str, allow_unsafe_pickle: bool = False
+    ) -> ModelBackend:
+        from raitap.models.model import _load_torch_module_from_path  # deferred: import cycle
+        from raitap.models.runtime import resolve_torch_device
+
+        device = resolve_torch_device(hardware)
+        module = _load_torch_module_from_path(
+            path, model_cfg=model_cfg, device=device, allow_unsafe_pickle=allow_unsafe_pickle
+        )
+        return cls(module, device=device, task_kind=getattr(model_cfg, "task_kind", None))
 
     @staticmethod
     def _infer_task_kind(model: nn.Module) -> TaskKind:
@@ -226,36 +252,11 @@ class TorchBackend(ModelBackend):
     def __call__(self, inputs: torch.Tensor | list[torch.Tensor]) -> Any:
         return self.model(inputs)
 
-    def as_model_for_explanation(self) -> nn.Module:
+    def autograd_module(self) -> nn.Module:
         return self.model
 
 
-@functools.cache
-def _onnx_explanation_module_cls() -> type:
-    # Class definition is deferred: ``nn.Module`` as a base class is evaluated
-    # at class-def time, which would trigger a real ``import torch`` and break
-    # the partial-extras-venv contract (see ``raitap.utils.lazy``). Building it
-    # lazily means the family ``__init__`` chain stays torch-free for the deps
-    # bootstrap; the first ``OnnxBackend`` instance trips this factory once.
-
-    class _OnnxExplanationModule(nn.Module):
-        def __init__(self, backend: OnnxBackend) -> None:
-            super().__init__()
-            self.backend = backend
-
-        def forward(self, inputs: torch.Tensor) -> torch.Tensor:
-            output = self.backend(inputs)
-            if not isinstance(output, torch.Tensor):
-                raise TypeError(
-                    "OnnxBackend explanation bridge expected a torch.Tensor output, "
-                    f"got {type(output).__name__}."
-                )
-            return output
-
-    return _OnnxExplanationModule
-
-
-@register(provides=frozenset())
+@register(provides=FORWARD_ONLY, extensions={".onnx"})
 class OnnxBackend(ModelBackend):
     """ONNX Runtime-backed model runtime."""
 
@@ -280,7 +281,6 @@ class OnnxBackend(ModelBackend):
         self.input_type = inputs[0].type
         self.output_names = [output.name for output in session.get_outputs()]
         self.expected_input_shape = _resolve_onnx_expected_shape(inputs[0].shape)
-        self._explanation_module = _onnx_explanation_module_cls()(self)
 
     @property
     def hardware_label(self) -> str:
@@ -301,7 +301,15 @@ class OnnxBackend(ModelBackend):
         return super()._prepare_inputs(inputs)
 
     @classmethod
-    def from_path(cls, path: Path, *, hardware: str = "gpu") -> OnnxBackend:
+    def from_path(
+        cls,
+        path: Path,
+        *,
+        model_cfg: Any = None,
+        hardware: str = "gpu",
+        allow_unsafe_pickle: bool = False,
+    ) -> OnnxBackend:
+        # model_cfg / allow_unsafe_pickle unused: ONNX needs neither.
         try:
             import onnxruntime as ort
         except ImportError as error:
@@ -348,9 +356,6 @@ class OnnxBackend(ModelBackend):
         input_array = self._tensor_to_numpy(prepared_inputs)
         primary = self.forward_numpy(input_array)
         return torch.from_numpy(np.asarray(primary))
-
-    def as_model_for_explanation(self) -> nn.Module:
-        return self._explanation_module
 
     def _tensor_to_numpy(self, inputs: torch.Tensor) -> np.ndarray[Any, Any]:
         array = inputs.detach().cpu().numpy()

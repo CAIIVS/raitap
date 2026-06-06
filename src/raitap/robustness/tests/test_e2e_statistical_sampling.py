@@ -45,7 +45,7 @@ class _BackendStub(ModelBackend):
     def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
         return self._model(inputs)
 
-    def as_model_for_explanation(self) -> torch.nn.Module:
+    def autograd_module(self) -> torch.nn.Module:
         return self._model
 
 

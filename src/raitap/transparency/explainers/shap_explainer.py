@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from raitap import raitap_log
 from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
     import torch
-    from torch import nn
 else:
     torch = lazy_import("torch")
-    nn = lazy_import("torch.nn")
 from raitap.transparency.contracts import (
     BaselineCardinality,
     BaselineMode,
@@ -26,6 +24,8 @@ from .base_explainer import AttributionOnlyExplainer
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from raitap.models.access import ExplanationModel
 
 
 def _normalise_target_indices(
@@ -135,7 +135,7 @@ class ShapExplainer(AttributionOnlyExplainer):
 
     def compute_attributions(
         self,
-        model: nn.Module,
+        model: ExplanationModel,
         inputs: torch.Tensor,
         backend: object | None = None,
         background_data: torch.Tensor | None = None,
@@ -183,19 +183,17 @@ class ShapExplainer(AttributionOnlyExplainer):
                 )
                 background_data = inputs
 
-            if (
-                self.algorithm == "KernelExplainer"
-                and backend is not None
-                and Capability.AUTOGRAD not in getattr(backend, "provides", frozenset())
-            ):
-                if not callable(backend):
+            if self.algorithm == "KernelExplainer":
+                if not callable(model):
                     raise TypeError(
-                        "SHAP ONNX path requires a callable backend for KernelExplainer."
+                        "KernelExplainer requires a callable (predict) model; "
+                        f"got {type(model).__name__}."
                     )
-                callable_backend = cast("Callable[[torch.Tensor], torch.Tensor]", backend)
+                # model-agnostic: ``model`` is a predict callable; SHAP needs a
+                # numpy fn. Wrap it (torch -> numpy) uniformly, regardless of backend.
                 background_np = _to_numpy(background_data)
                 explainer = explainer_class(
-                    _make_backend_prediction_fn(callable_backend),
+                    _make_backend_prediction_fn(model),
                     background_np,
                     **self.init_kwargs,
                 )

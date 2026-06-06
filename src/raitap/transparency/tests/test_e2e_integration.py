@@ -11,6 +11,7 @@ import pytest
 from omegaconf import OmegaConf
 
 from raitap.configs import set_output_root
+from raitap.models.access import explanation_model
 from raitap.models.backend import TorchBackend
 from raitap.transparency import ExplanationResult, VisualisationResult
 from raitap.transparency.contracts import InputSpec
@@ -199,7 +200,7 @@ def test_config_helpers_support_visualiser_for_loop(
     explanation: ExplanationResult = cast(
         "ExplanationResult",
         prepared.explainer.explain(  # type: ignore[attr-defined]
-            backend.as_model_for_explanation(),
+            explanation_model(backend, prepared.explainer),
             sample_images,
             backend=backend,
             run_dir=prepared.base_run_dir,

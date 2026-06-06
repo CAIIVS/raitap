@@ -94,10 +94,12 @@ class Model(Trackable):
                 name, hardware=hardware, task_kind=getattr(config.model, "task_kind", None)
             )
 
+        from raitap.models.registration import supported_model_formats
+
         raise ValueError(
             f"Model source {source!r} is neither an existing path nor a known "
             f"torchvision model.\n"
-            f"Supported file formats: {_supported_model_formats()}\n"
+            f"Supported file formats: {supported_model_formats()}\n"
             f"To use your own model, set source to a valid model file path."
         )
 
@@ -230,21 +232,15 @@ def _load_from_path(
     if not path.exists():
         raise FileNotFoundError(f"Model file not found: {path}")
 
-    if path.suffix.lower() == ".onnx":
-        return OnnxBackend.from_path(path, hardware=hardware)
+    from raitap.models.registration import backend_for_extension, supported_model_formats
 
-    if path.suffix.lower() in {".pth", ".pt"}:
-        device = resolve_torch_device(hardware)
-        module = _load_torch_module_from_path(
-            path,
-            model_cfg=model_cfg,
-            device=device,
-            allow_unsafe_pickle=allow_unsafe_pickle,
+    backend_cls = backend_for_extension(path.suffix.lower())
+    if backend_cls is None:
+        raise ValueError(
+            f"Unsupported format {path.suffix!r}. Supported formats: {supported_model_formats()}"
         )
-        return TorchBackend(module, device=device, task_kind=getattr(model_cfg, "task_kind", None))
-
-    raise ValueError(
-        f"Unsupported model format {path.suffix!r}. Supported formats: {_supported_model_formats()}"
+    return backend_cls.from_path(
+        path, model_cfg=model_cfg, hardware=hardware, allow_unsafe_pickle=allow_unsafe_pickle
     )
 
 
@@ -411,7 +407,3 @@ def _load_pretrained(
         task_kind=task_kind,
         category_names=_default_category_names(model_name),
     )
-
-
-def _supported_model_formats() -> list[str]:
-    return [".onnx", ".pt", ".pth"]

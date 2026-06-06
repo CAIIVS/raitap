@@ -36,6 +36,7 @@ from raitap.robustness.report import RobustnessPhaseResult
 from raitap.tracking import BaseTracker
 from raitap.transparency import phase as _transparency_phase
 from raitap.transparency.report import TransparencyPhaseResult
+from raitap.types import Capability
 from raitap.types import TaskKind as _TaskKind
 
 
@@ -117,7 +118,7 @@ class _BackendStub:
     def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
         return self._model(inputs)
 
-    def as_model_for_explanation(self) -> torch.nn.Module:
+    def autograd_module(self) -> torch.nn.Module:
         return self._model
 
 
@@ -255,6 +256,9 @@ class _CapturingExplainer:
     def explain(self, *_args: object, **kwargs: object) -> _FakeExplainerResult:
         self._captured.update(kwargs)
         return self._result
+
+    def required_capabilities(self) -> frozenset[Capability]:
+        return frozenset({Capability.AUTOGRAD})
 
 
 def _make_prepared(

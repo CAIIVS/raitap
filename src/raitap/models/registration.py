@@ -1,13 +1,13 @@
-"""Metadata-only decorator for model backends.
+"""Decorator + lookups for model backends.
 
-Backends are not Hydra-config adapters (no registry, no entry-point plugins);
-this decorator only sets and type-checks the required ``provides``
-class constant at the decoration site.
+The ``@register`` decorator sets each backend's ``provides`` and ``extensions``
+class constants at the decoration site and indexes the class by file extension,
+so ``model._load_from_path`` can resolve a backend from a model file's suffix.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Required, TypedDict, TypeVar, Unpack
+from typing import TYPE_CHECKING, NotRequired, Required, TypedDict, TypeVar, Unpack
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -24,16 +24,35 @@ if TYPE_CHECKING:
 
 B = TypeVar("B", bound="ModelBackend")
 
+#: extension (e.g. ``".onnx"``) -> backend class. Populated by ``@register``.
+_BACKENDS_BY_EXTENSION: dict[str, type] = {}
+
 
 class _BackendRegKwargs(TypedDict):
     provides: Required[AbstractSet[Capability]]
+    extensions: NotRequired[AbstractSet[str]]
 
 
 def register(**kwargs: Unpack[_BackendRegKwargs]) -> Callable[[type[B]], type[B]]:
-    """Register a model backend. ``provides`` is required."""
+    """Register a model backend. Sets ``provides`` + ``extensions`` and indexes
+    the class by extension for resolution in ``model._load_from_path``."""
 
     def wrap(cls: type[B]) -> type[B]:
         cls.provides = frozenset(kwargs["provides"])
+        exts = frozenset(e.lower() for e in kwargs.get("extensions", frozenset()))
+        cls.extensions = exts
+        for ext in exts:
+            _BACKENDS_BY_EXTENSION[ext] = cls
         return cls
 
     return wrap
+
+
+def backend_for_extension(suffix: str) -> type | None:
+    """Return the backend class registered for ``suffix`` (e.g. ``".onnx"``), or None."""
+    return _BACKENDS_BY_EXTENSION.get(suffix.lower())
+
+
+def supported_model_formats() -> list[str]:
+    """Sorted list of registered file extensions."""
+    return sorted(_BACKENDS_BY_EXTENSION)

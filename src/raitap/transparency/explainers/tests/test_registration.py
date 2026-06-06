@@ -3,8 +3,9 @@ under the transparency group and pass the algorithm/payload metadata through."""
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import torch
-import torch.nn as nn
 
 from raitap import adapters
 from raitap.transparency.contracts import (
@@ -13,6 +14,9 @@ from raitap.transparency.contracts import (
     MethodFamily,
 )
 from raitap.transparency.explainers.base_explainer import AttributionOnlyExplainer
+
+if TYPE_CHECKING:
+    from raitap.models.access import ExplanationModel
 
 
 def test_transparency_adapter_registers_and_assigns_classvars() -> None:
@@ -32,7 +36,7 @@ def test_transparency_adapter_registers_and_assigns_classvars() -> None:
 
         def compute_attributions(
             self,
-            model: nn.Module,
+            model: ExplanationModel,
             inputs: torch.Tensor,
             backend: object | None = None,
             **kw: object,

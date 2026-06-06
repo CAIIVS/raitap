@@ -12,13 +12,16 @@ A **backend** wraps a model runtime and exposes a uniform interface to the pipel
 
 ## Steps
 
-We will use a fictional backend called `MyBackend`. It depends on Torch, but your real backend might not; the following is just an example.
+A backend is a one-file plugin. We will use a fictional backend called `MyBackend`. It depends on Torch, but your real backend might not; the following is just an example.
 
-1. **Subclass `ModelBackend`** and decorate with `@backends.register`.
-2. **Implement the three abstract methods**: `hardware_label`, `__call__`, `as_model_for_explanation`.
-3. **Declare `provides`**: the `frozenset[Capability]` your backend offers. The decorator type-checks it and sets it as a class variable. Torch backends pass `{Capability.AUTOGRAD}`; forward-only runtimes (ONNX) pass `frozenset()`.
+1. **Subclass `ModelBackend`** and decorate with `@backends.register(provides=..., extensions=...)`.
+2. **Declare `provides` and `extensions`**: `provides` is the `frozenset[Capability]` your backend offers; `extensions` is the set of file suffixes it loads. The decorator type-checks both, sets them as class variables, and indexes the backend by extension so model loading resolves the right backend for a given file.
+3. **Implement the abstract methods**: `from_path` (construct from a model file), `__call__` (run inference), and the `hardware_label` property.
+4. **`predict_callable` is inherited**: it returns `self.__call__`, the universal forward-only shape that model-agnostic explainers consume. You do not implement it.
+5. **`autograd_module` is opt-in**: implement it (return the live torch `nn.Module`) and declare `Capability.AUTOGRAD` ONLY if your backend exposes a differentiable torch module. Gradient explainers and attacks get this shape; model-agnostic ones get the predict callable.
 
 ```python
+from pathlib import Path
 from typing import Any
 
 import torch
@@ -29,25 +32,33 @@ from raitap.models.backend import ModelBackend
 from raitap.types import Capability
 
 
-@backends.register(provides={Capability.AUTOGRAD})
+@backends.register(provides={Capability.AUTOGRAD}, extensions={".pth", ".pt"})
 class MyBackend(ModelBackend):
     def __init__(self, model: nn.Module) -> None:
         self.model = model
 
-    @property
-    def hardware_label(self) -> str:  # human-readable runtime label, e.g. "CPU" / "CUDA"
-        return get_hardware_label_for_mybackend(self.device)
+    @classmethod
+    def from_path(
+        cls, path: Path, *, model_cfg: Any, hardware: str, allow_unsafe_pickle: bool = False
+    ) -> ModelBackend:  # load a model file into this backend
+        ...
 
     def __call__(self, inputs: torch.Tensor) -> Any:  # run inference, return raw output
         return self.model(inputs)
 
-    def as_model_for_explanation(self) -> nn.Module:  # the object explainers consume
+    @property
+    def hardware_label(self) -> str:  # free-form display label for the run summary
+        return get_hardware_label_for_mybackend(self.device)
+
+    def autograd_module(self) -> nn.Module:  # only if AUTOGRAD-capable
         return self.model
 ```
 
+A non-torch or forward-only backend (e.g. ONNX) declares `provides=FORWARD_ONLY` (the empty capability set, imported from `raitap.types`), skips `autograd_module`, and runs model-agnostic explainers only.
+
 ## Which capabilities to declare
 
-Most backends provide `{Capability.AUTOGRAD}` (torch) or nothing (forward-only, e.g. ONNX). See {doc}`../capabilities` for the full list, what each means, and which algorithms require it.
+Most backends provide `{Capability.AUTOGRAD}` (torch) or `FORWARD_ONLY` (forward-only, e.g. ONNX). See {doc}`../capabilities` for the full list, what each means, and which algorithms require it.
 
 ## Optional attributes
 

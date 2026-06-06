@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch
     from matplotlib.figure import Figure
 
+    from raitap.models.access import ExplanationModel
     from raitap.transparency.contracts import VisualisationContext
 
 
@@ -90,7 +91,7 @@ class _IdentityExplainer(AttributionOnlyExplainer):
 
     def compute_attributions(
         self,
-        model: torch.nn.Module,
+        model: ExplanationModel,
         inputs: torch.Tensor,
         **kwargs: Any,
     ) -> torch.Tensor:

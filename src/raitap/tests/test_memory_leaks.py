@@ -159,7 +159,7 @@ def test_run_without_tracking_forward_output_is_cpu_and_detached() -> None:
         def __call__(self, x: torch.Tensor) -> torch.Tensor:
             return net(x)
 
-        def as_model_for_explanation(self) -> object:
+        def autograd_module(self) -> torch.nn.Module:
             return net
 
     from typing import cast
@@ -176,9 +176,12 @@ def test_run_without_tracking_forward_output_is_cpu_and_detached() -> None:
     fake_explanation._visualise.return_value = []
 
     from raitap.transparency.phase import PreparedExplainer
+    from raitap.types import Capability
 
     fake_explainer = MagicMock()
     fake_explainer.explain.return_value = fake_explanation
+    # Real adapters expose this; the resolver reads it to pick the model shape.
+    fake_explainer.required_capabilities.return_value = frozenset({Capability.AUTOGRAD})
     fake_prepared = PreparedExplainer(
         name="explainer1",
         explainer=fake_explainer,

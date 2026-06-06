@@ -40,6 +40,28 @@ def test_torch_backend_task_kind_can_be_overridden_in_constructor() -> None:
     assert backend.task_kind is TaskKind.regression
 
 
+def test_torch_backend_autograd_module_returns_live_module() -> None:
+    import torch.nn as nn
+
+    from raitap.models.backend import TorchBackend
+
+    module = nn.Linear(2, 2)
+    backend = TorchBackend(module)
+    assert backend.autograd_module() is module
+
+
+def test_predict_callable_runs_forward() -> None:
+    import torch
+    import torch.nn as nn
+
+    from raitap.models.backend import TorchBackend
+
+    backend = TorchBackend(nn.Identity())
+    fn = backend.predict_callable()
+    out = fn(torch.ones(1, 3))
+    assert torch.equal(out, torch.ones(1, 3))
+
+
 def test_register_backend_sets_class_constant() -> None:
     from raitap.models.backend import ModelBackend
     from raitap.models.registration import register
@@ -52,8 +74,5 @@ def test_register_backend_sets_class_constant() -> None:
 
         def __call__(self, inputs: object) -> object:
             return inputs
-
-        def as_model_for_explanation(self) -> nn.Module:
-            return nn.Identity()
 
     assert _B.provides == frozenset({Capability.AUTOGRAD})

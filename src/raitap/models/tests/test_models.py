@@ -182,19 +182,21 @@ class TestLoadModelFromPath:
         with pytest.warns(DeprecationWarning, match="pickled nn.Module"):
             model = Model(cfg, allow_unsafe_pickle=True)
         assert isinstance(model.backend, TorchBackend)
-        assert isinstance(model.backend.as_model_for_explanation(), nn.Module)
+        assert isinstance(model.backend.autograd_module(), nn.Module)
 
     def test_loads_pt_file(self, saved_pt: Path) -> None:
         cfg = _make_config(str(saved_pt))
         with pytest.warns(DeprecationWarning, match="pickled nn.Module"):
             model = Model(cfg, allow_unsafe_pickle=True)
         assert isinstance(model.backend, TorchBackend)
-        assert isinstance(model.backend.as_model_for_explanation(), nn.Module)
+        assert isinstance(model.backend.autograd_module(), nn.Module)
 
     def test_returns_eval_mode(self, saved_pth: Path) -> None:
         cfg = _make_config(str(saved_pth))
         with pytest.warns(DeprecationWarning, match="pickled nn.Module"):
-            model = Model(cfg, allow_unsafe_pickle=True).backend.as_model_for_explanation()
+            backend = Model(cfg, allow_unsafe_pickle=True).backend
+        assert isinstance(backend, TorchBackend)
+        model = backend.autograd_module()
         assert not model.training
 
     def test_pickled_module_load_refused_without_opt_in(
@@ -214,7 +216,7 @@ class TestLoadModelFromPath:
         bad = tmp_path / "model.xyz"
         bad.touch()
         cfg = _make_config(str(bad))
-        with pytest.raises(ValueError, match="Unsupported model format"):
+        with pytest.raises(ValueError, match="Unsupported format"):
             Model(cfg)
 
     def test_state_dict_loads_with_arch_and_num_classes(self, tmp_path: Path) -> None:
@@ -226,7 +228,7 @@ class TestLoadModelFromPath:
         cfg = _make_config(str(path), arch="resnet18", num_classes=3)
         model = Model(cfg)
         assert isinstance(model.backend, TorchBackend)
-        loaded = model.backend.as_model_for_explanation()
+        loaded = model.backend.autograd_module()
         # Round-trip: identical parameter values.
         for k, v in ref.state_dict().items():
             assert torch.equal(v, loaded.state_dict()[k].cpu())
@@ -252,7 +254,9 @@ class TestLoadModelFromPath:
         path = tmp_path / "scripted.pt"
         scripted.save(str(path))
         cfg = _make_config(str(path), hardware="cpu")
-        loaded = Model(cfg).backend.as_model_for_explanation()
+        backend = Model(cfg).backend
+        assert isinstance(backend, TorchBackend)
+        loaded = backend.autograd_module()
         assert isinstance(loaded, torch.jit.ScriptModule)
         x = torch.randn(2, 4)
         torch.testing.assert_close(loaded(x), ref(x))
@@ -590,11 +594,13 @@ class TestLoadModelFromName:
         cfg = _make_config("resnet18")
         model = Model(cfg)
         assert isinstance(model.backend, TorchBackend)
-        assert isinstance(model.backend.as_model_for_explanation(), nn.Module)
+        assert isinstance(model.backend.autograd_module(), nn.Module)
 
     def test_returns_eval_mode(self) -> None:
         cfg = _make_config("resnet18")
-        model = Model(cfg).backend.as_model_for_explanation()
+        backend = Model(cfg).backend
+        assert isinstance(backend, TorchBackend)
+        model = backend.autograd_module()
         assert not model.training
 
     def test_unknown_name_raises_value_error(self) -> None:
@@ -1245,3 +1251,12 @@ def test_resnet_state_dict_with_model_bundled_preprocessing_keeps_gradcam_path(
     assert len(children) == 2
     assert isinstance(children[1], ResNet)
     assert children[1].layer4[2].conv3 is not None
+
+
+def test_unsupported_extension_lists_registered_formats(tmp_path: Path) -> None:
+    from raitap.models.model import _load_from_path
+
+    bogus = tmp_path / "model.xyz"
+    bogus.write_bytes(b"x")
+    with pytest.raises(ValueError, match=r"Unsupported format"):
+        _load_from_path(bogus, model_cfg=None, hardware="cpu")
