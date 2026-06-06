@@ -131,6 +131,41 @@ conventional one and the safe default. `stem` collapses ids that share a
 filename across subdirs (`NORMAL/IM-0001.jpeg` and `PNEUMONIA/IM-0001.jpeg`
 both become `IM-0001`), which raises a duplicate-id error.
 
+### Labels from directory structure
+
+If your images are already organised into one folder per class (the
+torchvision `ImageFolder` convention), set `labels.source: "directory"` to use
+the folder names as labels. No labels file needed.
+
+```text
+data/train/
+├── NORMAL/IM-0001.jpeg      # label: NORMAL
+├── NORMAL/IM-0002.jpeg
+└── PNEUMONIA/IM-0001.jpeg   # label: PNEUMONIA
+```
+
+```{config-tabs}
+:yaml:
+data:
+  source: "./data/train"
+  labels:
+    source: "directory"
+
+:python:
+from raitap.data import DataConfig, LabelsConfig
+
+data = DataConfig(
+    source="./data/train",
+    labels=LabelsConfig(source="directory"),
+)
+```
+
+The class is each sample's top-level subdirectory; nesting within a class
+folder is fine. Class ids are assigned alphabetically (`NORMAL` to `0`,
+`PNEUMONIA` to `1`). `id_column` and `id_strategy` do not apply. If images sit
+directly under the source with no class subdirs, RAITAP warns and falls back to
+predictions as metric targets.
+
 If you want to evaluate metrics against ground-truth labels, configure the
 optional `data.labels` block as described in {doc}`configuration`.
 
