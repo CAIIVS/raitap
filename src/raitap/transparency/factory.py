@@ -10,8 +10,6 @@ from raitap.configs.adapter_factory import (
     instantiate_adapter,
     instantiate_visualisers,
     parse_adapter_config,
-    raw_config_dict,
-    resolve_call_data_sources,
 )
 from raitap.models.backend import ModelBackend
 
@@ -225,13 +223,3 @@ def _enum_frozenset(value: object, enum_type: type[Any]) -> frozenset[Any]:
         else:
             out.append(enum_type(str(item)))
     return frozenset(out)
-
-
-# Internal-test back-compat: a couple of older tests touch these names. Keep
-# them as thin wrappers so the test surface is unchanged across the refactor.
-def _raw_transparency_config(explainer_config: Any) -> dict[str, Any]:
-    return raw_config_dict(explainer_config)
-
-
-def _resolve_call_data_sources(call_kwargs: dict[str, Any]) -> dict[str, Any]:
-    return resolve_call_data_sources(call_kwargs, log_label="call")

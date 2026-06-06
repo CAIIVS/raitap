@@ -98,9 +98,9 @@ attribution-only figures. If a thumbnail cannot be rendered for a selected
 sample, that sample's visualiser figures keep their original panels.
 
 Set
-`reporting.show_original_per_explainer=true` to restore the older local layout
-where each explainer figure includes its own original input panel, the legacy
-overview/detail grouping is used, and no sample thumbnails are emitted.
+`reporting.show_original_per_explainer=true` for a more verbose local layout
+where each explainer figure includes its own original input panel, samples use
+overview/detail grouping, and no sample thumbnails are emitted.
 
 Report-local asset names for compact local explanations use
 `sample_<sample_index>_thumbnail_<n>.png` and

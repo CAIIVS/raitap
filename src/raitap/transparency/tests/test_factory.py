@@ -9,6 +9,7 @@ import pytest
 import torch
 from omegaconf import OmegaConf
 
+from raitap.configs.adapter_factory import resolve_call_data_sources
 from raitap.models.backend import ModelBackend
 from raitap.transparency import (
     PayloadVisualiserIncompatibilityError,
@@ -22,11 +23,9 @@ from raitap.transparency.contracts import (
 )
 from raitap.transparency.factory import (
     _PARSED_EXPLAINER_CONFIG_CACHE,
-    _resolve_call_data_sources,
     check_explainer_visualiser_compat,
     create_explainer,
     create_visualisers,
-    resolve_call_data_sources,
 )
 from raitap.transparency.phase import prepare_explainer
 from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult
@@ -830,7 +829,7 @@ def test_create_explainer_warns_on_unknown_raitap_keys(
         create_explainer(config)
 
 
-def test_create_explainer_warns_on_misplaced_raitap_call_keys(
+def test_create_explainer_rejects_misplaced_raitap_call_keys(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class _StubExplainer:
@@ -858,9 +857,9 @@ def test_create_explainer_warns_on_misplaced_raitap_call_keys(
         }
     )
 
-    with pytest.warns(UserWarning) as caught:
+    with pytest.raises(ValueError) as excinfo:
         create_explainer(config)
-    text = " ".join(str(w.message) for w in caught)
+    text = str(excinfo.value)
     assert "RAITAP-owned keys under 'call:'" in text
     assert "batch_size" in text
     assert "progress_desc" in text
@@ -868,7 +867,7 @@ def test_create_explainer_warns_on_misplaced_raitap_call_keys(
     assert "show_sample_names" in text
 
 
-def test_create_explainer_warns_on_call_show_progress(
+def test_create_explainer_rejects_call_show_progress(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class _StubExplainer:
@@ -891,9 +890,9 @@ def test_create_explainer_warns_on_call_show_progress(
         }
     )
 
-    with pytest.warns(UserWarning) as caught:
+    with pytest.raises(ValueError) as excinfo:
         create_explainer(config)
-    text = " ".join(str(w.message) for w in caught)
+    text = str(excinfo.value)
     assert "RAITAP-owned keys under 'call:'" in text
     assert "show_progress" in text
 
@@ -1395,7 +1394,7 @@ def test_explanation_warns_on_unknown_raitap_keys(
         )
 
 
-def test_explanation_warns_once_on_misplaced_raitap_call_keys(
+def test_explanation_rejects_misplaced_raitap_call_keys(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     sample_images: torch.Tensor,
@@ -1432,7 +1431,7 @@ def test_explanation_warns_once_on_misplaced_raitap_call_keys(
     monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
 
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-    with pytest.warns(UserWarning) as caught:
+    with pytest.raises(ValueError) as excinfo:
         _prepare_explanation(
             config,
             "test_explainer",
@@ -1440,74 +1439,9 @@ def test_explanation_warns_once_on_misplaced_raitap_call_keys(
             sample_images,
         )
 
-    messages = [
-        str(w.message) for w in caught if "RAITAP-owned keys under 'call:'" in str(w.message)
-    ]
-    assert len(messages) == 1
-    assert "sample_names" in messages[0]
-
-
-def test_explanation_migrates_misplaced_raitap_call_keys_into_raitap_kwargs(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    sample_images: torch.Tensor,
-) -> None:
-    class RecordingExplainer:
-        algorithm = "Saliency"
-
-        def __init__(self) -> None:
-            self.last_explain_kwargs: dict[str, Any] = {}
-
-        def check_backend_compat(self, backend: object) -> None:
-            del backend
-            return None
-
-        def required_capabilities(self) -> frozenset[Capability]:
-            return _caps_for(self.algorithm)
-
-        def explain(self, *_args: Any, **kwargs: Any) -> ExplanationResult:
-            self.last_explain_kwargs = dict(kwargs)
-            return MagicMock(spec=ExplanationResult)
-
-    explainer = RecordingExplainer()
-    config = _make_config(
-        tmp_path,
-        OmegaConf.create(
-            {
-                "_target_": "raitap.transparency.CaptumExplainer",
-                "algorithm": "Saliency",
-                "call": {
-                    "target": 0,
-                    "show_progress": True,
-                    "batch_size": 2,
-                },
-                "visualisers": [],
-            }
-        ),
-    )
-
-    monkeypatch.setattr(
-        "raitap.transparency.factory.create_explainer",
-        lambda _cfg: (explainer, "raitap.transparency.CaptumExplainer"),
-    )
-    monkeypatch.setattr("raitap.transparency.factory.create_visualisers", lambda _cfg: [])
-
-    model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
-    with pytest.warns(UserWarning, match="RAITAP-owned keys under 'call:'"):
-        _build_explanation(
-            config,
-            "test_explainer",
-            cast("Model", model),
-            sample_images,
-        )
-
-    assert explainer.last_explain_kwargs["target"] == 0
-    assert "show_progress" not in explainer.last_explain_kwargs
-    assert "batch_size" not in explainer.last_explain_kwargs
-    assert explainer.last_explain_kwargs["raitap_kwargs"] == {
-        "show_progress": True,
-        "batch_size": 2,
-    }
+    text = str(excinfo.value)
+    assert "RAITAP-owned keys under 'call:'" in text
+    assert "sample_names" in text
 
 
 def test_explanation_clears_parsed_config_cache_on_visualiser_compat_failure(
@@ -1533,7 +1467,7 @@ def test_explanation_clears_parsed_config_cache_on_visualiser_compat_failure(
             {
                 "_target_": "raitap.transparency.ShapExplainer",
                 "algorithm": "KernelExplainer",
-                "call": {"sample_names": ["cfg_a", "cfg_b"]},
+                "raitap": {"sample_names": ["cfg_a", "cfg_b"]},
                 "visualisers": [{"_target_": "raitap.transparency.ShapImageVisualiser"}],
             }
         ),
@@ -1764,22 +1698,22 @@ def test_create_visualisers_splits_constructor_and_call(monkeypatch: pytest.Monk
 
 
 # ---------------------------------------------------------------------------
-# _resolve_call_data_sources
+# resolve_call_data_sources
 # ---------------------------------------------------------------------------
 
 
 class TestResolveCallDataSources:
     def test_passthrough_when_no_data_references(self) -> None:
         kwargs = {"target": 0, "nsamples": 10}
-        assert _resolve_call_data_sources(kwargs) == kwargs
+        assert resolve_call_data_sources(kwargs, log_label="call") == kwargs
 
     def test_passthrough_when_value_is_not_a_dict(self) -> None:
         kwargs = {"background_data": None, "target": 1}
-        assert _resolve_call_data_sources(kwargs) == kwargs
+        assert resolve_call_data_sources(kwargs, log_label="call") == kwargs
 
     def test_passthrough_dict_without_source_key(self) -> None:
         kwargs = {"options": {"n_samples": 5}}
-        assert _resolve_call_data_sources(kwargs) == kwargs
+        assert resolve_call_data_sources(kwargs, log_label="call") == kwargs
 
     def test_loads_tensor_from_source(self, tmp_path: Path) -> None:
         import numpy as np
@@ -1791,7 +1725,9 @@ class TestResolveCallDataSources:
             arr = np.zeros((8, 8, 3), dtype=np.uint8)
             Image.fromarray(arr, "RGB").save(img_dir / f"img{i}.png")
 
-        result = _resolve_call_data_sources({"background_data": {"source": str(img_dir)}})
+        result = resolve_call_data_sources(
+            {"background_data": {"source": str(img_dir)}}, log_label="call"
+        )
 
         assert isinstance(result["background_data"], torch.Tensor)
         assert result["background_data"].shape == (4, 3, 8, 8)
@@ -1806,22 +1742,23 @@ class TestResolveCallDataSources:
             arr = np.zeros((8, 8, 3), dtype=np.uint8)
             Image.fromarray(arr, "RGB").save(img_dir / f"img{i}.png")
 
-        result = _resolve_call_data_sources(
-            {"background_data": {"source": str(img_dir), "n_samples": 3}}
+        result = resolve_call_data_sources(
+            {"background_data": {"source": str(img_dir), "n_samples": 3}}, log_label="call"
         )
 
         assert result["background_data"].shape[0] == 3
 
     def test_invalid_n_samples_type_raises(self, tmp_path: Path) -> None:
         with pytest.raises(TypeError, match="n_samples must be an int"):
-            _resolve_call_data_sources(
-                {"background_data": {"source": str(tmp_path), "n_samples": "bad"}}
+            resolve_call_data_sources(
+                {"background_data": {"source": str(tmp_path), "n_samples": "bad"}},
+                log_label="call",
             )
 
     def test_non_data_source_dict_with_extra_keys_is_passed_through(self) -> None:
         """A dict with keys beyond {source, n_samples} is not treated as a data source."""
         value = {"source": "somewhere", "extra_key": True}
-        result = _resolve_call_data_sources({"some_kwarg": value})
+        result = resolve_call_data_sources({"some_kwarg": value}, log_label="call")
         assert result["some_kwarg"] is value
 
     def test_explanation_injects_background_data_from_call(

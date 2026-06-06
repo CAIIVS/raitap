@@ -45,6 +45,17 @@ data = DataConfig(
 )
 ```
 
+with `labels.csv` rows like:
+
+```text
+image,label
+IM-0001.jpeg,0
+IM-0002.jpeg,1
+```
+
+The ids are bare filenames (no path separators), so `auto` matches by
+`stem`. See [How labels match to samples](#how-labels-match-to-samples) below.
+
 Example (nested ImageFolder layout — `data/test/<class>/<file>.jpg`):
 
 ```text
@@ -92,6 +103,33 @@ matches by relative path (extension is stripped during comparison, so
 `NORMAL/IM-0001.jpeg` and `NORMAL/IM-0001` both work). Sample order is
 sorted by relative posix path. See {doc}`configuration` for the full
 `id_strategy` reference.
+
+### How labels match to samples
+
+Labels come from the `data.labels` file, not from folder names. RAITAP does
+not infer the class from a parent directory the way torchvision `ImageFolder`
+does. Each labels row is tied to a sample two ways:
+
+- **By id** — when `labels.id_column` is set, its value is matched against the
+  discovered sample files.
+- **By order** — when no `id_column` is set, labels align to samples by sorted
+  file order (row 1 to the first file, and so on).
+
+For id matching, `id_strategy` controls how both sides are normalised before
+the lookup. The same rule is applied to the sample paths (from disk) and the
+label ids (from the file):
+
+| `id_strategy`    | strips          | `NORMAL/IM-0001.jpeg` becomes | use when                                 |
+| ---------------- | --------------- | ----------------------------- | ---------------------------------------- |
+| `relative_path`  | extension only  | `NORMAL/IM-0001`              | label ids carry the directory (manifest) |
+| `stem`           | directory + ext | `IM-0001`                     | flat dir, label ids are bare filenames   |
+| `auto` (default) | picks per id    | depends on the id column      | leave it; detects which form fits        |
+
+`auto` switches to `relative_path` as soon as any label id contains `/` or
+`\`, otherwise `stem`. The manifest form (`relative_path`/`auto`) is the
+conventional one and the safe default. `stem` collapses ids that share a
+filename across subdirs (`NORMAL/IM-0001.jpeg` and `PNEUMONIA/IM-0001.jpeg`
+both become `IM-0001`), which raises a duplicate-id error.
 
 If you want to evaluate metrics against ground-truth labels, configure the
 optional `data.labels` block as described in {doc}`configuration`.

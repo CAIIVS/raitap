@@ -82,7 +82,7 @@ Label alignment is governed by `data.labels.id_strategy`:
   `/` or `\`, switches to `"relative_path"`; otherwise `"stem"`.
 - `"relative_path"` — strips only the file extension; directory components
   retained.
-- `"stem"` — legacy flat-dir behaviour (`Path(id).stem`).
+- `"stem"` — flat-dir / basename matching (`Path(id).stem`).
 
 Both sides (sample ids from disk + label ids from the file) are normalised
 the same way before lookup. Duplicate normalised label ids raise a

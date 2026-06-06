@@ -720,8 +720,8 @@ def _resolve_sample_ids(files: list[Path], root: Path) -> list[str]:
 def _normalise_sample_id(value: object, strategy: str = "stem") -> str:
     """Normalise a label-file id or discovered sample id into a comparable key.
 
-    - ``strategy="stem"``: legacy behaviour. Strip the directory and the
-      extension; e.g. ``"NORMAL/IM-0001.jpeg"`` → ``"IM-0001"``.
+    - ``strategy="stem"``: flat-dir / basename matching. Strip the directory
+      and the extension; e.g. ``"NORMAL/IM-0001.jpeg"`` → ``"IM-0001"``.
     - ``strategy="relative_path"``: keep the directory; strip only the
       extension. e.g. ``"NORMAL\\IM-0001.jpeg"`` → ``"NORMAL/IM-0001"``.
     """

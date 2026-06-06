@@ -57,7 +57,6 @@ else:
 
 _CONSENT_ENV_VAR = "RAITAP_ALLOW_PREPROCESSING_EXEC"
 _ACKNOWLEDGE_OFF_ENV_VAR = "RAITAP_ACKNOWLEDGE_PREPROCESSING_OFF"
-_LEGACY_FACTORY_NAMES = ("make_preprocessing", "make_data_preprocessing")
 _DATA_PREPROCESSING_FACTORY_ATTR = "__raitap_preprocessing_factory__"
 _MODEL_INPUT_TRANSFORMATION_FACTORY_ATTR = "__raitap_model_input_transformation_factory__"
 _MODEL_BUNDLED_VALUE = Preprocessing.model_bundled.value
@@ -545,7 +544,6 @@ def _resolve_side_custom_file(
     if user_module is None:
         user_module = _import_user_module(path)
         file_cache[path] = user_module
-        _reject_legacy_undecorated_factories(user_module, path)
 
     if side == "data":
         marker_attr = _DATA_PREPROCESSING_FACTORY_ATTR
@@ -600,25 +598,6 @@ def _import_user_module(path: Path) -> Any:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
-
-
-def _reject_legacy_undecorated_factories(user_module: Any, path: Path) -> None:
-    legacy = [
-        name
-        for name in _LEGACY_FACTORY_NAMES
-        if callable(factory := getattr(user_module, name, None))
-        and not getattr(factory, _DATA_PREPROCESSING_FACTORY_ATTR, False)
-        and not getattr(factory, _MODEL_INPUT_TRANSFORMATION_FACTORY_ATTR, False)
-    ]
-    if not legacy:
-        return
-    names = ", ".join(f"`{name}()`" for name in legacy)
-    raise AttributeError(
-        f"{path}: fixed-name factories {names} are no longer supported on their own. "
-        "Use the RAITAP decorators: decorate an arbitrary zero-argument factory with "
-        "`@raitap_preprocessing_factory` for data preprocessing or "
-        "`@raitap_model_input_transformation_factory` for model input transformation."
-    )
 
 
 def _build_decorated_user_factory(

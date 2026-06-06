@@ -82,7 +82,7 @@ class LabelsConfig:
     #   "auto"          — pick "relative_path" if any id contains "/" or "\\"; else "stem".
     #   "relative_path" — ids are resolved as posix-style paths relative to ``data.source``
     #                     (supports nested ImageFolder layouts with colliding stems).
-    #   "stem"          — legacy flat-dir behaviour: match by ``Path(id).stem`` only.
+    #   "stem"          — flat-dir / basename matching: match by ``Path(id).stem`` only.
     id_strategy: IdStrategy = IdStrategy.auto
 
 

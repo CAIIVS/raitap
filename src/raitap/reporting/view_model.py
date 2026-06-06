@@ -291,7 +291,7 @@ def _build_generic_groups(section: ReportSection) -> tuple[GenericGroupView, ...
 def _build_local_samples(section: ReportSection) -> tuple[LocalSampleView, ...]:
     samples_by_index: dict[int, LocalSampleView] = {}
     explainers_by_index: dict[int, list[ExplainerView]] = {}
-    legacy_samples: list[LocalSampleView] = []
+    verbose_samples: list[LocalSampleView] = []
     sample_order: list[tuple[str, int]] = []
 
     for group in section.groups:
@@ -303,10 +303,10 @@ def _build_local_samples(section: ReportSection) -> tuple[LocalSampleView, ...]:
             continue
 
         if role in {"local_detail", "local_overview"}:
-            legacy_sample = _build_legacy_local_sample(group, sample_index)
-            if legacy_sample is not None:
-                sample_order.append(("legacy", len(legacy_samples)))
-                legacy_samples.append(legacy_sample)
+            verbose_sample = _build_verbose_local_sample(group, sample_index)
+            if verbose_sample is not None:
+                sample_order.append(("verbose", len(verbose_samples)))
+                verbose_samples.append(verbose_sample)
             continue
 
         if role == "sample_header":
@@ -344,8 +344,8 @@ def _build_local_samples(section: ReportSection) -> tuple[LocalSampleView, ...]:
 
     ordered: list[LocalSampleView] = []
     for kind, index in sample_order:
-        if kind == "legacy":
-            ordered.append(legacy_samples[index])
+        if kind == "verbose":
+            ordered.append(verbose_samples[index])
             continue
         sample_index = index
         sample = samples_by_index[sample_index]
@@ -367,7 +367,7 @@ def _build_local_samples(section: ReportSection) -> tuple[LocalSampleView, ...]:
     return tuple(ordered)
 
 
-def _build_legacy_local_sample(group: ReportGroup, sample_index: int) -> LocalSampleView | None:
+def _build_verbose_local_sample(group: ReportGroup, sample_index: int) -> LocalSampleView | None:
     if not group.table_rows and not group.images:
         return None
 
@@ -378,7 +378,7 @@ def _build_legacy_local_sample(group: ReportGroup, sample_index: int) -> LocalSa
         heading=group.heading,
         rows=group.table_rows,
         thumbnail_srcs=(),
-        explainers=_build_legacy_explainer_views(group),
+        explainers=_build_verbose_explainer_views(group),
         sample_id=_none_if_blank(group.metadata.get("requested_sample")) or rows.get("sample_id"),
         predicted_class=rows.get("predicted_class"),
         confidence=rows.get("confidence"),
@@ -387,7 +387,7 @@ def _build_legacy_local_sample(group: ReportGroup, sample_index: int) -> LocalSa
     )
 
 
-def _build_legacy_explainer_views(group: ReportGroup) -> tuple[ExplainerView, ...]:
+def _build_verbose_explainer_views(group: ReportGroup) -> tuple[ExplainerView, ...]:
     if not group.images:
         return ()
 

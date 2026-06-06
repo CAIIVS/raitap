@@ -13,7 +13,6 @@ from raitap.configs.adapter_factory import (
     instantiate_adapter,
     instantiate_visualisers,
     parse_adapter_config,
-    raw_config_dict,
     resolve_call_data_sources,
     resolve_per_image_transform,
 )
@@ -213,12 +212,3 @@ def create_robustness_visualisers(
         wrap=lambda viz, call: ConfiguredRobustnessVisualiser(visualiser=viz, call_kwargs=call),
         instantiate_fn=instantiate,
     )
-
-
-# Internal-test back-compat thin wrappers (keep the test surface stable).
-def _raw_assessor_config(assessor_config: Any) -> dict[str, Any]:
-    return raw_config_dict(assessor_config)
-
-
-def _resolve_call_data_sources(call_kwargs: dict[str, Any]) -> dict[str, Any]:
-    return resolve_call_data_sources(call_kwargs, log_label="robustness call")

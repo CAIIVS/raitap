@@ -144,7 +144,10 @@ def prepare_explainer(
     so it stays in ``ClassificationFamily.explain``.
     """
     from raitap.configs import resolve_run_dir
-    from raitap.configs.adapter_factory import resolve_per_image_transform
+    from raitap.configs.adapter_factory import (
+        resolve_call_data_sources,
+        resolve_per_image_transform,
+    )
     from raitap.transparency.baselines import apply_config_baseline
     from raitap.transparency.factory import (
         _PARSED_EXPLAINER_CONFIG_CACHE,
@@ -155,7 +158,6 @@ def prepare_explainer(
         check_explainer_visualiser_semantic_compat,
         create_explainer,
         create_visualisers,
-        resolve_call_data_sources,
     )
 
     backend = _require_model_backend(model)

@@ -84,7 +84,7 @@ def _build_robustness_section(
     ``RobustnessResult.render_visualisation_for_report`` so duplicate empirical
     facets can be suppressed without changing persisted robustness artifacts or
     ``metadata.json``. This adds extra report-only renders only where compact
-    layout kwargs are needed; legacy mode reuses pre-rendered artifacts.
+    layout kwargs are needed; verbose layout reuses pre-rendered artifacts.
     """
     if not outputs.results:
         return None
@@ -125,7 +125,7 @@ def _build_robustness_section(
             selected_samples=selected_samples,
         )
         staged = (
-            _legacy_robustness_images(
+            _verbose_robustness_images(
                 result.visualisations,
                 assets_dir=assets_dir,
                 result_index=index,
@@ -232,7 +232,7 @@ def _figure_scope_for(result: Any, visualiser_name: str) -> str:
     return type(configured.visualiser).report_figure_scope.value
 
 
-def _legacy_robustness_images(
+def _verbose_robustness_images(
     visualisations: list[RobustnessVisualisationResult],
     *,
     assets_dir: Path,

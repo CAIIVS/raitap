@@ -541,7 +541,7 @@ def test_custom_file_factory_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: 
         )
 
 
-def test_custom_file_fixed_name_factories_require_decorators(
+def test_custom_file_undecorated_factory_raises_no_factory_found(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv(_ENV, "1")
@@ -549,7 +549,9 @@ def test_custom_file_fixed_name_factories_require_decorators(
     bad.write_text(
         "from torch import nn\ndef make_preprocessing() -> nn.Module:\n    return nn.Identity()\n"
     )
-    with pytest.raises(AttributeError, match="decorator"):
+    with pytest.raises(
+        AttributeError, match=r"no factory decorated with `@raitap_preprocessing_factory`"
+    ):
         resolve_preprocessing(
             ModelConfig(source="resnet50"),
             DataConfig(preprocessing=str(bad)),

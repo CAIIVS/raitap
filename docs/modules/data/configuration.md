@@ -99,8 +99,7 @@ myst:
   `"relative_path"` if any value contains `/` or `\`, otherwise falls back
   to `"stem"`. `"relative_path"` keeps directory components and supports
   nested ImageFolder layouts (e.g. `NORMAL/IM-0001.jpeg`) — required when
-  filename stems collide across class subdirs. `"stem"` is the legacy
-  flat-dir behaviour.
+  filename stems collide across class subdirs. `"stem"` matches by basename only (flat-dir layouts).
 
 :option: input_metadata
 :allowed: dict, null
