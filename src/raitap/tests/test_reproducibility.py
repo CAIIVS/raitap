@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from raitap.reproducibility import (
     REPRODUCIBILITY_FILENAME,
@@ -17,6 +17,8 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
 
+    from raitap.pipeline.outputs import RunOutputs
+
 
 def _result(name: str | None, algorithm: str, *, stochastic: bool) -> SimpleNamespace:
     return SimpleNamespace(
@@ -28,8 +30,13 @@ def _result(name: str | None, algorithm: str, *, stochastic: bool) -> SimpleName
 
 def _outputs(
     transparency: Sequence[object] = (), robustness: Sequence[object] = ()
-) -> SimpleNamespace:
-    return SimpleNamespace(transparency=list(transparency), robustness=list(robustness))
+) -> RunOutputs:
+    # ``stochastic_methods`` reads results structurally (getattr); a namespace
+    # stand-in is enough and avoids constructing a full RunOutputs.
+    return cast(
+        "RunOutputs",
+        SimpleNamespace(transparency=list(transparency), robustness=list(robustness)),
+    )
 
 
 def test_stochastic_methods_filters_on_semantics() -> None:
