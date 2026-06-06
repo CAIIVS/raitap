@@ -50,9 +50,7 @@ the contract. Wrap such classes in a lazy factory function::
         return Foo
 
 …and call ``_foo_cls()(...)`` at construction sites. See
-``raitap.models.backend._onnx_explanation_module_cls`` and
-``raitap.data.preprocessing._preset_wrapper_cls`` for the two production
-examples.
+``raitap.data.preprocessing._preset_wrapper_cls`` for a production example.
 
 **``isinstance`` checks against wrapped-lib classes.** ``isinstance(x, FooClass)``
 needs ``FooClass`` to be a real type — lazy proxies fail

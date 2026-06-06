@@ -73,3 +73,9 @@ class Capability(StrEnum):
         "tree_model"  # roadmap: tree-ensemble structure (TreeSHAP). No provider/requirer yet.
     )
     PREDICT_PROBA = "predict_proba"  # roadmap: class-probability outputs. No provider/requirer yet.
+
+
+#: A backend that exposes only the universal forward path (no special model
+#: shapes). Model-agnostic explainers (requires == empty) run on it; gradient
+#: and tree explainers gate out. Named for legibility over a bare ``frozenset()``.
+FORWARD_ONLY: frozenset[Capability] = frozenset()

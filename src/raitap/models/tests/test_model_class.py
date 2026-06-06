@@ -51,7 +51,7 @@ class TestModelConstructor:
         model = Model(config)
 
         assert isinstance(model.backend, TorchBackend)
-        assert model.backend.as_model_for_explanation().__class__.__name__ == "ResNet"
+        assert model.backend.autograd_module().__class__.__name__ == "ResNet"
 
     def test_model_loads_from_local_pth_file(self, tmp_path: Path) -> None:
         dummy_model = torch.nn.Linear(10, 5)
@@ -62,7 +62,8 @@ class TestModelConstructor:
         with pytest.warns(DeprecationWarning, match="pickled nn.Module"):
             model = Model(config, allow_unsafe_pickle=True)
 
-        assert isinstance(model.backend.as_model_for_explanation(), torch.nn.Module)
+        assert isinstance(model.backend, TorchBackend)
+        assert isinstance(model.backend.autograd_module(), torch.nn.Module)
 
     def test_model_refuses_pickled_module_without_opt_in(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -86,7 +87,8 @@ class TestModelConstructor:
         config = _make_config(str(model_path), arch="resnet18", num_classes=2)
         model = Model(config)
 
-        loaded = model.backend.as_model_for_explanation()
+        assert isinstance(model.backend, TorchBackend)
+        loaded = model.backend.autograd_module()
         assert loaded.__class__.__name__ == "ResNet"
         # State dict round-trips: parameters should compare equal.
         for (n1, p1), (n2, p2) in zip(
@@ -122,7 +124,8 @@ class TestModelConstructor:
         config = _make_config(str(model_path))
         model = Model(config)
 
-        loaded = model.backend.as_model_for_explanation()
+        assert isinstance(model.backend, TorchBackend)
+        loaded = model.backend.autograd_module()
         assert isinstance(loaded, torch.jit.ScriptModule)
         # Sanity: forward pass produces same output as the eager reference.
         x = torch.randn(3, 4)
