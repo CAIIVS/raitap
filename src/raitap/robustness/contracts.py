@@ -198,6 +198,8 @@ class RobustnessSemantics:
     target_classes: Sequence[int] | None = None
     sample_selection: SampleSelection | None = None
     input_spec: InputSpec | None = None
+    # Non-deterministic result (RNG-dependent); drives the reproducibility caveat (#251).
+    stochastic: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "families", frozenset(self.families))

@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from raitap import raitap_log
+from raitap.configs import resolve_run_dir
 from raitap.data import Data
 from raitap.data.preprocessing import resolve_preprocessing
 from raitap.models import Model
@@ -19,6 +20,11 @@ from raitap.pipeline.phases.registry import ASSESSMENT_PHASES, PhaseContext
 from raitap.pipeline.ui import print_summary
 from raitap.reporting import build_report, create_report, reporting_enabled
 from raitap.reporting.sample_selection import resolve_report_sample_selection
+from raitap.reproducibility import (
+    reproducibility_caveat,
+    stochastic_methods,
+    write_reproducibility_md,
+)
 from raitap.tracking import BaseTracker
 from raitap.utils.diagnostics import Module
 from raitap.utils.lazy import lazy_import
@@ -91,6 +97,14 @@ def _run_pipeline(
         resolved_preprocessing=resolved_preprocessing,
     )
 
+    # Reproducibility caveat (#251). Derived once from the run's semantics. The
+    # output-dir note and the warning fire whenever a stochastic method ran —
+    # independent of reporting (the run dir + console exist regardless); only the
+    # report banner (inside build_report) is gated on reporting.
+    stochastic = stochastic_methods(outputs)
+    if stochastic:
+        write_reproducibility_md(resolve_run_dir(config), stochastic)
+
     report_generation = None
     if reporting_enabled(config):
         if verbose:
@@ -98,6 +112,10 @@ def _run_pipeline(
             raitap_log.info("Generating report...", module=Module.reporting)
         report = build_report(config, outputs)
         report_generation = create_report(config=config, report=report)
+
+    if stochastic:
+        # After the "Report generated" log so it reads as a closing caveat.
+        raitap_log.warn(reproducibility_caveat(stochastic))
 
     tracking_config = getattr(config, "tracking", None)
     has_tracker = bool(tracking_config and getattr(tracking_config, "_target_", None))

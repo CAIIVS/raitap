@@ -142,6 +142,10 @@ class ExplainerSemanticsHints:
     baseline_default: BaselineMode | None = None
     baseline_cardinality: BaselineCardinality | None = None
     requires: AbstractSet[Capability] = field(default_factory=frozenset)
+    # Whether this algorithm's result depends on RNG (random init/sampling), so
+    # it is not bit-reproducible unless seeds are pinned. Surfaced by the
+    # reproducibility caveat (issue #251). Declared explicitly per algorithm.
+    stochastic: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "families", frozenset(self.families))
@@ -298,6 +302,8 @@ class ExplanationSemantics:
     sample_selection: SampleSelection | None
     input_spec: InputSpec | None
     output_space: OutputSpaceSpec
+    # Non-deterministic result (RNG-dependent); drives the reproducibility caveat (#251).
+    stochastic: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "method_families", frozenset(self.method_families))

@@ -99,6 +99,19 @@ th {
   font-size: 10px;
 }
 
+.repro-banner {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--warn);
+  border-left: 4px solid var(--warn);
+  border-radius: 6px;
+  background: #fff8c5;
+}
+
+.repro-banner .eyebrow {
+  color: var(--warn);
+}
+
 .summary-page,
 .detail-section {
   break-after: page;

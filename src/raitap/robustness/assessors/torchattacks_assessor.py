@@ -46,6 +46,7 @@ else:
             PerturbationNorm.LINF,
             families={"gradient_sign", "iterative"},
             requires={Capability.AUTOGRAD},
+            stochastic=True,  # random_start=True default (uniform init)
         ),
         "PGDL2": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -54,6 +55,7 @@ else:
             PerturbationNorm.L2,
             families={"gradient_sign", "iterative"},
             requires={Capability.AUTOGRAD},
+            stochastic=True,  # random_start=True default (uniform init)
         ),
         "MIFGSM": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -86,6 +88,7 @@ else:
             PerturbationNorm.LINF,
             families={"ensemble", "auto"},
             requires={Capability.AUTOGRAD},
+            stochastic=True,  # default seed=None -> time-seeded; random APGD/FAB/Square init
         ),
         # Square/OnePixel are score-based (conceptually black-box); requires=AUTOGRAD
         # preserves current gating via the torchattacks torch model, could be relaxed later.
@@ -96,6 +99,7 @@ else:
             PerturbationNorm.LINF,
             families={"score_based"},
             requires={Capability.AUTOGRAD},
+            stochastic=True,  # random search
         ),
         "OnePixel": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -104,6 +108,7 @@ else:
             PerturbationNorm.L0,
             families={"score_based", "evolutionary"},
             requires={Capability.AUTOGRAD},
+            stochastic=True,  # differential evolution (unseeded)
         ),
     },
 )

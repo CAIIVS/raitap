@@ -12,6 +12,7 @@ from raitap.utils.errors import RaitapError
 
 from .contracts import (
     ExplainerCapability,
+    ExplainerSemanticsHints,
     ExplanationOutputSpace,
     InputKind,
     InputSpec,
@@ -59,6 +60,47 @@ def method_families_for_explainer(explainer: object) -> frozenset[MethodFamily]:
         return _method_families_for_algorithm(algorithm)
     except ValueError:
         raise _method_family_error(type(explainer).__name__, algorithm) from None
+
+
+def explainer_is_stochastic(explainer: object) -> bool:
+    """Whether the configured explainer's algorithm is RNG-dependent (issue #251).
+
+    Resolves the explainer's registry hints via the same 3-tier lookup as
+    :func:`method_families_for_explainer` (class registry → framework registry →
+    cross-framework name match) but never raises: any unresolved case (test
+    stubs, unknown/ambiguous algorithm) defaults to ``False``. A missing
+    declaration must never over-claim stochasticity.
+    """
+    hints = _hints_for_explainer(explainer)
+    return bool(hints.stochastic) if hints is not None else False
+
+
+def _hints_for_explainer(explainer: object) -> ExplainerSemanticsHints | None:
+    """Resolve the registry hints for a configured explainer, or ``None``."""
+    try:
+        algorithm = _explainer_algorithm(explainer)
+    except RaitapError:
+        return None
+
+    cls_registry = getattr(type(explainer), "algorithm_registry", None)
+    if isinstance(cls_registry, Mapping) and algorithm in cls_registry:
+        return cls_registry[algorithm]
+
+    framework = _explainer_framework(explainer)
+    if framework is not None:
+        adapter_cls = _adapter_class_for_framework(framework)
+        if adapter_cls is not None and algorithm in adapter_cls.algorithm_registry:
+            return adapter_cls.algorithm_registry[algorithm]
+
+    matches = []
+    from raitap.transparency.explainers.captum_explainer import CaptumExplainer
+    from raitap.transparency.explainers.shap_explainer import ShapExplainer
+
+    for adapter_cls in (ShapExplainer, CaptumExplainer):
+        registry = adapter_cls.algorithm_registry
+        if algorithm in registry:
+            matches.append(registry[algorithm])
+    return matches[0] if len(matches) == 1 else None
 
 
 def _adapter_class_for_framework(framework: str) -> type | None:

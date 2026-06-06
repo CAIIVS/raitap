@@ -51,6 +51,10 @@ class AssessorSemanticsHints:
     families: AbstractSet[str] = field(default_factory=frozenset)
     default_epsilon: float | None = None
     requires: AbstractSet[Capability] = field(default_factory=frozenset)
+    # Whether this algorithm's result depends on RNG (random start/sampling), so
+    # it is not bit-reproducible unless seeds are pinned (issue #251). Declared
+    # explicitly per algorithm.
+    stochastic: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "families", frozenset(self.families))
@@ -267,4 +271,5 @@ def assessor_semantics(
         target_classes=_extract_target_classes(call_kwargs),
         sample_selection=sample_selection,
         input_spec=input_spec,
+        stochastic=hints.stochastic,
     )

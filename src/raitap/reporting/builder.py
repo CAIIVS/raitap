@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from raitap.configs import resolve_run_dir
+from raitap.reproducibility import reproducibility_caveat, stochastic_methods
 
 from .filenames import report_output_filename
 from .manifest import ReportManifest
@@ -83,6 +84,9 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
     )
 
     sections: list[ReportSection] = []
+    banner = _reproducibility_banner(outputs)
+    if banner is not None:
+        sections.append(banner)
     ordered_results = sorted(outputs.phase_results.values(), key=lambda result: result.report_order)
     for phase_result in ordered_results:
         sections.extend(phase_result.report_sections(report_ctx))
@@ -186,6 +190,23 @@ def build_merged_report(
         filename=_manifest_filename(config),
     )
     return BuiltReport(report_dir=report_dir, sections=ordered_sections, manifest=manifest)
+
+
+def _reproducibility_banner(outputs: RunOutputs) -> ReportSection | None:
+    """Run-level reproducibility caveat, or ``None`` when the run is fully deterministic.
+
+    Emitted as a ``ReportSection`` (not view metadata) because ``sections`` is the
+    only channel both the HTML and PDF reporters consume. Prepended so it renders
+    first. See issue #251.
+    """
+    methods = stochastic_methods(outputs)
+    if not methods:
+        return None
+    return ReportSection.from_groups(
+        "Reproducibility",
+        [ReportGroup(heading=reproducibility_caveat(methods))],
+        metadata={"section_role": "reproducibility"},
+    )
 
 
 def _manifest_filename(config: AppConfig) -> str:

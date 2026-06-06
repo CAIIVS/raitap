@@ -52,6 +52,7 @@ baseline in `metadata.json` + the report (issue #210). The user sets it library-
 | `baseline_kwarg_name` | `@adapters.transparency` decorator kwarg | The call kwarg holding the reference (`"baselines"`, `"background_data"`); omitted (default `None`) = no baseline. Per-**adapter**. Also names where `raitap.baseline` is routed. |
 | `ExplainerSemanticsHints.baseline_default` | per-algorithm `algorithm_registry` entry | Per-**algorithm** implicit default mode (`BaselineMode.ZERO` / `INPUT_BATCH`) used when the kwarg is omitted; `None` when the algorithm takes no baseline. |
 | `ExplainerSemanticsHints.baseline_cardinality` | per-algorithm `algorithm_registry` entry | `BaselineCardinality.SINGLE` (one broadcast reference, e.g. IG) or `SET` (a sample distribution, e.g. SHAP). Used to *warn* on a mismatched `raitap.baseline` (never to reshape it); `None` skips the check. |
+| `ExplainerSemanticsHints.stochastic` | per-algorithm `algorithm_registry` entry | `True` when the algorithm is RNG-dependent (e.g. SHAP `GradientExplainer` / `KernelShap`, Captum `Lime`), `False` for deterministic methods (IG, Saliency). Resolved by `explainer_is_stochastic`, flows onto `ExplanationResult.semantics.stochastic`, and drives the reproducibility caveat. Defaults to `False`. |
 
 Capture happens once at the `AttributionOnlyExplainer.explain` chokepoint via `build_baseline_record`
 (`transparency/baselines.py`), which resolves the `BaselineMode` (`configured` / `user_tensor` /
