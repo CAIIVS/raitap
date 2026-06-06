@@ -41,8 +41,11 @@ CLI / Config
 - `ShapExplainer` — wraps any `shap.*Explainer` algorithm
 
 Both implement `compute_attributions(model, inputs, **kwargs) → torch.Tensor`.
-The pipeline passes each explainer a backend-specific model object through
-`ModelBackend.as_model_for_explanation()`.
+The pipeline resolves the model shape each explainer needs via
+`explanation_model(backend, explainer)` (`raitap.models.access`), keyed by the
+explainer's required capabilities: gradient methods get the live `nn.Module`
+(`backend.autograd_module()`), model-agnostic methods get the forward-only
+`backend.predict_callable()`.
 
 ### Visualisers (`visualisers/`)
 
