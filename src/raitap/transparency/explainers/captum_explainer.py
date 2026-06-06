@@ -30,8 +30,10 @@ if TYPE_CHECKING:
     # is pure noise. Scope ``module=`` to captum so unrelated UserWarnings
     # with matching messages aren't accidentally hidden.
     suppress_warnings=[(r"Input Tensor.*required_grads", UserWarning, r"captum.*")],
-    # Only IntegratedGradients has a meaningful implicit baseline (zeros); the
-    # rest take no reference input, so their ``baseline_default`` stays ``None``.
+    # Integral methods that fall back to a zero reference when ``baselines`` is
+    # omitted (IntegratedGradients, LayerIntegratedGradients, LayerConductance,
+    # LayerDeepLift) carry ``baseline_default=BaselineMode.ZERO``; methods that
+    # take no reference input leave it ``None``.
     algorithm_registry={
         "IntegratedGradients": ExplainerSemanticsHints(
             {MethodFamily.GRADIENT},
@@ -65,6 +67,36 @@ if TYPE_CHECKING:
         ),
         "GuidedGradCam": ExplainerSemanticsHints(
             {MethodFamily.GRADIENT, MethodFamily.CAM},
+            requires={Capability.AUTOGRAD},
+        ),
+        "LayerConductance": ExplainerSemanticsHints(
+            {MethodFamily.GRADIENT},
+            baseline_default=BaselineMode.ZERO,
+            baseline_cardinality=BaselineCardinality.SINGLE,
+            requires={Capability.AUTOGRAD},
+        ),
+        "LayerIntegratedGradients": ExplainerSemanticsHints(
+            {MethodFamily.GRADIENT},
+            baseline_default=BaselineMode.ZERO,
+            baseline_cardinality=BaselineCardinality.SINGLE,
+            requires={Capability.AUTOGRAD},
+        ),
+        "LayerActivation": ExplainerSemanticsHints(
+            {MethodFamily.GRADIENT},
+            requires={Capability.AUTOGRAD},
+        ),
+        "LayerDeepLift": ExplainerSemanticsHints(
+            {MethodFamily.GRADIENT},
+            baseline_default=BaselineMode.ZERO,
+            baseline_cardinality=BaselineCardinality.SINGLE,
+            requires={Capability.AUTOGRAD},
+        ),
+        "LayerGradientXActivation": ExplainerSemanticsHints(
+            {MethodFamily.GRADIENT},
+            requires={Capability.AUTOGRAD},
+        ),
+        "LayerLRP": ExplainerSemanticsHints(
+            {MethodFamily.GRADIENT},
             requires={Capability.AUTOGRAD},
         ),
     },
