@@ -210,10 +210,12 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
         ),
         "GN": AssessorSemanticsHints(
             AssessmentKind.EMPIRICAL_ATTACK,
-            ThreatModel.WHITE_BOX,
+            # Model-agnostic blind additive noise: no gradients, no logits. Tagged
+            # BLACK_BOX_SCORE to match the foolbox additive-noise family convention.
+            ThreatModel.BLACK_BOX_SCORE,
             Objective.UNTARGETED,
             PerturbationNorm.L2,  # additive Gaussian noise; no clean norm, L2 closest
-            families={"noise"},
+            families={"noise", "score_based"},
             requires={Capability.AUTOGRAD},
             stochastic=True,  # std * torch.randn_like(images) every call
         ),

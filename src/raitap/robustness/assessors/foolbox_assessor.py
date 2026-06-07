@@ -36,11 +36,18 @@ def _dataset_attack_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
     )
     attack.feed(fmodel, inputs_dev)  # feed(model, inputs) -> builds the sample pool
     eps = a._extract_scalar_eps(kwargs)
-    targets_dev = _prepare_inputs_for_forward(
-        ctx.targets, model=ctx.model, backend=ctx.backend
-    ).contiguous()
+    # Honor targeted mode the same way the default path does (build a criterion
+    # from target_labels/target_classes); fall back to the clean labels otherwise.
+    criterion = a._build_criterion(foolbox, kwargs, ctx.targets)
+    target_arg = (
+        criterion
+        if criterion is not None
+        else _prepare_inputs_for_forward(
+            ctx.targets, model=ctx.model, backend=ctx.backend
+        ).contiguous()
+    )
     with a._rethrow():
-        _raw, clipped, success = attack(fmodel, inputs_dev, targets_dev, epsilons=eps)
+        _raw, clipped, success = attack(fmodel, inputs_dev, target_arg, epsilons=eps)
     if isinstance(success, torch.Tensor):
         a._last_success = success.detach().cpu()
     return clipped.detach()

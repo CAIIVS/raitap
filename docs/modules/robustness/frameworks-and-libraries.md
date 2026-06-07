@@ -95,6 +95,10 @@ valid on 10-class models. RAITAP raises a clear error if it detects the model
 has a different class count, and warns if the count cannot be determined at
 runtime.
 
+`APGDT` and `FAB` default to `n_classes=10` for their targeted search. On a model
+with a different class count, set `constructor.n_classes` to the real number, or
+the targeting is silently wrong.
+
 A representative sample:
 
 | Algorithm | Threat model | Norm | Notes |
@@ -135,7 +139,9 @@ class (e.g. `LinfPGD`, `LinfFastGradientAttack`). Notable caveats:
   `L2BrendelBethgeAttack`, `LinfinityBrendelBethgeAttack`) needs `numba`, now
   included in the `foolbox` extra.
 - **`DatasetAttack`** is supported: RAITAP feeds the input batch as its
-  reference pool automatically.
+  reference pool automatically. The attack pastes in samples from that pool, so
+  it is most meaningful when the assessed batch is large and diverse (a tiny
+  batch gives it little to draw from).
 
 Excluded:
 - `BinarizationRefinementAttack`: needs starting points / attack chaining
