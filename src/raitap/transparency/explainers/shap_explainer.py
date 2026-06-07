@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 
@@ -32,19 +33,20 @@ if TYPE_CHECKING:
     from raitap.transparency.contracts import InputSpec
 
 
-# Which SHAP API each algorithm uses: legacy ``.shap_values()`` vs modern
-# ``__call__ -> Explanation`` (masker-based). Separate from the semantics
-# registry so dispatch mechanics don't bloat the families/stochastic data. (#267)
-_SHAP_API: dict[str, str] = {
-    "GradientExplainer": "legacy",
-    "DeepExplainer": "legacy",
-    "KernelExplainer": "legacy",
-    "TreeExplainer": "legacy",
-    "SamplingExplainer": "legacy",
-    "PartitionExplainer": "modern",
-    "ExactExplainer": "modern",
-    "PermutationExplainer": "modern",
-}
+ShapApi = Literal["legacy", "modern"]
+
+
+@dataclass(frozen=True)
+class ShapExplainerHints(ExplainerSemanticsHints):
+    """SHAP registry entry: base hints plus which SHAP API the algorithm uses.
+
+    ``api`` selects the legacy ``.shap_values()`` path or the modern
+    ``__call__ -> Explanation`` (masker-based) path. Carried on the registry
+    entry itself so dispatch can never drift from a parallel table. ``kw_only``
+    keeps it required despite the base's defaulted fields. (#267)
+    """
+
+    api: ShapApi = field(kw_only=True)
 
 
 def _normalise_target_indices(
@@ -172,54 +174,62 @@ def _modern_predict_fn(
     # Gradient/Deep/Kernel fall back to the input batch when ``background_data``
     # is omitted; TreeExplainer takes no reference input (``baseline_default`` None).
     algorithm_registry={
-        "GradientExplainer": ExplainerSemanticsHints(
+        "GradientExplainer": ShapExplainerHints(
             {MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             requires={Capability.AUTOGRAD},
             # Samples random points along the path + background choice (rseed/nsamples).
             stochastic=True,
+            api="legacy",
         ),
-        "DeepExplainer": ExplainerSemanticsHints(
+        "DeepExplainer": ShapExplainerHints(
             {MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             requires={Capability.AUTOGRAD},
+            api="legacy",
         ),
-        "KernelExplainer": ExplainerSemanticsHints(
+        "KernelExplainer": ShapExplainerHints(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             # Monte Carlo coalition sampling (np.random.choice / permutation).
             stochastic=True,
+            api="legacy",
         ),
         # TreeExplainer is a tree-model method; requires=AUTOGRAD preserves current
         # gating, but it is the natural first consumer of the roadmap TREE_MODEL capability.
-        "TreeExplainer": ExplainerSemanticsHints(
+        "TreeExplainer": ShapExplainerHints(
             {MethodFamily.SHAPLEY, MethodFamily.TREE},
             requires={Capability.AUTOGRAD},
+            api="legacy",
         ),
-        "SamplingExplainer": ExplainerSemanticsHints(
+        "SamplingExplainer": ShapExplainerHints(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             stochastic=True,  # Monte Carlo sampling (run-twice non-deterministic)
+            api="legacy",
         ),
-        "PartitionExplainer": ExplainerSemanticsHints(
+        "PartitionExplainer": ShapExplainerHints(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
+            api="modern",
         ),
-        "ExactExplainer": ExplainerSemanticsHints(
+        "ExactExplainer": ShapExplainerHints(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
+            api="modern",
         ),
-        "PermutationExplainer": ExplainerSemanticsHints(
+        "PermutationExplainer": ShapExplainerHints(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             stochastic=True,  # random permutation order (seed=None default)
+            api="modern",
         ),
     },
     baseline_kwarg_name="background_data",
@@ -273,7 +283,11 @@ class ShapExplainer(AttributionOnlyExplainer):
             SHAP values as torch.Tensor
         """
         shap = self._lazy_import()
-        if _SHAP_API.get(self.algorithm) == "modern":
+        # Every known shap entry is a ShapExplainerHints (carries ``api``); an
+        # unknown name misses the registry and falls through to the legacy path,
+        # which raises the helpful "unsupported algorithm" error.
+        hints = self.algorithm_registry.get(self.algorithm)
+        if isinstance(hints, ShapExplainerHints) and hints.api == "modern":
             # The base keeps ``input_spec: object | None``; ``explain()`` always
             # supplies a real ``InputSpec`` via ``infer_input_spec``. Cast for the
             # typed modern path (``_compute_modern`` still guards ``None``).

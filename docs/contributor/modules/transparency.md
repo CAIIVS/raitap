@@ -62,8 +62,11 @@ See [Adding an algorithm](../adding/adding-an-algorithm.md).
 
 ## ShapExplainer internals
 
-`ShapExplainer.compute_attributions` dispatches on the `_SHAP_API` table (in `shap_explainer.py`),
-which maps each algorithm name to `"legacy"` or `"modern"`:
+`ShapExplainer.compute_attributions` dispatches on the `api` field of each registry entry.
+Entries are `ShapExplainerHints` (a `ShapExplainer`-local subclass of `ExplainerSemanticsHints`)
+whose required `api` field is `"legacy"` or `"modern"`. Carrying the flag on the entry itself keeps
+dispatch from drifting against a parallel table; a new explainer added without an `api` fails to
+construct.
 
 - **Legacy path** (`.shap_values()` API): `GradientExplainer`, `DeepExplainer`, `KernelExplainer`,
   `TreeExplainer`, `SamplingExplainer`. Constructs the SHAP explainer with the background tensor and
