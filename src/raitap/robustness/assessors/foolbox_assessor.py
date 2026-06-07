@@ -79,10 +79,30 @@ _L1 = PerturbationNorm.L1
 _L0 = PerturbationNorm.L0
 
 
+# Curated rewrites for opaque foolbox errors. Matched against str(exc); first hit wins.
+# See :func:`raitap.utils.errors.rethrow`.
+_FOOLBOX_ERROR_MESSAGES: dict[str, str] = {
+    # FlexibleDistance attacks (GaussianBlurAttack, BinarySearchContrastReductionAttack,
+    # LinearSearchContrastReductionAttack, InversionAttack, LinearSearchBlendedUniformNoiseAttack)
+    # raise this ValueError at call-time when no distance was passed to the constructor.
+    r"unknown distance, please pass `distance` to the attack initializer": (
+        "This foolbox attack is FlexibleDistance: it needs an explicit distance norm. "
+        "Set `constructor.distance` in the YAML (e.g. `distance: l2`) for this attack."
+    ),
+    # VirtualAdversarialAttack raises a TypeError at construction time when the
+    # required `steps` argument is omitted.
+    r"VirtualAdversarialAttack\.__init__\(\) missing .* argument.*['\"]steps['\"]": (
+        "VirtualAdversarialAttack requires `steps` (number of power iterations). "
+        "Set `constructor.steps` in the YAML (e.g. `steps: 10`) for this attack."
+    ),
+}
+
+
 @robustness_adapter(
     registry_name="foolbox",
     library="foolbox",
     budget_kwarg_source="call_kwargs",
+    error_patterns=_FOOLBOX_ERROR_MESSAGES,
     algorithm_registry={
         # --- Projected Gradient Descent (random_start=True default -> stochastic) ---
         # LinfPGD collapses aliases {LinfProjectedGradientDescentAttack, PGD}.
@@ -258,8 +278,6 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
                 f"{self.algorithm!r} is not a valid foolbox.attacks class name."
             ) from error
 
-        attack = attack_class(**self.init_kwargs)
-
         eps = self._extract_scalar_eps(kwargs)
         criterion = self._build_criterion(foolbox, kwargs, targets)
 
@@ -279,7 +297,10 @@ class FoolboxAssessor(EmpiricalAttackAssessor):
             preprocessing=self.preprocessing,
         )
 
+        # Construction is inside _rethrow so config-required errors (e.g. missing
+        # ``steps`` on VirtualAdversarialAttack) are rewritten into actionable messages.
         with self._rethrow():
+            attack = attack_class(**self.init_kwargs)
             raw, clipped, success = attack(fmodel, inputs_dev, targets_dev, epsilons=eps)
         del raw  # unclipped — we keep the clipped tensor only
         if isinstance(clipped, list):
