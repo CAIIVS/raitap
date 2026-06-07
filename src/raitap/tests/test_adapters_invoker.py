@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from raitap._adapters import Invoker  # runtime import — deletion of Invoker would fail this test
+from raitap._adapters import Invoker  # runtime import: deletion of Invoker would fail this test
 
 
 def test_plain_callable_satisfies_invoker() -> None:
