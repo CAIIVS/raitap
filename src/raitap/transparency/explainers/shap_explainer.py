@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
@@ -272,9 +272,22 @@ class ShapExplainer(AttributionOnlyExplainer):
         Returns:
             SHAP values as torch.Tensor
         """
-        del input_spec  # absorbed; must not reach shap_values()
         shap = self._lazy_import()
+        if _SHAP_API.get(self.algorithm) == "modern":
+            # The base keeps ``input_spec: object | None``; ``explain()`` always
+            # supplies a real ``InputSpec`` via ``infer_input_spec``. Cast for the
+            # typed modern path (``_compute_modern`` still guards ``None``).
+            return self._compute_modern(
+                shap,
+                model,
+                inputs,
+                background_data=background_data,
+                target=target,
+                input_spec=cast("InputSpec | None", input_spec),
+                **shap_kwargs,
+            )
 
+        # ---- existing legacy .shap_values() path ----
         # Dynamically get the explainer class
         try:
             explainer_class = getattr(shap, self.algorithm)
@@ -352,6 +365,48 @@ class ShapExplainer(AttributionOnlyExplainer):
         return _select_target_attributions(
             shap_values,
             inputs_ndim=inputs.ndim,
+            target=target,
+        )
+
+    def _compute_modern(
+        self,
+        shap: Any,
+        model: ExplanationModel,
+        inputs: torch.Tensor,
+        *,
+        background_data: torch.Tensor | None,
+        target: int | list[int] | torch.Tensor | None,
+        input_spec: InputSpec | None,
+        **shap_kwargs: Any,
+    ) -> torch.Tensor:
+        if input_spec is None:
+            raise _modality_error("unknown")
+        if not callable(model):
+            raise TypeError(
+                f"{self.algorithm} (modern SHAP) requires a callable predict model; "
+                f"got {type(model).__name__}."
+            )
+        background = background_data if background_data is not None else inputs
+        masker = _build_masker(shap, input_spec=input_spec, background=background)
+        predict = _modern_predict_fn(model, input_spec=input_spec)
+        try:
+            explainer_class = getattr(shap, self.algorithm)
+        except AttributeError:
+            raise ValueError(
+                f"'{self.algorithm}' is not a valid shap explainer.\n"
+                f"Set algorithm to a class name available in the shap package, "
+                f"e.g. 'PartitionExplainer', 'ExactExplainer', 'PermutationExplainer'."
+            ) from None
+        explainer = explainer_class(predict, masker, **self.init_kwargs)
+
+        inputs_np = inputs.detach().cpu().numpy()
+        if input_spec.kind is InputKind.IMAGE:
+            inputs_np = inputs_np.transpose(0, 2, 3, 1)  # NCHW -> NHWC for the Image masker
+        with self._rethrow():
+            explanation = explainer(inputs_np, **shap_kwargs)
+        return _normalise_modern_explanation(
+            explanation.values,
+            input_spec=input_spec,
             target=target,
         )
 
