@@ -30,7 +30,17 @@ from collections.abc import Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from importlib import metadata as importlib_metadata
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Required, TypedDict, Unpack
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Literal,
+    Protocol,
+    Required,
+    TypedDict,
+    TypeVar,
+    Unpack,
+)
 
 from hydra_zen import ZenStore, builds
 
@@ -41,6 +51,21 @@ if TYPE_CHECKING:
     from types import ModuleType
 
     from raitap.types import Capability
+
+CtxT = TypeVar("CtxT", contravariant=True)
+ResultT = TypeVar("ResultT", covariant=True)
+
+
+class Invoker(Protocol[CtxT, ResultT]):
+    """Builds and drives one library algorithm, returning its result.
+
+    A registry entry may carry an ``invoker`` to override its adapter's default
+    construct-and-call path (#266). The single argument is a per-family context
+    dataclass; the return is that family's result tensor.
+    """
+
+    def __call__(self, ctx: CtxT, /) -> ResultT: ...
+
 
 # Our own ``overwrite_ok=True`` store so re-importing a module — or pytest
 # collecting the same class twice via slightly different paths — doesn't
