@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import torch
 
@@ -47,7 +47,7 @@ def _tabular_spec(rows: int) -> InputSpec:
 def test_compute_attributions_receives_input_spec_unbatched() -> None:
     _SpyExplainer.seen_kind = None
     _SpyExplainer()._compute_with_optional_batches(
-        model=object(),
+        model=cast("ExplanationModel", object()),  # spy ignores model
         inputs=torch.zeros(1, 4),
         attribution_kwargs={},
         backend=None,
@@ -60,7 +60,7 @@ def test_compute_attributions_receives_input_spec_batched() -> None:
     # batch_size < batch -> the batched loop must also forward input_spec.
     _SpyExplainer.seen_kind = None
     _SpyExplainer()._compute_with_optional_batches(
-        model=object(),
+        model=cast("ExplanationModel", object()),  # spy ignores model
         inputs=torch.zeros(2, 4),
         attribution_kwargs={},
         backend=None,
