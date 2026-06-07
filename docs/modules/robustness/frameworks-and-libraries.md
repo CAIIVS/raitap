@@ -82,7 +82,20 @@ call so attacks that internally `view(...)` (e.g. `PGDL2`, `CW`, `DeepFool`,
 `Square`) work on RAITAP's loader output (which produces non-contiguous NCHW
 tensors via HWC→CHW transpose).
 
-A non-exhaustive sample of supported algorithms:
+The adapter registers 36 attacks, covering all dispatchable `torchattacks`
+classes. Excluded:
+
+- `VANILA`: no-op (returns input unchanged; attack success rate is always 0).
+- `LGV`: needs a training dataloader and training epochs (tracked: #276).
+- `MultiAttack`: combinator over a list of sub-attacks; needs nested config
+  (tracked: #279).
+
+`JSMA` caveat: hardcodes `target=(labels+1)%10` for untargeted mode and is only
+valid on 10-class models. RAITAP raises a clear error if it detects the model
+has a different class count, and warns if the count cannot be determined at
+runtime.
+
+A representative sample:
 
 | Algorithm | Threat model | Norm | Notes |
 | --- | --- | --- | --- |
@@ -96,6 +109,7 @@ A non-exhaustive sample of supported algorithms:
 | `AutoAttack` | white-box | L∞ | Ensemble of attacks; expensive. |
 | `Square` | black-box (score) | L∞ | Score-based query attack. |
 | `OnePixel` | black-box (score) | L0 | Differential-evolution single-pixel attack. |
+| `JSMA` | white-box | L0 | 10-class models only (see caveat above). |
 
 ### Foolbox
 
@@ -106,15 +120,40 @@ A non-exhaustive sample of supported algorithms:
 across configurations and break the uniform `RobustnessResult` contract — they
 are intentionally out of scope for the current adapter.
 
-| Algorithm | Threat model | Norm |
-| --- | --- | --- |
-| `LinfPGD` | white-box | L∞ |
-| `L2PGD` | white-box | L2 |
-| `LinfFastGradientAttack` | white-box | L∞ |
-| `L2FastGradientAttack` | white-box | L2 |
-| `L2CarliniWagnerAttack` | white-box | L2 |
-| `L2DeepFoolAttack` | white-box | L2 |
-| `BoundaryAttack` | black-box (decision) | L2 |
+The adapter registers ~55 attacks, covering all dispatchable `foolbox` classes.
+Alias names (e.g. `PGD`, `FGSM`) are deduped to their canonical norm-prefixed
+class (e.g. `LinfPGD`, `LinfFastGradientAttack`). Notable caveats:
+
+- **FlexibleDistance attacks** (`GaussianBlurAttack`, `InversionAttack`,
+  `BinarySearchContrastReductionAttack`, `LinearSearchContrastReductionAttack`,
+  `LinearSearchBlendedUniformNoiseAttack`) require an explicit norm: set
+  `constructor.distance` (e.g. `distance: l2`). RAITAP raises an actionable
+  error if it is missing.
+- **`VirtualAdversarialAttack`** requires `constructor.steps` (number of power
+  iterations).
+- **Brendel-Bethge family** (`L0BrendelBethgeAttack`, `L1BrendelBethgeAttack`,
+  `L2BrendelBethgeAttack`, `LinfinityBrendelBethgeAttack`) needs `numba`, now
+  included in the `foolbox` extra.
+- **`DatasetAttack`** is supported: RAITAP feeds the input batch as its
+  reference pool automatically.
+
+Excluded:
+- `BinarizationRefinementAttack`: needs starting points / attack chaining
+  (tracked: #277).
+- `SpatialAttack`: rotation/translation, not norm-bounded; needs a non-norm
+  budget surface (tracked: #278).
+- `PointwiseAttack`: starting-point attack (tracked: #280).
+
+| Algorithm | Threat model | Norm | Notes |
+| --- | --- | --- | --- |
+| `LinfPGD` | white-box | L∞ | |
+| `L2PGD` | white-box | L2 | |
+| `LinfFastGradientAttack` | white-box | L∞ | |
+| `L2FastGradientAttack` | white-box | L2 | |
+| `L2CarliniWagnerAttack` | white-box | L2 | |
+| `L2DeepFoolAttack` | white-box | L2 | |
+| `BoundaryAttack` | black-box (decision) | L2 | |
+| `DatasetAttack` | black-box (decision) | L2 | Input batch fed as pool automatically. |
 
 ### Marabou
 
@@ -200,27 +239,28 @@ window — see {doc}`../../contributor/modules/robustness`.
 
 `ImageCorruptionsAssessor` (registry `imagecorruptions`) wraps the
 [imagecorruptions](https://github.com/bethgelab/imagecorruptions) library to
-apply one of the 15 ImageNet-C common corruptions at a chosen severity. It
-estimates **average-case accuracy** under the corruption distribution, not a
-per-input adversarial verdict. `threat_model` is `NOT_APPLICABLE` — there is
-no adversary.
+apply one of 19 corruptions at a chosen severity. It estimates **average-case
+accuracy** under the corruption distribution, not a per-input adversarial
+verdict. `threat_model` is `NOT_APPLICABLE` (no adversary).
 
 Install: `uv add "raitap[imagecorruptions]"` (or `"raitap[robustness]"` to
 include all robustness libraries).
 
 | Config key | Values |
 | --- | --- |
-| `algorithm` | One of the 15 corruptions below |
+| `algorithm` | One of the 19 corruptions below |
 | `constructor.severity` | Integer 1..5 |
 | `raitap.ci_method` | `wilson` (default) or `clopper_pearson` |
 | `raitap.ci_level` | float, default `0.95` |
 
-The 15 supported `algorithm` values (grouped by family):
+The 19 supported `algorithm` values (grouped by family):
 
 - **Noise**: `gaussian_noise`, `shot_noise`, `impulse_noise`
 - **Blur**: `defocus_blur`, `glass_blur`, `motion_blur`, `zoom_blur`
 - **Weather**: `snow`, `frost`, `fog`, `brightness`
 - **Digital**: `contrast`, `elastic_transform`, `pixelate`, `jpeg_compression`
+- **Holdout** (ImageNet-C extended set): `speckle_noise`, `gaussian_blur`,
+  `spatter`, `saturate`
 
 Output is `corrupted_accuracy` plus a binomial CI (`accuracy_ci_low`,
 `accuracy_ci_high`, `n_samples`, `n_correct`) in `RobustnessMetrics`. Per-sample

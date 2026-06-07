@@ -142,7 +142,7 @@ there is no adversary; empirical and formal assessors use
 - `visualisers/formal/`: reserved for the verifier visualiser follow-up
   (verdict badge, certified-bounds plot).
 - `assessors/imagecorruptions_assessor.py`: `ImageCorruptionsAssessor`; wraps
-  the ImageNet-C 15 common corruptions via `imagecorruptions`.
+  19 ImageNet-C corruptions (15 common + 4 holdout) via `imagecorruptions`.
 - `assessors/auto_lirpa_assessor.py`: `AutoLiRPAAssessor`; sound+incomplete
   bound-propagation verifier (CROWN / IBP) via `auto_LiRPA`. The algorithm key
   is the single source of truth for both the bound method and the norm
@@ -170,6 +170,53 @@ there is no adversary; empirical and formal assessors use
 **Gotcha**: when the data pipeline returns no labels, the run helper falls
 back to `argmax(model(clean_inputs))` so untargeted attacks still have a
 well-defined reference (a warning is logged).
+
+## Invoker seam
+
+`AssessorSemanticsHints.invoker` overrides the adapter's default
+`_default_invoke(ctx)` construct-and-call path for one specific registry entry.
+`None` (the default, ~95% of entries) means the adapter's own `_default_invoke`
+runs. The field carries any callable matching the generic `Invoker` Protocol in
+`src/raitap/_adapters.py`:
+
+```python
+class Invoker(Protocol[CtxT, ResultT]):
+    def __call__(self, ctx: CtxT, /) -> ResultT: ...
+```
+
+For robustness, `CtxT` is `AttackInvokeCtx` (defined in `base_assessor.py`).
+The context dataclass carries the assessor instance so a custom invoker can
+reuse every shared helper (`_rethrow`, `_prepare_inputs_for_forward`,
+`_maybe_set_targeted`, `_extract_scalar_eps`, `_build_criterion`,
+`_last_success`) without reimplementing them.
+
+**Worked example: `DatasetAttack`.** foolbox's `DatasetAttack` has a
+two-stage lifecycle: you must call `.feed(fmodel, inputs)` to populate the
+sample pool before calling the attack. The uniform `_default_invoke` path
+(construct, then call) cannot express this. The solution is a module-level
+function in `foolbox_assessor.py`:
+
+```python
+def _dataset_attack_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
+    ...
+    attack.feed(fmodel, inputs_dev)   # pool population
+    ...
+    _raw, clipped, success = attack(fmodel, inputs_dev, targets_dev, epsilons=eps)
+    return clipped.detach()
+```
+
+The registry entry passes it via:
+
+```python
+"DatasetAttack": _hint(..., invoker=_dataset_attack_invoker),
+```
+
+The invoker pattern is also used by `JSMA` in `torchattacks_assessor.py` to
+guard against the hardcoded 10-class assumption before delegating back to
+`_default_invoke`.
+
+See {doc}`../adding/adding-an-algorithm` for the cross-family picture
+(including the transparency SHAP invokers).
 
 ## Extending the module
 

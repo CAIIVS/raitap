@@ -145,3 +145,42 @@ The family E2E matrix parametrises over algorithm names. Add an entry to keep co
 Add a row to `docs/modules/<module>/frameworks-and-libraries.md` for the new algorithm so it surfaces in the user-facing "does raitap support X?" lookup. Mention the families it belongs to and whether it requires autograd (or is model-agnostic).
 
 That is the whole change. No `pyproject.toml`, no decorator changes, no factory edits.
+
+## 7. Invoker override (advanced, rarely needed)
+
+Most algorithms fit the adapter's uniform construct-and-call path. For the rare algorithm with a non-standard lifecycle, `AssessorSemanticsHints` / `ExplainerSemanticsHints` accepts an `invoker` field. When set, the adapter calls that function instead of its default path: robustness `generate_adversarial` falls back to `_default_invoke` when no `invoker` is set, while transparency `ShapExplainer.compute_attributions` dispatches between its legacy and modern invokers internally.
+
+The generic `Invoker` Protocol lives in `src/raitap/_adapters.py`:
+
+```python
+class Invoker(Protocol[CtxT, ResultT]):
+    def __call__(self, ctx: CtxT, /) -> ResultT: ...
+```
+
+Per-family context dataclasses:
+
+- **Robustness**: `AttackInvokeCtx` in `assessors/base_assessor.py`. Fields:
+  `assessor`, `library`, `model`, `inputs`, `targets`, `backend`,
+  `call_kwargs`. The `assessor` field gives access to all shared helpers
+  (`_rethrow`, `_prepare_inputs_for_forward`, `_maybe_set_targeted`,
+  `_extract_scalar_eps`, `_build_criterion`, `_last_success`).
+- **Transparency**: `AttributionInvokeCtx` in `explainers/base_explainer.py`.
+
+**When to use it.** The `invoker` field solves one specific problem: an
+algorithm whose lifecycle cannot be expressed as construct-then-call. Examples
+in the codebase:
+
+- `foolbox.DatasetAttack` needs `.feed(fmodel, inputs)` before running:
+  `_dataset_attack_invoker` in `foolbox_assessor.py` handles the two-stage
+  lifecycle. The registry entry passes `invoker=_dataset_attack_invoker`.
+- SHAP uses two invokers (`_shap_legacy_invoker` / `_shap_modern_invoker`)
+  selected per registry entry. This replaced an older `api` flag on the hints.
+  Legacy SHAP explainers (KernelExplainer, GradientExplainer, etc.) use the
+  legacy path; modern ones (PartitionExplainer, ExactExplainer,
+  PermutationExplainer) use the modern path.
+
+**Verification note.** Per-algorithm hints (`norm`, `threat_model`,
+`stochastic`, `families`) are verified against the installed library source,
+not assumed from docs or class names. When adding an invoker, verify the
+lifecycle against the installed library's source and add a unit test that
+exercises the invoker path directly.
