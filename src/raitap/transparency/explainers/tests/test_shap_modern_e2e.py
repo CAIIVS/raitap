@@ -2,17 +2,24 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 import pytest
 import torch
 import torch.nn as nn
 
-from raitap.transparency.contracts import InputKind, InputSpec, TensorLayout
+from raitap.transparency.contracts import (
+    ExplanationOutputSpace,
+    InputKind,
+    InputSpec,
+    TensorLayout,
+)
 from raitap.transparency.explainers.shap_explainer import ShapExplainer
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from pathlib import Path
 
 
 def _predict_model() -> Callable[[torch.Tensor], torch.Tensor]:
@@ -85,3 +92,30 @@ def test_partition_modern_image_returns_nchw() -> None:
     )
     assert attrs.shape == (1, 3, 8, 8)  # NCHW, matches input
     assert attrs.dtype == torch.float32
+
+
+@pytest.mark.usefixtures("needs_shap")
+def test_partition_modern_explain_persists_input_features(tmp_path: Path) -> None:
+    # Full explain() chokepoint: input_spec threads through, result is input-shaped.
+    explainer = ShapExplainer(algorithm="PartitionExplainer")
+    inputs = torch.randn(2, 8)
+    result = explainer.explain(
+        _predict_model(),
+        inputs,
+        run_dir=str(tmp_path),
+        raitap_kwargs={
+            "input_metadata": InputSpec(
+                kind=InputKind.TABULAR,
+                shape=(2, 8),
+                layout=TensorLayout.BATCH_FEATURE,
+                feature_names=None,
+                metadata=None,
+            )
+        },
+        background_data=torch.randn(20, 8),
+        target=0,
+    )
+    assert result.semantics.output_space.space is ExplanationOutputSpace.INPUT_FEATURES
+    assert result.attributions.shape == (2, 8)
+    metadata = json.loads((tmp_path / "metadata.json").read_text())
+    assert metadata["semantics"]["output_space"]["space"] == "input_features"

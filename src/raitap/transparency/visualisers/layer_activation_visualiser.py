@@ -36,10 +36,10 @@ class LayerActivationVisualiser(BaseVisualiser):
 
     Per-sample tensor rank drives the rendering:
 
-    * ``>= 3`` — conv ``(C, H, W, ...)``: per-channel mean ``|attribution|`` bars.
-    * ``2`` — sequence ``(tokens, hidden)`` (e.g. a ViT block): a magnitude
+    * ``>= 3``: conv ``(C, H, W, ...)``: per-channel mean ``|attribution|`` bars.
+    * ``2``: sequence ``(tokens, hidden)`` (e.g. a ViT block): a magnitude
       heatmap, since neither axis is a single "unit".
-    * ``1`` — linear ``(F,)``: per-feature magnitude bars.
+    * ``1``: linear ``(F,)``: per-feature magnitude bars.
     """
 
     def visualise(
