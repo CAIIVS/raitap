@@ -37,6 +37,11 @@ _CORRUPTIONS: dict[str, frozenset[str]] = {
     "elastic_transform": _DIGITAL,
     "pixelate": _DIGITAL,
     "jpeg_compression": _DIGITAL,
+    # holdout corruptions (ImageNet-C extended set)
+    "speckle_noise": _NOISE,
+    "gaussian_blur": _BLUR,
+    "spatter": _WEATHER,
+    "saturate": _DIGITAL,
 }
 
 

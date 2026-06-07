@@ -10,6 +10,7 @@ from raitap.robustness.assessors.imagecorruptions_assessor import ImageCorruptio
 from raitap.robustness.contracts import AssessmentKind, ThreatModel
 
 _EXPECTED = {
+    # common corruptions (15)
     "gaussian_noise",
     "shot_noise",
     "impulse_noise",
@@ -25,11 +26,24 @@ _EXPECTED = {
     "elastic_transform",
     "pixelate",
     "jpeg_compression",
+    # holdout corruptions (4)
+    "speckle_noise",
+    "gaussian_blur",
+    "spatter",
+    "saturate",
 }
 
 
-def test_all_fifteen_corruptions_registered() -> None:
+def test_all_nineteen_corruptions_registered() -> None:
     assert set(ImageCorruptionsAssessor.algorithm_registry) == _EXPECTED
+
+
+def test_holdout_corruptions_registered() -> None:
+    reg = ImageCorruptionsAssessor.algorithm_registry
+    for name in ("speckle_noise", "gaussian_blur", "spatter", "saturate"):
+        assert name in reg
+        assert reg[name].stochastic is True
+    assert len(reg) == 19
 
 
 def test_every_entry_is_statistical_sampling_and_not_applicable() -> None:
