@@ -142,6 +142,7 @@ class ShapExplainer(AttributionOnlyExplainer):
         model: ExplanationModel,
         inputs: torch.Tensor,
         backend: object | None = None,
+        input_spec: object | None = None,
         background_data: torch.Tensor | None = None,
         target: int | list[int] | torch.Tensor | None = None,
         **shap_kwargs,
@@ -152,6 +153,8 @@ class ShapExplainer(AttributionOnlyExplainer):
         Args:
             model: PyTorch model
             inputs: Input tensor
+            input_spec: Inferred input specification; absorbed here so it does
+                not leak into ``shap_values()``.
             background_data: Background dataset (REQUIRED for most explainers)
                 - GradientExplainer: Required
                 - DeepExplainer: Required
@@ -164,6 +167,7 @@ class ShapExplainer(AttributionOnlyExplainer):
         Returns:
             SHAP values as torch.Tensor
         """
+        del input_spec  # absorbed; must not reach shap_values()
         shap = self._lazy_import()
 
         # Dynamically get the explainer class

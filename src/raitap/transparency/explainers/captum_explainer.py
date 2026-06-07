@@ -126,6 +126,7 @@ class CaptumExplainer(AttributionOnlyExplainer):
         model: ExplanationModel,
         inputs: torch.Tensor,
         backend: object | None = None,
+        input_spec: object | None = None,
         target: int | list[int] | torch.Tensor | None = None,
         baselines: torch.Tensor | None = None,
         **attr_kwargs,
@@ -146,7 +147,7 @@ class CaptumExplainer(AttributionOnlyExplainer):
         Returns:
             Attribution tensor matching input shape
         """
-        del backend
+        del backend, input_spec
         captum_attr = self._lazy_import("attr")
 
         # Dynamically get the method class
