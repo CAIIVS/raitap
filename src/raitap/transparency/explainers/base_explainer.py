@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gc
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
@@ -389,6 +390,18 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
         Returns:
             Attribution tensor matching the input shape.
         """
+
+
+@dataclass(frozen=True)
+class AttributionInvokeCtx:
+    """Per-call context handed to an attribution invoker (#266)."""
+
+    explainer: AttributionOnlyExplainer
+    library: Any
+    model: ExplanationModel
+    inputs: torch.Tensor
+    input_spec: InputSpec | None
+    call_kwargs: dict[str, Any]
 
 
 def _normalise_optional_str_list(value: Any) -> list[str] | None:

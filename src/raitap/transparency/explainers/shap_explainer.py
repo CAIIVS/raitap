@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
@@ -24,29 +23,13 @@ from raitap.transparency.contracts import (
 from raitap.transparency.explainers.registration import transparency_adapter
 from raitap.types import Capability
 
-from .base_explainer import AttributionOnlyExplainer
+from .base_explainer import AttributionInvokeCtx, AttributionOnlyExplainer
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from raitap.models.access import ExplanationModel
     from raitap.transparency.contracts import InputSpec
-
-
-ShapApi = Literal["legacy", "modern"]
-
-
-@dataclass(frozen=True)
-class ShapExplainerHints(ExplainerSemanticsHints):
-    """SHAP registry entry: base hints plus which SHAP API the algorithm uses.
-
-    ``api`` selects the legacy ``.shap_values()`` path or the modern
-    ``__call__ -> Explanation`` (masker-based) path. Carried on the registry
-    entry itself so dispatch can never drift from a parallel table. ``kw_only``
-    keeps it required despite the base's defaulted fields. (#267)
-    """
-
-    api: ShapApi = field(kw_only=True)
 
 
 def _normalise_target_indices(
@@ -158,6 +141,36 @@ def _modern_predict_fn(
     return predict
 
 
+def _shap_legacy_invoker(ctx: AttributionInvokeCtx) -> torch.Tensor:
+    """Invoke the legacy ``.shap_values()`` path for a SHAP registry entry (#266)."""
+    ck = dict(ctx.call_kwargs)
+    explainer = cast("ShapExplainer", ctx.explainer)
+    return explainer._compute_legacy(
+        ctx.library,
+        ctx.model,
+        ctx.inputs,
+        background_data=ck.pop("background_data", None),
+        target=ck.pop("target", None),
+        input_spec=ctx.input_spec,
+        **ck,
+    )
+
+
+def _shap_modern_invoker(ctx: AttributionInvokeCtx) -> torch.Tensor:
+    """Invoke the modern masker-based path for a SHAP registry entry (#266)."""
+    ck = dict(ctx.call_kwargs)
+    explainer = cast("ShapExplainer", ctx.explainer)
+    return explainer._compute_modern(
+        ctx.library,
+        ctx.model,
+        ctx.inputs,
+        background_data=ck.pop("background_data", None),
+        target=ck.pop("target", None),
+        input_spec=ctx.input_spec,
+        **ck,
+    )
+
+
 @transparency_adapter(
     registry_name="shap",
     library="shap",
@@ -174,62 +187,62 @@ def _modern_predict_fn(
     # Gradient/Deep/Kernel fall back to the input batch when ``background_data``
     # is omitted; TreeExplainer takes no reference input (``baseline_default`` None).
     algorithm_registry={
-        "GradientExplainer": ShapExplainerHints(
+        "GradientExplainer": ExplainerSemanticsHints(
             {MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             requires={Capability.AUTOGRAD},
             # Samples random points along the path + background choice (rseed/nsamples).
             stochastic=True,
-            api="legacy",
+            invoker=_shap_legacy_invoker,
         ),
-        "DeepExplainer": ShapExplainerHints(
+        "DeepExplainer": ExplainerSemanticsHints(
             {MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             requires={Capability.AUTOGRAD},
-            api="legacy",
+            invoker=_shap_legacy_invoker,
         ),
-        "KernelExplainer": ShapExplainerHints(
+        "KernelExplainer": ExplainerSemanticsHints(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             # Monte Carlo coalition sampling (np.random.choice / permutation).
             stochastic=True,
-            api="legacy",
+            invoker=_shap_legacy_invoker,
         ),
         # TreeExplainer is a tree-model method; requires=AUTOGRAD preserves current
         # gating, but it is the natural first consumer of the roadmap TREE_MODEL capability.
-        "TreeExplainer": ShapExplainerHints(
+        "TreeExplainer": ExplainerSemanticsHints(
             {MethodFamily.SHAPLEY, MethodFamily.TREE},
             requires={Capability.AUTOGRAD},
-            api="legacy",
+            invoker=_shap_legacy_invoker,
         ),
-        "SamplingExplainer": ShapExplainerHints(
+        "SamplingExplainer": ExplainerSemanticsHints(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             stochastic=True,  # Monte Carlo sampling (run-twice non-deterministic)
-            api="legacy",
+            invoker=_shap_legacy_invoker,
         ),
-        "PartitionExplainer": ShapExplainerHints(
+        "PartitionExplainer": ExplainerSemanticsHints(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
-            api="modern",
+            invoker=_shap_modern_invoker,
         ),
-        "ExactExplainer": ShapExplainerHints(
+        "ExactExplainer": ExplainerSemanticsHints(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
-            api="modern",
+            invoker=_shap_modern_invoker,
         ),
-        "PermutationExplainer": ShapExplainerHints(
+        "PermutationExplainer": ExplainerSemanticsHints(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             stochastic=True,  # random permutation order (seed=None default)
-            api="modern",
+            invoker=_shap_modern_invoker,
         ),
     },
     baseline_kwarg_name="background_data",
@@ -262,14 +275,12 @@ class ShapExplainer(AttributionOnlyExplainer):
         target: int | list[int] | torch.Tensor | None = None,
         **shap_kwargs,
     ) -> torch.Tensor:
-        """
-        Compute SHAP values.
+        """Compute SHAP values via the per-entry invoker (legacy or modern).
 
         Args:
             model: PyTorch model
             inputs: Input tensor
-            input_spec: Inferred input specification; absorbed here so it does
-                not leak into ``shap_values()``.
+            input_spec: Inferred input specification; passed to the invoker.
             background_data: Background dataset (REQUIRED for most explainers)
                 - GradientExplainer: Required
                 - DeepExplainer: Required
@@ -283,25 +294,32 @@ class ShapExplainer(AttributionOnlyExplainer):
             SHAP values as torch.Tensor
         """
         shap = self._lazy_import()
-        # Every known shap entry is a ShapExplainerHints (carries ``api``); an
-        # unknown name misses the registry and falls through to the legacy path,
-        # which raises the helpful "unsupported algorithm" error.
         hints = self.algorithm_registry.get(self.algorithm)
-        if isinstance(hints, ShapExplainerHints) and hints.api == "modern":
-            # The base keeps ``input_spec: object | None``; ``explain()`` always
-            # supplies a real ``InputSpec`` via ``infer_input_spec``. Cast for the
-            # typed modern path (``_compute_modern`` still guards ``None``).
-            return self._compute_modern(
-                shap,
-                model,
-                inputs,
-                background_data=background_data,
-                target=target,
-                input_spec=cast("InputSpec | None", input_spec),
-                **shap_kwargs,
-            )
+        ctx = AttributionInvokeCtx(
+            explainer=self,
+            library=shap,
+            model=model,
+            inputs=inputs,
+            input_spec=cast("InputSpec | None", input_spec),
+            call_kwargs={"background_data": background_data, "target": target, **shap_kwargs},
+        )
+        invoke = getattr(hints, "invoker", None) or _shap_legacy_invoker
+        return invoke(ctx)
 
-        # ---- existing legacy .shap_values() path ----
+    def _compute_legacy(
+        self,
+        shap: Any,
+        model: ExplanationModel,
+        inputs: torch.Tensor,
+        *,
+        background_data: torch.Tensor | None,
+        target: int | list[int] | torch.Tensor | None,
+        input_spec: InputSpec | None,
+        **shap_kwargs: Any,
+    ) -> torch.Tensor:
+        del input_spec  # absorbed; the legacy path does not use it
+
+        # ---- legacy .shap_values() path ----
         # Dynamically get the explainer class
         try:
             explainer_class = getattr(shap, self.algorithm)

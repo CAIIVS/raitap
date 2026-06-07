@@ -62,18 +62,18 @@ See [Adding an algorithm](../adding/adding-an-algorithm.md).
 
 ## ShapExplainer internals
 
-`ShapExplainer.compute_attributions` dispatches on the `api` field of each registry entry.
-Entries are `ShapExplainerHints` (a `ShapExplainer`-local subclass of `ExplainerSemanticsHints`)
-whose required `api` field is `"legacy"` or `"modern"`. Carrying the flag on the entry itself keeps
-dispatch from drifting against a parallel table; a new explainer added without an `api` fails to
-construct.
+`ShapExplainer.compute_attributions` builds an `AttributionInvokeCtx` and dispatches via the
+`invoker` field on each registry entry (`ExplainerSemanticsHints.invoker`, added in #266). An
+unknown algorithm name produces a `None` entry, falling back to `_shap_legacy_invoker` which raises
+the helpful "unsupported algorithm" `ValueError`.
 
-- **Legacy path** (`.shap_values()` API): `GradientExplainer`, `DeepExplainer`, `KernelExplainer`,
-  `TreeExplainer`, `SamplingExplainer`. Constructs the SHAP explainer with the background tensor and
-  calls `.shap_values()` directly.
-- **Modern path** (`__call__ -> Explanation` API): `PartitionExplainer`, `ExactExplainer`,
-  `PermutationExplainer`. Calls `_build_masker` to select a per-modality masker, wraps the predict
-  callable via `_modern_predict_fn`, constructs the explainer, and calls it with numpy inputs.
+- **Legacy path** (`_shap_legacy_invoker` -> `_compute_legacy` -> `.shap_values()` API):
+  `GradientExplainer`, `DeepExplainer`, `KernelExplainer`, `TreeExplainer`, `SamplingExplainer`.
+  Constructs the SHAP explainer with the background tensor and calls `.shap_values()` directly.
+- **Modern path** (`_shap_modern_invoker` -> `_compute_modern` -> `__call__ -> Explanation` API):
+  `PartitionExplainer`, `ExactExplainer`, `PermutationExplainer`. Calls `_build_masker` to select a
+  per-modality masker, wraps the predict callable via `_modern_predict_fn`, constructs the
+  explainer, and calls it with numpy inputs.
 
 ### `_build_masker`
 

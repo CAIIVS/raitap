@@ -146,6 +146,9 @@ class ExplainerSemanticsHints:
     # it is not bit-reproducible unless seeds are pinned. Surfaced by the
     # reproducibility caveat (issue #251). Declared explicitly per algorithm.
     stochastic: bool = False
+    # Optional per-algorithm invoker overriding the adapter's default
+    # construct-and-call path (#266). None => default path.
+    invoker: Any = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "families", frozenset(self.families))
