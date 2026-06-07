@@ -19,7 +19,7 @@ Robustness assessors form a three-level hierarchy in
 
 ```text
 BaseAssessor                            # root: declares assessment_kind + budget_kwarg_source
-├── EmpiricalAttackAssessor             # you implement generate_adversarial(); framework owns assess()
+├── EmpiricalAttackAssessor             # you implement _default_invoke(ctx); framework owns generate_adversarial() + assess()
 │   ├── TorchattacksAssessor
 │   └── FoolboxAssessor
 ├── FormalVerificationAssessor          # you implement verify_sample(); framework owns assess()
@@ -33,9 +33,11 @@ BaseAssessor                            # root: declares assessment_kind + budge
   and `budget_kwarg_source`. Backend gating is inherited from `AdapterMixin`
   (`check_backend_compat`), not a no-op on this class. Never subclass directly.
 - **`EmpiricalAttackAssessor`**: subclasses implement only
-  `generate_adversarial(model, inputs, targets, ...) -> Tensor`. Batching,
-  prediction, verdict computation, distance computation, semantics inference,
-  and persistence are owned by this class.
+  `_default_invoke(self, ctx: AttackInvokeCtx) -> Tensor`. `generate_adversarial`
+  is the framework-owned dispatcher: it resolves the per-entry invoker (or falls
+  back to `_default_invoke`) then delegates. Batching, prediction, verdict
+  computation, distance computation, semantics inference, and persistence are
+  owned by this class.
 - **`FormalVerificationAssessor`**: subclasses implement
   `verify_sample(model, sample, target, *, budget) -> VerificationOutcome`.
   The per-sample loop, runtime tracking, output-bounds stacking, and
@@ -49,7 +51,7 @@ BaseAssessor                            # root: declares assessment_kind + budge
 
 Every assessor declares two `ClassVar`s the framework relies on:
 
-- `algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]`: maps
+- `algorithm_registry: ClassVar[Mapping[str, AssessorAlgorithmSpec]]`: maps
   algorithm names to their threat model / norm / families / `stochastic` flag.
   `assessor_semantics` uses this to build `RobustnessResult.semantics`, so the
   reported metadata always matches what the adapter actually executed. The
@@ -140,7 +142,7 @@ there is no adversary; empirical and formal assessors use
 - `visualisers/formal/`: reserved for the verifier visualiser follow-up
   (verdict badge, certified-bounds plot).
 - `assessors/imagecorruptions_assessor.py`: `ImageCorruptionsAssessor`; wraps
-  the ImageNet-C 15 common corruptions via `imagecorruptions`.
+  19 ImageNet-C corruptions (15 common + 4 holdout) via `imagecorruptions`.
 - `assessors/auto_lirpa_assessor.py`: `AutoLiRPAAssessor`; sound+incomplete
   bound-propagation verifier (CROWN / IBP) via `auto_LiRPA`. The algorithm key
   is the single source of truth for both the bound method and the norm
@@ -169,11 +171,58 @@ there is no adversary; empirical and formal assessors use
 back to `argmax(model(clean_inputs))` so untargeted attacks still have a
 well-defined reference (a warning is logged).
 
+## Invoker seam
+
+`AssessorAlgorithmSpec.invoker` overrides the adapter's default
+`_default_invoke(ctx)` construct-and-call path for one specific registry entry.
+`None` (the default, ~95% of entries) means the adapter's own `_default_invoke`
+runs. The field carries any callable matching the generic `Invoker` Protocol in
+`src/raitap/_adapters.py`:
+
+```python
+class Invoker(Protocol[CtxT, ResultT]):
+    def __call__(self, ctx: CtxT, /) -> ResultT: ...
+```
+
+For robustness, `CtxT` is `AttackInvokeCtx` (defined in `base_assessor.py`).
+The context dataclass carries the assessor instance so a custom invoker can
+reuse every shared helper (`_rethrow`, `_prepare_inputs_for_forward`,
+`_maybe_set_targeted`, `_extract_scalar_eps`, `_build_criterion`,
+`_last_success`) without reimplementing them.
+
+**Worked example: `DatasetAttack`.** foolbox's `DatasetAttack` has a
+two-stage lifecycle: you must call `.feed(fmodel, inputs)` to populate the
+sample pool before calling the attack. The uniform `_default_invoke` path
+(construct, then call) cannot express this. The solution is a module-level
+function in `foolbox_assessor.py`:
+
+```python
+def _dataset_attack_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
+    ...
+    attack.feed(fmodel, inputs_dev)   # pool population
+    ...
+    _raw, clipped, success = attack(fmodel, inputs_dev, targets_dev, epsilons=eps)
+    return clipped.detach()
+```
+
+The registry entry passes it via:
+
+```python
+"DatasetAttack": _hint(..., invoker=_dataset_attack_invoker),
+```
+
+The invoker pattern is also used by `JSMA` in `torchattacks_assessor.py` to
+guard against the hardcoded 10-class assumption before delegating back to
+`_default_invoke`.
+
+See {doc}`../adding/adding-an-algorithm` for the cross-family picture
+(including the transparency SHAP invokers).
+
 ## Extending the module
 
 - **New algorithm in an existing adapter (torchattacks, foolbox, ...)**:
   see {doc}`../adding/adding-an-algorithm`. For robustness, the `algorithm_registry`
-  value is an `AssessorSemanticsHints` (assessment kind, threat model, objective,
+  value is an `AssessorAlgorithmSpec` (assessment kind, threat model, objective,
   norm, family tags) from `semantics.py`.
 - **New robustness library**: see {doc}`../adding/adding-an-adapter`. Pick
   `EmpiricalAttackAssessor`, `FormalVerificationAssessor`, or
@@ -183,7 +232,7 @@ well-defined reference (a warning is logged).
   gate inherited from `AdapterMixin` evaluates whether
   `algorithm.requires <= backend.provides` and raises
   `BackendIncompatibilityError` on mismatch. Set
-  `requires={Capability.AUTOGRAD}` on `AssessorSemanticsHints`
+  `requires={Capability.AUTOGRAD}` on `AssessorAlgorithmSpec`
   entries for algorithms that need autograd (e.g. white-box empirical attacks).
   Statistical-sampling adapters implement `apply_perturbation(image)` only;
   their algorithms carry empty `requires` so the gate always passes.

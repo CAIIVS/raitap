@@ -1,7 +1,7 @@
 """Semantic builders for robustness assessors.
 
 Per-algorithm registries live on each adapter as
-``algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]``,
+``algorithm_registry: ClassVar[Mapping[str, AssessorAlgorithmSpec]]``,
 validated at decoration time via
 ``ROBUSTNESS.has_algorithm_registry=True``. This module contains only the
 framework-agnostic mechanics that consume those registries.
@@ -19,7 +19,7 @@ from raitap.transparency.contracts import InputSpec, SampleSelection
 from raitap.transparency.semantics import infer_input_spec
 
 # Runtime import (not TYPE_CHECKING): ``Capability`` appears in the public
-# ``AssessorSemanticsHints.requires`` annotation, so ``typing.get_type_hints()``
+# ``AssessorAlgorithmSpec.requires`` annotation, so ``typing.get_type_hints()``
 # must resolve it from module globals. It is a torch-free StrEnum.
 from raitap.types import Capability  # noqa: TC001
 
@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class AssessorSemanticsHints:
+class AssessorAlgorithmSpec:
     """Per-algorithm metadata read by ``assessor_semantics``."""
 
     assessment_kind: AssessmentKind
@@ -55,6 +55,10 @@ class AssessorSemanticsHints:
     # it is not bit-reproducible unless seeds are pinned (issue #251). Declared
     # explicitly per algorithm.
     stochastic: bool = False
+    # Optional per-algorithm invoker overriding the adapter's default construct-
+    # and-call path (#266). None => default path. Typed loosely (the generic
+    # Invoker is structural) to avoid a torch-import cycle at this layer.
+    invoker: Any = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "families", frozenset(self.families))
@@ -66,7 +70,7 @@ _TARGET_KWARG_KEYS: frozenset[str] = frozenset(
 )
 
 
-def hints_for_assessor(assessor: object) -> AssessorSemanticsHints:
+def hints_for_assessor(assessor: object) -> AssessorAlgorithmSpec:
     """Resolve the registry hints for a configured assessor.
 
     Reads the adapter's ``algorithm_registry`` ClassVar (enforced by
@@ -78,7 +82,7 @@ def hints_for_assessor(assessor: object) -> AssessorSemanticsHints:
             f"Assessor {type(assessor).__name__!r} has no ``algorithm`` attribute. "
             "Set the YAML ``algorithm:`` field (e.g. ``algorithm: PGD``)."
         )
-    registry: Mapping[str, AssessorSemanticsHints] | None = getattr(
+    registry: Mapping[str, AssessorAlgorithmSpec] | None = getattr(
         type(assessor), "algorithm_registry", None
     )
     if not isinstance(registry, Mapping):
@@ -119,14 +123,14 @@ def _extract_target_classes(call_kwargs: Mapping[str, Any]) -> Sequence[int] | N
     return None
 
 
-def _resolve_objective(hints: AssessorSemanticsHints, call_kwargs: Mapping[str, Any]) -> Objective:
+def _resolve_objective(hints: AssessorAlgorithmSpec, call_kwargs: Mapping[str, Any]) -> Objective:
     if _extract_target_classes(call_kwargs) is not None:
         return Objective.TARGETED
     return hints.objective
 
 
 def _resolve_epsilon(
-    hints: AssessorSemanticsHints,
+    hints: AssessorAlgorithmSpec,
     source: Mapping[str, Any],
 ) -> float | None:
     for key in ("eps", "epsilon"):

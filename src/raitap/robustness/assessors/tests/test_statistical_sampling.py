@@ -24,7 +24,7 @@ from raitap.robustness.contracts import (
     ThreatModel,
 )
 from raitap.robustness.results import decode_verdicts
-from raitap.robustness.semantics import AssessorSemanticsHints
+from raitap.robustness.semantics import AssessorAlgorithmSpec
 
 
 class _OneHotModel(nn.Module):
@@ -40,8 +40,8 @@ class _OneHotModel(nn.Module):
 
 
 class _StubSamplingAssessor(StatisticalSamplingAssessor):
-    algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]] = {
-        "identity": AssessorSemanticsHints(
+    algorithm_registry: ClassVar[Mapping[str, AssessorAlgorithmSpec]] = {
+        "identity": AssessorAlgorithmSpec(
             AssessmentKind.STATISTICAL_SAMPLING,
             ThreatModel.NOT_APPLICABLE,
             Objective.UNTARGETED,

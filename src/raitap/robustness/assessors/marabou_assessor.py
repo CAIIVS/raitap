@@ -43,7 +43,7 @@ from ..contracts import (
     VerificationOutcome,
 )
 from ..exceptions import AssessorBackendIncompatibilityError
-from ..semantics import AssessorSemanticsHints
+from ..semantics import AssessorAlgorithmSpec
 from .base_assessor import FormalVerificationAssessor
 
 # Curated error patterns for confusing maraboupy errors. Matched against
@@ -78,7 +78,7 @@ logger = logging.getLogger(__name__)
     library="maraboupy",
     error_patterns=_MARABOUPY_ERROR_MESSAGES,
     algorithm_registry={
-        "linf-box": AssessorSemanticsHints(
+        "linf-box": AssessorAlgorithmSpec(
             AssessmentKind.FORMAL_VERIFICATION,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,

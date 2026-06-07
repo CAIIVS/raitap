@@ -8,7 +8,7 @@ from raitap.robustness.assessors.registration import robustness_adapter
 from raitap.utils.lazy import lazy_import
 
 from ..contracts import AssessmentKind, Objective, ThreatModel
-from ..semantics import AssessorSemanticsHints
+from ..semantics import AssessorAlgorithmSpec
 from .base_assessor import StatisticalSamplingAssessor
 
 if TYPE_CHECKING:
@@ -37,6 +37,11 @@ _CORRUPTIONS: dict[str, frozenset[str]] = {
     "elastic_transform": _DIGITAL,
     "pixelate": _DIGITAL,
     "jpeg_compression": _DIGITAL,
+    # holdout corruptions (ImageNet-C extended set)
+    "speckle_noise": _NOISE,
+    "gaussian_blur": _BLUR,
+    "spatter": _WEATHER,
+    "saturate": _DIGITAL,
 }
 
 
@@ -44,7 +49,7 @@ _CORRUPTIONS: dict[str, frozenset[str]] = {
     registry_name="imagecorruptions",
     library="imagecorruptions",
     algorithm_registry={
-        name: AssessorSemanticsHints(
+        name: AssessorAlgorithmSpec(
             AssessmentKind.STATISTICAL_SAMPLING,
             ThreatModel.NOT_APPLICABLE,
             Objective.UNTARGETED,

@@ -29,13 +29,13 @@ from raitap import adapters
     registry_name="captum",
     library="captum",
     algorithm_registry={
-        "IntegratedGradients": ExplainerSemanticsHints(
+        "IntegratedGradients": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT},
             baseline_default=BaselineMode.ZERO,
             requires={Capability.AUTOGRAD},  # gradient method
         ),
         # ... existing entries ...
-        "NewMethod": ExplainerSemanticsHints(
+        "NewMethod": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT, MethodFamily.PERTURBATION},
             requires={Capability.AUTOGRAD},  # gradient method
         ),
@@ -55,7 +55,7 @@ from raitap import adapters
     library="torchattacks",
     algorithm_registry={
         # ... existing entries ...
-        "NewAttack": AssessorSemanticsHints(
+        "NewAttack": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -69,14 +69,14 @@ class TorchattacksAssessor(EmpiricalAttackAssessor): ...
 ```
 
 The map value carries the semantics RAITAP tracks and reports on:
-- **Transparency** → `ExplainerSemanticsHints` (`families: AbstractSet[MethodFamily]` + optional `baseline_default` + optional `requires`). New `MethodFamily` values go in `src/raitap/transparency/contracts.py`.
-- **Robustness** → `AssessorSemanticsHints` (assessment kind, threat model, objective, norm, family tags, optional `requires`). Defined in `src/raitap/robustness/semantics.py`.
+- **Transparency** → `ExplainerAlgorithmSpec` (`families: AbstractSet[MethodFamily]` + optional `baseline_default` + optional `requires`). New `MethodFamily` values go in `src/raitap/transparency/contracts.py`.
+- **Robustness** → `AssessorAlgorithmSpec` (assessment kind, threat model, objective, norm, family tags, optional `requires`). Defined in `src/raitap/robustness/semantics.py`.
 
 A missing entry means the algorithm cannot be selected via config.
 
 ## 3. Backend capability (`requires`)
 
-The `requires` field on `ExplainerSemanticsHints` / `AssessorSemanticsHints` declares what the algorithm needs from the backend. The rule: an algorithm runs on a backend iff `algorithm.requires <= backend.provides`. The gate is enforced automatically by inherited `AdapterMixin.check_backend_compat`: you write nothing extra.
+The `requires` field on `ExplainerAlgorithmSpec` / `AssessorAlgorithmSpec` declares what the algorithm needs from the backend. The rule: an algorithm runs on a backend iff `algorithm.requires <= backend.provides`. The gate is enforced automatically by inherited `AdapterMixin.check_backend_compat`: you write nothing extra.
 
 | Algorithm type | `requires` value | Effect |
 |---|---|---|
@@ -92,8 +92,8 @@ When `requires - backend.provides` is non-empty, `BackendIncompatibilityError` i
 Attribution methods that take a reference input (Integrated Gradients via `baselines=` and SHAP via `background_data=`) have that baseline recorded in `metadata.json` and the report (issue #210), and users set it library-agnostically via `raitap.baseline`. Three declarations drive this:
 
 - `baseline_kwarg_name`: a `@adapters.transparency` decorator kwarg naming the call kwarg that holds the reference (`"baselines"` for Captum, `"background_data"` for SHAP). Omitted (the default) means the family takes no baseline. It is per-**adapter** (one library, one kwarg name), and is where `raitap.baseline` gets routed.
-- `ExplainerSemanticsHints.baseline_default`: the per-**algorithm** implicit default mode, used when the user omits the kwarg. Lives on the algorithm's registry entry because one adapter wraps many algorithms, most of which take no baseline (so they leave it `None`).
-- `ExplainerSemanticsHints.baseline_cardinality`: `BaselineCardinality.SINGLE` (one broadcast reference, e.g. IG) or `SET` (a sample distribution, e.g. SHAP). Used only to *warn* on a mismatched `raitap.baseline` (never to reshape it); leave `None` to skip the check.
+- `ExplainerAlgorithmSpec.baseline_default`: the per-**algorithm** implicit default mode, used when the user omits the kwarg. Lives on the algorithm's registry entry because one adapter wraps many algorithms, most of which take no baseline (so they leave it `None`).
+- `ExplainerAlgorithmSpec.baseline_cardinality`: `BaselineCardinality.SINGLE` (one broadcast reference, e.g. IG) or `SET` (a sample distribution, e.g. SHAP). Used only to *warn* on a mismatched `raitap.baseline` (never to reshape it); leave `None` to skip the check.
 
 If your new algorithm takes a baseline **and** has a meaningful default when the user omits it, set `baseline_default` (and, ideally, `baseline_cardinality`) on its registry entry:
 
@@ -102,13 +102,13 @@ If your new algorithm takes a baseline **and** has a meaningful default when the
     registry_name="captum",
     baseline_kwarg_name="baselines",
     algorithm_registry={
-        "IntegratedGradients": ExplainerSemanticsHints(
+        "IntegratedGradients": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT},
             baseline_default=BaselineMode.ZERO,
             baseline_cardinality=BaselineCardinality.SINGLE,
             requires={Capability.AUTOGRAD},  # gradient method
         ),
-        "NewMethod": ExplainerSemanticsHints(
+        "NewMethod": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT},
             baseline_default=BaselineMode.ZERO,
             baseline_cardinality=BaselineCardinality.SINGLE,
@@ -126,7 +126,7 @@ Nothing to do if your algorithm only uses a baseline when the user supplies one 
 Add a unit test next to the adapter (`src/raitap/<module>/<subdir>/tests/test_<adapter>.py`) that:
 
 1. Constructs the adapter with `algorithm="NewMethod"` and minimal kwargs.
-2. Runs the happy path (`compute_attributions(...)` / `generate_adversarial(...)`).
+2. Runs the happy path (`compute_attributions(...)` / `_default_invoke(ctx)` via `generate_adversarial(...)`).
 3. Asserts the output shape/type matches the contract.
 
 If the algorithm has unusual kwargs (e.g. a custom `baselines=` shape), add an edge-case test for those too.
@@ -145,3 +145,42 @@ The family E2E matrix parametrises over algorithm names. Add an entry to keep co
 Add a row to `docs/modules/<module>/frameworks-and-libraries.md` for the new algorithm so it surfaces in the user-facing "does raitap support X?" lookup. Mention the families it belongs to and whether it requires autograd (or is model-agnostic).
 
 That is the whole change. No `pyproject.toml`, no decorator changes, no factory edits.
+
+## 7. Invoker override (advanced, rarely needed)
+
+Most algorithms fit the adapter's uniform construct-and-call path. For the rare algorithm with a non-standard lifecycle, `AssessorAlgorithmSpec` / `ExplainerAlgorithmSpec` accepts an `invoker` field. When set, the adapter calls that function instead of its default path: robustness `generate_adversarial` falls back to `_default_invoke` when no `invoker` is set, while transparency `ShapExplainer.compute_attributions` dispatches between its legacy and modern invokers internally.
+
+The generic `Invoker` Protocol lives in `src/raitap/_adapters.py`:
+
+```python
+class Invoker(Protocol[CtxT, ResultT]):
+    def __call__(self, ctx: CtxT, /) -> ResultT: ...
+```
+
+Per-family context dataclasses:
+
+- **Robustness**: `AttackInvokeCtx` in `assessors/base_assessor.py`. Fields:
+  `assessor`, `library`, `model`, `inputs`, `targets`, `backend`,
+  `call_kwargs`. The `assessor` field gives access to all shared helpers
+  (`_rethrow`, `_prepare_inputs_for_forward`, `_maybe_set_targeted`,
+  `_extract_scalar_eps`, `_build_criterion`, `_last_success`).
+- **Transparency**: `AttributionInvokeCtx` in `explainers/base_explainer.py`.
+
+**When to use it.** The `invoker` field solves one specific problem: an
+algorithm whose lifecycle cannot be expressed as construct-then-call. Examples
+in the codebase:
+
+- `foolbox.DatasetAttack` needs `.feed(fmodel, inputs)` before running:
+  `_dataset_attack_invoker` in `foolbox_assessor.py` handles the two-stage
+  lifecycle. The registry entry passes `invoker=_dataset_attack_invoker`.
+- SHAP uses two invokers (`_shap_legacy_invoker` / `_shap_modern_invoker`)
+  selected per registry entry. This replaced an older `api` flag on the hints.
+  Legacy SHAP explainers (KernelExplainer, GradientExplainer, etc.) use the
+  legacy path; modern ones (PartitionExplainer, ExactExplainer,
+  PermutationExplainer) use the modern path.
+
+**Verification note.** Per-algorithm hints (`norm`, `threat_model`,
+`stochastic`, `families`) are verified against the installed library source,
+not assumed from docs or class names. When adding an invoker, verify the
+lifecycle against the installed library's source and add a unit test that
+exercises the invoker path directly.

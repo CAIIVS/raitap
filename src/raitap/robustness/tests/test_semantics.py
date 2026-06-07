@@ -128,12 +128,12 @@ def test_semantics_builds_perturbation_distribution_for_sampling() -> None:
         PerturbationDistribution,
         ThreatModel,
     )
-    from raitap.robustness.semantics import AssessorSemanticsHints, assessor_semantics
+    from raitap.robustness.semantics import AssessorAlgorithmSpec, assessor_semantics
 
     class _Stub:
         algorithm: ClassVar[str] = "gaussian_noise"
-        algorithm_registry: ClassVar[dict[str, AssessorSemanticsHints]] = {
-            "gaussian_noise": AssessorSemanticsHints(
+        algorithm_registry: ClassVar[dict[str, AssessorAlgorithmSpec]] = {
+            "gaussian_noise": AssessorAlgorithmSpec(
                 AssessmentKind.STATISTICAL_SAMPLING,
                 ThreatModel.NOT_APPLICABLE,
                 Objective.UNTARGETED,

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, cast
 from raitap.transparency.contracts import (
     BaselineCardinality,
     BaselineMode,
-    ExplainerSemanticsHints,
+    ExplainerAlgorithmSpec,
     MethodFamily,
 )
 from raitap.transparency.explainers.registration import transparency_adapter
@@ -35,67 +35,67 @@ if TYPE_CHECKING:
     # LayerDeepLift) carry ``baseline_default=BaselineMode.ZERO``; methods that
     # take no reference input leave it ``None``.
     algorithm_registry={
-        "IntegratedGradients": ExplainerSemanticsHints(
+        "IntegratedGradients": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT},
             baseline_default=BaselineMode.ZERO,
             baseline_cardinality=BaselineCardinality.SINGLE,
             requires={Capability.AUTOGRAD},
         ),
-        "Saliency": ExplainerSemanticsHints(
+        "Saliency": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT},
             requires={Capability.AUTOGRAD},
         ),
-        "FeatureAblation": ExplainerSemanticsHints({MethodFamily.PERTURBATION}),
-        "FeaturePermutation": ExplainerSemanticsHints({MethodFamily.PERTURBATION}),
-        "Occlusion": ExplainerSemanticsHints({MethodFamily.PERTURBATION}),
-        "ShapleyValueSampling": ExplainerSemanticsHints(
+        "FeatureAblation": ExplainerAlgorithmSpec({MethodFamily.PERTURBATION}),
+        "FeaturePermutation": ExplainerAlgorithmSpec({MethodFamily.PERTURBATION}),
+        "Occlusion": ExplainerAlgorithmSpec({MethodFamily.PERTURBATION}),
+        "ShapleyValueSampling": ExplainerAlgorithmSpec(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION},
             stochastic=True,  # random permutation sampling
         ),
-        "ShapleyValues": ExplainerSemanticsHints({MethodFamily.SHAPLEY, MethodFamily.PERTURBATION}),
-        "KernelShap": ExplainerSemanticsHints(
+        "ShapleyValues": ExplainerAlgorithmSpec({MethodFamily.SHAPLEY, MethodFamily.PERTURBATION}),
+        "KernelShap": ExplainerAlgorithmSpec(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             stochastic=True,  # random coalition sampling
         ),
-        "Lime": ExplainerSemanticsHints(
+        "Lime": ExplainerAlgorithmSpec(
             {MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC, MethodFamily.SURROGATE},
             stochastic=True,  # random perturbation sampling
         ),
-        "LayerGradCam": ExplainerSemanticsHints(
+        "LayerGradCam": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT, MethodFamily.CAM},
             requires={Capability.AUTOGRAD},
         ),
-        "GuidedGradCam": ExplainerSemanticsHints(
+        "GuidedGradCam": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT, MethodFamily.CAM},
             requires={Capability.AUTOGRAD},
         ),
-        "LayerConductance": ExplainerSemanticsHints(
+        "LayerConductance": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT},
             baseline_default=BaselineMode.ZERO,
             baseline_cardinality=BaselineCardinality.SINGLE,
             requires={Capability.AUTOGRAD},
         ),
-        "LayerIntegratedGradients": ExplainerSemanticsHints(
+        "LayerIntegratedGradients": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT},
             baseline_default=BaselineMode.ZERO,
             baseline_cardinality=BaselineCardinality.SINGLE,
             requires={Capability.AUTOGRAD},
         ),
-        "LayerActivation": ExplainerSemanticsHints(
+        "LayerActivation": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT},
             requires={Capability.AUTOGRAD},
         ),
-        "LayerDeepLift": ExplainerSemanticsHints(
+        "LayerDeepLift": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT},
             baseline_default=BaselineMode.ZERO,
             baseline_cardinality=BaselineCardinality.SINGLE,
             requires={Capability.AUTOGRAD},
         ),
-        "LayerGradientXActivation": ExplainerSemanticsHints(
+        "LayerGradientXActivation": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT},
             requires={Capability.AUTOGRAD},
         ),
-        "LayerLRP": ExplainerSemanticsHints(
+        "LayerLRP": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT},
             requires={Capability.AUTOGRAD},
         ),

@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
     from raitap.robustness.assessors.base_assessor import BaseAssessor
-    from raitap.robustness.semantics import AssessorSemanticsHints
+    from raitap.robustness.semantics import AssessorAlgorithmSpec
 
 ROBUSTNESS = FamilyConfig(
     group="robustness",
@@ -34,7 +34,7 @@ T = TypeVar("T", bound="BaseAssessor")
 
 def robustness_adapter(
     *,
-    algorithm_registry: Mapping[str, AssessorSemanticsHints],
+    algorithm_registry: Mapping[str, AssessorAlgorithmSpec],
     budget_kwarg_source: Literal["init_kwargs", "call_kwargs"] = "init_kwargs",
     **common: Unpack[AdapterDecoratorOptions],
 ) -> Callable[[type[T]], type[T]]:

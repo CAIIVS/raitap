@@ -40,8 +40,8 @@ from raitap.utils.errors import BackendIncompatibilityError
 
 from .contracts import (
     ExplainerAdapter,
+    ExplainerAlgorithmSpec,
     ExplainerCapability,
-    ExplainerSemanticsHints,
     ExplanationOutputSpace,
     ExplanationPayloadKind,
     ExplanationScope,
@@ -222,7 +222,7 @@ __all__ = [  # noqa: RUF022
     # Contracts
     "ExplainerAdapter",
     "ExplainerCapability",
-    "ExplainerSemanticsHints",
+    "ExplainerAlgorithmSpec",
     "ExplanationOutputSpace",
     "ExplanationPayloadKind",
     "ExplanationScope",

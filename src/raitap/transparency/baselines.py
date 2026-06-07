@@ -83,7 +83,7 @@ def build_baseline_record(
         baseline_tensor = value
     else:
         # The implicit default mode lives on the algorithm's
-        # ``ExplainerSemanticsHints.baseline_default`` in ``algorithm_registry``;
+        # ``ExplainerAlgorithmSpec.baseline_default`` in ``algorithm_registry``;
         # read defensively so stubs without a registry simply yield no baseline.
         # ``baseline_default`` is a ``BaselineMode`` member; comparison below also
         # accepts the bare-string equivalent (StrEnum) for forward compat.

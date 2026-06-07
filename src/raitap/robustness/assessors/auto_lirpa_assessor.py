@@ -38,7 +38,7 @@ from ..contracts import (
     ThreatModel,
     VerificationOutcome,
 )
-from ..semantics import AssessorSemanticsHints
+from ..semantics import AssessorAlgorithmSpec
 from .base_assessor import FormalVerificationAssessor
 
 if TYPE_CHECKING:
@@ -90,7 +90,7 @@ _AUTO_LIRPA_ERROR_MESSAGES: Mapping[str, str] = {
         (r"`torch\.jit\.script` is deprecated", DeprecationWarning, None),
     ],
     algorithm_registry={
-        name: AssessorSemanticsHints(
+        name: AssessorAlgorithmSpec(
             AssessmentKind.FORMAL_VERIFICATION,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,

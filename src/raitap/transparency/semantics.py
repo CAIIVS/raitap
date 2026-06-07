@@ -11,8 +11,8 @@ from raitap.utils.diagnostics import Diagnostic, Module
 from raitap.utils.errors import RaitapError
 
 from .contracts import (
+    ExplainerAlgorithmSpec,
     ExplainerCapability,
-    ExplainerSemanticsHints,
     ExplanationOutputSpace,
     InputKind,
     InputSpec,
@@ -75,7 +75,7 @@ def explainer_is_stochastic(explainer: object) -> bool:
     return bool(hints.stochastic) if hints is not None else False
 
 
-def _hints_for_explainer(explainer: object) -> ExplainerSemanticsHints | None:
+def _hints_for_explainer(explainer: object) -> ExplainerAlgorithmSpec | None:
     """Resolve the registry hints for a configured explainer, or ``None``."""
     try:
         algorithm = _explainer_algorithm(explainer)

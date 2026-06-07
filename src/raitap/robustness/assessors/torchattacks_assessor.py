@@ -4,26 +4,49 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from raitap import raitap_log
 from raitap.robustness.assessors.registration import robustness_adapter
 from raitap.types import Capability
 from raitap.utils.lazy import lazy_import
 
 from ..contracts import AssessmentKind, Objective, PerturbationNorm, ThreatModel
-from ..semantics import AssessorSemanticsHints
-from .base_assessor import EmpiricalAttackAssessor, _prepare_inputs_for_forward
+from ..semantics import AssessorAlgorithmSpec
+from .base_assessor import AttackInvokeCtx, EmpiricalAttackAssessor, _prepare_inputs_for_forward
 
 if TYPE_CHECKING:
     import torch
-    from torch import nn
 else:
     torch = lazy_import("torch")
+
+
+def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
+    """JSMA hardcodes (labels+1)%10 for untargeted -> wrong unless 10 classes (#266)."""
+    model, inputs = ctx.model, ctx.inputs
+    n_classes: int | None = None
+    try:
+        with torch.no_grad():
+            out = model(_prepare_inputs_for_forward(inputs[:1], model=model, backend=ctx.backend))
+        n_classes = int(out.shape[-1]) if isinstance(out, torch.Tensor) else None
+    except Exception:  # undeterminable -> warn + rely on docs caveat
+        n_classes = None
+    if n_classes is not None and n_classes != 10:
+        raise ValueError(
+            f"JSMA hardcodes target=(labels+1)%10 for untargeted mode and is only valid on "
+            f"10-class models; this model has {n_classes} classes. Use a different attack."
+        )
+    if n_classes is None:
+        raitap_log.warn(
+            "JSMA assumes a 10-class model (hardcoded modulo-10 targeting); could not verify "
+            "the class count here. Results are invalid if the model is not 10-class."
+        )
+    return ctx.assessor._default_invoke(ctx)
 
 
 @robustness_adapter(
     registry_name="torchattacks",
     library="torchattacks",
     algorithm_registry={
-        "FGSM": AssessorSemanticsHints(
+        "FGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -31,7 +54,7 @@ else:
             families={"gradient_sign"},
             requires={Capability.AUTOGRAD},
         ),
-        "BIM": AssessorSemanticsHints(
+        "BIM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -39,7 +62,7 @@ else:
             families={"gradient_sign", "iterative"},
             requires={Capability.AUTOGRAD},
         ),
-        "PGD": AssessorSemanticsHints(
+        "PGD": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -48,7 +71,7 @@ else:
             requires={Capability.AUTOGRAD},
             stochastic=True,  # random_start=True default (uniform init)
         ),
-        "PGDL2": AssessorSemanticsHints(
+        "PGDL2": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -57,7 +80,7 @@ else:
             requires={Capability.AUTOGRAD},
             stochastic=True,  # random_start=True default (uniform init)
         ),
-        "MIFGSM": AssessorSemanticsHints(
+        "MIFGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -65,7 +88,7 @@ else:
             families={"gradient_sign", "iterative", "momentum"},
             requires={Capability.AUTOGRAD},
         ),
-        "CW": AssessorSemanticsHints(
+        "CW": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -73,7 +96,7 @@ else:
             families={"optimization"},
             requires={Capability.AUTOGRAD},
         ),
-        "DeepFool": AssessorSemanticsHints(
+        "DeepFool": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -81,7 +104,7 @@ else:
             families={"optimization"},
             requires={Capability.AUTOGRAD},
         ),
-        "AutoAttack": AssessorSemanticsHints(
+        "AutoAttack": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -92,7 +115,7 @@ else:
         ),
         # Square/OnePixel are score-based (conceptually black-box); requires=AUTOGRAD
         # preserves current gating via the torchattacks torch model, could be relaxed later.
-        "Square": AssessorSemanticsHints(
+        "Square": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.BLACK_BOX_SCORE,
             Objective.UNTARGETED,
@@ -101,7 +124,7 @@ else:
             requires={Capability.AUTOGRAD},
             stochastic=True,  # random search
         ),
-        "OnePixel": AssessorSemanticsHints(
+        "OnePixel": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.BLACK_BOX_SCORE,
             Objective.UNTARGETED,
@@ -109,6 +132,246 @@ else:
             families={"score_based", "evolutionary"},
             requires={Capability.AUTOGRAD},
             stochastic=True,  # differential evolution (unseeded)
+        ),
+        # --- #266: expanded coverage (26 added). Hints verified against
+        # torchattacks 3.5.1 installed source (signatures + RNG/norm bodies). ---
+        "APGD": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,  # norm='Linf' default kwarg
+            families={"gradient_sign", "iterative", "auto"},
+            requires={Capability.AUTOGRAD},
+            # Draws random init but self-pins seed=0 by default -> reproducible
+            # (cf. AutoAttack seed=None -> stochastic). Determinism-verified.
+        ),
+        "APGDT": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.TARGETED,  # APGDT is the targeted APGD variant
+            PerturbationNorm.LINF,  # norm='Linf' default kwarg
+            families={"gradient_sign", "iterative", "auto"},
+            requires={Capability.AUTOGRAD},
+            # seed=0 default -> reproducible (determinism-verified).
+        ),
+        "DIFGSM": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,  # eps-bounded sign step, transfer attack
+            families={"gradient_sign", "iterative", "momentum", "transfer"},
+            requires={Capability.AUTOGRAD},
+            stochastic=True,  # input_diversity uses torch.rand/randint every step
+        ),
+        "EADEN": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.L1,  # elastic-net (L1+L2), L1-dominant sparsity
+            families={"optimization"},
+            requires={Capability.AUTOGRAD},
+            # deterministic optimisation (no default RNG in source).
+        ),
+        "EADL1": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.L1,  # L1 elastic-net variant
+            families={"optimization"},
+            requires={Capability.AUTOGRAD},
+            # deterministic optimisation (no default RNG in source).
+        ),
+        "EOTPGD": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,  # eps-bounded sign step
+            families={"gradient_sign", "iterative"},
+            requires={Capability.AUTOGRAD},
+            stochastic=True,  # random_start=True default (uniform_ init)
+        ),
+        "FAB": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,  # norm='Linf' default kwarg
+            families={"optimization", "auto"},
+            requires={Capability.AUTOGRAD},
+            # seed=0 default -> reproducible (determinism-verified).
+        ),
+        "FFGSM": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,  # eps-bounded single-step sign
+            families={"gradient_sign"},
+            requires={Capability.AUTOGRAD},
+            stochastic=True,  # randn_like().uniform_ random init, unseeded
+        ),
+        "GN": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            # Model-agnostic blind additive noise: no gradients, no logits. Tagged
+            # BLACK_BOX_SCORE to match the foolbox additive-noise family convention.
+            ThreatModel.BLACK_BOX_SCORE,
+            Objective.UNTARGETED,
+            PerturbationNorm.L2,  # additive Gaussian noise; no clean norm, L2 closest
+            families={"noise", "score_based"},
+            requires={Capability.AUTOGRAD},
+            stochastic=True,  # std * torch.randn_like(images) every call
+        ),
+        "JSMA": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.L0,  # saliency-map few-pixel perturbation
+            families={"saliency"},
+            requires={Capability.AUTOGRAD},
+            invoker=_jsma_invoker,  # guard: hardcoded (labels+1)%10 -> 10-class only
+            # deterministic saliency map (no default RNG).
+        ),
+        "Jitter": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,  # eps-bounded sign step
+            families={"gradient_sign", "iterative"},
+            requires={Capability.AUTOGRAD},
+            stochastic=True,  # random_start=True default + randn jitter noise
+        ),
+        "NIFGSM": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,  # eps-bounded sign step, transfer attack
+            families={"gradient_sign", "iterative", "momentum", "transfer"},
+            requires={Capability.AUTOGRAD},
+            # Nesterov momentum, deterministic (no default RNG).
+        ),
+        "PGDRS": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,  # eps-bounded sign step (smoothed)
+            families={"gradient_sign", "iterative", "randomized_smoothing"},
+            requires={Capability.AUTOGRAD},
+            stochastic=True,  # samples gaussian noise batch each step
+        ),
+        "PGDRSL2": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.L2,  # L2 randomized-smoothing PGD
+            families={"gradient_sign", "iterative", "randomized_smoothing"},
+            requires={Capability.AUTOGRAD},
+            stochastic=True,  # samples gaussian noise batch each step
+        ),
+        "PIFGSM": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,  # max_epsilon Linf-bounded transfer attack
+            families={"gradient_sign", "iterative", "transfer"},
+            requires={Capability.AUTOGRAD},
+            # patch-wise iterative, deterministic (no default RNG).
+        ),
+        "PIFGSMPP": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,  # max_epsilon Linf-bounded transfer attack
+            families={"gradient_sign", "iterative", "transfer"},
+            requires={Capability.AUTOGRAD},
+            # patch-wise++ iterative, deterministic (no default RNG).
+        ),
+        "Pixle": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.BLACK_BOX_SCORE,  # random search, no backprop (verified)
+            Objective.UNTARGETED,
+            PerturbationNorm.L0,  # rearranges a few pixels
+            families={"score_based"},
+            requires={Capability.AUTOGRAD},
+            stochastic=True,  # np.random pixel search, unseeded
+        ),
+        "RFGSM": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,  # eps-bounded sign step
+            families={"gradient_sign", "iterative"},
+            requires={Capability.AUTOGRAD},
+            stochastic=True,  # randn_like().sign() random init step every call
+        ),
+        "SINIFGSM": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,  # eps-bounded sign step, transfer attack
+            families={"gradient_sign", "iterative", "momentum", "transfer"},
+            requires={Capability.AUTOGRAD},
+            # scale-invariant Nesterov, deterministic (no default RNG).
+        ),
+        "SPSA": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.BLACK_BOX_SCORE,  # finite-difference, no backprop (verified)
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,  # eps Linf-bounded
+            families={"score_based"},
+            requires={Capability.AUTOGRAD},
+            stochastic=True,  # Bernoulli perturbation directions sampled each iter
+        ),
+        "SparseFool": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.L0,  # sparse few-pixel perturbation
+            families={"optimization", "sparse"},
+            requires={Capability.AUTOGRAD},
+            # deterministic geometric solver (no default RNG).
+        ),
+        "TIFGSM": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,  # eps-bounded sign step, transfer attack
+            families={"gradient_sign", "iterative", "momentum", "transfer"},
+            requires={Capability.AUTOGRAD},
+            stochastic=True,  # input_diversity uses torch.rand/randint every step
+        ),
+        "TPGD": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,  # eps-bounded sign step (KL/TRADES)
+            families={"gradient_sign", "iterative"},
+            requires={Capability.AUTOGRAD},
+            stochastic=True,  # 0.001 * randn_like random init every call (unseeded)
+        ),
+        "UPGD": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,  # eps-bounded sign step
+            families={"gradient_sign", "iterative"},
+            requires={Capability.AUTOGRAD},
+            # random_start=False default -> deterministic (no default RNG).
+        ),
+        "VMIFGSM": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,  # eps-bounded sign step, transfer attack
+            families={"gradient_sign", "iterative", "momentum", "variance_tuned"},
+            requires={Capability.AUTOGRAD},
+            stochastic=True,  # variance neighbour sampling (uniform_) every step
+        ),
+        "VNIFGSM": AssessorAlgorithmSpec(
+            AssessmentKind.EMPIRICAL_ATTACK,
+            ThreatModel.WHITE_BOX,
+            Objective.UNTARGETED,
+            PerturbationNorm.LINF,  # eps-bounded sign step, transfer attack
+            families={"gradient_sign", "iterative", "momentum", "variance_tuned"},
+            requires={Capability.AUTOGRAD},
+            stochastic=True,  # variance neighbour sampling (uniform_) every step
         ),
     },
 )
@@ -122,16 +385,10 @@ class TorchattacksAssessor(EmpiricalAttackAssessor):
         self.algorithm = algorithm
         self.init_kwargs = dict(init_kwargs)
 
-    def generate_adversarial(
-        self,
-        model: nn.Module,
-        inputs: torch.Tensor,
-        targets: torch.Tensor,
-        *,
-        backend: object | None = None,
-        **kwargs: Any,
-    ) -> torch.Tensor:
-        torchattacks = self._lazy_import()
+    def _default_invoke(self, ctx: AttackInvokeCtx) -> torch.Tensor:
+        torchattacks = ctx.library
+        model, inputs, targets, backend = ctx.model, ctx.inputs, ctx.targets, ctx.backend
+        kwargs = dict(ctx.call_kwargs)
 
         try:
             attack_class = getattr(torchattacks, self.algorithm)

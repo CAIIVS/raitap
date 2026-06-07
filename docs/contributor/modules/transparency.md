@@ -31,7 +31,7 @@ BaseExplainer                       # root: owns output_payload_kind + algorithm
 - **`BaseExplainer`**: root base class. Owns `output_payload_kind: ClassVar[ExplanationPayloadKind]`
   (default `ATTRIBUTIONS`) and the `algorithm_registry` contract. Backend gating is inherited from
   `AdapterMixin` (`check_backend_compat`), not declared here. Per-algorithm capability requirements
-  live on `ExplainerSemanticsHints.requires`. Never subclass directly.
+  live on `ExplainerAlgorithmSpec.requires`. Never subclass directly.
 - **`AttributionOnlyExplainer`**: extend this when the framework maps cleanly to a single
   `compute_attributions(model, inputs, **kwargs) -> torch.Tensor` call. Batching, normalisation,
   result wrapping, and `write_artifacts` are handled for you. Captum and SHAP both subclass this.
@@ -50,9 +50,9 @@ baseline in `metadata.json` + the report (issue #210). The user sets it library-
 | Declaration | Where | Purpose |
 | --- | --- | --- |
 | `baseline_kwarg_name` | `@adapters.transparency` decorator kwarg | The call kwarg holding the reference (`"baselines"`, `"background_data"`); omitted (default `None`) = no baseline. Per-**adapter**. Also names where `raitap.baseline` is routed. |
-| `ExplainerSemanticsHints.baseline_default` | per-algorithm `algorithm_registry` entry | Per-**algorithm** implicit default mode (`BaselineMode.ZERO` / `INPUT_BATCH`) used when the kwarg is omitted; `None` when the algorithm takes no baseline. |
-| `ExplainerSemanticsHints.baseline_cardinality` | per-algorithm `algorithm_registry` entry | `BaselineCardinality.SINGLE` (one broadcast reference, e.g. IG) or `SET` (a sample distribution, e.g. SHAP). Used to *warn* on a mismatched `raitap.baseline` (never to reshape it); `None` skips the check. |
-| `ExplainerSemanticsHints.stochastic` | per-algorithm `algorithm_registry` entry | `True` when the algorithm is RNG-dependent (e.g. SHAP `GradientExplainer` / `KernelShap`, Captum `Lime`), `False` for deterministic methods (IG, Saliency). Resolved by `explainer_is_stochastic`, flows onto `ExplanationResult.semantics.stochastic`, and drives the reproducibility caveat. Defaults to `False`. |
+| `ExplainerAlgorithmSpec.baseline_default` | per-algorithm `algorithm_registry` entry | Per-**algorithm** implicit default mode (`BaselineMode.ZERO` / `INPUT_BATCH`) used when the kwarg is omitted; `None` when the algorithm takes no baseline. |
+| `ExplainerAlgorithmSpec.baseline_cardinality` | per-algorithm `algorithm_registry` entry | `BaselineCardinality.SINGLE` (one broadcast reference, e.g. IG) or `SET` (a sample distribution, e.g. SHAP). Used to *warn* on a mismatched `raitap.baseline` (never to reshape it); `None` skips the check. |
+| `ExplainerAlgorithmSpec.stochastic` | per-algorithm `algorithm_registry` entry | `True` when the algorithm is RNG-dependent (e.g. SHAP `GradientExplainer` / `KernelShap`, Captum `Lime`), `False` for deterministic methods (IG, Saliency). Resolved by `explainer_is_stochastic`, flows onto `ExplanationResult.semantics.stochastic`, and drives the reproducibility caveat. Defaults to `False`. |
 
 Capture happens once at the `AttributionOnlyExplainer.explain` chokepoint via `build_baseline_record`
 (`transparency/baselines.py`), which resolves the `BaselineMode` (`configured` / `user_tensor` /
@@ -62,18 +62,18 @@ See [Adding an algorithm](../adding/adding-an-algorithm.md).
 
 ## ShapExplainer internals
 
-`ShapExplainer.compute_attributions` dispatches on the `api` field of each registry entry.
-Entries are `ShapExplainerHints` (a `ShapExplainer`-local subclass of `ExplainerSemanticsHints`)
-whose required `api` field is `"legacy"` or `"modern"`. Carrying the flag on the entry itself keeps
-dispatch from drifting against a parallel table; a new explainer added without an `api` fails to
-construct.
+`ShapExplainer.compute_attributions` builds an `AttributionInvokeCtx` and dispatches via the
+`invoker` field on each registry entry (`ExplainerAlgorithmSpec.invoker`, added in #266). An
+unknown algorithm name produces a `None` entry, falling back to `_shap_legacy_invoker` which raises
+the helpful "unsupported algorithm" `ValueError`.
 
-- **Legacy path** (`.shap_values()` API): `GradientExplainer`, `DeepExplainer`, `KernelExplainer`,
-  `TreeExplainer`, `SamplingExplainer`. Constructs the SHAP explainer with the background tensor and
-  calls `.shap_values()` directly.
-- **Modern path** (`__call__ -> Explanation` API): `PartitionExplainer`, `ExactExplainer`,
-  `PermutationExplainer`. Calls `_build_masker` to select a per-modality masker, wraps the predict
-  callable via `_modern_predict_fn`, constructs the explainer, and calls it with numpy inputs.
+- **Legacy path** (`_shap_legacy_invoker` -> `_compute_legacy` -> `.shap_values()` API):
+  `GradientExplainer`, `DeepExplainer`, `KernelExplainer`, `TreeExplainer`, `SamplingExplainer`.
+  Constructs the SHAP explainer with the background tensor and calls `.shap_values()` directly.
+- **Modern path** (`_shap_modern_invoker` -> `_compute_modern` -> `__call__ -> Explanation` API):
+  `PartitionExplainer`, `ExactExplainer`, `PermutationExplainer`. Calls `_build_masker` to select a
+  per-modality masker, wraps the predict callable via `_modern_predict_fn`, constructs the
+  explainer, and calls it with numpy inputs.
 
 ### `_build_masker`
 
@@ -215,7 +215,7 @@ Each explainer writes to its own subdirectory under the Hydra run folder. See {d
 
 ## Important files
 
-- `src/raitap/transparency/contracts.py`: `ExplanationScope`, `ScopeDefinitionStep`, `ExplanationPayloadKind`, `ExplanationOutputSpace`, `MethodFamily`, `VisualisationContext`, `VisualSummarySpec`. Also defines `ExplainerSemanticsHints`, including the `requires: frozenset[Capability]` field for per-algorithm capability declarations.
+- `src/raitap/transparency/contracts.py`: `ExplanationScope`, `ScopeDefinitionStep`, `ExplanationPayloadKind`, `ExplanationOutputSpace`, `MethodFamily`, `VisualisationContext`, `VisualSummarySpec`. Also defines `ExplainerAlgorithmSpec`, including the `requires: frozenset[Capability]` field for per-algorithm capability declarations.
 - `src/raitap/transparency/results.py`: `ExplanationResult` (semantics, `write_artifacts`, `visualise`) and `VisualisationResult`.
 - `src/raitap/transparency/factory.py`: the `Explanation` class and helpers that turn config into live explainer + visualiser instances.
 - `src/raitap/transparency/explainers/base_explainer.py`: `BaseExplainer` + `AttributionOnlyExplainer`.

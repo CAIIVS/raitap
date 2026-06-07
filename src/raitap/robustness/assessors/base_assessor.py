@@ -5,8 +5,9 @@ adapter-owned pipelines:
 
 * ``BaseAssessor`` - root: declares ``assessment_kind``. The capability gate
   (``check_backend_compat``) is inherited from ``AdapterMixin``.
-* ``EmpiricalAttackAssessor`` - framework owns ``assess()``; subclasses
-  implement only ``generate_adversarial``.
+* ``EmpiricalAttackAssessor`` - framework owns ``assess()`` and
+  ``generate_adversarial`` (dispatcher); subclasses implement only
+  ``_default_invoke``.
 * ``FormalVerificationAssessor`` - framework owns ``assess()``; subclasses
   implement only ``verify_sample`` and return a per-sample
   ``VerificationOutcome``.
@@ -17,6 +18,7 @@ from __future__ import annotations
 import gc
 import time
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -47,7 +49,7 @@ from ..results import (
     RobustnessResult,
     encode_verdicts,
 )
-from ..semantics import AssessorSemanticsHints, assessor_semantics
+from ..semantics import AssessorAlgorithmSpec, assessor_semantics, hints_for_assessor
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -76,7 +78,7 @@ class BaseAssessor(AdapterMixin, ABC):
     is ``Required``).
     """
 
-    algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]
+    algorithm_registry: ClassVar[Mapping[str, AssessorAlgorithmSpec]]
     assessment_kind: ClassVar[AssessmentKind]
 
     #: Which YAML block the underlying library actually consumes for budget
@@ -119,12 +121,32 @@ def _per_sample_norm(delta: torch.Tensor, norm: PerturbationNorm) -> torch.Tenso
     raise ValueError(f"Unsupported perturbation norm {norm!r}.")
 
 
+@dataclass(frozen=True)
+class AttackInvokeCtx:
+    """Per-call context handed to an empirical-attack invoker (#266).
+
+    Carries the assessor instance so a custom invoker reuses shared helpers
+    (``_rethrow``, ``_prepare_inputs_for_forward``, ``_maybe_set_targeted``,
+    ``_extract_scalar_eps``, ``_build_criterion``, ``_last_success``).
+    """
+
+    assessor: EmpiricalAttackAssessor
+    library: Any
+    model: nn.Module
+    inputs: torch.Tensor
+    targets: torch.Tensor
+    backend: object | None
+    call_kwargs: dict[str, Any]
+
+
 class EmpiricalAttackAssessor(BaseAssessor, ABC):
-    """Empirical attack adapter: subclass implements one method, framework does the rest."""
+    """Empirical attack adapter.
+
+    Subclasses implement only ``_default_invoke``; the framework owns the rest.
+    """
 
     assessment_kind: ClassVar[AssessmentKind] = AssessmentKind.EMPIRICAL_ATTACK
 
-    @abstractmethod
     def generate_adversarial(
         self,
         model: nn.Module,
@@ -134,7 +156,23 @@ class EmpiricalAttackAssessor(BaseAssessor, ABC):
         backend: object | None = None,
         **kwargs: Any,
     ) -> torch.Tensor:
-        """Return a perturbed-inputs tensor matching ``inputs.shape``."""
+        """Dispatch to the entry's invoker, else this adapter's default path."""
+        hints = hints_for_assessor(self)
+        ctx = AttackInvokeCtx(
+            assessor=self,
+            library=self._lazy_import(),
+            model=model,
+            inputs=inputs,
+            targets=targets,
+            backend=backend,
+            call_kwargs=dict(kwargs),
+        )
+        invoke = hints.invoker or self._default_invoke
+        return invoke(ctx)
+
+    @abstractmethod
+    def _default_invoke(self, ctx: AttackInvokeCtx) -> torch.Tensor:
+        """Adapter's uniform construct-and-call path. Returns adversarials."""
 
     def assess(
         self,

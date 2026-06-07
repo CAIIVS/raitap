@@ -26,7 +26,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from raitap import adapters
-from raitap.transparency.contracts import ExplainerSemanticsHints, MethodFamily
+from raitap.transparency.contracts import ExplainerAlgorithmSpec, MethodFamily
 
 from .base_explainer import AttributionOnlyExplainer
 
@@ -47,7 +47,7 @@ if TYPE_CHECKING:
     ],
     algorithm_registry={           # required kwarg, pyright errors at decoration if missing
         # supertreeshap is model-agnostic (works on any backend): leave requires default empty.
-        "supertreeshap": ExplainerSemanticsHints({MethodFamily.SHAPLEY}),
+        "supertreeshap": ExplainerAlgorithmSpec({MethodFamily.SHAPLEY}),
     },
     # output_payload_kind=ExplanationPayloadKind.ATTRIBUTIONS  # optional, this is the default
 )
@@ -78,14 +78,14 @@ class SuperXAIExplainer(AttributionOnlyExplainer):
 - **Base class.** `AttributionOnlyExplainer` provides batching, artefact persistence, and `explain()` orchestration. Other families use other bases (`EmpiricalAttackAssessor` for robustness, `BaseMetricComputer` for metrics, etc.); find them in files starting with `base_`. The concrete adapter is just a normal class; nothing flags it as abstract (the old `abstract=True` workaround was removed).
 - **Decorator.** `@adapters.transparency(...)` is the sole entry point for registration. `registry_name` is required and pyright-checked at the decoration site via `Required[str]`. Each family has its own facade attribute (`adapters.robustness`, `adapters.metrics`, `adapters.reporter`, `adapters.tracker`, `visualisers.transparency`, `visualisers.robustness`): pick the one matching your base class.
 - **Registration kwargs.** `library` is the pip name powering `self._lazy_import()`: pass it when you wrap a third-party package (the usual case). `extra` is the uv extra surfaced in install hints and scanned by `raitap.deps.inference`; it **defaults to `registry_name`** so you only need to set it explicitly when they differ (e.g. `classification_metrics` + `detection_metrics` both share `extra="metrics"`). `error_patterns` and `suppress_warnings` are optional polish.
-- **`algorithm_registry` (decorator kwarg).** Transparency and robustness only. Maps algorithm name to a per-algorithm semantics-hints value RAITAP tracks and reports on (`ExplainerSemanticsHints` for transparency, `AssessorSemanticsHints` for robustness). **Required**: pyright errors at the decoration site if you omit it. Missing or misnamed entries make algorithms unselectable. The decorator assigns it onto the class so `type(self).algorithm_registry` still works at runtime.
+- **`algorithm_registry` (decorator kwarg).** Transparency and robustness only. Maps algorithm name to a per-algorithm semantics-hints value RAITAP tracks and reports on (`ExplainerAlgorithmSpec` for transparency, `AssessorAlgorithmSpec` for robustness). **Required**: pyright errors at the decoration site if you omit it. Missing or misnamed entries make algorithms unselectable. The decorator assigns it onto the class so `type(self).algorithm_registry` still works at runtime.
 - **`output_payload_kind` (decorator kwarg).** Transparency only. Tells the report renderer what artefact shape the explainer emits (`ATTRIBUTIONS`, `SALIENCY_MAP`, ...). Defaults to `ExplanationPayloadKind.ATTRIBUTIONS`; only pass it if your explainer emits something else.
-- **Backend compatibility.** Inherited `check_backend_compat` (from `AdapterMixin`) raises `BackendIncompatibilityError` when `algorithm.requires - backend.provides` is non-empty. You write zero gate code. Gradient-based algorithms declare `requires={Capability.AUTOGRAD}` on their `ExplainerSemanticsHints` / `AssessorSemanticsHints` entry; model-agnostic algorithms (SHAP KernelExplainer, Occlusion, FeatureAblation) leave `requires` at its default empty frozenset and run on any backend including ONNX. Override `check_backend_compat` only for a non-capability contract (Marabou uses it for per-call setup; auto-LiRPA calls `super()` then warns on XPU). Import: `from raitap.utils.errors import BackendIncompatibilityError` (also re-exported from `raitap.robustness` and `raitap.transparency`). See {doc}`../capabilities` for what each capability means.
+- **Backend compatibility.** Inherited `check_backend_compat` (from `AdapterMixin`) raises `BackendIncompatibilityError` when `algorithm.requires - backend.provides` is non-empty. You write zero gate code. Gradient-based algorithms declare `requires={Capability.AUTOGRAD}` on their `ExplainerAlgorithmSpec` / `AssessorAlgorithmSpec` entry; model-agnostic algorithms (SHAP KernelExplainer, Occlusion, FeatureAblation) leave `requires` at its default empty frozenset and run on any backend including ONNX. Override `check_backend_compat` only for a non-capability contract (Marabou uses it for per-call setup; auto-LiRPA calls `super()` then warns on XPU). Import: `from raitap.utils.errors import BackendIncompatibilityError` (also re-exported from `raitap.robustness` and `raitap.transparency`). See {doc}`../capabilities` for what each capability means.
 - **`super().__init__()`.** Cooperative parent init: the base class allocates buffers the framework reads later (e.g. `self.attributions = None`). Forgetting raises `AttributeError` deep inside `explain()`. Always call it first when overriding `__init__`.
 - **`self._lazy_import()`.** Inherited from `AdapterMixin`. Imports `library` (or `f"{library}.{submodule}"` if you pass `submodule=`) at call time, keeping `import raitap` cheap and letting users install RAITAP without every wrapped library. Raises a clear install-hint `ImportError` if the library is missing.
 - **Backend libs (`torch`, `torchvision`, `onnxruntime`) need `lazy_import` too.** If your adapter file uses `torch.Tensor` / `torch.nn` / etc, do NOT add `import torch` at module top-level. Use the `from raitap.utils.lazy import lazy_import` pattern (see that module's docstring for the `TYPE_CHECKING` + `lazy_import("torch")` recipe). This preserves the bootstrap-from-zero promise: `raitap.deps.bootstrap._compose` walks every adapter `__init__` on a bare venv (no torch installed yet) to infer extras before it installs them. A top-level `import torch` breaks the whole bootstrap. The per-family `tests/test_partial_extras_safe.py` poisons `torch` in `sys.modules` to catch regressions immediately.
 - **`self._rethrow()`.** Inherited context manager. Catches exceptions from the wrapped library and rewrites known-cryptic ones using your `error_patterns` map.
-- **Abstract methods.** `AttributionOnlyExplainer` → `compute_attributions(...)`. `EmpiricalAttackAssessor` → `generate_adversarial(...)`. `BaseMetricComputer` → `compute() -> MetricResult`. Check the base file for exact signatures.
+- **Abstract methods.** `AttributionOnlyExplainer` → `compute_attributions(...)`. `EmpiricalAttackAssessor` → `_default_invoke(self, ctx: AttackInvokeCtx) -> Tensor` (framework dispatches via `generate_adversarial`; adapters implement only `_default_invoke`). `BaseMetricComputer` → `compute() -> MetricResult`. Check the base file for exact signatures.
 
 ## 3. Update the pyproject.toml file
 
