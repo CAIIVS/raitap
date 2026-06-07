@@ -4313,6 +4313,7 @@ robustness = [
     { name = "torchattacks" },
 ]
 shap = [
+    { name = "opencv-python" },
     { name = "shap" },
 ]
 torch-cpu = [
@@ -4338,6 +4339,7 @@ tracking = [
 ]
 transparency = [
     { name = "captum" },
+    { name = "opencv-python" },
     { name = "shap" },
 ]
 
@@ -4409,6 +4411,7 @@ requires-dist = [
     { name = "onnxruntime", marker = "extra == 'onnx-cpu'", specifier = ">=1.24.4" },
     { name = "onnxruntime-gpu", marker = "extra == 'onnx-cuda'", specifier = ">=1.24.4" },
     { name = "onnxruntime-openvino", marker = "sys_platform != 'darwin' and extra == 'onnx-intel'", specifier = ">=1.24.1" },
+    { name = "opencv-python", marker = "extra == 'shap'", specifier = ">=4.9" },
     { name = "openvino", marker = "sys_platform == 'win32' and extra == 'onnx-intel'", specifier = ">=2025.1.0" },
     { name = "packaging", specifier = ">=23.0" },
     { name = "pandas", specifier = ">=2.0.0" },
