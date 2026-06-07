@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+
 from raitap import raitap_log
 from raitap.utils.lazy import lazy_import
 
@@ -15,6 +17,7 @@ from raitap.transparency.contracts import (
     BaselineCardinality,
     BaselineMode,
     ExplainerSemanticsHints,
+    InputKind,
     MethodFamily,
 )
 from raitap.transparency.explainers.registration import transparency_adapter
@@ -26,6 +29,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from raitap.models.access import ExplanationModel
+    from raitap.transparency.contracts import InputSpec
 
 
 # Which SHAP API each algorithm uses: legacy ``.shap_values()`` vs modern
@@ -86,6 +90,70 @@ def _select_target_attributions(
         dtype=torch.long,
     )
     return shap_values[batch_indices, ..., target_tensor]
+
+
+def _modality_error(kind: str) -> ValueError:
+    return ValueError(
+        f"SHAP modern explainers support image and tabular inputs; got modality {kind!r}. "
+        "Set transparency.<explainer>.raitap.input_metadata.kind to 'image' or 'tabular', "
+        "or use a legacy SHAP explainer."
+    )
+
+
+def _normalise_modern_explanation(
+    values: object,
+    *,
+    input_spec: InputSpec,
+    target: int | list[int] | torch.Tensor | None,
+) -> torch.Tensor:
+    """Map ``Explanation.values`` to an input-shaped float32 attribution tensor.
+
+    Modern shap returns class-last values: tabular ``(B, F, K)``, image NHWC+K
+    ``(B, H, W, C, K)``. Cast to float32, select the target class via the shared
+    helper, then (image, once the class axis is gone) permute NHWC -> NCHW to
+    match RAITAP inputs. A class-selected image tensor is 4-D; with ``target`` of
+    ``None`` the class axis is kept and no permute applies. (#267)
+    """
+    tensor = torch.as_tensor(np.asarray(values)).to(dtype=torch.float32)
+    spec_shape = input_spec.shape
+    inputs_ndim = len(spec_shape) if spec_shape is not None else tensor.ndim - 1
+    selected = _select_target_attributions(tensor, inputs_ndim=inputs_ndim, target=target)
+    if input_spec.kind is InputKind.IMAGE and selected.ndim == 4:
+        # (B, H, W, C) -> (B, C, H, W)
+        selected = selected.permute(0, 3, 1, 2).contiguous()
+    return selected
+
+
+def _build_masker(shap: Any, *, input_spec: InputSpec, background: object) -> Any:
+    """Per-modality SHAP masker for the modern path. (#267)"""
+    if input_spec.kind is InputKind.IMAGE:
+        shape = input_spec.shape
+        if shape is None or len(shape) != 4:
+            raise _modality_error("image (need NCHW shape metadata)")
+        _, c, h, w = shape  # NCHW
+        return shap.maskers.Image("inpaint_telea", (h, w, c))
+    if input_spec.kind is InputKind.TABULAR:
+        return shap.maskers.Partition(_to_numpy(background))
+    raise _modality_error(str(input_spec.kind))
+
+
+def _modern_predict_fn(
+    model_fn: Callable[[torch.Tensor], torch.Tensor],
+    *,
+    input_spec: InputSpec,
+) -> Callable[[Any], Any]:
+    """numpy->numpy predict fn for the modern masker path, fixing image layout."""
+    is_image = input_spec.kind is InputKind.IMAGE
+
+    def predict(masked: Any) -> Any:
+        arr = np.asarray(masked, dtype="float32")
+        tensor = torch.from_numpy(arr)
+        if is_image and tensor.ndim == 4:
+            tensor = tensor.permute(0, 3, 1, 2).contiguous()  # NHWC -> NCHW
+        out = model_fn(tensor)
+        return out.detach().cpu().numpy() if isinstance(out, torch.Tensor) else np.asarray(out)
+
+    return predict
 
 
 @transparency_adapter(
