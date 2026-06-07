@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 import raitap.transparency.explainers.base_explainer as base_explainer_module
 from raitap.transparency.contracts import (
     BaselineMode,
-    ExplainerSemanticsHints,
+    ExplainerAlgorithmSpec,
     ExplanationOutputSpace,
     ExplanationPayloadKind,
     ExplanationScope,
@@ -97,8 +97,8 @@ class _BatchRecordingExplainer(AttributionOnlyExplainer):
 class _BaselineDeclaringExplainer(AttributionOnlyExplainer):
     algorithm = "IntegratedGradients"
     baseline_kwarg_name = "baselines"
-    algorithm_registry: ClassVar[Mapping[str, ExplainerSemanticsHints]] = {
-        "IntegratedGradients": ExplainerSemanticsHints(
+    algorithm_registry: ClassVar[Mapping[str, ExplainerAlgorithmSpec]] = {
+        "IntegratedGradients": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT}, baseline_default=BaselineMode.ZERO
         )
     }

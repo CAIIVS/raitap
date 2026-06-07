@@ -61,7 +61,7 @@ from .exceptions import (
     RobustnessVisualiserIncompatibilityError,
 )
 from .semantics import (
-    AssessorSemanticsHints,
+    AssessorAlgorithmSpec,
     assessor_semantics,
     hints_for_assessor,
 )
@@ -208,7 +208,7 @@ __all__ = [  # noqa: RUF022
     "MissingTargetsError",
     "RobustnessVisualiserIncompatibilityError",
     # Semantics
-    "AssessorSemanticsHints",
+    "AssessorAlgorithmSpec",
     "assessor_semantics",
     "hints_for_assessor",
     # Factory

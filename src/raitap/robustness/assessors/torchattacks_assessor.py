@@ -10,7 +10,7 @@ from raitap.types import Capability
 from raitap.utils.lazy import lazy_import
 
 from ..contracts import AssessmentKind, Objective, PerturbationNorm, ThreatModel
-from ..semantics import AssessorSemanticsHints
+from ..semantics import AssessorAlgorithmSpec
 from .base_assessor import AttackInvokeCtx, EmpiricalAttackAssessor, _prepare_inputs_for_forward
 
 if TYPE_CHECKING:
@@ -46,7 +46,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
     registry_name="torchattacks",
     library="torchattacks",
     algorithm_registry={
-        "FGSM": AssessorSemanticsHints(
+        "FGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -54,7 +54,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             families={"gradient_sign"},
             requires={Capability.AUTOGRAD},
         ),
-        "BIM": AssessorSemanticsHints(
+        "BIM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -62,7 +62,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             families={"gradient_sign", "iterative"},
             requires={Capability.AUTOGRAD},
         ),
-        "PGD": AssessorSemanticsHints(
+        "PGD": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -71,7 +71,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             stochastic=True,  # random_start=True default (uniform init)
         ),
-        "PGDL2": AssessorSemanticsHints(
+        "PGDL2": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -80,7 +80,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             stochastic=True,  # random_start=True default (uniform init)
         ),
-        "MIFGSM": AssessorSemanticsHints(
+        "MIFGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -88,7 +88,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             families={"gradient_sign", "iterative", "momentum"},
             requires={Capability.AUTOGRAD},
         ),
-        "CW": AssessorSemanticsHints(
+        "CW": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -96,7 +96,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             families={"optimization"},
             requires={Capability.AUTOGRAD},
         ),
-        "DeepFool": AssessorSemanticsHints(
+        "DeepFool": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -104,7 +104,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             families={"optimization"},
             requires={Capability.AUTOGRAD},
         ),
-        "AutoAttack": AssessorSemanticsHints(
+        "AutoAttack": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -115,7 +115,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
         ),
         # Square/OnePixel are score-based (conceptually black-box); requires=AUTOGRAD
         # preserves current gating via the torchattacks torch model, could be relaxed later.
-        "Square": AssessorSemanticsHints(
+        "Square": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.BLACK_BOX_SCORE,
             Objective.UNTARGETED,
@@ -124,7 +124,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             stochastic=True,  # random search
         ),
-        "OnePixel": AssessorSemanticsHints(
+        "OnePixel": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.BLACK_BOX_SCORE,
             Objective.UNTARGETED,
@@ -135,7 +135,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
         ),
         # --- #266: expanded coverage (26 added). Hints verified against
         # torchattacks 3.5.1 installed source (signatures + RNG/norm bodies). ---
-        "APGD": AssessorSemanticsHints(
+        "APGD": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -145,7 +145,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             # Draws random init but self-pins seed=0 by default -> reproducible
             # (cf. AutoAttack seed=None -> stochastic). Determinism-verified.
         ),
-        "APGDT": AssessorSemanticsHints(
+        "APGDT": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.TARGETED,  # APGDT is the targeted APGD variant
@@ -154,7 +154,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             # seed=0 default -> reproducible (determinism-verified).
         ),
-        "DIFGSM": AssessorSemanticsHints(
+        "DIFGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -163,7 +163,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             stochastic=True,  # input_diversity uses torch.rand/randint every step
         ),
-        "EADEN": AssessorSemanticsHints(
+        "EADEN": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -172,7 +172,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             # deterministic optimisation (no default RNG in source).
         ),
-        "EADL1": AssessorSemanticsHints(
+        "EADL1": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -181,7 +181,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             # deterministic optimisation (no default RNG in source).
         ),
-        "EOTPGD": AssessorSemanticsHints(
+        "EOTPGD": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -190,7 +190,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             stochastic=True,  # random_start=True default (uniform_ init)
         ),
-        "FAB": AssessorSemanticsHints(
+        "FAB": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -199,7 +199,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             # seed=0 default -> reproducible (determinism-verified).
         ),
-        "FFGSM": AssessorSemanticsHints(
+        "FFGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -208,7 +208,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             stochastic=True,  # randn_like().uniform_ random init, unseeded
         ),
-        "GN": AssessorSemanticsHints(
+        "GN": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             # Model-agnostic blind additive noise: no gradients, no logits. Tagged
             # BLACK_BOX_SCORE to match the foolbox additive-noise family convention.
@@ -219,7 +219,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             stochastic=True,  # std * torch.randn_like(images) every call
         ),
-        "JSMA": AssessorSemanticsHints(
+        "JSMA": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -229,7 +229,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             invoker=_jsma_invoker,  # guard: hardcoded (labels+1)%10 -> 10-class only
             # deterministic saliency map (no default RNG).
         ),
-        "Jitter": AssessorSemanticsHints(
+        "Jitter": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -238,7 +238,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             stochastic=True,  # random_start=True default + randn jitter noise
         ),
-        "NIFGSM": AssessorSemanticsHints(
+        "NIFGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -247,7 +247,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             # Nesterov momentum, deterministic (no default RNG).
         ),
-        "PGDRS": AssessorSemanticsHints(
+        "PGDRS": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -256,7 +256,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             stochastic=True,  # samples gaussian noise batch each step
         ),
-        "PGDRSL2": AssessorSemanticsHints(
+        "PGDRSL2": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -265,7 +265,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             stochastic=True,  # samples gaussian noise batch each step
         ),
-        "PIFGSM": AssessorSemanticsHints(
+        "PIFGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -274,7 +274,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             # patch-wise iterative, deterministic (no default RNG).
         ),
-        "PIFGSMPP": AssessorSemanticsHints(
+        "PIFGSMPP": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -283,7 +283,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             # patch-wise++ iterative, deterministic (no default RNG).
         ),
-        "Pixle": AssessorSemanticsHints(
+        "Pixle": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.BLACK_BOX_SCORE,  # random search, no backprop (verified)
             Objective.UNTARGETED,
@@ -292,7 +292,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             stochastic=True,  # np.random pixel search, unseeded
         ),
-        "RFGSM": AssessorSemanticsHints(
+        "RFGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -301,7 +301,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             stochastic=True,  # randn_like().sign() random init step every call
         ),
-        "SINIFGSM": AssessorSemanticsHints(
+        "SINIFGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -310,7 +310,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             # scale-invariant Nesterov, deterministic (no default RNG).
         ),
-        "SPSA": AssessorSemanticsHints(
+        "SPSA": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.BLACK_BOX_SCORE,  # finite-difference, no backprop (verified)
             Objective.UNTARGETED,
@@ -319,7 +319,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             stochastic=True,  # Bernoulli perturbation directions sampled each iter
         ),
-        "SparseFool": AssessorSemanticsHints(
+        "SparseFool": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -328,7 +328,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             # deterministic geometric solver (no default RNG).
         ),
-        "TIFGSM": AssessorSemanticsHints(
+        "TIFGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -337,7 +337,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             stochastic=True,  # input_diversity uses torch.rand/randint every step
         ),
-        "TPGD": AssessorSemanticsHints(
+        "TPGD": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -346,7 +346,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             stochastic=True,  # 0.001 * randn_like random init every call (unseeded)
         ),
-        "UPGD": AssessorSemanticsHints(
+        "UPGD": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -355,7 +355,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             # random_start=False default -> deterministic (no default RNG).
         ),
-        "VMIFGSM": AssessorSemanticsHints(
+        "VMIFGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,
@@ -364,7 +364,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             requires={Capability.AUTOGRAD},
             stochastic=True,  # variance neighbour sampling (uniform_) every step
         ),
-        "VNIFGSM": AssessorSemanticsHints(
+        "VNIFGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
             ThreatModel.WHITE_BOX,
             Objective.UNTARGETED,

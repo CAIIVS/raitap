@@ -19,7 +19,7 @@ from raitap.transparency.baselines import (
 from raitap.transparency.contracts import (
     BaselineCardinality,
     BaselineMode,
-    ExplainerSemanticsHints,
+    ExplainerAlgorithmSpec,
     InputSpec,
     MethodFamily,
 )
@@ -41,7 +41,7 @@ def _captum_ig() -> SimpleNamespace:
         algorithm="IntegratedGradients",
         baseline_kwarg_name="baselines",
         algorithm_registry={
-            "IntegratedGradients": ExplainerSemanticsHints(
+            "IntegratedGradients": ExplainerAlgorithmSpec(
                 frozenset({MethodFamily.GRADIENT}), baseline_default=BaselineMode.ZERO
             )
         },
@@ -53,7 +53,7 @@ def _shap_gradient() -> SimpleNamespace:
         algorithm="GradientExplainer",
         baseline_kwarg_name="background_data",
         algorithm_registry={
-            "GradientExplainer": ExplainerSemanticsHints(
+            "GradientExplainer": ExplainerAlgorithmSpec(
                 frozenset({MethodFamily.SHAPLEY, MethodFamily.GRADIENT}),
                 baseline_default=BaselineMode.INPUT_BATCH,
             )
@@ -229,7 +229,7 @@ def test_no_record_for_algorithm_without_baseline(tmp_path: Path) -> None:
         baseline_kwarg_name="baselines",
         # Saliency is absent from the registry → no implicit baseline.
         algorithm_registry={
-            "IntegratedGradients": ExplainerSemanticsHints(
+            "IntegratedGradients": ExplainerAlgorithmSpec(
                 frozenset({MethodFamily.GRADIENT}), baseline_default=BaselineMode.ZERO
             )
         },
@@ -325,7 +325,7 @@ def _explainer_with_cardinality(
         algorithm=algorithm,
         baseline_kwarg_name=kwarg,
         algorithm_registry={
-            algorithm: ExplainerSemanticsHints(frozenset(), baseline_cardinality=cardinality)
+            algorithm: ExplainerAlgorithmSpec(frozenset(), baseline_cardinality=cardinality)
         },
     )
 

@@ -49,7 +49,7 @@ from ..results import (
     RobustnessResult,
     encode_verdicts,
 )
-from ..semantics import AssessorSemanticsHints, assessor_semantics, hints_for_assessor
+from ..semantics import AssessorAlgorithmSpec, assessor_semantics, hints_for_assessor
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -78,7 +78,7 @@ class BaseAssessor(AdapterMixin, ABC):
     is ``Required``).
     """
 
-    algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]
+    algorithm_registry: ClassVar[Mapping[str, AssessorAlgorithmSpec]]
     assessment_kind: ClassVar[AssessmentKind]
 
     #: Which YAML block the underlying library actually consumes for budget

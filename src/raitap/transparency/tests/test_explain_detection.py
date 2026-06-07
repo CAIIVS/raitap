@@ -13,7 +13,7 @@ from raitap.models.backend import TorchBackend
 from raitap.pipeline.outputs import ForwardOutput
 from raitap.transparency.contracts import (
     DetectionBox,
-    ExplainerSemanticsHints,
+    ExplainerAlgorithmSpec,
     ExplanationOutputSpace,
     ExplanationPayloadKind,
     ExplanationScope,
@@ -52,7 +52,7 @@ class _RecordingExplainer:
 
     algorithm = "IntegratedGradients"
     algorithm_registry: ClassVar[dict[str, Any]] = {
-        "IntegratedGradients": ExplainerSemanticsHints(frozenset())
+        "IntegratedGradients": ExplainerAlgorithmSpec(frozenset())
     }
     output_payload_kind = ExplanationPayloadKind.ATTRIBUTIONS
     output_scope = ExplanationScope.LOCAL

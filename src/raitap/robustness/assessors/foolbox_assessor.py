@@ -9,7 +9,7 @@ from raitap.types import Capability
 from raitap.utils.lazy import lazy_import
 
 from ..contracts import AssessmentKind, Objective, PerturbationNorm, ThreatModel
-from ..semantics import AssessorSemanticsHints
+from ..semantics import AssessorAlgorithmSpec
 from .base_assessor import AttackInvokeCtx, EmpiricalAttackAssessor, _prepare_inputs_for_forward
 
 if TYPE_CHECKING:
@@ -64,8 +64,8 @@ def _hint(
     stochastic: bool = False,
     objective: Objective = Objective.UNTARGETED,
     invoker: object = None,
-) -> AssessorSemanticsHints:
-    return AssessorSemanticsHints(
+) -> AssessorAlgorithmSpec:
+    return AssessorAlgorithmSpec(
         AssessmentKind.EMPIRICAL_ATTACK,
         threat,
         objective,

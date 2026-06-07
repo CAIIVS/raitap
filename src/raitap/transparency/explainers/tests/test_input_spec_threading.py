@@ -13,11 +13,11 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from raitap.models.access import ExplanationModel
-    from raitap.transparency.contracts import ExplainerSemanticsHints
+    from raitap.transparency.contracts import ExplainerAlgorithmSpec
 
 
 class _SpyExplainer(AttributionOnlyExplainer):
-    algorithm_registry: ClassVar[Mapping[str, ExplainerSemanticsHints]] = {}
+    algorithm_registry: ClassVar[Mapping[str, ExplainerAlgorithmSpec]] = {}
     algorithm = "spy"
     seen_kind: ClassVar[InputKind | None] = None
 

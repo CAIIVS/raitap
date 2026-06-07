@@ -16,7 +16,7 @@ else:
 from raitap.transparency.contracts import (
     BaselineCardinality,
     BaselineMode,
-    ExplainerSemanticsHints,
+    ExplainerAlgorithmSpec,
     InputKind,
     MethodFamily,
 )
@@ -187,7 +187,7 @@ def _shap_modern_invoker(ctx: AttributionInvokeCtx) -> torch.Tensor:
     # Gradient/Deep/Kernel fall back to the input batch when ``background_data``
     # is omitted; TreeExplainer takes no reference input (``baseline_default`` None).
     algorithm_registry={
-        "GradientExplainer": ExplainerSemanticsHints(
+        "GradientExplainer": ExplainerAlgorithmSpec(
             {MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
@@ -196,14 +196,14 @@ def _shap_modern_invoker(ctx: AttributionInvokeCtx) -> torch.Tensor:
             stochastic=True,
             invoker=_shap_legacy_invoker,
         ),
-        "DeepExplainer": ExplainerSemanticsHints(
+        "DeepExplainer": ExplainerAlgorithmSpec(
             {MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             requires={Capability.AUTOGRAD},
             invoker=_shap_legacy_invoker,
         ),
-        "KernelExplainer": ExplainerSemanticsHints(
+        "KernelExplainer": ExplainerAlgorithmSpec(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
@@ -213,31 +213,31 @@ def _shap_modern_invoker(ctx: AttributionInvokeCtx) -> torch.Tensor:
         ),
         # TreeExplainer is a tree-model method; requires=AUTOGRAD preserves current
         # gating, but it is the natural first consumer of the roadmap TREE_MODEL capability.
-        "TreeExplainer": ExplainerSemanticsHints(
+        "TreeExplainer": ExplainerAlgorithmSpec(
             {MethodFamily.SHAPLEY, MethodFamily.TREE},
             requires={Capability.AUTOGRAD},
             invoker=_shap_legacy_invoker,
         ),
-        "SamplingExplainer": ExplainerSemanticsHints(
+        "SamplingExplainer": ExplainerAlgorithmSpec(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             stochastic=True,  # Monte Carlo sampling (run-twice non-deterministic)
             invoker=_shap_legacy_invoker,
         ),
-        "PartitionExplainer": ExplainerSemanticsHints(
+        "PartitionExplainer": ExplainerAlgorithmSpec(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             invoker=_shap_modern_invoker,
         ),
-        "ExactExplainer": ExplainerSemanticsHints(
+        "ExactExplainer": ExplainerAlgorithmSpec(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             invoker=_shap_modern_invoker,
         ),
-        "PermutationExplainer": ExplainerSemanticsHints(
+        "PermutationExplainer": ExplainerAlgorithmSpec(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,

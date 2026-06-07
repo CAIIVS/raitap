@@ -55,7 +55,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from raitap import adapters
-from raitap.transparency.contracts import ExplainerSemanticsHints, MethodFamily
+from raitap.transparency.contracts import ExplainerAlgorithmSpec, MethodFamily
 from raitap.transparency.explainers.base_explainer import AttributionOnlyExplainer
 from raitap.types import Capability
 
@@ -71,14 +71,14 @@ if TYPE_CHECKING:
         r"some library footgun": "Do X instead.", # nicer error messages to avoid deep stack traces in RAITAP
     },
     algorithm_registry={
-        # the algos your library offers; ExplainerSemanticsHints carries the
+        # the algos your library offers; ExplainerAlgorithmSpec carries the
         # method families (+ optional baseline_default for reference-input methods)
         # and the capability requirements for the algorithm.
         # empty requires (default) = model-agnostic, runs on ONNX/forward-only backends
-        "supertreeshap": ExplainerSemanticsHints({MethodFamily.SHAPLEY}),
+        "supertreeshap": ExplainerAlgorithmSpec({MethodFamily.SHAPLEY}),
         # requires={Capability.AUTOGRAD} for algorithms that need autograd,
         # e.g. gradient-based methods:
-        # "supergrad": ExplainerSemanticsHints({MethodFamily.GRADIENT},
+        # "supergrad": ExplainerAlgorithmSpec({MethodFamily.GRADIENT},
         #                                       requires={Capability.AUTOGRAD}),
     },
 )

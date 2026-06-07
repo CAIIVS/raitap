@@ -45,7 +45,7 @@ ExplanationScope = contracts.ExplanationScope
 InputKind = contracts.InputKind
 InputSpec = contracts.InputSpec
 MethodFamily = contracts.MethodFamily
-ExplainerSemanticsHints = contracts.ExplainerSemanticsHints
+ExplainerAlgorithmSpec = contracts.ExplainerAlgorithmSpec
 ScopeDefinitionStep = contracts.ScopeDefinitionStep
 TensorLayout = contracts.TensorLayout
 from raitap.transparency.explainers.captum_explainer import CaptumExplainer  # noqa: E402
@@ -308,12 +308,12 @@ def test_infer_output_space_rejects_ambiguous_algorithm_only_signal(
     monkeypatch.setitem(
         SHAP_METHOD_FAMILIES,
         "SharedAlgorithm",
-        ExplainerSemanticsHints(frozenset({MethodFamily.SHAPLEY})),
+        ExplainerAlgorithmSpec(frozenset({MethodFamily.SHAPLEY})),
     )
     monkeypatch.setitem(
         CAPTUM_METHOD_FAMILIES,
         "SharedAlgorithm",
-        ExplainerSemanticsHints(frozenset({MethodFamily.GRADIENT})),
+        ExplainerAlgorithmSpec(frozenset({MethodFamily.GRADIENT})),
     )
 
     with pytest.raises(

@@ -9,7 +9,7 @@ import torch
 
 from raitap import adapters
 from raitap.transparency.contracts import (
-    ExplainerSemanticsHints,
+    ExplainerAlgorithmSpec,
     ExplanationPayloadKind,
     MethodFamily,
 )
@@ -24,7 +24,7 @@ def test_transparency_adapter_registers_and_assigns_classvars() -> None:
         registry_name="_stub_xai",
         extra="_stub_extra",
         library="_stub_lib",
-        algorithm_registry={"alg": ExplainerSemanticsHints({MethodFamily.GRADIENT})},
+        algorithm_registry={"alg": ExplainerAlgorithmSpec({MethodFamily.GRADIENT})},
     )
     class _StubExplainer(AttributionOnlyExplainer):
         def __init__(self, algorithm: str):
@@ -51,5 +51,5 @@ def test_transparency_adapter_registers_and_assigns_classvars() -> None:
     # output_payload_kind defaults to ATTRIBUTIONS when the decorator kwarg is omitted.
     assert _StubExplainer.output_payload_kind is ExplanationPayloadKind.ATTRIBUTIONS
     assert _StubExplainer.algorithm_registry == {
-        "alg": ExplainerSemanticsHints(frozenset({MethodFamily.GRADIENT}))
+        "alg": ExplainerAlgorithmSpec(frozenset({MethodFamily.GRADIENT}))
     }

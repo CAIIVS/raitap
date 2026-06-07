@@ -13,7 +13,7 @@ from raitap.robustness.contracts import (
     PerturbationNorm,
     ThreatModel,
 )
-from raitap.robustness.semantics import AssessorSemanticsHints
+from raitap.robustness.semantics import AssessorAlgorithmSpec
 
 
 def test_robustness_adapter_registers_under_robustness_group() -> None:
@@ -22,7 +22,7 @@ def test_robustness_adapter_registers_under_robustness_group() -> None:
         extra="_stub_extra",
         library="_stub_lib",
         algorithm_registry={
-            "_stub_alg": AssessorSemanticsHints(
+            "_stub_alg": AssessorAlgorithmSpec(
                 AssessmentKind.EMPIRICAL_ATTACK,
                 ThreatModel.WHITE_BOX,
                 Objective.UNTARGETED,
@@ -53,13 +53,13 @@ def test_budget_kwarg_source_via_decorator() -> None:
     from raitap.robustness.assessors.base_assessor import EmpiricalAttackAssessor
     from raitap.robustness.assessors.registration import robustness_adapter
     from raitap.robustness.contracts import AssessmentKind, Objective, PerturbationNorm, ThreatModel
-    from raitap.robustness.semantics import AssessorSemanticsHints
+    from raitap.robustness.semantics import AssessorAlgorithmSpec
 
     @robustness_adapter(
         registry_name="_stub_budget",
         budget_kwarg_source="call_kwargs",
         algorithm_registry={
-            "x": AssessorSemanticsHints(
+            "x": AssessorAlgorithmSpec(
                 AssessmentKind.EMPIRICAL_ATTACK,
                 ThreatModel.WHITE_BOX,
                 Objective.UNTARGETED,

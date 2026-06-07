@@ -51,7 +51,7 @@ BaseAssessor                            # root: declares assessment_kind + budge
 
 Every assessor declares two `ClassVar`s the framework relies on:
 
-- `algorithm_registry: ClassVar[Mapping[str, AssessorSemanticsHints]]`: maps
+- `algorithm_registry: ClassVar[Mapping[str, AssessorAlgorithmSpec]]`: maps
   algorithm names to their threat model / norm / families / `stochastic` flag.
   `assessor_semantics` uses this to build `RobustnessResult.semantics`, so the
   reported metadata always matches what the adapter actually executed. The
@@ -173,7 +173,7 @@ well-defined reference (a warning is logged).
 
 ## Invoker seam
 
-`AssessorSemanticsHints.invoker` overrides the adapter's default
+`AssessorAlgorithmSpec.invoker` overrides the adapter's default
 `_default_invoke(ctx)` construct-and-call path for one specific registry entry.
 `None` (the default, ~95% of entries) means the adapter's own `_default_invoke`
 runs. The field carries any callable matching the generic `Invoker` Protocol in
@@ -222,7 +222,7 @@ See {doc}`../adding/adding-an-algorithm` for the cross-family picture
 
 - **New algorithm in an existing adapter (torchattacks, foolbox, ...)**:
   see {doc}`../adding/adding-an-algorithm`. For robustness, the `algorithm_registry`
-  value is an `AssessorSemanticsHints` (assessment kind, threat model, objective,
+  value is an `AssessorAlgorithmSpec` (assessment kind, threat model, objective,
   norm, family tags) from `semantics.py`.
 - **New robustness library**: see {doc}`../adding/adding-an-adapter`. Pick
   `EmpiricalAttackAssessor`, `FormalVerificationAssessor`, or
@@ -232,7 +232,7 @@ See {doc}`../adding/adding-an-algorithm` for the cross-family picture
   gate inherited from `AdapterMixin` evaluates whether
   `algorithm.requires <= backend.provides` and raises
   `BackendIncompatibilityError` on mismatch. Set
-  `requires={Capability.AUTOGRAD}` on `AssessorSemanticsHints`
+  `requires={Capability.AUTOGRAD}` on `AssessorAlgorithmSpec`
   entries for algorithms that need autograd (e.g. white-box empirical attacks).
   Statistical-sampling adapters implement `apply_perturbation(image)` only;
   their algorithms carry empty `requires` so the gate always passes.

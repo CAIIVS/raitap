@@ -20,7 +20,7 @@ from pathlib import Path  # noqa: TC003
 from typing import Any, Protocol, runtime_checkable
 
 # Runtime import (not TYPE_CHECKING): ``Capability`` appears in the public
-# ``ExplainerSemanticsHints.requires`` annotation, so ``typing.get_type_hints()``
+# ``ExplainerAlgorithmSpec.requires`` annotation, so ``typing.get_type_hints()``
 # must resolve it from module globals. It is a torch-free StrEnum.
 from raitap.types import Capability  # noqa: TC001
 
@@ -125,10 +125,10 @@ class BaselineCardinality(StrEnum):
 
 
 @dataclass(frozen=True)
-class ExplainerSemanticsHints:
+class ExplainerAlgorithmSpec:
     """Per-algorithm metadata carried by a transparency adapter's ``algorithm_registry``.
 
-    The transparency analogue of robustness's ``AssessorSemanticsHints``: one entry
+    The transparency analogue of robustness's ``AssessorAlgorithmSpec``: one entry
     per algorithm an adapter wraps, holding everything the framework tracks and
     reports for that algorithm. ``baseline_default`` is the implicit
     ``BaselineMode`` used when the user omits the baseline kwarg (``None`` for

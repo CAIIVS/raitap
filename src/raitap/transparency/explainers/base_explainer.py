@@ -24,7 +24,7 @@ else:
 
 from ..baselines import build_baseline_record
 from ..contracts import (
-    ExplainerSemanticsHints,
+    ExplainerAlgorithmSpec,
     ExplanationOutputSpace,
     ExplanationPayloadKind,
     ExplanationScope,
@@ -62,13 +62,13 @@ class BaseExplainer(AdapterMixin, ABC):
 
     output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
     output_scope: ClassVar[ExplanationScope] = ExplanationScope.LOCAL
-    algorithm_registry: ClassVar[Mapping[str, ExplainerSemanticsHints]]
+    algorithm_registry: ClassVar[Mapping[str, ExplainerAlgorithmSpec]]
 
     # Baseline documentation (issue #210). ``baseline_kwarg_name`` is the call kwarg
     # that holds this family's reference input (``None`` → family takes no
     # baseline); set via the ``@adapters.transparency`` decorator kwarg. The
     # per-algorithm implicit default mode lives on each algorithm's
-    # ``ExplainerSemanticsHints.baseline_default`` in ``algorithm_registry``.
+    # ``ExplainerAlgorithmSpec.baseline_default`` in ``algorithm_registry``.
     baseline_kwarg_name: ClassVar[str | None] = None
 
 

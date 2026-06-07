@@ -23,7 +23,7 @@ from raitap.transparency.contracts import ExplanationPayloadKind
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
-    from raitap.transparency.contracts import ExplainerSemanticsHints
+    from raitap.transparency.contracts import ExplainerAlgorithmSpec
     from raitap.transparency.explainers.base_explainer import BaseExplainer
 
 TRANSPARENCY = FamilyConfig(
@@ -37,7 +37,7 @@ T = TypeVar("T", bound="BaseExplainer")
 
 def transparency_adapter(
     *,
-    algorithm_registry: Mapping[str, ExplainerSemanticsHints],
+    algorithm_registry: Mapping[str, ExplainerAlgorithmSpec],
     output_payload_kind: ExplanationPayloadKind = ExplanationPayloadKind.ATTRIBUTIONS,
     baseline_kwarg_name: str | None = None,
     **common: Unpack[AdapterDecoratorOptions],
@@ -46,7 +46,7 @@ def transparency_adapter(
 
     Required:
         ``registry_name`` (via ``AdapterDecoratorOptions.Required[str]``) and
-        ``algorithm_registry`` (algorithm name → :class:`ExplainerSemanticsHints`).
+        ``algorithm_registry`` (algorithm name → :class:`ExplainerAlgorithmSpec`).
 
     Optional:
         ``output_payload_kind`` defaults to ``ATTRIBUTIONS`` — the common case;
@@ -54,7 +54,7 @@ def transparency_adapter(
         ``baseline_kwarg_name`` is the call kwarg holding this family's reference
         input (``"baselines"`` for Captum, ``"background_data"`` for SHAP);
         ``None`` (default) means the family takes no baseline. The per-algorithm
-        implicit default mode lives on each ``ExplainerSemanticsHints.baseline_default``.
+        implicit default mode lives on each ``ExplainerAlgorithmSpec.baseline_default``.
 
         Per-algorithm backend needs live on each hint's ``requires`` (see raitap.types.Capability).
     """

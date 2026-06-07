@@ -107,7 +107,7 @@ nitpick_ignore_regex = [
     (r"py:class", r"raitap\.metrics\.classification_metrics\._ClassificationBase"),
     # WithAlgorithmRegistry[T] generic params + forward-string narrowings.
     (r"py:obj", r"raitap\.registry_base\.T"),
-    (r"py:class", r"AssessorSemanticsHints"),
+    (r"py:class", r"AssessorAlgorithmSpec"),
     (r"py:class", r"frozenset\[MethodFamily\]"),
 ]
 
