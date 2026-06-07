@@ -122,7 +122,8 @@ onnx-intel = [
 ]
 
 # Transparency module
-shap = ["shap>=0.46.0"]
+# opencv-python: SHAP modern-API image masker (inpaint/blur strategies); #267.
+shap = ["shap>=0.46.0", "opencv-python>=4.9"]
 captum = ["captum>=0.7.0"]
 transparency = ["raitap[shap,captum]"]
 

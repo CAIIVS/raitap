@@ -45,3 +45,43 @@ def test_partition_modern_tabular_returns_input_shaped() -> None:
     )
     assert attrs.shape == (2, 8)
     assert attrs.dtype == torch.float32
+
+
+def _image_predict_model() -> Callable[[torch.Tensor], torch.Tensor]:
+    net = nn.Sequential(
+        nn.Conv2d(3, 4, 3, padding=1),
+        nn.AdaptiveAvgPool2d(1),
+        nn.Flatten(),
+        nn.Linear(4, 5),
+    ).eval()
+
+    def f(x: torch.Tensor) -> torch.Tensor:
+        with torch.no_grad():
+            return net(x.float())
+
+    return f
+
+
+@pytest.mark.usefixtures("needs_shap")
+def test_partition_modern_image_returns_nchw() -> None:
+    # Exercises the per-modality Image masker (opencv inpaint) + NCHW<->NHWC round-trip.
+    pytest.importorskip("cv2")  # opencv backs the image masker
+    explainer = ShapExplainer(algorithm="PartitionExplainer")
+    inputs = torch.rand(1, 3, 8, 8)
+    spec = InputSpec(
+        kind=InputKind.IMAGE,
+        shape=(1, 3, 8, 8),
+        layout=TensorLayout.BATCH_CHANNEL_HEIGHT_WIDTH,
+        feature_names=None,
+        metadata=None,
+    )
+    attrs = explainer.compute_attributions(
+        _image_predict_model(),
+        inputs,
+        background_data=inputs,
+        target=0,
+        input_spec=spec,
+        max_evals=100,
+    )
+    assert attrs.shape == (1, 3, 8, 8)  # NCHW, matches input
+    assert attrs.dtype == torch.float32
