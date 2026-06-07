@@ -28,6 +28,21 @@ if TYPE_CHECKING:
     from raitap.models.access import ExplanationModel
 
 
+# Which SHAP API each algorithm uses: legacy ``.shap_values()`` vs modern
+# ``__call__ -> Explanation`` (masker-based). Separate from the semantics
+# registry so dispatch mechanics don't bloat the families/stochastic data. (#267)
+_SHAP_API: dict[str, str] = {
+    "GradientExplainer": "legacy",
+    "DeepExplainer": "legacy",
+    "KernelExplainer": "legacy",
+    "TreeExplainer": "legacy",
+    "SamplingExplainer": "legacy",
+    "PartitionExplainer": "modern",
+    "ExactExplainer": "modern",
+    "PermutationExplainer": "modern",
+}
+
+
 def _normalise_target_indices(
     target: list[int] | torch.Tensor,
     *,
@@ -115,6 +130,28 @@ def _select_target_attributions(
         "TreeExplainer": ExplainerSemanticsHints(
             {MethodFamily.SHAPLEY, MethodFamily.TREE},
             requires={Capability.AUTOGRAD},
+        ),
+        "SamplingExplainer": ExplainerSemanticsHints(
+            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
+            baseline_default=BaselineMode.INPUT_BATCH,
+            baseline_cardinality=BaselineCardinality.SET,
+            stochastic=True,  # Monte Carlo sampling (run-twice non-deterministic)
+        ),
+        "PartitionExplainer": ExplainerSemanticsHints(
+            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
+            baseline_default=BaselineMode.INPUT_BATCH,
+            baseline_cardinality=BaselineCardinality.SET,
+        ),
+        "ExactExplainer": ExplainerSemanticsHints(
+            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
+            baseline_default=BaselineMode.INPUT_BATCH,
+            baseline_cardinality=BaselineCardinality.SET,
+        ),
+        "PermutationExplainer": ExplainerSemanticsHints(
+            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
+            baseline_default=BaselineMode.INPUT_BATCH,
+            baseline_cardinality=BaselineCardinality.SET,
+            stochastic=True,  # random permutation order (seed=None default)
         ),
     },
     baseline_kwarg_name="background_data",
