@@ -60,6 +60,37 @@ Capture happens once at the `AttributionOnlyExplainer.explain` chokepoint via `b
 render/hash failure degrades to no baseline rather than discarding attributions.
 See [Adding an algorithm](../adding/adding-an-algorithm.md).
 
+## ShapExplainer internals
+
+`ShapExplainer.compute_attributions` dispatches on the `_SHAP_API` table (in `shap_explainer.py`),
+which maps each algorithm name to `"legacy"` or `"modern"`:
+
+- **Legacy path** (`.shap_values()` API): `GradientExplainer`, `DeepExplainer`, `KernelExplainer`,
+  `TreeExplainer`, `SamplingExplainer`. Constructs the SHAP explainer with the background tensor and
+  calls `.shap_values()` directly.
+- **Modern path** (`__call__ -> Explanation` API): `PartitionExplainer`, `ExactExplainer`,
+  `PermutationExplainer`. Calls `_build_masker` to select a per-modality masker, wraps the predict
+  callable via `_modern_predict_fn`, constructs the explainer, and calls it with numpy inputs.
+
+### `_build_masker`
+
+Selects the masker based on `input_spec.kind`:
+
+- `IMAGE`: `shap.maskers.Image("inpaint_telea", (h, w, c))`. Requires `opencv-python` (included in
+  the `shap` extra) and an NCHW shape in `input_spec`.
+- `TABULAR`: `shap.maskers.Partition(background_np)`.
+
+Other modalities raise `ValueError`. `input_spec` is threaded into `compute_attributions` from the
+`AttributionOnlyExplainer.explain` chokepoint via `infer_input_spec`.
+
+### `_normalise_modern_explanation`
+
+Maps the raw `Explanation.values` (class-last layout) to an input-shaped float32 tensor:
+
+1. Cast to float32.
+2. Select the target class with `_select_target_attributions` (shared with the legacy path).
+3. For image inputs with a class-selected 4-D result, permute NHWC to NCHW to match RAITAP's tensor convention.
+
 ## Visualiser semantic contract
 
 All visualisers extend `BaseVisualiser` (`src/raitap/transparency/visualisers/base_visualiser.py`).

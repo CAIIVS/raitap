@@ -26,8 +26,9 @@ visualiser using the pattern `<VisualiserClassName>_<index>.png`.
 `metadata.json` stores typed explanation semantics, including scope, payload
 kind, method families, sample selection, input metadata, output-space metadata,
 and `semantics.stochastic` (`true` when the algorithm is RNG-dependent, e.g. SHAP
-`GradientExplainer` or `KernelShap`, so the result is not bit-reproducible unless
-seeds are pinned; drives the run-level reproducibility caveat). It also keeps two
+`GradientExplainer`, `KernelExplainer`, `PermutationExplainer`, or `SamplingExplainer`,
+so the result is not bit-reproducible unless seeds are pinned; drives the run-level
+reproducibility caveat). It also keeps two
 separate runtime buckets:
 
 - `kwargs`: RAITAP-owned metadata used for downstream visualisation, such as
