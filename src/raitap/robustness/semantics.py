@@ -55,6 +55,10 @@ class AssessorSemanticsHints:
     # it is not bit-reproducible unless seeds are pinned (issue #251). Declared
     # explicitly per algorithm.
     stochastic: bool = False
+    # Optional per-algorithm invoker overriding the adapter's default construct-
+    # and-call path (#266). None => default path. Typed loosely (the generic
+    # Invoker is structural) to avoid a torch-import cycle at this layer.
+    invoker: Any = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "families", frozenset(self.families))

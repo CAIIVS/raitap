@@ -10,11 +10,10 @@ from raitap.utils.lazy import lazy_import
 
 from ..contracts import AssessmentKind, Objective, PerturbationNorm, ThreatModel
 from ..semantics import AssessorSemanticsHints
-from .base_assessor import EmpiricalAttackAssessor, _prepare_inputs_for_forward
+from .base_assessor import AttackInvokeCtx, EmpiricalAttackAssessor, _prepare_inputs_for_forward
 
 if TYPE_CHECKING:
     import torch
-    from torch import nn
 else:
     torch = lazy_import("torch")
 
@@ -122,16 +121,10 @@ class TorchattacksAssessor(EmpiricalAttackAssessor):
         self.algorithm = algorithm
         self.init_kwargs = dict(init_kwargs)
 
-    def generate_adversarial(
-        self,
-        model: nn.Module,
-        inputs: torch.Tensor,
-        targets: torch.Tensor,
-        *,
-        backend: object | None = None,
-        **kwargs: Any,
-    ) -> torch.Tensor:
-        torchattacks = self._lazy_import()
+    def _default_invoke(self, ctx: AttackInvokeCtx) -> torch.Tensor:
+        torchattacks = ctx.library
+        model, inputs, targets, backend = ctx.model, ctx.inputs, ctx.targets, ctx.backend
+        kwargs = dict(ctx.call_kwargs)
 
         try:
             attack_class = getattr(torchattacks, self.algorithm)

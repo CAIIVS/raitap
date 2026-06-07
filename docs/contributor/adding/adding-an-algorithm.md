@@ -126,7 +126,7 @@ Nothing to do if your algorithm only uses a baseline when the user supplies one 
 Add a unit test next to the adapter (`src/raitap/<module>/<subdir>/tests/test_<adapter>.py`) that:
 
 1. Constructs the adapter with `algorithm="NewMethod"` and minimal kwargs.
-2. Runs the happy path (`compute_attributions(...)` / `generate_adversarial(...)`).
+2. Runs the happy path (`compute_attributions(...)` / `_default_invoke(ctx)` via `generate_adversarial(...)`).
 3. Asserts the output shape/type matches the contract.
 
 If the algorithm has unusual kwargs (e.g. a custom `baselines=` shape), add an edge-case test for those too.

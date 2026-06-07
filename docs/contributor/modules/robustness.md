@@ -19,7 +19,7 @@ Robustness assessors form a three-level hierarchy in
 
 ```text
 BaseAssessor                            # root: declares assessment_kind + budget_kwarg_source
-├── EmpiricalAttackAssessor             # you implement generate_adversarial(); framework owns assess()
+├── EmpiricalAttackAssessor             # you implement _default_invoke(ctx); framework owns generate_adversarial() + assess()
 │   ├── TorchattacksAssessor
 │   └── FoolboxAssessor
 ├── FormalVerificationAssessor          # you implement verify_sample(); framework owns assess()
@@ -33,9 +33,11 @@ BaseAssessor                            # root: declares assessment_kind + budge
   and `budget_kwarg_source`. Backend gating is inherited from `AdapterMixin`
   (`check_backend_compat`), not a no-op on this class. Never subclass directly.
 - **`EmpiricalAttackAssessor`**: subclasses implement only
-  `generate_adversarial(model, inputs, targets, ...) -> Tensor`. Batching,
-  prediction, verdict computation, distance computation, semantics inference,
-  and persistence are owned by this class.
+  `_default_invoke(self, ctx: AttackInvokeCtx) -> Tensor`. `generate_adversarial`
+  is the framework-owned dispatcher: it resolves the per-entry invoker (or falls
+  back to `_default_invoke`) then delegates. Batching, prediction, verdict
+  computation, distance computation, semantics inference, and persistence are
+  owned by this class.
 - **`FormalVerificationAssessor`**: subclasses implement
   `verify_sample(model, sample, target, *, budget) -> VerificationOutcome`.
   The per-sample loop, runtime tracking, output-bounds stacking, and

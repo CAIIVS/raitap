@@ -1,5 +1,5 @@
 from raitap import adapters
-from raitap.robustness.assessors.base_assessor import EmpiricalAttackAssessor
+from raitap.robustness.assessors.base_assessor import AttackInvokeCtx, EmpiricalAttackAssessor
 from raitap.robustness.contracts import AssessmentKind, Objective, PerturbationNorm, ThreatModel
 from raitap.robustness.semantics import AssessorSemanticsHints
 
@@ -17,5 +17,5 @@ from raitap.robustness.semantics import AssessorSemanticsHints
     },
 )
 class FakeAttackAssessor(EmpiricalAttackAssessor):
-    def generate_adversarial(self, model, inputs, targets, *, backend=None, **kw):  # noqa: ANN001, ANN201
-        return inputs
+    def _default_invoke(self, ctx: AttackInvokeCtx):  # noqa: ANN202
+        return ctx.inputs

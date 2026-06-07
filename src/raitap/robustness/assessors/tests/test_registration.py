@@ -3,12 +3,10 @@ under the robustness group."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
-
 import torch
 
 from raitap import adapters
-from raitap.robustness.assessors.base_assessor import EmpiricalAttackAssessor
+from raitap.robustness.assessors.base_assessor import AttackInvokeCtx, EmpiricalAttackAssessor
 from raitap.robustness.contracts import (
     AssessmentKind,
     Objective,
@@ -16,9 +14,6 @@ from raitap.robustness.contracts import (
     ThreatModel,
 )
 from raitap.robustness.semantics import AssessorSemanticsHints
-
-if TYPE_CHECKING:
-    from torch import nn
 
 
 def test_robustness_adapter_registers_under_robustness_group() -> None:
@@ -44,16 +39,8 @@ def test_robustness_adapter_registers_under_robustness_group() -> None:
         def check_backend_compat(self, backend: object) -> None:
             del backend
 
-        def generate_adversarial(
-            self,
-            model: nn.Module,
-            inputs: torch.Tensor,
-            targets: torch.Tensor,
-            *,
-            backend: object | None = None,
-            **kwargs: Any,
-        ) -> torch.Tensor:
-            del model, inputs, targets, backend, kwargs
+        def _default_invoke(self, ctx: AttackInvokeCtx) -> torch.Tensor:
+            del ctx
             return torch.zeros(0)
 
     from raitap._adapters import _BUILDERS, ADAPTER_EXTRAS
@@ -82,7 +69,7 @@ def test_budget_kwarg_source_via_decorator() -> None:
         },
     )
     class _Stub(EmpiricalAttackAssessor):
-        def generate_adversarial(self, model, inputs, targets, *, backend=None, **kw):  # type: ignore[no-untyped-def]  # noqa: ANN001, ANN202
-            return inputs
+        def _default_invoke(self, ctx: AttackInvokeCtx):  # type: ignore[no-untyped-def]  # noqa: ANN202
+            return ctx.inputs
 
     assert _Stub.budget_kwarg_source == "call_kwargs"
