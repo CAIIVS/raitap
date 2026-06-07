@@ -129,7 +129,7 @@ transparency = ["raitap[shap,captum]"]
 
 # Robustness module
 torchattacks = ["torchattacks>=3.5.1"]
-foolbox = ["foolbox>=3.3.4"]
+foolbox = ["foolbox>=3.3.4", "numba>=0.59"]
 # Average-case (statistical-sampling) adapter: the ImageNet-C common-corruption
 # suite. Pure numpy/scipy/skimage/opencv — no torch, lazy-imported.
 imagecorruptions = ["imagecorruptions>=1.1.2"]
