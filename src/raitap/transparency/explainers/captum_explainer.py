@@ -30,8 +30,10 @@ if TYPE_CHECKING:
     # is pure noise. Scope ``module=`` to captum so unrelated UserWarnings
     # with matching messages aren't accidentally hidden.
     suppress_warnings=[(r"Input Tensor.*required_grads", UserWarning, r"captum.*")],
-    # Only IntegratedGradients has a meaningful implicit baseline (zeros); the
-    # rest take no reference input, so their ``baseline_default`` stays ``None``.
+    # Integral methods that fall back to a zero reference when ``baselines`` is
+    # omitted (IntegratedGradients, LayerIntegratedGradients, LayerConductance,
+    # LayerDeepLift) carry ``baseline_default=BaselineMode.ZERO``; methods that
+    # take no reference input leave it ``None``.
     algorithm_registry={
         "IntegratedGradients": ExplainerSemanticsHints(
             {MethodFamily.GRADIENT},
@@ -67,6 +69,36 @@ if TYPE_CHECKING:
             {MethodFamily.GRADIENT, MethodFamily.CAM},
             requires={Capability.AUTOGRAD},
         ),
+        "LayerConductance": ExplainerSemanticsHints(
+            {MethodFamily.GRADIENT},
+            baseline_default=BaselineMode.ZERO,
+            baseline_cardinality=BaselineCardinality.SINGLE,
+            requires={Capability.AUTOGRAD},
+        ),
+        "LayerIntegratedGradients": ExplainerSemanticsHints(
+            {MethodFamily.GRADIENT},
+            baseline_default=BaselineMode.ZERO,
+            baseline_cardinality=BaselineCardinality.SINGLE,
+            requires={Capability.AUTOGRAD},
+        ),
+        "LayerActivation": ExplainerSemanticsHints(
+            {MethodFamily.GRADIENT},
+            requires={Capability.AUTOGRAD},
+        ),
+        "LayerDeepLift": ExplainerSemanticsHints(
+            {MethodFamily.GRADIENT},
+            baseline_default=BaselineMode.ZERO,
+            baseline_cardinality=BaselineCardinality.SINGLE,
+            requires={Capability.AUTOGRAD},
+        ),
+        "LayerGradientXActivation": ExplainerSemanticsHints(
+            {MethodFamily.GRADIENT},
+            requires={Capability.AUTOGRAD},
+        ),
+        "LayerLRP": ExplainerSemanticsHints(
+            {MethodFamily.GRADIENT},
+            requires={Capability.AUTOGRAD},
+        ),
     },
     baseline_kwarg_name="baselines",
 )
@@ -94,6 +126,7 @@ class CaptumExplainer(AttributionOnlyExplainer):
         model: ExplanationModel,
         inputs: torch.Tensor,
         backend: object | None = None,
+        input_spec: object | None = None,
         target: int | list[int] | torch.Tensor | None = None,
         baselines: torch.Tensor | None = None,
         **attr_kwargs,
@@ -114,7 +147,7 @@ class CaptumExplainer(AttributionOnlyExplainer):
         Returns:
             Attribution tensor matching input shape
         """
-        del backend
+        del backend, input_spec
         captum_attr = self._lazy_import("attr")
 
         # Dynamically get the method class
@@ -128,11 +161,11 @@ class CaptumExplainer(AttributionOnlyExplainer):
             ) from None
 
         init_kwargs = dict(self.init_kwargs)
-        if self.algorithm in ("LayerGradCam", "GuidedGradCam"):
+        if _needs_layer_resolution(self.algorithm):
             layer_path = init_kwargs.pop("layer_path", None)
             if layer_path is not None and "layer" not in init_kwargs:
-                # LayerGradCam/GuidedGradCam require AUTOGRAD, so ``model`` is
-                # always a live ``nn.Module`` here (never a predict callable).
+                # Layer*/GuidedGradCam require AUTOGRAD, so ``model`` is always a
+                # live ``nn.Module`` here (never a predict callable).
                 init_kwargs["layer"] = _resolve_layer(cast("nn.Module", model), str(layer_path))
 
         if self.algorithm == "Occlusion":
@@ -153,6 +186,16 @@ class CaptumExplainer(AttributionOnlyExplainer):
 
         # Captum already returns torch.Tensor, so just return
         return attributions
+
+
+def _needs_layer_resolution(algorithm: str) -> bool:
+    """Whether an algorithm takes a captum ``layer`` constructor argument.
+
+    True for every ``Layer*`` method plus ``GuidedGradCam``. ``Neuron*`` methods
+    also take ``layer`` but are out of scope here (they need a call-time neuron
+    selector too); see #269. Drives ``layer_path -> layer`` resolution. (#267)
+    """
+    return algorithm.startswith("Layer") or algorithm == "GuidedGradCam"
 
 
 def _resolve_layer(model: nn.Module, layer_path: str) -> nn.Module:

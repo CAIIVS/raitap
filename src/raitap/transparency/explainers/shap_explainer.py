@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Literal, cast
+
+import numpy as np
 
 from raitap import raitap_log
 from raitap.utils.lazy import lazy_import
@@ -15,6 +18,7 @@ from raitap.transparency.contracts import (
     BaselineCardinality,
     BaselineMode,
     ExplainerSemanticsHints,
+    InputKind,
     MethodFamily,
 )
 from raitap.transparency.explainers.registration import transparency_adapter
@@ -26,6 +30,23 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from raitap.models.access import ExplanationModel
+    from raitap.transparency.contracts import InputSpec
+
+
+ShapApi = Literal["legacy", "modern"]
+
+
+@dataclass(frozen=True)
+class ShapExplainerHints(ExplainerSemanticsHints):
+    """SHAP registry entry: base hints plus which SHAP API the algorithm uses.
+
+    ``api`` selects the legacy ``.shap_values()`` path or the modern
+    ``__call__ -> Explanation`` (masker-based) path. Carried on the registry
+    entry itself so dispatch can never drift from a parallel table. ``kw_only``
+    keeps it required despite the base's defaulted fields. (#267)
+    """
+
+    api: ShapApi = field(kw_only=True)
 
 
 def _normalise_target_indices(
@@ -73,6 +94,70 @@ def _select_target_attributions(
     return shap_values[batch_indices, ..., target_tensor]
 
 
+def _modality_error(kind: str) -> ValueError:
+    return ValueError(
+        f"SHAP modern explainers support image and tabular inputs; got modality {kind!r}. "
+        "Set transparency.<explainer>.raitap.input_metadata.kind to 'image' or 'tabular', "
+        "or use a legacy SHAP explainer."
+    )
+
+
+def _normalise_modern_explanation(
+    values: object,
+    *,
+    input_spec: InputSpec,
+    target: int | list[int] | torch.Tensor | None,
+) -> torch.Tensor:
+    """Map ``Explanation.values`` to an input-shaped float32 attribution tensor.
+
+    Modern shap returns class-last values: tabular ``(B, F, K)``, image NHWC+K
+    ``(B, H, W, C, K)``. Cast to float32, select the target class via the shared
+    helper, then (image, once the class axis is gone) permute NHWC -> NCHW to
+    match RAITAP inputs. A class-selected image tensor is 4-D; with ``target`` of
+    ``None`` the class axis is kept and no permute applies. (#267)
+    """
+    tensor = torch.as_tensor(np.asarray(values)).to(dtype=torch.float32)
+    spec_shape = input_spec.shape
+    inputs_ndim = len(spec_shape) if spec_shape is not None else tensor.ndim - 1
+    selected = _select_target_attributions(tensor, inputs_ndim=inputs_ndim, target=target)
+    if input_spec.kind is InputKind.IMAGE and selected.ndim == 4:
+        # (B, H, W, C) -> (B, C, H, W)
+        selected = selected.permute(0, 3, 1, 2).contiguous()
+    return selected
+
+
+def _build_masker(shap: Any, *, input_spec: InputSpec, background: object) -> Any:
+    """Per-modality SHAP masker for the modern path. (#267)"""
+    if input_spec.kind is InputKind.IMAGE:
+        shape = input_spec.shape
+        if shape is None or len(shape) != 4:
+            raise _modality_error("image (need NCHW shape metadata)")
+        _, c, h, w = shape  # NCHW
+        return shap.maskers.Image("inpaint_telea", (h, w, c))
+    if input_spec.kind is InputKind.TABULAR:
+        return shap.maskers.Partition(_to_numpy(background))
+    raise _modality_error(str(input_spec.kind))
+
+
+def _modern_predict_fn(
+    model_fn: Callable[[torch.Tensor], torch.Tensor],
+    *,
+    input_spec: InputSpec,
+) -> Callable[[Any], Any]:
+    """numpy->numpy predict fn for the modern masker path, fixing image layout."""
+    is_image = input_spec.kind is InputKind.IMAGE
+
+    def predict(masked: Any) -> Any:
+        arr = np.asarray(masked, dtype="float32")
+        tensor = torch.from_numpy(arr)
+        if is_image and tensor.ndim == 4:
+            tensor = tensor.permute(0, 3, 1, 2).contiguous()  # NHWC -> NCHW
+        out = model_fn(tensor)
+        return out.detach().cpu().numpy() if isinstance(out, torch.Tensor) else np.asarray(out)
+
+    return predict
+
+
 @transparency_adapter(
     registry_name="shap",
     library="shap",
@@ -89,32 +174,62 @@ def _select_target_attributions(
     # Gradient/Deep/Kernel fall back to the input batch when ``background_data``
     # is omitted; TreeExplainer takes no reference input (``baseline_default`` None).
     algorithm_registry={
-        "GradientExplainer": ExplainerSemanticsHints(
+        "GradientExplainer": ShapExplainerHints(
             {MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             requires={Capability.AUTOGRAD},
             # Samples random points along the path + background choice (rseed/nsamples).
             stochastic=True,
+            api="legacy",
         ),
-        "DeepExplainer": ExplainerSemanticsHints(
+        "DeepExplainer": ShapExplainerHints(
             {MethodFamily.SHAPLEY, MethodFamily.GRADIENT},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             requires={Capability.AUTOGRAD},
+            api="legacy",
         ),
-        "KernelExplainer": ExplainerSemanticsHints(
+        "KernelExplainer": ShapExplainerHints(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             # Monte Carlo coalition sampling (np.random.choice / permutation).
             stochastic=True,
+            api="legacy",
         ),
         # TreeExplainer is a tree-model method; requires=AUTOGRAD preserves current
         # gating, but it is the natural first consumer of the roadmap TREE_MODEL capability.
-        "TreeExplainer": ExplainerSemanticsHints(
+        "TreeExplainer": ShapExplainerHints(
             {MethodFamily.SHAPLEY, MethodFamily.TREE},
             requires={Capability.AUTOGRAD},
+            api="legacy",
+        ),
+        "SamplingExplainer": ShapExplainerHints(
+            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
+            baseline_default=BaselineMode.INPUT_BATCH,
+            baseline_cardinality=BaselineCardinality.SET,
+            stochastic=True,  # Monte Carlo sampling (run-twice non-deterministic)
+            api="legacy",
+        ),
+        "PartitionExplainer": ShapExplainerHints(
+            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
+            baseline_default=BaselineMode.INPUT_BATCH,
+            baseline_cardinality=BaselineCardinality.SET,
+            api="modern",
+        ),
+        "ExactExplainer": ShapExplainerHints(
+            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
+            baseline_default=BaselineMode.INPUT_BATCH,
+            baseline_cardinality=BaselineCardinality.SET,
+            api="modern",
+        ),
+        "PermutationExplainer": ShapExplainerHints(
+            {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
+            baseline_default=BaselineMode.INPUT_BATCH,
+            baseline_cardinality=BaselineCardinality.SET,
+            stochastic=True,  # random permutation order (seed=None default)
+            api="modern",
         ),
     },
     baseline_kwarg_name="background_data",
@@ -142,6 +257,7 @@ class ShapExplainer(AttributionOnlyExplainer):
         model: ExplanationModel,
         inputs: torch.Tensor,
         backend: object | None = None,
+        input_spec: object | None = None,
         background_data: torch.Tensor | None = None,
         target: int | list[int] | torch.Tensor | None = None,
         **shap_kwargs,
@@ -152,6 +268,8 @@ class ShapExplainer(AttributionOnlyExplainer):
         Args:
             model: PyTorch model
             inputs: Input tensor
+            input_spec: Inferred input specification; absorbed here so it does
+                not leak into ``shap_values()``.
             background_data: Background dataset (REQUIRED for most explainers)
                 - GradientExplainer: Required
                 - DeepExplainer: Required
@@ -165,7 +283,25 @@ class ShapExplainer(AttributionOnlyExplainer):
             SHAP values as torch.Tensor
         """
         shap = self._lazy_import()
+        # Every known shap entry is a ShapExplainerHints (carries ``api``); an
+        # unknown name misses the registry and falls through to the legacy path,
+        # which raises the helpful "unsupported algorithm" error.
+        hints = self.algorithm_registry.get(self.algorithm)
+        if isinstance(hints, ShapExplainerHints) and hints.api == "modern":
+            # The base keeps ``input_spec: object | None``; ``explain()`` always
+            # supplies a real ``InputSpec`` via ``infer_input_spec``. Cast for the
+            # typed modern path (``_compute_modern`` still guards ``None``).
+            return self._compute_modern(
+                shap,
+                model,
+                inputs,
+                background_data=background_data,
+                target=target,
+                input_spec=cast("InputSpec | None", input_spec),
+                **shap_kwargs,
+            )
 
+        # ---- existing legacy .shap_values() path ----
         # Dynamically get the explainer class
         try:
             explainer_class = getattr(shap, self.algorithm)
@@ -243,6 +379,48 @@ class ShapExplainer(AttributionOnlyExplainer):
         return _select_target_attributions(
             shap_values,
             inputs_ndim=inputs.ndim,
+            target=target,
+        )
+
+    def _compute_modern(
+        self,
+        shap: Any,
+        model: ExplanationModel,
+        inputs: torch.Tensor,
+        *,
+        background_data: torch.Tensor | None,
+        target: int | list[int] | torch.Tensor | None,
+        input_spec: InputSpec | None,
+        **shap_kwargs: Any,
+    ) -> torch.Tensor:
+        if input_spec is None:
+            raise _modality_error("unknown")
+        if not callable(model):
+            raise TypeError(
+                f"{self.algorithm} (modern SHAP) requires a callable predict model; "
+                f"got {type(model).__name__}."
+            )
+        background = background_data if background_data is not None else inputs
+        masker = _build_masker(shap, input_spec=input_spec, background=background)
+        predict = _modern_predict_fn(model, input_spec=input_spec)
+        try:
+            explainer_class = getattr(shap, self.algorithm)
+        except AttributeError:
+            raise ValueError(
+                f"'{self.algorithm}' is not a valid shap explainer.\n"
+                f"Set algorithm to a class name available in the shap package, "
+                f"e.g. 'PartitionExplainer', 'ExactExplainer', 'PermutationExplainer'."
+            ) from None
+        explainer = explainer_class(predict, masker, **self.init_kwargs)
+
+        inputs_np = inputs.detach().cpu().numpy()
+        if input_spec.kind is InputKind.IMAGE:
+            inputs_np = inputs_np.transpose(0, 2, 3, 1)  # NCHW -> NHWC for the Image masker
+        with self._rethrow():
+            explanation = explainer(inputs_np, **shap_kwargs)
+        return _normalise_modern_explanation(
+            explanation.values,
+            input_spec=input_spec,
             target=target,
         )
 

@@ -571,7 +571,8 @@ def test_explainer_baseline_declarations() -> None:
     assert CaptumExplainer.algorithm_registry["IntegratedGradients"].baseline_default == "zero"
     assert CaptumExplainer.algorithm_registry["Saliency"].baseline_default is None
 
-    # SHAP: Gradient/Deep/Kernel fall back to the input batch; Tree does not.
+    # SHAP: Gradient/Deep/Kernel/Sampling/Partition/Exact/Permutation fall back to
+    # the input batch; Tree does not.
     assert ShapExplainer.baseline_kwarg_name == "background_data"
     assert {
         algorithm: hints.baseline_default
@@ -581,6 +582,10 @@ def test_explainer_baseline_declarations() -> None:
         "DeepExplainer": "input_batch",
         "KernelExplainer": "input_batch",
         "TreeExplainer": None,
+        "SamplingExplainer": "input_batch",
+        "PartitionExplainer": "input_batch",
+        "ExactExplainer": "input_batch",
+        "PermutationExplainer": "input_batch",
     }
 
 

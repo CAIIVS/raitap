@@ -195,6 +195,30 @@ the factory rejects mismatches at YAML parse time. See
 ## Generic
 
 :::::{visualiser-card}
+:name: LayerActivationVisualiser
+:registry: layer_activation
+:intro: Renders layer-space attributions from captum `Layer*` methods (LayerConductance, LayerActivation, LayerIntegratedGradients, ...) that align to a hidden layer rather than the input. Use it when you attribute to an internal layer and want a magnitude summary instead of an input-space heatmap.
+:how-to-read: One panel per sample. A convolutional layer `(C, H, W)` shows one bar per channel (mean absolute attribution); a linear layer `(F,)` shows one bar per feature; a sequence layer `(tokens, hidden)` (e.g. a ViT block) shows a magnitude heatmap. Magnitudes only. These are layer attributions, not input-aligned, so do not read them as a pixel heatmap.
+:compat: Scope: `LOCAL`. Output spaces: `LAYER_ACTIVATION` only. Payload kind: `ATTRIBUTIONS`. Pair it with a `Layer*` captum explainer that sets `layer_path`.
+:kwarg: max_samples
+:default: `8`
+:meaning: Maximum number of samples to render (one panel each); larger batches are truncated.
+
+```yaml
+transparency:
+  my_layer_conductance:
+    _target_: CaptumExplainer
+    algorithm: LayerConductance
+    constructor:
+      layer_path: layer4.2.conv3   # dotted path to the target layer
+    call:
+      target: 0
+    visualisers:
+      - _target_: LayerActivationVisualiser
+```
+:::::
+
+:::::{visualiser-card}
 :name: TabularBarChartVisualiser
 :registry: tabular_bar_chart
 :wraps: a small Matplotlib renderer (no third-party plotting dependency)

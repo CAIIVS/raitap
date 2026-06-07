@@ -69,6 +69,10 @@ def test_shap_method_family_registry_accepts_adr_v1_list() -> None:
         "DeepExplainer",
         "KernelExplainer",
         "TreeExplainer",
+        "SamplingExplainer",
+        "PartitionExplainer",
+        "ExactExplainer",
+        "PermutationExplainer",
     }
     assert method_families_for_explainer(_explainer("shap", "GradientExplainer")) == frozenset(
         {MethodFamily.SHAPLEY, MethodFamily.GRADIENT}
@@ -84,15 +88,12 @@ def test_shap_method_family_registry_accepts_adr_v1_list() -> None:
     )
 
 
-def test_shap_permutation_explainer_is_rejected() -> None:
-    with pytest.raises(
-        Exception,
-        match=(
-            "method-family inference is not implemented for framework "
-            "SHAP and algorithm PermutationExplainer"
-        ),
-    ):
-        method_families_for_explainer(_explainer("shap", "PermutationExplainer"))
+def test_shap_permutation_explainer_is_accepted() -> None:
+    # PermutationExplainer was added to the registry in #267 (A2).
+    families = method_families_for_explainer(_explainer("shap", "PermutationExplainer"))
+    assert MethodFamily.SHAPLEY in families
+    assert MethodFamily.PERTURBATION in families
+    assert MethodFamily.MODEL_AGNOSTIC in families
 
 
 def test_captum_method_family_registry_exactly_matches_adr_v1_list() -> None:
@@ -112,6 +113,13 @@ def test_captum_method_family_registry_exactly_matches_adr_v1_list() -> None:
         ),
         "LayerGradCam": frozenset({MethodFamily.GRADIENT, MethodFamily.CAM}),
         "GuidedGradCam": frozenset({MethodFamily.GRADIENT, MethodFamily.CAM}),
+        # Layer* attribution methods added in #267 (B3).
+        "LayerConductance": frozenset({MethodFamily.GRADIENT}),
+        "LayerIntegratedGradients": frozenset({MethodFamily.GRADIENT}),
+        "LayerActivation": frozenset({MethodFamily.GRADIENT}),
+        "LayerDeepLift": frozenset({MethodFamily.GRADIENT}),
+        "LayerGradientXActivation": frozenset({MethodFamily.GRADIENT}),
+        "LayerLRP": frozenset({MethodFamily.GRADIENT}),
     }
 
     assert expected == {

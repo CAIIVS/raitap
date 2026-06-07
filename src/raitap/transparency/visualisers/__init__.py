@@ -17,6 +17,9 @@ from .captum_visualisers import (
 from .detection_image_visualiser import DetectionImageVisualiser
 from .input_thumbnail import InputThumbnailVisualiser
 
+# Layer-activation visualiser
+from .layer_activation_visualiser import LayerActivationVisualiser
+
 # SHAP-native visualisers
 from .shap_visualisers import (
     ShapBarVisualiser,
@@ -45,5 +48,6 @@ __all__ = [  # noqa: RUF022
     "ShapImageVisualiser",
     "ShapWaterfallVisualiser",
     # Framework-agnostic
+    "LayerActivationVisualiser",
     "TabularBarChartVisualiser",
 ]

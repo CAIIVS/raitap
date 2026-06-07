@@ -78,6 +78,7 @@ visualisers against the explanation artifact they receive. In short:
 | `ShapForceVisualiser` | Local tabular or interpretable SHAP attributions for one selected sample | Local visualisation | Preserves local scope. |
 | `ShapWaterfallVisualiser` | Local tabular or interpretable SHAP attributions for one selected sample | Local visualisation | Preserves local scope. |
 | `TabularBarChartVisualiser` | Local tabular or interpretable attributions | Aggregated visual summary | Uses mean absolute attribution-style aggregation for the selected batch. |
+| `LayerActivationVisualiser` | Local layer-space attributions from captum `Layer*` methods | Local visualisation | Renders per-channel / per-feature magnitude bars or a magnitude heatmap; only accepts `LAYER_ACTIVATION` output space. |
 
 See {doc}`visualisers` for per-visualiser previews, constructor kwargs, and
 modality constraints. Contributor-facing details about semantic contracts are
@@ -129,6 +130,10 @@ Only algorithms that do not depend on Torch `autograd` are compatible:
 - `KernelShap`
 - `Lime`
 
+#### Layer* methods and `layer_path`
+
+Captum `Layer*` algorithms attribute to a named internal layer rather than the input. Set the layer via `constructor.layer_path` (dotted path, e.g. `layer4.2.conv3`). The resulting attributions use the `LAYER_ACTIVATION` output space and must be rendered with `LayerActivationVisualiser`. Supported algorithms: `LayerConductance`, `LayerIntegratedGradients`, `LayerActivation`, `LayerDeepLift`, `LayerGradientXActivation`, `LayerLRP`. `LayerGradCam` and `GuidedGradCam` are exceptions: they produce input-space maps (`IMAGE_SPATIAL_MAP`) and render with `CaptumImageVisualiser`.
+
 #### Visualiser compatibility
 
 RAITAP currently supports the following [Captum visualisers](https://captum.ai/api/utilities.html#visualization).
@@ -136,6 +141,8 @@ RAITAP currently supports the following [Captum visualisers](https://captum.ai/a
 - `CaptumImageVisualiser`
 - `CaptumTextVisualiser`
 - `CaptumTimeSeriesVisualiser`
+
+For layer-space attributions from `Layer*` methods, use `LayerActivationVisualiser` (listed under Generic visualisers in {doc}`visualisers`).
 
 Compatibility is semantic, not just framework-based. Image visualisation expects
 image input metadata or supported CAM/spatial-map output. Text and time-series
@@ -182,11 +189,15 @@ transparency = {
 }
 ```
 
-`GradientExplainer`, `DeepExplainer`, and `KernelExplainer` usually require a
-background reference. Set it with the library-agnostic `raitap.baseline` (see
-{doc}`configuration`); if omitted, RAITAP falls back to the input batch.
+**Legacy explainers** (`GradientExplainer`, `DeepExplainer`, `KernelExplainer`, `TreeExplainer`, `SamplingExplainer`) use the SHAP `.shap_values()` API directly.
+
+**Modern explainers** (`PartitionExplainer`, `ExactExplainer`, `PermutationExplainer`) use SHAP's `__call__` API with a per-modality masker. They support **image** and **tabular** inputs (text is deferred). The image masker requires `opencv-python`, which is included in the `shap` extra.
+
+All explainers accept a background reference except `TreeExplainer`. Set it with the library-agnostic `raitap.baseline` (see {doc}`configuration`); if omitted, RAITAP falls back to the input batch.
 
 `DeepExplainer` can fail on PyTorch models that use `SiLU` activations (for example EfficientNet variants) due to autograd/in-place limitations. In those cases, use `GradientExplainer`.
+
+**Stochastic explainers** (`GradientExplainer`, `KernelExplainer`, `PermutationExplainer`, `SamplingExplainer`) are RNG-dependent and trigger the reproducibility caveat (see {doc}`output`). `PartitionExplainer`, `ExactExplainer`, `DeepExplainer`, and `TreeExplainer` are deterministic.
 
 #### ONNX compatibility
 

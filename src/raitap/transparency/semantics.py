@@ -254,6 +254,18 @@ def infer_output_space(
             requires_interpolation=False,
         )
 
+    if layer_path is not None:
+        # Non-CAM Layer* attribution is layer-space, not input-aligned; tag
+        # LAYER_ACTIVATION (skips INPUT_FEATURES shape validation). (#267)
+        return OutputSpaceSpec(
+            space=ExplanationOutputSpace.LAYER_ACTIVATION,
+            shape=shape,
+            layout=input_spec.layout,
+            layer_path=layer_path,
+            feature_names=features,
+            requires_interpolation=False,
+        )
+
     if input_kind is InputKind.TEXT or input_layout is TensorLayout.TOKEN_SEQUENCE:
         return OutputSpaceSpec(
             space=ExplanationOutputSpace.TOKEN_SEQUENCE,

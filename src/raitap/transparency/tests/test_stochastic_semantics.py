@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from raitap.transparency.explainers.captum_explainer import CaptumExplainer
 from raitap.transparency.explainers.shap_explainer import ShapExplainer
 from raitap.transparency.semantics import explainer_is_stochastic
@@ -31,3 +33,16 @@ def test_registry_stochastic_flags() -> None:
     assert CaptumExplainer.algorithm_registry["Lime"].stochastic is True
     assert CaptumExplainer.algorithm_registry["IntegratedGradients"].stochastic is False
     assert CaptumExplainer.algorithm_registry["LayerGradCam"].stochastic is False
+
+
+@pytest.mark.parametrize(
+    ("algorithm", "expected"),
+    [
+        ("PermutationExplainer", True),
+        ("SamplingExplainer", True),
+        ("PartitionExplainer", False),
+        ("ExactExplainer", False),
+    ],
+)
+def test_modern_shap_stochastic_flag(algorithm: str, expected: bool) -> None:
+    assert explainer_is_stochastic(ShapExplainer(algorithm=algorithm)) is expected

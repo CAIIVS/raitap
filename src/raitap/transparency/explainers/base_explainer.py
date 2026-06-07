@@ -117,17 +117,18 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
         call_kwargs = dict(kwargs)
         # Validate the explainer registry before running potentially expensive attribution code.
         method_families = method_families_for_explainer(self)
+        input_spec = infer_input_spec(inputs, input_metadata=rk.get("input_metadata"))
         attributions = self._compute_with_optional_batches(
             model,
             inputs,
             call_kwargs,
             backend,
+            input_spec=input_spec,
             batch_size=batch_size,
             show_progress=show_progress,
             progress_desc=progress_desc,
         )
         self.attributions = attributions
-        input_spec = infer_input_spec(inputs, input_metadata=rk.get("input_metadata"))
         output_space = infer_output_space(
             input_spec=input_spec,
             attributions=attributions,
@@ -207,6 +208,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
         attribution_kwargs: dict[str, Any],
         backend: object | None,
         *,
+        input_spec: object | None = None,
         batch_size: int | None = None,
         show_progress: bool = True,
         progress_desc: str | None = None,
@@ -217,6 +219,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
                 model,
                 prepared_inputs,
                 backend=backend,
+                input_spec=input_spec,
                 **attribution_kwargs,
             )
             self._reject_structured_attributions(attributions)
@@ -246,6 +249,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
                 model,
                 prepared_batch_inputs,
                 backend=backend,
+                input_spec=input_spec,
                 **batch_kwargs,
             )
             self._reject_structured_attributions(chunk)
@@ -376,8 +380,11 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
             model: The model shape this explainer needs (nn.Module for gradient
                 methods, a predict callable for model-agnostic methods).
             inputs: Input tensor (shape depends on modality).
-            **kwargs: Framework-specific keyword arguments (e.g. ``target``,
-                ``baselines``, ``background_data``).
+            **kwargs: Framework-specific keyword arguments. The framework always
+                passes ``backend`` and ``input_spec`` (the inferred
+                ``InputSpec``); a subclass may declare either to use it (e.g. to
+                build a per-modality masker) or let ``**kwargs`` absorb it.
+                Also carries ``target`` / ``baselines`` / ``background_data``.
 
         Returns:
             Attribution tensor matching the input shape.

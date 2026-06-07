@@ -60,6 +60,40 @@ Capture happens once at the `AttributionOnlyExplainer.explain` chokepoint via `b
 render/hash failure degrades to no baseline rather than discarding attributions.
 See [Adding an algorithm](../adding/adding-an-algorithm.md).
 
+## ShapExplainer internals
+
+`ShapExplainer.compute_attributions` dispatches on the `api` field of each registry entry.
+Entries are `ShapExplainerHints` (a `ShapExplainer`-local subclass of `ExplainerSemanticsHints`)
+whose required `api` field is `"legacy"` or `"modern"`. Carrying the flag on the entry itself keeps
+dispatch from drifting against a parallel table; a new explainer added without an `api` fails to
+construct.
+
+- **Legacy path** (`.shap_values()` API): `GradientExplainer`, `DeepExplainer`, `KernelExplainer`,
+  `TreeExplainer`, `SamplingExplainer`. Constructs the SHAP explainer with the background tensor and
+  calls `.shap_values()` directly.
+- **Modern path** (`__call__ -> Explanation` API): `PartitionExplainer`, `ExactExplainer`,
+  `PermutationExplainer`. Calls `_build_masker` to select a per-modality masker, wraps the predict
+  callable via `_modern_predict_fn`, constructs the explainer, and calls it with numpy inputs.
+
+### `_build_masker`
+
+Selects the masker based on `input_spec.kind`:
+
+- `IMAGE`: `shap.maskers.Image("inpaint_telea", (h, w, c))`. Requires `opencv-python` (included in
+  the `shap` extra) and an NCHW shape in `input_spec`.
+- `TABULAR`: `shap.maskers.Partition(background_np)`.
+
+Other modalities raise `ValueError`. `input_spec` is threaded into `compute_attributions` from the
+`AttributionOnlyExplainer.explain` chokepoint via `infer_input_spec`.
+
+### `_normalise_modern_explanation`
+
+Maps the raw `Explanation.values` (class-last layout) to an input-shaped float32 tensor:
+
+1. Cast to float32.
+2. Select the target class with `_select_target_attributions` (shared with the legacy path).
+3. For image inputs with a class-selected 4-D result, permute NHWC to NCHW to match RAITAP's tensor convention.
+
 ## Visualiser semantic contract
 
 All visualisers extend `BaseVisualiser` (`src/raitap/transparency/visualisers/base_visualiser.py`).
@@ -150,6 +184,10 @@ Describes what attribution values are aligned to:
 
 Output-space inference relies on explicit input metadata and algorithm semantics. Shape alone is not
 enough to decide whether a tensor is tabular, token, image, or time-series data.
+
+**`LAYER_ACTIVATION` inference branch.** When `layer_path` is set and `MethodFamily.CAM` is not in the resolved method families, `infer_output_space` short-circuits to `LAYER_ACTIVATION` (skipping input-shape validation). CAM methods (`LayerGradCam`, `GuidedGradCam`) match the earlier CAM branch first and produce `IMAGE_SPATIAL_MAP` for image input, so they never reach this branch.
+
+**`_needs_layer_resolution` prefix rule.** Any algorithm whose name starts with `Layer` (e.g. `LayerConductance`, `LayerIntegratedGradients`) or equals `GuidedGradCam` triggers layer resolution: the `layer_path` string in `constructor` is resolved to a live `nn.Module` before the Captum object is constructed. This happens automatically in `CaptumExplainer`; there is no extra flag to set.
 
 ### Sample identity vs display labels
 

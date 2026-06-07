@@ -25,10 +25,11 @@ visualiser using the pattern `<VisualiserClassName>_<index>.png`.
 
 `metadata.json` stores typed explanation semantics, including scope, payload
 kind, method families, sample selection, input metadata, output-space metadata,
-and `semantics.stochastic` (`true` when the algorithm is RNG-dependent — for
-example SHAP `GradientExplainer` or `KernelShap` — so the result is not
-bit-reproducible unless seeds are pinned; drives the run-level reproducibility
-caveat). It also keeps two separate runtime buckets:
+and `semantics.stochastic` (`true` when the algorithm is RNG-dependent, e.g. SHAP
+`GradientExplainer`, `KernelExplainer`, `PermutationExplainer`, or `SamplingExplainer`,
+so the result is not bit-reproducible unless seeds are pinned; drives the run-level
+reproducibility caveat). It also keeps two
+separate runtime buckets:
 
 - `kwargs`: RAITAP-owned metadata used for downstream visualisation, such as
   `sample_names` and `show_sample_names`
@@ -38,6 +39,10 @@ caveat). It also keeps two separate runtime buckets:
 `call_kwargs` is a best-effort JSON summary of the library invocation. Scalar
 values are stored directly, while tensor-like values are summarized rather than
 embedded verbatim so `metadata.json` stays lightweight and readable.
+
+## Output spaces
+
+Most attributions land in `INPUT_FEATURES` (pixels, tabular columns) or `IMAGE_SPATIAL_MAP` (CAM methods). Non-CAM `Layer*` captum methods (LayerConductance, LayerIntegratedGradients, LayerActivation, LayerDeepLift, LayerGradientXActivation, LayerLRP) produce a raw attribution tensor aligned to the chosen hidden layer rather than the input, recorded under the output space `LAYER_ACTIVATION`. The same `attributions.pt` and `metadata.json` artifacts are written; the `LayerActivationVisualiser` renders the magnitude summary. `LayerGradCam` and `GuidedGradCam` still produce input-space maps (`IMAGE_SPATIAL_MAP`) and use `CaptumImageVisualiser`.
 
 ## `baseline` block
 
