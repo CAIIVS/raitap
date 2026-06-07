@@ -60,6 +60,7 @@ explainer's required capabilities: gradient methods get the live `nn.Module`
 | `ShapWaterfallVisualiser`    | SHAP      | per-sample waterfall                                      |
 | `ShapForceVisualiser`        | SHAP      | per-sample force plot                                     |
 | `TabularBarChartVisualiser`  | any       | plain bar chart for tabular data                          |
+| `LayerActivationVisualiser` | Captum    | per-channel/feature magnitude summary for Layer* methods  |
 
 Visualiser compatibility with specific algorithms is declared via the `compatible_algorithms` class attribute (`frozenset`). An empty frozenset means compatible with all algorithms.
 

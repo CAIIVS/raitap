@@ -151,6 +151,10 @@ Describes what attribution values are aligned to:
 Output-space inference relies on explicit input metadata and algorithm semantics. Shape alone is not
 enough to decide whether a tensor is tabular, token, image, or time-series data.
 
+**`LAYER_ACTIVATION` inference branch.** When `layer_path` is set and `MethodFamily.CAM` is not in the resolved method families, `infer_output_space` short-circuits to `LAYER_ACTIVATION` (skipping input-shape validation). CAM methods (`LayerGradCam`, `GuidedGradCam`) match the earlier CAM branch first and produce `IMAGE_SPATIAL_MAP` for image input, so they never reach this branch.
+
+**`_needs_layer_resolution` prefix rule.** Any algorithm whose name starts with `Layer` (e.g. `LayerConductance`, `LayerIntegratedGradients`) or equals `GuidedGradCam` triggers layer resolution: the `layer_path` string in `constructor` is resolved to a live `nn.Module` before the Captum object is constructed. This happens automatically in `CaptumExplainer`; there is no extra flag to set.
+
 ### Sample identity vs display labels
 
 RAITAP separates stable sample identity from display labels:
