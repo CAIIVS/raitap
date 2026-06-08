@@ -219,6 +219,26 @@ transparency:
 :::::
 
 :::::{visualiser-card}
+:name: StructuredPayloadSummaryVisualiser
+:registry: structured_payload_summary
+:intro: Renders additive structured payloads (Captum convergence deltas, SHAP base values) that an explainer emits alongside the principal attribution. Use it to surface the per-sample diagnostics persisted under `payloads/` as a quick bar summary.
+:how-to-read: One bar panel per matching structured payload, one bar per sample along the x-axis with the payload value on the y-axis. For a `convergence_delta` panel, bars near zero mean the attribution sum closely matched the completeness target for that sample; larger magnitudes flag samples where the approximation drifted.
+:compat: Scope: `LOCAL`. Payload kind: `ATTRIBUTIONS`. Structured payload kinds: `convergence_delta`, `base_value`. Reads `VisualisationContext.structured_payloads`; renders only payloads whose kind it declares. Any-of: it is compatible as long as the explanation carries at least one declared kind (an IG run supplies `convergence_delta`, a modern SHAP run supplies `base_value`), so attach it to an explainer that emits a structured payload.
+
+```yaml
+transparency:
+  ig:
+    _target_: CaptumExplainer
+    algorithm: IntegratedGradients
+    call:
+      target: 0
+      return_convergence_delta: true   # emits the convergence_delta payload
+    visualisers:
+      - _target_: StructuredPayloadSummaryVisualiser
+```
+:::::
+
+:::::{visualiser-card}
 :name: TabularBarChartVisualiser
 :registry: tabular_bar_chart
 :wraps: a small Matplotlib renderer (no third-party plotting dependency)
