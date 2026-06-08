@@ -15,6 +15,7 @@ from raitap.transparency.contracts import (
     ExplanationScope,
     MethodFamily,
     ScopeDefinitionStep,
+    StructuredPayloadKind,
     VisualisationContext,
     VisualSummarySpec,
 )
@@ -57,6 +58,7 @@ class BaseVisualiser(ABC, AdapterMixin):
     supported_scopes: ClassVar[frozenset[ExplanationScope]] = frozenset()
     supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset()
     supported_method_families: ClassVar[frozenset[MethodFamily]] = frozenset()
+    supported_structured_payload_kinds: ClassVar[frozenset[StructuredPayloadKind]] = frozenset()
     produces_scope: ClassVar[ExplanationScope | None] = None
     scope_definition_step: ClassVar[ScopeDefinitionStep | None] = None
     visual_summary: ClassVar[VisualSummarySpec | None] = None
@@ -120,6 +122,19 @@ class BaseVisualiser(ABC, AdapterMixin):
                 _format_supported(method_families),
                 _format_supported(self.supported_method_families),
             )
+
+        required_payload_kinds = self.supported_structured_payload_kinds
+        if required_payload_kinds:
+            available = {
+                payload.kind for payload in getattr(explanation, "structured_payloads", ()) or ()
+            }
+            missing = required_payload_kinds - available
+            if missing:
+                self._raise_incompatibility(
+                    "structured payload",
+                    _format_supported(missing),
+                    _format_supported(required_payload_kinds),
+                )
 
     def _raise_incompatibility(self, dimension: str, actual: str, expected: str) -> None:
         raise ValueError(
