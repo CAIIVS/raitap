@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import Any
 
 import torch
 
@@ -26,7 +27,7 @@ class _LogitBackend(_ProbaBackend):
     provides = frozenset({Capability.AUTOGRAD})
 
 
-def _config() -> object:
+def _config() -> Any:  # a fake AppConfig-shaped object for forward_pass
     return SimpleNamespace(run=SimpleNamespace(forward_batch_size=8), data=None)
 
 

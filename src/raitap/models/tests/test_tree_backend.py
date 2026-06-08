@@ -63,7 +63,7 @@ def test_defaults_cpu_classification() -> None:
 
 
 def test_ubj_extension_resolves_to_xgboost_backend() -> None:
-    import raitap.models.model  # noqa: F401  # ensures backend modules imported
+    import raitap.models.model  # noqa: F401  # pyright: ignore[reportUnusedImport]  # ensures backend modules imported
     from raitap.models.registration import backend_for_extension
     from raitap.models.xgboost_backend import XGBoostBackend
 

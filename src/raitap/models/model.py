@@ -18,7 +18,9 @@ from raitap.utils.lazy import lazy_import
 
 from .backend import ModelBackend, OnnxBackend, TorchBackend
 from .runtime import resolve_torch_device
-from .xgboost_backend import XGBoostBackend  # noqa: F401  # registers .ubj backend
+from .xgboost_backend import (  # noqa: F401  # registers .ubj backend
+    XGBoostBackend,  # pyright: ignore[reportUnusedImport]
+)
 
 if TYPE_CHECKING:
     import torch
