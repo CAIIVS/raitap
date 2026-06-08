@@ -255,6 +255,60 @@ def test_explanation_log_only_uploads_explanation_artifacts(
     assert logged_directory["metadata"]["visualisers"] == []
 
 
+def test_tree_explainer_end_to_end_xgboost(tmp_path: Path) -> None:
+    import numpy as np
+    import torch
+
+    pytest.importorskip("shap")
+    xgboost = pytest.importorskip("xgboost")
+
+    from raitap.models.xgboost_backend import XGBoostBackend
+    from raitap.transparency.explainers import ShapExplainer
+    from raitap.transparency.visualisers import ShapBarVisualiser
+
+    rng = np.random.default_rng(0)
+    feature_count = 6
+    features = rng.normal(size=(32, feature_count)).astype(np.float32)
+    labels = (features.sum(axis=1) > 0).astype(int)
+    clf = xgboost.XGBClassifier(n_estimators=8, max_depth=3)
+    clf.fit(features, labels)
+    model_path = tmp_path / "model.ubj"
+    clf.save_model(model_path)
+
+    backend = XGBoostBackend.from_path(model_path, model_cfg=None, hardware="cpu")
+    explainer = ShapExplainer("TreeExplainer")
+    model = explanation_model(backend, explainer)  # -> the fitted estimator
+
+    sample = torch.from_numpy(features[:8])
+    explanation = explainer.explain(
+        model,
+        sample,
+        backend=backend,
+        run_dir=tmp_path / "transparency",
+        target=1,
+        raitap_kwargs={
+            "input_metadata": InputSpec(
+                kind="tabular",
+                shape=tuple(sample.shape),
+                layout="(B,F)",
+                metadata={"kind": "tabular", "layout": "(B,F)"},
+            )
+        },
+        visualisers=[
+            ConfiguredVisualiser(
+                visualiser=ShapBarVisualiser(feature_names=[f"f{i}" for i in range(feature_count)])
+            )
+        ],
+    )
+    visualisations = explanation._visualise()
+
+    assert isinstance(explanation, ExplanationResult)
+    assert explanation.attributions.shape == (sample.shape[0], feature_count)
+    assert (explanation.run_dir / "attributions.pt").exists()
+    assert len(visualisations) == 1
+    assert visualisations[0].output_path.exists()
+
+
 @pytest.mark.usefixtures("needs_captum")
 def test_visualisation_log_uploads_only_visualisation_artifact(
     simple_cnn: torch.nn.Module,
