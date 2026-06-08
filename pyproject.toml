@@ -126,6 +126,9 @@ onnx-intel = [
 shap = ["shap>=0.46.0", "opencv-python>=4.9"]
 captum = ["captum>=0.7.0"]
 transparency = ["raitap[shap,captum]"]
+# Tree/tabular model backend (XGBoost) — enables shap.TreeExplainer end-to-end.
+# Kept out of the transparency umbrella: TreeExplainer needs both shap and tree.
+tree = ["xgboost>=2.0"]
 
 # Robustness module
 torchattacks = ["torchattacks>=3.5.1"]
