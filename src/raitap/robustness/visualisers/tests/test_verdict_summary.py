@@ -76,8 +76,8 @@ def test_verdict_summary_renders_two_panels() -> None:
     try:
         assert len(figure.axes) == 2
         bar_ax, hist_ax = figure.axes
-        assert bar_ax.get_ylabel() == "count"
-        assert hist_ax.get_xlabel() == "seconds"
+        assert bar_ax.get_ylabel() == "Count"
+        assert hist_ax.get_xlabel() == "Seconds"
     finally:
         plt.close(figure)
 

@@ -129,7 +129,7 @@ class ImagePairVisualiser(BaseRobustnessVisualiser):
             # negative; magnitude = how hard each pixel was pushed (shared scale).
             # Constrained layout places it beside the column without overlap.
             bar = fig.colorbar(diff_image, ax=axes[:, columns.index("perturbation")].tolist())
-            bar.set_label("signed perturbation")
+            bar.set_label("Signed perturbation")
         return fig
 
 

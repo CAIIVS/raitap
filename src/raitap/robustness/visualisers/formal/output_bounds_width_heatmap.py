@@ -105,10 +105,10 @@ class OutputBoundsWidthHeatmapVisualiser(BaseRobustnessVisualiser):
             )
         else:
             ax.set_yticklabels([str(i) for i in range(n)])
-        ax.set_xlabel("output class")
-        ax.set_ylabel("sample")
+        ax.set_xlabel("Output class")
+        ax.set_ylabel("Sample")
         ax.set_title(f"{context.algorithm} — certified bound widths")
         cbar = fig.colorbar(im, ax=ax)
-        cbar.set_label("certified bound width")
+        cbar.set_label("Certified bound width")
         fig.tight_layout()
         return fig

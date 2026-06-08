@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gc
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, cast
@@ -14,8 +15,6 @@ from raitap.configs import resolve_run_dir
 from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     import torch
 
     from raitap.models.access import ExplanationModel
@@ -33,6 +32,8 @@ from ..contracts import (
     InputSpec,
     SampleSelection,
     ScopeDefinitionStep,
+    StructuredOutputSpec,
+    StructuredPayload,
     explainer_output_scope,
 )
 from ..results import ConfiguredVisualiser, ExplanationResult
@@ -119,7 +120,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
         # Validate the explainer registry before running potentially expensive attribution code.
         method_families = method_families_for_explainer(self)
         input_spec = infer_input_spec(inputs, input_metadata=rk.get("input_metadata"))
-        attributions = self._compute_with_optional_batches(
+        attributions, structured_payloads = self._compute_with_optional_batches(
             model,
             inputs,
             call_kwargs,
@@ -198,6 +199,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
             payload_kind=self.output_payload_kind,
             semantics=semantics,
             baseline=baseline,
+            structured_payloads=structured_payloads,
         )
         explanation.write_artifacts()
         return explanation
@@ -213,25 +215,27 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
         batch_size: int | None = None,
         show_progress: bool = True,
         progress_desc: str | None = None,
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, list[StructuredPayload]]:
         if batch_size is None or inputs.shape[0] <= batch_size:
             prepared_inputs = self._prepare_inputs_for_backend(inputs, backend)
-            attributions = self.compute_attributions(
+            raw = self.compute_attributions(
                 model,
                 prepared_inputs,
                 backend=backend,
                 input_spec=input_spec,
                 **attribution_kwargs,
             )
-            self._reject_structured_attributions(attributions)
-            normalised = self._normalise_attributions(attributions)
-            del attributions, prepared_inputs
+            principal, payloads = self._split_structured_outputs(raw)
+            normalised = self._normalise_attributions(principal)
+            del raw, principal, prepared_inputs
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            return normalised
+            return normalised, payloads
 
-        chunks: list[torch.Tensor] = []
+        principal_chunks: list[torch.Tensor] = []
+        extra_chunks: dict[str, list[Any]] = {}
+        extra_kinds: dict[str, Any] = {}
         total_batch = int(inputs.shape[0])
         starts = range(0, total_batch, batch_size)
         if show_progress:
@@ -246,24 +250,28 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
             batch_inputs = inputs[start:end]
             prepared_batch_inputs = self._prepare_inputs_for_backend(batch_inputs, backend)
             batch_kwargs = self._slice_kwargs_for_batch(attribution_kwargs, start, end, total_batch)
-            chunk = self.compute_attributions(
+            raw = self.compute_attributions(
                 model,
                 prepared_batch_inputs,
                 backend=backend,
                 input_spec=input_spec,
                 **batch_kwargs,
             )
-            self._reject_structured_attributions(chunk)
-            # Normalise all attribution outputs to detached CPU tensors so batched and
-            # unbatched runs return the same device semantics and persist consistently.
-            chunks.append(self._normalise_attributions(chunk))
-            del chunk, batch_inputs, prepared_batch_inputs, batch_kwargs
-            # Clean up memory after each batch to avoid OOM errors in long runs
-            # (e.g. with SHAP partition explainer).
+            principal, payloads = self._split_structured_outputs(raw)
+            principal_chunks.append(self._normalise_attributions(principal))
+            for payload in payloads:
+                extra_chunks.setdefault(payload.name, []).append(payload.data)
+                extra_kinds[payload.name] = payload.kind
+            del raw, principal, payloads, batch_inputs, prepared_batch_inputs, batch_kwargs
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-        return torch.cat(chunks, dim=0)
+
+        extras = [
+            StructuredPayload(name, extra_kinds[name], torch.cat(parts, dim=0))
+            for name, parts in extra_chunks.items()
+        ]
+        return torch.cat(principal_chunks, dim=0), extras
 
     @staticmethod
     def _prepare_inputs_for_backend(inputs: torch.Tensor, backend: object | None) -> torch.Tensor:
@@ -278,13 +286,38 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
     def _normalise_attributions(attributions: torch.Tensor) -> torch.Tensor:
         return attributions.detach().cpu()
 
-    @staticmethod
-    def _reject_structured_attributions(attributions: object) -> None:
-        if isinstance(attributions, (tuple, list)):
-            raise TypeError(
-                "tuple/list attribution outputs are not supported; convergence deltas are "
-                "not first-class payloads yet."
+    def _extra_output_specs(self) -> tuple[StructuredOutputSpec, ...]:
+        registry = getattr(self, "algorithm_registry", None)
+        algorithm = getattr(self, "algorithm", None)
+        if not isinstance(registry, Mapping) or algorithm is None:
+            return ()
+        spec = registry.get(algorithm)
+        return tuple(getattr(spec, "extra_outputs", ()) or ())
+
+    def _split_structured_outputs(
+        self, raw: object
+    ) -> tuple[torch.Tensor, list[StructuredPayload]]:
+        if not isinstance(raw, (tuple, list)):
+            return cast("torch.Tensor", raw), []
+        principal, *extras = raw
+        specs = self._extra_output_specs()
+        if len(extras) != len(specs):
+            algo = getattr(self, "algorithm", type(self).__name__)
+            raise ValueError(
+                f"{algo} returned {len(extras)} extra output(s) but its algorithm_registry "
+                f"entry declares {len(specs)} via extra_outputs. Declare one "
+                "StructuredOutputSpec per extra positional output (position 0 is the "
+                "principal attribution) so the framework can type and persist them."
             )
+        payloads = [
+            StructuredPayload(
+                spec.name,
+                spec.kind,
+                data.detach().cpu() if isinstance(data, torch.Tensor) else data,
+            )
+            for spec, data in zip(specs, extras, strict=True)
+        ]
+        return cast("torch.Tensor", principal), payloads
 
     @staticmethod
     def _batch_size_from_raitap_kwargs(raitap_kwargs: dict[str, Any]) -> int | None:

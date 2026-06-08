@@ -4,10 +4,11 @@ Shared transparency contracts: payload kinds and explainer adapter typing.
 :class:`ExplanationPayloadKind` labels the primary payload on
 :class:`~raitap.transparency.results.ExplanationResult`.
 :attr:`~ExplanationPayloadKind.ATTRIBUTIONS` is supported end-to-end (persistence,
-visualisation, factory wiring). Other enum members may exist for forward-compatible
-APIs before every code path is complete — for example
-:attr:`~ExplanationPayloadKind.STRUCTURED` is not yet handled in
-:meth:`~raitap.transparency.results.ExplanationResult.write_artifacts`.
+visualisation, factory wiring). ``STRUCTURED`` labels a *principal* payload that is
+not a standard attribution map (e.g. AIX360 prototypes / rule sets, #289). Additive
+diagnostics such as convergence deltas attach via
+``ExplanationResult.structured_payloads`` and do NOT change the principal
+``payload_kind``.
 """
 
 from __future__ import annotations
@@ -35,6 +36,19 @@ class ExplanationPayloadKind(StrEnum):
 
     ATTRIBUTIONS = "attributions"
     STRUCTURED = "structured"
+
+
+class StructuredPayloadKind(StrEnum):
+    """Typed kinds for additive structured payloads attached to an explanation.
+
+    Additive sidecars on ``ExplanationResult.structured_payloads`` (independent of
+    ``ExplanationPayloadKind``). ``CONVERGENCE_DELTA`` and ``BASE_VALUE`` are wired
+    in #101; further kinds (contrastive examples, prototypes, rule sets) land with
+    the AIX360 adapter (#289).
+    """
+
+    CONVERGENCE_DELTA = "convergence_delta"
+    BASE_VALUE = "base_value"
 
 
 class BaselineMode(StrEnum):
@@ -125,6 +139,38 @@ class BaselineCardinality(StrEnum):
 
 
 @dataclass(frozen=True)
+class StructuredPayload:
+    """One additive payload attached to an ``ExplanationResult``.
+
+    ``data`` is typed ``Any`` to stay general for #289 (prototypes, rule sets);
+    #101 implements and tests the ``torch.Tensor`` branch only.
+    """
+
+    name: str
+    kind: StructuredPayloadKind
+    data: Any
+
+
+@dataclass(frozen=True)
+class StructuredOutputSpec:
+    """Schema for one positional extra element of a tuple explainer output.
+
+    Maps tuple position ``i + 1`` (position 0 is always the principal attribution).
+    ``per_sample`` describes the intended batched-accumulation contract: a
+    per-sample payload concatenates along dim 0 across chunks. #101 only ships
+    per-sample payloads (convergence delta, SHAP base value) and the batched path
+    always concatenates; the flag is a forward-declaration not yet read by code.
+    Honouring ``per_sample=False`` (a global payload that must not be concatenated)
+    is deferred to #289, which will add the guard when a non-per-sample payload
+    first lands.
+    """
+
+    name: str
+    kind: StructuredPayloadKind
+    per_sample: bool = True
+
+
+@dataclass(frozen=True)
 class ExplainerAlgorithmSpec:
     """Per-algorithm metadata carried by a transparency adapter's ``algorithm_registry``.
 
@@ -149,6 +195,9 @@ class ExplainerAlgorithmSpec:
     # Optional per-algorithm invoker overriding the adapter's default
     # construct-and-call path (#266). None => default path.
     invoker: Any = None
+    # Positional extra tuple outputs declared per algorithm (#101). Empty unless
+    # the wrapped method appends diagnostics (e.g. IG return_convergence_delta).
+    extra_outputs: tuple[StructuredOutputSpec, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "families", frozenset(self.families))
@@ -382,6 +431,7 @@ class VisualisationContext:
     detection_box: DetectionBox | None = None
     source_library: str | None = None
     method_families: AbstractSet[MethodFamily] = field(default_factory=frozenset)
+    structured_payloads: tuple[StructuredPayload, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "method_families", frozenset(self.method_families))

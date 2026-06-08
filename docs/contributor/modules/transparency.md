@@ -60,6 +60,45 @@ Capture happens once at the `AttributionOnlyExplainer.explain` chokepoint via `b
 render/hash failure degrades to no baseline rather than discarding attributions.
 See [Adding an algorithm](../adding/adding-an-algorithm.md).
 
+### Structured payloads (extra tuple outputs)
+
+Some library methods return a tuple: the principal attribution plus extra
+diagnostics (e.g. Captum's `return_convergence_delta=True` appends a delta). To
+capture these as first-class payloads, declare one `StructuredOutputSpec` per
+extra positional element on the algorithm's `ExplainerAlgorithmSpec.extra_outputs`:
+
+```python
+from raitap.transparency.contracts import (
+    ExplainerAlgorithmSpec,
+    StructuredOutputSpec,
+    StructuredPayloadKind,
+)
+
+ExplainerAlgorithmSpec(
+    {MethodFamily.GRADIENT},
+    extra_outputs=(
+        StructuredOutputSpec("convergence_delta", StructuredPayloadKind.CONVERGENCE_DELTA),
+    ),
+)
+```
+
+Tuple position 0 is always the principal attribution. Positions 1.. map
+positionally to the declared specs. If the method returns a tuple but the count
+of extras does not match `extra_outputs`, the framework raises a `ValueError`
+naming the mismatch, so an undeclared extra output never passes silently. The
+captured payloads are persisted to `payloads/<name>.pt` and described in
+`metadata.json`; see {doc}`../../modules/transparency/output`. `StructuredPayloadKind`
+(`CONVERGENCE_DELTA`, `BASE_VALUE`) and `StructuredOutputSpec` live in
+`raitap.transparency.contracts`.
+
+To consume payloads in a visualiser, declare
+`supported_structured_payload_kinds={StructuredPayloadKind.CONVERGENCE_DELTA}`
+(the kinds it needs) via the `@visualisers.transparency` decorator kwarg, then
+read `context.structured_payloads` in `visualise()`. `validate_explanation`
+rejects the visualiser when the explanation lacks a declared kind. The registered
+`StructuredPayloadSummaryVisualiser` (`structured_payload_summary`) is the
+reference renderer.
+
 ## ShapExplainer internals
 
 `ShapExplainer.compute_attributions` builds an `AttributionInvokeCtx` and dispatches via the
@@ -108,6 +147,7 @@ before calling `visualise`.
 | `supported_output_spaces` | `frozenset[ExplanationOutputSpace]` | Attribution coordinate spaces the visualiser handles. |
 | `supported_method_families` | `frozenset[MethodFamily]` | Method families the visualiser understands. |
 | `compatible_algorithms` | `frozenset[str]` | Optional algorithm allowlist; empty = all algorithms. |
+| `supported_structured_payload_kinds` | `frozenset[StructuredPayloadKind]` | Structured payload kinds the visualiser can render. Non-empty means `validate_explanation` rejects an explanation that carries none of the declared kinds (any-of, like `supported_method_families`); the visualiser renders whichever declared kinds are present. Empty = consumes none. |
 | `produces_scope` | `ExplanationScope \| None` | Set only when the visualiser *changes* the result scope (e.g. summarising local to aggregated). Leave `None` to preserve the input scope. |
 | `scope_definition_step` | `ScopeDefinitionStep \| None` | Where the produced scope was defined; set when `produces_scope` is set. |
 | `visual_summary` | `VisualSummarySpec \| None` | Metadata for summary visualisations. |
@@ -133,6 +173,15 @@ Plus two instance-level hooks:
 For the decorator/registration scaffolding (`@visualisers.transparency`, `registry_name`, exports),
 see {doc}`../adding/adding-an-adapter`. The bullets above are the transparency-specific additions on top of
 that scaffolding.
+
+### Adding an image renderer
+
+`visualise()` forwards style kwargs to the resolved renderer's `draw(**style)`. Any renderer
+registered via `@image_renderer` **must** accept `**style` (the `ImageAttributionRenderer`
+protocol declares it); a renderer that omits it raises `TypeError` once a user sets `method`.
+To participate in the unhonoured-field warning, declare the optional `honours_method` (bool)
+and `honoured_signs` (`frozenset[str]`) class constants. They are read via `getattr` with
+honour-all defaults, so they are not required.
 
 ## Typed semantics contract
 

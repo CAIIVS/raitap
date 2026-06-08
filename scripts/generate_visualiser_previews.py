@@ -50,6 +50,8 @@ from raitap.transparency.contracts import (
     DetectionBox,
     InputKind,
     InputSpec,
+    StructuredPayload,
+    StructuredPayloadKind,
 )
 from raitap.transparency.contracts import (
     VisualisationContext as TransparencyVisualisationContext,
@@ -65,6 +67,7 @@ from raitap.transparency.visualisers import (
     ShapForceVisualiser,
     ShapImageVisualiser,
     ShapWaterfallVisualiser,
+    StructuredPayloadSummaryVisualiser,
     TabularBarChartVisualiser,
 )
 
@@ -122,9 +125,9 @@ def _formal_fixture() -> RobustnessResult:
         ),
         run_dir=Path("."),
         experiment_name="marabou-preview",
-        assessor_target="raitap.robustness.assessors.MarabouAssessor",
+        adapter_target="raitap.robustness.assessors.MarabouAssessor",
         algorithm="marabou-linf",
-        assessor_name="marabou_linf",
+        name="marabou_linf",
         output_bounds={"lower": lower, "upper": upper},
         runtime_per_sample=runtimes,
         semantics=RobustnessSemantics(
@@ -171,9 +174,9 @@ def _empirical_fixture() -> RobustnessResult:
         ),
         run_dir=Path("."),
         experiment_name="pgd-preview",
-        assessor_target="raitap.robustness.assessors.TorchattacksAssessor",
+        adapter_target="raitap.robustness.assessors.TorchattacksAssessor",
         algorithm="PGD",
-        assessor_name="pgd",
+        name="pgd",
         semantics=RobustnessSemantics(
             assessment_kind=AssessmentKind.EMPIRICAL_ATTACK,
             threat_model=ThreatModel.WHITE_BOX,
@@ -207,9 +210,9 @@ def _sampling_fixture() -> RobustnessResult:
         ),
         run_dir=Path("."),
         experiment_name="imagecorruptions-preview",
-        assessor_target="raitap.robustness.assessors.ImageCorruptionsAssessor",
+        adapter_target="raitap.robustness.assessors.ImageCorruptionsAssessor",
         algorithm="gaussian_noise",
-        assessor_name="gaussian_noise",
+        name="gaussian_noise",
         semantics=RobustnessSemantics(
             assessment_kind=AssessmentKind.STATISTICAL_SAMPLING,
             threat_model=ThreatModel.NOT_APPLICABLE,
@@ -412,6 +415,29 @@ def _render_transparency_previews() -> list[Path]:
             "tabular_bar_chart_visualiser",
             TabularBarChartVisualiser(feature_names=feature_names).visualise(
                 tabular_attrs, context=captum_ctx
+            ),
+        )
+    )
+
+    # Structured payload summary (per-sample convergence-delta diagnostics from an
+    # IntegratedGradients run with return_convergence_delta=True).
+    structured_ctx = TransparencyVisualisationContext(
+        algorithm="IntegratedGradients",
+        sample_names=None,
+        show_sample_names=False,
+        structured_payloads=(
+            StructuredPayload(
+                "convergence_delta",
+                StructuredPayloadKind.CONVERGENCE_DELTA,
+                torch.tensor([0.004, -0.021, 0.038, 0.009, -0.006, 0.045, 0.012, -0.030]),
+            ),
+        ),
+    )
+    saved.append(
+        _save(
+            "structured_payload_summary_visualiser",
+            StructuredPayloadSummaryVisualiser().visualise(
+                torch.zeros(8, 4), context=structured_ctx
             ),
         )
     )

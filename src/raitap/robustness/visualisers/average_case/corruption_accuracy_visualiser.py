@@ -56,7 +56,7 @@ class CorruptionAccuracyVisualiser(BaseRobustnessVisualiser):
         ax.bar(labels, values, color=["#1f77b4", "#d62728"])
         ax.errorbar(labels, values, yerr=[lower, upper], fmt="none", ecolor="black", capsize=5)
         ax.set_ylim(0.0, 1.0)
-        ax.set_ylabel("accuracy")
+        ax.set_ylabel("Accuracy")
 
         region = result.semantics.perturbation
         if isinstance(region, PerturbationDistribution):

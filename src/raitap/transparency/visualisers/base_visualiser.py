@@ -15,6 +15,7 @@ from raitap.transparency.contracts import (
     ExplanationScope,
     MethodFamily,
     ScopeDefinitionStep,
+    StructuredPayloadKind,
     VisualisationContext,
     VisualSummarySpec,
 )
@@ -57,6 +58,7 @@ class BaseVisualiser(ABC, AdapterMixin):
     supported_scopes: ClassVar[frozenset[ExplanationScope]] = frozenset()
     supported_output_spaces: ClassVar[frozenset[ExplanationOutputSpace]] = frozenset()
     supported_method_families: ClassVar[frozenset[MethodFamily]] = frozenset()
+    supported_structured_payload_kinds: ClassVar[frozenset[StructuredPayloadKind]] = frozenset()
     produces_scope: ClassVar[ExplanationScope | None] = None
     scope_definition_step: ClassVar[ScopeDefinitionStep | None] = None
     visual_summary: ClassVar[VisualSummarySpec | None] = None
@@ -120,6 +122,23 @@ class BaseVisualiser(ABC, AdapterMixin):
                 _format_supported(method_families),
                 _format_supported(self.supported_method_families),
             )
+
+        supported_structured_kinds = self.supported_structured_payload_kinds
+        if supported_structured_kinds:
+            # A visualiser declares the structured kinds it CAN render and draws
+            # whichever subset is present (see ``_matching_payloads``), so it is
+            # compatible as long as the explanation carries at least one of them.
+            # Any-of (intersection), matching the ``method_families`` gate above;
+            # no single explainer emits every structured kind.
+            available = {
+                payload.kind for payload in getattr(explanation, "structured_payloads", ()) or ()
+            }
+            if not (supported_structured_kinds & available):
+                self._raise_incompatibility(
+                    "structured payload",
+                    _format_supported(available),
+                    _format_supported(supported_structured_kinds),
+                )
 
     def _raise_incompatibility(self, dimension: str, actual: str, expected: str) -> None:
         raise ValueError(

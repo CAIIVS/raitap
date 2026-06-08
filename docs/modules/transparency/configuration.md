@@ -47,7 +47,12 @@ myst:
 :description: Keyword arguments passed verbatim to the underlying library when
   computing attributions. Any nested dict with a `source` key is treated as a
   runtime data source. For a baseline / reference input prefer `raitap.baseline`
-  (library-agnostic name) over the raw library kwarg here.
+  (library-agnostic name) over the raw library kwarg here. Some kwargs make the
+  library return extra diagnostics: `return_convergence_delta: true` on
+  `IntegratedGradients`, `LayerConductance`, `LayerIntegratedGradients`, or
+  `LayerDeepLift` captures the delta as a `convergence_delta` structured payload
+  (persisted under `payloads/`, described in `metadata.json`). See
+  {doc}`output`.
 
 :option: raitap
 :allowed: dict

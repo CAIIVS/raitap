@@ -22,6 +22,7 @@ if TYPE_CHECKING:
         ExplanationScope,
         MethodFamily,
         ScopeDefinitionStep,
+        StructuredPayloadKind,
         VisualSummarySpec,
     )
     from raitap.transparency.visualisers.base_visualiser import BaseVisualiser
@@ -43,6 +44,7 @@ def transparency_visualiser(
     supported_scopes: AbstractSet[ExplanationScope] | _Unset = _UNSET,
     supported_output_spaces: AbstractSet[ExplanationOutputSpace] | _Unset = _UNSET,
     supported_method_families: AbstractSet[MethodFamily] | _Unset = _UNSET,
+    supported_structured_payload_kinds: AbstractSet[StructuredPayloadKind] | _Unset = _UNSET,
     supported_tasks: AbstractSet[TaskKind] | _Unset = _UNSET,
     compatible_algorithms: AbstractSet[str] | _Unset = _UNSET,
     embeds_original_input: bool | _Unset = _UNSET,
@@ -61,6 +63,7 @@ def transparency_visualiser(
             ("supported_scopes", supported_scopes),
             ("supported_output_spaces", supported_output_spaces),
             ("supported_method_families", supported_method_families),
+            ("supported_structured_payload_kinds", supported_structured_payload_kinds),
             ("supported_tasks", supported_tasks),
             ("compatible_algorithms", compatible_algorithms),
         ):

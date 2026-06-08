@@ -131,6 +131,31 @@ def test_unknown_target_raises() -> None:
         infer_extras(cfg, hardware="cpu")
 
 
+def test_unknown_target_message_lists_known_adapters() -> None:
+    cfg = {
+        "model": {"source": "x.pt"},
+        "transparency": {"bad": {"_target_": "djd"}},
+    }
+    with pytest.raises(UnknownAdapterTargetError) as excinfo:
+        infer_extras(cfg, hardware="cpu")
+    msg = str(excinfo.value)
+    # End-user-facing: names the bad target and enumerates valid ones.
+    assert "djd" in msg
+    assert "Known adapters:" in msg
+    assert "CaptumExplainer" in msg
+
+
+def test_unknown_target_message_suggests_close_match() -> None:
+    cfg = {
+        "model": {"source": "x.pt"},
+        # One-char typo of a real adapter -> difflib should suggest it.
+        "transparency": {"bad": {"_target_": "CaptumExplaner"}},
+    }
+    with pytest.raises(UnknownAdapterTargetError) as excinfo:
+        infer_extras(cfg, hardware="cpu")
+    assert "Did you mean 'CaptumExplainer'?" in str(excinfo.value)
+
+
 def test_visualisers_do_not_contribute() -> None:
     cfg = {
         "model": {"source": "x.pt"},

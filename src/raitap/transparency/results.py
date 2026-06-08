@@ -27,6 +27,7 @@ from .contracts import (
     ExplanationScope,
     ExplanationSemantics,
     ScopeDefinitionStep,
+    StructuredPayload,
     VisualisationContext,
     VisualSummarySpec,
 )
@@ -71,6 +72,23 @@ def _serialisable_call_kwarg(value: Any) -> Any:
     if isinstance(value, (list, tuple, set)):
         return [_serialisable_call_kwarg(item) for item in value]
     return _serialisable(value)
+
+
+def _structured_payload_descriptor(payload: StructuredPayload) -> dict[str, Any]:
+    data = payload.data
+    if isinstance(data, torch.Tensor):
+        return {
+            "name": payload.name,
+            "kind": payload.kind.value,
+            "storage": "tensor",
+            "file": f"payloads/{payload.name}.pt",
+            "shape": list(data.shape),
+            "dtype": str(data.dtype),
+        }
+    raise NotImplementedError(
+        f"Metadata for non-tensor structured payload {payload.name!r} "
+        f"(kind {payload.kind.value}) is not implemented yet (#289)."
+    )
 
 
 def _batch_size(value: Any) -> int | None:
@@ -155,6 +173,7 @@ class ExplanationResult(Trackable):
     original_sample_index: int | None = None
     source_library: str | None = None
     baseline: BaselineRecord | None = None
+    structured_payloads: list[StructuredPayload] = field(default_factory=list)
     semantics: ExplanationSemantics = field(kw_only=True)
 
     def __post_init__(self) -> None:
@@ -164,6 +183,12 @@ class ExplanationResult(Trackable):
         # Ensure tensors are detached and on CPU to avoid GPU memory retention
         self.attributions = self.attributions.detach().cpu()
         self.inputs = self.inputs.detach().cpu()
+        self.structured_payloads = [
+            StructuredPayload(p.name, p.kind, p.data.detach().cpu())
+            if isinstance(p.data, torch.Tensor)
+            else p
+            for p in self.structured_payloads
+        ]
 
     def write_artifacts(self) -> None:
         self.run_dir.mkdir(parents=True, exist_ok=True)
@@ -171,13 +196,28 @@ class ExplanationResult(Trackable):
             torch.save(self.attributions, self.run_dir / "attributions.pt")
         elif self.payload_kind == ExplanationPayloadKind.STRUCTURED:
             raise NotImplementedError(
-                "Persistence for ExplanationPayloadKind.STRUCTURED is not implemented yet."
+                "Persistence for a STRUCTURED principal payload is not implemented yet (#289)."
             )
         else:
             raise NotImplementedError(
                 f"Persistence for payload kind {self.payload_kind!r} is not implemented yet."
             )
+        self._write_structured_payloads()
         self._write_metadata()
+
+    def _write_structured_payloads(self) -> None:
+        if not self.structured_payloads:
+            return
+        payloads_dir = self.run_dir / "payloads"
+        payloads_dir.mkdir(parents=True, exist_ok=True)
+        for payload in self.structured_payloads:
+            if isinstance(payload.data, torch.Tensor):
+                torch.save(payload.data, payloads_dir / f"{payload.name}.pt")
+            else:
+                raise NotImplementedError(
+                    f"Persistence for non-tensor structured payload {payload.name!r} "
+                    f"(kind {payload.kind.value}) is not implemented yet (#289)."
+                )
 
     def _metadata(self, *, visualiser_targets: list[str] | None = None) -> dict[str, Any]:
         targets = self.visualiser_targets if visualiser_targets is None else visualiser_targets
@@ -195,6 +235,10 @@ class ExplanationResult(Trackable):
                 if not (self.baseline is not None and key == self.baseline.kwarg_name)
             },
         }
+        if self.structured_payloads:
+            metadata["structured_payloads"] = [
+                _structured_payload_descriptor(p) for p in self.structured_payloads
+            ]
         if self.detection_box is not None:
             metadata["detection_box"] = {
                 "display_index": self.detection_box.display_index,
@@ -265,6 +309,7 @@ class ExplanationResult(Trackable):
                 detection_box=self.detection_box,
                 source_library=self.source_library,
                 method_families=self.semantics.method_families,
+                structured_payloads=tuple(self.structured_payloads),
             )
 
             vis.validate_explanation(self, attributions, inputs)
@@ -418,6 +463,7 @@ class ExplanationResult(Trackable):
             detection_box=self.detection_box,
             source_library=self.source_library,
             method_families=self.semantics.method_families,
+            structured_payloads=tuple(self.structured_payloads),
         )
         vis.validate_explanation(self, attributions, inputs)
         original_visualiser_sample_index = getattr(vis, "sample_index", None)
@@ -501,6 +547,9 @@ class ExplanationResult(Trackable):
             staging_dir = Path(tmp_dir) / "explanation"
             staging_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy2(self.run_dir / "attributions.pt", staging_dir / "attributions.pt")
+            payloads_src = self.run_dir / "payloads"
+            if payloads_src.is_dir():
+                shutil.copytree(payloads_src, staging_dir / "payloads")
             (staging_dir / "metadata.json").write_text(
                 json.dumps(self._metadata(visualiser_targets=[]), indent=2),
                 encoding="utf-8",

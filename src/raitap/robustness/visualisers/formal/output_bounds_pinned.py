@@ -152,7 +152,7 @@ class OutputBoundsPinnedVisualiser(BaseRobustnessVisualiser):
             ax.set_yticks(range(len(shown)))
             ax.set_yticklabels([f"logit_{k}" for k in shown])
             ax.invert_yaxis()
-            ax.set_xlabel("certified value")
+            ax.set_xlabel("Certified value")
 
             title = f"sample {sample_index} | target={target_k}"
             if len(shown) < n_classes:

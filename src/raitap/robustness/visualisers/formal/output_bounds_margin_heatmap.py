@@ -137,10 +137,10 @@ class OutputBoundsMarginHeatmapVisualiser(BaseRobustnessVisualiser):
             )
         else:
             ax.set_yticklabels([str(i) for i in range(n)])
-        ax.set_xlabel("output class")
-        ax.set_ylabel("sample")
+        ax.set_xlabel("Output class")
+        ax.set_ylabel("Sample")
         ax.set_title(f"{context.algorithm} — certified margin vs. target")
         cbar = fig.colorbar(im, ax=ax)
-        cbar.set_label("lower[target] - upper[k]")
+        cbar.set_label("Lower[target] - upper[k]")
         fig.tight_layout()
         return fig

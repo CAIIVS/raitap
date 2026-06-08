@@ -78,8 +78,8 @@ class VerdictSummaryVisualiser(BaseRobustnessVisualiser):
         colors = [_VERDICT_COLORS[v] for v in _VERDICT_ORDER]
         axes[0].bar(labels, values, color=colors)
         axes[0].set_title("Verdict distribution")
-        axes[0].set_xlabel("verdict")
-        axes[0].set_ylabel("count")
+        axes[0].set_xlabel("Verdict")
+        axes[0].set_ylabel("Count")
         for index, count in enumerate(values):
             axes[0].text(index, count, str(count), ha="center", va="bottom", fontsize=9)
 
@@ -88,8 +88,8 @@ class VerdictSummaryVisualiser(BaseRobustnessVisualiser):
             data = np.asarray(runtimes.detach().cpu().numpy(), dtype=float)
             axes[1].hist(data, bins=self.runtime_bins, color="#1f77b4")
             axes[1].set_title("Runtime per sample")
-            axes[1].set_xlabel("seconds")
-            axes[1].set_ylabel("samples")
+            axes[1].set_xlabel("Seconds")
+            axes[1].set_ylabel("Samples")
         else:
             axes[1].text(
                 0.5,
