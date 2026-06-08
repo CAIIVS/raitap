@@ -16,6 +16,7 @@ rather than emitting a possibly wrong command.
 
 from __future__ import annotations
 
+import difflib
 import os
 from collections.abc import Mapping
 from typing import Any, Literal
@@ -58,13 +59,22 @@ def backend_extra(model_source: str, hardware: Hardware) -> str:
 def _extra_for_target(target: str) -> str:
     cls = _class_name(target)
     extra = ADAPTER_EXTRAS.get(cls) or scan_adapter_extras().get(cls)
-    if extra is None:
-        raise UnknownAdapterTargetError(
-            f"Unknown adapter _target_ '{target}' — declare the wrapped library "
-            'extra via the ``extra="..."`` class kwarg on the adapter so the '
-            "deps inference can pick it up."
-        )
-    return extra
+    if extra is not None:
+        return extra
+    # Two distinct failures share this path: an end-user typo in ``_target_``
+    # (common) and an adapter author who forgot ``extra=`` (rare). Speak to
+    # both, and list / suggest valid targets instead of only the author hint.
+    known = {**scan_adapter_extras(), **ADAPTER_EXTRAS}
+    match = difflib.get_close_matches(cls, known, n=1)
+    suggestion = f" Did you mean '{match[0]}'?" if match else ""
+    known_list = ", ".join(sorted(known)) if known else "(none found)"
+    raise UnknownAdapterTargetError(
+        f"Unknown adapter _target_ '{target}'.{suggestion}\n"
+        f"Known adapters: {known_list}.\n"
+        "If this is a typo, fix the _target_. If you are adding a new adapter, "
+        'declare its wrapped-library extra via the ``extra="..."`` class kwarg '
+        "so deps inference can pick it up."
+    )
 
 
 def _add(extras: dict[str, str], name: str, origin: str) -> None:
