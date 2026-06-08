@@ -156,8 +156,13 @@ class StructuredOutputSpec:
     """Schema for one positional extra element of a tuple explainer output.
 
     Maps tuple position ``i + 1`` (position 0 is always the principal attribution).
-    ``per_sample`` drives batched accumulation: True concatenates the element along
-    dim 0 across chunks. #101 only implements ``per_sample=True``.
+    ``per_sample`` describes the intended batched-accumulation contract: a
+    per-sample payload concatenates along dim 0 across chunks. #101 only ships
+    per-sample payloads (convergence delta, SHAP base value) and the batched path
+    always concatenates; the flag is a forward-declaration not yet read by code.
+    Honouring ``per_sample=False`` (a global payload that must not be concatenated)
+    is deferred to #289, which will add the guard when a non-per-sample payload
+    first lands.
     """
 
     name: str
