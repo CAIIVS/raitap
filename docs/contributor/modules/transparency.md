@@ -174,6 +174,15 @@ For the decorator/registration scaffolding (`@visualisers.transparency`, `regist
 see {doc}`../adding/adding-an-adapter`. The bullets above are the transparency-specific additions on top of
 that scaffolding.
 
+### Adding an image renderer
+
+`visualise()` forwards style kwargs to the resolved renderer's `draw(**style)`. Any renderer
+registered via `@image_renderer` **must** accept `**style` (the `ImageAttributionRenderer`
+protocol declares it); a renderer that omits it raises `TypeError` once a user sets `method`.
+To participate in the unhonoured-field warning, declare the optional `honours_method` (bool)
+and `honoured_signs` (`frozenset[str]`) class constants. They are read via `getattr` with
+honour-all defaults, so they are not required.
+
 ## Typed semantics contract
 
 `ExplanationResult.semantics` describes the computed explanation artefact. It is a typed contract,

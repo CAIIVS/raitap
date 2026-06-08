@@ -308,17 +308,6 @@ you set a `method`/`sign` the resolved renderer can't honour, raitap emits a
 it. `show_colorbar` is renderer-agnostic (it gates the figure's attribution
 colorbar directly), so it applies regardless of source library.
 
-:::{note}
-**Adding a renderer (contributors).** `visualise()` forwards style kwargs to the
-resolved renderer's `draw(**style)`. Any renderer registered via
-`@image_renderer` **must** accept `**style` (the `ImageAttributionRenderer`
-protocol declares it); a renderer that omits it raises `TypeError` once a user
-sets `method`. To participate in the unhonoured-field warning, declare the
-optional `honours_method` (bool) and `honoured_signs` (`frozenset[str]`) class
-constants — they are read via `getattr` with honour-all defaults, so they are
-not required.
-:::
-
 ## Reporting helpers
 
 :::::{visualiser-card}
