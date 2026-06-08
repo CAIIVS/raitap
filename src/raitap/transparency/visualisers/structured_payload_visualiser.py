@@ -55,10 +55,17 @@ class StructuredPayloadSummaryVisualiser(BaseVisualiser):
         fig, axes = plt.subplots(len(payloads), 1, figsize=(8, 2.5 * len(payloads)), squeeze=False)
         for ax, payload in zip(axes[:, 0], payloads, strict=True):
             values = self._to_1d_numpy(payload.data)
+            readable_kind = payload.kind.value.replace("_", " ").capitalize()
+            # ``name`` is usually the kind value; only disambiguate when it differs.
+            title = (
+                payload.name
+                if payload.name == payload.kind.value
+                else f"{payload.name} ({payload.kind.value})"
+            )
             ax.bar(np.arange(values.shape[0]), values)
-            ax.set_title(f"{payload.name} ({payload.kind.value})")
+            ax.set_title(title)
             ax.set_xlabel("Sample")
-            ax.set_ylabel("Value")
+            ax.set_ylabel(readable_kind)
             ax.grid(axis="y", alpha=0.3)
         fig.tight_layout()
         return fig
