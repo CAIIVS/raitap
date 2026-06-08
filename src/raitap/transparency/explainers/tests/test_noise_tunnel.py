@@ -60,10 +60,13 @@ def test_unknown_base_rejected(simple_cnn: torch.nn.Module, sample_images: torch
 
 
 @pytest.mark.usefixtures("needs_captum")
-def test_smoothgrad_over_saliency_returns_input_shape(
-    simple_cnn: torch.nn.Module, sample_images: torch.Tensor
+@pytest.mark.parametrize("base_algorithm", ["Saliency", "IntegratedGradients"])
+def test_smoothgrad_returns_input_shape(
+    simple_cnn: torch.nn.Module, sample_images: torch.Tensor, base_algorithm: str
 ) -> None:
-    explainer = CaptumExplainer("NoiseTunnel", base_algorithm="Saliency")
+    # Covers both allow-listed bases: Saliency (no reference) and
+    # IntegratedGradients (the base that carries baseline/delta metadata).
+    explainer = CaptumExplainer("NoiseTunnel", base_algorithm=base_algorithm)
     attributions = explainer.compute_attributions(
         simple_cnn, sample_images, target=0, nt_type="smoothgrad", nt_samples=2, stdevs=0.1
     )
