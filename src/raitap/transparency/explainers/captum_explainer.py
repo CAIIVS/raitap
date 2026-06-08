@@ -9,6 +9,8 @@ from raitap.transparency.contracts import (
     BaselineMode,
     ExplainerAlgorithmSpec,
     MethodFamily,
+    StructuredOutputSpec,
+    StructuredPayloadKind,
 )
 from raitap.transparency.explainers.registration import transparency_adapter
 from raitap.types import Capability
@@ -20,6 +22,11 @@ if TYPE_CHECKING:
     import torch.nn as nn
 
     from raitap.models.access import ExplanationModel
+
+
+_CONVERGENCE_DELTA = (
+    StructuredOutputSpec("convergence_delta", StructuredPayloadKind.CONVERGENCE_DELTA),
+)
 
 
 @transparency_adapter(
@@ -40,6 +47,7 @@ if TYPE_CHECKING:
             baseline_default=BaselineMode.ZERO,
             baseline_cardinality=BaselineCardinality.SINGLE,
             requires={Capability.AUTOGRAD},
+            extra_outputs=_CONVERGENCE_DELTA,
         ),
         "Saliency": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT},
@@ -74,12 +82,14 @@ if TYPE_CHECKING:
             baseline_default=BaselineMode.ZERO,
             baseline_cardinality=BaselineCardinality.SINGLE,
             requires={Capability.AUTOGRAD},
+            extra_outputs=_CONVERGENCE_DELTA,
         ),
         "LayerIntegratedGradients": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT},
             baseline_default=BaselineMode.ZERO,
             baseline_cardinality=BaselineCardinality.SINGLE,
             requires={Capability.AUTOGRAD},
+            extra_outputs=_CONVERGENCE_DELTA,
         ),
         "LayerActivation": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT},
@@ -90,6 +100,7 @@ if TYPE_CHECKING:
             baseline_default=BaselineMode.ZERO,
             baseline_cardinality=BaselineCardinality.SINGLE,
             requires={Capability.AUTOGRAD},
+            extra_outputs=_CONVERGENCE_DELTA,
         ),
         "LayerGradientXActivation": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT},

@@ -155,6 +155,40 @@ class TestCaptumExplainer:
         assert isinstance(result.attributions, torch.Tensor)
         assert result.attributions.shape == sample_images.shape
 
+    @pytest.mark.usefixtures("needs_captum")
+    def test_integrated_gradients_surfaces_convergence_delta(
+        self, simple_cnn: torch.nn.Module, sample_images: torch.Tensor, tmp_path: Path
+    ) -> None:
+        """``return_convergence_delta=True`` yields a typed convergence_delta payload."""
+        from raitap.transparency.contracts import StructuredPayloadKind
+
+        explainer = CaptumExplainer(algorithm="IntegratedGradients")
+        result = explainer.explain(
+            simple_cnn,
+            sample_images,
+            run_dir=tmp_path / "transparency",
+            target=0,
+            return_convergence_delta=True,
+            raitap_kwargs={
+                "show_progress": False,
+                "input_metadata": InputSpec(
+                    kind="image",
+                    shape=tuple(sample_images.shape),
+                    layout="NCHW",
+                    metadata={"kind": "image", "layout": "NCHW"},
+                ),
+            },
+        )
+
+        kinds = {p.kind for p in result.structured_payloads}
+        assert StructuredPayloadKind.CONVERGENCE_DELTA in kinds
+        delta = next(
+            p
+            for p in result.structured_payloads
+            if p.kind is StructuredPayloadKind.CONVERGENCE_DELTA
+        )
+        assert delta.data.shape[0] == sample_images.shape[0]
+
     @pytest.mark.usefixtures("needs_captum", "needs_onnx")
     def test_feature_ablation_runs_with_onnx_backend(
         self,
