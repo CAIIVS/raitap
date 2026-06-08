@@ -282,8 +282,14 @@ class ShapExplainer(AttributionOnlyExplainer):
         background_data: torch.Tensor | None = None,
         target: int | list[int] | torch.Tensor | None = None,
         **shap_kwargs,
-    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+    ) -> torch.Tensor:
         """Compute SHAP values via the per-entry invoker (legacy or modern).
+
+        The modern path additionally returns the SHAP base value, so the raw
+        runtime result may be a ``(attributions, base_value)`` tuple. It is typed
+        ``torch.Tensor`` to match the base contract (as Captum's tuple-returning
+        methods do); the framework's split seam consumes the raw output as
+        ``object`` and never relies on this annotation. (#101)
 
         Args:
             model: PyTorch model
