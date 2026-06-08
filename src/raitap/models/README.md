@@ -4,7 +4,7 @@ This module loads machine-learning models into a uniform `ModelBackend`
 that downstream RAITAP modules (transparency, metrics, reporting) consume
 without caring about how the model was serialised.
 
-It supports torchvision built-ins, ONNX archives, and three flavours of
+It supports torchvision built-ins, ONNX archives, XGBoost tree models, and three flavours of
 PyTorch checkpoint.
 
 ## Loader behaviour for `.pt` / `.pth`
@@ -67,3 +67,10 @@ architecture that produced the state-dict.
 `src/raitap/models/backend.py` for the runtime selection logic. ONNX
 backends are restricted to a subset of explainers (see the transparency
 module README).
+
+## XGBoost (`.ubj`)
+
+`.ubj` files are loaded via `XGBoostBackend.from_path`. The backend provides
+`TREE_MODEL` and `PREDICT_PROBA` capabilities, enabling `shap.TreeExplainer`
+and model-agnostic SHAP explainers. Requires the `tree` extra:
+`uv sync --extra tree`.

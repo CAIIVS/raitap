@@ -56,6 +56,55 @@ class MyBackend(ModelBackend):
 
 A non-torch or forward-only backend (e.g. ONNX) declares `provides=FORWARD_ONLY` (the empty capability set, imported from `raitap.types`), skips `autograd_module`, and runs model-agnostic explainers only.
 
+## Tree / tabular backend
+
+Tree-ensemble runtimes (XGBoost, LightGBM, scikit-learn) follow a separate base class: `TabularTreeBackend`. It owns the torch-to-numpy bridge, the `fitted_estimator()` accessor, and the `(N, C)` probability output shape. Subclass it instead of raw `ModelBackend`.
+
+The concrete subclass implements two methods:
+
+- `from_path`: defer the library import inside the method so the import error surfaces only when the backend is actually used, not at module load. Raise `ImportError` with a pip install hint if the library is absent.
+- `_predict_proba`: call the fitted estimator and return an `(N, C)` numpy array of class probabilities.
+
+Register with `provides={Capability.TREE_MODEL, Capability.PREDICT_PROBA}` and a file extension. The `fitted_estimator()` accessor satisfies the `EstimatorProvider` protocol, which `shap.TreeExplainer` consumes directly. The `predict_callable` method (inherited) returns a callable over the numpy-bridge probabilities, which enables model-agnostic SHAP explainers (e.g. `KernelExplainer`) on tree backends for free.
+
+```python
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from raitap import backends
+from raitap.models.tree_backend import TabularTreeBackend
+from raitap.types import Capability
+
+
+@backends.register(
+    provides={Capability.TREE_MODEL, Capability.PREDICT_PROBA},
+    extensions={".ubj"},
+)
+class XGBoostBackend(TabularTreeBackend):
+    # __init__(estimator) is inherited from TabularTreeBackend.
+
+    @classmethod
+    def from_path(
+        cls, path: Path, *, model_cfg: Any, hardware: str, allow_unsafe_pickle: bool = False
+    ) -> "XGBoostBackend":
+        try:
+            import xgboost  # deferred: only required with --extra tree
+        except ImportError as exc:
+            raise ImportError(
+                "XGBoost is not installed. Run: uv sync --extra tree"
+            ) from exc
+        estimator = xgboost.XGBClassifier()
+        estimator.load_model(str(path))
+        return cls(estimator)
+
+    def _predict_proba(self, x: np.ndarray) -> np.ndarray:  # (N, C)
+        return self._estimator.predict_proba(x)
+```
+
+`TabularTreeBackend` inherits `hardware_label` and the CPU/classification defaults, so you do not need to override them unless your runtime supports GPU placement.
+
 ## Which capabilities to declare
 
 Most backends provide `{Capability.AUTOGRAD}` (torch) or `FORWARD_ONLY` (forward-only, e.g. ONNX). See {doc}`../capabilities` for the full list, what each means, and which algorithms require it.

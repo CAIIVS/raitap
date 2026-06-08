@@ -57,5 +57,10 @@ model:
 model:
   source: "scripted.pt"
 
+# Option D:
+# XGBoost tree model (requires --extra tree).
+model:
+  source: "model.ubj"
+
 :cli: model.source=resnet50
 ```

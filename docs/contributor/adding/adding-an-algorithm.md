@@ -83,7 +83,7 @@ The `requires` field on `ExplainerAlgorithmSpec` / `AssessorAlgorithmSpec` decla
 | Gradient-based (IntegratedGradients, PGD, FGSM, ...) | `{Capability.AUTOGRAD}` | Blocked on ONNX (forward-only) backends |
 | Model-agnostic (SHAP KernelExplainer, Occlusion, FeatureAblation, ...) | `frozenset()` (default) | Runs on any backend, including ONNX |
 
-Import: `from raitap.types import Capability`. `Capability.AUTOGRAD` is the only live value; `TREE_MODEL` and `PREDICT_PROBA` are roadmap placeholders with no current providers. See {doc}`../capabilities` for the full capability reference.
+Import: `from raitap.types import Capability`. `Capability.AUTOGRAD` and `Capability.TREE_MODEL` are live gate values; `PREDICT_PROBA` is provided by tree backends but is read by the forward pass, not used as an algorithm gate. See {doc}`../capabilities` for the full capability reference.
 
 When `requires - backend.provides` is non-empty, `BackendIncompatibilityError` is raised (`from raitap.utils.errors import BackendIncompatibilityError`; also re-exported from `raitap.robustness` and `raitap.transparency`).
 
