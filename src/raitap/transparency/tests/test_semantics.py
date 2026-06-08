@@ -100,6 +100,8 @@ def test_captum_method_family_registry_exactly_matches_adr_v1_list() -> None:
     expected = {
         "IntegratedGradients": frozenset({MethodFamily.GRADIENT}),
         "Saliency": frozenset({MethodFamily.GRADIENT}),
+        # NoiseTunnel (SmoothGrad/VarGrad) method composition added in #269.
+        "NoiseTunnel": frozenset({MethodFamily.GRADIENT}),
         "FeatureAblation": frozenset({MethodFamily.PERTURBATION}),
         "FeaturePermutation": frozenset({MethodFamily.PERTURBATION}),
         "Occlusion": frozenset({MethodFamily.PERTURBATION}),
