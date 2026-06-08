@@ -15,13 +15,14 @@ from raitap.transparency.contracts import (
 from raitap.transparency.explainers.registration import transparency_adapter
 from raitap.types import Capability
 
-from .base_explainer import AttributionOnlyExplainer
+from .base_explainer import AttributionInvokeCtx, AttributionOnlyExplainer
 
 if TYPE_CHECKING:
     import torch
     import torch.nn as nn
 
     from raitap.models.access import ExplanationModel
+    from raitap.transparency.contracts import InputSpec
 
 
 _CONVERGENCE_DELTA = (
@@ -142,61 +143,58 @@ class CaptumExplainer(AttributionOnlyExplainer):
         baselines: torch.Tensor | None = None,
         **attr_kwargs,
     ) -> torch.Tensor:
-        """
-        Compute Captum attributions.
+        """Compute Captum attributions via the per-entry invoker (#266).
 
-        Args:
-            model: PyTorch model
-            inputs: Input tensor
-            target: Target class index(es). Can be:
-                - int: Same target for all samples
-                - list[int]: Per-sample targets
-                - torch.Tensor: Per-sample target tensor
-            baselines: Baseline for integrated methods (optional)
-            **attr_kwargs: Additional arguments for .attribute() method
-
-        Returns:
-            Attribution tensor matching input shape
+        Default methods use ``_default_captum_invoker`` (the uniform
+        ``method_class(model).attribute(...)`` path). Methods with a non-uniform
+        lifecycle (NoiseTunnel) carry a custom ``invoker`` on their registry entry.
         """
-        del backend, input_spec
+        del backend
         captum_attr = self._lazy_import("attr")
+        hints = self.algorithm_registry.get(self.algorithm)
+        ctx = AttributionInvokeCtx(
+            explainer=self,
+            library=captum_attr,
+            model=model,
+            inputs=inputs,
+            input_spec=cast("InputSpec | None", input_spec),
+            call_kwargs={"target": target, "baselines": baselines, **attr_kwargs},
+        )
+        invoke = getattr(hints, "invoker", None) or _default_captum_invoker
+        return invoke(ctx)
 
-        # Dynamically get the method class
-        try:
-            method_class = getattr(captum_attr, self.algorithm)
-        except AttributeError:
-            raise ValueError(
-                f"'{self.algorithm}' is not a valid captum.attr method.\n"
-                f"Set algorithm to a class name available in captum.attr, "
-                f"e.g. 'IntegratedGradients', 'Saliency', 'LayerGradCam'."
-            ) from None
 
-        init_kwargs = dict(self.init_kwargs)
-        if _needs_layer_resolution(self.algorithm):
-            layer_path = init_kwargs.pop("layer_path", None)
-            if layer_path is not None and "layer" not in init_kwargs:
-                # Layer*/GuidedGradCam require AUTOGRAD, so ``model`` is always a
-                # live ``nn.Module`` here (never a predict callable).
-                init_kwargs["layer"] = _resolve_layer(cast("nn.Module", model), str(layer_path))
+def _default_captum_invoker(ctx: AttributionInvokeCtx) -> torch.Tensor:
+    """Uniform Captum path: ``method_class(model, **init).attribute(inputs, ...)``."""
+    explainer = cast("CaptumExplainer", ctx.explainer)
+    captum_attr = ctx.library
+    call_kwargs = dict(ctx.call_kwargs)
+    target = call_kwargs.pop("target", None)
+    baselines = call_kwargs.pop("baselines", None)
 
-        if self.algorithm == "Occlusion":
-            attr_kwargs = _normalise_occlusion_kwargs(attr_kwargs)
+    try:
+        method_class = getattr(captum_attr, explainer.algorithm)
+    except AttributeError:
+        raise ValueError(
+            f"'{explainer.algorithm}' is not a valid captum.attr method.\n"
+            f"Set algorithm to a class name available in captum.attr, "
+            f"e.g. 'IntegratedGradients', 'Saliency', 'LayerGradCam'."
+        ) from None
 
-        with self._rethrow():
-            # Instantiate method with model and constructor args
-            method = method_class(model, **init_kwargs)
+    init_kwargs = dict(explainer.init_kwargs)
+    if _needs_layer_resolution(explainer.algorithm):
+        layer_path = init_kwargs.pop("layer_path", None)
+        if layer_path is not None and "layer" not in init_kwargs:
+            init_kwargs["layer"] = _resolve_layer(cast("nn.Module", ctx.model), str(layer_path))
 
-            # Compute attributions using unified Captum API
-            # Only pass baselines if provided (some methods don't support it)
-            if baselines is not None:
-                attributions = method.attribute(
-                    inputs, target=target, baselines=baselines, **attr_kwargs
-                )
-            else:
-                attributions = method.attribute(inputs, target=target, **attr_kwargs)
+    if explainer.algorithm == "Occlusion":
+        call_kwargs = _normalise_occlusion_kwargs(call_kwargs)
 
-        # Captum already returns torch.Tensor, so just return
-        return attributions
+    with explainer._rethrow():
+        method = method_class(ctx.model, **init_kwargs)
+        if baselines is not None:
+            return method.attribute(ctx.inputs, target=target, baselines=baselines, **call_kwargs)
+        return method.attribute(ctx.inputs, target=target, **call_kwargs)
 
 
 def _needs_layer_resolution(algorithm: str) -> bool:
