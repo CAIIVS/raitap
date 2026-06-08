@@ -16,11 +16,10 @@ from raitap.utils.diagnostics import Module
 from raitap.utils.errors import RaitapError
 from raitap.utils.lazy import lazy_import
 
+# Side-effect import: registers the .ubj (XGBoost) backend on the registry.
+from . import xgboost_backend  # noqa: F401  # pyright: ignore[reportUnusedImport]
 from .backend import ModelBackend, OnnxBackend, TorchBackend
 from .runtime import resolve_torch_device
-from .xgboost_backend import (  # noqa: F401  # registers .ubj backend
-    XGBoostBackend,  # pyright: ignore[reportUnusedImport]
-)
 
 if TYPE_CHECKING:
     import torch
