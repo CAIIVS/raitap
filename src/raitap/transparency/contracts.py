@@ -426,6 +426,7 @@ class VisualisationContext:
     detection_box: DetectionBox | None = None
     source_library: str | None = None
     method_families: AbstractSet[MethodFamily] = field(default_factory=frozenset)
+    structured_payloads: tuple[StructuredPayload, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "method_families", frozenset(self.method_families))

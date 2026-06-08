@@ -309,6 +309,7 @@ class ExplanationResult(Trackable):
                 detection_box=self.detection_box,
                 source_library=self.source_library,
                 method_families=self.semantics.method_families,
+                structured_payloads=tuple(self.structured_payloads),
             )
 
             vis.validate_explanation(self, attributions, inputs)
@@ -462,6 +463,7 @@ class ExplanationResult(Trackable):
             detection_box=self.detection_box,
             source_library=self.source_library,
             method_families=self.semantics.method_families,
+            structured_payloads=tuple(self.structured_payloads),
         )
         vis.validate_explanation(self, attributions, inputs)
         original_visualiser_sample_index = getattr(vis, "sample_index", None)

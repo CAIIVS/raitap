@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import torch
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from matplotlib.figure import Figure
 
 from raitap.transparency.contracts import (
     ExplanationOutputSpace,
@@ -20,8 +22,10 @@ from raitap.transparency.contracts import (
     ScopeDefinitionStep,
     StructuredPayload,
     StructuredPayloadKind,
+    VisualisationContext,
 )
-from raitap.transparency.results import ExplanationResult
+from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult
+from raitap.transparency.visualisers import BaseVisualiser
 
 
 def _semantics() -> ExplanationSemantics:
@@ -99,3 +103,36 @@ def test_no_payloads_writes_no_payloads_dir_and_no_block(tmp_path: Path) -> None
     assert not (tmp_path / "payloads").exists()
     metadata = json.loads((tmp_path / "metadata.json").read_text(encoding="utf-8"))
     assert "structured_payloads" not in metadata
+
+
+class _CapturingVisualiser(BaseVisualiser):
+    def __init__(self) -> None:
+        self.seen_context: VisualisationContext | None = None
+
+    def visualise(
+        self,
+        attributions: torch.Tensor,
+        inputs: torch.Tensor | None = None,
+        *,
+        context: VisualisationContext | None = None,
+        **kwargs: Any,
+    ) -> Figure:
+        import matplotlib.pyplot as plt
+
+        self.seen_context = context
+        fig, _ax = plt.subplots(figsize=(1, 1))
+        return fig
+
+
+def test_context_carries_structured_payloads(tmp_path: Path) -> None:
+    payload = StructuredPayload(
+        "convergence_delta", StructuredPayloadKind.CONVERGENCE_DELTA, torch.zeros(2)
+    )
+    vis = _CapturingVisualiser()
+    result = _result(tmp_path, [payload])
+    result.visualisers = [ConfiguredVisualiser(visualiser=vis)]
+
+    result._visualise()
+
+    assert vis.seen_context is not None
+    assert tuple(p.name for p in vis.seen_context.structured_payloads) == ("convergence_delta",)
