@@ -101,8 +101,8 @@ class OutputBoundsCohortVisualiser(BaseRobustnessVisualiser):
         ax.set_xticks(range(n_classes))
         ax.set_xticklabels([f"logit_{k}" for k in range(n_classes)], rotation=0)
         ax.set_xlim(-0.5, n_classes - 0.5)
-        ax.set_xlabel("output class")
-        ax.set_ylabel("certified width")
+        ax.set_xlabel("Output class")
+        ax.set_ylabel("Certified width")
         ax.set_title(f"{context.algorithm} — certified bound widths")
         fig.tight_layout()
         return fig

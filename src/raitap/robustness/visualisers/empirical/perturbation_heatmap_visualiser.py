@@ -106,7 +106,7 @@ class PerturbationHeatmapVisualiser(BaseRobustnessVisualiser):
             # Shared colorbar (same scale across samples) so the reader can map
             # colour to perturbation sign/magnitude without the docs.
             bar = fig.colorbar(image, ax=axes[0].tolist())
-            bar.set_label("signed perturbation")
+            bar.set_label("Signed perturbation")
         return fig
 
 

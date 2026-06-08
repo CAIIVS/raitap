@@ -127,7 +127,7 @@ class TabularBarChartVisualiser(BaseVisualiser):
             ax.set_xticks(x)
             ax.set_xticklabels(self.feature_names, rotation=45, ha="right")
 
-        ax.set_ylabel("Mean Absolute Attribution")
+        ax.set_ylabel("Mean absolute attribution")
         ax.set_xlabel("Features")
         ax.set_title(title or "Feature Importance")
         ax.grid(axis="y", alpha=0.3)

@@ -184,7 +184,7 @@ class DetectionImageVisualiser(BaseVisualiser):
         # ``show_colorbar`` gates the colorbar: unset/None/True -> shown,
         # False -> suppressed.
         if heat is not None and self.show_colorbar is not False:
-            fig.colorbar(heat, ax=ax).set_label("attribution")
+            fig.colorbar(heat, ax=ax).set_label("Attribution")
         fig.legend(handles=[rect], loc="outside upper right", fontsize=8, framealpha=0.9)
 
         # No per-box title: the predicted label, score, and ground-truth match
