@@ -13,7 +13,9 @@ if TYPE_CHECKING:
 
     import numpy as np
 
-_XGBOOST_INSTALL_HINT = "XGBoostBackend requires xgboost. Install it with `uv sync --extra tree`."
+_XGBOOST_INSTALL_HINT = (
+    "XGBoostBackend requires xgboost. Install it with `uv sync --extra xgboost`."
+)
 
 
 @register(provides={Capability.TREE_MODEL, Capability.PREDICT_PROBA}, extensions={".ubj"})

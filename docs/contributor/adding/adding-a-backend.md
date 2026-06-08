@@ -90,10 +90,10 @@ class XGBoostBackend(TabularTreeBackend):
         cls, path: Path, *, model_cfg: Any, hardware: str, allow_unsafe_pickle: bool = False
     ) -> "XGBoostBackend":
         try:
-            import xgboost  # deferred: only required with --extra tree
+            import xgboost  # deferred: only required with --extra xgboost
         except ImportError as exc:
             raise ImportError(
-                "XGBoost is not installed. Run: uv sync --extra tree"
+                "XGBoost is not installed. Run: uv sync --extra xgboost"
             ) from exc
         estimator = xgboost.XGBClassifier()
         estimator.load_model(str(path))

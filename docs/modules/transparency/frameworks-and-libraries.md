@@ -242,7 +242,7 @@ All explainers accept a background reference except `TreeExplainer`. Set it with
 `TreeExplainer` is supported on tree backends (e.g. XGBoost). It requires:
 
 - `--extra shap` (SHAP library)
-- `--extra tree` (XGBoost or other tree runtime)
+- `--extra xgboost` (XGBoost tree runtime)
 
 It is **rejected on torch and ONNX backends** with a clear `BackendIncompatibilityError`. Use it only when `model.source` points at a `.ubj` (or other tree-backend) file.
 

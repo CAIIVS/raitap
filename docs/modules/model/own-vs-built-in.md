@@ -33,7 +33,7 @@ RAITAP allows you to use your own model in any of the following supported format
   ```
 - `.onnx`
 - `.ubj`: XGBoost native binary (fitted `XGBClassifier` saved via `estimator.save_model("model.ubj")`).
-  Requires the `tree` extra: `uv sync --extra tree`.
+  Requires the `xgboost` extra: `uv sync --extra xgboost`.
   Use with `shap.TreeExplainer` (also needs `--extra shap`) or any model-agnostic SHAP explainer.
 
 Set the `source` option to the path of your model file (see

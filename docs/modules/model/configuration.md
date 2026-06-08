@@ -58,7 +58,7 @@ model:
   source: "scripted.pt"
 
 # Option D:
-# XGBoost tree model (requires --extra tree).
+# XGBoost tree model (requires --extra xgboost).
 model:
   source: "model.ubj"
 

@@ -72,5 +72,5 @@ module README).
 
 `.ubj` files are loaded via `XGBoostBackend.from_path`. The backend provides
 `TREE_MODEL` and `PREDICT_PROBA` capabilities, enabling `shap.TreeExplainer`
-and model-agnostic SHAP explainers. Requires the `tree` extra:
-`uv sync --extra tree`.
+and model-agnostic SHAP explainers. Requires the `xgboost` extra:
+`uv sync --extra xgboost`.
