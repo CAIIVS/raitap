@@ -134,6 +134,44 @@ Only algorithms that do not depend on Torch `autograd` are compatible:
 
 Captum `Layer*` algorithms attribute to a named internal layer rather than the input. Set the layer via `constructor.layer_path` (dotted path, e.g. `layer4.2.conv3`). The resulting attributions use the `LAYER_ACTIVATION` output space and must be rendered with `LayerActivationVisualiser`. Supported algorithms: `LayerConductance`, `LayerIntegratedGradients`, `LayerActivation`, `LayerDeepLift`, `LayerGradientXActivation`, `LayerLRP`. `LayerGradCam` and `GuidedGradCam` are exceptions: they produce input-space maps (`IMAGE_SPATIAL_MAP`) and render with `CaptumImageVisualiser`.
 
+#### NoiseTunnel (SmoothGrad / VarGrad)
+
+`NoiseTunnel` wraps a base gradient method and averages attributions over noisy
+copies of the input to denoise them. It is **stochastic**, so runs trigger the
+reproducibility caveat in the report. Set `algorithm: NoiseTunnel` and name the
+wrapped method with `constructor.base_algorithm`; pass the noise knobs under
+`call`.
+
+```{config-tabs}
+:yaml:
+transparency:
+  my_smoothgrad:
+    _target_: CaptumExplainer
+    algorithm: NoiseTunnel
+    constructor:
+      base_algorithm: IntegratedGradients
+    call:
+      target: 0
+      nt_type: smoothgrad       # smoothgrad | smoothgrad_sq | vargrad
+      nt_samples: 25
+      stdevs: 0.1
+
+:python:
+from raitap.transparency import captum
+
+transparency = {
+    "my_smoothgrad": captum(
+        algorithm="NoiseTunnel",
+        constructor={"base_algorithm": "IntegratedGradients"},
+        call={"target": 0, "nt_type": "smoothgrad", "nt_samples": 25, "stdevs": 0.1},
+    ),
+}
+```
+
+`base_algorithm` must be a non-layer, gradient-family Captum method: currently
+`Saliency` or `IntegratedGradients`. Layer methods are not supported as a base.
+`return_convergence_delta` is not supported through NoiseTunnel.
+
 #### Visualiser compatibility
 
 RAITAP currently supports the following [Captum visualisers](https://captum.ai/api/utilities.html#visualization).

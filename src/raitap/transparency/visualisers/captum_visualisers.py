@@ -96,6 +96,12 @@ _CAPTUM_SEQUENCE_METHOD_FAMILIES = frozenset(
 )
 
 
+# Captum renders the heat overlay through ``_normalize_image_attr`` (outlier-
+# clipped percentile scaling), so the colorbar shows relative intensity, not raw
+# attribution units: 0..1 for single-sign maps, -1..1 for ``sign="all"``.
+_ATTR_COLORBAR_LABEL = "Normalised attribution"
+
+
 def _last_mappable(ax: Any) -> Any:
     """Return the last Matplotlib mappable drawn on an axis, if any."""
     if getattr(ax, "images", None):
@@ -461,7 +467,7 @@ class CaptumImageVisualiser(BaseVisualiser):
                     if mappable is None:
                         colorbar_ax.set_visible(False)
                     else:
-                        fig.colorbar(mappable, cax=colorbar_ax)
+                        fig.colorbar(mappable, cax=colorbar_ax).set_label(_ATTR_COLORBAR_LABEL)
                 continue
 
             ax = axes[i]
@@ -469,7 +475,7 @@ class CaptumImageVisualiser(BaseVisualiser):
             if self.title is not None and "title" not in viz_kwargs:
                 viz_kwargs["title"] = self.title
 
-            CaptumNativeRenderer().draw(
+            mappable = CaptumNativeRenderer().draw(
                 ax,
                 attr_i,
                 orig_i,
@@ -479,6 +485,8 @@ class CaptumImageVisualiser(BaseVisualiser):
                 title=viz_kwargs.get("title"),
                 **{k: v for k, v in viz_kwargs.items() if k != "title"},
             )
+            if self.show_colorbar and mappable is not None and mappable.colorbar is not None:
+                mappable.colorbar.set_label(_ATTR_COLORBAR_LABEL)
             if show_sample_names and i < len(names):
                 base_title = ax.get_title().strip()
                 label = f"{base_title}: {names[i]}" if base_title else names[i]

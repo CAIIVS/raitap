@@ -1,0 +1,88 @@
+# NoiseTunnel (SmoothGrad) smoke config for RAITAP (#269).
+#
+# Self-contained: uses the bundled `imagenet_samples` data and the torchvision
+# `vit_b_32` model, so it runs with no local artifacts. Wraps Saliency in
+# NoiseTunnel to produce SmoothGrad, alongside bare Saliency for contrast (the
+# SmoothGrad map should look denoised). NoiseTunnel is stochastic, so the report
+# carries the reproducibility caveat.
+defaults:
+  - raitap_schema
+  - metrics: multiclass_classification
+  - _self_
+
+hardware: cpu
+experiment_name: noisetunnel-smoothgrad
+
+model:
+  source: vit_b_32
+
+data:
+  name: imagenet_samples
+  source: imagenet_samples
+  forward_batch_size: 4
+  preprocessing: model-bundled
+  model_input_transformation: model-bundled
+  labels:
+    source: imagenet_samples
+    id_column: image
+    column: label
+
+metrics:
+  num_classes: 1000
+
+transparency:
+  smoothgrad_over_saliency:
+    _target_: CaptumExplainer
+    algorithm: NoiseTunnel
+    constructor:
+      base_algorithm: Saliency
+    call:
+      target: auto_pred
+      nt_type: smoothgrad     # smoothgrad | smoothgrad_sq | vargrad
+      nt_samples: 8
+      stdevs: 0.1
+    raitap:
+      batch_size: 1
+      input_metadata:
+        kind: image
+        layout: NCHW
+      show_sample_names: true
+    visualisers:
+      - _target_: CaptumImageVisualiser
+        constructor:
+          method: blended_heat_map
+          sign: absolute_value
+          show_colorbar: true
+          include_original_image: false
+          title: "SmoothGrad (NoiseTunnel over Saliency)"
+        call:
+          max_samples: 4
+
+  saliency_baseline:
+    _target_: CaptumExplainer
+    algorithm: Saliency
+    call:
+      target: auto_pred
+      abs: true
+    raitap:
+      batch_size: 1
+      input_metadata:
+        kind: image
+        layout: NCHW
+      show_sample_names: true
+    visualisers:
+      - _target_: CaptumImageVisualiser
+        constructor:
+          method: blended_heat_map
+          sign: absolute_value
+          show_colorbar: true
+          include_original_image: false
+          title: "Saliency (no smoothing)"
+        call:
+          max_samples: 4
+
+reporting:
+  _target_: HTMLReporter
+  filename: noisetunnel_smoothgrad_report
+  include_config: true
+  include_metadata: true

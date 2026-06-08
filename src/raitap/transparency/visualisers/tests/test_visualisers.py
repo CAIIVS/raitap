@@ -275,6 +275,34 @@ class TestCaptumImageVisualiser:
         assert titles == ["Original Image", "Blended Heat Map"]
 
     @pytest.mark.usefixtures("needs_captum")
+    def test_colorbar_is_labelled_single_panel(self, sample_images: torch.Tensor) -> None:
+        # include_original_image=False -> single attribution axis with captum's
+        # native colorbar; it must carry the normalised-attribution label so the
+        # bar's values are not unexplained.
+        visualiser = CaptumImageVisualiser(
+            method="heat_map", show_colorbar=True, include_original_image=False
+        )
+        attributions = torch.randn_like(sample_images)
+
+        fig = visualiser.visualise(attributions, inputs=sample_images, max_samples=1)
+
+        labels = [ax.get_xlabel() for ax in fig.axes] + [ax.get_ylabel() for ax in fig.axes]
+        assert "Normalised attribution" in labels
+
+    @pytest.mark.usefixtures("needs_captum")
+    def test_colorbar_is_labelled_paired_panel(self, sample_images: torch.Tensor) -> None:
+        # include_original_image=True -> dedicated colorbar axis (cax); same label.
+        visualiser = CaptumImageVisualiser(
+            method="heat_map", show_colorbar=True, include_original_image=True
+        )
+        attributions = torch.randn_like(sample_images)
+
+        fig = visualiser.visualise(attributions, inputs=sample_images, max_samples=1)
+
+        labels = [ax.get_xlabel() for ax in fig.axes] + [ax.get_ylabel() for ax in fig.axes]
+        assert "Normalised attribution" in labels
+
+    @pytest.mark.usefixtures("needs_captum")
     def test_original_and_attribution_panels_have_equal_size(
         self, sample_images: torch.Tensor
     ) -> None:
