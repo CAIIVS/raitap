@@ -43,7 +43,9 @@ def test_partition_modern_tabular_returns_input_shaped() -> None:
         feature_names=None,
         metadata=None,
     )
-    attrs = explainer.compute_attributions(
+    # Modern SHAP now returns (attributions, base_value); the framework splits the
+    # tuple, but a direct compute_attributions call sees the raw tuple (#101).
+    attrs, _base_value = explainer.compute_attributions(
         _predict_model(),
         inputs,
         background_data=torch.randn(20, 8),
@@ -82,7 +84,9 @@ def test_partition_modern_image_returns_nchw() -> None:
         feature_names=None,
         metadata=None,
     )
-    attrs = explainer.compute_attributions(
+    # Modern SHAP now returns (attributions, base_value); a direct
+    # compute_attributions call sees the raw tuple before the base splits it (#101).
+    attrs, _base_value = explainer.compute_attributions(
         _image_predict_model(),
         inputs,
         background_data=inputs,

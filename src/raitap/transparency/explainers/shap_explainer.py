@@ -19,6 +19,8 @@ from raitap.transparency.contracts import (
     ExplainerAlgorithmSpec,
     InputKind,
     MethodFamily,
+    StructuredOutputSpec,
+    StructuredPayloadKind,
 )
 from raitap.transparency.explainers.registration import transparency_adapter
 from raitap.types import Capability
@@ -30,6 +32,9 @@ if TYPE_CHECKING:
 
     from raitap.models.access import ExplanationModel
     from raitap.transparency.contracts import InputSpec
+
+
+_BASE_VALUE = (StructuredOutputSpec("base_value", StructuredPayloadKind.BASE_VALUE),)
 
 
 def _normalise_target_indices(
@@ -156,7 +161,7 @@ def _shap_legacy_invoker(ctx: AttributionInvokeCtx) -> torch.Tensor:
     )
 
 
-def _shap_modern_invoker(ctx: AttributionInvokeCtx) -> torch.Tensor:
+def _shap_modern_invoker(ctx: AttributionInvokeCtx) -> tuple[torch.Tensor, torch.Tensor]:
     """Invoke the modern masker-based path for a SHAP registry entry (#266)."""
     ck = dict(ctx.call_kwargs)
     explainer = cast("ShapExplainer", ctx.explainer)
@@ -230,12 +235,14 @@ def _shap_modern_invoker(ctx: AttributionInvokeCtx) -> torch.Tensor:
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             invoker=_shap_modern_invoker,
+            extra_outputs=_BASE_VALUE,
         ),
         "ExactExplainer": ExplainerAlgorithmSpec(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             invoker=_shap_modern_invoker,
+            extra_outputs=_BASE_VALUE,
         ),
         "PermutationExplainer": ExplainerAlgorithmSpec(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
@@ -243,6 +250,7 @@ def _shap_modern_invoker(ctx: AttributionInvokeCtx) -> torch.Tensor:
             baseline_cardinality=BaselineCardinality.SET,
             stochastic=True,  # random permutation order (seed=None default)
             invoker=_shap_modern_invoker,
+            extra_outputs=_BASE_VALUE,
         ),
     },
     baseline_kwarg_name="background_data",
@@ -274,7 +282,7 @@ class ShapExplainer(AttributionOnlyExplainer):
         background_data: torch.Tensor | None = None,
         target: int | list[int] | torch.Tensor | None = None,
         **shap_kwargs,
-    ) -> torch.Tensor:
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """Compute SHAP values via the per-entry invoker (legacy or modern).
 
         Args:
@@ -410,7 +418,7 @@ class ShapExplainer(AttributionOnlyExplainer):
         target: int | list[int] | torch.Tensor | None,
         input_spec: InputSpec | None,
         **shap_kwargs: Any,
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         if input_spec is None:
             raise _modality_error("unknown")
         if not callable(model):
@@ -436,11 +444,13 @@ class ShapExplainer(AttributionOnlyExplainer):
             inputs_np = inputs_np.transpose(0, 2, 3, 1)  # NCHW -> NHWC for the Image masker
         with self._rethrow():
             explanation = explainer(inputs_np, **shap_kwargs)
-        return _normalise_modern_explanation(
+        attributions = _normalise_modern_explanation(
             explanation.values,
             input_spec=input_spec,
             target=target,
         )
+        base_value = torch.as_tensor(np.asarray(explanation.base_values)).to(dtype=torch.float32)
+        return attributions, base_value
 
 
 def _to_numpy(value: torch.Tensor | Any) -> Any:

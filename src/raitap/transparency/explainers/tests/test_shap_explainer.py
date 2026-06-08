@@ -185,6 +185,39 @@ class TestShapExplainer:
 
         assert torch.equal(selected, torch.tensor([[[[2.0]]], [[[3.0]]]]))
 
+    @pytest.mark.usefixtures("needs_shap")
+    def test_modern_explainer_surfaces_base_value(
+        self,
+        simple_mlp: torch.nn.Module,
+        sample_tabular: torch.Tensor,
+        tmp_path: Path,
+    ) -> None:
+        from raitap.transparency.contracts import StructuredPayloadKind
+
+        explainer = ShapExplainer(algorithm="ExactExplainer")
+        inputs = sample_tabular[:4]
+        background = sample_tabular[:2]
+
+        result = explainer.explain(
+            simple_mlp,
+            inputs,
+            run_dir=tmp_path / "transparency",
+            background_data=background,
+            target=0,
+            raitap_kwargs={
+                "show_progress": False,
+                "input_metadata": InputSpec(
+                    kind="tabular",
+                    shape=tuple(inputs.shape),
+                    layout="(B,F)",
+                    metadata={"kind": "tabular", "layout": "(B,F)"},
+                ),
+            },
+        )
+
+        kinds = {p.kind for p in result.structured_payloads}
+        assert StructuredPayloadKind.BASE_VALUE in kinds
+
     @pytest.mark.usefixtures("needs_shap", "needs_onnx")
     def test_kernel_explainer_runs_with_onnx_backend(
         self,
