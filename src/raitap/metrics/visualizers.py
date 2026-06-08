@@ -34,7 +34,7 @@ class MetricsVisualizer:
 
             ax.bar(metric_names, metric_values)
             ax.set_xlabel("Metric")
-            ax.set_ylabel("Value")
+            ax.set_ylabel("Score")
             ax.set_title("Metrics Overview")
             ax.set_ylim(0.0, 1.0)
             ax.tick_params(axis="x", rotation=45)
@@ -51,6 +51,8 @@ class MetricsVisualizer:
                 fig, ax = plt.subplots(figsize=(8, 8), dpi=150)
                 im = ax.imshow(cm, cmap="Blues")
                 ax.set_title("Confusion Matrix")
+                ax.set_xlabel("Predicted label")
+                ax.set_ylabel("True label")
                 fig.colorbar(im, ax=ax)
                 fig.tight_layout()
                 figures["confusion_matrix"] = fig
