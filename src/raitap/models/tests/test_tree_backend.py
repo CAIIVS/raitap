@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 import torch
 
 from raitap.models.access import EstimatorProvider
@@ -59,3 +60,31 @@ def test_defaults_cpu_classification() -> None:
     backend = _backend()
     assert backend.hardware_label == "CPU"
     assert backend.task_kind == TaskKind.classification
+
+
+def test_ubj_extension_resolves_to_xgboost_backend() -> None:
+    import raitap.models.model  # noqa: F401  # ensures backend modules imported
+    from raitap.models.registration import backend_for_extension
+    from raitap.models.xgboost_backend import XGBoostBackend
+
+    assert backend_for_extension(".ubj") is XGBoostBackend
+
+
+def test_xgboost_backend_loads_and_predicts(tmp_path) -> None:  # noqa: ANN001
+    xgboost = pytest.importorskip("xgboost")
+    from raitap.models.xgboost_backend import XGBoostBackend
+
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(40, 4)).astype(np.float32)  # noqa: N806
+    y = (X.sum(axis=1) > 0).astype(int)
+    clf = xgboost.XGBClassifier(n_estimators=5, max_depth=2)
+    clf.fit(X, y)
+
+    path = tmp_path / "model.ubj"
+    clf.save_model(path)
+
+    backend = XGBoostBackend.from_path(path, model_cfg=None, hardware="cpu")
+    out = backend(torch.from_numpy(X))
+    assert out.shape == (40, 2)
+    assert torch.allclose(out.sum(dim=1), torch.ones(40), atol=1e-4)
+    assert backend.provides == frozenset({Capability.TREE_MODEL, Capability.PREDICT_PROBA})
