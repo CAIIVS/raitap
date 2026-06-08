@@ -37,7 +37,7 @@ class DetectionFamily:
             raise ValueError("ForwardOutput(task_kind=detection) requires a list[dict] payload.")
 
     def prediction_summaries(
-        self, payload: Any, *, sample_ids: Any = None, targets: Any = None
+        self, payload: Any, *, sample_ids: Any = None, targets: Any = None, output_kind: Any = None
     ) -> list | None:
         # Detection has no per-sample "predicted class + confidence" concept.
         return None

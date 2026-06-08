@@ -38,6 +38,9 @@ def prediction_summaries(
 
     family = resolve_task_family(forward_output.task_kind)
     rows = family.prediction_summaries(
-        forward_output.payload, sample_ids=sample_ids, targets=targets
+        forward_output.payload,
+        sample_ids=sample_ids,
+        targets=targets,
+        output_kind=forward_output.output_kind,
     )
     return tuple(rows) if rows is not None else ()
