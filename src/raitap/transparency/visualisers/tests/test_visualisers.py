@@ -1525,6 +1525,31 @@ def test_default_visualiser_ignores_structured_payloads() -> None:
     _ContractVisualiser().validate_explanation(explanation, torch.zeros(4, 10), None)
 
 
+class _MultiKindVisualiser(BaseVisualiser):
+    supported_structured_payload_kinds = frozenset(
+        {StructuredPayloadKind.CONVERGENCE_DELTA, StructuredPayloadKind.BASE_VALUE}
+    )
+
+    def visualise(
+        self,
+        attributions: torch.Tensor,
+        inputs: torch.Tensor | None = None,
+        **kwargs: Any,
+    ) -> Figure:
+        del attributions, inputs, kwargs
+        fig, _ax = plt.subplots(figsize=(1, 1))
+        return fig
+
+
+def test_declared_structured_kinds_accept_any_one_present() -> None:
+    # Any-of: a visualiser declaring multiple kinds is compatible when the
+    # explanation carries at least one of them (no explainer emits every kind).
+    explanation = _explanation_with_payloads(
+        [StructuredPayload("base_value", StructuredPayloadKind.BASE_VALUE, None)]
+    )
+    _MultiKindVisualiser().validate_explanation(explanation, torch.zeros(4, 10), None)
+
+
 def test_detection_uses_shap_renderer_for_shap_library(monkeypatch: pytest.MonkeyPatch) -> None:
     import raitap.transparency.visualisers.image_rendering as ir
     from raitap.transparency.contracts import DetectionBox, MethodFamily, VisualisationContext

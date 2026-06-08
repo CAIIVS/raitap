@@ -123,17 +123,21 @@ class BaseVisualiser(ABC, AdapterMixin):
                 _format_supported(self.supported_method_families),
             )
 
-        required_payload_kinds = self.supported_structured_payload_kinds
-        if required_payload_kinds:
+        supported_structured_kinds = self.supported_structured_payload_kinds
+        if supported_structured_kinds:
+            # A visualiser declares the structured kinds it CAN render and draws
+            # whichever subset is present (see ``_matching_payloads``), so it is
+            # compatible as long as the explanation carries at least one of them.
+            # Any-of (intersection), matching the ``method_families`` gate above;
+            # no single explainer emits every structured kind.
             available = {
                 payload.kind for payload in getattr(explanation, "structured_payloads", ()) or ()
             }
-            missing = required_payload_kinds - available
-            if missing:
+            if not (supported_structured_kinds & available):
                 self._raise_incompatibility(
                     "structured payload",
-                    _format_supported(missing),
-                    _format_supported(required_payload_kinds),
+                    _format_supported(available),
+                    _format_supported(supported_structured_kinds),
                 )
 
     def _raise_incompatibility(self, dimension: str, actual: str, expected: str) -> None:
