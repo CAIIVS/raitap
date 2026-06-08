@@ -20,6 +20,8 @@ from raitap.transparency.contracts import (
     ExplanationScope,
     MethodFamily,
     ScopeDefinitionStep,
+    StructuredOutputSpec,
+    StructuredPayloadKind,
 )
 from raitap.transparency.explainers.base_explainer import AttributionOnlyExplainer
 
@@ -129,8 +131,49 @@ class _GradTrackingExplainer(AttributionOnlyExplainer):
         return source * 2
 
 
+_DELTA_REGISTRY: Mapping[str, ExplainerAlgorithmSpec] = {
+    "Saliency": ExplainerAlgorithmSpec(
+        {MethodFamily.GRADIENT},
+        extra_outputs=(
+            StructuredOutputSpec("convergence_delta", StructuredPayloadKind.CONVERGENCE_DELTA),
+        ),
+    )
+}
+
+
 class _TupleExplainer(AttributionOnlyExplainer):
     algorithm = "Saliency"
+    algorithm_registry = _DELTA_REGISTRY
+
+    def compute_attributions(
+        self,
+        model: ExplanationModel,
+        inputs: torch.Tensor,
+        **kwargs: Any,
+    ) -> Any:
+        del model, kwargs
+        return inputs, torch.arange(inputs.shape[0], dtype=torch.float32)
+
+
+class _ListExplainer(AttributionOnlyExplainer):
+    algorithm = "Saliency"
+    algorithm_registry = _DELTA_REGISTRY
+
+    def compute_attributions(
+        self,
+        model: ExplanationModel,
+        inputs: torch.Tensor,
+        **kwargs: Any,
+    ) -> Any:
+        del model, kwargs
+        return [inputs, torch.arange(inputs.shape[0], dtype=torch.float32)]
+
+
+class _UndeclaredTupleExplainer(AttributionOnlyExplainer):
+    algorithm = "Saliency"
+    algorithm_registry: ClassVar[Mapping[str, ExplainerAlgorithmSpec]] = {
+        "Saliency": ExplainerAlgorithmSpec({MethodFamily.GRADIENT})
+    }
 
     def compute_attributions(
         self,
@@ -140,19 +183,6 @@ class _TupleExplainer(AttributionOnlyExplainer):
     ) -> Any:
         del model, kwargs
         return inputs, torch.zeros(inputs.shape[0])
-
-
-class _ListExplainer(AttributionOnlyExplainer):
-    algorithm = "Saliency"
-
-    def compute_attributions(
-        self,
-        model: ExplanationModel,
-        inputs: torch.Tensor,
-        **kwargs: Any,
-    ) -> Any:
-        del model, kwargs
-        return [inputs]
 
 
 def _raitap_kwargs_for(inputs: torch.Tensor, **overrides: Any) -> dict[str, Any]:
@@ -448,38 +478,42 @@ def test_explain_normalises_unbatched_attributions_to_detached_cpu() -> None:
     assert torch.equal(result.attributions, inputs * 2)
 
 
-def test_explain_rejects_tuple_attribution_outputs_before_normalisation() -> None:
+def test_explain_accepts_tuple_output_as_structured_payload() -> None:
     explainer = _TupleExplainer()
     model = torch.nn.Identity()
     inputs = torch.randn(2, 3)
 
-    with pytest.raises(
-        TypeError,
-        match=r"tuple/list attribution outputs.*convergence deltas.*not first-class payloads",
-    ):
-        explainer.explain(
-            model,
-            inputs,
-            raitap_kwargs=_raitap_kwargs_for(inputs),
-        )
+    result = explainer.explain(model, inputs, raitap_kwargs=_raitap_kwargs_for(inputs))
+
+    assert [p.name for p in result.structured_payloads] == ["convergence_delta"]
+    payload = result.structured_payloads[0]
+    assert payload.kind is StructuredPayloadKind.CONVERGENCE_DELTA
+    assert torch.equal(payload.data, torch.tensor([0.0, 1.0]))
 
 
-def test_explain_rejects_list_attribution_outputs_in_batched_path() -> None:
+def test_explain_accepts_list_output_in_batched_path() -> None:
     explainer = _ListExplainer()
     model = torch.nn.Identity()
     inputs = torch.randn(4, 3)
 
-    with pytest.raises(
-        TypeError,
-        match=r"tuple/list attribution outputs.*convergence deltas.*not first-class payloads",
-    ):
-        explainer.explain(
-            model,
-            inputs,
-            raitap_kwargs={
-                **_raitap_kwargs_for(inputs, batch_size=2, show_progress=False),
-            },
-        )
+    result = explainer.explain(
+        model,
+        inputs,
+        raitap_kwargs=_raitap_kwargs_for(inputs, batch_size=2, show_progress=False),
+    )
+
+    payload = result.structured_payloads[0]
+    # Per-sample delta concatenated across the two batches of size 2.
+    assert torch.equal(payload.data, torch.tensor([0.0, 1.0, 0.0, 1.0]))
+
+
+def test_explain_raises_on_undeclared_extra_outputs() -> None:
+    explainer = _UndeclaredTupleExplainer()
+    model = torch.nn.Identity()
+    inputs = torch.randn(2, 3)
+
+    with pytest.raises(ValueError, match=r"extra output.*extra_outputs"):
+        explainer.explain(model, inputs, raitap_kwargs=_raitap_kwargs_for(inputs))
 
 
 def test_explain_rejects_invalid_progress_kwarg_types() -> None:
