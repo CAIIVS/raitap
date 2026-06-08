@@ -30,6 +30,65 @@ _CONVERGENCE_DELTA = (
 )
 
 
+def _noise_tunnel_base_choices() -> set[str]:
+    """Valid ``base_algorithm`` names: non-layer, gradient-family captum methods.
+
+    Derived from the registry so it never drifts. Today: {Saliency,
+    IntegratedGradients}; auto-expands as gradient methods are added.
+    """
+    registry = CaptumExplainer.algorithm_registry
+    return {
+        name
+        for name, spec in registry.items()
+        if name != "NoiseTunnel"
+        and not _needs_layer_resolution(name)
+        and MethodFamily.GRADIENT in spec.families
+    }
+
+
+def _resolve_noise_tunnel_base(explainer: CaptumExplainer) -> type:
+    """Validate ``base_algorithm`` and return its captum class.
+
+    The base must be a vetted non-layer gradient method (see
+    ``_noise_tunnel_base_choices``) so NoiseTunnel's static GRADIENT/AUTOGRAD
+    registry entry and input-feature output-space inference stay correct.
+    """
+    base_name = explainer.init_kwargs.get("base_algorithm")
+    valid = _noise_tunnel_base_choices()
+    choices = sorted(valid)
+    if base_name is None:
+        raise ValueError(
+            "NoiseTunnel requires a 'base_algorithm' constructor kwarg naming the "
+            "captum method to wrap, e.g. constructor: { base_algorithm: Saliency }. "
+            f"Valid options: {choices}."
+        )
+    if base_name not in valid:
+        raise ValueError(
+            f"NoiseTunnel base_algorithm={base_name!r} is not supported. Choose a "
+            f"non-layer, gradient-family captum method. Valid options: {choices}."
+        )
+    captum_attr = explainer._lazy_import("attr")
+    return cast("type", getattr(captum_attr, base_name))
+
+
+def _noise_tunnel_invoker(ctx: AttributionInvokeCtx) -> torch.Tensor:
+    """Build ``NoiseTunnel(base(model))`` and run SmoothGrad/VarGrad (#269)."""
+    explainer = cast("CaptumExplainer", ctx.explainer)
+    captum_attr = ctx.library
+    call_kwargs = dict(ctx.call_kwargs)
+    target = call_kwargs.pop("target", None)
+    # baselines (if any) ride **call_kwargs to the base method; drop the key when
+    # None so captum does not see baselines=None.
+    if call_kwargs.get("baselines") is None:
+        call_kwargs.pop("baselines", None)
+
+    base_class = _resolve_noise_tunnel_base(explainer)
+    with explainer._rethrow():
+        base = base_class(ctx.model)
+        noise_tunnel = captum_attr.NoiseTunnel(base)
+        return noise_tunnel.attribute(ctx.inputs, target=target, **call_kwargs)
+
+
 @transparency_adapter(
     registry_name="captum",
     library="captum",
@@ -53,6 +112,13 @@ _CONVERGENCE_DELTA = (
         "Saliency": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT},
             requires={Capability.AUTOGRAD},
+        ),
+        "NoiseTunnel": ExplainerAlgorithmSpec(
+            {MethodFamily.GRADIENT},
+            requires={Capability.AUTOGRAD},
+            # Adds Gaussian noise (smoothgrad/vargrad); run-twice non-deterministic.
+            stochastic=True,
+            invoker=_noise_tunnel_invoker,
         ),
         "FeatureAblation": ExplainerAlgorithmSpec({MethodFamily.PERTURBATION}),
         "FeaturePermutation": ExplainerAlgorithmSpec({MethodFamily.PERTURBATION}),
