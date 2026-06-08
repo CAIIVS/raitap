@@ -69,10 +69,9 @@ class Capability(StrEnum):
     AUTOGRAD = (
         "autograd"  # differentiable live model + input gradients (PGD, IntegratedGradients, CROWN)
     )
-    TREE_MODEL = (
-        "tree_model"  # roadmap: tree-ensemble structure (TreeSHAP). No provider/requirer yet.
-    )
-    PREDICT_PROBA = "predict_proba"  # roadmap: class-probability outputs. No provider/requirer yet.
+    # tree-ensemble structure (TreeSHAP): provided by tree backends, required by TreeExplainer
+    TREE_MODEL = "tree_model"
+    PREDICT_PROBA = "predict_proba"  # class-probability outputs: provided by tree backends
 
 
 #: A backend that exposes only the universal forward path (no special model

@@ -88,3 +88,29 @@ def test_xgboost_backend_loads_and_predicts(tmp_path) -> None:  # noqa: ANN001
     assert out.shape == (40, 2)
     assert torch.allclose(out.sum(dim=1), torch.ones(40), atol=1e-4)
     assert backend.provides == frozenset({Capability.TREE_MODEL, Capability.PREDICT_PROBA})
+
+
+def test_tree_explainer_gates_out_on_torch_backend() -> None:
+    from raitap.transparency.explainers import ShapExplainer
+    from raitap.utils.errors import BackendIncompatibilityError
+
+    explainer = ShapExplainer("TreeExplainer")
+    assert explainer.required_capabilities() == frozenset({Capability.TREE_MODEL})
+
+    class _AutogradOnly:
+        provides = frozenset({Capability.AUTOGRAD})
+
+    with pytest.raises(BackendIncompatibilityError) as excinfo:
+        explainer.check_backend_compat(_AutogradOnly())
+    assert "tree_model" in str(excinfo.value)
+
+
+def test_tree_explainer_passes_on_tree_backend() -> None:
+    from raitap.transparency.explainers import ShapExplainer
+
+    explainer = ShapExplainer("TreeExplainer")
+
+    class _TreeOnly:
+        provides = frozenset({Capability.TREE_MODEL, Capability.PREDICT_PROBA})
+
+    explainer.check_backend_compat(_TreeOnly())  # no raise
