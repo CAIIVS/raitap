@@ -48,8 +48,16 @@ def _class_name(target: str) -> str:
 
 
 def backend_extra(model_source: str, hardware: Hardware) -> str:
-    """Return ``torch-<hw>`` or ``onnx-<hw>`` based on the source file extension."""
+    """Return the backend extra for a model source's file extension.
+
+    ``.onnx`` and the torch formats split by hardware (``onnx-<hw>`` /
+    ``torch-<hw>``) because those runtimes ship per-accelerator wheels. Tree
+    formats (``.ubj``) map to ``xgboost`` with no hardware suffix: XGBoost
+    ships a single wheel and selects the device at runtime.
+    """
     ext = os.path.splitext(model_source)[1].lower()
+    if ext == ".ubj":
+        return "xgboost"
     suffix = _HARDWARE_SUFFIX[hardware]
     if ext == ".onnx":
         return f"onnx-{suffix}"

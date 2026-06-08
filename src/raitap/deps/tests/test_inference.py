@@ -37,10 +37,22 @@ def test_onnx_backend() -> None:
     assert "torch-cuda" not in extras
 
 
+def test_ubj_backend_maps_to_xgboost() -> None:
+    cfg = {"model": {"source": "model.ubj"}}
+    # XGBoost has no per-accelerator wheel split: same extra on every hardware,
+    # and never a torch backend extra.
+    for hardware in ("cpu", "cuda", "xpu"):
+        extras, _ = infer_extras(cfg, hardware=hardware)
+        assert "xgboost" in extras
+        assert not any(e.startswith("torch-") for e in extras)
+
+
 def test_backend_extra_pure() -> None:
     assert backend_extra("a.pt", "cuda") == "torch-cuda"
     assert backend_extra("a.onnx", "xpu") == "onnx-intel"
     assert backend_extra("a.pth", "cpu") == "torch-cpu"
+    assert backend_extra("a.ubj", "cuda") == "xgboost"
+    assert backend_extra("a.ubj", "cpu") == "xgboost"
 
 
 def test_captum_explainer_block_adds_extra() -> None:
