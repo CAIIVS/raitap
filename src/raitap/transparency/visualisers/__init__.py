@@ -28,6 +28,7 @@ from .shap_visualisers import (
     ShapImageVisualiser,
     ShapWaterfallVisualiser,
 )
+from .structured_payload_visualiser import StructuredPayloadSummaryVisualiser
 from .tabular_visualiser import TabularBarChartVisualiser
 
 __all__ = [  # noqa: RUF022
@@ -49,5 +50,6 @@ __all__ = [  # noqa: RUF022
     "ShapWaterfallVisualiser",
     # Framework-agnostic
     "LayerActivationVisualiser",
+    "StructuredPayloadSummaryVisualiser",
     "TabularBarChartVisualiser",
 ]
