@@ -42,7 +42,8 @@ myst:
 # `source` is the only key. The format is inferred from the extension
 # (.pt/.pth, .onnx, .ubj). Per-format details and caveats (state-dict vs
 # TorchScript vs pickled, the unsafe-pickle consent, the `--extra xgboost`
-# requirement for .ubj) are in `own-vs-built-in`.
+# requirement for .ubj) are on the "Using your own model" page (linked
+# from the `source` option above).
 model:
   source: "path/to/model.<ext>"
 
