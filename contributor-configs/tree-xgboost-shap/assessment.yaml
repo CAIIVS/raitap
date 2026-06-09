@@ -21,6 +21,10 @@ data:
   name: synthetic-tabular
   source: ${hydra:runtime.cwd}/contributor-configs/tree-xgboost-shap/artifacts/features.csv
   forward_batch_size: 8
+  # Declares the modality so the resolver skips the image-only "no preprocessing"
+  # warning (image preprocessing is meaningless for tabular features).
+  input_metadata:
+    kind: tabular
 
 transparency:
   treeshap:

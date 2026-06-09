@@ -162,7 +162,10 @@ def _apply_preprocessing(
             backend.model = nn.Sequential(model_module, backend.model)
 
     for warning in resolved.warnings:
-        raitap_log.warn(warning)
+        # Preprocessing is a data-module concept (see the "Preprocessing:" info
+        # line below); attribute the warning to data, not the pipeline frame the
+        # deferred-log replay would otherwise infer.
+        raitap_log.warn(warning, module=Module.data)
 
     if resolved.is_active:
         # Deferred by ``_run_pipeline`` (this runs inside ``raitap_log.deferred()``)
