@@ -324,9 +324,9 @@ def _suppress_off_warning(data_cfg: DataConfig, *, acknowledge_off: bool = False
 
 
 _OFF_WARNING = (
-    "Image preprocessing is OFF.\n"
+    "No image preprocessing set in config.\n"
     "RAITAP is forwarding your images to the model unchanged.\n"
-    "Most pretrained image models expect normalized inputs — without\n"
+    "Most pretrained image models expect normalized inputs — without "
     "preprocessing, your accuracy results may be silently incorrect.\n"
     "\n"
     "Set both knobs in your config:\n"
@@ -338,15 +338,17 @@ _OFF_WARNING = (
     "      preprocessing: ./resize.py\n"
     "      model_input_transformation: ./normalize.py\n"
     "\n"
+    "Not using image data? Set data.input_metadata.kind (e.g. tabular) in your config.\n"
+    "\n"
     "If you've already preprocessed your images, silence this message:\n"
     "  - Python API:   pass acknowledge_preprocessing_off=True to raitap.run(...)\n"
     "  - CLI:          re-run with --acknowledge-preprocessing-off"
 )
 
 _MODEL_OFF_WARNING = (
-    "data.model_input_transformation is OFF.\n"
-    "Data-side preprocessing will run, but no transformation is applied at\n"
-    "the model boundary. Pretrained models that expect normalized inputs\n"
+    "No data.model_input_transformation set in config.\n"
+    "Data-side preprocessing will run, but no transformation is applied at "
+    "the model boundary. Pretrained models that expect normalized inputs "
     "(ImageNet mean/std, etc.) will produce silently incorrect predictions.\n"
     "\n"
     "Set the model-side knob:\n"

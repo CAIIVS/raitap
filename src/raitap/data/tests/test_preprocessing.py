@@ -32,7 +32,7 @@ def test_both_off_no_keys_warns(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result.model_module is None
     assert not result.is_active
     assert len(result.warnings) == 1
-    assert "preprocessing is OFF" in result.warnings[0]
+    assert "No image preprocessing set in config" in result.warnings[0]
 
 
 def test_both_off_suppression_via_kwarg(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -83,7 +83,7 @@ def test_both_off_kind_explicit_none_still_warns(monkeypatch: pytest.MonkeyPatch
     assert result.data_origin == "off"
     assert result.model_origin == "off"
     assert len(result.warnings) == 1
-    assert "preprocessing is OFF" in result.warnings[0]
+    assert "No image preprocessing set in config" in result.warnings[0]
 
 
 # ---------------------------------------------------------------------------
@@ -103,7 +103,7 @@ def test_model_input_transformation_off_warns_when_data_side_set(
     assert result.model_origin == "off"
     assert result.data_module is not None
     assert result.model_module is None
-    assert any("model_input_transformation is OFF" in w for w in result.warnings)
+    assert any("No data.model_input_transformation set in config" in w for w in result.warnings)
 
 
 def test_model_input_transformation_off_suppressed_for_tabular(
@@ -363,7 +363,7 @@ def test_custom_file_data_side_only(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert result.model_module is None
     assert result.data_file_path == fixture.resolve()
     # model side off + image data → warning about model side
-    assert any("model_input_transformation is OFF" in w for w in result.warnings)
+    assert any("No data.model_input_transformation set in config" in w for w in result.warnings)
 
 
 def test_custom_file_both_sides_from_same_file(
