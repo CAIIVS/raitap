@@ -38,29 +38,25 @@ myst:
   `false` since the state-dict already supplies the weights.
 
 :yaml:
-# Option A:
-# Full pickled nn.Module (deprecated, unsafe).
-# Only use for checkpoints from a fully trusted source; executes arbitrary code embedded in the checkpoint.
-# Consent required at invocation time — see `--allow-unsafe-pickle` in the flags reference.
+# Option A: single model file.
+# `source` is the only key. The format is inferred from the extension
+# (.pt/.pth, .onnx, .ubj). Per-format details and caveats (state-dict vs
+# TorchScript vs pickled, the unsafe-pickle consent, the `--extra xgboost`
+# requirement for .ubj) are in `own-vs-built-in`.
 model:
-  source: "myModel.pth"
+  source: "path/to/model.<ext>"
 
-# Option B:
-# state_dict + arch (recommended):
+# Option B: state-dict file.
+# A state-dict carries no architecture, so add `arch` + `num_classes` to
+# rebuild the model before loading the weights.
 model:
   source: "weights.pth"
   arch: "resnet18"
   num_classes: 2
 
-# Option C:
-# TorchScript archive (env-independent):
+# Option C: built-in torchvision model — `source` is the model name, not a path.
 model:
-  source: "scripted.pt"
-
-# Option D:
-# XGBoost tree model (requires --extra xgboost).
-model:
-  source: "model.ubj"
+  source: "resnet50"
 
 :cli: model.source=resnet50
 ```
