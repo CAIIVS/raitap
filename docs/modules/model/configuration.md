@@ -55,7 +55,10 @@ model:
   arch: "resnet18"
   num_classes: 2
 
-# Option C: built-in torchvision model — `source` is the model name, not a path.
+# Option C: built-in torchvision model — `source` is the model name, not a
+# path. Loaded with torchvision's `weights="DEFAULT"` (latest pretrained
+# weights, not configurable). For demos / quick testing; load your own
+# weights via a file path (Options A/B).
 model:
   source: "resnet50"
 
