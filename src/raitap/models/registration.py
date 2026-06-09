@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     # imports this module for ``@register``), hence the string bound. Do not
     # remove.
     from raitap.models.backend import ModelBackend
-    from raitap.types import Capability
+    from raitap.types import Capability, ResolvedHardware
 
 B = TypeVar("B", bound="ModelBackend")
 
@@ -31,6 +31,16 @@ _BACKENDS_BY_EXTENSION: dict[str, type] = {}
 class _BackendRegKwargs(TypedDict):
     provides: Required[AbstractSet[Capability]]
     extensions: NotRequired[AbstractSet[str]]
+    # uv extra that installs this backend's runtime library, e.g. ``"xgboost"``
+    # or ``"torch"``. Read by the import-free deps scanner
+    # (``raitap.deps.static_scan.scan_backend_extras``) to map a model file's
+    # extension to the extra to install. Required for file-backed backends.
+    extra: NotRequired[str]
+    # Accelerators (``ResolvedHardware`` members) for which the extra ships a
+    # distinct wheel, so the installable extra is ``f"{extra}-{hw.pyproject_extra_suffix}"``
+    # (e.g. ``torch-intel``). Omit for single-wheel runtimes (e.g. xgboost), whose
+    # extra is the bare ``extra`` regardless of hardware.
+    supported_hardware: NotRequired[AbstractSet[ResolvedHardware]]
 
 
 def register(**kwargs: Unpack[_BackendRegKwargs]) -> Callable[[type[B]], type[B]]:
@@ -41,6 +51,8 @@ def register(**kwargs: Unpack[_BackendRegKwargs]) -> Callable[[type[B]], type[B]
         cls.provides = frozenset(kwargs["provides"])
         exts = frozenset(e.lower() for e in kwargs.get("extensions", frozenset()))
         cls.extensions = exts
+        cls.extra = kwargs.get("extra")
+        cls.supported_hardware = frozenset(kwargs.get("supported_hardware", frozenset()))
         for ext in exts:
             _BACKENDS_BY_EXTENSION[ext] = cls
         return cls

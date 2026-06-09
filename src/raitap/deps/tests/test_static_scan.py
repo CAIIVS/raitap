@@ -17,7 +17,8 @@ output — that is the whole point of the scanner.
 from __future__ import annotations
 
 from raitap._adapters import ADAPTER_EXTRAS
-from raitap.deps.static_scan import scan_adapter_extras
+from raitap.deps.static_scan import scan_adapter_extras, scan_backend_extras
+from raitap.types import ResolvedHardware
 
 
 def test_runtime_extras_subset_of_static_scan() -> None:
@@ -54,3 +55,17 @@ def test_static_scan_finds_canonical_set() -> None:
         "MultilabelClassificationMetrics",
         "DetectionMetrics",
     }, f"Scanner missed canonical adapters. Found: {sorted(scanned)!r}."
+
+
+def test_scan_backend_extras_maps_extension_to_extra_and_hardware() -> None:
+    """Import-free scan of backend ``@register`` decorators: extension ->
+    (extra, supported_hardware). Guards drift between the decorators and the
+    deps inference path."""
+    scanned = scan_backend_extras()
+    full = frozenset(ResolvedHardware)
+    # Accelerator runtimes split per hardware.
+    assert scanned[".pt"] == ("torch", full)
+    assert scanned[".pth"] == ("torch", full)
+    assert scanned[".onnx"] == ("onnx", full)
+    # Single-wheel runtime: bare extra, no hardware split.
+    assert scanned[".ubj"] == ("xgboost", frozenset())

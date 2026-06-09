@@ -28,6 +28,8 @@ import ast
 from functools import lru_cache
 from pathlib import Path
 
+from raitap.types import ResolvedHardware
+
 # In-tree adapters decorate with the bare family decorator imported directly
 # from its ``registration`` module (e.g. ``@metrics_adapter(...)``). The public
 # ``@adapters.<family>`` facade is for external plugin authors and is not used
@@ -36,6 +38,30 @@ _ADAPTER_DECORATORS = frozenset(
     {"transparency_adapter", "robustness_adapter", "metrics_adapter", "reporter", "tracker"}
 )
 _VISUALISER_DECORATORS = frozenset({"transparency_visualiser", "robustness_visualiser"})
+
+
+def _str_set_literal(node: ast.expr | None) -> frozenset[str]:
+    """Harvest a ``{"a", "b"}`` set literal of string constants, else empty."""
+    if isinstance(node, ast.Set):
+        return frozenset(
+            e.value for e in node.elts if isinstance(e, ast.Constant) and isinstance(e.value, str)
+        )
+    return frozenset()
+
+
+def _resolved_hardware_set_literal(node: ast.expr | None) -> frozenset[ResolvedHardware]:
+    """Harvest a ``{ResolvedHardware.cpu, ...}`` set literal into enum members.
+
+    Elements are attribute accesses (``ResolvedHardware.cpu``); unknown member
+    names are skipped so a typo degrades gracefully rather than crashing the scan.
+    """
+    if not isinstance(node, ast.Set):
+        return frozenset()
+    members: set[ResolvedHardware] = set()
+    for elt in node.elts:
+        if isinstance(elt, ast.Attribute) and elt.attr in ResolvedHardware.__members__:
+            members.add(ResolvedHardware[elt.attr])
+    return frozenset(members)
 
 
 def _decorator_name(deco: ast.expr) -> str | None:
@@ -95,5 +121,51 @@ def scan_adapter_extras() -> dict[str, str]:
                     registry_name = kwargs.get("registry_name")
                     if registry_name:
                         found[node.name] = registry_name
+                break
+    return found
+
+
+@lru_cache(maxsize=1)
+def scan_backend_extras() -> dict[str, tuple[str, frozenset[ResolvedHardware]]]:
+    """Return ``{extension: (extra, supported_hardware)}`` harvested from model
+    backends' ``@register(...)`` decorators, without importing them.
+
+    Importing a backend pulls its runtime (torch / xgboost) — exactly what the
+    deps bootstrap may be missing — so this AST scan is the import-free source
+    of the extension -> extra mapping, mirroring :func:`scan_adapter_extras`.
+    ``extra`` is the uv extra installing the runtime; ``supported_hardware`` is
+    the set of runtime-hardware values it ships per-wheel (empty = single wheel,
+    bare extra). Backends declaring ``extensions`` but no ``extra`` are skipped;
+    they fall back to the torch default in ``inference.backend_extra``.
+    """
+    import raitap
+
+    root = Path(raitap.__file__).resolve().parent
+    found: dict[str, tuple[str, frozenset[ResolvedHardware]]] = {}
+    for path in root.rglob("*.py"):
+        if "tests" in path.parts:
+            continue
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except (SyntaxError, OSError, UnicodeDecodeError):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            for deco in node.decorator_list:
+                if _decorator_name(deco) != "register":
+                    continue
+                assert isinstance(deco, ast.Call)  # narrowed by _decorator_name
+                by_arg = {kw.arg: kw.value for kw in deco.keywords if kw.arg is not None}
+                # ``provides=`` disambiguates the backend @register from any other
+                # decorator that happens to be named ``register``.
+                if "provides" not in by_arg:
+                    continue
+                extra_node = by_arg.get("extra")
+                if not (isinstance(extra_node, ast.Constant) and isinstance(extra_node.value, str)):
+                    continue  # file-backed backend without extra -> torch fallback
+                supported = _resolved_hardware_set_literal(by_arg.get("supported_hardware"))
+                for ext in _str_set_literal(by_arg.get("extensions")):
+                    found[ext.lower()] = (extra_node.value, supported)
                 break
     return found

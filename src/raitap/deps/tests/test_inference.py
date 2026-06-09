@@ -6,33 +6,35 @@ import pytest
 
 from raitap.deps.inference import (
     UnknownAdapterTargetError,
+    _extra_for_spec,
     backend_extra,
     infer_extras,
 )
+from raitap.types import ResolvedHardware
 
 
 def test_torch_pt_cuda() -> None:
     cfg = {"model": {"source": "foo.pt"}, "hardware": "gpu"}
-    extras, origins = infer_extras(cfg, hardware="cuda")
+    extras, origins = infer_extras(cfg, hardware=ResolvedHardware.cuda)
     assert "torch-cuda" in extras
     assert "model.source" in origins["torch-cuda"]
 
 
 def test_torch_pt_cpu() -> None:
     cfg = {"model": {"source": "foo.pt"}, "hardware": "cpu"}
-    extras, _ = infer_extras(cfg, hardware="cpu")
+    extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
     assert "torch-cpu" in extras
 
 
 def test_torch_pt_intel() -> None:
     cfg = {"model": {"source": "foo.pt"}}
-    extras, _ = infer_extras(cfg, hardware="xpu")
+    extras, _ = infer_extras(cfg, hardware=ResolvedHardware.xpu)
     assert "torch-intel" in extras
 
 
 def test_onnx_backend() -> None:
     cfg = {"model": {"source": "model.onnx"}}
-    extras, _ = infer_extras(cfg, hardware="cuda")
+    extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cuda)
     assert "onnx-cuda" in extras
     assert "torch-cuda" not in extras
 
@@ -41,18 +43,44 @@ def test_ubj_backend_maps_to_xgboost() -> None:
     cfg = {"model": {"source": "model.ubj"}}
     # XGBoost has no per-accelerator wheel split: same extra on every hardware,
     # and never a torch backend extra.
-    for hardware in ("cpu", "cuda", "xpu"):
+    for hardware in (ResolvedHardware.cpu, ResolvedHardware.cuda, ResolvedHardware.xpu):
         extras, _ = infer_extras(cfg, hardware=hardware)
         assert "xgboost" in extras
         assert not any(e.startswith("torch-") for e in extras)
 
 
 def test_backend_extra_pure() -> None:
-    assert backend_extra("a.pt", "cuda") == "torch-cuda"
-    assert backend_extra("a.onnx", "xpu") == "onnx-intel"
-    assert backend_extra("a.pth", "cpu") == "torch-cpu"
-    assert backend_extra("a.ubj", "cuda") == "xgboost"
-    assert backend_extra("a.ubj", "cpu") == "xgboost"
+    assert backend_extra("a.pt", ResolvedHardware.cuda) == "torch-cuda"
+    assert backend_extra("a.onnx", ResolvedHardware.xpu) == "onnx-intel"
+    assert backend_extra("a.pth", ResolvedHardware.cpu) == "torch-cpu"
+    assert backend_extra("a.ubj", ResolvedHardware.cuda) == "xgboost"
+    assert backend_extra("a.ubj", ResolvedHardware.cpu) == "xgboost"
+
+
+def test_builtin_name_falls_back_to_torch() -> None:
+    # Built-in torchvision models are extensionless (e.g. "resnet50"); they have
+    # no backend registration, so deps inference defaults to the torch runtime.
+    # The Bare-bootstrap demo relies on this.
+    assert backend_extra("resnet50", ResolvedHardware.cpu) == "torch-cpu"
+    assert backend_extra("resnet50", ResolvedHardware.xpu) == "torch-intel"
+
+
+def test_extra_for_spec_bare_and_split() -> None:
+    # Single-wheel runtime: bare extra on every hardware.
+    bare: frozenset[ResolvedHardware] = frozenset()
+    assert _extra_for_spec("xgboost", bare, ResolvedHardware.cuda) == "xgboost"
+    # Hardware-split: suffix from ResolvedHardware (xpu -> intel).
+    full = frozenset(ResolvedHardware)
+    assert _extra_for_spec("torch", full, ResolvedHardware.xpu) == "torch-intel"
+
+
+def test_extra_for_spec_partial_matrix_errors_on_unsupported_hw() -> None:
+    # A backend shipping only cpu+cuda wheels, asked for xpu -> clear error.
+    partial = frozenset({ResolvedHardware.cpu, ResolvedHardware.cuda})
+    with pytest.raises(ValueError, match="no xpu build"):
+        _extra_for_spec("foo", partial, ResolvedHardware.xpu)
+    # Supported hardware still resolves.
+    assert _extra_for_spec("foo", partial, ResolvedHardware.cuda) == "foo-cuda"
 
 
 def test_captum_explainer_block_adds_extra() -> None:
@@ -62,7 +90,7 @@ def test_captum_explainer_block_adds_extra() -> None:
             "ig": {"_target_": "CaptumExplainer", "algorithm": "IntegratedGradients"},
         },
     }
-    extras, _ = infer_extras(cfg, hardware="cpu")
+    extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
     assert "captum" in extras
 
 
@@ -73,7 +101,7 @@ def test_shap_explainer_block_adds_extra() -> None:
             "shap_block": {"_target_": "ShapExplainer", "algorithm": "GradientExplainer"}
         },
     }
-    extras, _ = infer_extras(cfg, hardware="cpu")
+    extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
     assert "shap" in extras
 
 
@@ -86,7 +114,7 @@ def test_robustness_extras() -> None:
             "mb": {"_target_": "MarabouAssessor", "algorithm": "linf-box"},
         },
     }
-    extras, _ = infer_extras(cfg, hardware="cpu")
+    extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
     assert {"torchattacks", "foolbox", "marabou"} <= extras
 
 
@@ -95,7 +123,7 @@ def test_reporting_html_uses_html_extra() -> None:
         "model": {"source": "x.pt"},
         "reporting": {"_target_": "HTMLReporter", "filename": "r"},
     }
-    extras, _ = infer_extras(cfg, hardware="cpu")
+    extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
     assert "html" in extras
     assert "pdf" not in extras
 
@@ -105,14 +133,14 @@ def test_reporting_pdf_uses_pdf_extra() -> None:
         "model": {"source": "x.pt"},
         "reporting": {"_target_": "PDFReporter", "filename": "r"},
     }
-    extras, _ = infer_extras(cfg, hardware="cpu")
+    extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
     assert "pdf" in extras
     assert "html" not in extras
 
 
 def test_reporting_disabled() -> None:
     cfg = {"model": {"source": "x.pt"}, "reporting": {"_target_": None}}
-    extras, _ = infer_extras(cfg, hardware="cpu")
+    extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
     assert "pdf" not in extras and "html" not in extras
 
 
@@ -121,7 +149,7 @@ def test_tracking_mlflow() -> None:
         "model": {"source": "x.pt"},
         "tracking": {"_target_": "MLFlowTracker"},
     }
-    extras, _ = infer_extras(cfg, hardware="cpu")
+    extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
     assert "mlflow" in extras
 
 
@@ -130,7 +158,7 @@ def test_metrics_block_adds_extra() -> None:
         "model": {"source": "x.pt"},
         "metrics": {"_target_": "MulticlassClassificationMetrics", "num_classes": 3},
     }
-    extras, _ = infer_extras(cfg, hardware="cpu")
+    extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
     assert "metrics" in extras
 
 
@@ -140,7 +168,7 @@ def test_unknown_target_raises() -> None:
         "transparency": {"bad": {"_target_": "TotallyMadeUpAdapter"}},
     }
     with pytest.raises(UnknownAdapterTargetError):
-        infer_extras(cfg, hardware="cpu")
+        infer_extras(cfg, hardware=ResolvedHardware.cpu)
 
 
 def test_unknown_target_message_lists_known_adapters() -> None:
@@ -149,7 +177,7 @@ def test_unknown_target_message_lists_known_adapters() -> None:
         "transparency": {"bad": {"_target_": "djd"}},
     }
     with pytest.raises(UnknownAdapterTargetError) as excinfo:
-        infer_extras(cfg, hardware="cpu")
+        infer_extras(cfg, hardware=ResolvedHardware.cpu)
     msg = str(excinfo.value)
     # End-user-facing: names the bad target and enumerates valid ones.
     assert "djd" in msg
@@ -164,7 +192,7 @@ def test_unknown_target_message_suggests_close_match() -> None:
         "transparency": {"bad": {"_target_": "CaptumExplaner"}},
     }
     with pytest.raises(UnknownAdapterTargetError) as excinfo:
-        infer_extras(cfg, hardware="cpu")
+        infer_extras(cfg, hardware=ResolvedHardware.cpu)
     assert "Did you mean 'CaptumExplainer'?" in str(excinfo.value)
 
 
@@ -178,7 +206,7 @@ def test_visualisers_do_not_contribute() -> None:
             }
         },
     }
-    extras, _ = infer_extras(cfg, hardware="cpu")
+    extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
     assert "captum" in extras
 
 
@@ -191,7 +219,7 @@ def test_launcher_extra() -> None:
             }
         },
     }
-    extras, _ = infer_extras(cfg, hardware="cpu")
+    extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
     assert "launcher" in extras
 
 
@@ -202,7 +230,7 @@ def test_fully_qualified_target_still_resolves() -> None:
             "ig": {"_target_": "raitap.transparency.explainers.captum_explainer.CaptumExplainer"}
         },
     }
-    extras, _ = infer_extras(cfg, hardware="cpu")
+    extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
     assert "captum" in extras
 
 

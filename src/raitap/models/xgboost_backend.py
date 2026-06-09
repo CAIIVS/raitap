@@ -18,7 +18,13 @@ _XGBOOST_INSTALL_HINT = (
 )
 
 
-@register(provides={Capability.TREE_MODEL, Capability.PREDICT_PROBA}, extensions={".ubj"})
+# No ``supported_hardware``: xgboost ships a single wheel (CPU + CUDA in one);
+# device is a runtime param, so the extra is the bare ``xgboost`` on all hardware.
+@register(
+    provides={Capability.TREE_MODEL, Capability.PREDICT_PROBA},
+    extensions={".ubj"},
+    extra="xgboost",
+)
 class XGBoostBackend(TabularTreeBackend):
     """Backend wrapping a fitted XGBoost classifier loaded from a ``.ubj`` file."""
 

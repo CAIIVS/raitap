@@ -16,9 +16,10 @@ A backend is a one-file plugin. We will use a fictional backend called `MyBacken
 
 1. **Subclass `ModelBackend`** and decorate with `@backends.register(provides=..., extensions=...)`.
 2. **Declare `provides` and `extensions`**: `provides` is the `frozenset[Capability]` your backend offers; `extensions` is the set of file suffixes it loads. The decorator type-checks both, sets them as class variables, and indexes the backend by extension so model loading resolves the right backend for a given file.
-3. **Implement the abstract methods**: `from_path` (construct from a model file), `__call__` (run inference), and the `hardware_label` property.
-4. **`predict_callable` is inherited**: it returns `self.__call__`, the universal forward-only shape that model-agnostic explainers consume. You do not implement it.
-5. **`autograd_module` is opt-in**: implement it (return the live torch `nn.Module`) and declare `Capability.AUTOGRAD` ONLY if your backend exposes a differentiable torch module. Gradient explainers and attacks get this shape; model-agnostic ones get the predict callable.
+3. **Declare `extra` (and `supported_hardware` if hardware-split)**: `extra` is the uv extra that installs your runtime library (e.g. `"torch"`, `"xgboost"`). `raitap-deps` reads it — import-free, via an AST scan of the decorator — to tell users which extra to install for your file format. Add `supported_hardware={ResolvedHardware.cpu, ...}` only if your library ships a distinct wheel per accelerator; the installable extra is then `f"{extra}-{hw.pyproject_extra_suffix}"` (e.g. `torch-cpu`). Omit it for single-wheel runtimes (the extra is the bare `extra` on all hardware). A file-backed backend without `extra` is invisible to deps inference and falls back to the torch default.
+4. **Implement the abstract methods**: `from_path` (construct from a model file), `__call__` (run inference), and the `hardware_label` property.
+5. **`predict_callable` is inherited**: it returns `self.__call__`, the universal forward-only shape that model-agnostic explainers consume. You do not implement it.
+6. **`autograd_module` is opt-in**: implement it (return the live torch `nn.Module`) and declare `Capability.AUTOGRAD` ONLY if your backend exposes a differentiable torch module. Gradient explainers and attacks get this shape; model-agnostic ones get the predict callable.
 
 ```python
 from pathlib import Path
@@ -29,10 +30,15 @@ from torch import nn
 
 from raitap import backends
 from raitap.models.backend import ModelBackend
-from raitap.types import Capability
+from raitap.types import Capability, ResolvedHardware
 
 
-@backends.register(provides={Capability.AUTOGRAD}, extensions={".pth", ".pt"})
+@backends.register(
+    provides={Capability.AUTOGRAD},
+    extensions={".pth", ".pt"},
+    extra="mybackend",
+    supported_hardware={ResolvedHardware.cpu, ResolvedHardware.cuda},  # ships cpu + cuda wheels
+)
 class MyBackend(ModelBackend):
     def __init__(self, model: nn.Module) -> None:
         self.model = model
@@ -65,7 +71,7 @@ The concrete subclass implements two methods:
 - `from_path`: defer the library import inside the method so the import error surfaces only when the backend is actually used, not at module load. Raise `ImportError` with a pip install hint if the library is absent.
 - `_predict_proba`: call the fitted estimator and return an `(N, C)` numpy array of class probabilities.
 
-Register with `provides={Capability.TREE_MODEL, Capability.PREDICT_PROBA}` and a file extension. The `fitted_estimator()` accessor satisfies the `EstimatorProvider` protocol, which `shap.TreeExplainer` consumes directly. The `predict_callable` method (inherited) returns a callable over the numpy-bridge probabilities, which enables model-agnostic SHAP explainers (e.g. `KernelExplainer`) on tree backends for free.
+Register with `provides={Capability.TREE_MODEL, Capability.PREDICT_PROBA}`, a file extension, and `extra="xgboost"`. No `supported_hardware`: XGBoost ships a single wheel (the bare `xgboost` extra on all hardware). The `fitted_estimator()` accessor satisfies the `EstimatorProvider` protocol, which `shap.TreeExplainer` consumes directly. The `predict_callable` method (inherited) returns a callable over the numpy-bridge probabilities, which enables model-agnostic SHAP explainers (e.g. `KernelExplainer`) on tree backends for free.
 
 ```python
 from pathlib import Path
@@ -81,6 +87,7 @@ from raitap.types import Capability
 @backends.register(
     provides={Capability.TREE_MODEL, Capability.PREDICT_PROBA},
     extensions={".ubj"},
+    extra="xgboost",  # single wheel -> bare extra, no supported_hardware
 )
 class XGBoostBackend(TabularTreeBackend):
     # __init__(estimator) is inherited from TabularTreeBackend.
