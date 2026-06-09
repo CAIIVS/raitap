@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.14.0](https://github.com/CAIIVS/raitap/compare/v0.13.2...v0.14.0) (2026-06-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **model:** backend-agnostic explanation contract + backend registry ([#260](https://github.com/CAIIVS/raitap/issues/260))
+* replace scattered task_kind dispatch with TaskFamily strategy objects ([#252](https://github.com/CAIIVS/raitap/issues/252)) (#256)
+
+### Features
+
+* communicate reproducibility caveat for stochastic methods ([#251](https://github.com/CAIIVS/raitap/issues/251)) ([#268](https://github.com/CAIIVS/raitap/issues/268)) ([0b68d10](https://github.com/CAIIVS/raitap/commit/0b68d1091f65254d8d727c616b376486e5bf5887))
+* **data:** folder-as-label (ImageFolder-style) ingestion ([#264](https://github.com/CAIIVS/raitap/issues/264)) ([#265](https://github.com/CAIIVS/raitap/issues/265)) ([ba7bda0](https://github.com/CAIIVS/raitap/commit/ba7bda0b1616d408d42bca38596de5d2af26c7b4))
+* **model:** tree/tabular backend + SHAP TreeExplainer end-to-end ([#246](https://github.com/CAIIVS/raitap/issues/246)) ([#298](https://github.com/CAIIVS/raitap/issues/298)) ([5081914](https://github.com/CAIIVS/raitap/commit/5081914c9238ae96b322eee9e2c463b0b1b4b4a5))
+* **robustness:** make algo invocation configurable and expand the list of supported algos for all current libs ([#281](https://github.com/CAIIVS/raitap/issues/281)) ([4ca6ec0](https://github.com/CAIIVS/raitap/commit/4ca6ec01c8dcbc88774377b8491e9e669f26f705))
+* **transparency:** add captum NoiseTunnel (SmoothGrad/VarGrad) support ([#294](https://github.com/CAIIVS/raitap/issues/294)) ([c93268a](https://github.com/CAIIVS/raitap/commit/c93268a12f73a92678a2c4bf2d0d06fb62a70500))
+* **transparency:** first-class structured attribution payloads ([#101](https://github.com/CAIIVS/raitap/issues/101)) ([#292](https://github.com/CAIIVS/raitap/issues/292)) ([4bd646d](https://github.com/CAIIVS/raitap/commit/4bd646d7d2fab15976f8dae433fd743a41bd3fd9))
+* **transparency:** SHAP modern-API dispatch + captum Layer* generalization ([#267](https://github.com/CAIIVS/raitap/issues/267)) ([#275](https://github.com/CAIIVS/raitap/issues/275)) ([fbf3f92](https://github.com/CAIIVS/raitap/commit/fbf3f92e5d7897fa1335e2415c2a15acf91e9bc6))
+
+
+### Bug fixes
+
+* **data:** attribute preprocessing-off warning to data module and reword for non-image configs ([#302](https://github.com/CAIIVS/raitap/issues/302)) ([d740021](https://github.com/CAIIVS/raitap/commit/d740021c80c957cb2c2b625969460cc15432748d))
+* guard optional config reads, dedup detection overlay, add SHAP parity test ([#254](https://github.com/CAIIVS/raitap/issues/254)) ([c8a7642](https://github.com/CAIIVS/raitap/commit/c8a7642e2cd15b597320176541c542654c04ea03))
+
+
+### Internal code refactoring
+
+* **data:** make input modality first-class and Data-owned (refs [#253](https://github.com/CAIIVS/raitap/issues/253)) ([#259](https://github.com/CAIIVS/raitap/issues/259)) ([8f358c1](https://github.com/CAIIVS/raitap/commit/8f358c1a56fe93cac5a64c3dccb0b244c1c8aee3))
+* **model:** backend-agnostic explanation contract + backend registry ([#260](https://github.com/CAIIVS/raitap/issues/260)) ([f651503](https://github.com/CAIIVS/raitap/commit/f65150331894fabd2aff116efecfc4a6f4afa979))
+* remove backward-compat / legacy code ([#261](https://github.com/CAIIVS/raitap/issues/261)) ([0e7add3](https://github.com/CAIIVS/raitap/commit/0e7add324a1ce32505078188ea53de7d0085672b))
+* replace scattered task_kind dispatch with TaskFamily strategy objects ([#252](https://github.com/CAIIVS/raitap/issues/252)) ([#256](https://github.com/CAIIVS/raitap/issues/256)) ([213bfa3](https://github.com/CAIIVS/raitap/commit/213bfa33f0efc9667c93727b0e53df77f5ef2647))
+
 ## [0.13.2](https://github.com/CAIIVS/raitap/compare/v0.13.1...v0.13.2) (2026-06-04)
 
 
