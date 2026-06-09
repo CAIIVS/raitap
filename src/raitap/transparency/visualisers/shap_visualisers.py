@@ -283,7 +283,9 @@ class ShapBarVisualiser(_TabularSummaryContractMixin):
     """
 
     def __init__(self, feature_names: list[str] | None = None, max_display: int = 20):
-        self.feature_names = feature_names
+        # Coerce to a plain list: from YAML config this arrives as an OmegaConf
+        # ListConfig, which shap.summary_plot cannot index with numpy int64.
+        self.feature_names = list(feature_names) if feature_names is not None else None
         self.max_display = max_display
 
     def visualise(
@@ -341,7 +343,9 @@ class ShapBeeswarmVisualiser(_TabularSummaryContractMixin):
     """
 
     def __init__(self, feature_names: list[str] | None = None, max_display: int = 20):
-        self.feature_names = feature_names
+        # Plain list: YAML config passes an OmegaConf ListConfig, which
+        # shap.summary_plot cannot index with numpy int64.
+        self.feature_names = list(feature_names) if feature_names is not None else None
         self.max_display = max_display
 
     def visualise(
@@ -399,7 +403,7 @@ class ShapWaterfallVisualiser(BaseVisualiser):
             sample_index:   Which sample from the batch to visualise.
             max_display:    Maximum number of features to show.
         """
-        self.feature_names = feature_names
+        self.feature_names = list(feature_names) if feature_names is not None else None
         self.expected_value = expected_value
         self.sample_index = sample_index
         self.max_display = max_display
@@ -457,7 +461,7 @@ class ShapForceVisualiser(BaseVisualiser):
         expected_value: float = 0.0,
         sample_index: int = 0,
     ):
-        self.feature_names = feature_names
+        self.feature_names = list(feature_names) if feature_names is not None else None
         self.expected_value = expected_value
         self.sample_index = sample_index
 

@@ -53,7 +53,8 @@ class TabularBarChartVisualiser(BaseVisualiser):
         Args:
             feature_names: List of feature names for x-axis labels
         """
-        self.feature_names = feature_names
+        # Plain list: YAML config passes an OmegaConf ListConfig.
+        self.feature_names = list(feature_names) if feature_names is not None else None
 
     def validate_explanation(
         self,

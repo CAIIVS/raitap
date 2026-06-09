@@ -1614,3 +1614,20 @@ def test_detection_uses_shap_renderer_for_shap_library(monkeypatch: pytest.Monke
     assert calls.get("used") is True
     assert all(im.get_cmap().name != "seismic" for ax in fig.axes for im in ax.images)
     plt.close(fig)
+
+
+@pytest.mark.parametrize(
+    "visualiser_cls",
+    [ShapBarVisualiser, ShapBeeswarmVisualiser, TabularBarChartVisualiser],
+)
+def test_feature_names_from_config_coerced_to_plain_list(visualiser_cls: type) -> None:
+    # From YAML, feature_names arrives as an OmegaConf ListConfig, which
+    # shap.summary_plot cannot index with numpy int64. The visualisers must
+    # coerce it to a plain list at construction.
+    from omegaconf import ListConfig, OmegaConf
+
+    names = OmegaConf.create(["f0", "f1", "f2"])
+    assert isinstance(names, ListConfig)
+    vis = visualiser_cls(feature_names=names)
+    assert type(vis.feature_names) is list
+    assert vis.feature_names == ["f0", "f1", "f2"]
