@@ -19,9 +19,10 @@ from __future__ import annotations
 import difflib
 import os
 from collections.abc import Mapping
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any
 
-Hardware = Literal["cpu", "cuda", "xpu"]
+if TYPE_CHECKING:
+    from raitap.types import ResolvedHardware
 
 
 class UnknownAdapterTargetError(RuntimeError):
@@ -38,22 +39,49 @@ class UnknownAdapterTargetError(RuntimeError):
 # Adding a new adapter therefore remains a single-file change — the AST scan
 # picks the new ``extra=`` kwarg up automatically.
 from raitap._adapters import ADAPTER_EXTRAS  # noqa: E402
-from raitap.deps.static_scan import scan_adapter_extras  # noqa: E402
-
-_HARDWARE_SUFFIX: dict[Hardware, str] = {"cuda": "cuda", "xpu": "intel", "cpu": "cpu"}
+from raitap.deps.static_scan import scan_adapter_extras, scan_backend_extras  # noqa: E402
 
 
 def _class_name(target: str) -> str:
     return target.rsplit(".", 1)[-1]
 
 
-def backend_extra(model_source: str, hardware: Hardware) -> str:
-    """Return ``torch-<hw>`` or ``onnx-<hw>`` based on the source file extension."""
+def _extra_for_spec(
+    extra: str, supported_hardware: frozenset[ResolvedHardware], hardware: ResolvedHardware
+) -> str:
+    """Resolve a backend's installable extra for the chosen hardware.
+
+    Bare ``extra`` when the runtime ships a single wheel (``supported_hardware``
+    empty, e.g. xgboost). Otherwise ``f"{extra}-{suffix}"`` (e.g. ``torch-cpu``),
+    or a clear error when the backend has no wheel for ``hardware``.
+    """
+    if not supported_hardware:
+        return extra
+    if hardware not in supported_hardware:
+        available = sorted(hw.value for hw in supported_hardware)
+        raise ValueError(
+            f"The {extra!r} backend has no {hardware.value} build "
+            f"(available: {available}). Re-run with a supported --hardware."
+        )
+    return f"{extra}-{hardware.pyproject_extra_suffix}"
+
+
+def backend_extra(model_source: str, hardware: ResolvedHardware) -> str:
+    """Return the uv extra for a model source, resolved from the backend registry.
+
+    The extension -> extra mapping is harvested import-free from the backends'
+    ``@register`` decorators (:func:`scan_backend_extras`): accelerator runtimes
+    (torch/onnx) split per hardware, single-wheel ones (xgboost) do not.
+    Extensionless sources (built-in torchvision names, e.g. ``"resnet50"``) and
+    unknown extensions fall back to the torch runtime — a truly unsupported file
+    errors later at load time.
+    """
     ext = os.path.splitext(model_source)[1].lower()
-    suffix = _HARDWARE_SUFFIX[hardware]
-    if ext == ".onnx":
-        return f"onnx-{suffix}"
-    return f"torch-{suffix}"
+    spec = scan_backend_extras().get(ext)
+    if spec is None:
+        return f"torch-{hardware.pyproject_extra_suffix}"
+    extra, supported_hardware = spec
+    return _extra_for_spec(extra, supported_hardware, hardware)
 
 
 def _extra_for_target(target: str) -> str:
@@ -122,7 +150,7 @@ def _walk_launcher(extras: dict[str, str], cfg: Mapping[str, Any]) -> None:
 def infer_extras(
     cfg: Mapping[str, Any],
     *,
-    hardware: Hardware,
+    hardware: ResolvedHardware,
 ) -> tuple[set[str], dict[str, str]]:
     """Return ``(extras, origins)`` for a composed Hydra config.
 

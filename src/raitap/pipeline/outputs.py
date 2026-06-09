@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, cast, runtime_checkable
 
 from raitap.utils.lazy import lazy_import
@@ -95,6 +96,18 @@ class _RenderableResult(AdapterResult, Protocol):  # noqa: PYI046  # used as the
         raise NotImplementedError
 
 
+class OutputKind(StrEnum):
+    """Calibration of a classification ``ForwardOutput`` payload.
+
+    ``LOGITS`` (default): raw scores; downstream applies softmax. ``PROBABILITIES``:
+    an already-normalised distribution (tree backends via ``predict_proba``). The
+    softmax step is skipped so confidences and proba-consuming metrics stay correct.
+    """
+
+    LOGITS = "logits"
+    PROBABILITIES = "probabilities"
+
+
 @dataclass(frozen=True)
 class PredictionSummary:
     """Per-sample classification summary used by reporting."""
@@ -117,12 +130,14 @@ class ForwardOutput:
     construction (recovering the old ``__post_init__`` invariant). Typed
     accessors (:meth:`as_classification`, :meth:`as_detection`) narrow the
     union for the dense classification + detection call sites that still want
-    the concrete type. ``batch_size`` stays task-agnostic.
+    the concrete type. ``batch_size`` stays task-agnostic. ``output_kind`` signals
+    whether a classification ``payload`` is raw logits or normalised probabilities.
     """
 
     task_kind: TaskKind
     batch_size: int
     payload: object
+    output_kind: OutputKind = OutputKind.LOGITS
 
     def __post_init__(self) -> None:
         from raitap.task_families import resolve_task_family

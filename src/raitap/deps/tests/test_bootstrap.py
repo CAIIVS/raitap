@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from raitap.deps import bootstrap
+from raitap.types import ResolvedHardware
 
 
 @pytest.fixture(autouse=True)
@@ -48,7 +49,7 @@ def test_custom_deps_short_circuits(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _stub_common(monkeypatch: pytest.MonkeyPatch) -> None:
     _fake_compose(monkeypatch, _baseline_cfg())
-    monkeypatch.setattr(bootstrap, "detect_hardware", lambda: "cpu")
+    monkeypatch.setattr(bootstrap, "detect_hardware", lambda: ResolvedHardware.cpu)
     monkeypatch.setattr(bootstrap, "pick_python_version", lambda *_a, **_k: None)
     monkeypatch.setattr(bootstrap, "check_platform_availability", lambda *_a, **_k: None)
     monkeypatch.setattr(bootstrap, "validate_conflicts", lambda *_a, **_k: None)
@@ -141,7 +142,7 @@ def test_dry_run_prints_and_exits(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     _fake_compose(monkeypatch, _baseline_cfg())
-    monkeypatch.setattr(bootstrap, "detect_hardware", lambda: "cpu")
+    monkeypatch.setattr(bootstrap, "detect_hardware", lambda: ResolvedHardware.cpu)
     monkeypatch.setattr(bootstrap, "pick_python_version", lambda *_a, **_k: None)
     monkeypatch.setattr(bootstrap, "check_platform_availability", lambda *_a, **_k: None)
     monkeypatch.setattr(bootstrap, "validate_conflicts", lambda *_a, **_k: None)
@@ -159,7 +160,7 @@ def test_dry_run_prints_and_exits(
 
 def test_default_relaunches_via_uv_run(monkeypatch: pytest.MonkeyPatch) -> None:
     _fake_compose(monkeypatch, _baseline_cfg())
-    monkeypatch.setattr(bootstrap, "detect_hardware", lambda: "cpu")
+    monkeypatch.setattr(bootstrap, "detect_hardware", lambda: ResolvedHardware.cpu)
     monkeypatch.setattr(bootstrap, "pick_python_version", lambda *_a, **_k: None)
     monkeypatch.setattr(bootstrap, "check_platform_availability", lambda *_a, **_k: None)
     monkeypatch.setattr(bootstrap, "validate_conflicts", lambda *_a, **_k: None)
@@ -179,7 +180,7 @@ def test_default_relaunches_via_uv_run(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_python_pin_inserted(monkeypatch: pytest.MonkeyPatch) -> None:
     _fake_compose(monkeypatch, _baseline_cfg())
-    monkeypatch.setattr(bootstrap, "detect_hardware", lambda: "cpu")
+    monkeypatch.setattr(bootstrap, "detect_hardware", lambda: ResolvedHardware.cpu)
     monkeypatch.setattr(bootstrap, "pick_python_version", lambda *_a, **_k: "3.11")
     monkeypatch.setattr(bootstrap, "check_platform_availability", lambda *_a, **_k: None)
     monkeypatch.setattr(bootstrap, "validate_conflicts", lambda *_a, **_k: None)
@@ -193,7 +194,7 @@ def test_python_pin_inserted(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_unavailable_extra_aborts(monkeypatch: pytest.MonkeyPatch) -> None:
     _fake_compose(monkeypatch, _baseline_cfg())
-    monkeypatch.setattr(bootstrap, "detect_hardware", lambda: "cpu")
+    monkeypatch.setattr(bootstrap, "detect_hardware", lambda: ResolvedHardware.cpu)
 
     def boom(*_a: Any, **_k: Any) -> None:
         raise bootstrap.ExtraUnavailableError("nope")
@@ -207,7 +208,7 @@ def test_unavailable_extra_aborts(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_relaunch_propagates_child_returncode(monkeypatch: pytest.MonkeyPatch) -> None:
     _fake_compose(monkeypatch, _baseline_cfg())
-    monkeypatch.setattr(bootstrap, "detect_hardware", lambda: "cpu")
+    monkeypatch.setattr(bootstrap, "detect_hardware", lambda: ResolvedHardware.cpu)
     monkeypatch.setattr(bootstrap, "pick_python_version", lambda *_a, **_k: None)
     monkeypatch.setattr(bootstrap, "check_platform_availability", lambda *_a, **_k: None)
     monkeypatch.setattr(bootstrap, "validate_conflicts", lambda *_a, **_k: None)
@@ -249,7 +250,7 @@ def test_strip_deps_flags_accepts_y_alias() -> None:
 
 def test_sync_only_runs_sync_and_exits(monkeypatch: pytest.MonkeyPatch) -> None:
     _fake_compose(monkeypatch, _baseline_cfg())
-    monkeypatch.setattr(bootstrap, "detect_hardware", lambda: "cpu")
+    monkeypatch.setattr(bootstrap, "detect_hardware", lambda: ResolvedHardware.cpu)
     monkeypatch.setattr(bootstrap, "pick_python_version", lambda *_a, **_k: None)
     monkeypatch.setattr(bootstrap, "check_platform_availability", lambda *_a, **_k: None)
     monkeypatch.setattr(bootstrap, "validate_conflicts", lambda *_a, **_k: None)

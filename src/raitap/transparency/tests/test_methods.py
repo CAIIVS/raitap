@@ -73,6 +73,18 @@ class TestCompatibleAlgorithmsAttribute:
     def test_shap_image_rejects_tree_explainer(self) -> None:
         assert "TreeExplainer" not in ShapImageVisualiser.compatible_algorithms
 
+    def test_tree_explainer_routes_to_tabular_visualisers(self) -> None:
+        # The two gating predicates that let TreeExplainer reach a tabular visualiser:
+        # (1) its method families intersect the visualiser's supported families, and
+        # (2) the visualiser carries no algorithm allow-list.
+        from raitap.transparency.explainers import ShapExplainer
+
+        tree_families = ShapExplainer.algorithm_registry["TreeExplainer"].families
+        assert tree_families & ShapBarVisualiser.supported_method_families
+        assert tree_families & ShapBeeswarmVisualiser.supported_method_families
+        assert ShapBarVisualiser.compatible_algorithms == frozenset()
+        assert ShapBeeswarmVisualiser.compatible_algorithms == frozenset()
+
     # ------------------------------------------------------------------
     # Framework-agnostic visualisers: unrestricted
     # ------------------------------------------------------------------

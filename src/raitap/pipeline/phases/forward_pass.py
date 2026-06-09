@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from raitap.pipeline.outputs import ForwardOutput
+from raitap.pipeline.outputs import ForwardOutput, OutputKind
 from raitap.task_families import ForwardContext, resolve_task_family
-from raitap.types import DetectionInputs, TaskKind
+from raitap.types import Capability, DetectionInputs, TaskKind
 from raitap.utils.lazy import lazy_import
 
 # Conservative default for prediction/metrics forwards. Transparency methods
@@ -139,8 +139,14 @@ def forward_pass(
     payload = family.extract_forward(
         ForwardContext(backend=backend, inputs=inputs), batch_size=batch_size
     )
+    output_kind = (
+        OutputKind.PROBABILITIES
+        if Capability.PREDICT_PROBA in getattr(backend, "provides", frozenset())
+        else OutputKind.LOGITS
+    )
     return ForwardOutput(
         task_kind=task_kind,
         batch_size=family.payload_batch_size(payload),
         payload=payload,
+        output_kind=output_kind,
     )

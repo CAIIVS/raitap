@@ -124,7 +124,12 @@ class TaskFamily(Protocol):
         raise NotImplementedError
 
     def prediction_summaries(
-        self, payload: object, *, sample_ids: object = None, targets: object = None
+        self,
+        payload: object,
+        *,
+        sample_ids: object = None,
+        targets: object = None,
+        output_kind: Any = None,
     ) -> list | None:
         """Per-sample prediction summary rows, or ``None`` if N/A."""
         raise NotImplementedError

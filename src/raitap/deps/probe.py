@@ -13,9 +13,8 @@ import shutil
 import subprocess
 import sys
 from functools import lru_cache
-from typing import Literal
 
-Hardware = Literal["cpu", "cuda", "xpu"]
+from raitap.types import ResolvedHardware
 
 
 def _platform() -> str:
@@ -77,15 +76,15 @@ def _intel_gpu_windows() -> bool:
 
 
 @lru_cache(maxsize=1)
-def detect_hardware() -> Hardware:
-    """Return the best hardware extra suffix for the current host."""
+def detect_hardware() -> ResolvedHardware:
+    """Return the accelerator the current host resolves to."""
     platform = _platform()
     if platform == "darwin":
-        return "cpu"
+        return ResolvedHardware.cpu
     if _cuda_available():
-        return "cuda"
+        return ResolvedHardware.cuda
     if platform.startswith("linux") and _intel_gpu_linux():
-        return "xpu"
+        return ResolvedHardware.xpu
     if platform.startswith("win") and _intel_gpu_windows():
-        return "xpu"
-    return "cpu"
+        return ResolvedHardware.xpu
+    return ResolvedHardware.cpu

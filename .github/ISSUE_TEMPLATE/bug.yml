@@ -41,6 +41,7 @@ body:
         - pipeline
         - configs
         - deps
+        - task-family
         - unsure
     validations:
       required: true

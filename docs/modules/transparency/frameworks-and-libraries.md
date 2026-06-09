@@ -237,9 +237,51 @@ All explainers accept a background reference except `TreeExplainer`. Set it with
 
 **Stochastic explainers** (`GradientExplainer`, `KernelExplainer`, `PermutationExplainer`, `SamplingExplainer`) are RNG-dependent and trigger the reproducibility caveat (see {doc}`output`). `PartitionExplainer`, `ExactExplainer`, `DeepExplainer`, and `TreeExplainer` are deterministic.
 
+#### TreeExplainer (tree models)
+
+`TreeExplainer` is supported on tree backends (e.g. XGBoost). It requires:
+
+- `--extra shap` (SHAP library)
+- `--extra xgboost` (XGBoost tree runtime)
+
+It is **rejected on torch and ONNX backends** with a clear `BackendIncompatibilityError`. Use it only when `model.source` points at a `.ubj` (or other tree-backend) file.
+
+Tabular SHAP values from `TreeExplainer` route to the tabular visualisers (`ShapBarVisualiser`, `ShapBeeswarmVisualiser`, `ShapForceVisualiser`, `ShapWaterfallVisualiser`). Set `raitap.input_metadata.kind: tabular` to confirm the output space.
+
+```{config-tabs}
+:yaml:
+transparency:
+  my_tree_explainer:
+    _target_: ShapExplainer
+    algorithm: TreeExplainer
+    raitap:
+      input_metadata:
+        kind: tabular
+        feature_names: [feature_a, feature_b, feature_c]
+    visualisers:
+      - _target_: ShapBarVisualiser
+      - _target_: ShapBeeswarmVisualiser
+
+:python:
+from raitap.transparency import shap, shap_bar, shap_beeswarm
+
+transparency = {
+    "my_tree_explainer": shap(
+        algorithm="TreeExplainer",
+        raitap={
+            "input_metadata": {
+                "kind": "tabular",
+                "feature_names": ["feature_a", "feature_b", "feature_c"],
+            },
+        },
+        visualisers=[shap_bar(), shap_beeswarm()],
+    ),
+}
+```
+
 #### ONNX compatibility
 
-Only `KernelExplainer` is compatible.
+Only `KernelExplainer` is compatible with ONNX backends. `TreeExplainer` requires a tree backend and is rejected on ONNX.
 
 #### Visualiser compatibility
 

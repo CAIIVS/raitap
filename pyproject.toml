@@ -126,6 +126,18 @@ onnx-intel = [
 shap = ["shap>=0.46.0", "opencv-python>=4.9"]
 captum = ["captum>=0.7.0"]
 transparency = ["raitap[shap,captum]"]
+# Tree/tabular model backend (XGBoost) — enables shap.TreeExplainer end-to-end.
+# Named per-library (like shap/captum); a `tree` umbrella can re-export this and
+# future tree libs (LightGBM/sklearn) once they land. Kept out of the
+# transparency umbrella: TreeExplainer needs both shap and xgboost.
+# scikit-learn: XGBoostBackend loads via the sklearn-API ``XGBClassifier``, which
+# imports scikit-learn — so the backend cannot load a model without it.
+# torch: raitap's pipeline is torch-based (data tensors + the tree backend's
+# numpy<->torch bridge), so a tree config needs torch even though XGBoost does the
+# compute. Bundled here and routed to the CPU index in [tool.uv.sources] (like
+# onnx-cpu bundles torch); XGBoost runs on CPU here, so the CPU build suffices and
+# this extra stays hardware-variant-free.
+xgboost = ["xgboost>=2.0", "scikit-learn>=1.3", "torch>=2.8.0,<2.9.0"]
 
 # Robustness module
 torchattacks = ["torchattacks>=3.5.1"]
@@ -244,6 +256,24 @@ conflicts = [
     { extra = "onnx-intel" },
     { extra = "torch-cuda" },
   ],
+  # xgboost bundles the CPU torch build (for the tensor pipeline), so it is
+  # mutually exclusive with any extra that pulls a cuda/xpu torch build.
+  [
+    { extra = "xgboost" },
+    { extra = "torch-cuda" },
+  ],
+  [
+    { extra = "xgboost" },
+    { extra = "torch-intel" },
+  ],
+  [
+    { extra = "xgboost" },
+    { extra = "onnx-cuda" },
+  ],
+  [
+    { extra = "xgboost" },
+    { extra = "onnx-intel" },
+  ],
   # auto-LiRPA needs torch<2.9 but the Intel XPU extras require torch>=2.10.0
   # (the 2.8 xpu wheel's triton dep is unpublished) — and auto-LiRPA has no XPU
   # support regardless. Declare them mutually exclusive so uv never resolves the
@@ -268,6 +298,7 @@ auto-LiRPA = { git = "https://github.com/Verified-Intelligence/auto_LiRPA" }
 torch = [
   { index = "pytorch-cpu", extra = "torch-cpu" },
   { index = "pytorch-cpu", extra = "onnx-cpu" },
+  { index = "pytorch-cpu", extra = "xgboost" },
   { index = "pytorch-cuda", extra = "torch-cuda" },
   { index = "pytorch-cuda", extra = "onnx-cuda" },
   { index = "pytorch-intel", extra = "torch-intel" },

@@ -127,9 +127,11 @@ class BackendIncompatibilityError(Exception):
         self.backend = backend
         self.missing = missing
         joined = ", ".join(missing) or "none"
-        # Only the autograd hint is concrete today; other capabilities (e.g. the
-        # seeded tree_model / predict_proba) have no provider yet, so don't claim one.
-        hint = " A torch backend supplies autograd." if "autograd" in missing else ""
+        hint = ""
+        if "autograd" in missing:
+            hint = " A torch backend supplies autograd."
+        elif "tree_model" in missing:
+            hint = " A tree backend (e.g. XGBoost) supplies tree_model."
         super().__init__(
             f"Adapter {adapter!r} is not compatible with backend {backend!r}.\n"
             f"Missing capabilities: {joined}. Use a backend that provides them.{hint}"

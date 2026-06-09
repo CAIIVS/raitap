@@ -4,7 +4,7 @@ from typing import Any, cast
 
 import pytest
 
-from raitap.models.access import AutogradModelProvider, explanation_model
+from raitap.models.access import AutogradModelProvider, EstimatorProvider, explanation_model
 from raitap.types import Capability
 
 
@@ -57,3 +57,30 @@ def test_declared_capability_without_impl_raises() -> None:
 
     with pytest.raises(TypeError):
         explanation_model(cast("Any", _Broken()), _FakeAdapter(frozenset({Capability.AUTOGRAD})))
+
+
+class _EstimatorBackend(_CallableBackend):
+    provides = frozenset({Capability.TREE_MODEL, Capability.PREDICT_PROBA})
+
+    def fitted_estimator(self):  # noqa: ANN202
+        return "the-estimator"
+
+
+def test_tree_model_adapter_gets_fitted_estimator() -> None:
+    model = explanation_model(
+        cast("Any", _EstimatorBackend()), _FakeAdapter(frozenset({Capability.TREE_MODEL}))
+    )
+    assert model == "the-estimator"
+
+
+def test_estimator_provider_protocol_is_runtime_checkable() -> None:
+    assert isinstance(_EstimatorBackend(), EstimatorProvider)
+    assert not isinstance(_CallableBackend(), EstimatorProvider)
+
+
+def test_tree_model_without_impl_raises() -> None:
+    class _Broken(_CallableBackend):  # claims TREE_MODEL but has no fitted_estimator
+        provides = frozenset({Capability.TREE_MODEL})
+
+    with pytest.raises(TypeError):
+        explanation_model(cast("Any", _Broken()), _FakeAdapter(frozenset({Capability.TREE_MODEL})))

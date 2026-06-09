@@ -36,6 +36,44 @@ class Hardware(StrEnum):
     gpu = "gpu"
 
 
+class ResolvedHardware(StrEnum):
+    """Concrete accelerator a run resolves to after hardware probing.
+
+    The user-facing :class:`Hardware` choice ``gpu`` resolves (by probing) to
+    ``cuda`` or ``xpu``; ``cpu`` stays ``cpu``. This is the single table tying
+    the three hardware axes together — the member is the resolved name, and the
+    properties give the other two conventions:
+
+    ======== ====================== ====================
+    member   pyproject_extra_suffix config_hardware_value
+    ======== ====================== ====================
+    cpu      cpu                    cpu
+    cuda     cuda                   gpu
+    xpu      intel                  gpu
+    ======== ====================== ====================
+
+    Owned here (import-free) so both ``raitap.deps`` (probe + extra inference)
+    and ``raitap.models`` (backend ``supported_hardware``) share one source.
+    """
+
+    cpu = "cpu"
+    cuda = "cuda"
+    xpu = "xpu"
+
+    @property
+    def pyproject_extra_suffix(self) -> str:
+        """Suffix in the optional-dependency name (e.g. ``intel`` in
+        ``torch-intel``). Intel XPU wheels are labelled ``intel``, not ``xpu``;
+        ``cpu``/``cuda`` match the member value."""
+        return "intel" if self is ResolvedHardware.xpu else self.value
+
+    @property
+    def config_hardware_value(self) -> Hardware:
+        """The user-facing :class:`Hardware` choice this accelerator satisfies:
+        ``cuda``/``xpu`` are both ``gpu``; ``cpu`` is ``cpu``."""
+        return Hardware.cpu if self is ResolvedHardware.cpu else Hardware.gpu
+
+
 class Task(StrEnum):
     binary = "binary"
     multiclass = "multiclass"
@@ -69,10 +107,9 @@ class Capability(StrEnum):
     AUTOGRAD = (
         "autograd"  # differentiable live model + input gradients (PGD, IntegratedGradients, CROWN)
     )
-    TREE_MODEL = (
-        "tree_model"  # roadmap: tree-ensemble structure (TreeSHAP). No provider/requirer yet.
-    )
-    PREDICT_PROBA = "predict_proba"  # roadmap: class-probability outputs. No provider/requirer yet.
+    # tree-ensemble structure (TreeSHAP): provided by tree backends, required by TreeExplainer
+    TREE_MODEL = "tree_model"
+    PREDICT_PROBA = "predict_proba"  # class-probability outputs: provided by tree backends
 
 
 #: A backend that exposes only the universal forward path (no special model

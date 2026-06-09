@@ -158,6 +158,9 @@ class ClassificationFamily:
     def metrics_inputs(self, config: Any, forward_output: Any, labels: Any) -> Any:
         from raitap.metrics import metrics_prediction_pair, resolve_metric_targets
 
+        # Probabilities vs logits (forward_output.output_kind) does not change the
+        # label: argmax is identical, and proba-consuming metrics now get a true
+        # distribution. No transform needed here.
         predictions_tensor = forward_output.as_classification()
         if (
             getattr(config.metrics, "num_classes", None) is None
@@ -173,9 +176,9 @@ class ClassificationFamily:
         return preds, targs
 
     def prediction_summaries(
-        self, payload: Any, *, sample_ids: Any = None, targets: Any = None
+        self, payload: Any, *, sample_ids: Any = None, targets: Any = None, output_kind: Any = None
     ) -> list | None:
-        from raitap.pipeline.outputs import PredictionSummary
+        from raitap.pipeline.outputs import OutputKind, PredictionSummary
         from raitap.pipeline.phases.prediction_summaries import valid_targets_for_reporting
 
         predictions_tensor = payload
@@ -183,7 +186,11 @@ class ClassificationFamily:
             return None
 
         classification_targets = targets if not isinstance(targets, list) else None
-        probabilities = torch.softmax(predictions_tensor.detach().cpu(), dim=1)
+        values = predictions_tensor.detach().cpu()
+        if output_kind == OutputKind.PROBABILITIES:
+            probabilities = values
+        else:
+            probabilities = torch.softmax(values, dim=1)
         confidences, predictions = probabilities.max(dim=1)
         resolved_targets = valid_targets_for_reporting(
             targets=classification_targets,

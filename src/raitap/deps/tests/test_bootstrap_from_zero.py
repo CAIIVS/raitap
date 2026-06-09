@@ -78,10 +78,11 @@ def test_infer_extras_without_backends(_hide_backend_libs: None) -> None:
     subsequent ``uv add raitap[...]`` installs torch."""
     from raitap.deps.bootstrap import _compose
     from raitap.deps.inference import infer_extras
+    from raitap.types import ResolvedHardware
 
     demo_dir = Path(__file__).resolve().parents[2] / "configs"
     composed = _compose(demo_dir, "demo", [])
-    extras, _ = infer_extras(composed, hardware="cpu")
+    extras, _ = infer_extras(composed, hardware=ResolvedHardware.cpu)
 
     # The demo config drives a torch model + transparency + metrics —
     # everything below is what makes the bootstrap-from-zero promise hold.

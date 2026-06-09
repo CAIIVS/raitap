@@ -35,6 +35,13 @@ class AutogradModelProvider(Protocol):
     def autograd_module(self) -> nn.Module: ...
 
 
+@runtime_checkable
+class EstimatorProvider(Protocol):
+    """A backend that can hand out a raw fitted estimator (e.g. for TreeSHAP)."""
+
+    def fitted_estimator(self) -> Any: ...
+
+
 def _require(backend: ModelBackend, proto: type) -> Any:
     """Narrow ``backend`` to ``proto`` or raise. The capability gate runs first,
     so a failure here means the backend declared the capability but did not
@@ -48,9 +55,9 @@ def _require(backend: ModelBackend, proto: type) -> Any:
 
 
 #: Single authoritative binding: capability -> how to extract its model shape.
-#: ``EstimatorProvider`` / ``TREE_MODEL`` join here with the tree backend (#246).
 _SHAPE_BY_CAPABILITY: dict[Capability, Callable[[ModelBackend], ExplanationModel]] = {
     Capability.AUTOGRAD: lambda b: _require(b, AutogradModelProvider).autograd_module(),
+    Capability.TREE_MODEL: lambda b: _require(b, EstimatorProvider).fitted_estimator(),
 }
 SHAPE_CAPABILITIES = frozenset(_SHAPE_BY_CAPABILITY)
 

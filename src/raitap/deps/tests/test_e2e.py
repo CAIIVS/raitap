@@ -10,6 +10,7 @@ fail loudly.
 from __future__ import annotations
 
 from raitap.deps.inference import infer_extras
+from raitap.types import ResolvedHardware
 
 _LWISE_ASSESSMENT: dict = {
     "experiment_name": "lwise-ham10000-dermoscopy-demo",
@@ -41,12 +42,12 @@ _LWISE_ASSESSMENT_MLFLOW: dict = {
 
 
 def test_lwise_ham10000_assessment_extras() -> None:
-    extras, _ = infer_extras(_LWISE_ASSESSMENT, hardware="cpu")
+    extras, _ = infer_extras(_LWISE_ASSESSMENT, hardware=ResolvedHardware.cpu)
     assert {"torch-cpu", "captum", "metrics", "html", "torchattacks", "marabou"} <= extras
 
 
 def test_lwise_ham10000_assessment_mlflow_extras() -> None:
-    extras, _ = infer_extras(_LWISE_ASSESSMENT_MLFLOW, hardware="cpu")
+    extras, _ = infer_extras(_LWISE_ASSESSMENT_MLFLOW, hardware=ResolvedHardware.cpu)
     assert {
         "torch-cpu",
         "captum",
@@ -59,13 +60,13 @@ def test_lwise_ham10000_assessment_mlflow_extras() -> None:
 
 
 def test_lwise_ham10000_with_xpu_picks_torch_intel() -> None:
-    extras, _ = infer_extras(_LWISE_ASSESSMENT, hardware="xpu")
+    extras, _ = infer_extras(_LWISE_ASSESSMENT, hardware=ResolvedHardware.xpu)
     assert "torch-intel" in extras
     assert "torch-cpu" not in extras
 
 
 def test_lwise_ham10000_with_cuda_picks_torch_cuda() -> None:
-    extras, _ = infer_extras(_LWISE_ASSESSMENT, hardware="cuda")
+    extras, _ = infer_extras(_LWISE_ASSESSMENT, hardware=ResolvedHardware.cuda)
     assert "torch-cuda" in extras
     assert "torch-cpu" not in extras
 
@@ -82,7 +83,7 @@ _MARABOU_MNIST_DEMO: dict = {
 
 
 def test_marabou_mnist_demo_picks_onnx_backend() -> None:
-    extras, _ = infer_extras(_MARABOU_MNIST_DEMO, hardware="cpu")
+    extras, _ = infer_extras(_MARABOU_MNIST_DEMO, hardware=ResolvedHardware.cpu)
     assert "onnx-cpu" in extras
     assert "torch-cpu" not in extras
     assert "marabou" in extras

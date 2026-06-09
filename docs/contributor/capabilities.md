@@ -21,8 +21,8 @@ The inherited `AdapterMixin.check_backend_compat` enforces this and raises `Back
 | Capability | Value | Status | Meaning | Provided by | Required by |
 |---|---|---|---|---|---|
 | `AUTOGRAD` | `"autograd"` | live | Differentiable live model with input gradients. | `TorchBackend` | captum gradient methods (IntegratedGradients, Saliency, GradCAM), torchattacks, foolbox, auto-LiRPA (CROWN/IBP) |
-| `TREE_MODEL` | `"tree_model"` | roadmap | Access to tree-ensemble structure (splits, leaf values) for TreeSHAP-style methods. | none yet (a future sklearn / XGBoost / LightGBM backend) | none yet (SHAP `TreeExplainer`, see #246) |
-| `PREDICT_PROBA` | `"predict_proba"` | roadmap | Calibrated class-probability outputs. | none yet | none yet |
+| `TREE_MODEL` | `"tree_model"` | live | Access to tree-ensemble structure (splits, leaf values) for TreeSHAP-style methods. | `XGBoostBackend` (and future sklearn / LightGBM backends) | SHAP `TreeExplainer` (rejected on torch/ONNX backends) |
+| `PREDICT_PROBA` | `"predict_proba"` | live | Calibrated class-probability outputs. | `XGBoostBackend` | Forward pass: detects `OutputKind.PROBABILITIES` and skips softmax so confidences and metrics stay correct. Not a gate-requirer. |
 
 `OnnxBackend` provides the empty set: it runs only model-agnostic algorithms (those with empty `requires`, e.g. SHAP `KernelExplainer`, captum `Occlusion` / `FeatureAblation`).
 
@@ -32,7 +32,7 @@ The default `requires=frozenset()` means "needs nothing special", so the algorit
 
 ## Adding a capability
 
-Add a member to `Capability` only when a real algorithm needs it and a backend can provide it (ship both in the same change). A capability that nothing requires is dead and untestable. The two roadmap members above are seeded but inert until their backend + algorithm land.
+Add a member to `Capability` only when a real algorithm needs it and a backend can provide it (ship both in the same change). A capability that nothing requires is dead and untestable.
 
 ## See also
 

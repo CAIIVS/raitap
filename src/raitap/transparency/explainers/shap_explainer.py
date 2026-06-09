@@ -216,11 +216,11 @@ def _shap_modern_invoker(ctx: AttributionInvokeCtx) -> tuple[torch.Tensor, torch
             stochastic=True,
             invoker=_shap_legacy_invoker,
         ),
-        # TreeExplainer is a tree-model method; requires=AUTOGRAD preserves current
-        # gating, but it is the natural first consumer of the roadmap TREE_MODEL capability.
+        # TreeExplainer needs the raw fitted estimator (tree splits + leaf values),
+        # so it requires the TREE_MODEL capability and gates onto tree backends only.
         "TreeExplainer": ExplainerAlgorithmSpec(
             {MethodFamily.SHAPLEY, MethodFamily.TREE},
-            requires={Capability.AUTOGRAD},
+            requires={Capability.TREE_MODEL},
             invoker=_shap_legacy_invoker,
         ),
         "SamplingExplainer": ExplainerAlgorithmSpec(

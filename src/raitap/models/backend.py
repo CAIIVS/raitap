@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, overload
 import numpy as np
 
 from raitap.models.registration import register
-from raitap.types import FORWARD_ONLY, Capability, TaskKind
+from raitap.types import FORWARD_ONLY, Capability, ResolvedHardware, TaskKind
 from raitap.utils.errors import ModelInputShapeError
 from raitap.utils.lazy import lazy_import
 
@@ -132,6 +132,11 @@ class ModelBackend(ABC):
 
     provides: ClassVar[frozenset[Capability]] = frozenset()
     extensions: ClassVar[frozenset[str]] = frozenset()
+    # uv extra installing this backend's runtime, and the hardware values it
+    # ships per-wheel. Set by ``@register``; read import-free by the deps
+    # scanner. ``None``/empty for non-file or single-wheel backends.
+    extra: ClassVar[str | None] = None
+    supported_hardware: ClassVar[frozenset[ResolvedHardware]] = frozenset()
     # Declared per-sample input shape with ``None`` marking dynamic dims
     # (typically the batch dim). ``None`` overall = no rank adaptation.
     expected_input_shape: tuple[int | None, ...] | None = None
@@ -179,7 +184,12 @@ class ModelBackend(ABC):
         return self.__call__
 
 
-@register(provides={Capability.AUTOGRAD}, extensions={".pth", ".pt"})
+@register(
+    provides={Capability.AUTOGRAD},
+    extensions={".pth", ".pt"},
+    extra="torch",
+    supported_hardware={ResolvedHardware.cpu, ResolvedHardware.cuda, ResolvedHardware.xpu},
+)
 class TorchBackend(ModelBackend):
     """PyTorch-backed model runtime."""
 
@@ -256,7 +266,12 @@ class TorchBackend(ModelBackend):
         return self.model
 
 
-@register(provides=FORWARD_ONLY, extensions={".onnx"})
+@register(
+    provides=FORWARD_ONLY,
+    extensions={".onnx"},
+    extra="onnx",
+    supported_hardware={ResolvedHardware.cpu, ResolvedHardware.cuda, ResolvedHardware.xpu},
+)
 class OnnxBackend(ModelBackend):
     """ONNX Runtime-backed model runtime."""
 
