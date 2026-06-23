@@ -17,6 +17,7 @@ from raitap.data.types import (
     IdStrategy,
     InputModality,
     LabelEncoding,
+    LabelFormat,
 )
 from raitap.data.utils import download_file
 from raitap.tracking.base_tracker import BaseTracker, Trackable
@@ -280,6 +281,33 @@ def load_classification_labels(
 
     if labels_source == DIRECTORY_LABELS_SOURCE:
         return _load_directory_labels(sample_ids)
+
+    labels_format = _get_optional_config_value(labels_cfg, "format") or LabelFormat.native
+    if labels_format != LabelFormat.native:
+        from raitap.data.label_formats import resolve_label_format_adapter
+
+        if not sample_ids:
+            raise ValueError(
+                f"Label format {LabelFormat(labels_format).value!r} requires "
+                "id-based alignment, but no sample ids were discovered."
+            )
+        labels_path = get_source_path(labels_source, kind=SourceKind.LABELS)
+        adapter = resolve_label_format_adapter(
+            LabelFormat(labels_format), task_kind=TaskKind.classification
+        )
+        records = adapter.to_classification_records(labels_path)
+        id_series = pd.Series([r["sample_id"] for r in records])
+        record_labels = [int(r["label"]) for r in records]
+        strategy = _resolve_id_strategy(
+            _get_optional_config_value(labels_cfg, "id_strategy") or "auto", id_series
+        )
+        aligned = _align_labels_to_samples(
+            sample_ids=sample_ids,
+            raw_label_ids=id_series,
+            encoded_labels=record_labels,
+            strategy=strategy,
+        )
+        return torch.tensor(aligned, dtype=torch.long)
 
     labels_path = get_source_path(labels_source, kind=SourceKind.LABELS)
     labels_df = _load_tabular_frame(labels_path)

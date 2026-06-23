@@ -198,3 +198,38 @@ def test_detection_load_labels_via_coco(tmp_path, monkeypatch):
     assert torch.equal(out[0]["boxes"], torch.tensor([[10.0, 20.0, 40.0, 60.0]]))
     assert torch.equal(out[0]["labels"], torch.tensor([3]))
     assert out[1]["boxes"].shape == (0, 4)
+
+
+def test_classification_load_labels_via_coco(tmp_path, monkeypatch):
+    import json
+    import torch
+    from types import SimpleNamespace
+    import raitap.data.data as data_mod
+    from raitap.data.data import load_classification_labels
+    from raitap.data.types import LabelFormat
+
+    coco = {
+        "images": [{"id": 1, "file_name": "a.jpg"}, {"id": 2, "file_name": "b.jpg"}],
+        "annotations": [
+            {"image_id": 1, "category_id": 0, "bbox": [0, 0, 1, 1]},
+            {"image_id": 2, "category_id": 4, "bbox": [0, 0, 1, 1]},
+        ],
+        "categories": [{"id": 0, "name": "x"}, {"id": 4, "name": "y"}],
+    }
+    labels_file = tmp_path / "c.json"
+    labels_file.write_text(json.dumps(coco))
+    monkeypatch.setattr(
+        data_mod, "get_source_path", lambda source, *, kind: tmp_path / source
+    )
+    cfg = SimpleNamespace(
+        data=SimpleNamespace(
+            source="imgs",
+            labels=SimpleNamespace(
+                source="c.json", format=LabelFormat.coco, id_strategy="stem"
+            ),
+        )
+    )
+    out = load_classification_labels(
+        cfg, tensor=torch.zeros(2), sample_ids=["a.jpg", "b.jpg"]
+    )
+    assert torch.equal(out, torch.tensor([0, 4]))
