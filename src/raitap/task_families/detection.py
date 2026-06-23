@@ -24,7 +24,7 @@ def _align_detection_records(
     *,
     expected: int,
     sample_ids: Any,
-) -> list[dict[str, "Any"]]:
+) -> list[dict[str, "torch.Tensor"]]:
     """Align native detection records to ``sample_ids`` and build tensors.
 
     Extracted from ``DetectionFamily.load_labels`` so label-format adapters can
@@ -188,11 +188,36 @@ class DetectionFamily:
             return None
 
         labels_path = get_source_path(labels_source, kind=SourceKind.LABELS)
-        with labels_path.open() as fh:
-            records = json.load(fh)
-        if not isinstance(records, list):
-            raise ValueError(
-                f"Detection labels file {labels_path} must be a JSON array."
+
+        from raitap.data.types import LabelFormat
+
+        fmt = _get_optional_config_value(labels_cfg, "format") or LabelFormat.native
+        if fmt == LabelFormat.native:
+            with labels_path.open() as fh:
+                records = json.load(fh)
+            if not isinstance(records, list):
+                raise ValueError(
+                    f"Detection labels file {labels_path} must be a JSON array."
+                )
+        else:
+            from raitap.data.label_formats import resolve_label_format_adapter
+
+            data_source = _get_optional_config_value(cfg.data, "source")
+            image_dir = (
+                get_source_path(data_source, kind=SourceKind.DATA)
+                if data_source
+                else None
+            )
+            class_names = (
+                _get_optional_config_value(cfg.model, "class_names")
+                if hasattr(cfg, "model")
+                else None
+            )
+            adapter = resolve_label_format_adapter(
+                LabelFormat(fmt), task_kind=self.kind
+            )
+            records = adapter.to_detection_records(
+                labels_path, image_dir=image_dir, class_names=class_names
             )
         return _align_detection_records(
             records, expected=len(tensor), sample_ids=sample_ids

@@ -165,3 +165,36 @@ def test_voc_detection_records(tmp_path):
     assert records == [
         {"sample_id": "a.jpg", "boxes": [[10.0, 20.0, 30.0, 40.0]], "labels": [1]}
     ]
+
+
+def test_detection_load_labels_via_coco(tmp_path, monkeypatch):
+    import json
+    import torch
+    from types import SimpleNamespace
+    from raitap.task_families.detection import DetectionFamily
+    from raitap.data.types import LabelFormat
+    import raitap.data.data as data_mod
+
+    coco = {
+        "images": [{"id": 1, "file_name": "a.jpg"}, {"id": 2, "file_name": "b.jpg"}],
+        "annotations": [{"image_id": 1, "category_id": 3, "bbox": [10, 20, 30, 40]}],
+        "categories": [{"id": 3, "name": "car"}],
+    }
+    labels_file = tmp_path / "instances.json"
+    labels_file.write_text(json.dumps(coco))
+
+    monkeypatch.setattr(
+        data_mod, "get_source_path", lambda source, *, kind: tmp_path / source
+    )
+    # tmp_path/"instances.json" is LABELS; tmp_path/"imgs" is DATA (unused by coco).
+    cfg = SimpleNamespace(
+        data=SimpleNamespace(
+            source="imgs",
+            labels=SimpleNamespace(source="instances.json", format=LabelFormat.coco),
+        )
+    )
+    tensor = [object(), object()]  # len == 2 samples
+    out = DetectionFamily().load_labels(cfg, tensor=tensor, sample_ids=["a.jpg", "b.jpg"])
+    assert torch.equal(out[0]["boxes"], torch.tensor([[10.0, 20.0, 40.0, 60.0]]))
+    assert torch.equal(out[0]["labels"], torch.tensor([3]))
+    assert out[1]["boxes"].shape == (0, 4)
