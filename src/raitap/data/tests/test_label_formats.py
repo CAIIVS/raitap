@@ -43,7 +43,6 @@ def test_registry_resolves_supported_task():
     assert TaskKind.detection in adapter.supported_tasks
 
 
-@pytest.mark.xfail(reason="adapter added in task 5 (yolo)", strict=False)
 def test_registry_rejects_unsupported_task():
     with pytest.raises(ValueError, match="does not support task"):
         resolve_label_format_adapter(LabelFormat.yolo, task_kind=TaskKind.classification)
@@ -120,3 +119,28 @@ def test_coco_classification_rejects_multiple_categories(tmp_path):
     p.write_text(json.dumps(coco))
     with pytest.raises(ValueError, match="exactly one category per image"):
         CocoAdapter().to_classification_records(p)
+
+
+def test_yolo_detection_records(tmp_path):
+    from PIL import Image
+    from raitap.data.adapters.yolo import YoloAdapter
+
+    image_dir = tmp_path / "images"
+    image_dir.mkdir()
+    Image.new("RGB", (100, 200)).save(image_dir / "a.jpg")  # w=100, h=200
+
+    label_dir = tmp_path / "labels"
+    label_dir.mkdir()
+    # class=2, cx=0.5 cy=0.5 w=0.2 h=0.1  -> center (50,100), box 20x20px
+    (label_dir / "a.txt").write_text("2 0.5 0.5 0.2 0.1\n")
+
+    records = YoloAdapter().to_detection_records(
+        label_dir, image_dir=image_dir, class_names=None
+    )
+    assert len(records) == 1
+    rec = records[0]
+    assert rec["sample_id"] == "a.jpg"
+    assert rec["labels"] == [2]
+    # x1 = (0.5-0.1)*100=40, y1=(0.5-0.05)*200=90, x2=60, y2=110
+    assert len(rec["boxes"]) == 1
+    assert rec["boxes"][0] == pytest.approx([40.0, 90.0, 60.0, 110.0])
