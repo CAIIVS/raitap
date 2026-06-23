@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from omegaconf import MISSING
 
-from raitap.data.types import IdStrategy, LabelEncoding
+from raitap.data.types import IdStrategy, LabelEncoding, LabelFormat
 from raitap.types import Hardware, TaskKind
 
 if TYPE_CHECKING:
@@ -87,6 +87,10 @@ class LabelsConfig:
     #                     (supports nested ImageFolder layouts with colliding stems).
     #   "stem"          — flat-dir / basename matching: match by ``Path(id).stem`` only.
     id_strategy: IdStrategy = IdStrategy.auto
+    # External label file format. ``native`` (default) reads RAITAP's own
+    # shape. ``coco`` / ``yolo`` / ``voc`` are converted to the native
+    # intermediate before alignment. Requires id-based alignment (sample_ids).
+    format: LabelFormat = LabelFormat.native
 
 
 @dataclass
