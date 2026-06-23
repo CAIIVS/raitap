@@ -144,3 +144,24 @@ def test_yolo_detection_records(tmp_path):
     # x1 = (0.5-0.1)*100=40, y1=(0.5-0.05)*200=90, x2=60, y2=110
     assert len(rec["boxes"]) == 1
     assert rec["boxes"][0] == pytest.approx([40.0, 90.0, 60.0, 110.0])
+
+
+def test_voc_detection_records(tmp_path):
+    from raitap.data.adapters.voc import VocAdapter
+
+    xml = """<annotation>
+      <filename>a.jpg</filename>
+      <object><name>person</name>
+        <bndbox><xmin>10</xmin><ymin>20</ymin><xmax>30</xmax><ymax>40</ymax></bndbox>
+      </object>
+    </annotation>"""
+    d = tmp_path / "ann"
+    d.mkdir()
+    (d / "a.xml").write_text(xml)
+
+    records = VocAdapter().to_detection_records(
+        d, image_dir=None, class_names=["background", "person", "car"]
+    )
+    assert records == [
+        {"sample_id": "a.jpg", "boxes": [[10.0, 20.0, 30.0, 40.0]], "labels": [1]}
+    ]
