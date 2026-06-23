@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from .types import DIRECTORY_LABELS_SOURCE, IdStrategy, LabelEncoding, Preprocessing
+from .types import DIRECTORY_LABELS_SOURCE, IdStrategy, LabelEncoding, LabelFormat, Preprocessing
 
 if TYPE_CHECKING:
     from raitap.configs.schema import DataConfig, LabelsConfig
@@ -36,6 +36,8 @@ __all__ = [
     "DataPreprocessingFactory",
     "IdStrategy",
     "LabelEncoding",
+    "LabelFormat",
+    "LabelFormatAdapter",
     "LabelsConfig",
     "ModelInputTransformationFactory",
     "Preprocessing",
@@ -44,6 +46,7 @@ __all__ = [
     "load_tensor_from_source",
     "raitap_model_input_transformation_factory",
     "raitap_preprocessing_factory",
+    "resolve_label_format_adapter",
 ]
 
 
@@ -68,6 +71,11 @@ _LAZY: dict[str, tuple[str, str]] = {
     "raitap_preprocessing_factory": (
         "raitap.data.preprocessing",
         "raitap_preprocessing_factory",
+    ),
+    "LabelFormatAdapter": ("raitap.data.label_formats", "LabelFormatAdapter"),
+    "resolve_label_format_adapter": (
+        "raitap.data.label_formats",
+        "resolve_label_format_adapter",
     ),
 }
 
