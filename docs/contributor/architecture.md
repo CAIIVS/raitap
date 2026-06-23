@@ -106,7 +106,9 @@ src/
     │
     ├── models/                     # model loading + backend wrappers (PyTorch + ONNX)
     │   ├── model.py                # Model wrapper, source resolution (built-in name / .pt / state-dict / .onnx)
-    │   ├── backend.py              # TorchBackend / OnnxBackend + hardware_label
+    │   ├── base_backend.py         # ModelBackend ABC + shape adaptation
+    │   ├── torch_backend.py        # TorchBackend + hardware_label
+    │   ├── onnx_backend.py         # OnnxBackend + hardware_label
     │   └── runtime.py              # resolve_torch_device, resolve_onnx_providers
     │
     ├── data/                       # dataset loading (images + tabular) + labels resolution
