@@ -10,7 +10,7 @@ import torch.nn as nn
 from omegaconf import OmegaConf
 
 from raitap.models.access import ExplanationModel, explanation_model
-from raitap.models.backend import TorchBackend
+from raitap.models.torch_backend import TorchBackend
 from raitap.transparency import ExplanationResult, VisualisationResult
 from raitap.transparency.contracts import InputKind, InputSpec, TensorLayout
 from raitap.transparency.explainers import CaptumExplainer, ShapExplainer
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
     from raitap.configs.schema import AppConfig
     from raitap.models import Model
-    from raitap.models.backend import OnnxBackend
+    from raitap.models.onnx_backend import OnnxBackend
 
 Framework = Literal["captum", "shap"]
 ExecutionMode = Literal["compute", "explain", "factory"]

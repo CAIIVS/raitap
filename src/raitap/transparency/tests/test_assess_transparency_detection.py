@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 from raitap.configs import set_output_root
 from raitap.configs.schema import AppConfig, TransparencyConfig
-from raitap.models.backend import ModelBackend
+from raitap.models.base_backend import ModelBackend
 from raitap.pipeline.outputs import ForwardOutput
 from raitap.transparency.phase import assess_transparency
 from raitap.types import Capability, TaskKind

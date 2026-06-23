@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
     from torch import nn
 
-    from raitap.models.backend import ModelBackend
+    from raitap.models.base_backend import ModelBackend
 
 
 def test_tracker_registers_under_tracking_group() -> None:

@@ -16,7 +16,7 @@ from raitap.transparency.explainers.shap_explainer import _select_target_attribu
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from raitap.models.backend import OnnxBackend
+    from raitap.models.onnx_backend import OnnxBackend
 
 
 class TestShapExplainer:

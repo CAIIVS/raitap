@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
     from raitap.configs.schema import AppConfig
     from raitap.data.data import Data
-    from raitap.models.backend import ModelBackend
+    from raitap.models.base_backend import ModelBackend
     from raitap.pipeline.outputs import ForwardOutput
     from raitap.transparency.contracts import ExplanationOutputSpace
     from raitap.transparency.phase import PreparedExplainer

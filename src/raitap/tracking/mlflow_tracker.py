@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from raitap import raitap_log
 from raitap.configs import cfg_to_dict, resolve_run_dir
-from raitap.models.backend import OnnxBackend
+from raitap.models.onnx_backend import OnnxBackend
 from raitap.tracking.registration import tracker
 from raitap.utils.diagnostics import Module
 

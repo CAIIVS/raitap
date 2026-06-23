@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch
 
     from raitap.configs.schema import AppConfig
-    from raitap.models.backend import ModelBackend
+    from raitap.models.base_backend import ModelBackend
     from raitap.transparency.contracts import ExplainerAdapter, InputSpec
 
 

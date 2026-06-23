@@ -6,7 +6,7 @@ import pytest
 import torch
 from torch import nn
 
-from raitap.models.backend import TorchBackend
+from raitap.models.torch_backend import TorchBackend
 from raitap.types import Capability, TaskKind
 
 
@@ -43,7 +43,7 @@ def test_torch_backend_task_kind_can_be_overridden_in_constructor() -> None:
 def test_torch_backend_autograd_module_returns_live_module() -> None:
     import torch.nn as nn
 
-    from raitap.models.backend import TorchBackend
+    from raitap.models.torch_backend import TorchBackend
 
     module = nn.Linear(2, 2)
     backend = TorchBackend(module)
@@ -54,7 +54,7 @@ def test_predict_callable_runs_forward() -> None:
     import torch
     import torch.nn as nn
 
-    from raitap.models.backend import TorchBackend
+    from raitap.models.torch_backend import TorchBackend
 
     backend = TorchBackend(nn.Identity())
     fn = backend.predict_callable()
@@ -63,7 +63,7 @@ def test_predict_callable_runs_forward() -> None:
 
 
 def test_register_backend_sets_class_constant() -> None:
-    from raitap.models.backend import ModelBackend
+    from raitap.models.base_backend import ModelBackend
     from raitap.models.registration import register
 
     @register(provides=frozenset({Capability.AUTOGRAD}))

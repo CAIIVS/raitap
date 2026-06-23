@@ -13,7 +13,7 @@ from raitap.transparency.explainers import CaptumExplainer
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from raitap.models.backend import OnnxBackend
+    from raitap.models.onnx_backend import OnnxBackend
 
 
 class TestCaptumExplainer:

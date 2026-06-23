@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from raitap.data import Data
     from raitap.data.preprocessing import ResolvedPreprocessing
     from raitap.models import Model
-    from raitap.models.backend import ModelBackend
+    from raitap.models.base_backend import ModelBackend
     from raitap.pipeline.outputs import ForwardOutput, PhaseResult
     from raitap.pipeline.phases.base import PhaseContext
     from raitap.transparency.contracts import ExplainerAdapter, InputSpec

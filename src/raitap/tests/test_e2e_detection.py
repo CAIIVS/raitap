@@ -61,8 +61,8 @@ def test_detection_pipeline_e2e_via_fasterrcnn_mobilenet(tmp_path: Path) -> None
     assert images_tensor.shape[0] == 1
 
     # --- model + backend ---------------------------------------------------
-    from raitap.models.backend import TorchBackend
     from raitap.models.model import Model
+    from raitap.models.torch_backend import TorchBackend
 
     weights = FasterRCNN_MobileNet_V3_Large_FPN_Weights.DEFAULT
     torch_model = fasterrcnn_mobilenet_v3_large_fpn(weights=weights)

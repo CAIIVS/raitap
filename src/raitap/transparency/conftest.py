@@ -170,6 +170,6 @@ def onnx_linear_path(tmp_path: Path, needs_onnx: None) -> Path:
 
 @pytest.fixture
 def onnx_linear_backend(onnx_linear_path: Path) -> Any:
-    from raitap.models.backend import OnnxBackend
+    from raitap.models.onnx_backend import OnnxBackend
 
     return OnnxBackend.from_path(onnx_linear_path)

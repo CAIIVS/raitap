@@ -30,8 +30,9 @@ def test_register_indexes_backend_by_extension() -> None:
 
 
 def test_real_backends_resolve_by_extension() -> None:
-    from raitap.models.backend import OnnxBackend, TorchBackend
+    from raitap.models.onnx_backend import OnnxBackend
     from raitap.models.registration import backend_for_extension
+    from raitap.models.torch_backend import TorchBackend
 
     assert backend_for_extension(".onnx") is OnnxBackend
     assert backend_for_extension(".pth") is TorchBackend

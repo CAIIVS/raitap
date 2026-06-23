@@ -14,7 +14,7 @@ import pytest
 import torch
 from omegaconf import OmegaConf
 
-from raitap.models.backend import ModelBackend
+from raitap.models.base_backend import ModelBackend
 from raitap.robustness import RobustnessAssessment, RobustnessResult
 from raitap.testing import make_pixel_linear_classifier
 from raitap.types import Capability

@@ -6,7 +6,7 @@ from raitap.task_families.base import ExplainContext, ForwardContext, TaskFamily
 
 if TYPE_CHECKING:
     from raitap.data.data import Data
-    from raitap.models.backend import ModelBackend
+    from raitap.models.base_backend import ModelBackend
     from raitap.pipeline.outputs import ForwardOutput
     from raitap.transparency.phase import PreparedExplainer
 

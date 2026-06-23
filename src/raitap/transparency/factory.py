@@ -11,7 +11,7 @@ from raitap.configs.adapter_factory import (
     instantiate_visualisers,
     parse_adapter_config,
 )
-from raitap.models.backend import ModelBackend
+from raitap.models.base_backend import ModelBackend
 
 from .algorithm_allowlist import ensure_algorithm_in_allowlist
 from .contracts import (

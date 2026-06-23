@@ -10,7 +10,7 @@ import torch
 from omegaconf import OmegaConf
 
 from raitap.configs.adapter_factory import resolve_call_data_sources
-from raitap.models.backend import ModelBackend
+from raitap.models.base_backend import ModelBackend
 from raitap.transparency import (
     PayloadVisualiserIncompatibilityError,
     VisualiserIncompatibilityError,
