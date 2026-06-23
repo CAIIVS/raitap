@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from raitap.configs.schema import DataConfig, LabelsConfig
 
     from .data import Data, load_numpy_from_source, load_tensor_from_source
+    from .label_formats import LabelFormatAdapter, resolve_label_format_adapter
     from .metadata import DataInputMetadata, infer_data_input_metadata
     from .preprocessing import (
         DataPreprocessingFactory,

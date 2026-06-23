@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from PIL import Image
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from raitap.data.label_formats import (
     ClassificationRecord,
@@ -33,9 +36,7 @@ class YoloAdapter:
             candidate = image_dir / f"{stem}{suffix}"
             if candidate.exists():
                 return candidate
-        raise ValueError(
-            f"YOLO adapter found no image for label {stem!r} in {image_dir}."
-        )
+        raise ValueError(f"YOLO adapter found no image for label {stem!r} in {image_dir}.")
 
     def to_detection_records(
         self, source: Path, *, image_dir: Path | None, class_names: list[str] | None
@@ -63,12 +64,8 @@ class YoloAdapter:
                 y2 = (cy + bh / 2) * height
                 boxes.append([x1, y1, x2, y2])
                 labels.append(int(cls))
-            records.append(
-                {"sample_id": image_path.name, "boxes": boxes, "labels": labels}
-            )
+            records.append({"sample_id": image_path.name, "boxes": boxes, "labels": labels})
         return records
 
-    def to_classification_records(
-        self, source: Path
-    ) -> list[ClassificationRecord]:
+    def to_classification_records(self, source: Path) -> list[ClassificationRecord]:
         raise ValueError("YOLO is a detection-only format.")

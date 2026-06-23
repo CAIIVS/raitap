@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from raitap.data.label_formats import (
     ClassificationRecord,
@@ -32,18 +34,14 @@ class CocoAdapter:
         with source.open() as fh:
             data = json.load(fh)
         if not isinstance(data, dict) or "images" not in data:
-            raise ValueError(
-                f"COCO file {source} must be an object with an 'images' array."
-            )
+            raise ValueError(f"COCO file {source} must be an object with an 'images' array.")
         return data
 
     def to_detection_records(
         self, source: Path, *, image_dir: Path | None, class_names: list[str] | None
     ) -> list[DetectionRecord]:
         data = self._load(source)
-        file_by_image: dict[int, str] = {
-            img["id"]: img["file_name"] for img in data["images"]
-        }
+        file_by_image: dict[int, str] = {img["id"]: img["file_name"] for img in data["images"]}
         boxes: dict[int, list[list[float]]] = {iid: [] for iid in file_by_image}
         labels: dict[int, list[int]] = {iid: [] for iid in file_by_image}
         for ann in data.get("annotations", []):
@@ -56,13 +54,9 @@ class CocoAdapter:
             for iid in file_by_image
         ]
 
-    def to_classification_records(
-        self, source: Path
-    ) -> list[ClassificationRecord]:
+    def to_classification_records(self, source: Path) -> list[ClassificationRecord]:
         data = self._load(source)
-        file_by_image: dict[int, str] = {
-            img["id"]: img["file_name"] for img in data["images"]
-        }
+        file_by_image: dict[int, str] = {img["id"]: img["file_name"] for img in data["images"]}
         cats: dict[int, set[int]] = {iid: set() for iid in file_by_image}
         for ann in data.get("annotations", []):
             cats[ann["image_id"]].add(int(ann["category_id"]))

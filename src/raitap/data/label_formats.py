@@ -9,12 +9,12 @@ align to ``sample_ids`` with their existing logic. Registry mirrors
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
-from raitap.data.types import LabelFormat
-
 if TYPE_CHECKING:
+    from pathlib import Path
+
+    from raitap.data.types import LabelFormat
     from raitap.types import TaskKind
 
 #: Native intermediate record shapes (match the on-disk native formats).
@@ -57,9 +57,7 @@ def label_format(cls: type[T]) -> type[T]:
     return cls
 
 
-def resolve_label_format_adapter(
-    fmt: LabelFormat, *, task_kind: TaskKind
-) -> LabelFormatAdapter:
+def resolve_label_format_adapter(fmt: LabelFormat, *, task_kind: TaskKind) -> LabelFormatAdapter:
     """Return the adapter for ``fmt`` that supports ``task_kind``.
 
     Raises ``ValueError`` when no adapter is registered for ``fmt`` (e.g.
@@ -67,7 +65,9 @@ def resolve_label_format_adapter(
     declare ``task_kind`` in ``supported_tasks``.
     """
     # Import side-effect: register the in-tree adapters on first use.
-    from raitap.data import _label_format_adapters  # noqa: F401
+    from raitap.data import (
+        _label_format_adapters,  # noqa: F401  # pyright: ignore[reportUnusedImport]
+    )
 
     adapter = LABEL_FORMAT_ADAPTERS.get(fmt)
     if adapter is None:
