@@ -69,6 +69,20 @@ referenceable by name in `data.source`. Registration lives in
 5. **Update docs** — add the new sample name to
    {doc}`/modules/data/own-vs-built-in`.
 
+## Adding a label format
+
+1. Create `src/raitap/data/adapters/<format>.py` with a class decorated
+   `@label_format`. Set `format = LabelFormat.<name>` and
+   `supported_tasks = frozenset({...})`.
+2. Implement `to_detection_records` and/or `to_classification_records`,
+   returning the native record shape (`{sample_id, boxes (xyxy), labels}` or
+   `{sample_id, label}`). Raise `ValueError` for an unsupported task.
+3. Import it in `src/raitap/data/_label_format_adapters.py` so the decorator
+   fires.
+4. Add a `LabelFormat` member in `src/raitap/data/types.py` and a row to the
+   label-format table in `docs/modules/data/configuration.md`.
+5. Add tests in `src/raitap/data/tests/test_label_formats.py`.
+
 ## Sample discovery and label alignment
 
 `data.source` directories are walked **recursively** (`Path.rglob`); sample

@@ -105,6 +105,16 @@ myst:
   nested ImageFolder layouts (e.g. `NORMAL/IM-0001.jpeg`) — required when
   filename stems collide across class subdirs. `"stem"` matches by basename only (flat-dir layouts).
 
+:option: labels.format
+:allowed: "native", "coco", "yolo", "voc"
+:default: "native"
+:description: External label file format. `"native"` (default) reads RAITAP's
+  own shape (classification: CSV/TSV/Parquet or the `"directory"` source;
+  detection: the JSON record list). `"coco"`, `"yolo"`, and `"voc"` convert a
+  standard annotation file to the native shape before alignment. `"yolo"` and
+  `"voc"` are detection only; `"coco"` serves detection and classification.
+  Non-native formats align by sample id, so a labels id is required.
+
 :option: input_metadata
 :allowed: dict, null
 :default: null
@@ -179,6 +189,20 @@ data = DataConfig(
     ),
 )
 ```
+
+## Label formats
+
+RAITAP reads common annotation formats directly via `data.labels.format`.
+
+| Format   | Detection | Classification | Source layout                                  |
+| -------- | --------- | -------------- | ---------------------------------------------- |
+| `native` | yes       | yes            | JSON record list / CSV-TSV-Parquet             |
+| `coco`   | yes       | yes            | single `instances.json`                        |
+| `yolo`   | yes       | no             | dir of per-image `.txt` (needs `data.source`)  |
+| `voc`    | yes       | no             | dir of per-image `.xml`                        |
+
+COCO and YOLO labels keep their category ids unchanged. VOC class names map to
+ids by `model.class_names` order, else the standard 20-class VOC order.
 
 For tabular models whose backend expects an unusual per-sample layout (such
 as ACAS Xu, a Torch network whose forward takes `(N, 1, 1, 5)`), supply
