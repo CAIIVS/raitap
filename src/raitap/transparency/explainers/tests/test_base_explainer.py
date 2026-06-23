@@ -556,7 +556,7 @@ def test_explain_rejects_invalid_batch_size_kwargs() -> None:
 def test_explain_threads_backend_task_kind_into_infer_output_space() -> None:
     """When backend.task_kind is detection, the inferred output space is
     DETECTION_BOXES (DETECTION branch in infer_output_space)."""
-    from raitap.models.backend import TorchBackend
+    from raitap.models.torch_backend import TorchBackend
     from raitap.transparency.contracts import ExplanationOutputSpace
     from raitap.types import TaskKind
 

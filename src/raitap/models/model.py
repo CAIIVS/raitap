@@ -18,8 +18,9 @@ from raitap.utils.lazy import lazy_import
 
 # Side-effect import: registers the .ubj (XGBoost) backend on the registry.
 from . import xgboost_backend  # noqa: F401  # pyright: ignore[reportUnusedImport]
-from .backend import ModelBackend, OnnxBackend, TorchBackend
+from .onnx_backend import OnnxBackend
 from .runtime import resolve_torch_device
+from .torch_backend import TorchBackend
 
 if TYPE_CHECKING:
     import torch
@@ -28,6 +29,7 @@ if TYPE_CHECKING:
     from torchvision.models import detection as _detection_models
 
     from raitap.configs.schema import AppConfig
+    from raitap.models.base_backend import ModelBackend
     from raitap.types import TaskKind
 else:
     torch = lazy_import("torch")

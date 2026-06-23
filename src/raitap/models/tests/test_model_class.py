@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
 
 from raitap.models import Model
-from raitap.models.backend import TorchBackend
+from raitap.models.torch_backend import TorchBackend
 
 
 def _make_config(

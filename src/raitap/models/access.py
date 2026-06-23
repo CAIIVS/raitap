@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     import torch
     import torch.nn as nn
 
-    from raitap.models.backend import ModelBackend
+    from raitap.models.base_backend import ModelBackend
 
     #: What an explainer receives: a torch ``nn.Module`` (autograd shape) or a
     #: forward-only predict callable. Precise for type-checkers; ``Any`` at

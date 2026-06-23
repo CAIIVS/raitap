@@ -17,7 +17,7 @@ from raitap.configs.adapter_factory import (
     resolve_per_image_transform,
 )
 from raitap.models.access import explanation_model
-from raitap.models.backend import ModelBackend
+from raitap.models.base_backend import ModelBackend
 from raitap.utils.errors import SampleNamesLengthError
 
 from .contracts import AssessorAdapter

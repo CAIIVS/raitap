@@ -24,7 +24,7 @@ import pytest
 import torch
 from omegaconf import OmegaConf
 
-from raitap.models.backend import ModelBackend
+from raitap.models.base_backend import ModelBackend
 from raitap.pipeline.orchestrator import run_without_tracking as _run_without_tracking
 from raitap.robustness import RobustnessAssessment, RobustnessResult
 from raitap.testing import make_pixel_linear_classifier

@@ -13,7 +13,7 @@ from typing import Any, cast
 import pytest
 import torch
 
-from raitap.models.backend import ModelBackend
+from raitap.models.base_backend import ModelBackend
 from raitap.pipeline.phases.forward_pass import forward_pass
 from raitap.task_families.base import ForwardContext
 from raitap.task_families.registry import resolve_task_family

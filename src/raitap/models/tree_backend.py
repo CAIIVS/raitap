@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from raitap.models.backend import ModelBackend
+from raitap.models.base_backend import ModelBackend
 from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:

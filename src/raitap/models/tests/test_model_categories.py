@@ -8,7 +8,7 @@ import pytest
 def test_torchbackend_category_names_defaults_none() -> None:
     import torch.nn as nn
 
-    from raitap.models.backend import TorchBackend
+    from raitap.models.torch_backend import TorchBackend
 
     backend = TorchBackend(nn.Linear(2, 2))
     assert backend.category_names is None
@@ -17,7 +17,7 @@ def test_torchbackend_category_names_defaults_none() -> None:
 def test_torchbackend_category_names_stored() -> None:
     import torch.nn as nn
 
-    from raitap.models.backend import TorchBackend
+    from raitap.models.torch_backend import TorchBackend
 
     backend = TorchBackend(nn.Linear(2, 2), category_names=["__background__", "kite"])
     assert backend.category_names == ["__background__", "kite"]

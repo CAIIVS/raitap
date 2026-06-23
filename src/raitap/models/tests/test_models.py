@@ -10,13 +10,10 @@ import torch.nn as nn
 
 from raitap.data.preprocessing import resolve_preprocessing
 from raitap.models import Model, runtime
-from raitap.models.backend import (
-    OnnxBackend,
-    TorchBackend,
-    _adapt_input_shape,
-    _resolve_onnx_expected_shape,
-)
+from raitap.models.base_backend import _adapt_input_shape
+from raitap.models.onnx_backend import OnnxBackend, _resolve_onnx_expected_shape
 from raitap.models.runtime import resolve_onnx_providers, resolve_torch_device
+from raitap.models.torch_backend import TorchBackend
 from raitap.types import Hardware
 from raitap.utils.errors import ModelInputShapeError
 

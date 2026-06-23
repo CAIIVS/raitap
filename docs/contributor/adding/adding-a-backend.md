@@ -29,7 +29,7 @@ import torch
 from torch import nn
 
 from raitap import backends
-from raitap.models.backend import ModelBackend
+from raitap.models.base_backend import ModelBackend
 from raitap.types import Capability, ResolvedHardware
 
 

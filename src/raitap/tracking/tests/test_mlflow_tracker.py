@@ -9,7 +9,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 
-from raitap.models.backend import OnnxBackend, TorchBackend
+from raitap.models.onnx_backend import OnnxBackend
+from raitap.models.torch_backend import TorchBackend
 
 if TYPE_CHECKING:
     from collections.abc import Generator

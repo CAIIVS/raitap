@@ -12,7 +12,7 @@ from omegaconf import OmegaConf
 
 from raitap.configs import set_output_root
 from raitap.models.access import explanation_model
-from raitap.models.backend import TorchBackend
+from raitap.models.torch_backend import TorchBackend
 from raitap.transparency import ExplanationResult, VisualisationResult
 from raitap.transparency.contracts import InputSpec
 from raitap.transparency.explainers import CaptumExplainer

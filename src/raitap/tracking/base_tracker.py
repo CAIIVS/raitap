@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from raitap.configs.schema import AppConfig
-    from raitap.models.backend import ModelBackend
+    from raitap.models.base_backend import ModelBackend
 
 
 class BaseTracker(ABC, AdapterMixin):

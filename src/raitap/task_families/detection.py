@@ -15,7 +15,7 @@ from raitap.transparency.contracts import ExplanationOutputSpace
 from raitap.types import TaskKind
 
 if TYPE_CHECKING:
-    from raitap.models.backend import TorchBackend
+    from raitap.models.torch_backend import TorchBackend
     from raitap.task_families.base import ExplainContext, ForwardContext
 
 
@@ -28,7 +28,7 @@ class DetectionFamily:
     allows_preprocessing: bool = False
 
     def matches_model(self, model: Any) -> bool:
-        from raitap.models.backend import _is_torchvision_detection_model
+        from raitap.models.torch_backend import _is_torchvision_detection_model
 
         return _is_torchvision_detection_model(model)
 

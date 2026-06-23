@@ -9,7 +9,7 @@ import pytest
 import torch
 from torch import nn
 
-from raitap.models.backend import TorchBackend
+from raitap.models.torch_backend import TorchBackend
 from raitap.pipeline.outputs import ForwardOutput
 from raitap.transparency.contracts import (
     DetectionBox,

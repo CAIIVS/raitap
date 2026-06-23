@@ -64,7 +64,7 @@ architecture that produced the state-dict.
 ## ONNX
 
 `.onnx` files are loaded via `OnnxBackend.from_path` — see
-`src/raitap/models/backend.py` for the runtime selection logic. ONNX
+`src/raitap/models/onnx_backend.py` for the runtime selection logic. ONNX
 backends are restricted to a subset of explainers (see the transparency
 module README).
 

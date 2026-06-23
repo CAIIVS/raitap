@@ -16,10 +16,10 @@ if TYPE_CHECKING:
     # NOTE: ``ModelBackend`` looks unused to static scanners (CodeQL), but the
     # string TypeVar bound below needs it — without the bound, ``cls`` is
     # ``type[object]`` and ``cls.provides = ...`` fails pyright
-    # (reportAttributeAccessIssue). A runtime import would cycle (backend.py
+    # (reportAttributeAccessIssue). A runtime import would cycle (base_backend.py
     # imports this module for ``@register``), hence the string bound. Do not
     # remove.
-    from raitap.models.backend import ModelBackend
+    from raitap.models.base_backend import ModelBackend
     from raitap.types import Capability, ResolvedHardware
 
 B = TypeVar("B", bound="ModelBackend")

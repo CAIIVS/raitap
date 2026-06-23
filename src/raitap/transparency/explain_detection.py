@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping, Sequence
     from pathlib import Path
 
-    from raitap.models.backend import ModelBackend
+    from raitap.models.base_backend import ModelBackend
     from raitap.pipeline.outputs import ForwardOutput
     from raitap.transparency.results import ConfiguredVisualiser, ExplanationResult
 
