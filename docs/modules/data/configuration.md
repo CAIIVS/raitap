@@ -204,6 +204,10 @@ RAITAP reads common annotation formats directly via `data.labels.format`.
 COCO and YOLO labels keep their category ids unchanged. VOC class names map to
 ids by `model.class_names` order, else the standard 20-class VOC order.
 
+Detection formats match each record's `sample_id` against the discovered image
+file by exact name, so the image directory must be flat (nested subdirs are not
+matched). Classification labels still align via `labels.id_strategy`.
+
 For tabular models whose backend expects an unusual per-sample layout (such
 as ACAS Xu, a Torch network whose forward takes `(N, 1, 1, 5)`), supply
 `input_metadata.shape` explicitly so the pipeline reshapes the flat feature
