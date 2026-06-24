@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
+from raitap.data.data import _normalise_sample_id, _resolve_id_strategy
 from raitap.task_families.registry import task_family
 from raitap.transparency.contracts import ExplanationOutputSpace
 from raitap.types import TaskKind
@@ -26,16 +27,24 @@ def _align_detection_records(
     *,
     expected: int,
     sample_ids: Any,
+    strategy: str = "auto",
 ) -> list[dict[str, torch.Tensor]]:
     """Align native detection records to ``sample_ids`` and build tensors.
 
     Extracted from ``DetectionFamily.load_labels`` so label-format adapters can
     feed converted records through the same alignment + validation path.
+
+    When ``sample_ids`` is provided, both the discovered ids and record
+    ``sample_id`` fields are normalised via ``_normalise_sample_id`` using the
+    resolved ``strategy``, matching how the classification path handles nested
+    image directories.
     """
+    import pandas as pd
     import torch
 
     if sample_ids is not None:
-        by_id: dict[str, dict[str, Any]] = {}
+        # Collect raw record ids first so _resolve_id_strategy can inspect them.
+        raw_record_ids: list[str] = []
         for index, record in enumerate(records):
             record_id = record.get("sample_id") if isinstance(record, dict) else None
             if record_id is None:
@@ -43,15 +52,24 @@ def _align_detection_records(
                     f"Detection labels record {index} is missing 'sample_id' "
                     "(required when the dataset exposes sample_ids)."
                 )
-            if record_id in by_id:
+            raw_record_ids.append(str(record_id))
+
+        resolved = _resolve_id_strategy(strategy, pd.Series(raw_record_ids))
+
+        by_id: dict[str, dict[str, Any]] = {}
+        for record, record_id in zip(records, raw_record_ids, strict=True):
+            norm_id = _normalise_sample_id(record_id, resolved)
+            if norm_id in by_id:
                 raise ValueError(
                     f"Detection labels file contains duplicate sample_id {record_id!r}."
                 )
-            by_id[record_id] = record
+            by_id[norm_id] = record
+
         ordered_records = []
         missing: list[str] = []
         for sample_id in sample_ids:
-            record = by_id.get(sample_id)
+            norm_sid = _normalise_sample_id(sample_id, resolved)
+            record = by_id.get(norm_sid)
             if record is None:
                 missing.append(sample_id)
             else:

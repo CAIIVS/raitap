@@ -105,6 +105,7 @@ class CocoLabelParser:
                 records,
                 expected=len(tensor),
                 sample_ids=sample_ids,
+                strategy=str(self.id_strategy),
             )
 
         # classification

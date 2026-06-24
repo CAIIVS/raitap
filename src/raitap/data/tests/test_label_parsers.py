@@ -601,3 +601,73 @@ def test_voc_parser_own_class_names_takes_precedence(tmp_path: object) -> None:
     assert isinstance(result, list)
     # Parser's own list wins: person->1, car->2
     assert torch.equal(result[0]["labels"], torch.tensor([1, 2]))
+
+
+# --- Task 8: detection id_strategy parity ---
+
+
+def _coco_detection_nested_fixture(tmp_path: object) -> object:
+    """COCO with file_name='a.jpg' (no subdir) but discovered sample_ids=['sub/a.jpg']."""
+    import pathlib
+
+    coco = {
+        "images": [{"id": 1, "file_name": "a.jpg"}],
+        "annotations": [
+            {"image_id": 1, "category_id": 2, "bbox": [1, 2, 3, 4]},
+        ],
+        "categories": [{"id": 2, "name": "cat"}],
+    }
+    p = pathlib.Path(str(tmp_path)) / "nested.json"
+    _write_json(p, coco)
+    return p
+
+
+def test_coco_detection_nested_sample_ids_with_stem_strategy(tmp_path: object) -> None:
+    """Gap #2: COCO record 'a.jpg' matches discovered 'sub/a.jpg' via id_strategy='stem'."""
+    import torch
+
+    from raitap.data.label_parsers.coco import CocoLabelParser
+    from raitap.data.types import IdStrategy
+
+    labels_path = _coco_detection_nested_fixture(tmp_path)
+    parser = CocoLabelParser(source=str(labels_path), id_strategy=IdStrategy.stem)
+    tensor = [object()]
+    result = parser.parse(
+        task_kind=TaskKind.detection,
+        tensor=tensor,
+        sample_ids=["sub/a.jpg"],
+        data_source=None,
+        class_names=None,
+    )
+    assert isinstance(result, list)
+    assert len(result) == 1
+    # bbox [1,2,3,4] -> xyxy [1, 2, 1+3, 2+4] = [1, 2, 4, 6]
+    expected_boxes = torch.tensor([[1.0, 2.0, 4.0, 6.0]])
+    assert torch.equal(result[0]["boxes"], expected_boxes)
+    assert torch.equal(result[0]["labels"], torch.tensor([2]))
+
+
+def test_coco_detection_exact_match_regression(tmp_path: object) -> None:
+    """Regression: exact-match ids still align under id_strategy='auto'."""
+    import torch
+
+    from raitap.data.label_parsers.coco import CocoLabelParser
+    from raitap.data.types import IdStrategy
+
+    labels_path = _coco_detection_fixture(tmp_path)
+    parser = CocoLabelParser(source=str(labels_path), id_strategy=IdStrategy.auto)
+    tensor = [object(), object()]
+    result = parser.parse(
+        task_kind=TaskKind.detection,
+        tensor=tensor,
+        sample_ids=["a.jpg", "b.jpg"],
+        data_source=None,
+        class_names=None,
+    )
+    assert isinstance(result, list)
+    assert len(result) == 2
+    expected_boxes = torch.tensor([[10.0, 20.0, 40.0, 60.0], [0.0, 0.0, 5.0, 5.0]])
+    assert torch.equal(result[0]["boxes"], expected_boxes)
+    assert torch.equal(result[0]["labels"], torch.tensor([3, 5]))
+    assert result[1]["boxes"].shape == (0, 4)
+    assert result[1]["labels"].shape == (0,)
