@@ -335,3 +335,104 @@ def test_coco_parser_classification_e2e_via_resolve(tmp_path: object) -> None:
     assert isinstance(result, torch.Tensor)
     assert result.dtype == torch.long
     assert result.tolist() == [0, 4]
+
+
+# --- Task 6: YoloLabelParser ---
+
+
+def _make_yolo_fixture(
+    tmp_path: object,
+) -> tuple[object, object]:
+    """Create a minimal YOLO label dir + image dir with two images.
+
+    Returns (labels_dir, image_dir). Images are 200x100 px.
+    Each .txt has one box: class 0, cx=0.5, cy=0.5, w=0.6, h=0.1.
+    Denormalised: x1=(0.5-0.3)*200=40, y1=(0.5-0.05)*100=45,
+                  x2=(0.5+0.3)*200=160, y2=(0.5+0.05)*100=55.
+    """
+    import pathlib
+
+    from PIL import Image as PILImage
+
+    tmp = pathlib.Path(str(tmp_path))
+    labels_dir = tmp / "labels"
+    labels_dir.mkdir()
+    image_dir = tmp / "images"
+    image_dir.mkdir()
+
+    for stem in ("a", "b"):
+        img = PILImage.new("RGB", (200, 100))
+        img.save(image_dir / f"{stem}.jpg")
+        (labels_dir / f"{stem}.txt").write_text("0 0.5 0.5 0.6 0.1\n", encoding="utf-8")
+
+    return labels_dir, image_dir
+
+
+def test_yolo_parser_unit(tmp_path: object) -> None:
+    """YoloLabelParser.parse: boxes denormalised via PIL image size."""
+    from raitap.data.label_parsers.yolo import YoloLabelParser
+
+    labels_dir, image_dir = _make_yolo_fixture(tmp_path)
+    parser = YoloLabelParser(source=str(labels_dir))
+
+    tensor = [object(), object()]
+    result = parser.parse(
+        task_kind=TaskKind.detection,
+        tensor=tensor,
+        sample_ids=["a.jpg", "b.jpg"],
+        data_source=str(image_dir),
+        class_names=None,
+    )
+
+    assert isinstance(result, list)
+    assert len(result) == 2
+    # IEEE-754: (0.5+0.05)*100 = 55.00000000000001 -> use pytest.approx
+    assert result[0]["boxes"][0].tolist() == pytest.approx([40.0, 45.0, 160.0, (0.5 + 0.05) * 100])
+    assert result[0]["labels"].tolist() == [0]
+    assert result[1]["boxes"].shape == (1, 4)
+
+
+def test_yolo_parser_raises_when_data_source_none(tmp_path: object) -> None:
+    """parse raises ValueError when data_source is None (no image dir)."""
+    from raitap.data.label_parsers.yolo import YoloLabelParser
+
+    labels_dir, _ = _make_yolo_fixture(tmp_path)
+    parser = YoloLabelParser(source=str(labels_dir))
+    with pytest.raises(ValueError, match=r"data\.source"):
+        parser.parse(
+            task_kind=TaskKind.detection,
+            tensor=[object()],
+            sample_ids=None,
+            data_source=None,
+            class_names=None,
+        )
+
+
+def test_yolo_parser_e2e_via_resolve(tmp_path: object) -> None:
+    """E2E: _resolve_and_parse_labels with YoloLabelsConfig + real image dir.
+
+    Exercises image_dir resolution through the dispatch (gap #1).
+    """
+    from raitap.configs.schema import YoloLabelsConfig
+    from raitap.data.data import _resolve_and_parse_labels
+
+    labels_dir, image_dir = _make_yolo_fixture(tmp_path)
+
+    cfg = _make_cfg(
+        labels=YoloLabelsConfig(source=str(labels_dir)),
+        source=str(image_dir),
+    )
+    tensor = [object(), object()]
+    result = _resolve_and_parse_labels(
+        cfg,
+        task_kind=TaskKind.detection,
+        tensor=tensor,
+        sample_ids=["a.jpg", "b.jpg"],
+    )
+
+    assert isinstance(result, list)
+    assert len(result) == 2
+    assert result[0]["boxes"][0].tolist() == pytest.approx([40.0, 45.0, 160.0, (0.5 + 0.05) * 100])
+    assert result[0]["labels"].tolist() == [0]
+    assert result[1]["boxes"].shape == (1, 4)
+    assert result[1]["labels"].tolist() == [0]

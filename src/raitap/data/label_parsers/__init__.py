@@ -12,5 +12,6 @@ from __future__ import annotations
 from .coco import CocoLabelParser  # pyright: ignore[reportUnusedImport]
 from .directory import DirectoryLabelParser
 from .tabular import TabularLabelParser  # pyright: ignore[reportUnusedImport]
+from .yolo import YoloLabelParser  # pyright: ignore[reportUnusedImport]
 
-__all__ = ["CocoLabelParser", "DirectoryLabelParser", "TabularLabelParser"]
+__all__ = ["CocoLabelParser", "DirectoryLabelParser", "TabularLabelParser", "YoloLabelParser"]
