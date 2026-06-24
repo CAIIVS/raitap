@@ -240,7 +240,6 @@ def test_classification_load_labels_via_coco(
     import torch
 
     import raitap.data.data as data_mod
-    from raitap.data.data import load_classification_labels
     from raitap.data.types import LabelFormat
 
     coco = {
@@ -265,6 +264,8 @@ def test_classification_load_labels_via_coco(
             )
         ),
     )
-    out = load_classification_labels(cfg, tensor=torch.zeros(2), sample_ids=["a.jpg", "b.jpg"])
+    out = data_mod.load_classification_labels(
+        cfg, tensor=torch.zeros(2), sample_ids=["a.jpg", "b.jpg"]
+    )
     assert out is not None
     assert torch.equal(out, torch.tensor([0, 4]))
