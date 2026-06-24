@@ -48,14 +48,7 @@ def _make_config(source: str, name: str = "test_det") -> AppConfig:
             data=SimpleNamespace(
                 source=source,
                 name=name,
-                labels=SimpleNamespace(
-                    source=None,
-                    kind=None,
-                    id_column=None,
-                    column=None,
-                    encoding=None,
-                    id_strategy=None,
-                ),
+                labels=None,
             )
         ),
     )

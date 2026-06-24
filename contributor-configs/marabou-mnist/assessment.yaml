@@ -3,6 +3,8 @@
 # `data=mnist_samples`, `model=mlp_mnist`, `robustness=marabou_linf`.
 # No transparency block (the original demo invoked `~transparency`).
 defaults:
+  - raitap_schema
+  - data/labels: tabular
   - _self_
 
 experiment_name: marabou_mnist_uc1

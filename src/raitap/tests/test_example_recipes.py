@@ -28,7 +28,8 @@ pytest.importorskip("captum")  # every recipe uses Captum
 pytest.importorskip("torchmetrics")  # metrics adapter
 
 from raitap import AppConfig, Hardware, run
-from raitap.data import DataConfig, LabelsConfig
+from raitap.configs.schema import TabularLabelsConfig
+from raitap.data import DataConfig
 from raitap.metrics import multiclass_classification as classification
 from raitap.models import ModelConfig
 from raitap.pipeline.outputs import RunOutputs
@@ -60,7 +61,7 @@ def _base_kwargs(experiment_name: str) -> _BaseKwargs:
             name="imagenet_samples",
             source="imagenet_samples",
             forward_batch_size=4,
-            labels=LabelsConfig(
+            labels=TabularLabelsConfig(
                 source="imagenet_samples",
                 id_column="image",
                 column="label",

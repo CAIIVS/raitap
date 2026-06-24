@@ -195,7 +195,7 @@ class TestDataPreprocessing:
 
     @staticmethod
     def _make_cfg(source: str, *, preprocessing: str | None) -> AppConfig:
-        from raitap.configs.schema import AppConfig, DataConfig, LabelsConfig, ModelConfig
+        from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
 
         return cast(
             "AppConfig",
@@ -205,7 +205,7 @@ class TestDataPreprocessing:
                     name="test",
                     source=source,
                     preprocessing=preprocessing,
-                    labels=LabelsConfig(),
+                    labels=None,
                 ),
                 hardware=Hardware.cpu,
             ),
@@ -239,7 +239,7 @@ class TestDataPreprocessing:
     def test_supplied_resolved_preprocessing_skips_resolution(self, tmp_path: Path) -> None:
         from torch import nn
 
-        from raitap.configs.schema import AppConfig, DataConfig, LabelsConfig, ModelConfig
+        from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
         from raitap.data.preprocessing import ResolvedPreprocessing
 
         class _ShapeModule(nn.Module):
@@ -255,7 +255,7 @@ class TestDataPreprocessing:
                     name="test",
                     source=str(tmp_path),
                     preprocessing="model-bundled",
-                    labels=LabelsConfig(),
+                    labels=None,
                 ),
                 hardware=Hardware.cpu,
             ),
@@ -279,7 +279,7 @@ class TestDataPreprocessing:
     def test_onnx_custom_file_data_factory_drives_data_loading(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
-        from raitap.configs.schema import AppConfig, DataConfig, LabelsConfig, ModelConfig
+        from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
 
         _write_image(tmp_path / "a.jpg", 32, 48)
         _write_image(tmp_path / "b.jpg", 40, 64)
@@ -319,7 +319,7 @@ class TestDataPreprocessing:
                     name="test",
                     source=str(tmp_path),
                     preprocessing=str(preprocessing_path),
-                    labels=LabelsConfig(),
+                    labels=None,
                 ),
                 hardware=Hardware.cpu,
             ),
@@ -369,7 +369,7 @@ class TestDataPreprocessing:
         breaks pretrained-weight accuracy on `raitap --demo`."""
         from torch import nn
 
-        from raitap.configs.schema import AppConfig, DataConfig, LabelsConfig, ModelConfig
+        from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
         from raitap.data.samples import SAMPLE_SOURCES
 
         # Stage a fake sample at varied native sizes so the test would fail
@@ -411,7 +411,7 @@ class TestDataPreprocessing:
                             name="fake_native_samples",
                             source="fake_native_samples",
                             preprocessing="model-bundled",
-                            labels=LabelsConfig(),
+                            labels=None,
                         ),
                         hardware=Hardware.cpu,
                     ),
@@ -589,7 +589,7 @@ class TestLoadData:
     def test_tabular_applies_data_module(self, tmp_path: Path) -> None:
         from torch import nn
 
-        from raitap.configs.schema import AppConfig, DataConfig, LabelsConfig, ModelConfig
+        from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
         from raitap.data.preprocessing import ResolvedPreprocessing
 
         class _ScaleModule(nn.Module):
@@ -606,7 +606,7 @@ class TestLoadData:
                     name="tab",
                     source=str(p),
                     preprocessing="./scale.py",
-                    labels=LabelsConfig(),
+                    labels=None,
                 ),
                 hardware=Hardware.cpu,
             ),
@@ -701,7 +701,9 @@ class TestLoadData:
         assert data.tensor.shape == (1, 3, 32, 32)
 
     def test_sample_labels_align_with_sample_images(self, tmp_path: Path) -> None:
+        from raitap.configs.schema import AppConfig, DataConfig, ModelConfig, TabularLabelsConfig
         from raitap.data.samples import SAMPLE_LABELS
+        from raitap.data.types import LabelEncoding
 
         with (
             patch("raitap.data.samples._CACHE_DIR", tmp_path),
@@ -711,30 +713,20 @@ class TestLoadData:
             mock_download.side_effect = lambda _url, dest: _write_image(dest, 32, 32)
             cfg = cast(
                 "AppConfig",
-                type(
-                    "AppConfig",
-                    (),
-                    {
-                        "data": type(
-                            "DataConfig",
-                            (),
-                            {
-                                "source": "imagenet_samples",
-                                "name": "imagenet_samples",
-                                "labels": type(
-                                    "LabelsConfig",
-                                    (),
-                                    {
-                                        "source": "imagenet_samples",
-                                        "id_column": "image",
-                                        "column": "label",
-                                        "encoding": "index",
-                                    },
-                                )(),
-                            },
-                        )()
-                    },
-                )(),
+                AppConfig(
+                    model=ModelConfig(source="resnet50"),
+                    data=DataConfig(
+                        name="imagenet_samples",
+                        source="imagenet_samples",
+                        labels=TabularLabelsConfig(
+                            source="imagenet_samples",
+                            id_column="image",
+                            column="label",
+                            encoding=LabelEncoding.index,
+                        ),
+                    ),
+                    hardware=Hardware.cpu,
+                ),
             )
             data = Data(cfg)
 
