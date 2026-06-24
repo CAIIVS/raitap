@@ -3,7 +3,7 @@ import importlib
 
 import pytest
 
-from raitap.configs.schema import CocoLabelsConfig, DirectoryLabelsConfig
+from raitap.configs.schema import CocoLabelsConfig, DetectionJsonLabelsConfig, DirectoryLabelsConfig
 
 
 def test_coco_config_has_no_tabular_fields() -> None:
@@ -102,3 +102,8 @@ def test_create_label_parser_handles_both_target_forms() -> None:
 
     fqn = create_label_parser({"_target_": _COMPOSED_TARGET})
     assert isinstance(fqn, DirectoryLabelParser)
+
+
+def test_detection_json_config_has_exactly_target_source_id_strategy() -> None:
+    names = {f.name for f in dataclasses.fields(DetectionJsonLabelsConfig)}
+    assert names == {"_target_", "source", "id_strategy"}

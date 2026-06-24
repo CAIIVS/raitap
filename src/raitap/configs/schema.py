@@ -111,6 +111,13 @@ class VocLabelsConfig(LabelsConfig):
 
 
 @dataclass
+class DetectionJsonLabelsConfig(LabelsConfig):
+    _target_: str = "DetectionJsonLabelParser"
+    source: str = MISSING
+    id_strategy: IdStrategy = IdStrategy.auto
+
+
+@dataclass
 class DataConfig:
     name: str = "isic2018"
     description: str | None = None
