@@ -436,3 +436,168 @@ def test_yolo_parser_e2e_via_resolve(tmp_path: object) -> None:
     assert result[0]["labels"].tolist() == [0]
     assert result[1]["boxes"].shape == (1, 4)
     assert result[1]["labels"].tolist() == [0]
+
+
+# --- Task 7: VocLabelParser ---
+
+
+def _write_voc_xml(path: object, filename: str, objects: list[dict]) -> None:
+    """Write a minimal Pascal-VOC XML file."""
+    import pathlib
+
+    lines = [
+        "<annotation>",
+        f"  <filename>{filename}</filename>",
+    ]
+    for obj in objects:
+        lines += [
+            "  <object>",
+            f"    <name>{obj['name']}</name>",
+        ]
+        if obj.get("bndbox") is not None:
+            b = obj["bndbox"]
+            lines += [
+                "    <bndbox>",
+                f"      <xmin>{b[0]}</xmin>",
+                f"      <ymin>{b[1]}</ymin>",
+                f"      <xmax>{b[2]}</xmax>",
+                f"      <ymax>{b[3]}</ymax>",
+                "    </bndbox>",
+            ]
+        lines.append("  </object>")
+    lines.append("</annotation>")
+    pathlib.Path(str(path)).write_text("\n".join(lines), encoding="utf-8")
+
+
+def _make_voc_fixture(tmp_path: object) -> object:
+    """Two-image VOC dir with class_names=['background','person','car'].
+
+    a.jpg: person at [10,20,30,40], car at [5,5,15,15].
+    b.jpg: person at [0,0,50,50].
+    """
+    import pathlib
+
+    tmp = pathlib.Path(str(tmp_path))
+    voc_dir = tmp / "voc_labels"
+    voc_dir.mkdir()
+    _write_voc_xml(
+        voc_dir / "a.xml",
+        "a.jpg",
+        [
+            {"name": "person", "bndbox": [10, 20, 30, 40]},
+            {"name": "car", "bndbox": [5, 5, 15, 15]},
+        ],
+    )
+    _write_voc_xml(
+        voc_dir / "b.xml",
+        "b.jpg",
+        [{"name": "person", "bndbox": [0, 0, 50, 50]}],
+    )
+    return voc_dir
+
+
+def test_voc_parser_unit_with_class_names(tmp_path: object) -> None:
+    """VocLabelParser.parse: person->1, car->2 with explicit class_names arg."""
+    import torch
+
+    from raitap.data.label_parsers.voc import VocLabelParser
+
+    voc_dir = _make_voc_fixture(tmp_path)
+    parser = VocLabelParser(source=str(voc_dir))
+    class_names = ["background", "person", "car"]
+    tensor = [object(), object()]
+    result = parser.parse(
+        task_kind=TaskKind.detection,
+        tensor=tensor,
+        sample_ids=["a.jpg", "b.jpg"],
+        data_source=None,
+        class_names=class_names,
+    )
+    assert isinstance(result, list)
+    assert len(result) == 2
+    # a.jpg: person(1), car(2)
+    expected_boxes = torch.tensor([[10.0, 20.0, 30.0, 40.0], [5.0, 5.0, 15.0, 15.0]])
+    assert torch.equal(result[0]["boxes"], expected_boxes)
+    assert torch.equal(result[0]["labels"], torch.tensor([1, 2]))
+    # b.jpg: person(1)
+    assert torch.equal(result[1]["boxes"], torch.tensor([[0.0, 0.0, 50.0, 50.0]]))
+    assert torch.equal(result[1]["labels"], torch.tensor([1]))
+
+
+def test_voc_parser_raises_on_missing_bndbox(tmp_path: object) -> None:
+    """parse raises ValueError when <object> has no <bndbox>."""
+    import pathlib
+
+    from raitap.data.label_parsers.voc import VocLabelParser
+
+    tmp = pathlib.Path(str(tmp_path))
+    voc_dir = tmp / "voc_no_box"
+    voc_dir.mkdir()
+    _write_voc_xml(
+        voc_dir / "bad.xml",
+        "bad.jpg",
+        [{"name": "person"}],  # no bndbox key -> not written
+    )
+    parser = VocLabelParser(source=str(voc_dir))
+    with pytest.raises(ValueError, match="no <bndbox>"):
+        parser.parse(
+            task_kind=TaskKind.detection,
+            tensor=[object()],
+            sample_ids=["bad.jpg"],
+            data_source=None,
+            class_names=["person"],
+        )
+
+
+def test_voc_parser_e2e_class_names_from_model(tmp_path: object) -> None:
+    """E2E: cfg.model.class_names supplies mapping; person->1 via _resolve_and_parse_labels."""
+    import torch
+
+    from raitap.configs.schema import VocLabelsConfig
+    from raitap.data.data import _resolve_and_parse_labels
+
+    voc_dir = _make_voc_fixture(tmp_path)
+    # class_names on the config is None; model supplies it instead
+    cfg = _make_cfg(
+        labels=VocLabelsConfig(source=str(voc_dir)),
+        class_names=["background", "person", "car"],
+    )
+    tensor = [object(), object()]
+    result = _resolve_and_parse_labels(
+        cfg,
+        task_kind=TaskKind.detection,
+        tensor=tensor,
+        sample_ids=["a.jpg", "b.jpg"],
+    )
+    assert isinstance(result, list)
+    assert len(result) == 2
+    assert torch.equal(result[0]["labels"], torch.tensor([1, 2]))
+    assert torch.equal(result[1]["labels"], torch.tensor([1]))
+
+
+def test_voc_parser_own_class_names_takes_precedence(tmp_path: object) -> None:
+    """Parser's VocLabelsConfig.class_names overrides model's class_names."""
+    import torch
+
+    from raitap.configs.schema import VocLabelsConfig
+    from raitap.data.data import _resolve_and_parse_labels
+
+    voc_dir = _make_voc_fixture(tmp_path)
+    # Parser config has class_names; model has a different (wrong) mapping
+    cfg = _make_cfg(
+        labels=VocLabelsConfig(
+            source=str(voc_dir),
+            class_names=["background", "person", "car"],
+        ),
+        class_names=["car", "background", "person"],  # different order -> would give wrong ids
+    )
+    tensor = [object(), object()]
+    result = _resolve_and_parse_labels(
+        cfg,
+        task_kind=TaskKind.detection,
+        tensor=tensor,
+        sample_ids=["a.jpg", "b.jpg"],
+    )
+    assert isinstance(result, list)
+    # Parser's own list wins: person->1, car->2
+    assert torch.equal(result[0]["labels"], torch.tensor([1, 2]))
