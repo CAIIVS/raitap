@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from .types import DIRECTORY_LABELS_SOURCE, IdStrategy, LabelEncoding, LabelFormat, Preprocessing
+from .types import IdStrategy, LabelEncoding, Preprocessing
 
 if TYPE_CHECKING:
     from raitap.configs.schema import DataConfig, LabelsConfig
@@ -30,14 +30,12 @@ if TYPE_CHECKING:
 
 
 __all__ = [
-    "DIRECTORY_LABELS_SOURCE",
     "Data",
     "DataConfig",
     "DataInputMetadata",
     "DataPreprocessingFactory",
     "IdStrategy",
     "LabelEncoding",
-    "LabelFormat",
     "LabelFormatAdapter",
     "LabelsConfig",
     "ModelInputTransformationFactory",

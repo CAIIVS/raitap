@@ -33,30 +33,6 @@ class IdStrategy(StrEnum):
     stem = "stem"
 
 
-class LabelFormat(StrEnum):
-    """On-disk label file format selected by ``LabelsConfig.format``.
-
-    ``native`` is RAITAP's own shape (classification: CSV/TSV/Parquet or the
-    ``directory`` source; detection: the JSON record list). The others are
-    converted to the native intermediate by a registered
-    ``LabelFormatAdapter`` before the task family aligns them. StrEnum so YAML
-    users can write the raw value.
-    """
-
-    native = "native"
-    coco = "coco"
-    yolo = "yolo"
-    voc = "voc"
-
-
-#: Reserved ``LabelsConfig.source`` value selecting folder-as-label ingestion:
-#: classification labels are derived from each sample's top-level class
-#: subdirectory (torchvision ``ImageFolder`` style; no labels file). Kept as a
-#: plain ``str`` so it round-trips through OmegaConf; ``LabelsConfig.source``
-#: stays ``str | None`` (a path or this sentinel).
-DIRECTORY_LABELS_SOURCE = "directory"
-
-
 class Preprocessing(StrEnum):
     """Named values for ``DataConfig.preprocessing``.
 
