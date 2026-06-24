@@ -49,6 +49,7 @@ def register_zen_groups() -> None:
     import importlib
 
     for pkg in (
+        "raitap.data.label_parsers",
         "raitap.metrics",
         "raitap.reporting",
         "raitap.robustness",

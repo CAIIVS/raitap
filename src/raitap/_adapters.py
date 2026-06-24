@@ -305,10 +305,14 @@ def _register_core(
         if family is not None:
             cls._adapter_group = family.group
             builder = _build_schema_adapter(cls, schema_override or family.schema)
+            # Hydra groups use ``/`` for nesting; OmegaConf packages use ``.``.
+            # A nested group like ``data/labels`` must target package
+            # ``data.labels`` so the composed node lands at ``cfg.data.labels``.
+            package_base = family.group.replace("/", ".")
             package = (
-                f"{family.group}.{registry_name}"
+                f"{package_base}.{registry_name}"
                 if family.package_style == "nested"
-                else family.group
+                else package_base
             )
             store(builder, group=family.group, name=registry_name, package=package)
             _BUILDERS.setdefault(family.group, {})[registry_name] = builder
