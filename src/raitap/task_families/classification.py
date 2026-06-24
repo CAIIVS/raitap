@@ -61,11 +61,6 @@ class ClassificationFamily:
         if tensor.shape[0] < 1:
             raise ValueError("Classification data is empty; loaded zero samples.")
 
-    def load_labels(self, cfg: Any, *, tensor: Any, sample_ids: Any) -> Any:
-        from raitap.data.data import load_classification_labels
-
-        return load_classification_labels(cfg, tensor=tensor, sample_ids=sample_ids)
-
     def validate_labels(self, labels: Any) -> None:
         # A ``list[dict]`` is a detection-shaped label set; a tensor (or None)
         # is classification-shaped. Disagreement means model and data declare

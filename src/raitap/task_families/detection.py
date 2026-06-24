@@ -155,66 +155,6 @@ class DetectionFamily:
                     + (f" with shape {shape}." if shape is not None else ".")
                 )
 
-    def load_labels(self, cfg: Any, *, tensor: Any, sample_ids: Any) -> Any:
-        """Load per-sample detection targets (boxes + labels).
-
-        Expected on-disk shape: JSON file (list of records) with each record
-        carrying ``sample_id`` (str), ``boxes`` (list of ``[x1, y1, x2, y2]``
-        floats), and ``labels`` (list of ints). Returns a list whose length
-        equals ``len(tensor)``; each entry is a dict with
-        ``boxes: (M_i, 4) float32`` and ``labels: (M_i,) int64`` tensors.
-        Samples with no boxes get shape-``(0, 4)`` / shape-``(0,)`` tensors.
-
-        Alignment rules:
-
-        * When ``sample_ids`` is set, records are looked up by ``sample_id``
-          and the output is ordered to match ``sample_ids``. Any sample
-          missing from the labels file → ``ValueError``; duplicate ``sample_id``s
-          in the labels file → ``ValueError``.
-        * When ``sample_ids`` is unset, records are consumed in file order
-          and must equal the dataset length exactly.
-
-        Returns ``None`` when ``data.labels.source`` is unset.
-        """
-        import json
-
-        from raitap.data.data import (
-            SourceKind,
-            _get_optional_config_value,
-            get_source_path,
-        )
-
-        labels_cfg = _get_optional_config_value(cfg.data, "labels")
-        labels_source = _get_optional_config_value(labels_cfg, "source")
-        if not labels_source:
-            return None
-
-        labels_path = get_source_path(labels_source, kind=SourceKind.LABELS)
-
-        from raitap.data.types import LabelFormat
-
-        fmt = _get_optional_config_value(labels_cfg, "format") or LabelFormat.native
-        if fmt == LabelFormat.native:
-            with labels_path.open() as fh:
-                records = json.load(fh)
-            if not isinstance(records, list):
-                raise ValueError(f"Detection labels file {labels_path} must be a JSON array.")
-        else:
-            from raitap.data.label_formats import resolve_label_format_adapter
-
-            data_source = _get_optional_config_value(cfg.data, "source")
-            image_dir = get_source_path(data_source, kind=SourceKind.DATA) if data_source else None
-            class_names = (
-                _get_optional_config_value(cfg.model, "class_names")
-                if hasattr(cfg, "model")
-                else None
-            )
-            adapter = resolve_label_format_adapter(LabelFormat(fmt), task_kind=self.kind)
-            records = adapter.to_detection_records(
-                labels_path, image_dir=image_dir, class_names=class_names
-            )
-        return _align_detection_records(records, expected=len(tensor), sample_ids=sample_ids)
-
     def validate_labels(self, labels: Any) -> None:
         # The detection loader returns ``list[dict]`` or ``None``. A bare tensor
         # is a classification-shaped label set; disagreement means model and

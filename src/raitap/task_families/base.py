@@ -96,10 +96,6 @@ class TaskFamily(Protocol):
         """Validate the (post-adapt) inputs match this family's contract."""
         raise NotImplementedError
 
-    def load_labels(self, cfg: AppConfig, *, tensor: object, sample_ids: object) -> Any:
-        """Load labels in this family's on-disk shape (or None)."""
-        raise NotImplementedError
-
     def validate_labels(self, labels: object) -> None:
         """Raise if loaded labels don't match this family's expected shape."""
         raise NotImplementedError

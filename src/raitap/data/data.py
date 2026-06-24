@@ -12,12 +12,10 @@ from PIL import Image
 from raitap import raitap_log
 from raitap.data.preprocessing import module_as_per_image_callable, resolve_preprocessing
 from raitap.data.types import (
-    DIRECTORY_LABELS_SOURCE,
     MODALITY_EXTENSIONS,
     IdStrategy,
     InputModality,
     LabelEncoding,
-    LabelFormat,
 )
 from raitap.data.utils import download_file
 from raitap.tracking.base_tracker import BaseTracker, Trackable
@@ -75,7 +73,9 @@ class Data(Trackable):
         self.tensor = family.adapt_loaded_inputs(raw_tensor)
         family.validate_inputs(self.tensor)
         self.labels: torch.Tensor | list[dict[str, torch.Tensor]] | None
-        self.labels = family.load_labels(cfg, tensor=self.tensor, sample_ids=self.sample_ids)
+        self.labels = _resolve_and_parse_labels(
+            cfg, task_kind=self.task_kind, tensor=self.tensor, sample_ids=self.sample_ids
+        )
         family.validate_labels(self.labels)
 
     def _load_data(
@@ -237,6 +237,45 @@ class Data(Trackable):
         tracker.log_dataset(self.describe())
 
 
+def _resolve_and_parse_labels(
+    cfg: Any,
+    *,
+    task_kind: TaskKind,
+    tensor: Any,
+    sample_ids: list[str] | None,
+) -> Any:
+    """Resolve cfg.data.labels to a parser, gate supported_tasks, call parse.
+
+    Returns None when cfg.data.labels is not set.
+    """
+    from raitap.data.label_parsers.factory import create_label_parser
+
+    labels_cfg = _get_optional_config_value(cfg.data, "labels")
+    if labels_cfg is None:
+        return None
+
+    parser = create_label_parser(labels_cfg)
+
+    if task_kind not in parser.supported_tasks:
+        supported = ", ".join(sorted(str(t) for t in parser.supported_tasks))
+        raise ValueError(
+            f"{type(parser).__name__} does not support task_kind={task_kind!r}. "
+            f"Supported tasks: {supported}."
+        )
+
+    data_source = _get_optional_config_value(cfg.data, "source")
+    model = getattr(cfg, "model", None)
+    class_names = _get_optional_config_value(model, "class_names")
+
+    return parser.parse(
+        task_kind=task_kind,
+        tensor=tensor,
+        sample_ids=sample_ids,
+        data_source=data_source,
+        class_names=class_names,
+    )
+
+
 def _load_directory_labels(sample_ids: list[str] | None) -> torch.Tensor | None:
     """Derive classification labels from each sample's top-level class folder
     (torchvision ImageFolder semantics). Returns None (with a warning) when
@@ -273,41 +312,15 @@ def load_classification_labels(
     Aligns to ``sample_ids`` by id column when available, otherwise falls back
     to row order. Returns ``None`` when ``data.labels.source`` is unset, the
     file is empty, or alignment fails (callers then use predictions as targets).
+
+    Note: directory and format-adapter branches have moved to dedicated
+    ``LabelParser`` implementations. This function handles the tabular (native)
+    path only and will be wrapped by ``TabularLabelParser`` in a later task.
     """
     labels_cfg = _get_optional_config_value(cfg.data, "labels")
     labels_source = _get_optional_config_value(labels_cfg, "source")
     if not labels_source:
         return None
-
-    if labels_source == DIRECTORY_LABELS_SOURCE:
-        return _load_directory_labels(sample_ids)
-
-    labels_format = _get_optional_config_value(labels_cfg, "format") or LabelFormat.native
-    if labels_format != LabelFormat.native:
-        from raitap.data.label_formats import resolve_label_format_adapter
-
-        if not sample_ids:
-            raise ValueError(
-                f"Label format {LabelFormat(labels_format).value!r} requires "
-                "id-based alignment, but no sample ids were discovered."
-            )
-        labels_path = get_source_path(labels_source, kind=SourceKind.LABELS)
-        adapter = resolve_label_format_adapter(
-            LabelFormat(labels_format), task_kind=TaskKind.classification
-        )
-        records = adapter.to_classification_records(labels_path)
-        id_series = pd.Series([r["sample_id"] for r in records])
-        record_labels = [int(r["label"]) for r in records]
-        strategy = _resolve_id_strategy(
-            _get_optional_config_value(labels_cfg, "id_strategy") or "auto", id_series
-        )
-        aligned = _align_labels_to_samples(
-            sample_ids=sample_ids,
-            raw_label_ids=id_series,
-            encoded_labels=record_labels,
-            strategy=strategy,
-        )
-        return torch.tensor(aligned, dtype=torch.long)
 
     labels_path = get_source_path(labels_source, kind=SourceKind.LABELS)
     labels_df = _load_tabular_frame(labels_path)
