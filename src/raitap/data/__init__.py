@@ -19,7 +19,6 @@ if TYPE_CHECKING:
     from raitap.configs.schema import DataConfig, LabelsConfig
 
     from .data import Data, load_numpy_from_source, load_tensor_from_source
-    from .label_formats import LabelFormatAdapter, resolve_label_format_adapter
     from .metadata import DataInputMetadata, infer_data_input_metadata
     from .preprocessing import (
         DataPreprocessingFactory,
@@ -36,7 +35,6 @@ __all__ = [
     "DataPreprocessingFactory",
     "IdStrategy",
     "LabelEncoding",
-    "LabelFormatAdapter",
     "LabelsConfig",
     "ModelInputTransformationFactory",
     "Preprocessing",
@@ -45,7 +43,6 @@ __all__ = [
     "load_tensor_from_source",
     "raitap_model_input_transformation_factory",
     "raitap_preprocessing_factory",
-    "resolve_label_format_adapter",
 ]
 
 
@@ -70,11 +67,6 @@ _LAZY: dict[str, tuple[str, str]] = {
     "raitap_preprocessing_factory": (
         "raitap.data.preprocessing",
         "raitap_preprocessing_factory",
-    ),
-    "LabelFormatAdapter": ("raitap.data.label_formats", "LabelFormatAdapter"),
-    "resolve_label_format_adapter": (
-        "raitap.data.label_formats",
-        "resolve_label_format_adapter",
     ),
 }
 

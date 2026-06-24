@@ -107,3 +107,72 @@ def test_create_label_parser_handles_both_target_forms() -> None:
 def test_detection_json_config_has_exactly_target_source_id_strategy() -> None:
     names = {f.name for f in dataclasses.fields(DetectionJsonLabelsConfig)}
     assert names == {"_target_", "source", "id_strategy"}
+
+
+# ---------------------------------------------------------------------------
+# Cross-variant leakage test (Task 10)
+# ---------------------------------------------------------------------------
+
+# Fields that belong exclusively to the tabular variant and must NOT appear
+# in any other variant's builder dataclass.
+_TABULAR_ONLY_FIELDS = {"id_column", "column", "encoding"}
+
+# Fields that belong exclusively to the voc variant.
+_VOC_ONLY_FIELDS = {"class_names"}
+
+# Variants that must have ONLY ``_target_`` (no source, no strategy, nothing).
+_TARGET_ONLY_VARIANTS: set[str] = {"directory"}
+
+# Variants that carry source + id_strategy but NO tabular fields and NO
+# class_names.
+_DETECTION_VARIANTS: set[str] = {"coco", "yolo", "detection_json"}
+
+
+@pytest.mark.parametrize(
+    "registry_name",
+    ["directory", "tabular", "coco", "yolo", "voc", "detection_json"],
+)
+def test_no_cross_variant_field_leakage(registry_name: str) -> None:
+    """Each label-parser builder dataclass must expose only its own fields.
+
+    Specifically:
+    - ``directory`` has only ``_target_``.
+    - ``coco``/``yolo``/``detection_json`` have no tabular-only fields and no
+      ``class_names``.
+    - ``voc`` has ``class_names`` but no tabular-only fields.
+    - ``tabular`` has tabular-only fields but no ``class_names``.
+    """
+    from raitap._adapters import _BUILDERS
+
+    _register_labels_group()
+
+    builders = _BUILDERS.get("data/labels", {})
+    assert registry_name in builders, (
+        f"Registry name {registry_name!r} not found in _BUILDERS['data/labels']; "
+        f"registered: {sorted(builders)}"
+    )
+    builder = builders[registry_name]
+    field_names = {f.name for f in dataclasses.fields(builder)}
+
+    if registry_name in _TARGET_ONLY_VARIANTS:
+        assert field_names == {"_target_"}, (
+            f"{registry_name!r} builder should have only '_target_' but got {field_names}"
+        )
+
+    if registry_name in _DETECTION_VARIANTS:
+        leaked = _TABULAR_ONLY_FIELDS & field_names
+        assert not leaked, f"{registry_name!r} builder leaks tabular-only fields: {leaked}"
+        assert "class_names" not in field_names, (
+            f"{registry_name!r} builder should not have 'class_names'"
+        )
+
+    if registry_name == "voc":
+        leaked = _TABULAR_ONLY_FIELDS & field_names
+        assert not leaked, f"voc builder leaks tabular-only fields: {leaked}"
+        assert "class_names" in field_names, "voc builder must have 'class_names'"
+
+    if registry_name == "tabular":
+        assert field_names >= _TABULAR_ONLY_FIELDS, (
+            f"tabular builder is missing expected fields; got {field_names}"
+        )
+        assert "class_names" not in field_names, "tabular builder should not have 'class_names'"

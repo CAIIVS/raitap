@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from enum import StrEnum
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -274,103 +274,6 @@ def _resolve_and_parse_labels(
         data_source=data_source,
         class_names=class_names,
     )
-
-
-def _load_directory_labels(sample_ids: list[str] | None) -> torch.Tensor | None:
-    """Derive classification labels from each sample's top-level class folder
-    (torchvision ImageFolder semantics). Returns None (with a warning) when
-    labels cannot be derived: no sample ids, or a sample with no class subdir."""
-    if not sample_ids:
-        raitap_log.warn(
-            "data.labels.source='directory' needs image samples organised into "
-            "class subdirectories; none were found. Falling back to predictions "
-            "as metric targets."
-        )
-        return None
-    parts_by_id = [PurePosixPath(sid).parts for sid in sample_ids]
-    if any(len(parts) < 2 for parts in parts_by_id):
-        raitap_log.warn(
-            "data.labels.source='directory' expects a <class>/<file> layout, but "
-            "one or more samples sit directly under the data source root (no class "
-            "subdirectory). Falling back to predictions as metric targets."
-        )
-        return None
-    classes = sorted({parts[0] for parts in parts_by_id})
-    class_to_idx = {name: idx for idx, name in enumerate(classes)}
-    labels = [class_to_idx[parts[0]] for parts in parts_by_id]
-    return torch.tensor(labels, dtype=torch.long)
-
-
-def load_classification_labels(
-    cfg: AppConfig,
-    *,
-    tensor: torch.Tensor | DetectionInputs,
-    sample_ids: list[str] | None,
-) -> torch.Tensor | None:
-    """Load tabular classification labels (CSV/TSV/Parquet) → tensor or ``None``.
-
-    Aligns to ``sample_ids`` by id column when available, otherwise falls back
-    to row order. Returns ``None`` when ``data.labels.source`` is unset, the
-    file is empty, or alignment fails (callers then use predictions as targets).
-
-    Note: directory and format-adapter branches have moved to dedicated
-    ``LabelParser`` implementations. This function handles the tabular (native)
-    path only and will be wrapped by ``TabularLabelParser`` in a later task.
-    """
-    labels_cfg = _get_optional_config_value(cfg.data, "labels")
-    labels_source = _get_optional_config_value(labels_cfg, "source")
-    if not labels_source:
-        return None
-
-    labels_path = get_source_path(labels_source, kind=SourceKind.LABELS)
-    labels_df = _load_tabular_frame(labels_path)
-    if labels_df.empty:
-        raitap_log.warn("Labels file is empty; falling back to predictions as targets.")
-        return None
-
-    labels_id_column = _get_optional_config_value(labels_cfg, "id_column")
-    id_column = _resolve_labels_id_column(labels_df, labels_id_column)
-    labels_column = _get_optional_config_value(labels_cfg, "column")
-    labels_encoding = _get_optional_config_value(labels_cfg, "encoding")
-    labels_id_strategy = _get_optional_config_value(labels_cfg, "id_strategy") or "auto"
-    encoded_labels = _extract_class_labels(
-        labels_df,
-        labels_column=labels_column,
-        id_column=id_column,
-        labels_encoding=labels_encoding,
-    )
-
-    expected = len(tensor)
-    if sample_ids and id_column:
-        id_series = _column_as_series(labels_df, id_column)
-        strategy = _resolve_id_strategy(labels_id_strategy, id_series)
-        try:
-            aligned_labels = _align_labels_to_samples(
-                sample_ids=sample_ids,
-                raw_label_ids=id_series,
-                encoded_labels=encoded_labels,
-                strategy=strategy,
-            )
-        except ValueError as error:
-            raitap_log.warn(
-                f"{error} Falling back to predictions as metric targets.",
-            )
-            return None
-        return torch.tensor(aligned_labels, dtype=torch.long)
-
-    if sample_ids and not id_column:
-        raitap_log.warn(
-            "Could not find a labels id column for filename alignment; using row-order labels.",
-        )
-
-    if len(encoded_labels) != expected:
-        raitap_log.warn(
-            f"Label count ({len(encoded_labels)}) does not match sample count ({expected}); "
-            "falling back to predictions as targets.",
-        )
-        return None
-
-    return torch.tensor(encoded_labels, dtype=torch.long)
 
 
 def load_tensor_from_source(
