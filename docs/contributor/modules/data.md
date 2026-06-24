@@ -45,9 +45,14 @@ referenceable by name in `data.source`. Registration lives in
     }
     ```
 
-3. **Use it** from any consumer config:
+3. **Use it** from any consumer config (select the `tabular` label variant):
 
     ```yaml
+    defaults:
+      - raitap_schema
+      - data/labels: tabular
+      - _self_
+
     data:
       name: cifar10_samples
       source: cifar10_samples            # resolves via SAMPLE_SOURCES
@@ -69,19 +74,56 @@ referenceable by name in `data.source`. Registration lives in
 5. **Update docs** — add the new sample name to
    {doc}`/modules/data/own-vs-built-in`.
 
-## Adding a label format
+## Adding a label parser
 
-1. Create `src/raitap/data/adapters/<format>.py` with a class decorated
-   `@label_format`. Set `format = LabelFormat.<name>` and
-   `supported_tasks = frozenset({...})`.
-2. Implement `to_detection_records` and/or `to_classification_records`,
-   returning the native record shape (`{sample_id, boxes (xyxy), labels}` or
-   `{sample_id, label}`). Raise `ValueError` for an unsupported task.
-3. Import it in `src/raitap/data/_label_format_adapters.py` so the decorator
-   fires.
-4. Add a `LabelFormat` member in `src/raitap/data/types.py` and a row to the
-   label-format table in `docs/modules/data/configuration.md`.
-5. Add tests in `src/raitap/data/tests/test_label_formats.py`.
+1. Create `src/raitap/data/label_parsers/<name>.py`. Add a dataclass in
+   `src/raitap/configs/schema.py` that subclasses `LabelsConfig`:
+
+    ```python
+    @dataclass
+    class MyFormatLabelsConfig(LabelsConfig):
+        _target_: str = "MyFormatLabelParser"
+        source: str = MISSING
+        id_strategy: IdStrategy = IdStrategy.auto
+        # add only fields this variant uses
+    ```
+
+2. Write the parser class decorated with `@label_parser`:
+
+    ```python
+    from raitap.data.label_parsers.registration import label_parser
+    from raitap.configs.schema import MyFormatLabelsConfig
+
+    @label_parser(registry_name="my_format", schema=MyFormatLabelsConfig)
+    class MyFormatLabelParser:
+        supported_tasks: frozenset[TaskKind] = frozenset({TaskKind.detection})
+
+        def __init__(self, *, source: str, id_strategy: IdStrategy = IdStrategy.auto) -> None:
+            ...
+
+        def parse(
+            self,
+            *,
+            task_kind: TaskKind,
+            tensor: Any,
+            sample_ids: list[str] | None,
+            data_source: str | None,
+            class_names: list[str] | None,
+        ) -> Any:
+            ...
+    ```
+
+3. Import and re-export in `src/raitap/data/label_parsers/__init__.py`:
+
+    ```python
+    from .my_format import MyFormatLabelParser  # pyright: ignore[reportUnusedImport]
+    ```
+
+    Add `"MyFormatLabelParser"` to `__all__`.
+
+4. Add tests in `src/raitap/data/tests/`.
+
+5. Add a row to the label-variant table in `docs/modules/data/configuration.md`.
 
 ## Sample discovery and label alignment
 

@@ -33,11 +33,12 @@ data:
     column: "label"
 
 :python:
-from raitap.data import DataConfig, LabelsConfig
+from raitap.configs.schema import TabularLabelsConfig
+from raitap.data import DataConfig
 
 data = DataConfig(
     source="./data/images",  # a directory of images
-    labels=LabelsConfig(
+    labels=TabularLabelsConfig(
         source="./data/labels.csv",
         id_column="image",
         column="label",
@@ -76,11 +77,12 @@ data:
     # id_strategy: "auto"   # default — relative paths auto-detected
 
 :python:
-from raitap.data import DataConfig, IdStrategy, LabelsConfig
+from raitap.configs.schema import TabularLabelsConfig
+from raitap.data import DataConfig
 
 data = DataConfig(
     source="./data/test",
-    labels=LabelsConfig(
+    labels=TabularLabelsConfig(
         source="./data/labels.csv",
         id_column="image",
         column="label",
@@ -134,8 +136,8 @@ both become `IM-0001`), which raises a duplicate-id error.
 ### Labels from directory structure
 
 If your images are already organised into one folder per class (the
-torchvision `ImageFolder` convention), set `labels.source: "directory"` to use
-the folder names as labels. No labels file needed.
+torchvision `ImageFolder` convention), select the `directory` label variant.
+No labels file needed.
 
 ```text
 data/train/
@@ -144,27 +146,20 @@ data/train/
 └── PNEUMONIA/IM-0001.jpeg   # label: PNEUMONIA
 ```
 
-```{config-tabs}
-:yaml:
+```yaml
+defaults:
+  - raitap_schema
+  - data/labels: directory
+  - _self_
+
 data:
   source: "./data/train"
-  labels:
-    source: "directory"
-
-:python:
-from raitap.data import DIRECTORY_LABELS_SOURCE, DataConfig, LabelsConfig
-
-data = DataConfig(
-    source="./data/train",
-    labels=LabelsConfig(source=DIRECTORY_LABELS_SOURCE),  # == "directory"
-)
 ```
 
 The class is each sample's top-level subdirectory; nesting within a class
 folder is fine. Class ids are assigned alphabetically (`NORMAL` to `0`,
-`PNEUMONIA` to `1`). `id_column` and `id_strategy` do not apply. If images sit
-directly under the source with no class subdirs, RAITAP warns and falls back to
-predictions as metric targets.
+`PNEUMONIA` to `1`). If images sit directly under the source with no class
+subdirs, RAITAP warns and falls back to predictions as metric targets.
 
 If you want to evaluate metrics against ground-truth labels, configure the
 optional `data.labels` block as described in {doc}`configuration`.

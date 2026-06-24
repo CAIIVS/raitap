@@ -547,7 +547,6 @@ class TestLoadDirectoryLabelsViaParser:
         from types import SimpleNamespace
         from typing import cast
 
-
         img_dir = tmp_path / "images"
         (img_dir / "NORMAL").mkdir(parents=True)
         (img_dir / "PNEUMONIA").mkdir(parents=True)

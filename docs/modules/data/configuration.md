@@ -66,55 +66,6 @@ myst:
   <a href="../../using-raitap/flags.html#flag-acknowledge-preprocessing-off"><code>--acknowledge-preprocessing-off</code></a>.
   See {doc}`preprocessing`.
 
-:option: labels.source
-:allowed: string, null
-:default: null
-:description: Optional path to a labels file (CSV, TSV, or Parquet), URL, or
-  named sample set. When set to a sample name (e.g. `"imagenet_samples"`),
-  raitap resolves to the labels CSV bundled with that sample. Sample sets
-  without bundled labels raise an error. The reserved value `"directory"`
-  derives classification labels from each sample's top-level class
-  subdirectory (torchvision `ImageFolder` style; no labels file) — see
-  {doc}`own-vs-built-in`. In that mode `id_column` and `id_strategy` do not
-  apply.
-
-:option: labels.id_column
-:allowed: string, null
-:default: null
-:description: Optional sample-ID column used to align labels with filenames,
-  for example `"image"`.
-
-:option: labels.column
-:allowed: string, null
-:default: null
-:description: Optional class-label column. If omitted, one-hot numeric columns
-  are reduced with `argmax`.
-
-:option: labels.encoding
-:allowed: "index", "one_hot", "argmax", null
-:default: null
-:description: Optional label parsing strategy.
-
-:option: labels.id_strategy
-:allowed: "auto", "relative_path", "stem"
-:default: "auto"
-:description: How label-file ids are matched against discovered sample
-  files. `"auto"` (default) inspects the id column and switches to
-  `"relative_path"` if any value contains `/` or `\`, otherwise falls back
-  to `"stem"`. `"relative_path"` keeps directory components and supports
-  nested ImageFolder layouts (e.g. `NORMAL/IM-0001.jpeg`) — required when
-  filename stems collide across class subdirs. `"stem"` matches by basename only (flat-dir layouts).
-
-:option: labels.format
-:allowed: "native", "coco", "yolo", "voc"
-:default: "native"
-:description: External label file format. `"native"` (default) reads RAITAP's
-  own shape (classification: CSV/TSV/Parquet or the `"directory"` source;
-  detection: the JSON record list). `"coco"`, `"yolo"`, and `"voc"` convert a
-  standard annotation file to the native shape before alignment. `"yolo"` and
-  `"voc"` are detection only; `"coco"` serves detection and classification.
-  Non-native formats align by sample id, so a labels id is required.
-
 :option: input_metadata
 :allowed: dict, null
 :default: null
@@ -155,56 +106,62 @@ data:
   forward_batch_size: 32
   preprocessing: model-bundled
   model_input_transformation: model-bundled
-  labels:
-    source: "./data/labels.csv"
-    id_column: "image"
-    column: "label"
-    encoding: "index"
-    id_strategy: "auto"
 
-:cli: data.source="./data/images" data.preprocessing=model-bundled data.model_input_transformation=model-bundled data.labels.source="./data/labels.csv" data.labels.column=label
+:cli: data.source="./data/images" data.preprocessing=model-bundled data.model_input_transformation=model-bundled
 
 :python:
-from raitap.data import (
-    DataConfig,
-    IdStrategy,
-    LabelEncoding,
-    LabelsConfig,
-    Preprocessing,
-)
+from raitap.data import DataConfig
 
 data = DataConfig(
     name="my-dataset",
     description="Internal validation set",
     source="./data/images",
     forward_batch_size=32,
-    preprocessing=Preprocessing.model_bundled,
-    model_input_transformation=Preprocessing.model_bundled,
-    labels=LabelsConfig(
-        source="./data/labels.csv",
-        id_column="image",
-        column="label",
-        encoding=LabelEncoding.index,
-        id_strategy=IdStrategy.auto,
-    ),
+    preprocessing="model-bundled",
+    model_input_transformation="model-bundled",
 )
 ```
 
-**Label formats.** RAITAP reads common annotation formats directly via `data.labels.format`.
+**Label variants.** `data.labels` is a Hydra config-group: select the variant with `defaults: [data/labels: <name>]`, then set its fields under `data.labels:`. Each variant exposes only the fields it accepts — setting a foreign field is a load error.
 
-| Format   | Detection | Classification | Source layout                                  |
-| -------- | --------- | -------------- | ---------------------------------------------- |
-| `native` | yes       | yes            | JSON record list / CSV-TSV-Parquet             |
-| `coco`   | yes       | yes            | single `instances.json`                        |
-| `yolo`   | yes       | no             | dir of per-image `.txt` (needs `data.source`)  |
-| `voc`    | yes       | no             | dir of per-image `.xml`                        |
+```yaml
+defaults:
+  - raitap_schema
+  - data/labels: tabular   # pick one variant
+  - _self_
 
-COCO and YOLO labels keep their category ids unchanged. VOC class names map to
-ids by `model.class_names` order, else the standard 20-class VOC order.
+data:
+  source: "./data/images"
+  labels:
+    source: "./data/labels.csv"
+    id_column: "image"
+    column: "label"
+```
 
-Detection formats match each record's `sample_id` against the discovered image
-file by exact name, so the image directory must be flat (nested subdirs are not
-matched). Classification labels still align via `labels.id_strategy`.
+| Variant          | Task(s)                    | Fields                                                  |
+| ---------------- | -------------------------- | ------------------------------------------------------- |
+| `tabular`        | classification             | `source`, `id_column`, `column`, `encoding`, `id_strategy` |
+| `directory`      | classification             | *(none — class from top-level subdir name)*             |
+| `coco`           | detection + classification | `source`, `id_strategy`                                 |
+| `yolo`           | detection                  | `source`, `id_strategy`                                 |
+| `voc`            | detection                  | `source`, `id_strategy`, `class_names`                  |
+| `detection_json` | detection                  | `source`, `id_strategy`                                 |
+
+**`tabular`** — CSV, TSV, or Parquet file. `id_column` aligns rows to sample filenames; `column` names the label column (omit for one-hot numeric columns, which are reduced with `argmax`). `encoding` is one of `"index"`, `"one_hot"`, `"argmax"`. `id_strategy` controls alignment — see below.
+
+**`directory`** — no labels file. Class is each sample's top-level subdirectory (torchvision `ImageFolder` style). See {doc}`own-vs-built-in`.
+
+**`coco`** — single `instances.json` file (`source`). Category ids pass through unchanged. Serves detection and classification.
+
+**`yolo`** — directory of per-image `.txt` files (`source`). Needs `data.source` set to the image directory so RAITAP can match annotation files to images. Detection only. Category ids pass through unchanged.
+
+**`voc`** — directory of per-image `.xml` files (`source`). `class_names` maps VOC names to integer ids; falls back to `model.class_names`, then the standard 20-class VOC order. Detection only.
+
+**`detection_json`** — RAITAP native JSON record list `[{"sample_id": ..., "boxes": ..., "labels": ...}]`. Detection only.
+
+All detection variants honour `id_strategy` for nested image-directory layouts.
+
+**`id_strategy`** (`"auto"` / `"relative_path"` / `"stem"`, default `"auto"`): how label ids are matched against discovered sample files. `"auto"` inspects the id column and switches to `"relative_path"` if any value contains `/` or `\`, otherwise `"stem"`. `"relative_path"` keeps directory components (e.g. `NORMAL/IM-0001`) — required when filename stems collide across class subdirs. `"stem"` matches by basename only.
 
 For tabular models whose backend expects an unusual per-sample layout (such
 as ACAS Xu, a Torch network whose forward takes `(N, 1, 1, 5)`), supply
