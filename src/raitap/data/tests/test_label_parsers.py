@@ -167,3 +167,171 @@ def test_tabular_parser_direct_unit(tmp_path: object) -> None:
     assert isinstance(result, torch.Tensor)
     assert result.dtype == torch.long
     assert result.tolist() == [0, 1]
+
+
+# --- Task 5: CocoLabelParser ---
+
+
+def _write_json(path: object, data: object) -> None:
+    import json
+    import pathlib
+
+    pathlib.Path(str(path)).write_text(json.dumps(data), encoding="utf-8")
+
+
+def _coco_detection_fixture(tmp_path: object) -> object:
+    """Two-image COCO with one annotated image and one empty image."""
+    import pathlib
+
+    coco = {
+        "images": [
+            {"id": 1, "file_name": "a.jpg"},
+            {"id": 2, "file_name": "b.jpg"},
+        ],
+        "annotations": [
+            {"image_id": 1, "category_id": 3, "bbox": [10, 20, 30, 40]},
+            {"image_id": 1, "category_id": 5, "bbox": [0, 0, 5, 5]},
+        ],
+        "categories": [{"id": 3, "name": "car"}, {"id": 5, "name": "dog"}],
+    }
+    p = pathlib.Path(str(tmp_path)) / "instances.json"
+    _write_json(p, coco)
+    return p
+
+
+def _coco_classification_fixture(tmp_path: object) -> object:
+    """Two-image COCO for classification (one category per image)."""
+    import pathlib
+
+    coco = {
+        "images": [
+            {"id": 1, "file_name": "a.jpg"},
+            {"id": 2, "file_name": "b.jpg"},
+        ],
+        "annotations": [
+            {"image_id": 1, "category_id": 0, "bbox": [0, 0, 1, 1]},
+            {"image_id": 2, "category_id": 4, "bbox": [0, 0, 1, 1]},
+        ],
+        "categories": [{"id": 0, "name": "x"}, {"id": 4, "name": "y"}],
+    }
+    p = pathlib.Path(str(tmp_path)) / "cls.json"
+    _write_json(p, coco)
+    return p
+
+
+def test_coco_parser_detection_direct(tmp_path: object) -> None:
+    """CocoLabelParser.parse detection: boxes xyxy, labels, empty-image shape."""
+    import torch
+
+    from raitap.data.label_parsers.coco import CocoLabelParser
+
+    labels_path = _coco_detection_fixture(tmp_path)
+    parser = CocoLabelParser(source=str(labels_path))
+    tensor = [object(), object()]  # two samples
+    result = parser.parse(
+        task_kind=TaskKind.detection,
+        tensor=tensor,
+        sample_ids=["a.jpg", "b.jpg"],
+        data_source=None,
+        class_names=None,
+    )
+    assert isinstance(result, list)
+    assert len(result) == 2
+    # a.jpg: two boxes, xyxy conversion
+    expected_boxes = torch.tensor([[10.0, 20.0, 40.0, 60.0], [0.0, 0.0, 5.0, 5.0]])
+    assert torch.equal(result[0]["boxes"], expected_boxes)
+    assert torch.equal(result[0]["labels"], torch.tensor([3, 5]))
+    # b.jpg: empty annotation -> (0, 4) boxes, (0,) labels
+    assert result[1]["boxes"].shape == (0, 4)
+    assert result[1]["labels"].shape == (0,)
+
+
+def test_coco_parser_classification_direct(tmp_path: object) -> None:
+    """CocoLabelParser.parse classification: long tensor of category ids."""
+    import torch
+
+    from raitap.data.label_parsers.coco import CocoLabelParser
+
+    labels_path = _coco_classification_fixture(tmp_path)
+    parser = CocoLabelParser(source=str(labels_path))
+    result = parser.parse(
+        task_kind=TaskKind.classification,
+        tensor=None,
+        sample_ids=["a.jpg", "b.jpg"],
+        data_source=None,
+        class_names=None,
+    )
+    assert isinstance(result, torch.Tensor)
+    assert result.dtype == torch.long
+    assert result.tolist() == [0, 4]
+
+
+def test_coco_parser_classification_rejects_multiple_categories(tmp_path: object) -> None:
+    """Classification parse raises ValueError when an image has >1 categories."""
+    import pathlib
+
+    from raitap.data.label_parsers.coco import CocoLabelParser
+
+    coco = {
+        "images": [{"id": 1, "file_name": "a.jpg"}],
+        "annotations": [
+            {"image_id": 1, "category_id": 3, "bbox": [0, 0, 1, 1]},
+            {"image_id": 1, "category_id": 5, "bbox": [0, 0, 1, 1]},
+        ],
+        "categories": [{"id": 3, "name": "car"}, {"id": 5, "name": "dog"}],
+    }
+    p = pathlib.Path(str(tmp_path)) / "multi.json"
+    _write_json(p, coco)
+    parser = CocoLabelParser(source=str(p))
+    with pytest.raises(ValueError, match="exactly one category per image"):
+        parser.parse(
+            task_kind=TaskKind.classification,
+            tensor=None,
+            sample_ids=["a.jpg"],
+            data_source=None,
+            class_names=None,
+        )
+
+
+def test_coco_parser_detection_e2e_via_resolve(tmp_path: object) -> None:
+    """Detection e2e: _resolve_and_parse_labels with CocoLabelsConfig."""
+    import torch
+
+    from raitap.configs.schema import CocoLabelsConfig
+    from raitap.data.data import _resolve_and_parse_labels
+
+    labels_path = _coco_detection_fixture(tmp_path)
+    cfg = _make_cfg(labels=CocoLabelsConfig(source=str(labels_path)))
+    tensor = [object(), object()]
+    result = _resolve_and_parse_labels(
+        cfg,
+        task_kind=TaskKind.detection,
+        tensor=tensor,
+        sample_ids=["a.jpg", "b.jpg"],
+    )
+    assert isinstance(result, list)
+    assert len(result) == 2
+    expected_boxes = torch.tensor([[10.0, 20.0, 40.0, 60.0], [0.0, 0.0, 5.0, 5.0]])
+    assert torch.equal(result[0]["boxes"], expected_boxes)
+    assert torch.equal(result[0]["labels"], torch.tensor([3, 5]))
+    assert result[1]["boxes"].shape == (0, 4)
+
+
+def test_coco_parser_classification_e2e_via_resolve(tmp_path: object) -> None:
+    """Classification e2e: _resolve_and_parse_labels with CocoLabelsConfig."""
+    import torch
+
+    from raitap.configs.schema import CocoLabelsConfig
+    from raitap.data.data import _resolve_and_parse_labels
+
+    labels_path = _coco_classification_fixture(tmp_path)
+    cfg = _make_cfg(labels=CocoLabelsConfig(source=str(labels_path)))
+    result = _resolve_and_parse_labels(
+        cfg,
+        task_kind=TaskKind.classification,
+        tensor=None,
+        sample_ids=["a.jpg", "b.jpg"],
+    )
+    assert isinstance(result, torch.Tensor)
+    assert result.dtype == torch.long
+    assert result.tolist() == [0, 4]
