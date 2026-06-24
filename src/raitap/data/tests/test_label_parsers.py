@@ -104,3 +104,66 @@ def test_integration_compose_data_labels_directory() -> None:
     with initialize(version_base=None, config_path=None):
         cfg = compose(config_name="raitap_schema", overrides=["+data/labels=directory"])
     assert cfg.data.labels._target_ == _COMPOSED_TARGET
+
+
+# --- Task 4: TabularLabelParser ---
+
+
+def _write_csv(path: object, content: str) -> None:
+    import pathlib
+
+    pathlib.Path(str(path)).write_text(content, encoding="utf-8")
+
+
+def test_tabular_parser_e2e_via_resolve_and_parse_labels(tmp_path: object) -> None:
+    """CSV with image,label rows + sample_ids -> aligned long tensor via resolve."""
+    import pathlib
+
+    import torch
+
+    from raitap.configs.schema import TabularLabelsConfig
+    from raitap.data.data import _resolve_and_parse_labels
+
+    csv_path = pathlib.Path(str(tmp_path)) / "labels.csv"
+    _write_csv(csv_path, "image,label\nb.jpg,1\na.jpg,0\n")
+
+    cfg = _make_cfg(
+        labels=TabularLabelsConfig(
+            source=str(csv_path),
+            id_column="image",
+        )
+    )
+    sample_ids = ["a.jpg", "b.jpg"]
+    result = _resolve_and_parse_labels(
+        cfg, task_kind=TaskKind.classification, tensor=None, sample_ids=sample_ids
+    )
+    assert result is not None
+    assert isinstance(result, torch.Tensor)
+    assert result.dtype == torch.long
+    # a.jpg -> label 0, b.jpg -> label 1
+    assert result.tolist() == [0, 1]
+
+
+def test_tabular_parser_direct_unit(tmp_path: object) -> None:
+    """Direct TabularLabelParser.parse unit test without cfg dispatch."""
+    import pathlib
+
+    import torch
+
+    from raitap.data.label_parsers.tabular import TabularLabelParser
+
+    csv_path = pathlib.Path(str(tmp_path)) / "labels.csv"
+    _write_csv(csv_path, "image,label\na.jpg,0\nb.jpg,1\n")
+
+    parser = TabularLabelParser(source=str(csv_path), id_column="image")
+    result = parser.parse(
+        task_kind=TaskKind.classification,
+        tensor=None,
+        sample_ids=["a.jpg", "b.jpg"],
+        data_source=None,
+        class_names=None,
+    )
+    assert result is not None
+    assert isinstance(result, torch.Tensor)
+    assert result.dtype == torch.long
+    assert result.tolist() == [0, 1]

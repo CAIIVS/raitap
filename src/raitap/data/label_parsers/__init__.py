@@ -10,5 +10,6 @@ mirroring how ``raitap.metrics`` re-exports its metric computers.
 from __future__ import annotations
 
 from .directory import DirectoryLabelParser
+from .tabular import TabularLabelParser  # pyright: ignore[reportUnusedImport]
 
-__all__ = ["DirectoryLabelParser"]
+__all__ = ["DirectoryLabelParser", "TabularLabelParser"]
