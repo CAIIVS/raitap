@@ -39,8 +39,8 @@ class LabelFormat(StrEnum):
     ``native`` is RAITAP's own shape (classification: CSV/TSV/Parquet or the
     ``directory`` source; detection: the JSON record list). The others are
     converted to the native intermediate by a registered
-    :class:`~raitap.data.label_formats.LabelFormatAdapter` before the task
-    family aligns them. StrEnum so YAML users can write the raw value.
+    ``LabelFormatAdapter`` before the task family aligns them. StrEnum so YAML
+    users can write the raw value.
     """
 
     native = "native"

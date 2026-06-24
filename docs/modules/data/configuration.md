@@ -190,9 +190,7 @@ data = DataConfig(
 )
 ```
 
-## Label formats
-
-RAITAP reads common annotation formats directly via `data.labels.format`.
+**Label formats.** RAITAP reads common annotation formats directly via `data.labels.format`.
 
 | Format   | Detection | Classification | Source layout                                  |
 | -------- | --------- | -------------- | ---------------------------------------------- |
