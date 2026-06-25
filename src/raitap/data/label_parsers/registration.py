@@ -34,7 +34,13 @@ def label_parser(
     """Decorator: register a label-parser adapter.
 
     ``registry_name`` is required. Mirrors ``metrics_adapter`` shape.
+
+    Label parsers are core (stdlib only — no optional dependency), so they
+    declare no uv extra. Without this default the schema-backed auto-extra
+    (``extra=registry_name``) would register phantom extras like ``tabular``
+    that no ``pyproject`` group provides, breaking the deps static-scan gate.
     """
+    common.setdefault("extra", "")
 
     def wrap(cls: type[T]) -> type[T]:
         return _register_core(cls, family=LABELS, **common)
