@@ -20,8 +20,6 @@ def test_directory_config_has_only_target() -> None:
 
 
 def test_labelformat_enum_is_gone() -> None:
-    import importlib
-
     data_types = importlib.import_module("raitap.data.types")
     with pytest.raises(AttributeError):
         getattr(data_types, "LabelFormat")  # noqa: B009
@@ -160,19 +158,17 @@ def test_no_cross_variant_field_leakage(registry_name: str) -> None:
         )
 
     if registry_name in _DETECTION_VARIANTS:
-        leaked = _TABULAR_ONLY_FIELDS & field_names
-        assert not leaked, f"{registry_name!r} builder leaks tabular-only fields: {leaked}"
-        assert "class_names" not in field_names, (
-            f"{registry_name!r} builder should not have 'class_names'"
-        )
+        leaked = (_TABULAR_ONLY_FIELDS | _VOC_ONLY_FIELDS) & field_names
+        assert not leaked, f"{registry_name!r} builder leaks foreign fields: {leaked}"
 
     if registry_name == "voc":
         leaked = _TABULAR_ONLY_FIELDS & field_names
         assert not leaked, f"voc builder leaks tabular-only fields: {leaked}"
-        assert "class_names" in field_names, "voc builder must have 'class_names'"
+        assert field_names >= _VOC_ONLY_FIELDS, "voc builder must have 'class_names'"
 
     if registry_name == "tabular":
         assert field_names >= _TABULAR_ONLY_FIELDS, (
             f"tabular builder is missing expected fields; got {field_names}"
         )
-        assert "class_names" not in field_names, "tabular builder should not have 'class_names'"
+        leaked = _VOC_ONLY_FIELDS & field_names
+        assert not leaked, "tabular builder should not have 'class_names'"

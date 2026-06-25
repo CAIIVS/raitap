@@ -20,8 +20,6 @@ from raitap.types import TaskKind
 if TYPE_CHECKING:
     from pathlib import Path
 
-    import pandas as pd
-
 
 @label_parser(registry_name="coco", schema=CocoLabelsConfig)
 class CocoLabelParser:
