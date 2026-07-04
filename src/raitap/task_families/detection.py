@@ -43,10 +43,11 @@ def _align_detection_records(
     resolved ``strategy``, matching how the classification path handles nested
     image directories.
     """
-    import pandas as pd
     import torch
 
     if sample_ids is not None:
+        import pandas as pd
+
         # Collect raw record ids first so _resolve_id_strategy can inspect them.
         raw_record_ids: list[str] = []
         for index, record in enumerate(records):
@@ -95,6 +96,11 @@ def _align_detection_records(
 
     out: list[dict[str, torch.Tensor]] = []
     for index, record in enumerate(records_iter):
+        if not isinstance(record, dict):
+            raise ValueError(
+                f"Detection labels record {index} must be a JSON object, "
+                f"got {type(record).__name__}."
+            )
         boxes_raw = record.get("boxes", [])
         labels_raw = record.get("labels", [])
         if len(boxes_raw) != len(labels_raw):

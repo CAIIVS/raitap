@@ -210,3 +210,17 @@ def test_load_detection_labels_raises_when_source_unresolvable(tmp_path: Path) -
         _resolve_and_parse_labels(
             cfg, task_kind=TaskKind.detection, tensor=data.tensor, sample_ids=data.sample_ids
         )
+
+
+def test_load_detection_labels_rejects_non_object_record(tmp_path: Path) -> None:
+    """A non-object entry in the record list fails with a clear ValueError
+    (not an AttributeError) on the record-order path."""
+    labels_file = tmp_path / "labels.json"
+    labels_file.write_text(
+        json.dumps([{"sample_id": "a.jpg", "boxes": [], "labels": []}, "notadict"])
+    )
+    cfg = _stub_cfg(labels_source=str(labels_file))
+    with pytest.raises(ValueError, match="must be a JSON object"):
+        _resolve_and_parse_labels(
+            cfg, task_kind=TaskKind.detection, tensor=[object(), object()], sample_ids=None
+        )
