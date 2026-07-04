@@ -28,8 +28,12 @@ def _align_detection_records(
     expected: int,
     sample_ids: Any,
     strategy: str = "auto",
-) -> list[dict[str, torch.Tensor]]:
+) -> list[dict[str, Any]]:
     """Align native detection records to ``sample_ids`` and build tensors.
+
+    Return element dicts hold ``torch.Tensor`` values; typed ``Any`` because
+    ``torch`` is imported lazily (not at module scope) to keep hints resolvable
+    via ``typing.get_type_hints()``.
 
     Extracted from ``DetectionFamily.load_labels`` so label-format adapters can
     feed converted records through the same alignment + validation path.

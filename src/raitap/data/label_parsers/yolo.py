@@ -38,34 +38,45 @@ class YoloLabelParser:
         self.source = source
         self.id_strategy = id_strategy
 
-    def _image_for(self, image_dir: Path, rel_stem: Path) -> Path:
+    def _build_image_index(self, image_dir: Path) -> dict[str, list[Path]]:
+        # Walk the image tree once (stem -> sorted image paths) so the fallback
+        # lookup is O(1) per label instead of an rglob-per-label.
+        index: dict[str, list[Path]] = {}
+        for suffix in _IMAGE_SUFFIXES:
+            for path in image_dir.rglob(f"*{suffix}"):
+                index.setdefault(path.stem, []).append(path)
+        for paths in index.values():
+            paths.sort()
+        return index
+
+    def _image_for(self, image_dir: Path, rel_stem: Path, index: dict[str, list[Path]]) -> Path:
         # ``rel_stem`` is the label path relative to ``labels_dir`` without its
         # suffix (e.g. ``train/a``). Prefer the mirrored image layout
-        # (``image_dir/train/a.jpg``); fall back to a recursive search by stem
-        # so flat-label / nested-image layouts still resolve.
+        # (``image_dir/train/a.jpg``); fall back to the by-stem index so
+        # flat-label / nested-image layouts still resolve.
         for suffix in _IMAGE_SUFFIXES:
             candidate = image_dir / f"{rel_stem}{suffix}"
             if candidate.exists():
                 return candidate
-        for suffix in _IMAGE_SUFFIXES:
-            matches = sorted(image_dir.rglob(f"{rel_stem.name}{suffix}"))
-            if matches:
-                return matches[0]
+        matches = index.get(rel_stem.name)
+        if matches:
+            return matches[0]
         raise ValueError(
             f"YOLO parser found no image for label {rel_stem.as_posix()!r} under {image_dir}."
         )
 
     def _to_detection_records(self, labels_dir: Path, image_dir: Path) -> list[dict[str, Any]]:
         records: list[dict[str, Any]] = []
+        index = self._build_image_index(image_dir)
         txts = sorted(labels_dir.rglob("*.txt"), key=lambda p: p.relative_to(labels_dir).as_posix())
         for txt in txts:
             rel_stem = txt.relative_to(labels_dir).with_suffix("")
-            image_path = self._image_for(image_dir, rel_stem)
+            image_path = self._image_for(image_dir, rel_stem, index)
             with Image.open(image_path) as im:
                 width, height = im.size
             boxes: list[list[float]] = []
             labels: list[int] = []
-            for line in txt.read_text().splitlines():
+            for line in txt.read_text(encoding="utf-8").splitlines():
                 parts = line.split()
                 if not parts:
                     continue
