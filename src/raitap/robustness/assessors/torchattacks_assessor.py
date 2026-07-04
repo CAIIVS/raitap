@@ -69,7 +69,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             PerturbationNorm.LINF,
             families={"gradient_sign", "iterative"},
             requires={Capability.AUTOGRAD},
-            stochastic=True,  # random_start=True default (uniform init)
+            seeding="global_rng",  # random_start=True default (uniform init)
         ),
         "PGDL2": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -78,7 +78,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             PerturbationNorm.L2,
             families={"gradient_sign", "iterative"},
             requires={Capability.AUTOGRAD},
-            stochastic=True,  # random_start=True default (uniform init)
+            seeding="global_rng",  # random_start=True default (uniform init)
         ),
         "MIFGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -111,7 +111,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             PerturbationNorm.LINF,
             families={"ensemble", "auto"},
             requires={Capability.AUTOGRAD},
-            stochastic=True,  # default seed=None -> time-seeded; random APGD/FAB/Square init
+            seeding="self_seeded",  # default seed=None -> time-seeded; random APGD/FAB/Square init
         ),
         # Square/OnePixel are score-based (conceptually black-box); requires=AUTOGRAD
         # preserves current gating via the torchattacks torch model, could be relaxed later.
@@ -122,7 +122,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             PerturbationNorm.LINF,
             families={"score_based"},
             requires={Capability.AUTOGRAD},
-            stochastic=True,  # random search
+            seeding="global_rng",  # random search
         ),
         "OnePixel": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -131,7 +131,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             PerturbationNorm.L0,
             families={"score_based", "evolutionary"},
             requires={Capability.AUTOGRAD},
-            stochastic=True,  # differential evolution (unseeded)
+            seeding="global_rng",  # differential evolution (unseeded)
         ),
         # --- #266: expanded coverage (26 added). Hints verified against
         # torchattacks 3.5.1 installed source (signatures + RNG/norm bodies). ---
@@ -161,7 +161,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             PerturbationNorm.LINF,  # eps-bounded sign step, transfer attack
             families={"gradient_sign", "iterative", "momentum", "transfer"},
             requires={Capability.AUTOGRAD},
-            stochastic=True,  # input_diversity uses torch.rand/randint every step
+            seeding="global_rng",  # input_diversity uses torch.rand/randint every step
         ),
         "EADEN": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -188,7 +188,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             PerturbationNorm.LINF,  # eps-bounded sign step
             families={"gradient_sign", "iterative"},
             requires={Capability.AUTOGRAD},
-            stochastic=True,  # random_start=True default (uniform_ init)
+            seeding="global_rng",  # random_start=True default (uniform_ init)
         ),
         "FAB": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -206,7 +206,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             PerturbationNorm.LINF,  # eps-bounded single-step sign
             families={"gradient_sign"},
             requires={Capability.AUTOGRAD},
-            stochastic=True,  # randn_like().uniform_ random init, unseeded
+            seeding="global_rng",  # randn_like().uniform_ random init, unseeded
         ),
         "GN": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -217,7 +217,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             PerturbationNorm.L2,  # additive Gaussian noise; no clean norm, L2 closest
             families={"noise", "score_based"},
             requires={Capability.AUTOGRAD},
-            stochastic=True,  # std * torch.randn_like(images) every call
+            seeding="global_rng",  # std * torch.randn_like(images) every call
         ),
         "JSMA": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -236,7 +236,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             PerturbationNorm.LINF,  # eps-bounded sign step
             families={"gradient_sign", "iterative"},
             requires={Capability.AUTOGRAD},
-            stochastic=True,  # random_start=True default + randn jitter noise
+            seeding="global_rng",  # random_start=True default + randn jitter noise
         ),
         "NIFGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -254,7 +254,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             PerturbationNorm.LINF,  # eps-bounded sign step (smoothed)
             families={"gradient_sign", "iterative", "randomized_smoothing"},
             requires={Capability.AUTOGRAD},
-            stochastic=True,  # samples gaussian noise batch each step
+            seeding="global_rng",  # samples gaussian noise batch each step
         ),
         "PGDRSL2": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -263,7 +263,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             PerturbationNorm.L2,  # L2 randomized-smoothing PGD
             families={"gradient_sign", "iterative", "randomized_smoothing"},
             requires={Capability.AUTOGRAD},
-            stochastic=True,  # samples gaussian noise batch each step
+            seeding="global_rng",  # samples gaussian noise batch each step
         ),
         "PIFGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -290,7 +290,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             PerturbationNorm.L0,  # rearranges a few pixels
             families={"score_based"},
             requires={Capability.AUTOGRAD},
-            stochastic=True,  # np.random pixel search, unseeded
+            seeding="global_rng",  # np.random pixel search, unseeded
         ),
         "RFGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -299,7 +299,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             PerturbationNorm.LINF,  # eps-bounded sign step
             families={"gradient_sign", "iterative"},
             requires={Capability.AUTOGRAD},
-            stochastic=True,  # randn_like().sign() random init step every call
+            seeding="global_rng",  # randn_like().sign() random init step every call
         ),
         "SINIFGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -317,7 +317,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             PerturbationNorm.LINF,  # eps Linf-bounded
             families={"score_based"},
             requires={Capability.AUTOGRAD},
-            stochastic=True,  # Bernoulli perturbation directions sampled each iter
+            seeding="global_rng",  # Bernoulli perturbation directions sampled each iter
         ),
         "SparseFool": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -335,7 +335,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             PerturbationNorm.LINF,  # eps-bounded sign step, transfer attack
             families={"gradient_sign", "iterative", "momentum", "transfer"},
             requires={Capability.AUTOGRAD},
-            stochastic=True,  # input_diversity uses torch.rand/randint every step
+            seeding="global_rng",  # input_diversity uses torch.rand/randint every step
         ),
         "TPGD": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -344,7 +344,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             PerturbationNorm.LINF,  # eps-bounded sign step (KL/TRADES)
             families={"gradient_sign", "iterative"},
             requires={Capability.AUTOGRAD},
-            stochastic=True,  # 0.001 * randn_like random init every call (unseeded)
+            seeding="global_rng",  # 0.001 * randn_like random init every call (unseeded)
         ),
         "UPGD": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -362,7 +362,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             PerturbationNorm.LINF,  # eps-bounded sign step, transfer attack
             families={"gradient_sign", "iterative", "momentum", "variance_tuned"},
             requires={Capability.AUTOGRAD},
-            stochastic=True,  # variance neighbour sampling (uniform_) every step
+            seeding="global_rng",  # variance neighbour sampling (uniform_) every step
         ),
         "VNIFGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,
@@ -371,7 +371,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
             PerturbationNorm.LINF,  # eps-bounded sign step, transfer attack
             families={"gradient_sign", "iterative", "momentum", "variance_tuned"},
             requires={Capability.AUTOGRAD},
-            stochastic=True,  # variance neighbour sampling (uniform_) every step
+            seeding="global_rng",  # variance neighbour sampling (uniform_) every step
         ),
     },
 )

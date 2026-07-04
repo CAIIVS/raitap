@@ -47,3 +47,16 @@ def test_jsma_runs_on_10_class() -> None:
         _model(10), torch.rand(2, 3, 4, 4), torch.zeros(2, dtype=torch.long)
     )
     assert out.shape == (2, 3, 4, 4)
+
+
+def test_autoattack_is_self_seeded() -> None:
+    assert TorchattacksAssessor.algorithm_registry["AutoAttack"].seeding == "self_seeded"
+
+
+def test_pgd_is_global_rng() -> None:
+    assert TorchattacksAssessor.algorithm_registry["PGD"].seeding == "global_rng"
+
+
+def test_every_torchattacks_entry_declares_seeding() -> None:
+    for spec in TorchattacksAssessor.algorithm_registry.values():
+        assert spec.seeding in {"deterministic", "global_rng", "self_seeded"}
