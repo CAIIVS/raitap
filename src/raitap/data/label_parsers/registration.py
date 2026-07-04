@@ -35,10 +35,11 @@ def label_parser(
 
     ``registry_name`` is required. Mirrors ``metrics_adapter`` shape.
 
-    Label parsers are core (stdlib only — no optional dependency), so they
-    declare no uv extra. Without this default the schema-backed auto-extra
-    (``extra=registry_name``) would register phantom extras like ``tabular``
-    that no ``pyproject`` group provides, breaking the deps static-scan gate.
+    Label parsers ship with the core install (they use already-required deps
+    like pandas / Pillow, not an optional extra), so they declare no uv extra.
+    Without this default the schema-backed auto-extra (``extra=registry_name``)
+    would register phantom extras like ``tabular`` that no ``pyproject`` group
+    provides, breaking the deps static-scan gate.
     """
     common.setdefault("extra", "")
 

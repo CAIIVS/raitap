@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
-if TYPE_CHECKING:
-    from raitap.types import TaskKind
+from raitap.types import TaskKind  # noqa: TC001  must stay runtime-resolvable for get_type_hints()
 
-# Type alias for the union of parsed label representations.
+# Documentation alias for the union of parsed label representations. Kept as a
+# string (not a runtime annotation) so it needs no runtime ``torch`` import;
+# annotations use ``Any`` since the concrete shape is task-family dependent.
 ParsedLabels = "torch.Tensor | list[dict[str, torch.Tensor]] | None"
 
 

@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from hydra.utils import instantiate
 
 from raitap import raitap_log
 from raitap.configs import cfg_to_dict, resolve_target
-
-if TYPE_CHECKING:
-    from raitap.data.label_parsers.base import LabelParser
+from raitap.data.label_parsers.base import (
+    LabelParser,  # noqa: TC001  must stay runtime-resolvable for get_type_hints()
+)
 
 _LABELS_PREFIX = "raitap.data.label_parsers."
 
