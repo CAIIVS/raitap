@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from .coco import CocoLabelParser  # pyright: ignore[reportUnusedImport]
 from .detection_json import DetectionJsonLabelParser  # pyright: ignore[reportUnusedImport]
-from .directory import DirectoryLabelParser
+from .directory import DirectoryLabelParser  # pyright: ignore[reportUnusedImport]
 from .tabular import TabularLabelParser  # pyright: ignore[reportUnusedImport]
 from .voc import VocLabelParser  # pyright: ignore[reportUnusedImport]
 from .yolo import YoloLabelParser  # pyright: ignore[reportUnusedImport]
