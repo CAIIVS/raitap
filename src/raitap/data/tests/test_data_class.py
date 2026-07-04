@@ -351,7 +351,7 @@ class TestDataConstructor:
         _write_image(data_dir / "x.jpg")
         labels_file = tmp_path / "labels.csv"
         labels_file.write_text("image,label\nx,0\n")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="not a valid IdStrategy"):
             config = _make_config(
                 str(data_dir),
                 labels_source=str(labels_file),
@@ -405,7 +405,7 @@ class TestDataConstructor:
         csv_file.write_text("a\n1\n2")
         labels_file = tmp_path / "labels.csv"
         labels_file.write_text("label\n0\n1")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="not a valid LabelEncoding"):
             config = _make_config(
                 str(csv_file),
                 labels_source=str(labels_file),
