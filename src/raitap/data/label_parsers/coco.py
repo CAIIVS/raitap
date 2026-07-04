@@ -119,12 +119,18 @@ class CocoLabelParser:
         encoded: list[int] = [r["label"] for r in records]
         id_series: pd.Series = pd.Series(raw_ids)
         strategy = _resolve_id_strategy(str(self.id_strategy), id_series)
-        aligned = _align_labels_to_samples(
-            sample_ids=sample_ids,
-            raw_label_ids=id_series,
-            encoded_labels=encoded,
-            strategy=strategy,
-        )
+        try:
+            aligned = _align_labels_to_samples(
+                sample_ids=sample_ids,
+                raw_label_ids=id_series,
+                encoded_labels=encoded,
+                strategy=strategy,
+            )
+        except ValueError as error:
+            # Mirror the tabular parser: a misaligned label set degrades to
+            # predictions-as-targets rather than failing the whole run.
+            raitap_log.warn(f"{error} Falling back to predictions as metric targets.")
+            return None
         import torch
 
         return torch.tensor(aligned, dtype=torch.long)

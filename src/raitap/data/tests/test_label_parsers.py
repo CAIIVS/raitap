@@ -743,3 +743,40 @@ def test_yolo_parser_nested_split_layout(tmp_path: object) -> None:
     assert result[0]["labels"].tolist() == [0]
     # box denormalised against the 200x100 image
     assert result[0]["boxes"][0].tolist() == pytest.approx([40.0, 45.0, 160.0, 55.0])
+
+
+def test_yolo_parser_raises_on_non_integer_class(tmp_path: object) -> None:
+    """A non-integer YOLO class index fails loudly instead of truncating."""
+    import pathlib
+
+    from raitap.data.label_parsers.yolo import YoloLabelParser
+
+    labels_dir, image_dir = _make_yolo_fixture(tmp_path)
+    (pathlib.Path(str(labels_dir)) / "a.txt").write_text("1.9 0.5 0.5 0.6 0.1\n", encoding="utf-8")
+
+    parser = YoloLabelParser(source=str(labels_dir))
+    with pytest.raises(ValueError, match="class index must be an integer"):
+        parser.parse(
+            task_kind=TaskKind.detection,
+            tensor=[object(), object()],
+            sample_ids=["a.jpg", "b.jpg"],
+            data_source=str(image_dir),
+            class_names=None,
+        )
+
+
+def test_coco_classification_misaligned_returns_none(tmp_path: object) -> None:
+    """COCO classification with unmatchable sample ids warns and returns None
+    (predictions-as-targets fallback), matching the tabular parser."""
+    from raitap.data.label_parsers.coco import CocoLabelParser
+
+    p = _coco_classification_fixture(tmp_path)
+    parser = CocoLabelParser(source=str(p))
+    result = parser.parse(
+        task_kind=TaskKind.classification,
+        tensor=None,
+        sample_ids=["not-in-labels.jpg"],
+        data_source=None,
+        class_names=None,
+    )
+    assert result is None

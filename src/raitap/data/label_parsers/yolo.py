@@ -93,13 +93,21 @@ class YoloLabelParser:
                         f"YOLO label {txt.name} has a line with {len(parts)} "
                         f"field(s), expected 5 (class cx cy w h): {line!r}."
                     )
-                cls, cx, cy, bw, bh = (float(p) for p in parts[:5])
+                cls_field, *coord_fields = parts[:5]
+                try:
+                    cls = int(cls_field)
+                except ValueError:
+                    raise ValueError(
+                        f"YOLO label {txt.name}: class index must be an integer, "
+                        f"got {cls_field!r}: {line!r}."
+                    ) from None
+                cx, cy, bw, bh = (float(p) for p in coord_fields)
                 x1 = (cx - bw / 2) * width
                 y1 = (cy - bh / 2) * height
                 x2 = (cx + bw / 2) * width
                 y2 = (cy + bh / 2) * height
                 boxes.append([x1, y1, x2, y2])
-                labels.append(int(cls))
+                labels.append(cls)
             sample_id = image_path.relative_to(image_dir).as_posix()
             records.append({"sample_id": sample_id, "boxes": boxes, "labels": labels})
         return records
