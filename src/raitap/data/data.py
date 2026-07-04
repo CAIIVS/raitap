@@ -248,6 +248,7 @@ def _resolve_and_parse_labels(
 
     Returns None when cfg.data.labels is not set.
     """
+    from raitap.data.label_parsers.base import LabelParser
     from raitap.data.label_parsers.factory import create_label_parser
 
     labels_cfg = _get_optional_config_value(cfg.data, "labels")
@@ -255,6 +256,11 @@ def _resolve_and_parse_labels(
         return None
 
     parser = create_label_parser(labels_cfg)
+    if not isinstance(parser, LabelParser):
+        raise ValueError(
+            f"data.labels._target_ resolved to {type(parser).__name__}, which does not "
+            "implement the LabelParser protocol (needs 'supported_tasks' and 'parse')."
+        )
 
     if task_kind not in parser.supported_tasks:
         supported = ", ".join(sorted(str(t) for t in parser.supported_tasks))

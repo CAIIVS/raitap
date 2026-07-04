@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
-from raitap.data.data import _normalise_sample_id, _resolve_id_strategy
 from raitap.task_families.registry import task_family
 from raitap.transparency.contracts import ExplanationOutputSpace
 from raitap.types import TaskKind
@@ -47,6 +46,8 @@ def _align_detection_records(
 
     if sample_ids is not None:
         import pandas as pd
+
+        from raitap.data.data import _normalise_sample_id, _resolve_id_strategy
 
         # Collect raw record ids first so _resolve_id_strategy can inspect them.
         raw_record_ids: list[str] = []
