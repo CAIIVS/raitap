@@ -11,7 +11,7 @@ CLI warning). It is pure: callers own the side effects.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -20,6 +20,33 @@ if TYPE_CHECKING:
     from raitap.pipeline.outputs import RunOutputs
 
 REPRODUCIBILITY_FILENAME = "REPRODUCIBILITY.md"
+
+Seeding = Literal["deterministic", "global_rng", "self_seeded"]
+"""Per-algorithm RNG-source classification (issue #251 follow-up).
+
+``deterministic`` no RNG; ``global_rng`` draws from the process-global
+torch/numpy/random RNG (covered by :func:`pin_global_seed`); ``self_seeded``
+owns a seed param that time-defaults (a global seed does not reach it).
+"""
+
+
+def pin_global_seed(seed: int) -> None:
+    """Pin the process-global torch / numpy / random RNGs to ``seed``.
+
+    Covers every ``global_rng`` method in the run. Does not reach ``self_seeded``
+    methods (they own their seed param). Imports are local so the reproducibility
+    module stays import-light for callers that never seed.
+    """
+    import random
+
+    import numpy as np
+    import torch
+
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
 
 
 @dataclass(frozen=True)

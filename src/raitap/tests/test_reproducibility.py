@@ -82,3 +82,30 @@ def test_write_reproducibility_md(tmp_path: Path) -> None:
     assert "Stochastic artefacts" in text
     assert "PGD" in text
     assert "GradientExplainer" in text
+
+
+def test_pin_global_seed_makes_torch_deterministic() -> None:
+    import torch
+
+    from raitap.reproducibility import pin_global_seed
+
+    pin_global_seed(1234)
+    first = torch.rand(3)
+    pin_global_seed(1234)
+    second = torch.rand(3)
+    assert torch.equal(first, second)
+
+
+def test_pin_global_seed_sets_numpy_and_random() -> None:
+    import random
+
+    import numpy as np
+
+    from raitap.reproducibility import pin_global_seed
+
+    pin_global_seed(7)
+    np_first, py_first = np.random.rand(3).tolist(), [random.random() for _ in range(3)]
+    pin_global_seed(7)
+    np_second, py_second = np.random.rand(3).tolist(), [random.random() for _ in range(3)]
+    assert np_first == np_second
+    assert py_first == py_second
