@@ -78,6 +78,7 @@ class YoloLabelParser:
         index = self._build_image_index(image_dir)
         txts = sorted(labels_dir.rglob("*.txt"), key=lambda p: p.relative_to(labels_dir).as_posix())
         for txt in txts:
+            rel_txt = txt.relative_to(labels_dir).as_posix()
             rel_stem = txt.relative_to(labels_dir).with_suffix("")
             image_path = self._image_for(image_dir, rel_stem, index)
             with Image.open(image_path) as im:
@@ -90,7 +91,7 @@ class YoloLabelParser:
                     continue
                 if len(parts) < 5:
                     raise ValueError(
-                        f"YOLO label {txt.name} has a line with {len(parts)} "
+                        f"YOLO label {rel_txt!r} has a line with {len(parts)} "
                         f"field(s), expected 5 (class cx cy w h): {line!r}."
                     )
                 cls_field, *coord_fields = parts[:5]
@@ -98,7 +99,7 @@ class YoloLabelParser:
                     cls = int(cls_field)
                 except ValueError:
                     raise ValueError(
-                        f"YOLO label {txt.name}: class index must be an integer, "
+                        f"YOLO label {rel_txt!r}: class index must be an integer, "
                         f"got {cls_field!r}: {line!r}."
                     ) from None
                 cx, cy, bw, bh = (float(p) for p in coord_fields)
