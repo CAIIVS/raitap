@@ -49,3 +49,9 @@ def test_modern_and_sampling_entry_metadata(algorithm: str, stochastic: bool) ->
     assert hints.stochastic is stochastic
     expected = {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC}
     assert expected <= hints.families
+
+
+def test_shap_permutation_is_self_seeded() -> None:
+    # the entry commented "random permutation order (seed=None default)"
+    perm = next(s for s in ShapExplainer.algorithm_registry.values() if s.seeding == "self_seeded")
+    assert perm.seeding == "self_seeded"

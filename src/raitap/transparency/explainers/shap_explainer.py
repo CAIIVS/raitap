@@ -198,7 +198,7 @@ def _shap_modern_invoker(ctx: AttributionInvokeCtx) -> tuple[torch.Tensor, torch
             baseline_cardinality=BaselineCardinality.SET,
             requires={Capability.AUTOGRAD},
             # Samples random points along the path + background choice (rseed/nsamples).
-            stochastic=True,
+            seeding="global_rng",
             invoker=_shap_legacy_invoker,
         ),
         "DeepExplainer": ExplainerAlgorithmSpec(
@@ -213,7 +213,7 @@ def _shap_modern_invoker(ctx: AttributionInvokeCtx) -> tuple[torch.Tensor, torch
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
             # Monte Carlo coalition sampling (np.random.choice / permutation).
-            stochastic=True,
+            seeding="global_rng",
             invoker=_shap_legacy_invoker,
         ),
         # TreeExplainer needs the raw fitted estimator (tree splits + leaf values),
@@ -227,7 +227,7 @@ def _shap_modern_invoker(ctx: AttributionInvokeCtx) -> tuple[torch.Tensor, torch
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
-            stochastic=True,  # Monte Carlo sampling (run-twice non-deterministic)
+            seeding="global_rng",  # Monte Carlo sampling (run-twice non-deterministic)
             invoker=_shap_legacy_invoker,
         ),
         "PartitionExplainer": ExplainerAlgorithmSpec(
@@ -248,7 +248,7 @@ def _shap_modern_invoker(ctx: AttributionInvokeCtx) -> tuple[torch.Tensor, torch
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
             baseline_default=BaselineMode.INPUT_BATCH,
             baseline_cardinality=BaselineCardinality.SET,
-            stochastic=True,  # random permutation order (seed=None default)
+            seeding="self_seeded",  # random permutation order (seed=None default)
             invoker=_shap_modern_invoker,
             extra_outputs=_BASE_VALUE,
         ),
