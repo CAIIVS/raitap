@@ -1,4 +1,4 @@
-"""Transparency stochastic resolution + registry flags (issue #251)."""
+"""Transparency seeding resolution + registry flags (issues #251, #339)."""
 
 from __future__ import annotations
 
@@ -8,19 +8,19 @@ import pytest
 
 from raitap.transparency.explainers.captum_explainer import CaptumExplainer
 from raitap.transparency.explainers.shap_explainer import ShapExplainer
-from raitap.transparency.semantics import explainer_is_stochastic
+from raitap.transparency.semantics import explainer_seeding
 
 
-def test_explainer_is_stochastic_reads_registry() -> None:
-    assert explainer_is_stochastic(CaptumExplainer(algorithm="KernelShap")) is True
-    assert explainer_is_stochastic(CaptumExplainer(algorithm="IntegratedGradients")) is False
-    assert explainer_is_stochastic(ShapExplainer(algorithm="GradientExplainer")) is True
-    assert explainer_is_stochastic(ShapExplainer(algorithm="DeepExplainer")) is False
+def test_explainer_seeding_reads_registry() -> None:
+    assert explainer_seeding(CaptumExplainer(algorithm="KernelShap")) == "global_rng"
+    assert explainer_seeding(CaptumExplainer(algorithm="IntegratedGradients")) == "deterministic"
+    assert explainer_seeding(ShapExplainer(algorithm="GradientExplainer")) == "global_rng"
+    assert explainer_seeding(ShapExplainer(algorithm="DeepExplainer")) == "deterministic"
 
 
-def test_explainer_is_stochastic_defaults_false_for_unknown() -> None:
+def test_explainer_seeding_defaults_deterministic_for_unknown() -> None:
     stub = SimpleNamespace(algorithm="<unknown>")
-    assert explainer_is_stochastic(stub) is False
+    assert explainer_seeding(stub) == "deterministic"
 
 
 def test_registry_stochastic_flags() -> None:
@@ -38,11 +38,40 @@ def test_registry_stochastic_flags() -> None:
 @pytest.mark.parametrize(
     ("algorithm", "expected"),
     [
-        ("PermutationExplainer", True),
-        ("SamplingExplainer", True),
-        ("PartitionExplainer", False),
-        ("ExactExplainer", False),
+        ("PermutationExplainer", "self_seeded"),
+        ("SamplingExplainer", "global_rng"),
+        ("PartitionExplainer", "deterministic"),
+        ("ExactExplainer", "deterministic"),
     ],
 )
-def test_modern_shap_stochastic_flag(algorithm: str, expected: bool) -> None:
-    assert explainer_is_stochastic(ShapExplainer(algorithm=algorithm)) is expected
+def test_modern_shap_seeding(algorithm: str, expected: str) -> None:
+    assert explainer_seeding(ShapExplainer(algorithm=algorithm)) == expected
+
+
+def test_explanation_semantics_carries_seeding() -> None:
+    from raitap.transparency.contracts import (
+        ExplanationOutputSpace,
+        ExplanationPayloadKind,
+        ExplanationScope,
+        ExplanationSemantics,
+        OutputSpaceSpec,
+        ScopeDefinitionStep,
+    )
+
+    sem = ExplanationSemantics(
+        scope=ExplanationScope.LOCAL,
+        scope_definition_step=ScopeDefinitionStep.EXPLAINER_OUTPUT,
+        payload_kind=ExplanationPayloadKind.ATTRIBUTIONS,
+        method_families=frozenset(),
+        target=None,
+        sample_selection=None,
+        input_spec=None,
+        output_space=OutputSpaceSpec(
+            space=ExplanationOutputSpace.INPUT_FEATURES,
+            shape=(1,),
+            layout=None,
+        ),
+        seeding="self_seeded",
+    )
+    assert sem.seeding == "self_seeded"
+    assert sem.stochastic is True

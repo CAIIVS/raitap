@@ -282,5 +282,5 @@ def assessor_semantics(
         target_classes=_extract_target_classes(call_kwargs),
         sample_selection=sample_selection,
         input_spec=input_spec,
-        stochastic=hints.stochastic,
+        seeding=hints.seeding,
     )

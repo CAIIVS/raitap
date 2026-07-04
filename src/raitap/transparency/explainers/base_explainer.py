@@ -38,7 +38,7 @@ from ..contracts import (
 )
 from ..results import ConfiguredVisualiser, ExplanationResult
 from ..semantics import (
-    explainer_is_stochastic,
+    explainer_seeding,
     infer_input_spec,
     infer_output_space,
     method_families_for_explainer,
@@ -152,7 +152,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
             ),
             input_spec=input_spec,
             output_space=output_space,
-            stochastic=explainer_is_stochastic(self),
+            seeding=explainer_seeding(self),
         )
 
         resolved_run_dir = (
