@@ -16,6 +16,7 @@ defaults:
   - raitap_schema
   - reporting: html
   - metrics: detection
+  - data/labels: detection_json
   - _self_
 
 hardware: cpu
@@ -63,7 +64,7 @@ transparency:
 
 :python:
 from raitap import AppConfig, Hardware, run
-from raitap.data import DataConfig, LabelsConfig
+from raitap.data import DataConfig, DetectionJsonLabelsConfig
 from raitap.metrics import detection
 from raitap.models import ModelConfig
 from raitap.reporting import html
@@ -79,7 +80,7 @@ cfg = AppConfig(
         name="udacity-dashcam-demo",
         source="UdacitySelfDriving",
         forward_batch_size=1,
-        labels=LabelsConfig(
+        labels=DetectionJsonLabelsConfig(
             source="./labels/udacity-boxes.json",
         ),
     ),
@@ -115,7 +116,8 @@ outputs/<date>/<time>/
 
 ## Labels file
 
-`data.labels.source` points at a JSON list-of-records. Each record carries one
+`data.labels` selects the `detection_json` variant, whose `source` points at a
+JSON list-of-records. Each record carries one
 sample's ground-truth boxes (absolute pixels, `xyxy`) and COCO class ids
 (class `3` = car):
 

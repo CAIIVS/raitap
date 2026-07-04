@@ -70,22 +70,50 @@ class ModelConfig:
 
 @dataclass
 class LabelsConfig:
-    # Optional path to a labels file (currently CSV/TSV/Parquet), OR the reserved
-    # value "directory" (exposed as ``raitap.data.DIRECTORY_LABELS_SOURCE``) to
-    # derive classification labels from each sample's top-level class
-    # subdirectory (torchvision ImageFolder style; no labels file).
-    source: str | None = None
-    # Optional sample-id column for filename alignment (e.g. "image").
+    _target_: str = MISSING
+
+
+@dataclass
+class TabularLabelsConfig(LabelsConfig):
+    _target_: str = "TabularLabelParser"
+    source: str = MISSING
     id_column: str | None = None
-    # Optional class-label column; when omitted, one-hot numeric columns are used via argmax.
     column: str | None = None
-    # Optional parsing strategy for labels: "index", "one_hot", or "argmax".
     encoding: LabelEncoding | None = None
-    # Strategy for matching label-file ids to discovered sample files. One of:
-    #   "auto"          — pick "relative_path" if any id contains "/" or "\\"; else "stem".
-    #   "relative_path" — ids are resolved as posix-style paths relative to ``data.source``
-    #                     (supports nested ImageFolder layouts with colliding stems).
-    #   "stem"          — flat-dir / basename matching: match by ``Path(id).stem`` only.
+    id_strategy: IdStrategy = IdStrategy.auto
+
+
+@dataclass
+class DirectoryLabelsConfig(LabelsConfig):
+    _target_: str = "DirectoryLabelParser"
+
+
+@dataclass
+class CocoLabelsConfig(LabelsConfig):
+    _target_: str = "CocoLabelParser"
+    source: str = MISSING
+    id_strategy: IdStrategy = IdStrategy.auto
+
+
+@dataclass
+class YoloLabelsConfig(LabelsConfig):
+    _target_: str = "YoloLabelParser"
+    source: str = MISSING
+    id_strategy: IdStrategy = IdStrategy.auto
+
+
+@dataclass
+class VocLabelsConfig(LabelsConfig):
+    _target_: str = "VocLabelParser"
+    source: str = MISSING
+    id_strategy: IdStrategy = IdStrategy.auto
+    class_names: list[str] | None = None
+
+
+@dataclass
+class DetectionJsonLabelsConfig(LabelsConfig):
+    _target_: str = "DetectionJsonLabelParser"
+    source: str = MISSING
     id_strategy: IdStrategy = IdStrategy.auto
 
 
@@ -122,7 +150,7 @@ class DataConfig:
     # Forwarded to ``infer_input_spec`` so semantics and visualisers see the correct
     # modality for non-image data such as ACAS Xu's 5-feature tabular vector.
     input_metadata: dict[str, Any] | None = None
-    labels: LabelsConfig = field(default_factory=LabelsConfig)
+    labels: LabelsConfig | None = None
 
 
 @dataclass

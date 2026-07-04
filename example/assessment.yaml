@@ -2,6 +2,7 @@ defaults:
   - raitap_schema      # required to bind the schema, must come first
   - reporting: html
   - metrics: multiclass_classification
+  - data/labels: tabular
   - _self_
 
 hardware: gpu

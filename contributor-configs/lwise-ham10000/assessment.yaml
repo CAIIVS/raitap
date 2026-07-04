@@ -7,6 +7,12 @@
 #   TorchScript modules do not support. Override with:
 #   LWISE_HAM10000_MODEL=/path/to/lwise_ham10000_eager.pt
 
+defaults:
+  - raitap_schema
+  - metrics: multiclass_classification
+  - data/labels: tabular
+  - _self_
+
 experiment_name: lwise-ham10000-dermoscopy-demo
 hardware: gpu
 

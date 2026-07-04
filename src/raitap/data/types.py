@@ -33,14 +33,6 @@ class IdStrategy(StrEnum):
     stem = "stem"
 
 
-#: Reserved ``LabelsConfig.source`` value selecting folder-as-label ingestion:
-#: classification labels are derived from each sample's top-level class
-#: subdirectory (torchvision ``ImageFolder`` style; no labels file). Kept as a
-#: plain ``str`` so it round-trips through OmegaConf; ``LabelsConfig.source``
-#: stays ``str | None`` (a path or this sentinel).
-DIRECTORY_LABELS_SOURCE = "directory"
-
-
 class Preprocessing(StrEnum):
     """Named values for ``DataConfig.preprocessing``.
 

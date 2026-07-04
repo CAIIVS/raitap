@@ -12,6 +12,11 @@
 #   Hand-authored COCO-class boxes in ``labels/udacity-boxes.json`` — see
 #   ``labelling-data.md`` for the format and a candidate-generation helper.
 
+defaults:
+  - raitap_schema
+  - data/labels: detection_json
+  - _self_
+
 experiment_name: fasterrcnn-udacity-detection-demo
 hardware: cpu
 

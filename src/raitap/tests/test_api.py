@@ -23,10 +23,10 @@ from raitap import AppConfig, run
 from raitap.api import instantiate
 from raitap.configs.schema import (
     DataConfig,
-    LabelsConfig,
     ModelConfig,
     MulticlassClassificationMetricsConfig,
     RobustnessConfig,
+    TabularLabelsConfig,
     TransparencyConfig,
 )
 from raitap.data.preprocessing import resolve_preprocessing
@@ -56,7 +56,7 @@ def _demo_app_config() -> AppConfig:
             name="imagenet_samples",
             source="imagenet_samples",
             forward_batch_size=4,
-            labels=LabelsConfig(
+            labels=TabularLabelsConfig(
                 source="imagenet_samples",
                 id_column="image",
                 column="label",

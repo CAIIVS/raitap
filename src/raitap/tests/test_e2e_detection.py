@@ -97,19 +97,26 @@ def test_detection_pipeline_e2e_via_fasterrcnn_mobilenet(tmp_path: Path) -> None
     labels_path = tmp_path / "detection_labels.json"
     labels_path.write_text(json.dumps(labels_payload))
 
-    # Bypass Data.__init__ and call DetectionFamily.load_labels directly; the
+    # Bypass Data.__init__ and call _resolve_and_parse_labels directly; the
     # detection label loader has its own dedicated coverage in
     # src/raitap/data/tests/test_detection_labels.py. This test focuses on the
     # pipeline plumbing downstream of Data.
-    from raitap.task_families.detection import DetectionFamily
+    from raitap.configs.schema import DetectionJsonLabelsConfig
+    from raitap.data.data import _resolve_and_parse_labels
+    from raitap.types import TaskKind
 
-    labels_cfg = SimpleNamespace(source=str(labels_path))
     load_cfg = cast(
         "AppConfig",
-        SimpleNamespace(data=SimpleNamespace(labels=labels_cfg)),
+        SimpleNamespace(
+            data=SimpleNamespace(
+                labels=DetectionJsonLabelsConfig(source=str(labels_path)),
+                source=None,
+            ),
+            model=SimpleNamespace(class_names=None),
+        ),
     )
-    data.labels = DetectionFamily().load_labels(
-        load_cfg, tensor=data.tensor, sample_ids=data.sample_ids
+    data.labels = _resolve_and_parse_labels(
+        load_cfg, task_kind=TaskKind.detection, tensor=data.tensor, sample_ids=data.sample_ids
     )
 
     # --- app config --------------------------------------------------------

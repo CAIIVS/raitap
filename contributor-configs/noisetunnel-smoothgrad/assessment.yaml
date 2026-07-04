@@ -8,6 +8,7 @@
 defaults:
   - raitap_schema
   - metrics: multiclass_classification
+  - data/labels: tabular
   - _self_
 
 hardware: cpu

@@ -18,7 +18,8 @@ import pytest
 import torch
 from PIL import Image
 
-from raitap.data.data import Data
+from raitap.configs.schema import DetectionJsonLabelsConfig
+from raitap.data.data import Data, _resolve_and_parse_labels
 from raitap.task_families.classification import ClassificationFamily
 from raitap.task_families.detection import DetectionFamily
 from raitap.types import TaskKind
@@ -47,14 +48,7 @@ def _make_config(source: str, name: str = "test_det") -> AppConfig:
             data=SimpleNamespace(
                 source=source,
                 name=name,
-                labels=SimpleNamespace(
-                    source=None,
-                    kind=None,
-                    id_column=None,
-                    column=None,
-                    encoding=None,
-                    id_strategy=None,
-                ),
+                labels=None,
             )
         ),
     )
@@ -164,7 +158,7 @@ class TestDetectionLabelsWithListTensor:
         path.write_text(json.dumps(payload))
 
     def test_detection_labels_count_matches_list_tensor(self, tmp_path: Path) -> None:
-        """DetectionFamily.load_labels: len(tensor) works when tensor is a list."""
+        """DetectionJsonLabelParser: len(tensor) works when tensor is a list."""
         labels_path = tmp_path / "boxes.json"
         self._write_labels_json(labels_path, n=3)
 
@@ -181,13 +175,15 @@ class TestDetectionLabelsWithListTensor:
             "AppConfig",
             SimpleNamespace(
                 data=SimpleNamespace(
-                    labels=SimpleNamespace(
-                        source=str(labels_path),
-                    )
-                )
+                    labels=DetectionJsonLabelsConfig(source=str(labels_path)),
+                    source=None,
+                ),
+                model=SimpleNamespace(class_names=None),
             ),
         )
-        out = DetectionFamily().load_labels(cfg, tensor=data.tensor, sample_ids=data.sample_ids)
+        out = _resolve_and_parse_labels(
+            cfg, task_kind=TaskKind.detection, tensor=data.tensor, sample_ids=data.sample_ids
+        )
         assert out is not None
         assert len(out) == 3
 
@@ -204,14 +200,16 @@ class TestDetectionLabelsWithListTensor:
             "AppConfig",
             SimpleNamespace(
                 data=SimpleNamespace(
-                    labels=SimpleNamespace(
-                        source=str(labels_path),
-                    )
-                )
+                    labels=DetectionJsonLabelsConfig(source=str(labels_path)),
+                    source=None,
+                ),
+                model=SimpleNamespace(class_names=None),
             ),
         )
         with pytest.raises(ValueError, match="3 samples"):
-            DetectionFamily().load_labels(cfg, tensor=data.tensor, sample_ids=data.sample_ids)
+            _resolve_and_parse_labels(
+                cfg, task_kind=TaskKind.detection, tensor=data.tensor, sample_ids=data.sample_ids
+            )
 
 
 # ---------------------------------------------------------------------------

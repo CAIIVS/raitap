@@ -15,8 +15,123 @@ from raitap.transparency.contracts import ExplanationOutputSpace
 from raitap.types import TaskKind
 
 if TYPE_CHECKING:
+    import torch
+
     from raitap.models.torch_backend import TorchBackend
     from raitap.task_families.base import ExplainContext, ForwardContext
+
+
+def _align_detection_records(
+    records: list[dict[str, Any]],
+    *,
+    expected: int,
+    sample_ids: Any,
+    strategy: str = "auto",
+) -> list[dict[str, Any]]:
+    """Align native detection records to ``sample_ids`` and build tensors.
+
+    Return element dicts hold ``torch.Tensor`` values; typed ``Any`` because
+    ``torch`` is imported lazily (not at module scope) to keep hints resolvable
+    via ``typing.get_type_hints()``.
+
+    Extracted from ``DetectionFamily.load_labels`` so label-format adapters can
+    feed converted records through the same alignment + validation path.
+
+    When ``sample_ids`` is provided, both the discovered ids and record
+    ``sample_id`` fields are normalised via ``_normalise_sample_id`` using the
+    resolved ``strategy``, matching how the classification path handles nested
+    image directories.
+    """
+    import torch
+
+    if sample_ids is not None:
+        import pandas as pd
+
+        from raitap.data.data import _normalise_sample_id, _resolve_id_strategy
+
+        # Collect raw record ids first so _resolve_id_strategy can inspect them.
+        raw_record_ids: list[str] = []
+        for index, record in enumerate(records):
+            record_id = record.get("sample_id") if isinstance(record, dict) else None
+            if record_id is None:
+                raise ValueError(
+                    f"Detection labels record {index} is missing 'sample_id' "
+                    "(required when the dataset exposes sample_ids)."
+                )
+            raw_record_ids.append(str(record_id))
+
+        resolved = _resolve_id_strategy(strategy, pd.Series(raw_record_ids))
+
+        by_id: dict[str, dict[str, Any]] = {}
+        for record, record_id in zip(records, raw_record_ids, strict=True):
+            norm_id = _normalise_sample_id(record_id, resolved)
+            if norm_id in by_id:
+                raise ValueError(
+                    f"Detection labels file contains duplicate sample_id {record_id!r}."
+                )
+            by_id[norm_id] = record
+
+        ordered_records = []
+        missing: list[str] = []
+        for sample_id in sample_ids:
+            norm_sid = _normalise_sample_id(sample_id, resolved)
+            record = by_id.get(norm_sid)
+            if record is None:
+                missing.append(sample_id)
+            else:
+                ordered_records.append(record)
+        if missing:
+            raise ValueError(
+                f"Detection labels file is missing entries for sample_ids: {missing!r}."
+            )
+        records_iter: list[dict[str, Any]] = ordered_records
+    else:
+        if len(records) != expected:
+            raise ValueError(
+                f"Detection labels file has {len(records)} records but the "
+                f"dataset has {expected} samples; provide sample_id fields and "
+                "set data.labels.source so records can be aligned by id, or "
+                "match the record count to the sample count."
+            )
+        records_iter = records
+
+    out: list[dict[str, torch.Tensor]] = []
+    for index, record in enumerate(records_iter):
+        if not isinstance(record, dict):
+            raise ValueError(
+                f"Detection labels record {index} must be a JSON object, "
+                f"got {type(record).__name__}."
+            )
+        boxes_raw = record.get("boxes", [])
+        labels_raw = record.get("labels", [])
+        if len(boxes_raw) != len(labels_raw):
+            raise ValueError(
+                f"Sample index {index}: boxes and labels must have matching "
+                f"length (got {len(boxes_raw)} boxes vs {len(labels_raw)} labels)."
+            )
+        boxes_tensor = (
+            torch.tensor(boxes_raw, dtype=torch.float32)
+            if boxes_raw
+            else torch.zeros((0, 4), dtype=torch.float32)
+        )
+        labels_tensor = (
+            torch.tensor(labels_raw, dtype=torch.int64)
+            if labels_raw
+            else torch.zeros((0,), dtype=torch.int64)
+        )
+        if boxes_tensor.ndim != 2 or boxes_tensor.shape[1] != 4:
+            raise ValueError(
+                f"Sample index {index}: boxes must be shape (M_i, 4); got "
+                f"{tuple(boxes_tensor.shape)}."
+            )
+        out.append({"boxes": boxes_tensor, "labels": labels_tensor})
+
+    if len(out) != expected:
+        raise ValueError(
+            f"Detection labels alignment produced {len(out)} entries but the "
+            f"dataset has {expected} samples."
+        )
+    return out
 
 
 @task_family
@@ -68,120 +183,6 @@ class DetectionFamily:
                     f"{index} is {type(image).__name__}"
                     + (f" with shape {shape}." if shape is not None else ".")
                 )
-
-    def load_labels(self, cfg: Any, *, tensor: Any, sample_ids: Any) -> Any:
-        """Load per-sample detection targets (boxes + labels).
-
-        Expected on-disk shape: JSON file (list of records) with each record
-        carrying ``sample_id`` (str), ``boxes`` (list of ``[x1, y1, x2, y2]``
-        floats), and ``labels`` (list of ints). Returns a list whose length
-        equals ``len(tensor)``; each entry is a dict with
-        ``boxes: (M_i, 4) float32`` and ``labels: (M_i,) int64`` tensors.
-        Samples with no boxes get shape-``(0, 4)`` / shape-``(0,)`` tensors.
-
-        Alignment rules:
-
-        * When ``sample_ids`` is set, records are looked up by ``sample_id``
-          and the output is ordered to match ``sample_ids``. Any sample
-          missing from the labels file → ``ValueError``; duplicate ``sample_id``s
-          in the labels file → ``ValueError``.
-        * When ``sample_ids`` is unset, records are consumed in file order
-          and must equal the dataset length exactly.
-
-        Returns ``None`` when ``data.labels.source`` is unset.
-        """
-        import json
-
-        import torch
-
-        from raitap.data.data import SourceKind, _get_optional_config_value, get_source_path
-
-        labels_cfg = _get_optional_config_value(cfg.data, "labels")
-        labels_source = _get_optional_config_value(labels_cfg, "source")
-        if not labels_source:
-            return None
-
-        # ``get_source_path`` raises ValueError if the source can't be resolved
-        # or returns an existing path; no separate existence check needed.
-        labels_path = get_source_path(labels_source, kind=SourceKind.LABELS)
-
-        with labels_path.open() as fh:
-            records = json.load(fh)
-        if not isinstance(records, list):
-            raise ValueError(f"Detection labels file {labels_path} must be a JSON array.")
-
-        expected = len(tensor)
-
-        if sample_ids is not None:
-            by_id: dict[str, dict[str, Any]] = {}
-            for index, record in enumerate(records):
-                record_id = record.get("sample_id") if isinstance(record, dict) else None
-                if record_id is None:
-                    raise ValueError(
-                        f"Detection labels record {index} is missing 'sample_id' "
-                        "(required when the dataset exposes sample_ids)."
-                    )
-                if record_id in by_id:
-                    raise ValueError(
-                        f"Detection labels file contains duplicate sample_id {record_id!r}."
-                    )
-                by_id[record_id] = record
-            ordered_records = []
-            missing: list[str] = []
-            for sample_id in sample_ids:
-                record = by_id.get(sample_id)
-                if record is None:
-                    missing.append(sample_id)
-                else:
-                    ordered_records.append(record)
-            if missing:
-                raise ValueError(
-                    f"Detection labels file is missing entries for sample_ids: {missing!r}."
-                )
-            records_iter: list[dict[str, Any]] = ordered_records
-        else:
-            if len(records) != expected:
-                raise ValueError(
-                    f"Detection labels file has {len(records)} records but the "
-                    f"dataset has {expected} samples; provide sample_id fields and "
-                    "set data.labels.source so records can be aligned by id, or "
-                    "match the record count to the sample count."
-                )
-            records_iter = records
-
-        out: list[dict[str, torch.Tensor]] = []
-        for index, record in enumerate(records_iter):
-            boxes_raw = record.get("boxes", [])
-            labels_raw = record.get("labels", [])
-            if len(boxes_raw) != len(labels_raw):
-                raise ValueError(
-                    f"Sample index {index}: boxes and labels must have matching "
-                    f"length (got {len(boxes_raw)} boxes vs {len(labels_raw)} labels)."
-                )
-            boxes_tensor = (
-                torch.tensor(boxes_raw, dtype=torch.float32)
-                if boxes_raw
-                else torch.zeros((0, 4), dtype=torch.float32)
-            )
-            labels_tensor = (
-                torch.tensor(labels_raw, dtype=torch.int64)
-                if labels_raw
-                else torch.zeros((0,), dtype=torch.int64)
-            )
-            if boxes_tensor.ndim != 2 or boxes_tensor.shape[1] != 4:
-                raise ValueError(
-                    f"Sample index {index}: boxes must be shape (M_i, 4); got "
-                    f"{tuple(boxes_tensor.shape)}."
-                )
-            out.append({"boxes": boxes_tensor, "labels": labels_tensor})
-
-        if len(out) != expected:
-            raise ValueError(
-                f"Detection labels alignment produced {len(out)} entries but the "
-                f"dataset has {expected} samples."
-            )
-
-        return out
 
     def validate_labels(self, labels: Any) -> None:
         # The detection loader returns ``list[dict]`` or ``None``. A bare tensor

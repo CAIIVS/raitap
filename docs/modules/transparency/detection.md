@@ -92,7 +92,7 @@ available: torchvision detectors use their bundled categories automatically;
 otherwise set `model.class_names` (id-ordered, index 0 first), which takes
 precedence. With neither, boxes fall back to `class <id>`.
 
-**True label.** Set `data.labels.source` to match
+**True label.** Configure `data.labels` to match
 each box to the ground-truth object it overlaps most, shown as
 `gt: <name> (IoU <value>)`. The match is by overlap alone, so disagreements
 surface (`pred: dog 0.92 | gt: cat (IoU 0.71)`); a box overlapping no labelled

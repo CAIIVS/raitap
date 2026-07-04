@@ -34,8 +34,8 @@ from. Without `data.labels`, raitap falls back to `argmax(model(clean))`,
 which means the attack only confirms the model's *current* decision is
 brittle — not that it disagrees with reality. Configure `data.labels` to
 supply real labels; see [Data configuration](../data/configuration.md) for
-the `labels.source`, `labels.column`, `labels.id_column`, and
-`labels.encoding` options.
+the label variants selected via `defaults: [data/labels: <variant>]` and
+their fields.
 
 When labels are missing, raitap emits a warning so the fallback target is
 clearly flagged.

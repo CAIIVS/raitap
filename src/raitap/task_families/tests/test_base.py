@@ -27,9 +27,6 @@ def test_taskfamily_is_runtime_checkable_protocol() -> None:
         def validate_inputs(self, tensor: object) -> None:
             pass
 
-        def load_labels(self, cfg: object, *, tensor: object, sample_ids: object) -> object:
-            pass
-
         def validate_labels(self, labels: object) -> None:
             pass
 
