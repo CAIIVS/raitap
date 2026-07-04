@@ -669,3 +669,41 @@ def test_coco_detection_exact_match_regression(tmp_path: object) -> None:
     assert torch.equal(result[0]["labels"], torch.tensor([3, 5]))
     assert result[1]["boxes"].shape == (0, 4)
     assert result[1]["labels"].shape == (0,)
+
+
+def test_coco_parser_classification_returns_none_without_sample_ids(tmp_path: object) -> None:
+    """COCO classification with no sample_ids -> None (predictions-as-targets),
+    not a silent empty label tensor."""
+    from raitap.data.label_parsers.coco import CocoLabelParser
+
+    p = _coco_classification_fixture(tmp_path)
+    parser = CocoLabelParser(source=str(p))
+    result = parser.parse(
+        task_kind=TaskKind.classification,
+        tensor=None,
+        sample_ids=None,
+        data_source=None,
+        class_names=None,
+    )
+    assert result is None
+
+
+def test_yolo_parser_raises_on_malformed_line(tmp_path: object) -> None:
+    """A YOLO label line with fewer than 5 fields raises a clear ValueError
+    naming the file, not a bare unpack error."""
+    import pathlib
+
+    from raitap.data.label_parsers.yolo import YoloLabelParser
+
+    labels_dir, image_dir = _make_yolo_fixture(tmp_path)
+    (pathlib.Path(str(labels_dir)) / "a.txt").write_text("0 0.5 0.5\n", encoding="utf-8")
+
+    parser = YoloLabelParser(source=str(labels_dir))
+    with pytest.raises(ValueError, match=r"expected 5"):
+        parser.parse(
+            task_kind=TaskKind.detection,
+            tensor=[object(), object()],
+            sample_ids=["a.jpg", "b.jpg"],
+            data_source=str(image_dir),
+            class_names=None,
+        )

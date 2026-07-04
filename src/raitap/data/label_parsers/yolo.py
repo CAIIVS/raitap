@@ -57,6 +57,11 @@ class YoloLabelParser:
                 parts = line.split()
                 if not parts:
                     continue
+                if len(parts) < 5:
+                    raise ValueError(
+                        f"YOLO label {txt.name} has a line with {len(parts)} "
+                        f"field(s), expected 5 (class cx cy w h): {line!r}."
+                    )
                 cls, cx, cy, bw, bh = (float(p) for p in parts[:5])
                 x1 = (cx - bw / 2) * width
                 y1 = (cy - bh / 2) * height

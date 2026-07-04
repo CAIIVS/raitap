@@ -122,7 +122,7 @@ data = DataConfig(
 )
 ```
 
-**Label variants.** `data.labels` is a Hydra config-group: select the variant with `defaults: [data/labels: <name>]`, then set its fields under `data.labels:`. Each variant exposes only the fields it accepts — setting a foreign field is a load error. Always select via the `defaults` group; inlining `_target_` directly (e.g. `data.labels: {_target_: TabularLabelParser, bogus: 1}`) bypasses struct-mode validation and unknown fields are silently dropped.
+**Label variants.** `data.labels` is a Hydra config-group: select the variant with `defaults: [data/labels: <name>]`, then set its fields under `data.labels:`. Each variant exposes only the fields it accepts — setting a foreign field is a load error. Prefer the `defaults` group: it validates fields at config-load with a clear error. Inlining `_target_` directly (e.g. `data.labels: {_target_: TabularLabelParser, bogus: 1}`) skips that load-time struct check, so a foreign field is not caught until the parser is built and then fails with a less obvious instantiation error.
 
 ```yaml
 defaults:

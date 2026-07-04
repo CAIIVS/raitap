@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 
+from raitap import raitap_log
 from raitap.configs.schema import CocoLabelsConfig
 from raitap.data.data import (
     SourceKind,
@@ -107,13 +108,19 @@ class CocoLabelParser:
             )
 
         # classification
+        if not sample_ids:
+            raitap_log.warn(
+                "CocoLabelParser classification needs sample ids for id-based "
+                "alignment; none were provided. Falling back to predictions as targets."
+            )
+            return None
         records = self._to_classification_records(data)
         raw_ids: list[str] = [r["sample_id"] for r in records]
         encoded: list[int] = [r["label"] for r in records]
         id_series: pd.Series = pd.Series(raw_ids)
         strategy = _resolve_id_strategy(str(self.id_strategy), id_series)
         aligned = _align_labels_to_samples(
-            sample_ids=sample_ids or [],
+            sample_ids=sample_ids,
             raw_label_ids=id_series,
             encoded_labels=encoded,
             strategy=strategy,
