@@ -707,3 +707,39 @@ def test_yolo_parser_raises_on_malformed_line(tmp_path: object) -> None:
             data_source=str(image_dir),
             class_names=None,
         )
+
+
+def test_yolo_parser_nested_split_layout(tmp_path: object) -> None:
+    """Recursive YOLO split layout (labels/train/x.txt, images/train/x.jpg).
+
+    sample_id preserves the image-relative path so id_strategy=relative_path
+    matches nested discovered sample ids.
+    """
+    import pathlib
+
+    from PIL import Image as PILImage
+
+    from raitap.data.label_parsers.yolo import YoloLabelParser
+    from raitap.data.types import IdStrategy
+
+    tmp = pathlib.Path(str(tmp_path))
+    labels_dir = tmp / "labels" / "train"
+    labels_dir.mkdir(parents=True)
+    image_dir = tmp / "images"
+    (image_dir / "train").mkdir(parents=True)
+    PILImage.new("RGB", (200, 100)).save(image_dir / "train" / "a.jpg")
+    (labels_dir / "a.txt").write_text("0 0.5 0.5 0.6 0.1\n", encoding="utf-8")
+
+    parser = YoloLabelParser(source=str(tmp / "labels"), id_strategy=IdStrategy.relative_path)
+    result = parser.parse(
+        task_kind=TaskKind.detection,
+        tensor=[object()],
+        sample_ids=["train/a.jpg"],
+        data_source=str(image_dir),
+        class_names=None,
+    )
+    assert isinstance(result, list)
+    assert len(result) == 1
+    assert result[0]["labels"].tolist() == [0]
+    # box denormalised against the 200x100 image
+    assert result[0]["boxes"][0].tolist() == pytest.approx([40.0, 45.0, 160.0, 55.0])

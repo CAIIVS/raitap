@@ -38,17 +38,29 @@ class YoloLabelParser:
         self.source = source
         self.id_strategy = id_strategy
 
-    def _image_for(self, image_dir: Path, stem: str) -> Path:
+    def _image_for(self, image_dir: Path, rel_stem: Path) -> Path:
+        # ``rel_stem`` is the label path relative to ``labels_dir`` without its
+        # suffix (e.g. ``train/a``). Prefer the mirrored image layout
+        # (``image_dir/train/a.jpg``); fall back to a recursive search by stem
+        # so flat-label / nested-image layouts still resolve.
         for suffix in _IMAGE_SUFFIXES:
-            candidate = image_dir / f"{stem}{suffix}"
+            candidate = image_dir / f"{rel_stem}{suffix}"
             if candidate.exists():
                 return candidate
-        raise ValueError(f"YOLO parser found no image for label {stem!r} in {image_dir}.")
+        for suffix in _IMAGE_SUFFIXES:
+            matches = sorted(image_dir.rglob(f"{rel_stem.name}{suffix}"))
+            if matches:
+                return matches[0]
+        raise ValueError(
+            f"YOLO parser found no image for label {rel_stem.as_posix()!r} under {image_dir}."
+        )
 
     def _to_detection_records(self, labels_dir: Path, image_dir: Path) -> list[dict[str, Any]]:
         records: list[dict[str, Any]] = []
-        for txt in sorted(labels_dir.glob("*.txt")):
-            image_path = self._image_for(image_dir, txt.stem)
+        txts = sorted(labels_dir.rglob("*.txt"), key=lambda p: p.relative_to(labels_dir).as_posix())
+        for txt in txts:
+            rel_stem = txt.relative_to(labels_dir).with_suffix("")
+            image_path = self._image_for(image_dir, rel_stem)
             with Image.open(image_path) as im:
                 width, height = im.size
             boxes: list[list[float]] = []
@@ -69,7 +81,8 @@ class YoloLabelParser:
                 y2 = (cy + bh / 2) * height
                 boxes.append([x1, y1, x2, y2])
                 labels.append(int(cls))
-            records.append({"sample_id": image_path.name, "boxes": boxes, "labels": labels})
+            sample_id = image_path.relative_to(image_dir).as_posix()
+            records.append({"sample_id": sample_id, "boxes": boxes, "labels": labels})
         return records
 
     def parse(
