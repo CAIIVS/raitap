@@ -32,22 +32,17 @@ _COMPOSED_TARGET = "raitap.data.label_parsers.directory.DirectoryLabelParser"
 
 
 def _register_labels_group() -> None:
-    """Register the ``data/labels`` group + AppConfig schema directly.
+    """Register the ``data/labels`` group via the canonical ``register_configs``.
 
-    Bypasses ``register_configs()`` (which imports transparency and other
-    families that are broken mid-refactor on this branch) by importing only the
-    label_parsers package — enough to fire the ``@label_parser`` decorator — and
-    flushing the hydra-zen store. The AppConfig schema is needed as the compose
-    base so the ``data.labels`` package has a struct to land in.
+    Uses the same registration path as production (and the rest of the suite):
+    it sets up the AppConfig schema and every family's group nodes consistently.
+    An earlier direct ``store.add_to_hydra_store(overwrite_ok=True)`` workaround
+    flushed hydra-zen builders in isolation, clobbering other groups' short
+    ``_target_`` schema nodes and breaking later tests (e.g. reporting compose).
     """
-    importlib.import_module("raitap.data.label_parsers")
-    from hydra.core.config_store import ConfigStore
+    from raitap.configs import register_configs
 
-    from raitap._adapters import store
-    from raitap.configs.schema import AppConfig
-
-    store.add_to_hydra_store(overwrite_ok=True)
-    ConfigStore.instance().store(name="raitap_schema", node=AppConfig)
+    register_configs()
 
 
 def test_directory_parser_group_lands_at_data_labels() -> None:
