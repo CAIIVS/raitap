@@ -25,6 +25,11 @@ Example (flat directory):
 
 ```{config-tabs}
 :yaml:
+defaults:
+  - raitap_schema
+  - data/labels: tabular
+  - _self_
+
 data:
   source: "./data/images" # a directory of images
   labels:
@@ -68,6 +73,11 @@ data/test/
 
 ```{config-tabs}
 :yaml:
+defaults:
+  - raitap_schema
+  - data/labels: tabular
+  - _self_
+
 data:
   source: "./data/test"
   labels:

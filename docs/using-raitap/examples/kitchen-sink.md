@@ -14,6 +14,11 @@ If you want to learn how to write such a config, see the {doc}`../configuration/
 
 ```{config-tabs}
 :yaml:
+defaults:
+  - raitap_schema
+  - data/labels: tabular
+  - _self_
+
 hardware: "gpu"
 experiment_name: "My Experiment"
 
@@ -116,7 +121,7 @@ reporting:
 
 :python:
 from raitap import AppConfig, Hardware
-from raitap.data import DataConfig, LabelEncoding, LabelsConfig
+from raitap.data import DataConfig, LabelEncoding, TabularLabelsConfig
 from raitap.metrics import multiclass_classification
 from raitap.models import ModelConfig
 from raitap.reporting import html as html_report
@@ -133,7 +138,7 @@ config = AppConfig(
         description="Internal validation set",
         source="./data/images",
         forward_batch_size=32,
-        labels=LabelsConfig(
+        labels=TabularLabelsConfig(
             source="./data/labels.csv",
             id_column="image",
             column="label",

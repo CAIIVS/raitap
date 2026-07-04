@@ -29,7 +29,7 @@ The module-specific objects are exported by the respective modules:
 
 ```python
 from raitap.models import ModelConfig
-from raitap.data import DataConfig, LabelsConfig
+from raitap.data import DataConfig, TabularLabelsConfig
 from raitap.metrics import multiclass_classification
 from raitap.robustness import image_pair, torchattacks
 from raitap.transparency import captum, captum_image
@@ -41,7 +41,7 @@ The Python equivalent of `raitap --demo` is roughly twenty lines. Build an `AppC
 
 ```python
 from raitap import AppConfig, Hardware, run
-from raitap.data import DataConfig, LabelsConfig
+from raitap.data import DataConfig, TabularLabelsConfig
 from raitap.metrics import multiclass_classification
 from raitap.models import ModelConfig
 from raitap.robustness import image_pair, torchattacks

@@ -38,7 +38,7 @@ from PIL import Image
 from torch import nn
 
 from raitap import AppConfig, Hardware, run
-from raitap.data import DataConfig, LabelEncoding, LabelsConfig
+from raitap.data import DataConfig, LabelEncoding, TabularLabelsConfig
 from raitap.metrics import multiclass_classification
 from raitap.models import ModelConfig
 from raitap.reporting import html
@@ -135,7 +135,7 @@ def build_config() -> AppConfig:
         data=DataConfig(
             name="auto_lirpa_demo",
             source=str(_IMAGES_DIR),
-            labels=LabelsConfig(
+            labels=TabularLabelsConfig(
                 source=str(_LABELS_CSV),
                 id_column="image",
                 column="label",

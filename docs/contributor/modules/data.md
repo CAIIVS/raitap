@@ -19,8 +19,8 @@ referenceable by name in `data.source`. Registration lives in
 - `SAMPLE_SOURCES` — name → list of `(url, filename)` pairs, downloaded into
   the per-user cache (`~/.cache/raitap/<name>/`).
 - `SAMPLE_LABELS` (optional) — name → `{filename: class_index}` map,
-  materialised as `labels.csv` alongside the images so
-  `data.labels.source: <name>` resolves automatically.
+  materialised as `labels.csv` alongside the images so a `data.labels`
+  entry with `source: <name>` resolves automatically.
 
 ## Adding a built-in sample dataset
 

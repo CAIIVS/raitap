@@ -16,7 +16,16 @@ from typing import TYPE_CHECKING, Any
 from .types import IdStrategy, LabelEncoding, Preprocessing
 
 if TYPE_CHECKING:
-    from raitap.configs.schema import DataConfig, LabelsConfig
+    from raitap.configs.schema import (
+        CocoLabelsConfig,
+        DataConfig,
+        DetectionJsonLabelsConfig,
+        DirectoryLabelsConfig,
+        LabelsConfig,
+        TabularLabelsConfig,
+        VocLabelsConfig,
+        YoloLabelsConfig,
+    )
 
     from .data import Data, load_numpy_from_source, load_tensor_from_source
     from .metadata import DataInputMetadata, infer_data_input_metadata
@@ -29,15 +38,21 @@ if TYPE_CHECKING:
 
 
 __all__ = [
+    "CocoLabelsConfig",
     "Data",
     "DataConfig",
     "DataInputMetadata",
     "DataPreprocessingFactory",
+    "DetectionJsonLabelsConfig",
+    "DirectoryLabelsConfig",
     "IdStrategy",
     "LabelEncoding",
     "LabelsConfig",
     "ModelInputTransformationFactory",
     "Preprocessing",
+    "TabularLabelsConfig",
+    "VocLabelsConfig",
+    "YoloLabelsConfig",
     "infer_data_input_metadata",
     "load_numpy_from_source",
     "load_tensor_from_source",
@@ -55,6 +70,12 @@ _LAZY: dict[str, tuple[str, str]] = {
     "infer_data_input_metadata": ("raitap.data.metadata", "infer_data_input_metadata"),
     "DataConfig": ("raitap.configs.schema", "DataConfig"),
     "LabelsConfig": ("raitap.configs.schema", "LabelsConfig"),
+    "TabularLabelsConfig": ("raitap.configs.schema", "TabularLabelsConfig"),
+    "DirectoryLabelsConfig": ("raitap.configs.schema", "DirectoryLabelsConfig"),
+    "CocoLabelsConfig": ("raitap.configs.schema", "CocoLabelsConfig"),
+    "YoloLabelsConfig": ("raitap.configs.schema", "YoloLabelsConfig"),
+    "VocLabelsConfig": ("raitap.configs.schema", "VocLabelsConfig"),
+    "DetectionJsonLabelsConfig": ("raitap.configs.schema", "DetectionJsonLabelsConfig"),
     "DataPreprocessingFactory": ("raitap.data.preprocessing", "DataPreprocessingFactory"),
     "ModelInputTransformationFactory": (
         "raitap.data.preprocessing",
