@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
 from types import SimpleNamespace
 from typing import cast
 
@@ -81,14 +80,13 @@ def test_directory_parser_returns_none_for_flat_layout() -> None:
 
 
 def _register_labels_group() -> None:
-    importlib.import_module("raitap.data.label_parsers")
-    from hydra.core.config_store import ConfigStore
+    # Canonical registration (same path as production and the rest of the suite).
+    # A direct ``store.add_to_hydra_store(overwrite_ok=True)`` flush here would
+    # clobber other groups' short ``_target_`` schema nodes and break later tests
+    # (e.g. reporting compose asserting ``_target_ == "PDFReporter"``).
+    from raitap.configs import register_configs
 
-    from raitap._adapters import store
-    from raitap.configs.schema import AppConfig
-
-    store.add_to_hydra_store(overwrite_ok=True)
-    ConfigStore.instance().store(name="raitap_schema", node=AppConfig)
+    register_configs()
 
 
 _COMPOSED_TARGET = "raitap.data.label_parsers.directory.DirectoryLabelParser"
