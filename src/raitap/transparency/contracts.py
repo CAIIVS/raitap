@@ -18,12 +18,15 @@ from collections.abc import Set as AbstractSet  # noqa: TC003
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path  # noqa: TC003
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 # Runtime import (not TYPE_CHECKING): ``Capability`` appears in the public
 # ``ExplainerAlgorithmSpec.requires`` annotation, so ``typing.get_type_hints()``
 # must resolve it from module globals. It is a torch-free StrEnum.
 from raitap.types import Capability  # noqa: TC001
+
+if TYPE_CHECKING:
+    from raitap.reproducibility import Seeding
 
 ConfiguredVisualiser = Any
 ExplanationResult = Any
@@ -188,10 +191,10 @@ class ExplainerAlgorithmSpec:
     baseline_default: BaselineMode | None = None
     baseline_cardinality: BaselineCardinality | None = None
     requires: AbstractSet[Capability] = field(default_factory=frozenset)
-    # Whether this algorithm's result depends on RNG (random init/sampling), so
-    # it is not bit-reproducible unless seeds are pinned. Surfaced by the
-    # reproducibility caveat (issue #251). Declared explicitly per algorithm.
-    stochastic: bool = False
+    # RNG-source classification (issue #339). Replaces the old ``stochastic``
+    # bool. ``deterministic`` => bit-reproducible; ``global_rng`` => covered by a
+    # pinned global seed; ``self_seeded`` => owns a seed param, needs it passed.
+    seeding: Seeding = "deterministic"
     # Optional per-algorithm invoker overriding the adapter's default
     # construct-and-call path (#266). None => default path.
     invoker: Any = None
@@ -202,6 +205,11 @@ class ExplainerAlgorithmSpec:
     def __post_init__(self) -> None:
         object.__setattr__(self, "families", frozenset(self.families))
         object.__setattr__(self, "requires", frozenset(self.requires))
+
+    @property
+    def stochastic(self) -> bool:
+        """True when the algorithm depends on RNG (derived from ``seeding``)."""
+        return self.seeding != "deterministic"
 
 
 def explainer_output_kind(explainer: object) -> ExplanationPayloadKind:

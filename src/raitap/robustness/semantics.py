@@ -39,6 +39,8 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from raitap.reproducibility import Seeding
+
 
 @dataclass(frozen=True)
 class AssessorAlgorithmSpec:
@@ -51,10 +53,10 @@ class AssessorAlgorithmSpec:
     families: AbstractSet[str] = field(default_factory=frozenset)
     default_epsilon: float | None = None
     requires: AbstractSet[Capability] = field(default_factory=frozenset)
-    # Whether this algorithm's result depends on RNG (random start/sampling), so
-    # it is not bit-reproducible unless seeds are pinned (issue #251). Declared
-    # explicitly per algorithm.
-    stochastic: bool = False
+    # RNG-source classification (issue #339). Replaces the old ``stochastic``
+    # bool. ``deterministic`` => bit-reproducible; ``global_rng`` => covered by a
+    # pinned global seed; ``self_seeded`` => owns a seed param, needs it passed.
+    seeding: Seeding = "deterministic"
     # Optional per-algorithm invoker overriding the adapter's default construct-
     # and-call path (#266). None => default path. Typed loosely (the generic
     # Invoker is structural) to avoid a torch-import cycle at this layer.
@@ -63,6 +65,11 @@ class AssessorAlgorithmSpec:
     def __post_init__(self) -> None:
         object.__setattr__(self, "families", frozenset(self.families))
         object.__setattr__(self, "requires", frozenset(self.requires))
+
+    @property
+    def stochastic(self) -> bool:
+        """True when the algorithm depends on RNG (derived from ``seeding``)."""
+        return self.seeding != "deterministic"
 
 
 _TARGET_KWARG_KEYS: frozenset[str] = frozenset(
