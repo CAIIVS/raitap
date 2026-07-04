@@ -14,6 +14,8 @@ from .base_assessor import AttackInvokeCtx, EmpiricalAttackAssessor, _prepare_in
 
 if TYPE_CHECKING:
     import torch
+
+    from raitap.reproducibility import Seeding
 else:
     torch = lazy_import("torch")
 
@@ -54,14 +56,14 @@ def _dataset_attack_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
 
 
 # Hint factory: every foolbox attack is gradient/query-driven; AUTOGRAD preserves the
-# adapter's gating (see BoundaryAttack note). Only norm / threat / families / stochastic
+# adapter's gating (see BoundaryAttack note). Only norm / threat / families / seeding
 # vary per entry, all verified against installed foolbox 3.3.4 ctor defaults + source.
 def _hint(
     threat: ThreatModel,
     norm: PerturbationNorm | None,
     families: set[str],
     *,
-    stochastic: bool = False,
+    seeding: Seeding = "deterministic",
     objective: Objective = Objective.UNTARGETED,
     invoker: object = None,
 ) -> AssessorAlgorithmSpec:
@@ -72,7 +74,7 @@ def _hint(
         norm,
         families=families,
         requires={Capability.AUTOGRAD},
-        stochastic=stochastic,
+        seeding=seeding,
         invoker=invoker,
     )
 
@@ -113,22 +115,22 @@ _FOOLBOX_ERROR_MESSAGES: dict[str, str] = {
     algorithm_registry={
         # --- Projected Gradient Descent (random_start=True default -> stochastic) ---
         # LinfPGD collapses aliases {LinfProjectedGradientDescentAttack, PGD}.
-        "LinfPGD": _hint(_WB, _LINF, {"gradient_sign", "iterative"}, stochastic=True),
+        "LinfPGD": _hint(_WB, _LINF, {"gradient_sign", "iterative"}, seeding="global_rng"),
         "L2PGD": _hint(  # aliases {L2ProjectedGradientDescentAttack}
-            _WB, _L2, {"gradient_sign", "iterative"}, stochastic=True
+            _WB, _L2, {"gradient_sign", "iterative"}, seeding="global_rng"
         ),
         "L1PGD": _hint(  # aliases {L1ProjectedGradientDescentAttack}
-            _WB, _L1, {"gradient_sign", "iterative"}, stochastic=True
+            _WB, _L1, {"gradient_sign", "iterative"}, seeding="global_rng"
         ),
         # Adam-PGD variants (random_start=True default -> stochastic).
         "LinfAdamPGD": _hint(  # aliases {AdamPGD, LinfAdamProjectedGradientDescentAttack}
-            _WB, _LINF, {"gradient_sign", "iterative", "adam"}, stochastic=True
+            _WB, _LINF, {"gradient_sign", "iterative", "adam"}, seeding="global_rng"
         ),
         "L2AdamPGD": _hint(  # aliases {L2AdamProjectedGradientDescentAttack}
-            _WB, _L2, {"gradient_sign", "iterative", "adam"}, stochastic=True
+            _WB, _L2, {"gradient_sign", "iterative", "adam"}, seeding="global_rng"
         ),
         "L1AdamPGD": _hint(  # aliases {L1AdamProjectedGradientDescentAttack}
-            _WB, _L1, {"gradient_sign", "iterative", "adam"}, stochastic=True
+            _WB, _L1, {"gradient_sign", "iterative", "adam"}, seeding="global_rng"
         ),
         # --- Fast Gradient (single step, random_start=False -> deterministic) ---
         "LinfFastGradientAttack": _hint(  # aliases {FGSM}
@@ -169,7 +171,7 @@ _FOOLBOX_ERROR_MESSAGES: dict[str, str] = {
         # stochastic; power-iteration on `value_and_grad` (KL-div gradient) -> WHITE_BOX
         # + AUTOGRAD. ctor sig is (steps, xi=1e-06): steps is required (no default).
         "VirtualAdversarialAttack": _hint(
-            _WB, _L2, {"optimization", "virtual_adversarial"}, stochastic=True
+            _WB, _L2, {"optimization", "virtual_adversarial"}, seeding="global_rng"
         ),
         # --- Fast Minimum-Norm (deterministic; norm from class prefix) ---
         "L0FMNAttack": _hint(_WB, _L0, {"optimization", "minimum_norm"}),
@@ -178,27 +180,39 @@ _FOOLBOX_ERROR_MESSAGES: dict[str, str] = {
         # NB: class name is LInfFMNAttack (capital I), not LinfFMNAttack.
         "LInfFMNAttack": _hint(_WB, _LINF, {"optimization", "minimum_norm"}),
         # --- Brendel-Bethge (gradient-based; stochastic init -> stochastic) ---
-        "L0BrendelBethgeAttack": _hint(_WB, _L0, {"optimization", "minimum_norm"}, stochastic=True),
-        "L1BrendelBethgeAttack": _hint(_WB, _L1, {"optimization", "minimum_norm"}, stochastic=True),
-        "L2BrendelBethgeAttack": _hint(_WB, _L2, {"optimization", "minimum_norm"}, stochastic=True),
+        "L0BrendelBethgeAttack": _hint(
+            _WB, _L0, {"optimization", "minimum_norm"}, seeding="global_rng"
+        ),
+        "L1BrendelBethgeAttack": _hint(
+            _WB, _L1, {"optimization", "minimum_norm"}, seeding="global_rng"
+        ),
+        "L2BrendelBethgeAttack": _hint(
+            _WB, _L2, {"optimization", "minimum_norm"}, seeding="global_rng"
+        ),
         # NB: class name is LinfinityBrendelBethgeAttack (Linfinity prefix).
         "LinfinityBrendelBethgeAttack": _hint(
-            _WB, _LINF, {"optimization", "minimum_norm"}, stochastic=True
+            _WB, _LINF, {"optimization", "minimum_norm"}, seeding="global_rng"
         ),
         # --- Additive-noise score attacks (sample noise -> stochastic; BBS) ---
-        "L2AdditiveGaussianNoiseAttack": _hint(_BBS, _L2, {"noise"}, stochastic=True),
-        "L2AdditiveUniformNoiseAttack": _hint(_BBS, _L2, {"noise"}, stochastic=True),
-        "LinfAdditiveUniformNoiseAttack": _hint(_BBS, _LINF, {"noise"}, stochastic=True),
-        "L2RepeatedAdditiveGaussianNoiseAttack": _hint(_BBS, _L2, {"noise"}, stochastic=True),
-        "L2RepeatedAdditiveUniformNoiseAttack": _hint(_BBS, _L2, {"noise"}, stochastic=True),
-        "LinfRepeatedAdditiveUniformNoiseAttack": _hint(_BBS, _LINF, {"noise"}, stochastic=True),
-        "L2ClippingAwareAdditiveGaussianNoiseAttack": _hint(_BBS, _L2, {"noise"}, stochastic=True),
-        "L2ClippingAwareAdditiveUniformNoiseAttack": _hint(_BBS, _L2, {"noise"}, stochastic=True),
+        "L2AdditiveGaussianNoiseAttack": _hint(_BBS, _L2, {"noise"}, seeding="global_rng"),
+        "L2AdditiveUniformNoiseAttack": _hint(_BBS, _L2, {"noise"}, seeding="global_rng"),
+        "LinfAdditiveUniformNoiseAttack": _hint(_BBS, _LINF, {"noise"}, seeding="global_rng"),
+        "L2RepeatedAdditiveGaussianNoiseAttack": _hint(_BBS, _L2, {"noise"}, seeding="global_rng"),
+        "L2RepeatedAdditiveUniformNoiseAttack": _hint(_BBS, _L2, {"noise"}, seeding="global_rng"),
+        "LinfRepeatedAdditiveUniformNoiseAttack": _hint(
+            _BBS, _LINF, {"noise"}, seeding="global_rng"
+        ),
+        "L2ClippingAwareAdditiveGaussianNoiseAttack": _hint(
+            _BBS, _L2, {"noise"}, seeding="global_rng"
+        ),
+        "L2ClippingAwareAdditiveUniformNoiseAttack": _hint(
+            _BBS, _L2, {"noise"}, seeding="global_rng"
+        ),
         "L2ClippingAwareRepeatedAdditiveGaussianNoiseAttack": _hint(
-            _BBS, _L2, {"noise"}, stochastic=True
+            _BBS, _L2, {"noise"}, seeding="global_rng"
         ),
         "L2ClippingAwareRepeatedAdditiveUniformNoiseAttack": _hint(
-            _BBS, _L2, {"noise"}, stochastic=True
+            _BBS, _L2, {"noise"}, seeding="global_rng"
         ),
         # --- Contrast / blur / inversion score attacks (deterministic; BBS) ---
         # L2ContrastReductionAttack: FixedEpsilon, distance attr = L2, deterministic.
@@ -212,33 +226,33 @@ _FOOLBOX_ERROR_MESSAGES: dict[str, str] = {
         "InversionAttack": _hint(_BBS, _L2, {"noise", "inversion"}),
         # LinearSearchBlended: random directions -> stochastic.
         "LinearSearchBlendedUniformNoiseAttack": _hint(
-            _BBS, _L2, {"noise", "blended"}, stochastic=True
+            _BBS, _L2, {"noise", "blended"}, seeding="global_rng"
         ),
         # --- Decision-based black-box attacks ---
         # BoundaryAttack: gaussian random-walk + stochastic init -> stochastic.
         "BoundaryAttack": _hint(
-            _BBD, _L2, {"decision_boundary", "query_efficient"}, stochastic=True
+            _BBD, _L2, {"decision_boundary", "query_efficient"}, seeding="global_rng"
         ),
         # HopSkipJump: random init + stochastic gradient estimate -> stochastic. constraint='l2'.
         "HopSkipJumpAttack": _hint(
-            _BBD, _L2, {"decision_boundary", "query_efficient"}, stochastic=True
+            _BBD, _L2, {"decision_boundary", "query_efficient"}, seeding="global_rng"
         ),
         # SaltAndPepper: random salt/pepper sampling -> stochastic. distance attr = L2;
         # operates by sparsifying pixels (L0-flavoured) but foolbox reports it under L2.
         "SaltAndPepperNoiseAttack": _hint(
-            _BBD, _L2, {"decision_boundary", "noise"}, stochastic=True
+            _BBD, _L2, {"decision_boundary", "noise"}, seeding="global_rng"
         ),
         # GenAttack: genetic/population search -> stochastic. distance attr = Linf.
         # Consumes full model logits (continuous C&W-style fitness margin) -> BLACK_BOX_SCORE.
         # Targeted-capable but defaults untargeted.
-        "GenAttack": _hint(_BBS, _LINF, {"score_based", "genetic"}, stochastic=True),
+        "GenAttack": _hint(_BBS, _LINF, {"score_based", "genetic"}, seeding="global_rng"),
         # --- DatasetAttack: needs .feed() before running -> custom invoker (#266) ---
         # Pulls adversarials from a fed sample pool; conceptually L2 nearest-sample.
         "DatasetAttack": _hint(
             _BBD,
             _L2,
             {"decision_boundary", "dataset"},
-            stochastic=True,
+            seeding="global_rng",
             invoker=_dataset_attack_invoker,
         ),
     },

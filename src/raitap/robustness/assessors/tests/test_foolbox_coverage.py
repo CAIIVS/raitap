@@ -56,6 +56,11 @@ def test_dataset_attack_registered_and_runs() -> None:
     assert out.shape == (2, 3, 4, 4)
 
 
+def test_every_foolbox_stochastic_entry_is_global_rng() -> None:
+    for name, spec in FoolboxAssessor.algorithm_registry.items():
+        assert spec.seeding in {"deterministic", "global_rng"}, name
+
+
 def test_dataset_attack_honors_targeted_criterion() -> None:
     # The DatasetAttack invoker builds a targeted criterion (not silently dropped).
     a = FoolboxAssessor("DatasetAttack")
