@@ -39,11 +39,12 @@ class YoloLabelParser:
         self.id_strategy = id_strategy
 
     def _build_image_index(self, image_dir: Path) -> dict[str, list[Path]]:
-        # Walk the image tree once (stem -> sorted image paths) so the fallback
+        # Walk the image tree ONCE (stem -> sorted image paths) so the fallback
         # lookup is O(1) per label instead of an rglob-per-label.
+        suffixes = set(_IMAGE_SUFFIXES)
         index: dict[str, list[Path]] = {}
-        for suffix in _IMAGE_SUFFIXES:
-            for path in image_dir.rglob(f"*{suffix}"):
+        for path in image_dir.rglob("*"):
+            if path.suffix.lower() in suffixes:
                 index.setdefault(path.stem, []).append(path)
         for paths in index.values():
             paths.sort()
@@ -60,6 +61,13 @@ class YoloLabelParser:
                 return candidate
         matches = index.get(rel_stem.name)
         if matches:
+            if len(matches) > 1:
+                found = [m.relative_to(image_dir).as_posix() for m in matches]
+                raise ValueError(
+                    f"YOLO label {rel_stem.as_posix()!r} has no mirrored image and its "
+                    f"stem is ambiguous across multiple images {found}; use a mirrored "
+                    "labels/images directory layout so the match is unambiguous."
+                )
             return matches[0]
         raise ValueError(
             f"YOLO parser found no image for label {rel_stem.as_posix()!r} under {image_dir}."
