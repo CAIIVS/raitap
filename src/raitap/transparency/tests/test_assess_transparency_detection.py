@@ -154,7 +154,7 @@ def test_assess_transparency_routes_detection_kind_to_explain_detection(
             forward,
             input_metadata=None,
             resolved_preprocessing=None,
-        )
+        ).explanations
 
     # The routing reached explain_detection with the right kwargs:
     assert captured["backend"] is model.backend
@@ -299,7 +299,7 @@ def test_detection_transparency_renders_class_name_end_to_end(tmp_path: Path) ->
             forward,
             input_metadata=None,
             resolved_preprocessing=None,
-        )
+        ).explanations
     visualisations = [v for e in explanations for v in e.visualisations]
 
     # Caller enrichment populated the in-memory box that the report builder
@@ -448,7 +448,7 @@ def test_detection_transparency_matches_ground_truth_end_to_end(tmp_path: Path) 
             forward,
             input_metadata=None,
             resolved_preprocessing=None,
-        )
+        ).explanations
     visualisations = [v for e in explanations for v in e.visualisations]
 
     # GT match reached the in-memory box: evaluated, matched, true class = GT (20).
@@ -544,7 +544,7 @@ def test_assess_transparency_detection_skips_when_no_explainers(tmp_path: Path) 
         forward,
         input_metadata=None,
         resolved_preprocessing=None,
-    )
+    ).explanations
     assert explanations == []
 
 
@@ -629,6 +629,6 @@ def test_assess_transparency_detection_handles_model_block_without_class_names(
             forward,
             input_metadata=None,
             resolved_preprocessing=None,
-        )
+        ).explanations
 
     assert len(explanations) == 1

@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from raitap.reporting.samples import SelectedSample
     from raitap.reporting.sections import ReportContext
     from raitap.tracking.base_tracker import BaseTracker
+    from raitap.transparency.evaluation.contracts import EvaluationResult
     from raitap.transparency.results import ExplanationResult, VisualisationResult
 else:
     torch = lazy_import("torch")
@@ -73,6 +74,10 @@ class TransparencyPhaseResult(Trackable):
     """
 
     explanations: list[ExplanationResult] = field(default_factory=list)
+    # Explanation-quality grades (issue #341), one per graded explanation. Empty
+    # unless a per-adapter ``evaluation`` block is configured; when empty the phase
+    # result behaves exactly as before (no extra logging, no report section).
+    evaluations: list[EvaluationResult] = field(default_factory=list)
 
     report_order: ClassVar[int] = 20
 
@@ -84,6 +89,8 @@ class TransparencyPhaseResult(Trackable):
             explanation.log(tracker, use_subdirectory=use_subdirs)
             for visualisation in explanation.visualisations:
                 visualisation.log(tracker, use_subdirectory=use_subdirs)
+        for evaluation in self.evaluations:
+            evaluation.log(tracker)
 
     def report_sections(self, ctx: ReportContext) -> tuple[ReportSection, ...]:
         sections: list[ReportSection] = []

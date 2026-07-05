@@ -38,7 +38,11 @@ _SCHEMA = AdapterSchema(
     target_prefix=_TRANSPARENCY_PREFIX,
     visualiser_prefix=_TRANSPARENCY_PREFIX,
     top_level_keys=frozenset(
-        {"_target_", "algorithm", "visualisers", "constructor", "call", "raitap"}
+        # ``evaluation`` is the optional Quantus explanation-quality block
+        # (issue #341); it is consumed by the transparency phase post-step, not
+        # by the explainer adapter, but must be an allowed top-level key so a
+        # config carrying it (or the default ``evaluation: None``) parses.
+        {"_target_", "algorithm", "visualisers", "constructor", "call", "raitap", "evaluation"}
     ),
     raitap_keys=frozenset(
         {
