@@ -3,9 +3,11 @@
 ``grade_explanations`` is the seam between the transparency phase loop and the
 Quantus-backed evaluators. It instantiates the configured evaluator from the
 per-adapter ``EvaluationConfig`` (via ``hydra.utils.instantiate``), pulls the raw
-model + device off the ``PreparedExplainer``'s backend, and grades each produced
-explanation. Returns ``[]`` when no evaluation is configured or nothing was
-explained, so the phase stays a no-op unless a ``evaluation`` block is set.
+model + device off the ``PreparedExplainer``'s backend, puts the model in eval
+mode (Quantus's MODEL-requiring metrics raise ``AttributeError`` otherwise), and
+grades each produced explanation. Returns ``[]`` when no evaluation is configured
+or nothing was explained, so the phase stays a no-op unless a ``evaluation``
+block is set.
 """
 
 from __future__ import annotations
@@ -40,6 +42,8 @@ def grade_explanations(
     evaluator = instantiate(evaluation_cfg)
     backend = prepared.backend  # type: ignore[attr-defined]
     model = backend.autograd_module()
+    if hasattr(model, "eval"):
+        model.eval()
     device = backend.device
     explainer = getattr(prepared, "explainer", None)
     softmax = bool(getattr(evaluator, "softmax", softmax_default))
