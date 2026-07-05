@@ -31,4 +31,6 @@ def test_mask_threads_to_forward() -> None:
     out = forward_pass(_config(), backend, ids, forward_kwargs={"attention_mask": mask})
     # ForwardOutput has no `.predictions`; the classification payload is the
     # logits tensor itself (see `ForwardOutput.payload` / `.as_classification()`).
-    assert out.payload.shape[0] == 5
+    payload = out.payload
+    assert isinstance(payload, torch.Tensor)
+    assert payload.shape[0] == 5
