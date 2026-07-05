@@ -258,4 +258,5 @@ def test_mapping_table_lists_all_known_targets() -> None:
         "MulticlassClassificationMetrics",
         "MultilabelClassificationMetrics",
         "DetectionMetrics",
+        "QuantusEvaluator",
     }

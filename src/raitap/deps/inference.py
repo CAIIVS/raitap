@@ -129,6 +129,15 @@ def _walk_section(
                     _extra_for_target(target),
                     f"{section_key}.{adapter_name}._target_={target}",
                 )
+            evaluation = adapter_cfg.get("evaluation")
+            if isinstance(evaluation, Mapping):
+                eval_target = evaluation.get("_target_")
+                if isinstance(eval_target, str):
+                    _add(
+                        extras,
+                        _extra_for_target(eval_target),
+                        f"{section_key}.{adapter_name}.evaluation._target_={eval_target}",
+                    )
         return
     if isinstance(section, Mapping):
         target = section.get("_target_")
