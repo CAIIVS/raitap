@@ -47,7 +47,6 @@ def test_text_classification_config_runs_end_to_end(tmp_path: Path) -> None:
             config_name="assessment",
             overrides=[
                 f"data.source={reviews}",
-                f"data.inputs.source={reviews}",
                 f"data.labels.source={labels}",
             ],
         )

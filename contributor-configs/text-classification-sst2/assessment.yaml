@@ -31,7 +31,6 @@ data:
   source: ${hydra:runtime.cwd}/contributor-configs/text-classification-sst2/artifacts/reviews.csv
   forward_batch_size: 8
   inputs:
-    source: ${hydra:runtime.cwd}/contributor-configs/text-classification-sst2/artifacts/reviews.csv
     text_column: text
   labels:
     source: ${hydra:runtime.cwd}/contributor-configs/text-classification-sst2/artifacts/labels.csv

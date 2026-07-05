@@ -204,7 +204,6 @@ model:
 data:
   source: "./data/reviews.csv"
   inputs:
-    source: "./data/reviews.csv"
     text_column: "text"
   labels:
     source: "./data/labels.csv"
@@ -222,7 +221,7 @@ model = ModelConfig(
 )
 data = DataConfig(
     source="./data/reviews.csv",
-    inputs=TextCsvInputsConfig(source="./data/reviews.csv", text_column="text"),
+    inputs=TextCsvInputsConfig(text_column="text"),
     labels=TabularLabelsConfig(source="./data/labels.csv", column="label"),
 )
 ```

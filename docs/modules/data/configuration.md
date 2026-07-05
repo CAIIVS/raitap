@@ -163,7 +163,7 @@ All detection variants honour `id_strategy` for nested image-directory layouts.
 
 **`id_strategy`** (`"auto"` / `"relative_path"` / `"stem"`, default `"auto"`): how label ids are matched against discovered sample files. `"auto"` inspects the id column and switches to `"relative_path"` if any value contains `/` or `\`, otherwise `"stem"`. `"relative_path"` keeps directory components (e.g. `NORMAL/IM-0001`) — required when filename stems collide across class subdirs. `"stem"` matches by basename only.
 
-**Input variants.** `data.inputs` is a Hydra config-group, same mechanics as `data.labels`: select the variant with `defaults: [data/inputs: <name>]`, set its fields under `data.inputs:`. Only needed for text; image and tabular sources load from `data.source` directly, no `data.inputs` block required.
+**Input variants.** `data.inputs` is a Hydra config-group, same mechanics as `data.labels`: select the variant with `defaults: [data/inputs: <name>]`, set its fields under `data.inputs:`. Only needed for text; image and tabular sources load from `data.source` directly, no `data.inputs` block required. `data.inputs` carries only format options — the source path is `data.source`, set once.
 
 ```yaml
 defaults:
@@ -177,17 +177,16 @@ model:
 data:
   source: "./data/reviews.csv"
   inputs:
-    source: "./data/reviews.csv"
     text_column: "text"
 ```
 
 | Variant     | Reads                          | Fields                          |
 | ----------- | ------------------------------- | -------------------------------- |
-| `text_csv`  | one column of a CSV/TSV/Parquet file | `source`, `text_column`, `id_column` |
-| `text_jsonl`| one field of a JSON-lines file  | `source`, `text_field` (default `"text"`) |
-| `text_dir`  | a directory of `.txt` files (one document per file, sorted by name) | `source` |
+| `text_csv`  | one column of a CSV/TSV/Parquet file | `text_column` |
+| `text_jsonl`| one field of a JSON-lines file  | `text_field` (default `"text"`) |
+| `text_dir`  | a directory of text files (one document per file, sorted by name; `.txt` and `.md`) | (none) |
 
-Every variant returns `list[str]`, one string per sample, tokenised by `model.tokenizer` into `input_ids` + `attention_mask`. `id_column` on `text_csv` is currently unused by the parser (alignment to `data.labels` follows sample order); set it for forward compatibility.
+Every variant returns `list[str]`, one string per sample, tokenised by `model.tokenizer` into `input_ids` + `attention_mask`.
 
 For tabular models whose backend expects an unusual per-sample layout (such
 as ACAS Xu, a Torch network whose forward takes `(N, 1, 1, 5)`), supply

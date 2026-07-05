@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
+from raitap.task_families.base import ATTENTION_MASK_KEY
 from raitap.transparency.contracts import (
     BaselineCardinality,
     BaselineMode,
@@ -241,7 +242,7 @@ def _default_captum_invoker(ctx: AttributionInvokeCtx) -> torch.Tensor:
     # ``attention_mask`` (e.g. from a tokenized text input) is not attributed or
     # perturbed like a regular input feature; Captum passes it through untouched
     # to the forward as a positional ``additional_forward_args`` entry (#340).
-    additional_forward_args = call_kwargs.pop("attention_mask", None)
+    additional_forward_args = call_kwargs.pop(ATTENTION_MASK_KEY, None)
     extra_call_kwargs = (
         {"additional_forward_args": (additional_forward_args,)}
         if additional_forward_args is not None

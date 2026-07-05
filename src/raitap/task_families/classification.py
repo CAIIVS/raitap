@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
+from raitap.task_families.base import ATTENTION_MASK_KEY
 from raitap.task_families.registry import task_family
 from raitap.types import TaskKind
 from raitap.utils.lazy import lazy_import
@@ -76,12 +77,12 @@ class ClassificationFamily:
         from raitap.pipeline.phases.forward_pass import extract_primary_tensor
 
         backend, inputs = ctx.backend, ctx.inputs
-        mask = ctx.extras.get("attention_mask")
+        mask = ctx.extras.get(ATTENTION_MASK_KEY)
         total_batch = len(inputs)
 
         def _call(lo: int, hi: int) -> torch.Tensor:
             prepared = backend._prepare_inputs(inputs[lo:hi])
-            kwargs = {} if mask is None else {"attention_mask": mask[lo:hi]}
+            kwargs = {} if mask is None else {ATTENTION_MASK_KEY: mask[lo:hi]}
             out = extract_primary_tensor(backend(prepared, **kwargs)).detach().cpu()
             del prepared
             if torch.cuda.is_available():
@@ -136,7 +137,7 @@ class ClassificationFamily:
         mask_kwargs: dict[str, Any] = {}
         attention_mask = getattr(ctx.data, "attention_mask", None)
         if attention_mask is not None:
-            mask_kwargs = prepared.backend._prepare_kwargs({"attention_mask": attention_mask})
+            mask_kwargs = prepared.backend._prepare_kwargs({ATTENTION_MASK_KEY: attention_mask})
 
         resolved_sample_names = prepared.raitap_kwargs.get("sample_names")
         if resolved_sample_names is not None:

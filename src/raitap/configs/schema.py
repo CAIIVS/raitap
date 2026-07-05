@@ -83,22 +83,18 @@ class InputsConfig:
 @dataclass
 class TextCsvInputsConfig(InputsConfig):
     _target_: str = "TextCsvInputParser"
-    source: str = MISSING
     text_column: str = MISSING
-    id_column: str | None = None
 
 
 @dataclass
 class TextJsonlInputsConfig(InputsConfig):
     _target_: str = "TextJsonlInputParser"
-    source: str = MISSING
     text_field: str = "text"
 
 
 @dataclass
 class TextDirInputsConfig(InputsConfig):
     _target_: str = "TextDirInputParser"
-    source: str = MISSING
 
 
 @dataclass

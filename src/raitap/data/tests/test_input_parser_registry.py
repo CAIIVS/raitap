@@ -16,7 +16,7 @@ _COMPOSED_TARGET = "raitap.data.tests.test_input_parser_registry.DummyComposeInp
 class DummyComposeInputParser:
     supported_modalities = frozenset({InputModality.text})
 
-    def parse(self, *, source: str, sample_ids: list[str] | None) -> list[str]:
+    def parse(self, *, source: str) -> list[str]:
         return ["a", "b"]
 
 
@@ -55,13 +55,13 @@ def test_decorated_parser_satisfies_protocol_and_registers() -> None:
     class DummyParser:
         supported_modalities = frozenset({InputModality.text})
 
-        def parse(self, *, source: str, sample_ids: list[str] | None) -> list[str]:
+        def parse(self, *, source: str) -> list[str]:
             return ["a", "b"]
 
     p = DummyParser()
     assert isinstance(p, InputParser)
     assert InputModality.text in p.supported_modalities
-    assert p.parse(source="x", sample_ids=None) == ["a", "b"]
+    assert p.parse(source="x") == ["a", "b"]
 
 
 def test_create_label_parser_still_works_after_factory_refactor() -> None:

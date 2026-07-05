@@ -64,5 +64,5 @@ class InputModality(StrEnum):
 MODALITY_EXTENSIONS: dict[InputModality, frozenset[str]] = {
     InputModality.image: frozenset({".jpg", ".jpeg", ".png", ".bmp", ".webp"}),
     InputModality.tabular: frozenset({".csv", ".tsv", ".parquet"}),
-    InputModality.text: frozenset({".txt"}),
+    InputModality.text: frozenset({".txt", ".md"}),
 }

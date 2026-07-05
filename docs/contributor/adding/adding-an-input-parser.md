@@ -15,6 +15,10 @@ tells `Data._load_data` to read the input parser, then tokenise its output
 into `input_ids` + `attention_mask`. Image and tabular sources still load
 directly from `data.source`; they do not go through this seam.
 
+The canonical source path is always `data.source` — it is passed into
+`parse(source=...)` at call time. `data.inputs` carries only format options
+(e.g. `text_column`); it never repeats the source path.
+
 The registry lives in `src/raitap/data/input_parsers/` and is a straight
 clone of `src/raitap/data/label_parsers/` (the label-parser seam, see
 {doc}`/contributor/modules/data`): same `FamilyConfig` shape, same
@@ -35,12 +39,15 @@ Your parser is any class that satisfies the `InputParser` protocol
 class to inherit. The protocol asks for exactly two things:
 
 - `supported_modalities: frozenset[InputModality]` (attribute)
-- `parse(self, *, source: str, sample_ids: list[str] | None) -> list[str]` (method)
+- `parse(self, *, source: str) -> list[str]` (method)
 
 You never write `class InputParser(Protocol)` yourself, that is the framework
 contract. You write a concrete class (`PdfInputParser` below); the
 `@input_parser` decorator registers it, and because the protocol is
 `runtime_checkable`, the factory verifies your class satisfies the contract.
+`Data._load_data` also gates on `supported_modalities`: it raises if
+`InputModality.text` is not in your parser's set, so a misregistered or
+image-only parser fails loudly instead of silently producing garbage.
 
 ## 1. Add a `PdfInputsConfig` schema
 
@@ -50,8 +57,9 @@ In `src/raitap/configs/schema.py`, subclass `InputsConfig`:
 @dataclass
 class PdfInputsConfig(InputsConfig):
     _target_: str = "PdfInputParser"
-    source: str = MISSING
-    # add only the fields this variant actually uses, e.g. a page range
+    # add only the format fields this variant actually uses, e.g. a page
+    # range. Never add a ``source`` field here — the source path is always
+    # ``data.source``, passed into ``parse(source=...)`` at call time.
 ```
 
 `_target_` must match the class name from step 2 (resolved against
@@ -65,6 +73,7 @@ Create `src/raitap/data/input_parsers/pdf.py`, decorated with `@input_parser`:
 from pathlib import Path
 
 from raitap.configs.schema import PdfInputsConfig
+from raitap.data.data import SourceKind, get_source_path
 from raitap.data.input_parsers.registration import input_parser
 from raitap.data.types import InputModality
 
@@ -73,13 +82,11 @@ from raitap.data.types import InputModality
 class PdfInputParser:
     supported_modalities = frozenset({InputModality.text})
 
-    def __init__(self, *, source: str) -> None:
-        self.source = source
-
-    def parse(self, *, source: str, sample_ids: list[str] | None) -> list[str]:
+    def parse(self, *, source: str) -> list[str]:
         from pypdf import PdfReader  # lazy: optional dep, imported only when this parser runs
 
-        files = sorted(Path(self.source).glob("*.pdf"))
+        root = Path(get_source_path(source, kind=SourceKind.DATA))
+        files = sorted(root.glob("*.pdf"))
         return ["\n".join(page.extract_text() for page in PdfReader(f).pages) for f in files]
 ```
 
@@ -92,8 +99,9 @@ Notes:
   `TextCsvInputParser`.
 - Import the optional library **inside** `parse`, never at module top level,
   so the core install can import the module without `pypdf` present.
-- `sample_ids` is passed for parity with the label seam; ignore it if your
-  format has no per-sample id.
+- `parse` receives `source` (the resolved `data.source`) on every call; do not
+  store a `source` on `__init__` or add a `source` config field — that
+  reintroduces the double-source-of-truth bug this seam was fixed to avoid.
 
 ## 3. Import in `__init__.py`
 
@@ -123,8 +131,7 @@ model:
 
 data:
   source: "./data/reports"
-  inputs:
-    source: "./data/reports"
+  inputs: {}   # no format fields needed for this parser
 ```
 
 `create_input_parser` (`src/raitap/data/input_parsers/factory.py`) resolves

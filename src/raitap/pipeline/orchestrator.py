@@ -26,6 +26,7 @@ from raitap.reproducibility import (
     reproducibility_caveat,
     write_reproducibility_md,
 )
+from raitap.task_families.base import ATTENTION_MASK_KEY
 from raitap.tracking import BaseTracker
 from raitap.utils.diagnostics import Module
 from raitap.utils.lazy import lazy_import
@@ -176,7 +177,7 @@ def run_without_tracking(
             config,
             model.backend,
             data.tensor,
-            forward_kwargs=None if attention_mask is None else {"attention_mask": attention_mask},
+            forward_kwargs=None if attention_mask is None else {ATTENTION_MASK_KEY: attention_mask},
         )
 
     context = PhaseContext(

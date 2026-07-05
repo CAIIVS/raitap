@@ -12,12 +12,10 @@ from raitap.data.types import InputModality
 class TextCsvInputParser:
     supported_modalities = frozenset({InputModality.text})
 
-    def __init__(self, *, source: str, text_column: str, id_column: str | None = None) -> None:
-        self.source = source
+    def __init__(self, *, text_column: str) -> None:
         self.text_column = text_column
-        self.id_column = id_column
 
-    def parse(self, *, source: str, sample_ids: list[str] | None) -> list[str]:
-        path = get_source_path(self.source, kind=SourceKind.DATA)
+    def parse(self, *, source: str) -> list[str]:
+        path = get_source_path(source, kind=SourceKind.DATA)
         frame = _load_tabular_frame(path)
         return [str(v) for v in frame[self.text_column].tolist()]

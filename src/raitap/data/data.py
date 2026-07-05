@@ -137,7 +137,12 @@ class Data(Trackable):
             from raitap.data.input_parsers.factory import create_input_parser
 
             parser = create_input_parser(inputs_cfg)
-            texts = parser.parse(source=source, sample_ids=None)
+            if InputModality.text not in parser.supported_modalities:
+                raise ValueError(
+                    f"{type(parser).__name__} does not support text inputs "
+                    f"(supported_modalities={parser.supported_modalities})."
+                )
+            texts = parser.parse(source=source)
             tokenizer = AutoTokenizer.from_pretrained(tokenizer_id)
             input_ids, attention_mask = _tokenise_texts(texts, tokenizer=tokenizer)
             sample_ids = [str(i) for i in range(len(texts))]
