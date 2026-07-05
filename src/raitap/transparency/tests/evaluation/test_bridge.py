@@ -16,6 +16,7 @@ from raitap.transparency.contracts import (
     ExplanationSemantics,
     OutputSpaceSpec,
     ScopeDefinitionStep,
+    TensorLayout,
 )
 from raitap.transparency.evaluation.bridge import (
     derive_channel_first,
@@ -29,7 +30,11 @@ if TYPE_CHECKING:
 
 
 def _make_result(
-    tmp_path: Path, *, target: int | list[int] | None, space: ExplanationOutputSpace
+    tmp_path: Path,
+    *,
+    target: int | list[int] | None,
+    space: ExplanationOutputSpace,
+    layout: TensorLayout | None = None,
 ) -> ExplanationResult:
     return ExplanationResult(
         attributions=torch.randn(4, 3, 8, 8),
@@ -47,7 +52,7 @@ def _make_result(
             target=None,
             sample_selection=None,
             input_spec=None,
-            output_space=OutputSpaceSpec(space=space, shape=None, layout=None),
+            output_space=OutputSpaceSpec(space=space, shape=None, layout=layout),
         ),
     )
 
@@ -60,6 +65,18 @@ def test_channel_first_true_for_image_space(tmp_path: Path) -> None:
 def test_channel_first_false_for_non_image_space(tmp_path: Path) -> None:
     r = _make_result(tmp_path, target=3, space=ExplanationOutputSpace.INPUT_FEATURES)
     assert derive_channel_first(r) is False
+
+
+def test_channel_first_true_for_nchw_input_features(tmp_path: Path) -> None:
+    """Plain gradient attributions (Saliency/IG) on images stay INPUT_FEATURES
+    space but keep the NCHW layout — Quantus still needs channel_first=True (#341)."""
+    r = _make_result(
+        tmp_path,
+        target=3,
+        space=ExplanationOutputSpace.INPUT_FEATURES,
+        layout=TensorLayout.BATCH_CHANNEL_HEIGHT_WIDTH,
+    )
+    assert derive_channel_first(r) is True
 
 
 def test_resolve_scalar_target_broadcasts(tmp_path: Path) -> None:

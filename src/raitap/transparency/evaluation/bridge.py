@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import torch
 
-from raitap.transparency.contracts import ExplanationOutputSpace
+from raitap.transparency.contracts import ExplanationOutputSpace, TensorLayout
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -25,8 +25,18 @@ class QuantusArrays:
 
 
 def derive_channel_first(result: ExplanationResult) -> bool:
-    """Whether ``result``'s output space is a channel-first image spatial map."""
-    return result.semantics.output_space.space is ExplanationOutputSpace.IMAGE_SPATIAL_MAP
+    """Whether ``result``'s attributions are laid out channel-first (NCHW).
+
+    True for CAM-style spatial maps (``IMAGE_SPATIAL_MAP``) as well as any
+    other output space whose layout is ``NCHW`` — e.g. plain gradient
+    attributions (Saliency, IntegratedGradients) on image inputs, which keep
+    the input's channel-first layout (``INPUT_FEATURES`` space) rather than
+    collapsing to a spatial map.
+    """
+    output_space = result.semantics.output_space
+    if output_space.space is ExplanationOutputSpace.IMAGE_SPATIAL_MAP:
+        return True
+    return output_space.layout is TensorLayout.BATCH_CHANNEL_HEIGHT_WIDTH
 
 
 def resolve_target(result: ExplanationResult) -> int | list[int] | None:
