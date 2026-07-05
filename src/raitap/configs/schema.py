@@ -66,6 +66,8 @@ class ModelConfig:
     # the TaskKind value (e.g. "detection") for custom models the inference
     # can't recognise.
     task_kind: TaskKind | None = None
+    # HuggingFace tokenizer id/path for text models. Set => text modality.
+    tokenizer: str | None = None
 
 
 @dataclass

@@ -140,6 +140,11 @@ transparency = ["raitap[shap,captum]"]
 # this extra stays hardware-variant-free.
 xgboost = ["xgboost>=2.0", "scikit-learn>=1.3", "torch>=2.8.0,<2.9.0"]
 
+# Text model backend (HuggingFace) — AutoModelForSequenceClassification +
+# AutoTokenizer loading for the text input modality. Does not bundle torch:
+# relies on whatever torch-* extra is already installed for the pipeline.
+text = ["transformers>=4.40"]
+
 # Robustness module
 torchattacks = ["torchattacks>=3.5.1"]
 foolbox = ["foolbox>=3.3.4", "numba>=0.59"]
