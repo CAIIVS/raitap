@@ -49,3 +49,13 @@ def test_modern_and_sampling_entry_metadata(algorithm: str, stochastic: bool) ->
     assert hints.stochastic is stochastic
     expected = {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC}
     assert expected <= hints.families
+
+
+def test_shap_permutation_is_self_seeded() -> None:
+    # PermutationExplainer has a seed=None default -> self_seeded, and it must be
+    # the ONLY self_seeded SHAP entry (drift guard against mislabelling another).
+    assert ShapExplainer.algorithm_registry["PermutationExplainer"].seeding == "self_seeded"
+    self_seeded = {
+        n for n, s in ShapExplainer.algorithm_registry.items() if s.seeding == "self_seeded"
+    }
+    assert self_seeded == {"PermutationExplainer"}

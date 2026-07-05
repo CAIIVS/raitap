@@ -46,6 +46,11 @@ def test_holdout_corruptions_registered() -> None:
     assert len(reg) == 19
 
 
+def test_every_corruption_is_global_rng() -> None:
+    for hints in ImageCorruptionsAssessor.algorithm_registry.values():
+        assert hints.seeding == "global_rng"
+
+
 def test_every_entry_is_statistical_sampling_and_not_applicable() -> None:
     for hints in ImageCorruptionsAssessor.algorithm_registry.values():
         assert hints.assessment_kind is AssessmentKind.STATISTICAL_SAMPLING

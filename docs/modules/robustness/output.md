@@ -50,7 +50,7 @@ robustness semantics:
 - `semantics.objective` — `untargeted` or `targeted`.
 - `semantics.perturbation` — worst-case assessors: norm + epsilon + (optional) step size + steps; average-case assessors: corruption name + severity.
 - `semantics.families` — descriptive tags such as `gradient_sign`, `iterative`, `optimization`, or `common_corruption`.
-- `semantics.stochastic` — `true` when the algorithm is RNG-dependent (random start, sampling, statistical sampling), so the result is not bit-reproducible unless seeds are pinned. Drives the run-level reproducibility caveat.
+- `semantics.seeding` — `deterministic`, `global_rng` (random start, sampling, statistical sampling; covered by a pinned `seed` config), or `self_seeded` (owns its own seed parameter; a pinned `seed` does not reach it). Drives the run-level reproducibility caveat, which now names only the methods still non-reproducible after seeding.
 - `metrics` — empirical-only fields (`adversarial_accuracy`, `attack_success_rate`, `mean_distance`, `max_distance`); formal-only fields (`verified_rate`, `falsified_rate`, `unknown_rate`, `error_rate`, `mean_runtime`); statistical-sampling-only fields (`corrupted_accuracy`, `accuracy_ci_low`, `accuracy_ci_high`, `n_samples`, `n_correct`); `clean_accuracy` is always populated. Unused fields are omitted rather than set to `null`.
 - `kwargs` — RAITAP-owned metadata used for reporting (`sample_names`,
   `show_sample_names`).

@@ -309,3 +309,8 @@ class AppConfig:
     reporting: ReportingConfig | None = None  # Optional, null by default
     hardware: Hardware = Hardware.gpu
     experiment_name: str = "Experiment"
+    # Optional RNG seed. When set, RAITAP pins the process-global torch / numpy /
+    # random RNGs at run start, making ``global_rng`` stochastic methods
+    # reproducible. Recorded in the run dir via the resolved-config dump.
+    # ``self_seeded`` methods still need their own seed param. (issue #339)
+    seed: int | None = None

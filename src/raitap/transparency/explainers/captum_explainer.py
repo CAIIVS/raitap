@@ -117,7 +117,7 @@ def _noise_tunnel_invoker(ctx: AttributionInvokeCtx) -> torch.Tensor:
             {MethodFamily.GRADIENT},
             requires={Capability.AUTOGRAD},
             # Adds Gaussian noise (smoothgrad/vargrad); run-twice non-deterministic.
-            stochastic=True,
+            seeding="global_rng",
             invoker=_noise_tunnel_invoker,
         ),
         "FeatureAblation": ExplainerAlgorithmSpec({MethodFamily.PERTURBATION}),
@@ -125,16 +125,16 @@ def _noise_tunnel_invoker(ctx: AttributionInvokeCtx) -> torch.Tensor:
         "Occlusion": ExplainerAlgorithmSpec({MethodFamily.PERTURBATION}),
         "ShapleyValueSampling": ExplainerAlgorithmSpec(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION},
-            stochastic=True,  # random permutation sampling
+            seeding="global_rng",  # random permutation sampling
         ),
         "ShapleyValues": ExplainerAlgorithmSpec({MethodFamily.SHAPLEY, MethodFamily.PERTURBATION}),
         "KernelShap": ExplainerAlgorithmSpec(
             {MethodFamily.SHAPLEY, MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC},
-            stochastic=True,  # random coalition sampling
+            seeding="global_rng",  # random coalition sampling
         ),
         "Lime": ExplainerAlgorithmSpec(
             {MethodFamily.PERTURBATION, MethodFamily.MODEL_AGNOSTIC, MethodFamily.SURROGATE},
-            stochastic=True,  # random perturbation sampling
+            seeding="global_rng",  # random perturbation sampling
         ),
         "LayerGradCam": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT, MethodFamily.CAM},

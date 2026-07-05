@@ -119,7 +119,7 @@ def test_explanation_semantics_has_only_contract_fields() -> None:
         "sample_selection",
         "input_spec",
         "output_space",
-        "stochastic",
+        "seeding",
     ]
     assert "primary_method_family" not in {field.name for field in fields(ExplanationSemantics)}
 
@@ -301,6 +301,20 @@ def test_detection_box_gt_fields_default_unset() -> None:
     assert box.true_label_name is None
     assert box.true_match_iou is None
     assert box.ground_truth_evaluated is False
+
+
+def test_explainer_spec_seeding_drives_stochastic_property() -> None:
+    from raitap.transparency.contracts import ExplainerAlgorithmSpec
+
+    det = ExplainerAlgorithmSpec(families=frozenset())
+    assert det.seeding == "deterministic"
+    assert det.stochastic is False
+
+    glob = ExplainerAlgorithmSpec(families=frozenset(), seeding="global_rng")
+    assert glob.stochastic is True
+
+    self_seeded = ExplainerAlgorithmSpec(families=frozenset(), seeding="self_seeded")
+    assert self_seeded.stochastic is True
 
 
 def test_detection_box_gt_fields_set() -> None:

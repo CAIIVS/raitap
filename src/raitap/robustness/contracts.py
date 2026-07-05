@@ -29,6 +29,7 @@ from enum import StrEnum
 from pathlib import Path  # noqa: TC003
 from typing import Any, ClassVar, Protocol, runtime_checkable
 
+from raitap.reproducibility import Seeding  # noqa: TC001
 from raitap.transparency.contracts import InputSpec, SampleSelection  # noqa: TC001
 
 ConfiguredRobustnessVisualiser = Any
@@ -198,8 +199,10 @@ class RobustnessSemantics:
     target_classes: Sequence[int] | None = None
     sample_selection: SampleSelection | None = None
     input_spec: InputSpec | None = None
-    # Non-deterministic result (RNG-dependent); drives the reproducibility caveat (#251).
-    stochastic: bool = False
+    # RNG-source classification (issue #339). Replaces the old ``stochastic``
+    # bool. ``deterministic`` => bit-reproducible; ``global_rng`` => covered by a
+    # pinned global seed; ``self_seeded`` => owns a seed param, needs it passed.
+    seeding: Seeding = "deterministic"
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "families", frozenset(self.families))
@@ -208,6 +211,11 @@ class RobustnessSemantics:
     def case(self) -> RobustnessCase:
         """Robustness case this assessment belongs to (derived from ``assessment_kind``)."""
         return case_for(self.assessment_kind)
+
+    @property
+    def stochastic(self) -> bool:
+        """True when the result is RNG-dependent (derived from ``seeding``)."""
+        return self.seeding != "deterministic"
 
 
 @dataclass(frozen=True)

@@ -5,7 +5,7 @@ The actual phase work lives under :mod:`raitap.pipeline.phases`."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from raitap import raitap_log
 from raitap.configs import resolve_run_dir
@@ -21,8 +21,9 @@ from raitap.pipeline.ui import print_summary
 from raitap.reporting import build_report, create_report, reporting_enabled
 from raitap.reporting.sample_selection import resolve_report_sample_selection
 from raitap.reproducibility import (
+    assess_reproducibility,
+    pin_global_seed,
     reproducibility_caveat,
-    stochastic_methods,
     write_reproducibility_md,
 )
 from raitap.tracking import BaseTracker
@@ -90,6 +91,9 @@ def _run_pipeline(
         if verbose:
             print_summary(config, model)
 
+    seed = getattr(config, "seed", None)
+    if seed is not None:
+        pin_global_seed(seed)
     outputs = run_without_tracking(
         config,
         model,
@@ -97,13 +101,17 @@ def _run_pipeline(
         resolved_preprocessing=resolved_preprocessing,
     )
 
-    # Reproducibility caveat (#251). Derived once from the run's semantics. The
-    # output-dir note and the warning fire whenever a stochastic method ran —
-    # independent of reporting (the run dir + console exist regardless); only the
-    # report banner (inside build_report) is gated on reporting.
-    stochastic = stochastic_methods(outputs)
-    if stochastic:
-        write_reproducibility_md(resolve_run_dir(config), stochastic)
+    # Reproducibility caveat (#251, #339). Derived once from the run's semantics
+    # and the (maybe-unset) seed. The output-dir note and the warning fire
+    # whenever there is something to warn about — independent of reporting (the
+    # run dir + console exist regardless); only the report banner (inside
+    # build_report) is gated on reporting.
+    repro = assess_reproducibility(outputs, getattr(config, "seed", None))
+    # Write the run-level reproducibility artefact when there is something to
+    # warn about OR a seed was pinned (record the seed run-wide even if fully
+    # reproducible). Not duplicated into per-module metadata.
+    if repro.warned or repro.seed is not None:
+        write_reproducibility_md(resolve_run_dir(config), repro)
 
     report_generation = None
     if reporting_enabled(config):
@@ -113,9 +121,11 @@ def _run_pipeline(
         report = build_report(config, outputs)
         report_generation = create_report(config=config, report=report)
 
-    if stochastic:
+    if repro.warned:
         # After the "Report generated" log so it reads as a closing caveat.
-        raitap_log.warn(reproducibility_caveat(stochastic))
+        # ``reproducibility_caveat`` only returns ``None`` when nothing is
+        # warned, which the guard above rules out.
+        raitap_log.warn(cast("str", reproducibility_caveat(repro)))
 
     tracking_config = getattr(config, "tracking", None)
     has_tracker = bool(tracking_config and getattr(tracking_config, "_target_", None))

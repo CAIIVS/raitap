@@ -41,7 +41,7 @@ curated subset used in the report.
 
 Generated reports use this structure:
 
-1. **Reproducibility** (only when the run used a stochastic method)
+1. **Reproducibility** (only when at least one method is still not reproducible; silent when a pinned `seed` covers every stochastic method in the run)
 2. **Executive Summary**
 3. **Transparency Details**
 4. **Robustness Details**
@@ -53,12 +53,15 @@ placeholder rather than an empty card.
 
 ### Reproducibility
 
-When the run used a stochastic method (for example SHAP `GradientExplainer`, a
-PGD attack, or an image-corruption assessor), the report opens with a banner
-noting that the results are not bit-reproducible unless seeds are pinned, naming
-the stochastic methods. A fully deterministic run omits this section. The same
-caveat is written to `REPRODUCIBILITY.md` in the run directory and logged as a
-warning after the run. The banner renders in both HTML and PDF reports.
+When the run includes a stochastic method that is still not bit-reproducible
+(for example a self-seeding method, or a global-RNG method with no `seed`
+config pinned), the report opens with a banner naming only those methods. A
+pinned `seed` covers global-RNG methods, so a run where every stochastic
+method draws from the global RNG and a `seed` is set omits this section
+entirely. Self-seeding methods (e.g. AutoAttack) always appear, since a
+global seed does not reach their own seed parameter. The same caveat is
+written to `REPRODUCIBILITY.md` in the run directory and logged as a warning
+after the run. The banner renders in both HTML and PDF reports.
 
 ### Metrics
 

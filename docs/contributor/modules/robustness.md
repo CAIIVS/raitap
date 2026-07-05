@@ -52,13 +52,19 @@ BaseAssessor                            # root: declares assessment_kind + budge
 Every assessor declares two `ClassVar`s the framework relies on:
 
 - `algorithm_registry: ClassVar[Mapping[str, AssessorAlgorithmSpec]]`: maps
-  algorithm names to their threat model / norm / families / `stochastic` flag.
+  algorithm names to their threat model / norm / families / `seeding`.
   `assessor_semantics` uses this to build `RobustnessResult.semantics`, so the
   reported metadata always matches what the adapter actually executed. The
-  `stochastic: bool` hint is declared explicitly per algorithm (e.g. `True` for
-  PGD random-start and statistical-sampling corruptions, `False` for FGSM / CW);
-  it flows onto `semantics.stochastic` and drives the reproducibility caveat.
-  Passed via the `@adapters.robustness(algorithm_registry=...)` decorator kwarg.
+  `seeding: Seeding` hint (issue #339) is declared explicitly per algorithm as
+  one of three states: `"deterministic"` (no RNG, e.g. FGSM / CW), `"global_rng"`
+  (draws from the process-global torch/numpy/random RNG, e.g. PGD random-start
+  and statistical-sampling corruptions; a pinned `seed` config covers it), or
+  `"self_seeded"` (owns a seed parameter that time-defaults, e.g. AutoAttack; a
+  pinned `seed` does not reach it). It flows onto `semantics.seeding` and drives
+  the reproducibility caveat. A derived read-only `stochastic` property
+  (`seeding != "deterministic"`) still exists for callers that only need the
+  binary check. Passed via the `@adapters.robustness(algorithm_registry=...)`
+  decorator kwarg.
 - `budget_kwarg_source: ClassVar[str]`: `"init_kwargs"` (torchattacks reads
   the budget at construction time) or `"call_kwargs"` (foolbox reads it at
   call time). Defaults to `"init_kwargs"`.

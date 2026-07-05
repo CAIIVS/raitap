@@ -20,9 +20,11 @@ from enum import StrEnum
 from pathlib import Path  # noqa: TC003
 from typing import Any, Protocol, runtime_checkable
 
-# Runtime import (not TYPE_CHECKING): ``Capability`` appears in the public
-# ``ExplainerAlgorithmSpec.requires`` annotation, so ``typing.get_type_hints()``
-# must resolve it from module globals. It is a torch-free StrEnum.
+# Runtime imports (not TYPE_CHECKING): ``Capability`` and ``Seeding`` appear in
+# public ``ExplainerAlgorithmSpec`` / ``ExplanationSemantics`` annotations, so
+# ``typing.get_type_hints()`` must resolve them from module globals. Both are
+# torch-free (a StrEnum and a Literal).
+from raitap.reproducibility import Seeding  # noqa: TC001
 from raitap.types import Capability  # noqa: TC001
 
 ConfiguredVisualiser = Any
@@ -188,10 +190,10 @@ class ExplainerAlgorithmSpec:
     baseline_default: BaselineMode | None = None
     baseline_cardinality: BaselineCardinality | None = None
     requires: AbstractSet[Capability] = field(default_factory=frozenset)
-    # Whether this algorithm's result depends on RNG (random init/sampling), so
-    # it is not bit-reproducible unless seeds are pinned. Surfaced by the
-    # reproducibility caveat (issue #251). Declared explicitly per algorithm.
-    stochastic: bool = False
+    # RNG-source classification (issue #339). Replaces the old ``stochastic``
+    # bool. ``deterministic`` => bit-reproducible; ``global_rng`` => covered by a
+    # pinned global seed; ``self_seeded`` => owns a seed param, needs it passed.
+    seeding: Seeding = "deterministic"
     # Optional per-algorithm invoker overriding the adapter's default
     # construct-and-call path (#266). None => default path.
     invoker: Any = None
@@ -202,6 +204,11 @@ class ExplainerAlgorithmSpec:
     def __post_init__(self) -> None:
         object.__setattr__(self, "families", frozenset(self.families))
         object.__setattr__(self, "requires", frozenset(self.requires))
+
+    @property
+    def stochastic(self) -> bool:
+        """True when the algorithm depends on RNG (derived from ``seeding``)."""
+        return self.seeding != "deterministic"
 
 
 def explainer_output_kind(explainer: object) -> ExplanationPayloadKind:
@@ -354,11 +361,18 @@ class ExplanationSemantics:
     sample_selection: SampleSelection | None
     input_spec: InputSpec | None
     output_space: OutputSpaceSpec
-    # Non-deterministic result (RNG-dependent); drives the reproducibility caveat (#251).
-    stochastic: bool = False
+    # RNG-source classification (issue #339). Replaces the old ``stochastic``
+    # bool. ``deterministic`` => bit-reproducible; ``global_rng`` => covered by a
+    # pinned global seed; ``self_seeded`` => owns a seed param, needs it passed.
+    seeding: Seeding = "deterministic"
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "method_families", frozenset(self.method_families))
+
+    @property
+    def stochastic(self) -> bool:
+        """True when the result is RNG-dependent (derived from ``seeding``)."""
+        return self.seeding != "deterministic"
 
 
 @dataclass(frozen=True)

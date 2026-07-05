@@ -1,4 +1,4 @@
-"""Robustness stochastic propagation + registry flags (issue #251)."""
+"""Robustness stochastic propagation + registry flags (issues #251, #339)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,15 @@ from types import SimpleNamespace
 from raitap.robustness.assessors.foolbox_assessor import FoolboxAssessor
 from raitap.robustness.assessors.imagecorruptions_assessor import ImageCorruptionsAssessor
 from raitap.robustness.assessors.torchattacks_assessor import TorchattacksAssessor
-from raitap.robustness.semantics import assessor_semantics
+from raitap.robustness.contracts import (
+    AssessmentKind,
+    Objective,
+    PerturbationBudget,
+    PerturbationNorm,
+    RobustnessSemantics,
+    ThreatModel,
+)
+from raitap.robustness.semantics import AssessorAlgorithmSpec, assessor_semantics
 
 
 def test_registry_stochastic_flags() -> None:
@@ -55,3 +63,27 @@ def test_assessor_semantics_deterministic_attack_is_false() -> None:
     )
 
     assert semantics.stochastic is False
+
+
+def test_assessor_spec_seeding_drives_stochastic_property() -> None:
+    spec = AssessorAlgorithmSpec(
+        assessment_kind=AssessmentKind.EMPIRICAL_ATTACK,
+        threat_model=ThreatModel.WHITE_BOX,
+        objective=Objective.UNTARGETED,
+        seeding="global_rng",
+    )
+
+    assert spec.stochastic is True
+
+
+def test_robustness_semantics_carries_seeding() -> None:
+    semantics = RobustnessSemantics(
+        assessment_kind=AssessmentKind.EMPIRICAL_ATTACK,
+        threat_model=ThreatModel.WHITE_BOX,
+        objective=Objective.UNTARGETED,
+        families=frozenset({"gradient_sign"}),
+        perturbation=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.03),
+        seeding="global_rng",
+    )
+    assert semantics.seeding == "global_rng"
+    assert semantics.stochastic is True

@@ -15,12 +15,13 @@ from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+# Runtime imports (not TYPE_CHECKING): ``Capability`` and ``Seeding`` appear in
+# public ``AssessorAlgorithmSpec`` annotations, so ``typing.get_type_hints()``
+# must resolve them from module globals. Both are torch-free (a StrEnum and a
+# Literal).
+from raitap.reproducibility import Seeding  # noqa: TC001
 from raitap.transparency.contracts import InputSpec, SampleSelection
 from raitap.transparency.semantics import infer_input_spec
-
-# Runtime import (not TYPE_CHECKING): ``Capability`` appears in the public
-# ``AssessorAlgorithmSpec.requires`` annotation, so ``typing.get_type_hints()``
-# must resolve it from module globals. It is a torch-free StrEnum.
 from raitap.types import Capability  # noqa: TC001
 
 from .contracts import (
@@ -51,10 +52,10 @@ class AssessorAlgorithmSpec:
     families: AbstractSet[str] = field(default_factory=frozenset)
     default_epsilon: float | None = None
     requires: AbstractSet[Capability] = field(default_factory=frozenset)
-    # Whether this algorithm's result depends on RNG (random start/sampling), so
-    # it is not bit-reproducible unless seeds are pinned (issue #251). Declared
-    # explicitly per algorithm.
-    stochastic: bool = False
+    # RNG-source classification (issue #339). Replaces the old ``stochastic``
+    # bool. ``deterministic`` => bit-reproducible; ``global_rng`` => covered by a
+    # pinned global seed; ``self_seeded`` => owns a seed param, needs it passed.
+    seeding: Seeding = "deterministic"
     # Optional per-algorithm invoker overriding the adapter's default construct-
     # and-call path (#266). None => default path. Typed loosely (the generic
     # Invoker is structural) to avoid a torch-import cycle at this layer.
@@ -63,6 +64,11 @@ class AssessorAlgorithmSpec:
     def __post_init__(self) -> None:
         object.__setattr__(self, "families", frozenset(self.families))
         object.__setattr__(self, "requires", frozenset(self.requires))
+
+    @property
+    def stochastic(self) -> bool:
+        """True when the algorithm depends on RNG (derived from ``seeding``)."""
+        return self.seeding != "deterministic"
 
 
 _TARGET_KWARG_KEYS: frozenset[str] = frozenset(
@@ -275,5 +281,5 @@ def assessor_semantics(
         target_classes=_extract_target_classes(call_kwargs),
         sample_selection=sample_selection,
         input_spec=input_spec,
-        stochastic=hints.stochastic,
+        seeding=hints.seeding,
     )

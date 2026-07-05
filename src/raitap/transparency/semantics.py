@@ -6,6 +6,9 @@ from collections.abc import Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from typing import Any
 
+from raitap.reproducibility import (
+    Seeding,  # noqa: TC001  must stay runtime-resolvable for get_type_hints()
+)
 from raitap.types import TaskKind  # noqa: TC001  must stay runtime-resolvable for get_type_hints()
 from raitap.utils.diagnostics import Diagnostic, Module
 from raitap.utils.errors import RaitapError
@@ -62,17 +65,15 @@ def method_families_for_explainer(explainer: object) -> frozenset[MethodFamily]:
         raise _method_family_error(type(explainer).__name__, algorithm) from None
 
 
-def explainer_is_stochastic(explainer: object) -> bool:
-    """Whether the configured explainer's algorithm is RNG-dependent (issue #251).
+def explainer_seeding(explainer: object) -> Seeding:
+    """Resolve the configured explainer's RNG classification (issue #339).
 
-    Resolves the explainer's registry hints via the same 3-tier lookup as
-    :func:`method_families_for_explainer` (class registry → framework registry →
-    cross-framework name match) but never raises: any unresolved case (test
-    stubs, unknown/ambiguous algorithm) defaults to ``False``. A missing
-    declaration must never over-claim stochasticity.
+    Same 3-tier lookup as :func:`method_families_for_explainer`; never raises.
+    Any unresolved case (stubs, unknown algorithm) defaults to ``deterministic`` —
+    a missing declaration must never over-claim stochasticity.
     """
     hints = _hints_for_explainer(explainer)
-    return bool(hints.stochastic) if hints is not None else False
+    return hints.seeding if hints is not None else "deterministic"
 
 
 def _hints_for_explainer(explainer: object) -> ExplainerAlgorithmSpec | None:

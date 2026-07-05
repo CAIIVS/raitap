@@ -137,8 +137,9 @@ Captum `Layer*` algorithms attribute to a named internal layer rather than the i
 #### NoiseTunnel (SmoothGrad / VarGrad)
 
 `NoiseTunnel` wraps a base gradient method and averages attributions over noisy
-copies of the input to denoise them. It is **stochastic**, so runs trigger the
-reproducibility caveat in the report. Set `algorithm: NoiseTunnel` and name the
+copies of the input to denoise them. It draws from the process-global RNG
+(`seeding="global_rng"`), so runs trigger the reproducibility caveat in the
+report unless a `seed` is pinned. Set `algorithm: NoiseTunnel` and name the
 wrapped method with `constructor.base_algorithm`; pass the noise knobs under
 `call`.
 
@@ -235,7 +236,7 @@ All explainers accept a background reference except `TreeExplainer`. Set it with
 
 `DeepExplainer` can fail on PyTorch models that use `SiLU` activations (for example EfficientNet variants) due to autograd/in-place limitations. In those cases, use `GradientExplainer`.
 
-**Stochastic explainers** (`GradientExplainer`, `KernelExplainer`, `PermutationExplainer`, `SamplingExplainer`) are RNG-dependent and trigger the reproducibility caveat (see {doc}`output`). `PartitionExplainer`, `ExactExplainer`, `DeepExplainer`, and `TreeExplainer` are deterministic.
+**Stochastic explainers**: `GradientExplainer`, `KernelExplainer`, and `SamplingExplainer` draw from the process-global RNG (`global_rng`); a pinned `seed` config makes them reproducible. `PermutationExplainer` owns its own seed parameter (`self_seeded`); a pinned `seed` does not reach it, so it always triggers the reproducibility caveat (see {doc}`output`). `PartitionExplainer`, `ExactExplainer`, `DeepExplainer`, and `TreeExplainer` are deterministic.
 
 #### TreeExplainer (tree models)
 

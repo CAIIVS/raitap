@@ -46,3 +46,8 @@ def test_layer_method_baseline_hints(
     hints = CaptumExplainer.algorithm_registry[algorithm]
     assert hints.baseline_default == expected_mode
     assert hints.baseline_cardinality == expected_cardinality
+
+
+def test_every_captum_stochastic_entry_is_global_rng() -> None:
+    for name, spec in CaptumExplainer.algorithm_registry.items():
+        assert spec.seeding in {"deterministic", "global_rng"}, name
