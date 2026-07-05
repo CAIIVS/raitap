@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+
+# Runtime (not TYPE_CHECKING) import: Callable is in a public annotation that
+# get_type_hints() may evaluate at runtime.
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, ClassVar, overload
 
 from raitap.types import Capability, ResolvedHardware, TaskKind
@@ -10,7 +14,6 @@ from raitap.utils.errors import ModelInputShapeError
 from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from pathlib import Path
 
     import numpy as np

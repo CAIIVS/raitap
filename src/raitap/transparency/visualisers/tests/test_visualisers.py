@@ -803,6 +803,11 @@ class TestCaptumTextVisualiser:
         fig = CaptumTextVisualiser().visualise(torch.zeros(3, 5))
         assert fig is not None
 
+    def test_visualise_rejects_3d_attribution(self) -> None:
+        # An un-reduced (B, T, H) tensor must not be silently flattened.
+        with pytest.raises(ValueError, match="1-D .* or 2-D"):
+            CaptumTextVisualiser().visualise(torch.zeros(2, 4, 8))
+
     @pytest.mark.parametrize(
         "method_families",
         [

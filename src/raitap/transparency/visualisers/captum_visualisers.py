@@ -667,6 +667,14 @@ class CaptumTextVisualiser(BaseVisualiser):
             A 2-D ``(B, T)`` batch renders one bar panel per sample (row).
         """
         attr = _to_numpy(attributions)
+        if attr.ndim > 2:
+            # A token attribution is 1-D ``(T,)`` or 2-D ``(B, T)``. A higher-rank
+            # tensor (e.g. an un-reduced ``(B, T, H)`` layer output) would be
+            # silently flattened into the wrong token grid; reject it instead.
+            raise ValueError(
+                f"CaptumTextVisualiser expects a 1-D (T,) or 2-D (B, T) token attribution, "
+                f"got shape {tuple(attr.shape)}. Reduce the embedding dimension first."
+            )
         # Normalise to a batch of rows: 1-D ``(T,)`` is a single sample.
         rows = attr.reshape(1, -1) if attr.ndim == 1 else attr.reshape(attr.shape[0], -1)
         n_samples, n_tokens = rows.shape
