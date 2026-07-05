@@ -20,6 +20,8 @@ Supported inputs include:
 - A single image file
 - A CSV, TSV, or Parquet file
 - A directory containing CSV, TSV, or Parquet files
+- Text (a CSV/TSV column, a JSONL field, or a directory of `.txt` files).
+  Set `model.tokenizer` and pick a `data/inputs` variant, see below.
 
 Example (flat directory):
 
@@ -173,6 +175,55 @@ subdirs, RAITAP warns and falls back to predictions as metric targets.
 
 If you want to evaluate metrics against ground-truth labels, configure the
 optional `data.labels` block as described in {doc}`configuration`.
+
+## Text inputs
+
+Text needs two things: `model.tokenizer` (a HuggingFace hub id or local path,
+selects the text modality) and a `data.inputs` variant that reads the raw
+strings. Install the extra first: `uv sync --extra text`.
+
+```{config-tabs}
+:yaml:
+defaults:
+  - raitap_schema
+  - data/inputs: text_csv
+  - data/labels: tabular
+  - _self_
+
+model:
+  source: distilbert-base-uncased-finetuned-sst-2-english
+  tokenizer: distilbert-base-uncased-finetuned-sst-2-english
+  task_kind: classification
+
+data:
+  source: "./data/reviews.csv"
+  inputs:
+    source: "./data/reviews.csv"
+    text_column: "text"
+  labels:
+    source: "./data/labels.csv"
+    column: "label"
+
+:python:
+from raitap.configs.schema import TabularLabelsConfig, TextCsvInputsConfig
+from raitap.data import DataConfig
+from raitap.models import ModelConfig
+
+model = ModelConfig(
+    source="distilbert-base-uncased-finetuned-sst-2-english",
+    tokenizer="distilbert-base-uncased-finetuned-sst-2-english",
+    task_kind="classification",
+)
+data = DataConfig(
+    source="./data/reviews.csv",
+    inputs=TextCsvInputsConfig(source="./data/reviews.csv", text_column="text"),
+    labels=TabularLabelsConfig(source="./data/labels.csv", column="label"),
+)
+```
+
+See {doc}`configuration` for the full `data/inputs` variant table, and
+`contributor-configs/text-classification-sst2/` for a runnable end-to-end
+example (token attribution included).
 
 ## Built-in samples
 

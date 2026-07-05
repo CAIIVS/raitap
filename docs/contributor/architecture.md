@@ -111,7 +111,7 @@ src/
     │   ├── onnx_backend.py         # OnnxBackend + hardware_label
     │   └── runtime.py              # resolve_torch_device, resolve_onnx_providers
     │
-    ├── data/                       # dataset loading (images + tabular) + labels resolution
+    ├── data/                       # dataset loading (images, tabular, text) + labels resolution
     │   ├── data.py                 # Data class; samples / tabular loaders
     │   └── samples.py              # bundled sample sets (imagenet_samples, mnist_samples, …) + labels CSVs
     │

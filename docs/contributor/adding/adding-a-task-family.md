@@ -121,7 +121,7 @@ Implement `matches_model` only for an architecture-detectable family (torchvisio
 
 ## 5. Data-layer boundary
 
-The `Data` layer is still image/file-centric: it loads images into dense tensors and routes by a `task_kind` file-loading check. Non-image families (text, seq2seq) also need the `Data` layer generalised before they work end to end. That generalisation is tracked in **GH issue #253**. Image families (classification, detection, segmentation) work within the current loader.
+The `Data` layer loads images, tabular files, and (via the `data/inputs` parser registry plus `model.tokenizer`) text into tensors, then routes by a `task_kind` file-loading check. Image, tabular, and text classification all work within the current loader (see {doc}`adding-an-input-parser` for the text-source seam). A task family with a genuinely different output structure, such as seq2seq, still needs its own `Data`-layer work (tracked in GH issue #285); this section only covers what today's loader already handles.
 
 ## Worked example: detection
 

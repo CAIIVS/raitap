@@ -35,6 +35,10 @@ RAITAP allows you to use your own model in any of the following supported format
 - `.ubj`: XGBoost native binary (fitted `XGBClassifier` saved via `estimator.save_model("model.ubj")`).
   Requires the `xgboost` extra: `uv sync --extra xgboost`.
   Use with `shap.TreeExplainer` (also needs `--extra shap`) or any model-agnostic SHAP explainer.
+- A HuggingFace hub id or local path, with `model.tokenizer` also set: loads via
+  `AutoModelForSequenceClassification` + `AutoTokenizer`, selects the text
+  input modality. Requires the `text` extra: `uv sync --extra text`. See
+  {doc}`/modules/data/own-vs-built-in`.
 
 Set the `source` option to the path of your model file (see
 {doc}`configuration`). For state-dict loading also set `arch` and
