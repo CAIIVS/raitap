@@ -669,6 +669,14 @@ class CaptumTextVisualiser(BaseVisualiser):
         # Normalise to a batch of rows: 1-D ``(T,)`` is a single sample.
         rows = attr.reshape(1, -1) if attr.ndim == 1 else attr.reshape(attr.shape[0], -1)
         n_samples, n_tokens = rows.shape
+        if token_labels and n_samples > 1:
+            # One ``list[str]`` reused across samples would mislabel every token
+            # after the first sample. Per-sample labels are follow-on work (#99).
+            raise ValueError(
+                "token_labels cannot be applied to a batched (B, T) attribution: a single "
+                "label list would be reused across all samples and mislabel tokens. Omit "
+                "token_labels for batched text (per-sample labels are tracked in GH #99)."
+            )
 
         fig, axes = plt.subplots(
             n_samples,

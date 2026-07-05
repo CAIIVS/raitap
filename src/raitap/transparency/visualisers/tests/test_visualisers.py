@@ -791,6 +791,18 @@ class TestCaptumTextVisualiser:
         )
         CaptumTextVisualiser().validate_explanation(explanation, torch.zeros(2, 12), None)
 
+    def test_visualise_rejects_token_labels_for_batched_attribution(self) -> None:
+        # A single ``token_labels`` list reused across a (B, T) batch would
+        # mislabel every sample after the first; reject it loudly (#99).
+        with pytest.raises(ValueError, match="batched"):
+            CaptumTextVisualiser().visualise(
+                torch.zeros(3, 5), token_labels=[f"w{i}" for i in range(5)]
+            )
+
+    def test_visualise_batched_without_labels_renders(self) -> None:
+        fig = CaptumTextVisualiser().visualise(torch.zeros(3, 5))
+        assert fig is not None
+
     @pytest.mark.parametrize(
         "method_families",
         [
