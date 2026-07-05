@@ -36,7 +36,7 @@ def _outputs(*, stochastic: bool) -> RunOutputs:
     explanation = SimpleNamespace(
         name="shap_grad",
         algorithm="GradientExplainer",
-        semantics=SimpleNamespace(stochastic=stochastic),
+        semantics=SimpleNamespace(seeding="global_rng" if stochastic else "deterministic"),
     )
     transparency_phase = SimpleNamespace(explanations=[explanation], report_order=10)
     return RunOutputs(
@@ -63,6 +63,7 @@ def test_stochastic_run_writes_md_and_warns_with_reporting_off(
         experiment_name="repro",
         model=SimpleNamespace(source="resnet50"),
         data=SimpleNamespace(),
+        seed=None,
     )
     _patch_pipeline(monkeypatch, tmp_path, _outputs(stochastic=True))
 
@@ -79,6 +80,7 @@ def test_deterministic_run_emits_nothing(tmp_path: Path, monkeypatch: MonkeyPatc
         experiment_name="repro",
         model=SimpleNamespace(source="resnet50"),
         data=SimpleNamespace(),
+        seed=None,
     )
     _patch_pipeline(monkeypatch, tmp_path, _outputs(stochastic=False))
 
@@ -88,3 +90,19 @@ def test_deterministic_run_emits_nothing(tmp_path: Path, monkeypatch: MonkeyPatc
 
     assert not (tmp_path / REPRODUCIBILITY_FILENAME).exists()
     assert not any("not bit-reproducible" in str(w.message) for w in caught)
+
+
+def test_seed_config_pins_global_seed(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    calls: list[int] = []
+    monkeypatch.setattr(orchestrator, "pin_global_seed", lambda s: calls.append(s))
+    config = SimpleNamespace(
+        experiment_name="repro",
+        model=SimpleNamespace(source="resnet50"),
+        data=SimpleNamespace(),
+        seed=99,
+    )
+    _patch_pipeline(monkeypatch, tmp_path, _outputs(stochastic=False))
+
+    orchestrator._run_pipeline(config, verbose=False)  # type: ignore[arg-type]
+
+    assert calls == [99]
