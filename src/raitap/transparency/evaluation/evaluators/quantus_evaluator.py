@@ -10,6 +10,7 @@ from raitap.transparency.evaluation.contracts import (
 from raitap.transparency.evaluation.contracts import (
     EvaluationResult,
     EvaluationScore,
+    SkippedMetric,
 )
 from raitap.transparency.evaluation.contracts import (
     QuantusCategory as C,
@@ -25,7 +26,6 @@ if TYPE_CHECKING:
     from pathlib import Path
     from types import ModuleType
 
-    from raitap.transparency.evaluation.contracts import SkippedMetric
     from raitap.transparency.evaluation.semantics import EvaluationContext
 
 _REGISTRY: dict[str, Spec] = {
@@ -121,6 +121,20 @@ def _aggregate(values: list[float]) -> float | None:
     return sum(finite) / len(finite) if finite else None
 
 
+def _coerce_scores(raw: Any) -> list[float]:
+    # Most Quantus metrics return list[float]; some (e.g. ModelParameterRandomisation)
+    # return dict[str, list[float]] keyed by layer. Flatten dict values.
+    if isinstance(raw, dict):
+        flat: list[float] = []
+        for value in raw.values():
+            if isinstance(value, (list, tuple)):
+                flat.extend(value)
+            else:
+                flat.append(value)
+        raw = flat
+    return [float(v) for v in raw]
+
+
 @transparency_evaluator(
     registry_name="quantus",
     library="quantus",
@@ -166,7 +180,13 @@ class QuantusEvaluator(BaseEvaluator):
             if not isinstance(resolved, ResolvedMetric):
                 skipped.append(resolved)
                 continue
-            values = self._run_metric(quantus, key, spec, resolved)
+            try:
+                values = self._run_metric(quantus, key, spec, resolved)
+            except Exception as exc:  # grading is a safe post-step; never abort the phase
+                skipped.append(
+                    SkippedMetric(key, frozenset(), f"quantus metric {key!r} raised: {exc}")
+                )
+                continue
             scores.append(
                 EvaluationScore(
                     key, spec.category, values, _aggregate(values), spec.higher_is_better
@@ -193,4 +213,4 @@ class QuantusEvaluator(BaseEvaluator):
         metric = metric_cls(**init_kwargs)
         with self._rethrow():
             raw = metric(**{**resolved.call_kwargs, **self.call})
-        return [float(v) for v in raw]
+        return _coerce_scores(raw)

@@ -1,4 +1,4 @@
-"""torch<->numpy + explain_func bridge — the ONLY coupling to explainer internals (#341)."""
+"""torch<->numpy + explain_func bridge - the ONLY coupling to explainer internals (#341)."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def derive_channel_first(result: ExplanationResult) -> bool:
     """Whether ``result``'s attributions are laid out channel-first (NCHW).
 
     True for CAM-style spatial maps (``IMAGE_SPATIAL_MAP``) as well as any
-    other output space whose layout is ``NCHW`` — e.g. plain gradient
+    other output space whose layout is ``NCHW`` - e.g. plain gradient
     attributions (Saliency, IntegratedGradients) on image inputs, which keep
     the input's channel-first layout (``INPUT_FEATURES`` space) rather than
     collapsing to a spatial map.

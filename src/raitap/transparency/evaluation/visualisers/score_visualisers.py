@@ -31,7 +31,7 @@ class ScoreBarVisualiser:
         fig, ax = plt.subplots(figsize=(max(4, len(labels) * 1.2), 4))
         ax.bar(labels, values)
         ax.set_ylabel("aggregate score")
-        ax.set_title(f"Explanation quality — {evaluation.algorithm}")
+        ax.set_title(f"Explanation quality - {evaluation.algorithm}")
         ax.tick_params(axis="x", rotation=45)
         fig.tight_layout()
         return fig

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING
 
 import pytest
@@ -55,4 +56,4 @@ def test_captum_then_quantus_complexity(
     assert {"sparseness", "complexity"} <= ran
     assert not out.skipped
     for s in out.scores:
-        assert s.aggregate is None or s.aggregate == s.aggregate  # finite or None (not NaN)
+        assert s.aggregate is None or math.isfinite(s.aggregate)
