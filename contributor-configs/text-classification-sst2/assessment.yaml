@@ -1,0 +1,71 @@
+# Text-classification (SST-2 sentiment) smoke config for RAITAP (#340).
+#
+# Proves the text input modality end-to-end via the CLI: loads a HuggingFace
+# sentiment model + tokenizer, tokenises a small text CSV into input_ids +
+# attention_mask, runs the model forward pass, grades it, then runs
+# LayerIntegratedGradients token attribution and renders per-token importances
+# with CaptumTextVisualiser.
+#
+# Artifacts (artifacts/reviews.csv, artifacts/labels.csv) are gitignored
+# (contributor-configs/*/artifacts/); run build_data.py to regenerate them.
+defaults:
+  - raitap_schema
+  - data/inputs: text_csv
+  - metrics: multiclass_classification
+  - data/labels: tabular
+  - _self_
+
+hardware: cpu
+experiment_name: text-classification-sst2
+
+model:
+  # Small real sentiment classifier (2 classes: negative/positive). Setting
+  # ``tokenizer`` selects the text modality + AutoModelForSequenceClassification.
+  source: distilbert-base-uncased-finetuned-sst-2-english
+  tokenizer: distilbert-base-uncased-finetuned-sst-2-english
+  task_kind: classification
+  class_names: [negative, positive]
+
+data:
+  name: sst2-sample
+  source: ${hydra:runtime.cwd}/contributor-configs/text-classification-sst2/artifacts/reviews.csv
+  forward_batch_size: 8
+  inputs:
+    source: ${hydra:runtime.cwd}/contributor-configs/text-classification-sst2/artifacts/reviews.csv
+    text_column: text
+  labels:
+    source: ${hydra:runtime.cwd}/contributor-configs/text-classification-sst2/artifacts/labels.csv
+    column: label
+  # Declares the modality so the resolver skips the image-only preprocessing
+  # warning and semantics/visualisers see the token-sequence layout.
+  input_metadata:
+    kind: text
+    layout: TOKENS
+
+metrics:
+  # SST-2 has 2 classes; the model emits 2 logits per sample.
+  num_classes: 2
+
+transparency:
+  token_ig:
+    _target_: CaptumExplainer
+    algorithm: LayerIntegratedGradients
+    constructor:
+      # LayerIntegratedGradients attributes wrt. the embedding layer output.
+      # Dotted getattr path resolved on the loaded DistilBert model.
+      layer_path: distilbert.embeddings
+    call:
+      # Attribute the positive-sentiment class.
+      target: 1
+    raitap:
+      input_metadata:
+        kind: text
+        layout: TOKENS
+    visualisers:
+      - _target_: CaptumTextVisualiser
+
+reporting:
+  _target_: HTMLReporter
+  filename: text_classification_sst2_report
+  include_config: true
+  include_metadata: true
