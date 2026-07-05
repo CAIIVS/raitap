@@ -155,7 +155,7 @@ class OnnxBackend(ModelBackend):
             return np_outputs[0]
         return self._select_primary_numpy_output(np_outputs)
 
-    def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
+    def __call__(self, inputs: torch.Tensor, **kwargs: Any) -> torch.Tensor:
         if not isinstance(inputs, torch.Tensor):
             raise TypeError(
                 f"OnnxBackend expected torch.Tensor inputs, got {type(inputs).__name__}."

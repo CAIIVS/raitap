@@ -51,7 +51,7 @@ class _BackendStub(ModelBackend):
     def _prepare_kwargs(self, kwargs: dict[str, Any]) -> dict[str, Any]:
         return kwargs
 
-    def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
+    def __call__(self, inputs: torch.Tensor, **kwargs: Any) -> torch.Tensor:
         return self._model(inputs)
 
     def autograd_module(self) -> torch.nn.Module:

@@ -91,7 +91,7 @@ class _FakeClassificationBackend(ModelBackend):
     def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
         return inputs
 
-    def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
+    def __call__(self, inputs: torch.Tensor, **kwargs: Any) -> torch.Tensor:
         n = inputs.shape[0]
         return torch.zeros(n, self.num_classes)
 

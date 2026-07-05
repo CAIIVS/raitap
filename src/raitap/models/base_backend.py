@@ -114,7 +114,7 @@ class ModelBackend(ABC):
         return kwargs
 
     @abstractmethod
-    def __call__(self, inputs: torch.Tensor) -> Any:
+    def __call__(self, inputs: torch.Tensor, **kwargs: Any) -> Any:
         """Run inference for ``inputs``."""
 
     def predict_callable(self) -> Callable[[torch.Tensor], torch.Tensor]:

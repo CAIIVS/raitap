@@ -39,7 +39,7 @@ class TabularTreeBackend(ModelBackend, ABC):
         """Raw fitted estimator (consumed by shap.TreeExplainer)."""
         return self._estimator
 
-    def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
+    def __call__(self, inputs: torch.Tensor, **kwargs: Any) -> torch.Tensor:
         prepared = self._prepare_inputs(inputs)
         array = (
             prepared.detach().cpu().numpy()
