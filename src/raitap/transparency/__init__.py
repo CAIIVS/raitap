@@ -88,6 +88,9 @@ def _unavailable(public_name: str, dependency: str) -> _UnavailableOptionalDepen
 
 
 try:
+    # Evaluation classes — Quantus-backed explanation-quality metrics
+    from .evaluation import QuantusEvaluator, ScoreBarVisualiser
+
     # Explainer classes — public _target_ surface
     from .explainers import (
         AttributionOnlyExplainer,
@@ -129,6 +132,8 @@ except ModuleNotFoundError as error:
     check_explainer_visualiser_compat = _unavailable("check_explainer_visualiser_compat", "torch")
     create_explainer = _unavailable("create_explainer", "torch")
     create_visualisers = _unavailable("create_visualisers", "torch")
+    QuantusEvaluator = _unavailable("QuantusEvaluator", "quantus")
+    ScoreBarVisualiser = _unavailable("ScoreBarVisualiser", "matplotlib")
     ConfiguredVisualiser = _unavailable("ConfiguredVisualiser", "torch")
     ExplanationResult = _unavailable("ExplanationResult", "torch")
     VisualisationResult = _unavailable("VisualisationResult", "torch")
@@ -201,6 +206,9 @@ __all__ = [  # noqa: RUF022
     "AttributionOnlyExplainer",
     "FullExplainer",
     "ShapExplainer",
+    # Evaluation
+    "QuantusEvaluator",
+    "ScoreBarVisualiser",
     # Result objects
     "ConfiguredVisualiser",
     "ExplanationResult",
