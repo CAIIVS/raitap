@@ -93,6 +93,7 @@ nitpick_ignore_regex = [
     (r"py:class", r"raitap\.transparency\.explainers\.base_explainer\.AttributionOnlyExplainer"),
     (r"py:class", r"raitap\.transparency\.explainers\.full_explainer\.FullExplainer"),
     (r"py:class", r"raitap\.transparency\.visualisers\.base_visualiser\.BaseVisualiser"),
+    (r"py:class", r"raitap\.transparency\.evaluation\.evaluators\.base_evaluator\.BaseEvaluator"),
     (
         r"py:class",
         r"raitap\.transparency\.visualisers\.shap_visualisers\._TabularSummaryContractMixin",

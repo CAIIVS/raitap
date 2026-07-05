@@ -16,7 +16,7 @@ class ScoreBarVisualiser:
     Quantus scores are not attributions, so this does not subclass
     ``BaseVisualiser``: that base's ``validate_explanation`` gate is
     attribution-shaped and does not apply here. This is a standalone
-    renderer consuming an :class:`EvaluationResult` directly.
+    renderer consuming an ``EvaluationResult`` directly.
     """
 
     def render(self, evaluation: EvaluationResult) -> Figure:
