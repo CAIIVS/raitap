@@ -91,8 +91,9 @@ def _run_pipeline(
         if verbose:
             print_summary(config, model)
 
-    if config.seed is not None:
-        pin_global_seed(config.seed)
+    seed = getattr(config, "seed", None)
+    if seed is not None:
+        pin_global_seed(seed)
     outputs = run_without_tracking(
         config,
         model,
