@@ -182,13 +182,11 @@ Text needs two things: `model.tokenizer` (a HuggingFace hub id or local path,
 selects the text modality) and a `data.inputs` variant that reads the raw
 strings. Install the extra first: `uv sync --extra text`.
 
-Text models are **HuggingFace only** today: `model.tokenizer` loads via
-`AutoTokenizer` and `model.source` via `AutoModelForSequenceClassification`.
-Other tokenizer or model ecosystems (spaCy, tiktoken, sentencepiece, ONNX text
-models) are not supported yet (tracked in
-[#348](https://github.com/CAIIVS/raitap/issues/348)). The `data.inputs` side is different: it is
-pluggable, so the *source format* (CSV column, JSONL, directory, ...) is open,
-even though the model that consumes the tokens is HuggingFace-bound.
+`model.source` loads via `AutoModelForSequenceClassification` and
+`model.tokenizer` via `AutoTokenizer`, so any HuggingFace sequence-classification
+model works. The `data.inputs` side is pluggable: pick the variant matching your
+source format (`text_csv` reads a column, `text_jsonl` a field, `text_dir` a
+directory of files).
 
 ```{config-tabs}
 :yaml:

@@ -43,10 +43,8 @@ myst:
 :description: HuggingFace hub id or local path for a tokenizer. Setting this
   selects the text input modality: `source` loads via
   `AutoModelForSequenceClassification` and `tokenizer` via `AutoTokenizer`.
-  Text models are HuggingFace only today (no spaCy, tiktoken, sentencepiece,
-  or ONNX text path; tracked in #348). Requires the `text` extra
-  (`uv sync --extra text`) and a
-  `data.inputs` variant, see {doc}`/modules/data/own-vs-built-in`.
+  Requires the `text` extra (`uv sync --extra text`) and a `data.inputs`
+  variant, see {doc}`/modules/data/own-vs-built-in`.
 
 :yaml:
 # Option A: single model file.
