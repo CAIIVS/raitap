@@ -2,7 +2,7 @@ from raitap.data.types import MODALITY_EXTENSIONS, InputModality
 
 
 def test_input_modality_has_only_todays_members() -> None:
-    assert {m.value for m in InputModality} == {"image", "tabular"}
+    assert {m.value for m in InputModality} == {"image", "tabular", "text"}
 
 
 def test_modality_extensions_cover_every_member() -> None:

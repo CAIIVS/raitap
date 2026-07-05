@@ -55,6 +55,7 @@ class InputModality(StrEnum):
 
     image = "image"
     tabular = "tabular"
+    text = "text"
 
 
 #: Single source of truth for which file extensions map to which modality.
@@ -63,4 +64,5 @@ class InputModality(StrEnum):
 MODALITY_EXTENSIONS: dict[InputModality, frozenset[str]] = {
     InputModality.image: frozenset({".jpg", ".jpeg", ".png", ".bmp", ".webp"}),
     InputModality.tabular: frozenset({".csv", ".tsv", ".parquet"}),
+    InputModality.text: frozenset({".txt"}),
 }

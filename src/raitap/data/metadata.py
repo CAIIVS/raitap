@@ -47,6 +47,8 @@ def infer_data_input_metadata(config: object, data: object) -> DataInputMetadata
         return DataInputMetadata(kind="image", shape=shape, layout="NCHW")
     if modality is InputModality.tabular:
         return DataInputMetadata(kind="tabular", shape=shape, layout="(B,F)")
+    if modality is InputModality.text:
+        return DataInputMetadata(kind="text", shape=shape, layout="TOKENS")
 
     # Fallback for callers with no recorded modality (e.g. direct/test use):
     # sniff the source path as before.
