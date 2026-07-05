@@ -109,10 +109,10 @@ myst:
   `feature_names`. Either `kind` or `layout` alone is enough to disambiguate
   the output space. The full run pipeline auto-infers `input_metadata` from
   `data.source` for image and tabular layouts, so most users won't need to
-  set this. Direct callers of `infer_output_space` must pass it explicitly —
+  set this. Direct callers of `infer_output_space` must pass it explicitly;
   otherwise the helper raises `ValueError`. This per-explainer metadata is
-  scoped to output-space/visualiser semantics; backend input reshape is
-  controlled by `data.input_metadata.shape` instead — see
+  scoped to output-space/visualiser semantics. Backend input reshape is
+  a separate concern, controlled by `data.input_metadata.shape`; see
   {doc}`../data/configuration`.
 
 :option: raitap.baseline
@@ -122,7 +122,7 @@ myst:
   that take one (Captum `baselines`, SHAP `background_data`). Setting it on an explainer that
   takes no baseline (e.g. Saliency) raises `raitap.utils.errors.RaitapError`. A
   single-reference method (e.g. Integrated Gradients) warns if given a multi-sample
-  baseline (`n_samples > 1`) — that shape only works for a sample-set method like
+  baseline (`n_samples > 1`): that shape only works for a sample-set method like
   SHAP; use `n_samples: 1` for a broadcast reference. Omit it to fall back to the
   method's implicit default (zeros for IG, the input batch for SHAP).
 
@@ -134,6 +134,52 @@ myst:
   blocks. Use `visualisers[].call.show_sample_names` for per-visualiser sample
   name overrides; use `raitap.show_sample_names` for the shared explainer-level
   default.
+
+:option: evaluation
+:allowed: dict
+:default: null
+:description: Optional Quantus-backed explanation-quality grading for this
+  explainer. Requires the `quantus` extra (`uv sync --extra quantus`); it is
+  not pulled in by the `transparency` umbrella extra. Set
+  `evaluation._target_: raitap.transparency.QuantusEvaluator` to enable it.
+  Grading runs as a post-step after the explainer produces its attributions;
+  scores land on `TransparencyPhaseResult.evaluations`. See {doc}`output`.
+
+:option: evaluation.metrics
+:allowed: list[str]
+:default: []
+:description: Names of the Quantus metrics to compute. Empty means all
+  registered metrics. Six categories, thirteen metrics: faithfulness
+  (`faithfulness_correlation`, `pixel_flipping`, `road`), complexity
+  (`sparseness`, `complexity`), robustness (`max_sensitivity`,
+  `avg_sensitivity`), localisation (`pointing_game`,
+  `relevance_rank_accuracy`), randomisation (`model_parameter_randomisation`,
+  `random_logit`), axiomatic (`completeness`, `input_invariance`). A metric
+  whose inputs an explanation can't supply is skipped rather than run:
+  localisation always skips (no segmentation-mask source yet); robustness and
+  randomisation need re-explaining the model, only available when the
+  explainer computes attributions directly (Captum, SHAP); most metrics also
+  need the model, which RAITAP sets to eval mode automatically. See
+  {doc}`output` for how skips are reported.
+
+:option: evaluation.constructor
+:allowed: dict[str, dict]
+:default: {}
+:description: Per-metric constructor kwargs, keyed by metric name, forwarded
+  to the underlying Quantus metric class, e.g. `nr_runs` and `subset_size`
+  for `faithfulness_correlation`.
+
+:option: evaluation.call
+:allowed: dict
+:default: {}
+:description: Kwargs forwarded verbatim to every selected metric's `__call__`.
+
+:option: evaluation.raitap
+:allowed: dict
+:default: {}
+:description: RAITAP-owned evaluation options, not forwarded to Quantus.
+  `softmax` (bool, default `False`): set `true` if the model's raw output
+  needs a softmax before Quantus consumes it.
 
 :yaml:
 transparency:
@@ -152,6 +198,11 @@ transparency:
       - _target_: "CaptumImageVisualiser"
         call:
           max_samples: 1
+    evaluation:
+      _target_: "QuantusEvaluator"
+      metrics: [faithfulness_correlation, sparseness]
+      constructor:
+        faithfulness_correlation: {nr_runs: 10, subset_size: 32}
   my_second_explainer:
     _target_: "ShapExplainer"
     algorithm: "KernelExplainer"
@@ -172,7 +223,7 @@ transparency:
 :cli: transparency.captum_ig.algorithm=GradientShap
 
 :python:
-from raitap.transparency import captum, captum_image, shap, shap_bar
+from raitap.transparency import captum, captum_image, quantus, shap, shap_bar
 
 transparency = {
     "my_first_explainer": captum(
@@ -183,6 +234,10 @@ transparency = {
             "input_metadata": {"kind": "image", "layout": "NCHW"},
         },
         visualisers=[captum_image(call={"max_samples": 1})],
+        evaluation=quantus(
+            metrics=["faithfulness_correlation", "sparseness"],
+            constructor={"faithfulness_correlation": {"nr_runs": 10, "subset_size": 32}},
+        ),
     ),
     "my_second_explainer": shap(
         algorithm="KernelExplainer",

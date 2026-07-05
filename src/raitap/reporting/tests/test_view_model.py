@@ -220,6 +220,48 @@ def test_build_view_renders_verbose_local_detail_groups_as_samples() -> None:
     ]
 
 
+def test_build_view_builds_evaluation_section_and_excludes_it_from_appendix(
+    tmp_path: Path,
+) -> None:
+    image_path = tmp_path / "_assets" / "gradcam_localisation_quantus_scores.png"
+    image_path.parent.mkdir(parents=True, exist_ok=True)
+    image_path.write_bytes(
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\nIDATx\x9cc```\x00\x00"
+        b"\x00\x04\x00\x01\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+    section = ReportSection.from_groups(
+        "Explanation quality (Quantus)",
+        [
+            ReportGroup(
+                heading="gradcam_localisation",
+                images=(image_path,),
+                table_rows=(("faithfulness_correlation", "0.8000"),),
+                metadata={"role": "evaluation", "algorithm": "LayerGradCam"},
+            )
+        ],
+        metadata={"section_role": "evaluation"},
+    )
+
+    view = build_view((section,), {})
+
+    assert view.evaluation is not None
+    assert len(view.evaluation.groups) == 1
+    group = view.evaluation.groups[0]
+    assert group.heading == "gradcam_localisation"
+    assert group.table_rows == (("faithfulness_correlation", "0.8000"),)
+    assert group.image_srcs == ("_assets/gradcam_localisation_quantus_scores.png",)
+    assert "Explanation quality (Quantus)" not in [
+        appendix_section.title for appendix_section in view.appendix.sections
+    ]
+
+
+def test_build_view_evaluation_none_when_no_evaluation_section() -> None:
+    view = build_view((), {})
+
+    assert view.evaluation is None
+
+
 def test_build_view_populates_summary_model_and_data_from_metadata() -> None:
     view = build_view(
         (),

@@ -30,6 +30,12 @@ def needs_shap() -> None:
 
 
 @pytest.fixture
+def needs_quantus() -> None:
+    """Skip the test if quantus is not installed."""
+    pytest.importorskip("quantus")
+
+
+@pytest.fixture
 def needs_onnx() -> None:
     """Skip the test if ONNX dependencies are not installed."""
     pytest.importorskip("onnx")

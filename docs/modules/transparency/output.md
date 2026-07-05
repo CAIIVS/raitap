@@ -72,6 +72,65 @@ attribution tensor omit both.
 
 Most attributions land in `INPUT_FEATURES` (pixels, tabular columns) or `IMAGE_SPATIAL_MAP` (CAM methods). Non-CAM `Layer*` captum methods (LayerConductance, LayerIntegratedGradients, LayerActivation, LayerDeepLift, LayerGradientXActivation, LayerLRP) produce a raw attribution tensor aligned to the chosen hidden layer rather than the input, recorded under the output space `LAYER_ACTIVATION`. The same `attributions.pt` and `metadata.json` artifacts are written; the `LayerActivationVisualiser` renders the magnitude summary. `LayerGradCam` and `GuidedGradCam` still produce input-space maps (`IMAGE_SPATIAL_MAP`) and use `CaptumImageVisualiser`.
 
+## Explanation-quality evaluation
+
+When an explainer has an `evaluation:` block configured (see
+{doc}`configuration`), RAITAP grades its attributions with Quantus after
+computing them. Results land on `TransparencyPhaseResult.evaluations`, one
+`EvaluationResult` per graded explainer, with:
+
+- `scores`: one `EvaluationScore` per requested metric that ran, carrying the
+  per-sample `values`, the `aggregate` (mean, skipping non-finite values), and
+  `higher_is_better` (`True`, `False`, or `None` when the metric has no fixed
+  direction, e.g. randomisation metrics).
+- `skipped`: one `SkippedMetric` per requested metric that could not run,
+  naming the `missing` requirements and a human-readable `message`. A metric
+  is skipped, never a hard error, when the explanation can't supply what it
+  needs: localisation metrics always skip (no segmentation-mask source yet);
+  robustness and randomisation metrics skip unless the originating explainer
+  can re-explain (Captum, SHAP attribution explainers can; other explainers
+  cannot).
+
+Each graded explanation is persisted to `<run_dir>/evaluations.json`:
+`explanation_name`, `algorithm`, `adapter_target`, `scores` (one entry per
+metric: `metric`, `category`, `aggregate`, `values`, `higher_is_better`), and
+`skipped` (one entry per skipped metric: `metric`, `missing`, `message`).
+
+The HTML report shows an "Explanation quality (Quantus)" section, one group
+per graded explanation: a table of metric scores (`aggregate` plus a `↑`/`↓`
+arrow when the metric has a fixed direction, `n/a` when a metric produced no
+finite values, and a `skipped: <message>` row per skipped metric) and a bar
+chart of the aggregate scores. A chart rendering failure degrades that group
+to table-only; it never breaks the report.
+
+You can also render the chart yourself with
+`raitap.transparency.ScoreBarVisualiser().render(evaluation_result)`, e.g. for
+a custom chart outside the report.
+
+With a tracker configured (e.g. MLflow), each metric's `aggregate` is logged
+as `explanation_quality.<metric_name>`. Skipped metrics are not logged.
+
+### Interpreting scores
+
+Quantus scores are relative, not an absolute pass/fail grade. The `↑`/`↓` arrow
+gives the direction (higher or lower is better); it does not tell you what
+counts as "good".
+
+- Range and meaning are per-metric. `faithfulness_correlation` is a Pearson
+  correlation in `[-1, 1]` (higher better): near 0 or negative means the
+  attributions do not track what the model uses, ~0.5 is moderate, ~1 is strong.
+  `sparseness` is `[0, 1]` (higher means more concentrated attributions). Every
+  metric has its own range and definition. Consult the
+  [Quantus metric docs](https://quantus.readthedocs.io/) for each.
+- Compare within a metric, not across. Different metrics live on different
+  scales, so a 0.5 faithfulness and a 0.5 sparseness are unrelated.
+- Use it comparatively. The reliable read is relative: grade two explainers (or
+  two models) on the same data and compare the same metric. There is no
+  universal threshold.
+- Scores depend on config. `nr_runs`, `subset_size`, and the perturbation
+  baseline (set via `evaluation.constructor`) all move the numbers, so keep them
+  fixed when comparing runs.
+
 ## `baseline` block
 
 For attribution methods that use a reference input (baseline data), `metadata.json` carries a `baseline`

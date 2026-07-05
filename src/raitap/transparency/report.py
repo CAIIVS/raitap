@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from raitap.reporting.samples import SelectedSample
     from raitap.reporting.sections import ReportContext
     from raitap.tracking.base_tracker import BaseTracker
+    from raitap.transparency.evaluation.contracts import EvaluationResult, EvaluationScore
     from raitap.transparency.results import ExplanationResult, VisualisationResult
 else:
     torch = lazy_import("torch")
@@ -73,6 +74,10 @@ class TransparencyPhaseResult(Trackable):
     """
 
     explanations: list[ExplanationResult] = field(default_factory=list)
+    # Explanation-quality grades (issue #341), one per graded explanation. Empty
+    # unless a per-adapter ``evaluation`` block is configured; when empty the phase
+    # result behaves exactly as before (no extra logging, no report section).
+    evaluations: list[EvaluationResult] = field(default_factory=list)
 
     report_order: ClassVar[int] = 20
 
@@ -84,6 +89,8 @@ class TransparencyPhaseResult(Trackable):
             explanation.log(tracker, use_subdirectory=use_subdirs)
             for visualisation in explanation.visualisations:
                 visualisation.log(tracker, use_subdirectory=use_subdirs)
+        for evaluation in self.evaluations:
+            evaluation.log(tracker)
 
     def report_sections(self, ctx: ReportContext) -> tuple[ReportSection, ...]:
         sections: list[ReportSection] = []
@@ -102,6 +109,9 @@ class TransparencyPhaseResult(Trackable):
         )
         if local_section is not None:
             sections.append(local_section)
+        evaluation_section = _build_evaluation_section(self, assets_dir=ctx.assets_dir)
+        if evaluation_section is not None:
+            sections.append(evaluation_section)
         return tuple(sections)
 
 
@@ -376,6 +386,65 @@ def _build_local_section(
         groups,
         metadata={"section_role": "local"},
     )
+
+
+def _build_evaluation_section(
+    outputs: TransparencyPhaseResult, *, assets_dir: Path
+) -> ReportSection | None:
+    """Explanation-quality (Quantus) section: one group per graded explanation (#341)."""
+    if not outputs.evaluations:
+        return None
+    groups = [
+        _build_evaluation_group(result, assets_dir=assets_dir) for result in outputs.evaluations
+    ]
+    return ReportSection.from_groups(
+        "Explanation quality (Quantus)",
+        groups,
+        metadata={"section_role": "evaluation"},
+    )
+
+
+def _build_evaluation_group(result: EvaluationResult, *, assets_dir: Path) -> ReportGroup:
+    heading = result.explanation_name or result.algorithm
+    table_rows: list[tuple[str, str]] = [
+        (score.metric, _format_evaluation_score(score)) for score in result.scores
+    ]
+    table_rows.extend((skip.metric, f"skipped: {skip.message}") for skip in result.skipped)
+
+    images: tuple[Path, ...] = ()
+    try:
+        from raitap.transparency.evaluation.visualisers.score_visualisers import (
+            ScoreBarVisualiser,
+        )
+
+        figure = ScoreBarVisualiser().render(result)
+        target = assets_dir / f"{_safe_name(heading)}_quantus_scores.png"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            figure.savefig(target, bbox_inches="tight")
+        finally:
+            plt.close(figure)
+        images = (target,)
+    except Exception as exc:  # rendering must never break the report (#341)
+        raitap_log.warn("Skipping Quantus score chart for %r: %s", heading, exc)
+
+    return ReportGroup(
+        heading=heading,
+        images=images,
+        table_rows=tuple(table_rows),
+        metadata={"role": "evaluation", "algorithm": result.algorithm},
+    )
+
+
+def _format_evaluation_score(score: EvaluationScore) -> str:
+    if score.aggregate is None:
+        return "n/a"
+    formatted = f"{score.aggregate:.4f}"
+    if score.higher_is_better is True:
+        return f"{formatted} ↑"
+    if score.higher_is_better is False:
+        return f"{formatted} ↓"
+    return formatted
 
 
 def _build_verbose_local_section(

@@ -35,7 +35,14 @@ from raitap.types import ResolvedHardware
 # ``@adapters.<family>`` facade is for external plugin authors and is not used
 # in-tree (it would create an import cycle), so the scanner matches bare names.
 _ADAPTER_DECORATORS = frozenset(
-    {"transparency_adapter", "robustness_adapter", "metrics_adapter", "reporter", "tracker"}
+    {
+        "transparency_adapter",
+        "transparency_evaluator",
+        "robustness_adapter",
+        "metrics_adapter",
+        "reporter",
+        "tracker",
+    }
 )
 _VISUALISER_DECORATORS = frozenset({"transparency_visualiser", "robustness_visualiser"})
 

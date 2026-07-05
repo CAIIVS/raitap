@@ -38,15 +38,29 @@ if TYPE_CHECKING:
     from raitap.pipeline.outputs import ForwardOutput, PhaseResult
     from raitap.pipeline.phases.base import PhaseContext
     from raitap.transparency.contracts import ExplainerAdapter, InputSpec
+    from raitap.transparency.evaluation.contracts import EvaluationResult
     from raitap.transparency.results import ExplanationResult
 
 __all__ = [
     "PreparedExplainer",
+    "TransparencyOutput",
     "TransparencyPhase",
     "assess_transparency",
     "prepare_explainer",
     "resolve_explainer_runtime_kwargs",
 ]
+
+
+@dataclass
+class TransparencyOutput:
+    """What ``assess_transparency`` produces: explanations + their quality grades.
+
+    ``evaluations`` is empty unless a per-adapter ``evaluation`` block is
+    configured; grading runs as a phase post-step (issue #341).
+    """
+
+    explanations: list[ExplanationResult]
+    evaluations: list[EvaluationResult]
 
 
 class TransparencyPhase(AssessmentPhase):
@@ -56,7 +70,7 @@ class TransparencyPhase(AssessmentPhase):
         return bool(getattr(config, "transparency", None))
 
     def run(self, ctx: PhaseContext) -> PhaseResult | None:
-        explanations = assess_transparency(
+        output = assess_transparency(
             ctx.config,
             ctx.model,
             ctx.data,
@@ -64,7 +78,10 @@ class TransparencyPhase(AssessmentPhase):
             input_metadata=ctx.input_metadata,
             resolved_preprocessing=ctx.resolved_preprocessing,
         )
-        return TransparencyPhaseResult(explanations=explanations)
+        return TransparencyPhaseResult(
+            explanations=output.explanations,
+            evaluations=output.evaluations,
+        )
 
 
 def resolve_explainer_runtime_kwargs(
@@ -237,17 +254,19 @@ def assess_transparency(
     *,
     input_metadata: InputSpec | None,
     resolved_preprocessing: ResolvedPreprocessing | None = None,
-) -> list[ExplanationResult]:
+) -> TransparencyOutput:
     """Run every explainer declared under ``config.transparency``.
 
     Resolves the ``TaskFamily`` for the forward output's kind, runs the shared
     :func:`prepare_explainer` setup once per explainer, then delegates the
     per-kind scope strategy to ``family.explain``. Each explanation owns its
-    report visualisations (``ExplanationResult.visualisations``).
+    report visualisations (``ExplanationResult.visualisations``). When a
+    per-adapter ``evaluation`` block is configured, its explanations are graded
+    as a post-step (issue #341); otherwise ``evaluations`` stays empty.
     """
     explainer_names = list((getattr(config, "transparency", None) or {}).keys())
     if not explainer_names:
-        return []
+        return TransparencyOutput(explanations=[], evaluations=[])
 
     suffix = "s" if len(explainer_names) > 1 else ""
     raitap_log.info(
@@ -257,8 +276,11 @@ def assess_transparency(
         module=Module["transparency"],
     )
 
+    from raitap.transparency.evaluation.step import grade_explanations
+
     family = resolve_task_family(forward_output.task_kind)
     results: list[ExplanationResult] = []
+    evaluations: list[EvaluationResult] = []
     for name in explainer_names:
         prepared = prepare_explainer(
             config,
@@ -268,7 +290,10 @@ def assess_transparency(
             input_metadata=input_metadata,
             data=data,
         )
-        results += family.explain(
+        expls = family.explain(
             ExplainContext(prepared=prepared, forward_output=forward_output, data=data)
         )
-    return results
+        results += expls
+        evaluation_cfg = getattr(config.transparency[name], "evaluation", None)
+        evaluations += grade_explanations(evaluation_cfg, expls, prepared)
+    return TransparencyOutput(explanations=results, evaluations=evaluations)
