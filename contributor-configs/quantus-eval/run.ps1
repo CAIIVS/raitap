@@ -4,6 +4,10 @@
 
 $ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+# Run from the repo root: raitap's dev-install detection checks the cwd's
+# pyproject.toml, and only then uses `uv sync` (a bare `uv add raitap[...]`
+# inside the repo fails as a self-dependency).
+Set-Location (Join-Path $ScriptDir '..' '..')
 
 $Extras = @(
     '--extra', 'torch-intel',

@@ -5,6 +5,10 @@
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Run from the repo root: raitap's dev-install detection checks the cwd's
+# pyproject.toml, and only then uses `uv sync` (a bare `uv add raitap[...]`
+# inside the repo fails as a self-dependency).
+cd "$SCRIPT_DIR/../.."
 
 EXTRAS=(
   --extra torch-cpu
