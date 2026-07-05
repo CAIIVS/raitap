@@ -109,10 +109,10 @@ myst:
   `feature_names`. Either `kind` or `layout` alone is enough to disambiguate
   the output space. The full run pipeline auto-infers `input_metadata` from
   `data.source` for image and tabular layouts, so most users won't need to
-  set this. Direct callers of `infer_output_space` must pass it explicitly -
+  set this. Direct callers of `infer_output_space` must pass it explicitly;
   otherwise the helper raises `ValueError`. This per-explainer metadata is
-  scoped to output-space/visualiser semantics; backend input reshape is
-  controlled by `data.input_metadata.shape` instead - see
+  scoped to output-space/visualiser semantics. Backend input reshape is
+  a separate concern, controlled by `data.input_metadata.shape`; see
   {doc}`../data/configuration`.
 
 :option: raitap.baseline
@@ -122,7 +122,7 @@ myst:
   that take one (Captum `baselines`, SHAP `background_data`). Setting it on an explainer that
   takes no baseline (e.g. Saliency) raises `raitap.utils.errors.RaitapError`. A
   single-reference method (e.g. Integrated Gradients) warns if given a multi-sample
-  baseline (`n_samples > 1`) - that shape only works for a sample-set method like
+  baseline (`n_samples > 1`): that shape only works for a sample-set method like
   SHAP; use `n_samples: 1` for a broadcast reference. Omit it to fall back to the
   method's implicit default (zeros for IG, the input batch for SHAP).
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING, Any
 
 from raitap.transparency.evaluation.contracts import (
@@ -117,7 +118,7 @@ _REGISTRY: dict[str, Spec] = {
 
 
 def _aggregate(values: list[float]) -> float | None:
-    finite = [v for v in values if v == v]  # drop NaN
+    finite = [v for v in values if math.isfinite(v)]
     return sum(finite) / len(finite) if finite else None
 
 

@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import (
+    Callable,
+    Mapping,
+)
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any
+from pathlib import Path  # noqa: TC003
+from typing import Any
 
-from raitap.tracking.base_tracker import Trackable
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
-    from pathlib import Path
-
-    from raitap.tracking.base_tracker import BaseTracker
+from raitap.tracking.base_tracker import BaseTracker, Trackable
 
 
 class QuantusCategory(StrEnum):
