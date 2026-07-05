@@ -170,3 +170,18 @@ def test_reproducibility_md_records_seed_when_fully_reproducible(tmp_path: Path)
     body = path.read_text(encoding="utf-8")
     assert "42" in body  # the seed is recorded run-wide even with nothing warned
     assert "m0" in body  # listed as reproducible under the seed
+
+
+def test_caveat_separates_reproducible_global_rng_from_warned_self_seeded() -> None:
+    # Mixed run: m0 (global_rng) is covered by the pinned seed, m1 (self_seeded)
+    # never is. The caveat must name each in its own part, not blur the two.
+    report = assess_reproducibility(_named_outputs("global_rng", "self_seeded"), seed=42)
+
+    caveat = reproducibility_caveat(report)
+
+    assert caveat is not None
+    reproducible_part, _, not_reproducible_part = caveat.partition("NOT reproducible")
+    assert "m0" in reproducible_part
+    assert "m1" not in reproducible_part
+    assert "m1" in not_reproducible_part
+    assert "m0" not in not_reproducible_part

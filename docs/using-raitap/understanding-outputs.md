@@ -21,7 +21,7 @@ outputs/                                      # Hydra's default output directory
 └── 2026-02-28/                               # Run date
     └── 14-30-45/                             # Run time
         ├── __main__.log                      # Run log
-        ├── REPRODUCIBILITY.md                # Only when the run used a stochastic method
+        ├── REPRODUCIBILITY.md                # When a stochastic method ran, or a seed was pinned
         ├── .hydra/                           # Hydra configuration logs
         │   ├── config.yaml
         │   ├── hydra.yaml
@@ -61,12 +61,16 @@ artifacts for debugging and tracking. The `reports/` directory contains the
 compact report, a ZIP package with the HTML, manifest, and curated report-only
 figure assets.
 
-`REPRODUCIBILITY.md` is written only when the run used a stochastic method (for
-example SHAP `GradientExplainer`, a PGD attack, or an image-corruption assessor).
-It lists which artefacts are not bit-reproducible. The same caveat appears as a
-banner in the report and as a warning after the run. Deterministic runs write no
-such file. Each stochastic method's `metadata.json` also carries a
-`semantics.stochastic: true` field.
+`REPRODUCIBILITY.md` is written when the run used a stochastic method (for
+example SHAP `GradientExplainer`, a PGD attack, or an image-corruption assessor)
+or a `seed` was pinned. It records the pinned seed (if any), which methods are
+reproducible under that seed, and which are not bit-reproducible: self-seeding
+methods that need their own seed parameter, or any stochastic method when no
+seed was set. The same caveat appears as a report banner and a CLI warning.
+Fully deterministic runs with no seed set write no such file. Each stochastic
+method's `metadata.json` now carries `semantics.seeding`
+(`deterministic` / `global_rng` / `self_seeded`) instead of the old boolean
+`semantics.stochastic`.
 
 You may want to look at each module's output directory for more details:
 

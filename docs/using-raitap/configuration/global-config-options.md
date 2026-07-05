@@ -30,6 +30,15 @@ This section describes options that impact all modules.
 :default: "Experiment"
 :description: Name of the experiment (assessment run).
 
+:option: seed
+:allowed: int | None
+:default: None
+:description: Optional RNG seed. When set, RAITAP pins the process-global
+  torch / numpy / random RNGs at run start, making methods that draw from the
+  global RNG bit-reproducible. Methods that seed themselves (e.g. AutoAttack)
+  still need their own seed parameter. The seed is recorded in the run's
+  REPRODUCIBILITY.md.
+
 :option: hydra.run.dir
 :allowed: string
 :default: "./outputs/<date>/<time>"
@@ -48,6 +57,7 @@ hydra:
 
 hardware: "gpu"
 experiment_name: "My Experiment"
+seed: 42
 
 :python:
 from raitap import AppConfig, Hardware
@@ -58,6 +68,7 @@ from raitap import AppConfig, Hardware
 config = AppConfig(
     hardware=Hardware.gpu,
     experiment_name="My Experiment",
+    seed=42,
 )
 ```
 
@@ -65,10 +76,10 @@ config = AppConfig(
 
 ```{install-tabs}
 :uv:
-uv run raitap hardware=cpu experiment_name="My_Experiment"
+uv run raitap hardware=cpu experiment_name="My_Experiment" seed=42
 
 :pip:
-raitap hardware=cpu experiment_name="My_Experiment"
+raitap hardware=cpu experiment_name="My_Experiment" seed=42
 ```
 
 For module-specific options and examples, refer to {ref}`module-specific-configurations`.

@@ -180,7 +180,7 @@ in the codebase:
   PermutationExplainer) use the modern path.
 
 **Verification note.** Per-algorithm hints (`norm`, `threat_model`,
-`stochastic`, `families`) are verified against the installed library source,
+`seeding`, `families`) are verified against the installed library source,
 not assumed from docs or class names. When adding an invoker, verify the
 lifecycle against the installed library's source and add a unit test that
 exercises the invoker path directly.
