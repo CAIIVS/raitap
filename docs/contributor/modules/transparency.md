@@ -262,6 +262,152 @@ Transparency runs after the forward pass via `src/raitap/transparency/phase.py`
 
 Each explainer writes to its own subdirectory under the Hydra run folder. See {doc}`../../using-raitap/understanding-outputs` for the on-disk layout.
 
+## Explanation-quality evaluation (Quantus, issue #341)
+
+`src/raitap/transparency/evaluation/` grades attributions with
+[Quantus](https://github.com/understandable-machine-intelligence-lab/Quantus).
+It is a separate sub-package, not a new explainer type: it grades an
+already-computed `ExplanationResult`, it does not produce one.
+
+```text
+evaluation/
+├── contracts.py                    # QuantusCategory, EvalRequirement, QuantusMetricSpec,
+│                                    # EvaluationResult, EvaluationScore, SkippedMetric
+├── semantics.py                    # EvaluationContext, resolve_metric (the requirement gate)
+├── bridge.py                       # torch<->numpy + explain_func bridge (sole coupling point)
+├── step.py                         # grade_explanations: the transparency-phase post-step
+├── evaluators/
+│   ├── base_evaluator.py           # BaseEvaluator(AdapterMixin, ABC)
+│   ├── registration.py             # @transparency_evaluator decorator (family=None)
+│   └── quantus_evaluator.py        # QuantusEvaluator + the 13-metric _REGISTRY
+└── visualisers/
+    └── score_visualisers.py        # ScoreBarVisualiser
+```
+
+### `BaseEvaluator` / `QuantusEvaluator`
+
+`BaseEvaluator(AdapterMixin, ABC)` (`evaluators/base_evaluator.py`) declares
+one abstract method: `evaluate(ctx: EvaluationContext, *, run_dir) ->
+EvaluationResult`. It carries `algorithm_registry: ClassVar[Mapping[str,
+QuantusMetricSpec]]`, set by the `@transparency_evaluator` decorator, the same
+shape as `algorithm_registry` on `BaseExplainer` / `BaseAssessor`.
+
+`QuantusEvaluator` (`evaluators/quantus_evaluator.py`) is the sole
+implementation. Its `_REGISTRY` maps metric name to `QuantusMetricSpec`
+across all 6 `QuantusCategory` values (faithfulness, complexity, robustness,
+localisation, randomisation, axiomatic) - 13 entries. `evaluate()` resolves
+each requested metric (`self.metrics` or, if unset, every registered metric)
+via `resolve_metric`, runs the ones that resolve, and collects the rest as
+`SkippedMetric`. `_run_metric` builds `{**spec.default_kwargs,
+**self.constructor.get(key, {}), "disable_warnings": True}` as the Quantus
+metric's constructor kwargs, then calls the metric with `{**resolved.call_kwargs,
+**self.call}`, wrapped in `self._rethrow()` (inherited from `AdapterMixin`) so
+library exceptions carry the raitap adapter-family context.
+
+`@transparency_evaluator` (`evaluators/registration.py`) registers with
+`family=None`, the same pattern `@visualisers.transparency` uses: no Hydra
+config group, no schema dataclass, resolved purely by `_target_` nested under
+`transparency.<name>.evaluation`. `extra` and `library` must be passed
+explicitly (`extra="quantus"`, `library="quantus"`) since there is no family
+default to fall back on.
+
+`QuantusEvaluator.__init__` takes `call` and `raitap` via `**kwargs` rather
+than named keyword-only params. Naming them explicitly would collide with the
+`zen_meta={"call": {}, "raitap": {}}` hydra-zen attaches to every
+family-less builder in `_register_core` - hydra-zen forbids a `zen_meta` key
+that also exists in the target's own signature. `raitap.softmax` is the one
+raitap-owned option read out of that block today.
+
+### `EvalRequirement` gate
+
+`EvaluationContext.available_requirements()` (`semantics.py`) computes what an
+explanation can supply as a `frozenset[EvalRequirement]`:
+
+| `EvalRequirement` | Set when |
+| --- | --- |
+| `ATTRIBUTIONS` | Always. |
+| `MODEL` | `ctx.model is not None`. |
+| `RE_EXPLAIN` | `ctx.explainer` is an `AttributionOnlyExplainer` (Captum, SHAP originate from this; `FullExplainer` subclasses do not). |
+| `SEGMENTATION` | `ctx.masks is not None`. Always `None` today - no segmentation-mask provider exists yet (follow-up). |
+| `BASELINE` | `ctx.baseline is not None` (the explainer's `BaselineRecord`, if any). |
+
+`resolve_metric(metric, spec, ctx)` computes `spec.requires -
+ctx.available_requirements()`. Empty means the metric runs: it returns a
+`ResolvedMetric(spec, call_kwargs=ctx.gather(spec))`. Non-empty means it can't:
+it returns a `SkippedMetric(metric, missing, message)` instead of raising.
+This is a typed skip, not an error path - a config that requests
+`pointing_game` on every explainer does not fail the run, it just always
+skips until a segmentation-mask source exists. `QuantusEvaluator.evaluate`
+branches on `isinstance(resolved, ResolvedMetric)` to sort the two outcomes
+into `EvaluationResult.scores` / `.skipped`.
+
+`EvaluationContext.gather(spec)` builds the Quantus call kwargs: always
+`model`, `x_batch`, `y_batch`, `a_batch`, `device` (as `str`), `channel_first`,
+`softmax`; adds `explain_func` when `RE_EXPLAIN in spec.requires` and
+`s_batch` when `SEGMENTATION in spec.requires`.
+
+### `bridge.py`: the sole coupling contract
+
+`bridge.py` is deliberately the only file in `evaluation/` that imports from
+`raitap.transparency.explainers` / `raitap.transparency.results`. Everything
+else (`contracts.py`, `semantics.py`, `evaluators/`) works against the typed
+dataclasses `bridge.py` hands back, never against `ExplanationResult` or
+`AttributionOnlyExplainer` directly. Keep new coupling confined here.
+
+Public fields it reads off `ExplanationResult`: `.inputs`, `.attributions`
+(already CPU-detached float tensors per `ExplanationResult.__post_init__`),
+`.semantics.output_space`, `.semantics.target`, `.call_kwargs`, `.name`,
+`.adapter_target`, `.algorithm`, `.run_dir`, `.baseline`. The one method it
+calls on an explainer is `AttributionOnlyExplainer.compute_attributions` - the
+raw-tensor path, not `explain()` - because Quantus calls the wrapped
+`explain_func` once per perturbation and `explain()` would write artifacts
+every time.
+
+Four functions:
+
+- `to_quantus_arrays(result, *, target) -> QuantusArrays`: converts
+  `.inputs` / `.attributions` to the numpy `(x_batch, y_batch, a_batch)`
+  triple Quantus metrics expect.
+- `resolve_target(result) -> int | list[int] | None`: reads the
+  classification target from `call_kwargs["target"]`, falling back to
+  `result.semantics.target`.
+- `derive_channel_first(result) -> bool`: `True` for `IMAGE_SPATIAL_MAP`
+  output space or any `BATCH_CHANNEL_HEIGHT_WIDTH` layout (plain gradient
+  attributions on image input keep the input's NCHW layout even though their
+  output space is `INPUT_FEATURES`, not `IMAGE_SPATIAL_MAP`).
+- `explainer_to_explain_func(explainer, device) -> Callable`: wraps
+  `compute_attributions` as a Quantus `explain_func(model, inputs, targets,
+  **kwargs) -> np.ndarray`, tensorising Quantus's numpy args under
+  `torch.enable_grad()` and returning a detached numpy array.
+
+### Runtime wiring
+
+`step.py::grade_explanations` is the transparency-phase post-step (called
+from `phase.py::assess_transparency`, one call per configured explainer, after
+its explanations are produced). It instantiates the evaluator from
+`config.transparency[name].evaluation` (an `EvaluationConfig | None`) via
+`hydra.utils.instantiate`, no-ops (`return []`) when that block is unset or
+nothing was explained, pulls `model`/`device` off the `PreparedExplainer`'s
+backend and puts the model in eval mode (`model.eval()`; several Quantus
+MODEL-requiring metrics raise `AttributeError` on a training-mode module),
+builds one `EvaluationContext` per `ExplanationResult`, and calls
+`evaluator.evaluate(ctx, run_dir=result.run_dir)`. Results accumulate onto
+`TransparencyOutput.evaluations` / `TransparencyPhaseResult.evaluations` (see
+`phase.py`, `report.py`); `EvaluationResult.log(tracker)` logs each score's
+`aggregate` under the `explanation_quality` metric prefix.
+
+### Follow-ups (out of scope, tracked on issue #341)
+
+- **Segmentation-mask provider**: `EvaluationContext.masks` is always `None`;
+  no data-source wiring exists to fill `s_batch` for localisation metrics
+  (`pointing_game`, `relevance_rank_accuracy`). Until one lands, both always
+  skip via the `SEGMENTATION` requirement.
+- **Stochastic re-explain**: `explainer_to_explain_func` re-runs
+  `compute_attributions` once per Quantus perturbation with no seed pinning
+  of its own. For a `global_rng`/`self_seeded` explainer (issue #339 seeding
+  classification), robustness/randomisation metric values may not be
+  bit-reproducible across runs even with a pinned run-level `seed`.
+
 ## Important files
 
 - `src/raitap/transparency/contracts.py`: `ExplanationScope`, `ScopeDefinitionStep`, `ExplanationPayloadKind`, `ExplanationOutputSpace`, `MethodFamily`, `VisualisationContext`, `VisualSummarySpec`. Also defines `ExplainerAlgorithmSpec`, including the `requires: frozenset[Capability]` field for per-algorithm capability declarations.
@@ -270,5 +416,10 @@ Each explainer writes to its own subdirectory under the Hydra run folder. See {d
 - `src/raitap/transparency/explainers/base_explainer.py`: `BaseExplainer` + `AttributionOnlyExplainer`.
 - `src/raitap/transparency/explainers/full_explainer.py`: `FullExplainer`.
 - `src/raitap/transparency/visualisers/base_visualiser.py`: `BaseVisualiser` and the semantic-contract ClassVars.
+- `src/raitap/transparency/evaluation/contracts.py`: `QuantusCategory`, `EvalRequirement`, `QuantusMetricSpec`, `EvaluationResult`, `EvaluationScore`, `SkippedMetric`.
+- `src/raitap/transparency/evaluation/semantics.py`: `EvaluationContext`, `resolve_metric` (the requirement gate).
+- `src/raitap/transparency/evaluation/bridge.py`: the sole coupling point into explainer internals.
+- `src/raitap/transparency/evaluation/step.py`: `grade_explanations`, the transparency-phase post-step.
+- `src/raitap/transparency/evaluation/evaluators/quantus_evaluator.py`: `QuantusEvaluator` + the metric `_REGISTRY`.
 
 **Name resolution.** Bare class names in YAML `_target_` keys (e.g. `_target_: CaptumExplainer`) are resolved through the `@adapters.transparency` / `@visualisers.transparency` decorators and `raitap._adapters.lookup("transparency", name)`, not via the legacy class-kwarg path. To make a new class addressable by bare name, decorate it; that's the only requirement.

@@ -140,6 +140,57 @@ The family E2E matrix parametrises over algorithm names. Add an entry to keep co
 - **Transparency**: `src/raitap/transparency/tests/e2e_case_matrix.py::MATRIX_CASES`. Add a `MatrixCase(id="...", framework=..., algorithm="NewMethod", ...)`.
 - **Robustness**: `src/raitap/robustness/tests/e2e_assessor_matrix.py::MATRIX_CASES`. Add an `AssessorMatrixCase(id="...", family=..., algorithm="NewAlgo", needs_extra=..., constructor_kwargs={...})`. Keep `constructor_kwargs` minimal (low `steps`, low `n_queries`): the matrix is a wire-up smoke test, not a behaviour-sensitivity test. Each case must finish in under ~5s on CI.
 
+## 5b. Adding a Quantus metric (transparency evaluation only)
+
+The explanation-quality evaluator (`raitap.transparency.QuantusEvaluator`,
+issue #341) follows the same registry pattern, but the registry lives in
+`src/raitap/transparency/evaluation/evaluators/quantus_evaluator.py`, not on
+an explainer. Append one `QuantusMetricSpec` to `_REGISTRY`:
+
+```python
+from raitap.transparency.evaluation.contracts import (
+    EvalRequirement as Req,
+    QuantusCategory as C,
+    QuantusMetricSpec as Spec,
+)
+
+_REGISTRY: dict[str, Spec] = {
+    # ... existing entries ...
+    "new_metric": Spec(
+        C.FAITHFULNESS,               # one of the 6 QuantusCategory values
+        "NewMetric",                  # the Quantus class name, resolved via getattr(quantus, ...)
+        frozenset({Req.ATTRIBUTIONS, Req.MODEL}),  # what it needs - see below
+        higher_is_better=True,        # True / False / None (no fixed direction)
+    ),
+}
+```
+
+`requires: frozenset[EvalRequirement]` is this registry's equivalent of
+`ExplainerAlgorithmSpec.requires` / `AssessorAlgorithmSpec.requires`: it gates
+whether the metric runs for a given explanation, checked by
+`resolve_metric` in `evaluation/semantics.py`. Pick from:
+
+| `EvalRequirement` | Set when |
+| --- | --- |
+| `ATTRIBUTIONS` | Always - every metric needs the attribution tensor. Include it on every entry. |
+| `MODEL` | The metric calls the model again (most faithfulness, axiomatic metrics). |
+| `RE_EXPLAIN` | The metric re-explains under perturbation (robustness, randomisation metrics). Only satisfied when the originating explainer is an `AttributionOnlyExplainer` (Captum, SHAP). |
+| `SEGMENTATION` | The metric needs a ground-truth mask (localisation metrics). No mask source exists yet, so any metric requiring this always skips. |
+| `BASELINE` | The metric needs the explainer's reference input. |
+
+A metric missing a satisfied requirement is not an error: it is recorded as a
+`SkippedMetric` and the run continues. Set `default_kwargs` (a
+`Mapping[str, Any]`) for constructor kwargs the metric always needs; users can
+still override per-run via `evaluation.constructor.<metric_name>` in config.
+
+No adapter class, no decorator change, no `pyproject.toml` change - the
+`quantus` extra and the `@transparency_evaluator` registration on
+`QuantusEvaluator` already cover every registry entry. Add a unit test next to
+the evaluator (`src/raitap/transparency/tests/evaluation/test_quantus_evaluator.py`)
+constructing the evaluator with `metrics=["new_metric"]` against a fake
+`quantus` module (see the existing tests for the monkeypatch pattern) and
+asserting the returned `EvaluationScore` or `SkippedMetric`.
+
 ## 6. Docs
 
 Add a row to `docs/modules/<module>/frameworks-and-libraries.md` for the new algorithm so it surfaces in the user-facing "does raitap support X?" lookup. Mention the families it belongs to and whether it requires autograd (or is model-agnostic).

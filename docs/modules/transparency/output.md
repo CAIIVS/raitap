@@ -72,6 +72,34 @@ attribution tensor omit both.
 
 Most attributions land in `INPUT_FEATURES` (pixels, tabular columns) or `IMAGE_SPATIAL_MAP` (CAM methods). Non-CAM `Layer*` captum methods (LayerConductance, LayerIntegratedGradients, LayerActivation, LayerDeepLift, LayerGradientXActivation, LayerLRP) produce a raw attribution tensor aligned to the chosen hidden layer rather than the input, recorded under the output space `LAYER_ACTIVATION`. The same `attributions.pt` and `metadata.json` artifacts are written; the `LayerActivationVisualiser` renders the magnitude summary. `LayerGradCam` and `GuidedGradCam` still produce input-space maps (`IMAGE_SPATIAL_MAP`) and use `CaptumImageVisualiser`.
 
+## Explanation-quality evaluation
+
+When an explainer has an `evaluation:` block configured (see
+{doc}`configuration`), RAITAP grades its attributions with Quantus after
+computing them. Results are not written to `metadata.json`; they are returned
+in-process on `TransparencyPhaseResult.evaluations`, one `EvaluationResult` per
+graded explainer, with:
+
+- `scores`: one `EvaluationScore` per requested metric that ran, carrying the
+  per-sample `values`, the `aggregate` (mean, skipping non-finite values), and
+  `higher_is_better` (`True`, `False`, or `None` when the metric has no fixed
+  direction, e.g. randomisation metrics).
+- `skipped`: one `SkippedMetric` per requested metric that could not run,
+  naming the `missing` requirements and a human-readable `message`. A metric
+  is skipped, never a hard error, when the explanation can't supply what it
+  needs: localisation metrics always skip (no segmentation-mask source yet);
+  robustness and randomisation metrics skip unless the originating explainer
+  can re-explain (Captum, SHAP attribution explainers can; other explainers
+  cannot).
+
+Render the aggregate scores as a bar chart with
+`raitap.transparency.ScoreBarVisualiser().render(evaluation_result)`. This is
+not yet wired into the `visualisers:` config list; call it directly on the
+`EvaluationResult` objects returned in `TransparencyPhaseResult.evaluations`.
+
+With a tracker configured (e.g. MLflow), each metric's `aggregate` is logged
+as `explanation_quality.<metric_name>`. Skipped metrics are not logged.
+
 ## `baseline` block
 
 For attribution methods that use a reference input (baseline data), `metadata.json` carries a `baseline`
