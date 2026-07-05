@@ -59,6 +59,44 @@ def test_grade_instantiates_and_runs(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert len(out) == 1
 
 
+def test_grade_writes_evaluations_json_to_run_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``grade_explanations`` persists each result to ``<run_dir>/evaluations.json`` (#341)."""
+    import json
+
+    class _FakeEval:
+        def evaluate(self, ctx: Any, *, run_dir: Any) -> Any:
+            from raitap.transparency.evaluation.contracts import (
+                EvaluationResult,
+                EvaluationScore,
+                QuantusCategory,
+            )
+
+            return EvaluationResult(
+                explanation_name=ctx.result.name,
+                adapter_target="x",
+                algorithm=ctx.result.algorithm,
+                scores=[
+                    EvaluationScore("sparseness", QuantusCategory.COMPLEXITY, [0.4], 0.4, True)
+                ],
+                skipped=[],
+                run_dir=run_dir,
+            )
+
+    monkeypatch.setattr(step_mod, "instantiate", lambda cfg: _FakeEval())
+    cfg = EvaluationConfig(_target_="raitap.transparency.QuantusEvaluator", metrics=["sparseness"])
+    result = _make_result(tmp_path, target=0, space=ExplanationOutputSpace.IMAGE_SPATIAL_MAP)
+
+    step_mod.grade_explanations(cfg, [result], _StubPrepared())
+
+    written = tmp_path / "evaluations.json"
+    assert written.exists()
+    payload = json.loads(written.read_text())
+    assert payload["algorithm"] == "IntegratedGradients"
+    assert payload["scores"][0]["metric"] == "sparseness"
+
+
 def test_grade_puts_model_in_eval_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """MODEL-requiring Quantus metrics raise ``AttributeError`` unless the raw
     model pulled off the backend is switched to eval mode before grading (#341)."""

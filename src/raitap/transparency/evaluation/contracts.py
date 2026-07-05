@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import (
     Callable,
     Mapping,
@@ -79,3 +80,34 @@ class EvaluationResult(Trackable):
         metrics = {s.metric: s.aggregate for s in self.scores if s.aggregate is not None}
         if metrics:
             tracker.log_metrics(metrics, prefix="explanation_quality")
+
+    def write_artifacts(self) -> None:
+        """Write ``<run_dir>/evaluations.json``; a no-op when ``run_dir`` is unset."""
+        if self.run_dir is None:
+            return
+        self.run_dir.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "explanation_name": self.explanation_name,
+            "algorithm": self.algorithm,
+            "adapter_target": self.adapter_target,
+            "scores": [
+                {
+                    "metric": score.metric,
+                    "category": score.category.value,
+                    "aggregate": score.aggregate,
+                    "values": score.values,
+                    "higher_is_better": score.higher_is_better,
+                }
+                for score in self.scores
+            ],
+            "skipped": [
+                {
+                    "metric": skip.metric,
+                    "missing": sorted(req.value for req in skip.missing),
+                    "message": skip.message,
+                }
+                for skip in self.skipped
+            ],
+        }
+        with (self.run_dir / "evaluations.json").open("w") as handle:
+            json.dump(payload, handle, indent=2)

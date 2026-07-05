@@ -63,5 +63,7 @@ def grade_explanations(
             baseline=getattr(result, "baseline", None),
             softmax=softmax,
         )
-        out.append(evaluator.evaluate(ctx, run_dir=result.run_dir))
+        evaluation = evaluator.evaluate(ctx, run_dir=result.run_dir)
+        evaluation.write_artifacts()
+        out.append(evaluation)
     return out

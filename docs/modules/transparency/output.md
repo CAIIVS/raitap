@@ -76,9 +76,8 @@ Most attributions land in `INPUT_FEATURES` (pixels, tabular columns) or `IMAGE_S
 
 When an explainer has an `evaluation:` block configured (see
 {doc}`configuration`), RAITAP grades its attributions with Quantus after
-computing them. Results are not written to `metadata.json`; they are returned
-in-process on `TransparencyPhaseResult.evaluations`, one `EvaluationResult` per
-graded explainer, with:
+computing them. Results land on `TransparencyPhaseResult.evaluations`, one
+`EvaluationResult` per graded explainer, with:
 
 - `scores`: one `EvaluationScore` per requested metric that ran, carrying the
   per-sample `values`, the `aggregate` (mean, skipping non-finite values), and
@@ -92,10 +91,21 @@ graded explainer, with:
   can re-explain (Captum, SHAP attribution explainers can; other explainers
   cannot).
 
-Render the aggregate scores as a bar chart with
-`raitap.transparency.ScoreBarVisualiser().render(evaluation_result)`. This is
-not yet wired into the `visualisers:` config list; call it directly on the
-`EvaluationResult` objects returned in `TransparencyPhaseResult.evaluations`.
+Each graded explanation is persisted to `<run_dir>/evaluations.json`:
+`explanation_name`, `algorithm`, `adapter_target`, `scores` (one entry per
+metric: `metric`, `category`, `aggregate`, `values`, `higher_is_better`), and
+`skipped` (one entry per skipped metric: `metric`, `missing`, `message`).
+
+The HTML report shows an "Explanation quality (Quantus)" section, one group
+per graded explanation: a table of metric scores (`aggregate` plus a `↑`/`↓`
+arrow when the metric has a fixed direction, `n/a` when a metric produced no
+finite values, and a `skipped: <message>` row per skipped metric) and a bar
+chart of the aggregate scores. A chart rendering failure degrades that group
+to table-only; it never breaks the report.
+
+You can also render the chart yourself with
+`raitap.transparency.ScoreBarVisualiser().render(evaluation_result)`, e.g. for
+a custom chart outside the report.
 
 With a tracker configured (e.g. MLflow), each metric's `aggregate` is logged
 as `explanation_quality.<metric_name>`. Skipped metrics are not logged.

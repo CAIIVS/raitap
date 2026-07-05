@@ -11,11 +11,11 @@
 # faithfulness (MODEL-requiring) and a sparseness (attribution-only) score
 # alongside the usual attribution visualisation.
 #
-# Note: `ScoreBarVisualiser` (raitap.transparency.ScoreBarVisualiser) renders an
-# `EvaluationResult` as a bar chart, but is not yet config-driven — the
-# `evaluation:` schema (`EvaluationConfig`) has no `visualisers` field. Call it
-# programmatically on the `EvaluationResult`s returned in
-# `TransparencyOutput.evaluations` if you want a chart.
+# Scores render automatically: the HTML report gets an "Explanation quality
+# (Quantus)" section (table + bar chart) per graded explanation, and each is
+# persisted to `evaluations.json` in its run dir. For a custom chart, call
+# `raitap.transparency.ScoreBarVisualiser().render(evaluation_result)`
+# programmatically on the `EvaluationResult`s in `TransparencyOutput.evaluations`.
 #
 # `max_sensitivity` (a robustness metric) is deliberately left out of this demo:
 # it re-explains the model many times to estimate sensitivity, which is slow

@@ -44,5 +44,8 @@ the extras explicitly, as above, uses `uv sync` instead and runs.
 
 Per graded explanation: a score per metric (with aggregate) plus a list of
 skipped metrics and the reason each was skipped. Scores are carried on
-`TransparencyPhaseResult.evaluations` and logged to the configured tracker; a
-`ScoreBarVisualiser` renders a per-metric bar chart.
+`TransparencyPhaseResult.evaluations`, logged to the configured tracker, and:
+
+- persisted to `evaluations.json` in the explanation's run dir
+- rendered in the HTML report as an "Explanation quality (Quantus)" section
+  (table + bar chart, one group per graded explanation)
