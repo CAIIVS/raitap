@@ -146,6 +146,18 @@ class RobustnessAssessorView:
 
 
 @dataclass(frozen=True, slots=True)
+class EvaluationGroupView:
+    heading: str
+    table_rows: tuple[tuple[str, str], ...]
+    image_srcs: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluationView:
+    groups: tuple[EvaluationGroupView, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class SummaryView:
     experiment_name: str
     sample_count: int
@@ -185,6 +197,9 @@ class ReportView:
     # Run-level reproducibility caveat (issue #251); ``None`` for fully
     # deterministic runs. Rendered as a top banner, not an appendix row.
     reproducibility: str | None = None
+    # Explanation-quality (Quantus) scores + charts (issue #341); ``None`` when
+    # the run produced no evaluations.
+    evaluation: EvaluationView | None = None
 
 
 def build_view(
@@ -202,6 +217,7 @@ def build_view(
     local_samples: tuple[LocalSampleView, ...] = ()
     robustness_assessors: tuple[RobustnessAssessorView, ...] = ()
     reproducibility: str | None = None
+    evaluation: EvaluationView | None = None
 
     for section in sections:
         role = _section_role(section)
@@ -217,6 +233,8 @@ def build_view(
             robustness_assessors = _build_robustness_assessors(section)
         elif role == "reproducibility":
             reproducibility = _reproducibility_text(section)
+        elif role == "evaluation":
+            evaluation = _build_evaluation_view(section)
 
     experiment_name = _none_if_blank(metadata.get("experiment_name")) or "n/a"
     model_name = _compact_model_label(metadata.get("model_source"))
@@ -258,10 +276,13 @@ def build_view(
         robustness_assessors=robustness_assessors,
         appendix=AppendixView(
             sections=tuple(
-                section for section in sections if _section_role(section) != "reproducibility"
+                section
+                for section in sections
+                if _section_role(section) not in {"reproducibility", "evaluation"}
             )
         ),
         reproducibility=reproducibility,
+        evaluation=evaluation,
     )
 
 
@@ -486,6 +507,19 @@ def _build_explainer_view(group: ReportGroup) -> ExplainerView:
         context=context,
         technical=technical,
         baseline_image_src=baseline_image_src,
+    )
+
+
+def _build_evaluation_view(section: ReportSection) -> EvaluationView:
+    return EvaluationView(
+        groups=tuple(
+            EvaluationGroupView(
+                heading=group.heading,
+                table_rows=group.table_rows,
+                image_srcs=_image_srcs(group),
+            )
+            for group in section.groups
+        )
     )
 
 

@@ -1,0 +1,36 @@
+{% if view.evaluation %}
+  <section class="detail-section" id="evaluation-section">
+    <div class="section-heading">
+      <p class="eyebrow">Explanation quality</p>
+      <h2>Explanation quality (Quantus)</h2>
+    </div>
+
+    {% for group in view.evaluation.groups %}
+      <article class="assessor-block" id="evaluation-{{ group.heading|slug }}">
+        <header class="assessor-header">
+          <div>
+            <h3>{{ group.heading }}</h3>
+          </div>
+        </header>
+
+        {% if group.table_rows %}
+          <table>
+            <tbody>
+              {% for key, value in group.table_rows %}
+                <tr><th>{{ key }}</th><td>{{ value }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% endif %}
+
+        {% if group.image_srcs %}
+          <div class="robust-images">
+            {% for src in group.image_srcs %}
+              <figure><img class="figure" src="{{ src }}" alt="{{ group.heading }} Quantus scores"></figure>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </article>
+    {% endfor %}
+  </section>
+{% endif %}
