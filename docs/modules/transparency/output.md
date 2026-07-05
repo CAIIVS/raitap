@@ -110,6 +110,27 @@ a custom chart outside the report.
 With a tracker configured (e.g. MLflow), each metric's `aggregate` is logged
 as `explanation_quality.<metric_name>`. Skipped metrics are not logged.
 
+### Interpreting scores
+
+Quantus scores are relative, not an absolute pass/fail grade. The `↑`/`↓` arrow
+gives the direction (higher or lower is better); it does not tell you what
+counts as "good".
+
+- Range and meaning are per-metric. `faithfulness_correlation` is a Pearson
+  correlation in `[-1, 1]` (higher better): near 0 or negative means the
+  attributions do not track what the model uses, ~0.5 is moderate, ~1 is strong.
+  `sparseness` is `[0, 1]` (higher means more concentrated attributions). Every
+  metric has its own range and definition. Consult the
+  [Quantus metric docs](https://quantus.readthedocs.io/) for each.
+- Compare within a metric, not across. Different metrics live on different
+  scales, so a 0.5 faithfulness and a 0.5 sparseness are unrelated.
+- Use it comparatively. The reliable read is relative: grade two explainers (or
+  two models) on the same data and compare the same metric. There is no
+  universal threshold.
+- Scores depend on config. `nr_runs`, `subset_size`, and the perturbation
+  baseline (set via `evaluation.constructor`) all move the numbers, so keep them
+  fixed when comparing runs.
+
 ## `baseline` block
 
 For attribution methods that use a reference input (baseline data), `metadata.json` carries a `baseline`
