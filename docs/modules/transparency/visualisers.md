@@ -308,6 +308,21 @@ you set a `method`/`sign` the resolved renderer can't honour, raitap emits a
 it. `show_colorbar` is renderer-agnostic (it gates the figure's attribution
 colorbar directly), so it applies regardless of source library.
 
+## Explanation quality
+
+Unlike the visualisers above, this one is not declared under a per-explainer
+`visualisers:` list. It renders automatically in the report's "Explanation
+quality (Quantus)" section when an [`evaluation:`](configuration.md) block grades
+an explainer, and it consumes an `EvaluationResult` (metric scores) rather than
+attributions.
+
+:::::{visualiser-card}
+:name: ScoreBarVisualiser
+:intro: One bar per Quantus metric for a graded explanation: the headline "how good is this explanation?" figure. Rendered automatically in the report's "Explanation quality (Quantus)" section, and also callable programmatically via `raitap.transparency.ScoreBarVisualiser().render(evaluation_result)`.
+:how-to-read: One bar per metric, height is that metric's aggregate score across the batch. The arrow beside each metric in the accompanying table gives the direction: `↑` higher is better, `↓` lower is better, no arrow means the score has no fixed direction (read it against the metric's own definition). `n/a` means the score could not be computed (e.g. an all-NaN result). Compare bars only within the same metric: different Quantus metrics live on different scales and are not comparable to each other. A metric that could not run shows below the chart as `skipped: <reason>` instead of a bar.
+:compat: Consumes an `EvaluationResult` (Quantus metric scores), not attributions, so it does not subclass `BaseVisualiser` and is not selectable per-explainer. One group (score table plus chart) per graded explanation. See {doc}`configuration` for the `evaluation:` block and {doc}`output` for where scores are persisted.
+:::::
+
 ## Reporting helpers
 
 :::::{visualiser-card}
