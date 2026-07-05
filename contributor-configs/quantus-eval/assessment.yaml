@@ -1,0 +1,77 @@
+# Quantus explanation-quality grading demo for RAITAP (#341).
+#
+# Self-contained: uses the bundled `imagenet_samples` data and the torchvision
+# `vit_b_32` model, so it runs with no local artifacts. Runs Captum
+# IntegratedGradients, then grades the resulting attributions with the
+# `evaluation:` block: a config-driven `QuantusEvaluator` computing a
+# faithfulness (MODEL-requiring) and a sparseness (attribution-only) score
+# alongside the usual attribution visualisation.
+#
+# Note: `ScoreBarVisualiser` (raitap.transparency.ScoreBarVisualiser) renders an
+# `EvaluationResult` as a bar chart, but is not yet config-driven — the
+# `evaluation:` schema (`EvaluationConfig`) has no `visualisers` field. Call it
+# programmatically on the `EvaluationResult`s returned in
+# `TransparencyOutput.evaluations` if you want a chart.
+#
+# `max_sensitivity` (a robustness metric) is deliberately left out of this demo:
+# it re-explains the model many times to estimate sensitivity, which is slow
+# and can be flaky on a tiny CPU demo. Enable it locally if you want to
+# exercise that path.
+defaults:
+  - raitap_schema
+  - metrics: multiclass_classification
+  - data/labels: tabular
+  - _self_
+
+hardware: cpu
+experiment_name: quantus-eval
+
+model:
+  source: vit_b_32
+
+data:
+  name: imagenet_samples
+  source: imagenet_samples
+  forward_batch_size: 4
+  preprocessing: model-bundled
+  model_input_transformation: model-bundled
+  labels:
+    source: imagenet_samples
+    id_column: image
+    column: label
+
+metrics:
+  num_classes: 1000
+
+transparency:
+  integrated_gradients:
+    _target_: CaptumExplainer
+    algorithm: IntegratedGradients
+    call:
+      target: auto_pred
+    raitap:
+      batch_size: 1
+      input_metadata:
+        kind: image
+        layout: NCHW
+      show_sample_names: true
+    visualisers:
+      - _target_: CaptumImageVisualiser
+        constructor:
+          method: blended_heat_map
+          sign: absolute_value
+          show_colorbar: true
+          include_original_image: false
+        call:
+          max_samples: 4
+    evaluation:
+      _target_: raitap.transparency.QuantusEvaluator
+      metrics: [faithfulness_correlation, sparseness]
+      constructor:
+        faithfulness_correlation: {nr_runs: 10, subset_size: 32}
+
+reporting:
+  _target_: HTMLReporter
+  filename: quantus_eval_report
+  include_config: true
+  include_metadata: true
