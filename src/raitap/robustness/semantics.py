@@ -15,12 +15,13 @@ from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+# Runtime imports (not TYPE_CHECKING): ``Capability`` and ``Seeding`` appear in
+# public ``AssessorAlgorithmSpec`` annotations, so ``typing.get_type_hints()``
+# must resolve them from module globals. Both are torch-free (a StrEnum and a
+# Literal).
+from raitap.reproducibility import Seeding  # noqa: TC001
 from raitap.transparency.contracts import InputSpec, SampleSelection
 from raitap.transparency.semantics import infer_input_spec
-
-# Runtime import (not TYPE_CHECKING): ``Capability`` appears in the public
-# ``AssessorAlgorithmSpec.requires`` annotation, so ``typing.get_type_hints()``
-# must resolve it from module globals. It is a torch-free StrEnum.
 from raitap.types import Capability  # noqa: TC001
 
 from .contracts import (
@@ -38,8 +39,6 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-    from raitap.reproducibility import Seeding
 
 
 @dataclass(frozen=True)

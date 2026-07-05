@@ -52,6 +52,10 @@ def test_modern_and_sampling_entry_metadata(algorithm: str, stochastic: bool) ->
 
 
 def test_shap_permutation_is_self_seeded() -> None:
-    # the entry commented "random permutation order (seed=None default)"
-    perm = next(s for s in ShapExplainer.algorithm_registry.values() if s.seeding == "self_seeded")
-    assert perm.seeding == "self_seeded"
+    # PermutationExplainer has a seed=None default -> self_seeded, and it must be
+    # the ONLY self_seeded SHAP entry (drift guard against mislabelling another).
+    assert ShapExplainer.algorithm_registry["PermutationExplainer"].seeding == "self_seeded"
+    self_seeded = {
+        n for n, s in ShapExplainer.algorithm_registry.items() if s.seeding == "self_seeded"
+    }
+    assert self_seeded == {"PermutationExplainer"}

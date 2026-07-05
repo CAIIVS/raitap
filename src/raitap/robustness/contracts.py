@@ -27,12 +27,10 @@ from collections.abc import Set as AbstractSet  # noqa: TC003
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path  # noqa: TC003
-from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
+from typing import Any, ClassVar, Protocol, runtime_checkable
 
+from raitap.reproducibility import Seeding  # noqa: TC001
 from raitap.transparency.contracts import InputSpec, SampleSelection  # noqa: TC001
-
-if TYPE_CHECKING:
-    from raitap.reproducibility import Seeding
 
 ConfiguredRobustnessVisualiser = Any
 RobustnessResult = Any
