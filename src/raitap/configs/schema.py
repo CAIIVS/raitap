@@ -170,6 +170,21 @@ class VisualiserConfig:
 
 
 @dataclass
+class EvaluationConfig:
+    # Hydra _target_: points to an evaluator (e.g. raitap.transparency.QuantusEvaluator).
+    _target_: str = MISSING
+    # Names of the Quantus metrics to compute (e.g. "sparseness", "faithfulness_correlation").
+    metrics: list[str] = field(default_factory=list)
+    # Constructor kwargs forwarded to the underlying Quantus metric classes.
+    constructor: dict[str, Any] = field(default_factory=dict)
+    # Per-call kwargs forwarded verbatim to the metric's ``__call__``.
+    call: dict[str, Any] = field(default_factory=dict)
+    # RAITAP-owned runtime options such as batch_size and progress bars. Not
+    # forwarded to the underlying Quantus library.
+    raitap: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class TransparencyConfig:
     # Hydra _target_: points to an ExplainerAdapter
     # (e.g. AttributionOnlyExplainer or FullExplainer subclass)
@@ -197,6 +212,9 @@ class TransparencyConfig:
     # Each entry needs at least ``_target_``; ``constructor`` / ``call`` are optional
     # (same split as explainer). Default is minimal: Captum explainer + image visualiser.
     visualisers: list[Any] = field(default_factory=lambda: [{"_target_": "CaptumImageVisualiser"}])
+    # Optional Quantus-backed explanation-quality evaluation block. Left unset
+    # (``None``) by default; set ``evaluation._target_`` to enable it.
+    evaluation: EvaluationConfig | None = None
 
 
 @dataclass
