@@ -76,6 +76,11 @@ class LabelsConfig:
 
 
 @dataclass
+class InputsConfig:
+    _target_: str = MISSING
+
+
+@dataclass
 class TabularLabelsConfig(LabelsConfig):
     _target_: str = "TabularLabelParser"
     source: str = MISSING
@@ -153,6 +158,7 @@ class DataConfig:
     # modality for non-image data such as ACAS Xu's 5-feature tabular vector.
     input_metadata: dict[str, Any] | None = None
     labels: LabelsConfig | None = None
+    inputs: InputsConfig | None = None
 
 
 @dataclass
