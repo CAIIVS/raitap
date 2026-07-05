@@ -57,3 +57,20 @@ def test_evaluate_runs_static_skips_reexplain(
     assert out.scores[0].aggregate == pytest.approx(0.5)
     skipped = {s.metric for s in out.skipped}
     assert "max_sensitivity" in skipped  # no explainer -> RE_EXPLAIN missing
+
+
+def test_instantiates_from_evaluation_config() -> None:
+    from hydra.utils import instantiate
+
+    from raitap.configs.schema import EvaluationConfig
+
+    ev = instantiate(
+        EvaluationConfig(
+            _target_="raitap.transparency.QuantusEvaluator",
+            metrics=["sparseness"],
+            raitap={"softmax": True},
+        )
+    )
+    assert type(ev).__name__ == "QuantusEvaluator"
+    assert ev.metrics == ["sparseness"]
+    assert ev.softmax is True

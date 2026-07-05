@@ -134,10 +134,26 @@ class QuantusEvaluator(BaseEvaluator):
         *,
         constructor: dict[str, dict[str, Any]] | None = None,
         softmax: bool = False,
+        **kwargs: Any,
     ) -> None:
+        # ``call`` and ``raitap`` are accepted via **kwargs rather than named
+        # keyword-only params: naming them explicitly would collide with the
+        # ``zen_meta={"call": {}, "raitap": {}}`` hydra-zen adds for every
+        # family-less (``family=None``) adapter builder in ``_adapters.py``
+        # (hydra-zen forbids zen_meta names that also exist in the target's
+        # signature). Extracting them here still lets ``EvaluationConfig``
+        # (which always carries ``call``/``raitap`` fields, defaulting to
+        # ``{}``) be instantiated directly via ``hydra.utils.instantiate``.
+        call = kwargs.pop("call", None)
+        raitap = kwargs.pop("raitap", None)
+        if kwargs:
+            unexpected = ", ".join(sorted(kwargs))
+            raise TypeError(f"QuantusEvaluator got unexpected keyword argument(s): {unexpected}")
         self.metrics = metrics
         self.constructor = constructor or {}
-        self.softmax = softmax
+        self.call = call or {}
+        raitap_opts = raitap or {}
+        self.softmax = bool(raitap_opts.get("softmax", softmax))
 
     def evaluate(self, ctx: EvaluationContext, *, run_dir: Path | None) -> EvaluationResult:
         quantus = self._lazy_import()
@@ -176,5 +192,5 @@ class QuantusEvaluator(BaseEvaluator):
         }
         metric = metric_cls(**init_kwargs)
         with self._rethrow():
-            raw = metric(**resolved.call_kwargs)
+            raw = metric(**{**resolved.call_kwargs, **self.call})
         return [float(v) for v in raw]
