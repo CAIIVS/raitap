@@ -237,6 +237,15 @@ def _default_captum_invoker(ctx: AttributionInvokeCtx) -> torch.Tensor:
     call_kwargs = dict(ctx.call_kwargs)
     target = call_kwargs.pop("target", None)
     baselines = call_kwargs.pop("baselines", None)
+    # ``attention_mask`` (e.g. from a tokenized text input) is not attributed or
+    # perturbed like a regular input feature; Captum passes it through untouched
+    # to the forward as a positional ``additional_forward_args`` entry (#340).
+    additional_forward_args = call_kwargs.pop("attention_mask", None)
+    extra_call_kwargs = (
+        {"additional_forward_args": (additional_forward_args,)}
+        if additional_forward_args is not None
+        else {}
+    )
 
     try:
         method_class = getattr(captum_attr, explainer.algorithm)
@@ -259,8 +268,14 @@ def _default_captum_invoker(ctx: AttributionInvokeCtx) -> torch.Tensor:
     with explainer._rethrow():
         method = method_class(ctx.model, **init_kwargs)
         if baselines is not None:
-            return method.attribute(ctx.inputs, target=target, baselines=baselines, **call_kwargs)
-        return method.attribute(ctx.inputs, target=target, **call_kwargs)
+            return method.attribute(
+                ctx.inputs,
+                target=target,
+                baselines=baselines,
+                **extra_call_kwargs,
+                **call_kwargs,
+            )
+        return method.attribute(ctx.inputs, target=target, **extra_call_kwargs, **call_kwargs)
 
 
 def _needs_layer_resolution(algorithm: str) -> bool:
