@@ -76,22 +76,24 @@ class ClassificationFamily:
         from raitap.pipeline.phases.forward_pass import extract_primary_tensor
 
         backend, inputs = ctx.backend, ctx.inputs
+        mask = ctx.extras.get("attention_mask")
         total_batch = len(inputs)
-        if total_batch <= batch_size:
-            prepared = backend._prepare_inputs(inputs)
-            out = extract_primary_tensor(backend(prepared)).detach().cpu()
+
+        def _call(lo: int, hi: int) -> torch.Tensor:
+            prepared = backend._prepare_inputs(inputs[lo:hi])
+            kwargs = {} if mask is None else {"attention_mask": mask[lo:hi]}
+            out = extract_primary_tensor(backend(prepared, **kwargs)).detach().cpu()
             del prepared
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             return out
-        chunks: list[torch.Tensor] = []
-        for start in range(0, total_batch, batch_size):
-            end = min(start + batch_size, total_batch)
-            prepared = backend._prepare_inputs(inputs[start:end])
-            chunks.append(extract_primary_tensor(backend(prepared)).detach().cpu())
-            del prepared
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+
+        if total_batch <= batch_size:
+            return _call(0, total_batch)
+        chunks = [
+            _call(start, min(start + batch_size, total_batch))
+            for start in range(0, total_batch, batch_size)
+        ]
         return torch.cat(chunks, dim=0)
 
     def payload_batch_size(self, payload: Any) -> int:

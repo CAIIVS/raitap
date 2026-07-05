@@ -170,8 +170,14 @@ def run_without_tracking(
     # Logged from the orchestrator but logically a model operation (same pattern
     # as the reporting log below) so the chip reads "Models", not blank/infra.
     raitap_log.info("Running model forward pass...", module=Module.models)
+    attention_mask = getattr(data, "attention_mask", None)
     with torch.no_grad():
-        forward_output = forward_pass(config, model.backend, data.tensor)
+        forward_output = forward_pass(
+            config,
+            model.backend,
+            data.tensor,
+            forward_kwargs=None if attention_mask is None else {"attention_mask": attention_mask},
+        )
 
     context = PhaseContext(
         config=config,

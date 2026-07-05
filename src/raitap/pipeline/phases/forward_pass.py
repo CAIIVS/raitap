@@ -118,7 +118,11 @@ def _validate_inputs_for_task(inputs: torch.Tensor | DetectionInputs, task_kind:
 
 
 def forward_pass(
-    config: AppConfig, backend: Any, inputs: torch.Tensor | DetectionInputs
+    config: AppConfig,
+    backend: Any,
+    inputs: torch.Tensor | DetectionInputs,
+    *,
+    forward_kwargs: dict[str, torch.Tensor] | None = None,
 ) -> ForwardOutput:
     """Run the model backend forward in chunks of ``forward_batch_size``.
 
@@ -131,14 +135,18 @@ def forward_pass(
     native-resolution ``(C, H, W)`` tensor per image (sizes may differ, so
     they cannot be stacked). For classification, ``inputs`` is a dense
     ``(N, C, H, W)`` tensor.
+
+    ``forward_kwargs`` carries extra per-sample forward args (e.g. a text
+    model's ``attention_mask``) into ``ForwardContext.extras``, from which the
+    resolved task family slices and forwards them. ``None``/empty leaves the
+    image/tabular path byte-identical to a plain forward.
     """
     batch_size = resolve_forward_batch_size(config)
     task_kind = backend.task_kind
     _validate_inputs_for_task(inputs, task_kind)
     family = resolve_task_family(task_kind)
-    payload = family.extract_forward(
-        ForwardContext(backend=backend, inputs=inputs), batch_size=batch_size
-    )
+    ctx = ForwardContext(backend=backend, inputs=inputs, extras=dict(forward_kwargs or {}))
+    payload = family.extract_forward(ctx, batch_size=batch_size)
     output_kind = (
         OutputKind.PROBABILITIES
         if Capability.PREDICT_PROBA in getattr(backend, "provides", frozenset())
