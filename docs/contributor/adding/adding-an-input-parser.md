@@ -1,9 +1,9 @@
 ---
 title: "Adding an input parser"
-description: "How to add a new data/inputs variant to RAITAP: write a class that satisfies the InputParser protocol, add an *InputsConfig schema, register it with @input_parser, and select it via defaults: [data/inputs: <name>]. Walkthrough uses a fictional SuperDoc parser."
+description: "How to add a new data/inputs variant to RAITAP: write a class that satisfies the InputParser protocol, add an *InputsConfig schema, register it with @input_parser, and select it via defaults: [data/inputs: <name>]. Walkthrough adds a PDF parser."
 myst:
   html_meta:
-    "description": "How to add a new data/inputs variant to RAITAP: write a class that satisfies the InputParser protocol, add an *InputsConfig schema, register it with @input_parser, and select it via defaults: [data/inputs: <name>]. Walkthrough uses a fictional SuperDoc parser."
+    "description": "How to add a new data/inputs variant to RAITAP: write a class that satisfies the InputParser protocol, add an *InputsConfig schema, register it with @input_parser, and select it via defaults: [data/inputs: <name>]. Walkthrough adds a PDF parser."
 ---
 
 # Adding an input parser
@@ -22,11 +22,11 @@ decorator-based registration, same factory dispatch. `TextCsvInputParser`,
 `TextJsonlInputParser`, and `TextDirInputParser` are the three in-tree
 variants; copy whichever is closest to your source format.
 
-This walkthrough uses a fictional `superdoc-lib` that reads `.superdoc`
-transcript files. We will add a `SuperDocInputParser` that extracts the text
-from each file. `superdoc-lib` is an optional dependency, so the example also
-shows the `extra` wiring (the three built-in text parsers use core deps and
-skip it).
+This walkthrough adds a parser for a format RAITAP does not ship: PDF. We will
+write a `PdfInputParser` that extracts the text of each `.pdf` in a directory,
+one string per document, using `pypdf`. `pypdf` is an optional dependency, so
+the example also shows the `extra` wiring (the three built-in text parsers use
+core deps and skip it).
 
 ## The contract
 
@@ -38,20 +38,20 @@ class to inherit. The protocol asks for exactly two things:
 - `parse(self, *, source: str, sample_ids: list[str] | None) -> list[str]` (method)
 
 You never write `class InputParser(Protocol)` yourself, that is the framework
-contract. You write a concrete class (`SuperDocInputParser` below) and the
-`@input_parser` decorator both registers it and, because the protocol is
-`runtime_checkable`, lets the factory verify it satisfies the contract.
+contract. You write a concrete class (`PdfInputParser` below); the
+`@input_parser` decorator registers it, and because the protocol is
+`runtime_checkable`, the factory verifies your class satisfies the contract.
 
-## 1. Add a `SuperDocInputsConfig` schema
+## 1. Add a `PdfInputsConfig` schema
 
 In `src/raitap/configs/schema.py`, subclass `InputsConfig`:
 
 ```python
 @dataclass
-class SuperDocInputsConfig(InputsConfig):
-    _target_: str = "SuperDocInputParser"
+class PdfInputsConfig(InputsConfig):
+    _target_: str = "PdfInputParser"
     source: str = MISSING
-    section: str = "body"   # add only the fields this variant actually uses
+    # add only the fields this variant actually uses, e.g. a page range
 ```
 
 `_target_` must match the class name from step 2 (resolved against
@@ -59,39 +59,39 @@ class SuperDocInputsConfig(InputsConfig):
 
 ## 2. Write the parser class
 
-Create `src/raitap/data/input_parsers/superdoc.py`, decorated with
-`@input_parser`:
+Create `src/raitap/data/input_parsers/pdf.py`, decorated with `@input_parser`:
 
 ```python
-from raitap.configs.schema import SuperDocInputsConfig
+from pathlib import Path
+
+from raitap.configs.schema import PdfInputsConfig
 from raitap.data.input_parsers.registration import input_parser
 from raitap.data.types import InputModality
 
 
-@input_parser(registry_name="superdoc", schema=SuperDocInputsConfig, extra="superdoc")
-class SuperDocInputParser:
+@input_parser(registry_name="pdf", schema=PdfInputsConfig, extra="pdf")
+class PdfInputParser:
     supported_modalities = frozenset({InputModality.text})
 
-    def __init__(self, *, source: str, section: str = "body") -> None:
+    def __init__(self, *, source: str) -> None:
         self.source = source
-        self.section = section
 
     def parse(self, *, source: str, sample_ids: list[str] | None) -> list[str]:
-        import superdoc  # lazy: optional dep, only imported when this parser runs
+        from pypdf import PdfReader  # lazy: optional dep, imported only when this parser runs
 
-        docs = superdoc.load(self.source)
-        return [doc.text(self.section) for doc in docs]
+        files = sorted(Path(self.source).glob("*.pdf"))
+        return ["\n".join(page.extract_text() for page in PdfReader(f).pages) for f in files]
 ```
 
 Notes:
 
 - `registry_name` is required.
-- `extra="superdoc"` names the uv extra that ships `superdoc-lib`; deps
-  inference then knows a config using this parser needs it. Omit `extra`
-  (it defaults to `""`) when your parser only uses core dependencies, like
-  the built-in `TextCsvInputParser`.
+- `extra="pdf"` names the uv extra that ships `pypdf`; deps inference then
+  knows a config using this parser needs it. Omit `extra` (it defaults to
+  `""`) when your parser only uses core dependencies, like the built-in
+  `TextCsvInputParser`.
 - Import the optional library **inside** `parse`, never at module top level,
-  so the core install can import the module without `superdoc-lib` present.
+  so the core install can import the module without `pypdf` present.
 - `sample_ids` is passed for parity with the label seam; ignore it if your
   format has no per-sample id.
 
@@ -101,9 +101,9 @@ The decorator only runs when the module is imported. Add the import to
 `src/raitap/data/input_parsers/__init__.py` and export the class:
 
 ```python
-from .superdoc import SuperDocInputParser  # pyright: ignore[reportUnusedImport]
+from .pdf import PdfInputParser  # pyright: ignore[reportUnusedImport]
 
-__all__ = [..., "SuperDocInputParser"]
+__all__ = [..., "PdfInputParser"]
 ```
 
 ## 4. Select it from a config
@@ -115,17 +115,16 @@ fields under `data.inputs:`:
 ```yaml
 defaults:
   - raitap_schema
-  - data/inputs: superdoc
+  - data/inputs: pdf
   - _self_
 
 model:
   tokenizer: some-hf-model-id   # required: selects the text modality
 
 data:
-  source: "./data/transcripts"
+  source: "./data/reports"
   inputs:
-    source: "./data/transcripts"
-    section: "body"
+    source: "./data/reports"
 ```
 
 `create_input_parser` (`src/raitap/data/input_parsers/factory.py`) resolves
