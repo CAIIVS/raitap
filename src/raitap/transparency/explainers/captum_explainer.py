@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from raitap.transparency.contracts import (
     BaselineCardinality,
     BaselineMode,
     ExplainerAlgorithmSpec,
+    InputKind,
     MethodFamily,
     StructuredOutputSpec,
     StructuredPayloadKind,
@@ -265,17 +266,44 @@ def _default_captum_invoker(ctx: AttributionInvokeCtx) -> torch.Tensor:
     if explainer.algorithm == "Occlusion":
         call_kwargs = _normalise_occlusion_kwargs(call_kwargs)
 
+    # Text models (HF ``AutoModelForSequenceClassification``) return a
+    # ``SequenceClassifierOutput`` object, not a bare tensor; Captum needs the
+    # forward to yield a tensor. Wrap the forward to reduce it to logits. The
+    # ``layer`` above is resolved on the real ``ctx.model`` so LayerIntegratedGradients
+    # hooks fire on the same module the wrapper calls. Image/tabular inputs pass
+    # ``ctx.model`` through unchanged (byte-identical). (#340)
+    forward_func = _forward_func_for(ctx)
+
     with explainer._rethrow():
-        method = method_class(ctx.model, **init_kwargs)
+        method = method_class(forward_func, **init_kwargs)
         if baselines is not None:
-            return method.attribute(
+            attributions = method.attribute(
                 ctx.inputs,
                 target=target,
                 baselines=baselines,
                 **extra_call_kwargs,
                 **call_kwargs,
             )
-        return method.attribute(ctx.inputs, target=target, **extra_call_kwargs, **call_kwargs)
+        else:
+            attributions = method.attribute(
+                ctx.inputs, target=target, **extra_call_kwargs, **call_kwargs
+            )
+    return _reduce_text_embedding_dim(attributions, ctx)
+
+
+def _reduce_text_embedding_dim(attributions: Any, ctx: AttributionInvokeCtx) -> Any:
+    """Collapse the embedding axis of text attributions to per-token scores.
+
+    Layer attribution over a text embedding layer returns ``(B, T, H)`` (one
+    vector per token). The canonical Captum text convention sums over the
+    embedding dimension ``H`` to get a single ``(B, T)`` importance per token,
+    which the ``TOKEN_SEQUENCE`` output space + ``CaptumTextVisualiser`` consume.
+    Non-text inputs (and already-reduced outputs) are returned unchanged. (#340)
+    """
+    kind = getattr(ctx.input_spec, "kind", None)
+    if kind is InputKind.TEXT and getattr(attributions, "ndim", 0) == 3:
+        return attributions.sum(dim=-1)
+    return attributions
 
 
 def _needs_layer_resolution(algorithm: str) -> bool:
@@ -296,6 +324,27 @@ def _resolve_layer(model: nn.Module, layer_path: str) -> nn.Module:
         except AttributeError as error:
             raise ValueError(f"Could not resolve layer_path {layer_path!r} on model.") from error
     return layer
+
+
+def _forward_func_for(ctx: AttributionInvokeCtx) -> Any:
+    """Return the callable Captum should attribute through.
+
+    Text models emit an object output (HF ``SequenceClassifierOutput``); Captum
+    requires a tensor, so wrap the forward to reduce it to the primary tensor
+    (logits). Non-text inputs return ``ctx.model`` unchanged so the image/tabular
+    paths stay byte-identical. (#340)
+    """
+    model = ctx.model
+    kind = getattr(ctx.input_spec, "kind", None)
+    if kind is not InputKind.TEXT:
+        return model
+
+    from raitap.pipeline.phases.forward_pass import extract_primary_tensor
+
+    def _logits_forward(*forward_args: Any) -> Any:
+        return extract_primary_tensor(model(*forward_args))
+
+    return _logits_forward
 
 
 def _normalise_occlusion_kwargs(attr_kwargs: dict[str, object]) -> dict[str, object]:

@@ -87,11 +87,11 @@ the factory rejects mismatches at YAML parse time. See
 :registry: captum_text
 :wraps: a lightweight Matplotlib renderer (Captum's native text visualiser emits HTML rather than a Matplotlib figure)
 :intro: Horizontal bar chart of per-token attribution scores. Positive contributions render in warm red, negative in cool blue, so you can read off which tokens pushed the prediction in which direction at a glance.
-:how-to-read: One horizontal bar per token, in token order top-to-bottom; bar length is the token's attribution magnitude, warm red means it pushed the prediction up and cool blue means down. Scan it to see which words drove the call.
+:how-to-read: One horizontal bar per token, in token order top-to-bottom; bar length is the token's attribution magnitude, warm red means it pushed the prediction up and cool blue means down. Scan it to see which words drove the call. A batch renders one bar panel per sample.
 :kwarg: token_labels
 :default: `None`
 :meaning: Per-token strings used as y-axis labels. Falls back to `tok_0 … tok_N` when omitted.
-:compat: Scope: `LOCAL`. Output space: `TOKEN_SEQUENCE`. Requires text input metadata and a 1-D token attribution tensor with the `TOKENS` / `TOKEN_SEQUENCE` layout.
+:compat: Scope: `LOCAL`. Output space: `TOKEN_SEQUENCE`. Requires text input metadata and a token attribution tensor with the `TOKENS` / `TOKEN_SEQUENCE` layout: 1-D `(T,)` for a single sequence or 2-D `(B, T)` for a batch.
 :::::
 
 ## SHAP

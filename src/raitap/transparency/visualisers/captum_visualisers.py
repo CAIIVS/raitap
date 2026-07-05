@@ -247,7 +247,9 @@ def _has_token_layout(explanation: object, attributions: object) -> bool:
     if any(layout and layout not in valid_layouts for layout in layouts):
         return False
     shape = _output_shape(explanation, attributions)
-    return shape is not None and len(shape) == 1
+    # 1-D ``(T,)`` for a single token sequence, or 2-D ``(B, T)`` for a batch of
+    # per-token scores (one row per sample) — both are token-sequence layouts.
+    return shape is not None and len(shape) in {1, 2}
 
 
 @transparency_visualiser(
@@ -661,21 +663,35 @@ class CaptumTextVisualiser(BaseVisualiser):
 
         Returns:
             Matplotlib Figure with a horizontal bar chart of token importance.
+            A 2-D ``(B, T)`` batch renders one bar panel per sample (row).
         """
-        attr = _to_numpy(attributions).ravel()
-        n = len(attr)
-        labels = token_labels if token_labels else [f"tok_{i}" for i in range(n)]
+        attr = _to_numpy(attributions)
+        # Normalise to a batch of rows: 1-D ``(T,)`` is a single sample.
+        rows = attr.reshape(1, -1) if attr.ndim == 1 else attr.reshape(attr.shape[0], -1)
+        n_samples, n_tokens = rows.shape
 
-        fig, ax = plt.subplots(figsize=(8, max(4, n * 0.35)))
-        colors = ["#e74c3c" if v > 0 else "#3498db" for v in attr]
-        y = np.arange(n)
-        ax.barh(y, attr, color=colors)
-        ax.set_yticks(y)
-        ax.set_yticklabels(labels, fontsize=8)
-        ax.axvline(0, color="black", linewidth=0.8)
-        ax.set_xlabel("Attribution")
-        ax.set_title("Token Attribution")
-        ax.grid(axis="x", alpha=0.3)
+        fig, axes = plt.subplots(
+            n_samples,
+            1,
+            figsize=(8, max(4, n_tokens * 0.35) * n_samples),
+            squeeze=False,
+        )
+        y = np.arange(n_tokens)
+        labels = token_labels if token_labels else [f"tok_{i}" for i in range(n_tokens)]
+        for row_index in range(n_samples):
+            ax = axes[row_index][0]
+            values = rows[row_index]
+            colors = ["#e74c3c" if v > 0 else "#3498db" for v in values]
+            ax.barh(y, values, color=colors)
+            ax.set_yticks(y)
+            ax.set_yticklabels(labels, fontsize=8)
+            ax.axvline(0, color="black", linewidth=0.8)
+            ax.set_xlabel("Attribution")
+            title = (
+                "Token Attribution" if n_samples == 1 else f"Token Attribution (sample {row_index})"
+            )
+            ax.set_title(title)
+            ax.grid(axis="x", alpha=0.3)
         fig.tight_layout()
         return fig
 

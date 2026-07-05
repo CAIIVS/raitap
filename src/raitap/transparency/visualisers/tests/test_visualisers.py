@@ -761,13 +761,6 @@ class TestCaptumTextVisualiser:
         [
             _explanation(
                 input_kind="text",
-                input_layout="TOKENS",
-                output_layout="TOKENS",
-                output_space=ExplanationOutputSpace.TOKEN_SEQUENCE,
-                shape=(2, 12),
-            ),
-            _explanation(
-                input_kind="text",
                 input_layout="B,F",
                 output_layout="B,F",
                 output_space=ExplanationOutputSpace.TOKEN_SEQUENCE,
@@ -785,6 +778,18 @@ class TestCaptumTextVisualiser:
                 torch.zeros(2, 10),
                 None,
             )
+
+    def test_validate_explanation_accepts_batched_token_sequence(self) -> None:
+        # A 2-D ``(B, T)`` batch of per-token scores is a valid token-sequence
+        # layout (one row per sample), rendered as one bar panel per sample. (#340)
+        explanation = _explanation(
+            input_kind="text",
+            input_layout="TOKENS",
+            output_layout="TOKENS",
+            output_space=ExplanationOutputSpace.TOKEN_SEQUENCE,
+            shape=(2, 12),
+        )
+        CaptumTextVisualiser().validate_explanation(explanation, torch.zeros(2, 12), None)
 
     @pytest.mark.parametrize(
         "method_families",

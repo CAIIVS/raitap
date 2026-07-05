@@ -126,6 +126,18 @@ class ClassificationFamily:
             # device-moved exactly once, matching the pre-refactor behaviour.
             runtime_kwargs = prepared.backend._prepare_kwargs(runtime_kwargs)
 
+        # Text inputs carry a per-sample ``attention_mask`` alongside the token
+        # ids. It is not attributed like an input feature; thread it through as a
+        # call-kwarg so the explainer's invoker forwards it to the model (the
+        # Captum invoker pops it into ``additional_forward_args``).
+        # ``_slice_kwargs_for_batch`` slices it per batch (leading dim == batch
+        # size). Absent for image/tabular inputs, so those paths stay
+        # byte-identical (no extra kwarg is added). (#340)
+        mask_kwargs: dict[str, Any] = {}
+        attention_mask = getattr(ctx.data, "attention_mask", None)
+        if attention_mask is not None:
+            mask_kwargs = prepared.backend._prepare_kwargs({"attention_mask": attention_mask})
+
         resolved_sample_names = prepared.raitap_kwargs.get("sample_names")
         if resolved_sample_names is not None:
             resolved_list = list(resolved_sample_names)
@@ -147,7 +159,7 @@ class ClassificationFamily:
             visualisers=prepared.visualisers,
             raitap_kwargs=prepared.raitap_kwargs,
             call_provenance=prepared.call_provenance,
-            **{**prepared.merged_kwargs, **runtime_kwargs},
+            **{**prepared.merged_kwargs, **runtime_kwargs, **mask_kwargs},
         )
         result._visualise()  # populates result.visualisations (was run_adapters)
         return [result]
