@@ -3348,6 +3348,26 @@ wheels = [
 ]
 
 [[package]]
+name = "quantus"
+version = "0.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cachetools" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "opencv-python" },
+    { name = "pandas" },
+    { name = "scikit-image" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1c/80/e543fd3ffe84cfc28b0451a1e99557f4a2cb02b1f351d85fccfe884cf213/quantus-0.6.0.tar.gz", hash = "sha256:d94ebf65aefbf8ae49b4a3c328e0bd0093b48efc6c5f9c86140fcb8047d98bfb", size = 142151, upload-time = "2025-07-21T15:29:28.04Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7d/b6/1588809c6462275838b3412ffaef68155a3d66f1367eee98d5130a9bcafb/quantus-0.6.0-py3-none-any.whl", hash = "sha256:86d9763901ac8d192474d6eccbcdfa0a97d4ce667f8266e92452fe03fd563c78", size = 281764, upload-time = "2025-07-21T15:29:26.436Z" },
+]
+
+[[package]]
 name = "questionary"
 version = "2.1.1"
 source = { registry = "https://pypi.org/simple" }
@@ -3431,6 +3451,9 @@ onnx-intel = [
 ]
 pdf = [
     { name = "borb" },
+]
+quantus = [
+    { name = "quantus" },
 ]
 reporting = [
     { name = "borb" },
@@ -3558,6 +3581,7 @@ requires-dist = [
     { name = "pandas", specifier = ">=2.0.0" },
     { name = "pandas-stubs", specifier = "~=3.0.0" },
     { name = "pillow", specifier = ">=12.2.0" },
+    { name = "quantus", marker = "extra == 'quantus'", specifier = ">=0.5.3" },
     { name = "raitap", extras = ["mlflow"], marker = "extra == 'tracking'" },
     { name = "raitap", extras = ["pdf", "html"], marker = "extra == 'reporting'" },
     { name = "raitap", extras = ["shap", "captum"], marker = "extra == 'transparency'" },
@@ -3584,7 +3608,7 @@ requires-dist = [
     { name = "triton-xpu", marker = "python_full_version < '3.14' and sys_platform != 'darwin' and extra == 'torch-intel'", specifier = ">=3.0.0", index = "https://download.pytorch.org/whl/xpu", conflict = { package = "raitap", extra = "torch-intel" } },
     { name = "xgboost", marker = "extra == 'xgboost'", specifier = ">=2.0" },
 ]
-provides-extras = ["torch-cpu", "torch-cuda", "torch-intel", "onnx-cpu", "onnx-cuda", "onnx-intel", "shap", "captum", "transparency", "xgboost", "torchattacks", "foolbox", "imagecorruptions", "marabou", "auto-lirpa", "robustness", "launcher", "mlflow", "tracking", "metrics", "pdf", "html", "reporting"]
+provides-extras = ["torch-cpu", "torch-cuda", "torch-intel", "onnx-cpu", "onnx-cuda", "onnx-intel", "shap", "captum", "quantus", "transparency", "xgboost", "torchattacks", "foolbox", "imagecorruptions", "marabou", "auto-lirpa", "robustness", "launcher", "mlflow", "tracking", "metrics", "pdf", "html", "reporting"]
 
 [package.metadata.requires-dev]
 dev = [

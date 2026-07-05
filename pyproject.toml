@@ -125,6 +125,7 @@ onnx-intel = [
 # opencv-python: SHAP modern-API image masker (inpaint/blur strategies); #267.
 shap = ["shap>=0.46.0", "opencv-python>=4.9"]
 captum = ["captum>=0.7.0"]
+quantus = ["quantus>=0.5.3"]
 transparency = ["raitap[shap,captum]"]
 # Tree/tabular model backend (XGBoost) — enables shap.TreeExplainer end-to-end.
 # Named per-library (like shap/captum); a `tree` umbrella can re-export this and
