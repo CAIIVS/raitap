@@ -1,4 +1,8 @@
-"""Bar-chart renderer for quantus explanation-quality scores (#341)."""
+"""Bar-chart renderer for explanation-quality scores (#341).
+
+Backend-neutral: consumes only the ``EvaluationResult`` score contract, not any
+Quantus type, so it renders scores from any evaluator that produces one.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +17,7 @@ if TYPE_CHECKING:
 class ScoreBarVisualiser:
     """Aggregate score per metric as a labelled bar chart.
 
-    Quantus scores are not attributions, so this does not subclass
+    Evaluation scores are not attributions, so this does not subclass
     ``BaseVisualiser``: that base's ``validate_explanation`` gate is
     attribution-shaped and does not apply here. This is a standalone
     renderer consuming an ``EvaluationResult`` directly.

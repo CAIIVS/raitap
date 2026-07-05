@@ -1,4 +1,4 @@
-"""Visualisers for quantus explanation-quality evaluation results (#341)."""
+"""Visualisers for explanation-quality evaluation results (#341)."""
 
 from __future__ import annotations
 
