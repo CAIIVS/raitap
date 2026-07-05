@@ -12,13 +12,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from raitap.transparency.evaluation.contracts import EvaluationResult, QuantusMetricSpec
-
-    # Forward reference: Wave-3 work (not yet created on this branch). Under
-    # ``from __future__ import annotations`` this doesn't break at runtime;
-    # pyright still resolves both branches of ``TYPE_CHECKING`` statically.
-    from raitap.transparency.evaluation.semantics import (  # pyright: ignore[reportMissingImports]
-        EvaluationContext,
-    )
+    from raitap.transparency.evaluation.semantics import EvaluationContext
 
 
 class BaseEvaluator(AdapterMixin, ABC):
