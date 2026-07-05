@@ -57,6 +57,29 @@ def test_backend_extra_pure() -> None:
     assert backend_extra("a.ubj", ResolvedHardware.cpu) == "xgboost"
 
 
+def test_tokenizer_configured_model_adds_text_extra() -> None:
+    # HF text models are extensionless hub-ids (e.g. a hub id with no file
+    # extension) with `model.tokenizer` set — deps inference must add `text`
+    # (which carries `transformers`) on top of the torch runtime extra that
+    # the extensionless fallback already infers.
+    cfg = {
+        "model": {
+            "source": "distilbert-base-uncased-finetuned-sst-2-english",
+            "tokenizer": "distilbert-base-uncased-finetuned-sst-2-english",
+        }
+    }
+    extras, origins = infer_extras(cfg, hardware=ResolvedHardware.cpu)
+    assert "text" in extras
+    assert "torch-cpu" in extras
+    assert "model.tokenizer" in origins["text"]
+
+
+def test_no_tokenizer_does_not_add_text_extra() -> None:
+    cfg = {"model": {"source": "resnet50"}}
+    extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
+    assert "text" not in extras
+
+
 def test_builtin_name_falls_back_to_torch() -> None:
     # Built-in torchvision models are extensionless (e.g. "resnet50"); they have
     # no backend registration, so deps inference defaults to the torch runtime.
