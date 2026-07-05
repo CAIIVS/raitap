@@ -126,7 +126,13 @@ class Data(Trackable):
         model_cfg_for_text = getattr(cfg, "model", None)
         tokenizer_id = _get_optional_config_value(model_cfg_for_text, "tokenizer")
         if inputs_cfg is not None and tokenizer_id is not None:
-            from transformers import AutoTokenizer  # lazy: optional dep
+            try:
+                from transformers import AutoTokenizer  # lazy: optional dep
+            except ImportError as exc:
+                raise ImportError(
+                    "Text inputs (data.inputs + model.tokenizer) require the 'text' extra. "
+                    "Install it with `uv sync --extra text` (or `pip install 'raitap[text]'`)."
+                ) from exc
 
             from raitap.data.input_parsers.factory import create_input_parser
 
