@@ -1,5 +1,13 @@
 # Quantus explanation-quality grading demo for RAITAP (#341).
 #
+# Run from the repo root (pass extras explicitly; a bare `uv run raitap` inside
+# the raitap repo tries `uv add raitap[...]`, which uv rejects as a
+# self-dependency):
+#
+#   uv run --extra captum --extra quantus --extra metrics --extra html \
+#     --extra torch-cpu \
+#     raitap --config-dir contributor-configs/quantus-eval --config-name assessment
+#
 # Self-contained: uses the bundled `imagenet_samples` data and the torchvision
 # `vit_b_32` model, so it runs with no local artifacts. Runs Captum
 # IntegratedGradients, then grades the resulting attributions with the
