@@ -511,10 +511,10 @@ def test_build_report_skips_global_section_for_local_only_outputs(tmp_path: Path
     assert [section.title for section in report.sections] == ["Local Explanations"]
 
 
-def _explanation_with_stochastic(tmp_path: Path, *, stochastic: bool) -> Any:
+def _explanation_with_stochastic(tmp_path: Path, *, seeding: str) -> Any:
     from dataclasses import replace
 
-    semantics = replace(_local_image_semantics((3, 1, 4, 4)), stochastic=stochastic)
+    semantics = replace(_local_image_semantics((3, 1, 4, 4)), seeding=seeding)
     return ExplanationResult(
         attributions=torch.rand(3, 1, 4, 4),
         inputs=torch.rand(3, 1, 4, 4),
@@ -546,7 +546,7 @@ def test_build_report_prepends_reproducibility_banner_when_stochastic(tmp_path: 
     set_output_root(config, tmp_path)
     config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
 
-    outputs = _repro_outputs(_explanation_with_stochastic(tmp_path, stochastic=True))
+    outputs = _repro_outputs(_explanation_with_stochastic(tmp_path, seeding="global_rng"))
 
     report = build_report(config, outputs)
 
@@ -560,11 +560,37 @@ def test_build_report_no_banner_when_all_deterministic(tmp_path: Path) -> None:
     set_output_root(config, tmp_path)
     config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
 
-    outputs = _repro_outputs(_explanation_with_stochastic(tmp_path, stochastic=False))
+    outputs = _repro_outputs(_explanation_with_stochastic(tmp_path, seeding="deterministic"))
 
     report = build_report(config, outputs)
 
     assert all(section.title != "Reproducibility" for section in report.sections)
+
+
+def test_build_report_no_banner_when_global_rng_covered_by_seed(tmp_path: Path) -> None:
+    config = AppConfig(experiment_name="repro")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.seed = 42
+
+    outputs = _repro_outputs(_explanation_with_stochastic(tmp_path, seeding="global_rng"))
+
+    report = build_report(config, outputs)
+
+    assert all(section.title != "Reproducibility" for section in report.sections)
+
+
+def test_build_report_banner_present_for_global_rng_when_seed_unset(tmp_path: Path) -> None:
+    config = AppConfig(experiment_name="repro")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.seed = None
+
+    outputs = _repro_outputs(_explanation_with_stochastic(tmp_path, seeding="global_rng"))
+
+    report = build_report(config, outputs)
+
+    assert any(section.title == "Reproducibility" for section in report.sections)
 
 
 def test_build_report_places_aggregated_visualisations_between_global_and_local(

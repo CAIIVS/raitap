@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from raitap.configs import resolve_run_dir
-from raitap.reproducibility import reproducibility_caveat, stochastic_methods
+from raitap.reproducibility import assess_reproducibility, reproducibility_caveat
 
 from .filenames import report_output_filename
 from .manifest import ReportManifest
@@ -84,7 +84,7 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
     )
 
     sections: list[ReportSection] = []
-    banner = _reproducibility_banner(outputs)
+    banner = _reproducibility_banner(config, outputs)
     if banner is not None:
         sections.append(banner)
     ordered_results = sorted(outputs.phase_results.values(), key=lambda result: result.report_order)
@@ -192,19 +192,22 @@ def build_merged_report(
     return BuiltReport(report_dir=report_dir, sections=ordered_sections, manifest=manifest)
 
 
-def _reproducibility_banner(outputs: RunOutputs) -> ReportSection | None:
-    """Run-level reproducibility caveat, or ``None`` when the run is fully deterministic.
+def _reproducibility_banner(config: AppConfig, outputs: RunOutputs) -> ReportSection | None:
+    """Run-level reproducibility caveat, or ``None`` when nothing needs warning.
 
+    Partitions the run's stochastic methods against ``config.seed`` (issue #339):
+    ``global_rng`` methods covered by a pinned seed no longer warrant a caveat.
     Emitted as a ``ReportSection`` (not view metadata) because ``sections`` is the
     only channel both the HTML and PDF reporters consume. Prepended so it renders
     first. See issue #251.
     """
-    methods = stochastic_methods(outputs)
-    if not methods:
+    report = assess_reproducibility(outputs, getattr(config, "seed", None))
+    caveat = reproducibility_caveat(report)
+    if caveat is None:
         return None
     return ReportSection.from_groups(
         "Reproducibility",
-        [ReportGroup(heading=reproducibility_caveat(methods))],
+        [ReportGroup(heading=caveat)],
         metadata={"section_role": "reproducibility"},
     )
 
