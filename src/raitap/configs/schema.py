@@ -66,11 +66,35 @@ class ModelConfig:
     # the TaskKind value (e.g. "detection") for custom models the inference
     # can't recognise.
     task_kind: TaskKind | None = None
+    # HuggingFace tokenizer id/path for text models. Set => text modality.
+    tokenizer: str | None = None
 
 
 @dataclass
 class LabelsConfig:
     _target_: str = MISSING
+
+
+@dataclass
+class InputsConfig:
+    _target_: str = MISSING
+
+
+@dataclass
+class TextCsvInputsConfig(InputsConfig):
+    _target_: str = "TextCsvInputParser"
+    text_column: str = MISSING
+
+
+@dataclass
+class TextJsonlInputsConfig(InputsConfig):
+    _target_: str = "TextJsonlInputParser"
+    text_field: str = "text"
+
+
+@dataclass
+class TextDirInputsConfig(InputsConfig):
+    _target_: str = "TextDirInputParser"
 
 
 @dataclass
@@ -151,6 +175,7 @@ class DataConfig:
     # modality for non-image data such as ACAS Xu's 5-feature tabular vector.
     input_metadata: dict[str, Any] | None = None
     labels: LabelsConfig | None = None
+    inputs: InputsConfig | None = None
 
 
 @dataclass

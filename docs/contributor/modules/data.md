@@ -146,18 +146,26 @@ warning and disable label-based metrics for that run.
 
 ## Input modality
 
-`Data` records the modality it loaded as `Data.input_modality` (`InputModality.image`
-or `InputModality.tabular`, from `raitap.data.types`). The branch taken in
-`Data._load_data` sets it; nothing re-derives it.
+`Data` records the modality it loaded as `Data.input_modality`
+(`InputModality.image`, `.tabular`, or `.text`, from `raitap.data.types`). The
+branch taken in `Data._load_data` sets it; nothing re-derives it.
 
 `infer_data_input_metadata` reads `input_modality` to pick `kind`/`layout`
-(`image` -> `NCHW`, `tabular` -> `(B,F)`), falling back to source-path sniffing only
-when no modality is recorded. Extension sets live once in
-`MODALITY_EXTENSIONS` (`raitap.data.types`); `data.py` and `metadata.py` import them.
+(`image` -> `NCHW`, `tabular` -> `(B,F)`, `text` -> `TOKENS`), falling back to
+source-path sniffing only when no modality is recorded. Extension sets live
+once in `MODALITY_EXTENSIONS` (`raitap.data.types`); `data.py` and
+`metadata.py` import them.
 
-A new non-image modality adds a member to `InputModality`, an extension entry to
-`MODALITY_EXTENSIONS`, a load branch in `_load_data`, and a `kind`/`layout` branch
-in `infer_data_input_metadata` (which switches on the recorded modality).
+Text is the odd one out: it is not routed by file extension. `_load_data`
+checks for `cfg.data.inputs` plus `model.tokenizer` before the
+image/tabular branches; if both are set, it dispatches to the `data/inputs`
+parser registry (see {doc}`/contributor/adding/adding-an-input-parser`)
+instead of sniffing `data.source`.
+
+A new non-image, non-text modality adds a member to `InputModality`, an
+extension entry to `MODALITY_EXTENSIONS`, a load branch in `_load_data`, and
+a `kind`/`layout` branch in `infer_data_input_metadata` (which switches on
+the recorded modality).
 
 ## Image preprocessing internals
 

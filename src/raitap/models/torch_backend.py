@@ -51,6 +51,10 @@ class TorchBackend(ModelBackend):
         self.device = torch.device("cpu") if device is None else device
         self._task_kind = task_kind if task_kind is not None else self._infer_task_kind(model)
         self.category_names = category_names
+        # ``load_hf_text_backend`` sets this to an ``AutoTokenizer`` instance;
+        # declared here so pyright sees the attribute on every ``TorchBackend``
+        # (harmless ``None`` otherwise).
+        self.tokenizer: Any = None
 
     @classmethod
     def from_path(
@@ -105,7 +109,11 @@ class TorchBackend(ModelBackend):
     def _prepare_kwargs(self, kwargs: dict[str, Any]) -> dict[str, Any]:
         return _move_tensors_to_device(kwargs, self.device)
 
-    def __call__(self, inputs: torch.Tensor | list[torch.Tensor]) -> Any:
+    def __call__(self, inputs: torch.Tensor | list[torch.Tensor], **kwargs: Any) -> Any:
+        # ``**kwargs`` covers text models' ``attention_mask`` (and similar HF
+        # keyword-only forward args); image/tabular callers never pass any.
+        if kwargs:
+            return self.model(inputs, **self._prepare_kwargs(kwargs))
         return self.model(inputs)
 
     def autograd_module(self) -> nn.Module:
@@ -132,3 +140,20 @@ def _torch_hardware_label(device: torch.device) -> str:
         "mps": "Apple MPS",
     }
     return label_by_type.get(device.type, device.type.upper())
+
+
+def load_hf_text_backend(source: str, *, tokenizer: str, device: torch.device) -> TorchBackend:
+    """Load a HuggingFace sequence-classification model + tokenizer.
+
+    ``source`` and ``tokenizer`` are HuggingFace hub ids or local directories,
+    resolved via ``AutoModelForSequenceClassification``/``AutoTokenizer``.
+    Returns a ``TorchBackend`` with ``.tokenizer`` set.
+    """
+    # lazy: `transformers` is an optional dep (extra "text"), imported only
+    # when a text model is actually requested.
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+    module = AutoModelForSequenceClassification.from_pretrained(source).to(device).eval()
+    backend = TorchBackend(module, device=device, task_kind=TaskKind.classification)
+    backend.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
+    return backend

@@ -52,7 +52,7 @@ class _FakeBackend(ModelBackend):
     def _prepare_kwargs(self, kwargs: dict[str, Any]) -> dict[str, Any]:
         return kwargs
 
-    def __call__(self, inputs: torch.Tensor) -> Any:
+    def __call__(self, inputs: torch.Tensor, **kwargs: Any) -> Any:
         raise NotImplementedError("routing test mocks the explain path")
 
 

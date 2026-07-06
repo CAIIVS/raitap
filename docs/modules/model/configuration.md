@@ -37,6 +37,15 @@ myst:
   weights before loading the state-dict (`weights="DEFAULT"`). Usually
   `false` since the state-dict already supplies the weights.
 
+:option: tokenizer
+:allowed: string, null
+:default: null
+:description: HuggingFace hub id or local path for a tokenizer. Setting this
+  selects the text input modality: `source` loads via
+  `AutoModelForSequenceClassification` and `tokenizer` via `AutoTokenizer`.
+  Requires the `text` extra (`uv sync --extra text`) and a `data.inputs`
+  variant, see {doc}`/modules/data/own-vs-built-in`.
+
 :yaml:
 # Option A: single model file.
 # `source` is the only key. The format is inferred from the extension
@@ -61,6 +70,12 @@ model:
 # weights via a file path (Options A/B).
 model:
   source: "resnet50"
+
+# Option D: HuggingFace text model. `source` is a hub id or local path;
+# `tokenizer` (usually the same id) selects the text input modality.
+model:
+  source: "distilbert-base-uncased-finetuned-sst-2-english"
+  tokenizer: "distilbert-base-uncased-finetuned-sst-2-english"
 
 :cli: model.source=resnet50
 ```

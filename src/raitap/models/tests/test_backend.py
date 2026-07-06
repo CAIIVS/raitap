@@ -72,7 +72,7 @@ def test_register_backend_sets_class_constant() -> None:
         def hardware_label(self) -> str:
             return "test"
 
-        def __call__(self, inputs: object) -> object:
+        def __call__(self, inputs: object, **kwargs: object) -> object:
             return inputs
 
     assert _B.provides == frozenset({Capability.AUTOGRAD})

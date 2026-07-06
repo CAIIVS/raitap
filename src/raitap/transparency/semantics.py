@@ -255,6 +255,19 @@ def infer_output_space(
             requires_interpolation=False,
         )
 
+    # Text token attribution is token-aligned even via a Layer* method
+    # (LayerIntegratedGradients over the embeddings is the canonical text path):
+    # the embedding axis is collapsed to a per-token score, so the result lives
+    # in TOKEN_SEQUENCE space, not opaque layer space. Text therefore takes
+    # precedence over the generic ``layer_path`` branch below. (#340)
+    if input_kind is InputKind.TEXT or input_layout is TensorLayout.TOKEN_SEQUENCE:
+        return OutputSpaceSpec(
+            space=ExplanationOutputSpace.TOKEN_SEQUENCE,
+            shape=shape,
+            layout=input_spec.layout,
+            feature_names=features,
+        )
+
     if layer_path is not None:
         # Non-CAM Layer* attribution is layer-space, not input-aligned; tag
         # LAYER_ACTIVATION (skips INPUT_FEATURES shape validation). (#267)
@@ -265,14 +278,6 @@ def infer_output_space(
             layer_path=layer_path,
             feature_names=features,
             requires_interpolation=False,
-        )
-
-    if input_kind is InputKind.TEXT or input_layout is TensorLayout.TOKEN_SEQUENCE:
-        return OutputSpaceSpec(
-            space=ExplanationOutputSpace.TOKEN_SEQUENCE,
-            shape=shape,
-            layout=input_spec.layout,
-            feature_names=features,
         )
 
     if input_kind is InputKind.TIME_SERIES or input_layout is TensorLayout.BATCH_TIME_CHANNEL:

@@ -66,7 +66,8 @@ class Data(Trackable):
         self.tensor: torch.Tensor | DetectionInputs
         family = resolve_task_family(task_kind)
         self.input_modality: InputModality
-        raw_tensor, self.sample_ids, self.input_modality = self._load_data(
+        self.attention_mask: torch.Tensor | None = None
+        raw_tensor, self.sample_ids, self.input_modality, self.attention_mask = self._load_data(
             cfg,
             resolved_preprocessing=resolved_preprocessing,
         )
@@ -83,7 +84,9 @@ class Data(Trackable):
         cfg: AppConfig,
         *,
         resolved_preprocessing: ResolvedPreprocessing | None = None,
-    ) -> tuple[torch.Tensor | DetectionInputs, list[str] | None, InputModality]:
+    ) -> tuple[
+        torch.Tensor | DetectionInputs, list[str] | None, InputModality, torch.Tensor | None
+    ]:
         """
         Load data from a specified source into a raw tensor.
 
@@ -97,16 +100,20 @@ class Data(Trackable):
         - Local image file → ``(1, 3, H, W)`` float32 in ``[0, 1]``
           (or ``list[Tensor]`` of length 1 for detection)
         - Local CSV / TSV / Parquet file → ``(N, F)`` float32
+        - Text source (``data.inputs`` + ``model.tokenizer`` set) → tokenised
+          ``input_ids`` of shape ``(N, T)`` long, with an ``attention_mask``
 
         Args:
             cfg: Application configuration.
 
         Returns:
-            ``(tensor, sample_ids, input_modality)`` where ``tensor`` is the raw
-            data tensor (or a ragged ``list[Tensor]`` of per-image tensors for
-            detection), ``sample_ids`` are posix-relative file ids (``None`` for
-            tabular), and ``input_modality`` is the recorded
-            :class:`~raitap.data.types.InputModality`.
+            ``(tensor, sample_ids, input_modality, attention_mask)`` where
+            ``tensor`` is the raw data tensor (or a ragged ``list[Tensor]`` of
+            per-image tensors for detection), ``sample_ids`` are posix-relative
+            file ids (``None`` for tabular), ``input_modality`` is the recorded
+            :class:`~raitap.data.types.InputModality`, and ``attention_mask`` is
+            the tokeniser padding mask for text (``None`` for every other
+            modality).
         """
         source = cfg.data.source
         if not source or not source.strip():
@@ -114,6 +121,32 @@ class Data(Trackable):
                 "No data source specified. Set data.source in your config.\n"
                 "Use a local path or a named sample set, e.g.: data=imagenet_samples"
             )
+
+        inputs_cfg = _get_optional_config_value(cfg.data, "inputs")
+        model_cfg_for_text = getattr(cfg, "model", None)
+        tokenizer_id = _get_optional_config_value(model_cfg_for_text, "tokenizer")
+        if inputs_cfg is not None and tokenizer_id is not None:
+            try:
+                from transformers import AutoTokenizer  # lazy: optional dep
+            except ImportError as exc:
+                raise ImportError(
+                    "Text inputs (data.inputs + model.tokenizer) require the 'text' extra. "
+                    "Install it with `uv sync --extra text` (or `pip install 'raitap[text]'`)."
+                ) from exc
+
+            from raitap.data.input_parsers.factory import create_input_parser
+
+            parser = create_input_parser(inputs_cfg)
+            if InputModality.text not in parser.supported_modalities:
+                raise ValueError(
+                    f"{type(parser).__name__} does not support text inputs "
+                    f"(supported_modalities={parser.supported_modalities})."
+                )
+            texts = parser.parse(source=source)
+            tokenizer = AutoTokenizer.from_pretrained(tokenizer_id)
+            input_ids, attention_mask = _tokenise_texts(texts, tokenizer=tokenizer)
+            sample_ids = [str(i) for i in range(len(texts))]
+            return input_ids, sample_ids, InputModality.text, attention_mask
 
         # Use the run-level resolution when the orchestrator supplies it. Direct
         # ``Data(config)`` callers keep the legacy fallback path.
@@ -139,7 +172,7 @@ class Data(Trackable):
             # at their native resolution instead of pre-squashing them to
             # ``_DEMO_SIZE`` before the bundled Resize/CenterCrop sees them.
             tensor, sample_ids = _load_sample(source, per_image_transform=per_image_transform)
-            return tensor, sample_ids, InputModality.image
+            return tensor, sample_ids, InputModality.image, None
 
         path = get_source_path(source, kind=SourceKind.DATA)
 
@@ -160,17 +193,24 @@ class Data(Trackable):
                         ragged,
                         _resolve_sample_ids(image_files, root=path),
                         InputModality.image,
+                        None,
                     )
                 tensor = torch.from_numpy(
                     _stack_images_numpy(image_files, per_image_transform=per_image_transform)
                 )
-                return tensor, _resolve_sample_ids(image_files, root=path), InputModality.image
+                return (
+                    tensor,
+                    _resolve_sample_ids(image_files, root=path),
+                    InputModality.image,
+                    None,
+                )
             if tabular_files:
                 tensor = torch.from_numpy(_concat_tabular_numpy(tabular_files))
                 return (
                     _apply_data_module_to_batch(data_module, tensor),
                     None,
                     InputModality.tabular,
+                    None,
                 )
             raise FileNotFoundError(
                 f"No supported files found in {path}.\n"
@@ -182,17 +222,24 @@ class Data(Trackable):
         if suffix in _IMAGE_EXTENSIONS:
             if is_detection:
                 ragged = _load_images_ragged([path], per_image_transform=per_image_transform)
-                return ragged, _resolve_sample_ids([path], root=path.parent), InputModality.image
+                return (
+                    ragged,
+                    _resolve_sample_ids([path], root=path.parent),
+                    InputModality.image,
+                    None,
+                )
             return (
                 _load_images(path, per_image_transform=per_image_transform),
                 _resolve_sample_ids([path], root=path.parent),
                 InputModality.image,
+                None,
             )
         if suffix in _TABULAR_EXTENSIONS:
             return (
                 _apply_data_module_to_batch(data_module, _load_tabular(path)),
                 None,
                 InputModality.tabular,
+                None,
             )
 
         raise ValueError(
@@ -235,6 +282,16 @@ class Data(Trackable):
     def log(self, tracker: BaseTracker, **kwargs: Any) -> None:
         """Log dataset metadata to the tracker."""
         tracker.log_dataset(self.describe())
+
+
+def _tokenise_texts(
+    texts: list[str], *, tokenizer: Any, max_length: int = 256
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Tokenise raw strings into padded ``input_ids`` + ``attention_mask``."""
+    enc = tokenizer(
+        texts, padding=True, truncation=True, max_length=max_length, return_tensors="pt"
+    )
+    return enc["input_ids"].long(), enc["attention_mask"].long()
 
 
 def _resolve_and_parse_labels(

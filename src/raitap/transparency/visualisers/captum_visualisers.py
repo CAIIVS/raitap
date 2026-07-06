@@ -12,6 +12,7 @@ from raitap.transparency.contracts import (
     ExplanationOutputSpace,
     ExplanationScope,
     MethodFamily,
+    TensorLayout,
 )
 from raitap.transparency.visualisers.image_rendering import IMAGE_RENDERER_REGISTRY
 from raitap.transparency.visualisers.registration import transparency_visualiser
@@ -242,12 +243,14 @@ def _has_time_series_layout(explanation: object, attributions: object) -> bool:
 
 
 def _has_token_layout(explanation: object, attributions: object) -> bool:
-    valid_layouts = {"TOKENS", "TOKEN_SEQUENCE"}
+    valid_layouts = {TensorLayout.TOKEN_SEQUENCE.value, TensorLayout.TOKEN_SEQUENCE.name}
     layouts = {_input_layout(explanation), _output_layout(explanation)}
     if any(layout and layout not in valid_layouts for layout in layouts):
         return False
     shape = _output_shape(explanation, attributions)
-    return shape is not None and len(shape) == 1
+    # 1-D ``(T,)`` for a single token sequence, or 2-D ``(B, T)`` for a batch of
+    # per-token scores (one row per sample) — both are token-sequence layouts.
+    return shape is not None and len(shape) in {1, 2}
 
 
 @transparency_visualiser(
@@ -654,28 +657,62 @@ class CaptumTextVisualiser(BaseVisualiser):
     ) -> Figure:
         """
         Args:
-            attributions:  1-D attribution scores (one per token).
+            attributions:  Per-token attribution scores. Either 1-D ``(T,)`` for a
+                single sequence, or 2-D ``(B, T)`` for a batch (one panel per row).
+                Higher-rank tensors are rejected.
             inputs:        Ignored.
-            token_labels:  List of token strings (optional).
+            token_labels:  Token strings for the y-axis, single sequence only. Not
+                supported for a 2-D ``(B, T)`` batch (one label list cannot serve
+                every sample); omit it there.
             **kwargs:      Ignored (for API consistency).
 
         Returns:
             Matplotlib Figure with a horizontal bar chart of token importance.
+            A 2-D ``(B, T)`` batch renders one bar panel per sample (row).
         """
-        attr = _to_numpy(attributions).ravel()
-        n = len(attr)
-        labels = token_labels if token_labels else [f"tok_{i}" for i in range(n)]
+        attr = _to_numpy(attributions)
+        if attr.ndim > 2:
+            # A token attribution is 1-D ``(T,)`` or 2-D ``(B, T)``. A higher-rank
+            # tensor (e.g. an un-reduced ``(B, T, H)`` layer output) would be
+            # silently flattened into the wrong token grid; reject it instead.
+            raise ValueError(
+                f"CaptumTextVisualiser expects a 1-D (T,) or 2-D (B, T) token attribution, "
+                f"got shape {tuple(attr.shape)}. Reduce the embedding dimension first."
+            )
+        # Normalise to a batch of rows: 1-D ``(T,)`` is a single sample.
+        rows = attr.reshape(1, -1) if attr.ndim == 1 else attr.reshape(attr.shape[0], -1)
+        n_samples, n_tokens = rows.shape
+        if token_labels and n_samples > 1:
+            # One ``list[str]`` reused across samples would mislabel every token
+            # after the first sample. Per-sample labels are follow-on work (#99).
+            raise ValueError(
+                "token_labels cannot be applied to a batched (B, T) attribution: a single "
+                "label list would be reused across all samples and mislabel tokens. Omit "
+                "token_labels for batched text (per-sample labels are tracked in GH #99)."
+            )
 
-        fig, ax = plt.subplots(figsize=(8, max(4, n * 0.35)))
-        colors = ["#e74c3c" if v > 0 else "#3498db" for v in attr]
-        y = np.arange(n)
-        ax.barh(y, attr, color=colors)
-        ax.set_yticks(y)
-        ax.set_yticklabels(labels, fontsize=8)
-        ax.axvline(0, color="black", linewidth=0.8)
-        ax.set_xlabel("Attribution")
-        ax.set_title("Token Attribution")
-        ax.grid(axis="x", alpha=0.3)
+        fig, axes = plt.subplots(
+            n_samples,
+            1,
+            figsize=(8, max(4, n_tokens * 0.35) * n_samples),
+            squeeze=False,
+        )
+        y = np.arange(n_tokens)
+        labels = token_labels if token_labels else [f"tok_{i}" for i in range(n_tokens)]
+        for row_index in range(n_samples):
+            ax = axes[row_index][0]
+            values = rows[row_index]
+            colors = ["#e74c3c" if v > 0 else "#3498db" for v in values]
+            ax.barh(y, values, color=colors)
+            ax.set_yticks(y)
+            ax.set_yticklabels(labels, fontsize=8)
+            ax.axvline(0, color="black", linewidth=0.8)
+            ax.set_xlabel("Attribution")
+            title = (
+                "Token Attribution" if n_samples == 1 else f"Token Attribution (sample {row_index})"
+            )
+            ax.set_title(title)
+            ax.grid(axis="x", alpha=0.3)
         fig.tight_layout()
         return fig
 

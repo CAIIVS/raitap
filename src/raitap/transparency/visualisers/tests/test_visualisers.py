@@ -761,13 +761,6 @@ class TestCaptumTextVisualiser:
         [
             _explanation(
                 input_kind="text",
-                input_layout="TOKENS",
-                output_layout="TOKENS",
-                output_space=ExplanationOutputSpace.TOKEN_SEQUENCE,
-                shape=(2, 12),
-            ),
-            _explanation(
-                input_kind="text",
                 input_layout="B,F",
                 output_layout="B,F",
                 output_space=ExplanationOutputSpace.TOKEN_SEQUENCE,
@@ -785,6 +778,35 @@ class TestCaptumTextVisualiser:
                 torch.zeros(2, 10),
                 None,
             )
+
+    def test_validate_explanation_accepts_batched_token_sequence(self) -> None:
+        # A 2-D ``(B, T)`` batch of per-token scores is a valid token-sequence
+        # layout (one row per sample), rendered as one bar panel per sample. (#340)
+        explanation = _explanation(
+            input_kind="text",
+            input_layout="TOKENS",
+            output_layout="TOKENS",
+            output_space=ExplanationOutputSpace.TOKEN_SEQUENCE,
+            shape=(2, 12),
+        )
+        CaptumTextVisualiser().validate_explanation(explanation, torch.zeros(2, 12), None)
+
+    def test_visualise_rejects_token_labels_for_batched_attribution(self) -> None:
+        # A single ``token_labels`` list reused across a (B, T) batch would
+        # mislabel every sample after the first; reject it loudly (#99).
+        with pytest.raises(ValueError, match="batched"):
+            CaptumTextVisualiser().visualise(
+                torch.zeros(3, 5), token_labels=[f"w{i}" for i in range(5)]
+            )
+
+    def test_visualise_batched_without_labels_renders(self) -> None:
+        fig = CaptumTextVisualiser().visualise(torch.zeros(3, 5))
+        assert fig is not None
+
+    def test_visualise_rejects_3d_attribution(self) -> None:
+        # An un-reduced (B, T, H) tensor must not be silently flattened.
+        with pytest.raises(ValueError, match=r"1-D .* or 2-D"):
+            CaptumTextVisualiser().visualise(torch.zeros(2, 4, 8))
 
     @pytest.mark.parametrize(
         "method_families",

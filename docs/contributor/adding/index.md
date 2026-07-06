@@ -17,6 +17,7 @@ This section explains how to add new features to RAITAP.
 ...an adapter <adding-an-adapter>
 ...an algorithm <adding-an-algorithm>
 ...a backend <adding-a-backend>
+...an input parser <adding-an-input-parser>
 ...a module <adding-a-module>
 ...a task family <adding-a-task-family>
 ```

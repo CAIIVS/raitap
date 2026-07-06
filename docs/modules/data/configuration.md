@@ -163,6 +163,31 @@ All detection variants honour `id_strategy` for nested image-directory layouts.
 
 **`id_strategy`** (`"auto"` / `"relative_path"` / `"stem"`, default `"auto"`): how label ids are matched against discovered sample files. `"auto"` inspects the id column and switches to `"relative_path"` if any value contains `/` or `\`, otherwise `"stem"`. `"relative_path"` keeps directory components (e.g. `NORMAL/IM-0001`) — required when filename stems collide across class subdirs. `"stem"` matches by basename only.
 
+**Input variants.** `data.inputs` is a Hydra config-group, same mechanics as `data.labels`: select the variant with `defaults: [data/inputs: <name>]`, set its fields under `data.inputs:`. Only needed for text; image and tabular sources load from `data.source` directly, no `data.inputs` block required. `data.inputs` carries only format options — the source path is `data.source`, set once.
+
+```yaml
+defaults:
+  - raitap_schema
+  - data/inputs: text_csv   # pick one variant
+  - _self_
+
+model:
+  tokenizer: distilbert-base-uncased-finetuned-sst-2-english   # required for text
+
+data:
+  source: "./data/reviews.csv"
+  inputs:
+    text_column: "text"
+```
+
+| Variant     | Reads                          | Fields                          |
+| ----------- | ------------------------------- | -------------------------------- |
+| `text_csv`  | one column of a CSV/TSV/Parquet file | `text_column` |
+| `text_jsonl`| one field of a JSON-lines file  | `text_field` (default `"text"`) |
+| `text_dir`  | a directory of text files (one document per file, sorted by name; `.txt` and `.md`) | (none) |
+
+Every variant returns `list[str]`, one string per sample, tokenised by `model.tokenizer` into `input_ids` + `attention_mask`.
+
 For tabular models whose backend expects an unusual per-sample layout (such
 as ACAS Xu, a Torch network whose forward takes `(N, 1, 1, 5)`), supply
 `input_metadata.shape` explicitly so the pipeline reshapes the flat feature

@@ -72,9 +72,9 @@ def backend_extra(model_source: str, hardware: ResolvedHardware) -> str:
     The extension -> extra mapping is harvested import-free from the backends'
     ``@register`` decorators (:func:`scan_backend_extras`): accelerator runtimes
     (torch/onnx) split per hardware, single-wheel ones (xgboost) do not.
-    Extensionless sources (built-in torchvision names, e.g. ``"resnet50"``) and
-    unknown extensions fall back to the torch runtime — a truly unsupported file
-    errors later at load time.
+    Extensionless sources (built-in torchvision names, e.g. ``"resnet50"``, and
+    HuggingFace hub ids) and unknown extensions fall back to the torch runtime —
+    a truly unsupported file errors later at load time.
     """
     ext = os.path.splitext(model_source)[1].lower()
     spec = scan_backend_extras().get(ext)
@@ -82,6 +82,26 @@ def backend_extra(model_source: str, hardware: ResolvedHardware) -> str:
         return f"torch-{hardware.pyproject_extra_suffix}"
     extra, supported_hardware = spec
     return _extra_for_spec(extra, supported_hardware, hardware)
+
+
+def backend_extras(model: Mapping[str, Any], hardware: ResolvedHardware) -> dict[str, str]:
+    """Return ``{extra: origin}`` for everything a model config needs to run.
+
+    ``backend_extra`` maps ``model.source`` to a single runtime extra by file
+    extension. HuggingFace text models are the one case that needs more than
+    that: their source is an extensionless hub id (so ``backend_extra`` falls
+    back to the torch runtime, which is correct — transformers runs on torch)
+    *and* they set ``model.tokenizer``, which additionally requires the
+    ``text`` extra (it carries ``transformers``). Both are returned together
+    so callers don't have to special-case the tokenizer signal themselves.
+    """
+    source = model["source"]
+    found: dict[str, str] = {}
+    _add(found, backend_extra(source, hardware), f"model.source={source} + hardware={hardware}")
+    tokenizer = model.get("tokenizer")
+    if tokenizer is not None:
+        _add(found, "text", f"model.tokenizer={tokenizer!r}")
+    return found
 
 
 def _extra_for_target(target: str) -> str:
@@ -175,8 +195,8 @@ def infer_extras(
             "(the file extension drives that choice). Add `model.source: …` "
             "to the config or override it via Hydra (e.g. `model.source=foo.pt`)."
         )
-    backend = backend_extra(model["source"], hardware)
-    _add(extras, backend, f"model.source={model['source']} + hardware={hardware}")
+    for name, origin in backend_extras(model, hardware).items():
+        _add(extras, name, origin)
 
     for section_key in ("transparency", "robustness", "reporting", "tracking", "metrics"):
         _walk_section(extras, section_key, cfg.get(section_key))

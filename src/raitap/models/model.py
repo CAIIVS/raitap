@@ -20,7 +20,7 @@ from raitap.utils.lazy import lazy_import
 from . import xgboost_backend  # noqa: F401  # pyright: ignore[reportUnusedImport]
 from .onnx_backend import OnnxBackend
 from .runtime import resolve_torch_device
-from .torch_backend import TorchBackend
+from .torch_backend import TorchBackend, load_hf_text_backend
 
 if TYPE_CHECKING:
     import torch
@@ -79,6 +79,12 @@ class Model(Trackable):
                 "No model specified. Set model.source in your config.\n"
                 "  model.source: path/to/your_model.pth   (custom model)\n"
                 "  model.source: resnet50                 (built-in demo model)"
+            )
+
+        tokenizer = getattr(config.model, "tokenizer", None)
+        if tokenizer:
+            return load_hf_text_backend(
+                source, tokenizer=tokenizer, device=resolve_torch_device(hardware)
             )
 
         path = Path(source)

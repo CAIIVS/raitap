@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
+from raitap.task_families.base import ATTENTION_MASK_KEY
 from raitap.task_families.registry import task_family
 from raitap.types import TaskKind
 from raitap.utils.lazy import lazy_import
@@ -76,22 +77,24 @@ class ClassificationFamily:
         from raitap.pipeline.phases.forward_pass import extract_primary_tensor
 
         backend, inputs = ctx.backend, ctx.inputs
+        mask = ctx.extras.get(ATTENTION_MASK_KEY)
         total_batch = len(inputs)
-        if total_batch <= batch_size:
-            prepared = backend._prepare_inputs(inputs)
-            out = extract_primary_tensor(backend(prepared)).detach().cpu()
+
+        def _call(lo: int, hi: int) -> torch.Tensor:
+            prepared = backend._prepare_inputs(inputs[lo:hi])
+            kwargs = {} if mask is None else {ATTENTION_MASK_KEY: mask[lo:hi]}
+            out = extract_primary_tensor(backend(prepared, **kwargs)).detach().cpu()
             del prepared
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             return out
-        chunks: list[torch.Tensor] = []
-        for start in range(0, total_batch, batch_size):
-            end = min(start + batch_size, total_batch)
-            prepared = backend._prepare_inputs(inputs[start:end])
-            chunks.append(extract_primary_tensor(backend(prepared)).detach().cpu())
-            del prepared
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+
+        if total_batch <= batch_size:
+            return _call(0, total_batch)
+        chunks = [
+            _call(start, min(start + batch_size, total_batch))
+            for start in range(0, total_batch, batch_size)
+        ]
         return torch.cat(chunks, dim=0)
 
     def payload_batch_size(self, payload: Any) -> int:
@@ -124,6 +127,18 @@ class ClassificationFamily:
             # device-moved exactly once, matching the pre-refactor behaviour.
             runtime_kwargs = prepared.backend._prepare_kwargs(runtime_kwargs)
 
+        # Text inputs carry a per-sample ``attention_mask`` alongside the token
+        # ids. It is not attributed like an input feature; thread it through as a
+        # call-kwarg so the explainer's invoker forwards it to the model (the
+        # Captum invoker pops it into ``additional_forward_args``).
+        # ``_slice_kwargs_for_batch`` slices it per batch (leading dim == batch
+        # size). Absent for image/tabular inputs, so those paths stay
+        # byte-identical (no extra kwarg is added). (#340)
+        mask_kwargs: dict[str, Any] = {}
+        attention_mask = getattr(ctx.data, "attention_mask", None)
+        if attention_mask is not None:
+            mask_kwargs = prepared.backend._prepare_kwargs({ATTENTION_MASK_KEY: attention_mask})
+
         resolved_sample_names = prepared.raitap_kwargs.get("sample_names")
         if resolved_sample_names is not None:
             resolved_list = list(resolved_sample_names)
@@ -145,7 +160,7 @@ class ClassificationFamily:
             visualisers=prepared.visualisers,
             raitap_kwargs=prepared.raitap_kwargs,
             call_provenance=prepared.call_provenance,
-            **{**prepared.merged_kwargs, **runtime_kwargs},
+            **{**prepared.merged_kwargs, **runtime_kwargs, **mask_kwargs},
         )
         result._visualise()  # populates result.visualisations (was run_adapters)
         return [result]

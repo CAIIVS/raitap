@@ -37,6 +37,13 @@ if TYPE_CHECKING:
     from raitap.types import TaskKind
 
 
+#: Extras-contract key for the tokeniser padding mask threaded through
+#: ``ForwardContext.extras`` / ``Data.attention_mask`` for text inputs.
+#: This is raitap's own convention (not a HuggingFace dict key); use this
+#: constant at every raitap-owned call site instead of the literal.
+ATTENTION_MASK_KEY = "attention_mask"
+
+
 @dataclass(frozen=True)
 class ForwardContext:
     """Inputs to :meth:`TaskFamily.extract_forward`."""
