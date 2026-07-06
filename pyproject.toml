@@ -83,8 +83,8 @@ Source = "https://github.com/CAIIVS/raitap/"
 
 [project.optional-dependencies]
 # Backend module
-torch-cpu = ["torch>=2.8.0,<2.9.0", "torchvision>=0.20.0,<0.24.0"]
-torch-cuda = ["torch>=2.8.0,<2.9.0", "torchvision>=0.20.0,<0.24.0"]
+torch-cpu = ["torch>=2.8.0,<2.9.0", "torchvision>=0.20.0,<0.25.0"]
+torch-cuda = ["torch>=2.8.0,<2.9.0", "torchvision>=0.20.0,<0.25.0"]
 torch-intel = [
   # Intel XPU stays on torch>=2.10.0 (unchanged from main): the only torch in the
   # 2.8 window on the xpu index is 2.8.0+xpu, whose pinned pytorch-triton-xpu==3.4.0
@@ -103,13 +103,13 @@ onnx-cpu = [
   "onnx>=1.21.0",
   "onnxruntime>=1.24.4",
   "torch>=2.8.0,<2.9.0",
-  "torchvision>=0.20.0,<0.24.0",
+  "torchvision>=0.20.0,<0.25.0",
 ]
 onnx-cuda = [
   "onnx>=1.21.0",
   "onnxruntime-gpu>=1.24.4",
   "torch>=2.8.0,<2.9.0",
-  "torchvision>=0.20.0,<0.24.0",
+  "torchvision>=0.20.0,<0.25.0",
 ]
 onnx-intel = [
   "onnx>=1.21.0; sys_platform != 'darwin'",
