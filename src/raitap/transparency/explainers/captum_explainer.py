@@ -242,12 +242,22 @@ def _default_captum_invoker(ctx: AttributionInvokeCtx) -> torch.Tensor:
     # ``attention_mask`` (e.g. from a tokenized text input) is not attributed or
     # perturbed like a regular input feature; Captum passes it through untouched
     # to the forward as a positional ``additional_forward_args`` entry (#340).
-    additional_forward_args = call_kwargs.pop(ATTENTION_MASK_KEY, None)
-    extra_call_kwargs = (
-        {"additional_forward_args": (additional_forward_args,)}
-        if additional_forward_args is not None
-        else {}
-    )
+    attention_mask = call_kwargs.pop(ATTENTION_MASK_KEY, None)
+    # Merge, do not clobber: pop any caller-provided ``additional_forward_args``
+    # too and append the mask, so a config that already sets forward args keeps
+    # them AND the mask is applied (a plain spread would let one override the
+    # other and silently drop the mask). (#340)
+    caller_forward_args = call_kwargs.pop("additional_forward_args", None)
+    forward_args: tuple[Any, ...] = ()
+    if caller_forward_args is not None:
+        forward_args += (
+            caller_forward_args
+            if isinstance(caller_forward_args, tuple)
+            else (caller_forward_args,)
+        )
+    if attention_mask is not None:
+        forward_args += (attention_mask,)
+    extra_call_kwargs = {"additional_forward_args": forward_args} if forward_args else {}
 
     try:
         method_class = getattr(captum_attr, explainer.algorithm)

@@ -94,6 +94,34 @@ def test_default_invoker_pops_attention_mask_into_additional_forward_args() -> N
     assert recorded["target"] == 0
 
 
+def test_default_invoker_merges_mask_with_caller_additional_forward_args() -> None:
+    # A config that already supplies additional_forward_args must keep them AND
+    # get the mask appended, not have one clobber the other.
+    explainer = CaptumExplainer(algorithm="IntegratedGradients")
+    model = torch.nn.Linear(4, 2)
+    mask = torch.ones(2, 4)
+    caller_arg = object()
+
+    ctx = AttributionInvokeCtx(
+        explainer=explainer,
+        library=_FakeCaptumAttr,
+        model=model,
+        inputs=torch.randn(2, 4),
+        input_spec=None,
+        call_kwargs={
+            "target": 0,
+            "baselines": None,
+            "attention_mask": mask,
+            "additional_forward_args": (caller_arg,),
+        },
+    )
+
+    _default_captum_invoker(ctx)
+
+    recorded = _RecordingMethod.last_call_kwargs
+    assert recorded["additional_forward_args"] == (caller_arg, mask)
+
+
 def test_default_invoker_omits_additional_forward_args_when_no_mask() -> None:
     """Existing image/tabular paths (no ``attention_mask`` kwarg) stay unchanged."""
     explainer = CaptumExplainer(algorithm="IntegratedGradients")

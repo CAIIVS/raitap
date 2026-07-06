@@ -657,9 +657,13 @@ class CaptumTextVisualiser(BaseVisualiser):
     ) -> Figure:
         """
         Args:
-            attributions:  1-D attribution scores (one per token).
+            attributions:  Per-token attribution scores. Either 1-D ``(T,)`` for a
+                single sequence, or 2-D ``(B, T)`` for a batch (one panel per row).
+                Higher-rank tensors are rejected.
             inputs:        Ignored.
-            token_labels:  List of token strings (optional).
+            token_labels:  Token strings for the y-axis, single sequence only. Not
+                supported for a 2-D ``(B, T)`` batch (one label list cannot serve
+                every sample); omit it there.
             **kwargs:      Ignored (for API consistency).
 
         Returns:
