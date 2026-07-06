@@ -57,7 +57,7 @@ dependencies = [
   "packaging>=23.0",
 
   # Data and visualisation.
-  "matplotlib==3.10.*",  # pinned: bumping invalidates committed pytest-mpl baselines (FreeType/Agg rendering)
+  "matplotlib>=3.10,<3.12",  # pinned: bumping invalidates committed pytest-mpl baselines (FreeType/Agg rendering)
   "pandas>=2.0.0",
   "pandas-stubs~=3.0.0",
   "pillow>=12.2.0",
