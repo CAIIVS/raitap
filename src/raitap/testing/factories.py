@@ -6,11 +6,13 @@ duplicates. Keep these intentionally tiny and CPU-only.
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import torch
 import torch.nn as nn
+from omegaconf import DictConfig, OmegaConf
+
+from raitap.configs.schema import AppConfig
 
 
 def make_tiny_classifier(
@@ -66,8 +68,15 @@ def make_pixel_linear_classifier(
     return model
 
 
-def make_app_config(**overrides: Any) -> SimpleNamespace:
-    """Minimal AppConfig stand-in. Pass keyword overrides for any attribute."""
-    base: dict[str, Any] = {"experiment_name": "test", "hardware": "cpu", "_output_root": "."}
-    base.update(overrides)
-    return SimpleNamespace(**base)
+def make_app_config(**overrides: Any) -> DictConfig:
+    """A faithful ``AppConfig`` stand-in for tests.
+
+    Returns a struct-mode OmegaConf config typed by ``AppConfig`` — the same
+    shape Hydra hands prod at runtime. Attribute access resolves declared
+    fields (with schema defaults) and raises on undeclared ones, so tests
+    model valid configs and prod can read fields directly without defensive
+    ``getattr``. Pass flat or nested keyword overrides
+    (``make_app_config(model={"source": "resnet18"})``).
+    """
+    merged = OmegaConf.merge(OmegaConf.structured(AppConfig), overrides)
+    return cast("DictConfig", merged)
