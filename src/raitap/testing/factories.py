@@ -13,6 +13,8 @@ import torch.nn as nn
 from omegaconf import DictConfig, OmegaConf
 
 from raitap.configs.schema import AppConfig
+from raitap.models.base_backend import ModelBackend
+from raitap.types import Capability, TaskKind
 
 
 def make_tiny_classifier(
@@ -80,3 +82,38 @@ def make_app_config(**overrides: Any) -> DictConfig:
     """
     merged = OmegaConf.merge(OmegaConf.structured(AppConfig), overrides)
     return cast("DictConfig", merged)
+
+
+def make_fake_backend(
+    *,
+    provides: frozenset[Capability] = frozenset(),
+    task_kind: TaskKind = TaskKind.classification,
+    hardware_label: str = "cpu",
+) -> ModelBackend:
+    """A minimal concrete ``ModelBackend`` for tests that feed a backend into
+    prod read paths (``backend.provides`` / ``.task_kind`` / ``.device``).
+
+    Replaces ``SimpleNamespace`` backend fakes so those reads resolve against
+    the real ABC contract instead of defensive ``getattr``.
+    """
+    # Aliased to avoid the class-body self-reference trap: `provides = provides`
+    # inside the class body would make `provides` a class-local name for the
+    # whole statement, so the RHS lookup raises NameError instead of closing
+    # over the function argument.
+    _provides = provides
+
+    class _FakeBackend(ModelBackend):
+        provides = _provides  # type: ignore[misc]
+
+        @property
+        def hardware_label(self) -> str:
+            return hardware_label
+
+        @property
+        def task_kind(self) -> TaskKind:
+            return task_kind
+
+        def __call__(self, inputs: Any, **kwargs: Any) -> Any:
+            return inputs
+
+    return _FakeBackend()

@@ -5,6 +5,7 @@ from __future__ import annotations
 from raitap.testing.deps import requires
 from raitap.testing.factories import (
     make_app_config,
+    make_fake_backend,
     make_pixel_linear_classifier,
     make_tiny_classifier,
     make_tiny_mlp,
@@ -12,6 +13,7 @@ from raitap.testing.factories import (
 
 __all__ = [
     "make_app_config",
+    "make_fake_backend",
     "make_pixel_linear_classifier",
     "make_tiny_classifier",
     "make_tiny_mlp",

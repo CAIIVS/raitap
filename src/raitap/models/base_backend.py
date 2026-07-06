@@ -81,6 +81,10 @@ class ModelBackend(ABC):
     # Optional id->name table for the model's output classes (e.g. torchvision
     # detection ``weights.meta["categories"]``). ``None`` when unavailable.
     category_names: list[str] | None = None
+    # Runtime device for backends that place tensors (TorchBackend sets this in
+    # __init__). ``None`` for device-less backends (ONNX, tree). Declared here
+    # so callers read ``backend.device`` directly instead of defensive getattr.
+    device: torch.device | None = None
 
     @classmethod
     def from_path(

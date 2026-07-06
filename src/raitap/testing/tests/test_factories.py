@@ -4,7 +4,9 @@ import pytest
 import torch
 from omegaconf import DictConfig
 
-from raitap.testing import make_app_config, make_tiny_classifier
+from raitap.models.base_backend import ModelBackend
+from raitap.testing import make_app_config, make_fake_backend, make_tiny_classifier
+from raitap.types import Capability, TaskKind
 
 
 def test_tiny_classifier_is_deterministic_and_runs() -> None:
@@ -47,3 +49,12 @@ def test_make_app_config_reading_undeclared_field_raises() -> None:
     cfg = make_app_config()
     with pytest.raises(AttributeError):
         _ = cfg.definitely_not_a_field
+
+
+def test_make_fake_backend_exposes_typed_attrs() -> None:
+    backend = make_fake_backend(provides=frozenset({Capability.AUTOGRAD}))
+    assert isinstance(backend, ModelBackend)
+    assert backend.provides == frozenset({Capability.AUTOGRAD})
+    assert backend.task_kind is TaskKind.classification
+    assert backend.device is None
+    assert backend.hardware_label == "cpu"
