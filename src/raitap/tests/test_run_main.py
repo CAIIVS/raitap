@@ -1101,3 +1101,24 @@ def test_run_phases_resolves_auto_pred_target(monkeypatch: MonkeyPatch) -> None:
     target = captured_kwargs["target"]
     assert isinstance(target, torch.Tensor)
     assert torch.equal(target, torch.tensor([1, 0]))
+
+
+def test_generate_report_returns_none_when_reporting_disabled(monkeypatch: MonkeyPatch) -> None:
+    from raitap.pipeline import orchestrator
+
+    monkeypatch.setattr(orchestrator, "reporting_enabled", lambda _c: False)
+    result = orchestrator._generate_report(object(), object(), verbose=False)  # type: ignore[arg-type]
+    assert result is None
+
+
+def test_log_run_to_tracker_noop_paths_exist() -> None:
+    # Smoke: the four extracted helpers are module-level callables.
+    from raitap.pipeline import orchestrator
+
+    for name in (
+        "_build_run_context",
+        "_write_run_reproducibility",
+        "_generate_report",
+        "_log_run_to_tracker",
+    ):
+        assert callable(getattr(orchestrator, name))

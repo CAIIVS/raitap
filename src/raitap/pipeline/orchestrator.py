@@ -37,34 +37,20 @@ if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
     from raitap.data.preprocessing import ResolvedPreprocessing
     from raitap.pipeline.outputs import PhaseResult
+    from raitap.reporting import ReportGeneration
+    from raitap.reproducibility import ReproducibilityReport
 else:
     torch = lazy_import("torch")
 
 
-def _run_pipeline(
+def _build_run_context(
     config: AppConfig,
     *,
-    verbose: bool = True,
-    acknowledge_preprocessing_off: bool = False,
-    acknowledge_preprocessing_exec: bool = False,
-    allow_unsafe_pickle: bool = False,
-) -> RunOutputs:
-    """Run the full assessment pipeline, including reporting and tracker logging.
-
-    Parameters
-    ----------
-    config:
-        The fully-resolved application configuration.
-    verbose:
-        When ``True`` (the default), print the run summary panel and the
-        "Generating report..." status line. When ``False``, suppress both —
-        leaving phase-level progress logs under standard ``logging``
-        control. ``logging`` itself is not reconfigured; programmatic callers
-        wanting full silence should raise the root log level.
-    acknowledge_preprocessing_off / acknowledge_preprocessing_exec / allow_unsafe_pickle:
-        Forwarded to the preprocessing resolver and the :class:`Model`
-        loader — see :func:`raitap.run` for the user-facing semantics.
-    """
+    verbose: bool,
+    acknowledge_preprocessing_off: bool,
+    acknowledge_preprocessing_exec: bool,
+    allow_unsafe_pickle: bool,
+) -> tuple[Model, Data, ResolvedPreprocessing]:
     # Defer warnings emitted during model + data construction so the
     # summary panel renders first; otherwise the rich handler interleaves
     # them above the banner and makes the run header look fragmented.
@@ -91,17 +77,10 @@ def _run_pipeline(
         # ("Preprocessing: …") + any setup warnings replay *after* the panel.
         if verbose:
             print_summary(config, model)
+    return model, data, resolved_preprocessing
 
-    seed = config.seed
-    if seed is not None:
-        pin_global_seed(seed)
-    outputs = run_phases(
-        config,
-        model,
-        data,
-        resolved_preprocessing=resolved_preprocessing,
-    )
 
+def _write_run_reproducibility(config: AppConfig, outputs: RunOutputs) -> ReproducibilityReport:
     # Reproducibility caveat (#251, #339). Derived once from the run's semantics
     # and the (maybe-unset) seed. The output-dir note and the warning fire
     # whenever there is something to warn about — independent of reporting (the
@@ -113,28 +92,33 @@ def _run_pipeline(
     # reproducible). Not duplicated into per-module metadata.
     if repro.warned or repro.seed is not None:
         write_reproducibility_md(resolve_run_dir(config), repro)
+    return repro
 
-    report_generation = None
-    if reporting_enabled(config):
-        if verbose:
-            # Logged from the orchestrator but logically a reporting concern.
-            raitap_log.info("Generating report...", module=Module.reporting)
-        report = build_report(config, outputs)
-        report_generation = create_report(config=config, report=report)
 
-    if repro.warned:
-        # After the "Report generated" log so it reads as a closing caveat.
-        # ``reproducibility_caveat`` only returns ``None`` when nothing is
-        # warned, which the guard above rules out.
-        raitap_log.warn(cast("str", reproducibility_caveat(repro)))
+def _generate_report(
+    config: AppConfig, outputs: RunOutputs, *, verbose: bool
+) -> ReportGeneration | None:
+    if not reporting_enabled(config):
+        return None
+    if verbose:
+        # Logged from the orchestrator but logically a reporting concern.
+        raitap_log.info("Generating report...", module=Module.reporting)
+    report = build_report(config, outputs)
+    return create_report(config=config, report=report)
 
-    tracking_config = config.tracking
-    if tracking_config is None or not getattr(tracking_config, "_target_", None):
-        return outputs
 
+def _log_run_to_tracker(
+    config: AppConfig,
+    model: Model,
+    data: Data,
+    outputs: RunOutputs,
+    report_generation: ReportGeneration | None,
+    *,
+    log_model: bool,
+) -> None:
     with BaseTracker.create_tracker(config) as tracker:
         tracker.log_config()
-        if tracking_config.log_model:
+        if log_model:
             model.log(tracker)
         data.log(tracker)
         # Each phase result owns how it logs itself (artifacts + subdirectories).
@@ -144,6 +128,58 @@ def _run_pipeline(
         if report_generation is not None and reporting_cfg is not None:
             report_generation.log(tracker)
 
+
+def _run_pipeline(
+    config: AppConfig,
+    *,
+    verbose: bool = True,
+    acknowledge_preprocessing_off: bool = False,
+    acknowledge_preprocessing_exec: bool = False,
+    allow_unsafe_pickle: bool = False,
+) -> RunOutputs:
+    """Run the full assessment pipeline, including reporting and tracker logging.
+
+    Parameters
+    ----------
+    config:
+        The fully-resolved application configuration.
+    verbose:
+        When ``True`` (the default), print the run summary panel and the
+        "Generating report..." status line. When ``False``, suppress both —
+        leaving phase-level progress logs under standard ``logging``
+        control. ``logging`` itself is not reconfigured; programmatic callers
+        wanting full silence should raise the root log level.
+    acknowledge_preprocessing_off / acknowledge_preprocessing_exec / allow_unsafe_pickle:
+        Forwarded to the preprocessing resolver and the :class:`Model`
+        loader — see :func:`raitap.run` for the user-facing semantics.
+    """
+    model, data, resolved_preprocessing = _build_run_context(
+        config,
+        verbose=verbose,
+        acknowledge_preprocessing_off=acknowledge_preprocessing_off,
+        acknowledge_preprocessing_exec=acknowledge_preprocessing_exec,
+        allow_unsafe_pickle=allow_unsafe_pickle,
+    )
+
+    seed = config.seed
+    if seed is not None:
+        pin_global_seed(seed)
+    outputs = run_phases(config, model, data, resolved_preprocessing=resolved_preprocessing)
+
+    repro = _write_run_reproducibility(config, outputs)
+    report_generation = _generate_report(config, outputs, verbose=verbose)
+    if repro.warned:
+        # After the "Report generated" log so it reads as a closing caveat.
+        # ``reproducibility_caveat`` only returns ``None`` when nothing is
+        # warned, which the guard above rules out.
+        raitap_log.warn(cast("str", reproducibility_caveat(repro)))
+
+    tracking_config = config.tracking
+    if tracking_config is None or not getattr(tracking_config, "_target_", None):
+        return outputs
+    _log_run_to_tracker(
+        config, model, data, outputs, report_generation, log_model=tracking_config.log_model
+    )
     return outputs
 
 
