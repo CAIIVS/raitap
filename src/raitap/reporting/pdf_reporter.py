@@ -230,8 +230,11 @@ class PDFReporter(BaseReporter):
         )
         run_dir.mkdir(parents=True, exist_ok=True)
 
+        # PDFReporter is only instantiated for reporting-enabled configs (see
+        # ``factory.create_report``), so ``self.config.reporting`` is non-None here.
+        assert self.config.reporting is not None
         filename = report_output_filename(
-            getattr(self.config.reporting, "filename", "report"),
+            self.config.reporting.filename,
             ".pdf",
         )
         output_path = run_dir / filename
@@ -270,7 +273,7 @@ class PDFReporter(BaseReporter):
             )
         )
         layout.append_layout_element(
-            b.Paragraph(_pdf_display_text(f"Model: {getattr(self.config.model, 'source', 'N/A')}"))
+            b.Paragraph(_pdf_display_text(f"Model: {self.config.model.source or 'N/A'}"))
         )
         layout.append_layout_element(
             b.Paragraph(_pdf_display_text(f"Dataset: {self.config.data.name}"))

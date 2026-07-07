@@ -50,6 +50,7 @@ from raitap.robustness.results import (
 )
 from raitap.robustness.visualisers import ImagePairVisualiser, PerturbationHeatmapVisualiser
 from raitap.robustness.visualisers.base_visualiser import BaseRobustnessVisualiser
+from raitap.testing import make_app_config
 from raitap.transparency.contracts import (
     DetectionBox,
     ExplanationOutputSpace,
@@ -1950,13 +1951,15 @@ def test_reporting_sweep_callback_builds_merged_report_from_child_manifests(
     monkeypatch.setattr("raitap.reporting.hydra_callback.create_report", _capture_report)
 
     callback = ReportingSweepCallback()
-    config = OmegaConf.create(
-        {
-            "experiment_name": "demo",
-            "reporting": {"_target_": "PDFReporter", "filename": "report.pdf"},
-            "hydra": {"sweep": {"dir": str(sweep_dir)}},
-        }
+    config = make_app_config(
+        experiment_name="demo",
+        reporting={"_target_": "PDFReporter", "filename": "report.pdf"},
     )
+    # ``hydra`` is a Hydra runtime node, not an ``AppConfig`` field; attach it
+    # outside the struct schema, matching the shape Hydra hands callbacks.
+    OmegaConf.set_struct(config, False)
+    config.hydra = OmegaConf.create({"sweep": {"dir": str(sweep_dir)}})
+    OmegaConf.set_struct(config, True)
     callback.on_multirun_end(config)
 
     report = captured["report"]
@@ -1997,7 +2000,10 @@ def test_build_merged_report_deduplicates_identical_metrics_only(tmp_path: Path)
     ]
 
     report = build_merged_report(
-        AppConfig(experiment_name="demo"),
+        AppConfig(
+            experiment_name="demo",
+            reporting=ReportingConfig(_target_="PDFReporter", filename="report.pdf"),
+        ),
         sweep_dir=sweep_dir,
         child_manifests=child_manifests,
         skipped_children=[],
@@ -2031,7 +2037,10 @@ def test_build_merged_report_preserves_present_section_order_with_aggregated(
     ]
 
     report = build_merged_report(
-        AppConfig(experiment_name="demo"),
+        AppConfig(
+            experiment_name="demo",
+            reporting=ReportingConfig(_target_="PDFReporter", filename="report.pdf"),
+        ),
         sweep_dir=sweep_dir,
         child_manifests=child_manifests,
         skipped_children=[],
@@ -2059,7 +2068,10 @@ def test_build_merged_report_keeps_empty_metrics_groups(tmp_path: Path) -> None:
     ]
 
     report = build_merged_report(
-        AppConfig(experiment_name="demo"),
+        AppConfig(
+            experiment_name="demo",
+            reporting=ReportingConfig(_target_="PDFReporter", filename="report.pdf"),
+        ),
         sweep_dir=sweep_dir,
         child_manifests=child_manifests,
         skipped_children=[],
