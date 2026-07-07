@@ -173,7 +173,8 @@ class ClassificationFamily:
         # distribution. No transform needed here.
         predictions_tensor = forward_output.as_classification()
         if (
-            getattr(config.metrics, "num_classes", None) is None
+            config.metrics is not None
+            and config.metrics.num_classes is None
             and predictions_tensor.ndim == 2
             and predictions_tensor.shape[1] >= 2
         ):

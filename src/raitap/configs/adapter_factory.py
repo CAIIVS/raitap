@@ -413,8 +413,8 @@ def resolve_per_image_transform(
     if resolved_preprocessing is not None:
         return module_as_per_image_callable(resolved_preprocessing.data_module)
 
-    model_cfg = getattr(config, "model", None)
-    data_cfg = getattr(config, "data", None)
+    model_cfg = config.model
+    data_cfg = config.data
     if model_cfg is None or data_cfg is None:
         return None
     resolved = resolve_preprocessing(model_cfg, data_cfg)
