@@ -26,9 +26,19 @@ from raitap.transparency.contracts import (
 )
 from raitap.transparency.explainers.base_explainer import AttributionOnlyExplainer
 
+# Method-family resolution reads each adapter's own ``algorithm_registry``
+# ClassVar (issue #318). Bare test stubs declare this shared minimal registry
+# so ``method_families_for_explainer`` resolves them the same way a real
+# decorated adapter is resolved.
+_BASE_REGISTRY: Mapping[str, ExplainerAlgorithmSpec] = {
+    "Saliency": ExplainerAlgorithmSpec({MethodFamily.GRADIENT}),
+    "IntegratedGradients": ExplainerAlgorithmSpec({MethodFamily.GRADIENT}),
+}
+
 
 class _StrictExplainer(AttributionOnlyExplainer):
     algorithm = "Saliency"
+    algorithm_registry = _BASE_REGISTRY
 
     def __init__(self) -> None:
         super().__init__()
@@ -70,6 +80,7 @@ class _UnknownAlgorithmExplainer(AttributionOnlyExplainer):
 
 class _BatchRecordingExplainer(AttributionOnlyExplainer):
     algorithm = "IntegratedGradients"
+    algorithm_registry = _BASE_REGISTRY
 
     def __init__(self) -> None:
         super().__init__()
@@ -120,6 +131,7 @@ class _BaselineDeclaringExplainer(AttributionOnlyExplainer):
 
 class _GradTrackingExplainer(AttributionOnlyExplainer):
     algorithm = "Saliency"
+    algorithm_registry = _BASE_REGISTRY
 
     def compute_attributions(
         self,
@@ -201,8 +213,7 @@ def test_explain_rejects_unknown_method_family_before_compute() -> None:
     with pytest.raises(
         Exception,
         match=(
-            "method-family inference is not implemented for framework "
-            "<unknown> and algorithm UnregisteredAlgorithm"
+            "Unknown algorithm 'UnregisteredAlgorithm' for explainer _UnknownAlgorithmExplainer"
         ),
     ):
         explainer.explain(

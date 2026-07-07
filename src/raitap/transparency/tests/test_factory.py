@@ -17,6 +17,7 @@ from raitap.transparency import (
     VisualiserIncompatibilityError,
 )
 from raitap.transparency.contracts import (
+    ExplainerAlgorithmSpec,
     ExplanationOutputSpace,
     ExplanationPayloadKind,
     InputSpec,
@@ -519,6 +520,9 @@ def test_explanation_rejects_method_family_mismatch_before_compute(
 ) -> None:
     class GradientExplainer:
         algorithm = "Saliency"
+        algorithm_registry: ClassVar[dict[str, ExplainerAlgorithmSpec]] = {
+            "Saliency": ExplainerAlgorithmSpec({MethodFamily.GRADIENT})
+        }
         output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
 
         def __init__(self) -> None:
@@ -591,6 +595,9 @@ def test_explanation_rejects_candidate_output_space_mismatch_before_compute(
 ) -> None:
     class GradientExplainer:
         algorithm = "Saliency"
+        algorithm_registry: ClassVar[dict[str, ExplainerAlgorithmSpec]] = {
+            "Saliency": ExplainerAlgorithmSpec({MethodFamily.GRADIENT})
+        }
         output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
 
         def __init__(self) -> None:
@@ -661,6 +668,9 @@ def test_explanation_allows_any_supported_candidate_output_space_before_compute(
 ) -> None:
     class GradientExplainer:
         algorithm = "Saliency"
+        algorithm_registry: ClassVar[dict[str, ExplainerAlgorithmSpec]] = {
+            "Saliency": ExplainerAlgorithmSpec({MethodFamily.GRADIENT})
+        }
         output_payload_kind: ClassVar[ExplanationPayloadKind] = ExplanationPayloadKind.ATTRIBUTIONS
 
         def __init__(self) -> None:
