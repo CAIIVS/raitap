@@ -25,7 +25,6 @@ the same as adding the adapter — no edit here.
 
 from __future__ import annotations
 
-import importlib
 import re
 import sys
 from dataclasses import dataclass
@@ -35,14 +34,6 @@ from types import TracebackType  # noqa: TC003 — runtime import: keeps public 
 from typing import Final
 
 _SUBSYSTEM_RE = re.compile(r"raitap[\\/](?!src[\\/])(?P<sub>\w+)[\\/]")
-
-# Module packages that wrap third-party libraries and expose a
-# ``THIRD_PARTY_LIBS`` constant. Aggregated lazily by :func:`_third_party_libs`
-# so ``utils`` stays free of an upward dependency on these packages.
-_THIRD_PARTY_LIB_PROVIDERS: Final[tuple[str, ...]] = (
-    "raitap.transparency",
-    "raitap.robustness",
-)
 
 _DOCS_BASE: Final[str] = "https://caiivs.github.io/raitap"
 
@@ -104,14 +95,15 @@ def _third_party_libs() -> frozenset[str]:
 
     Reads :data:`raitap._adapters.THIRD_PARTY_LIBS`, which
     :func:`raitap._adapters._register_core` populates from each
-    ``@register_*_adapter(..., library="...")`` decoration. Adapter modules
-    are imported once here so the decorators get a chance to fire.
+    ``@register_*_adapter(..., library="...")`` decoration.
+    :func:`raitap.configs.register_configs` is invoked first (idempotent) so
+    every in-tree family is imported and third-party plugins are discovered —
+    firing those decorations without ``utils`` hardcoding which packages exist.
     """
-    for module_name in _THIRD_PARTY_LIB_PROVIDERS:
-        try:
-            importlib.import_module(module_name)
-        except Exception:
-            continue
+    from raitap.configs import register_configs
+
+    register_configs()
+
     from raitap._adapters import THIRD_PARTY_LIBS as _LIBS_BY_GROUP
 
     aggregated: set[str] = set()
