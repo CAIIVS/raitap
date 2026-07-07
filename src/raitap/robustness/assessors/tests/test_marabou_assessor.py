@@ -12,6 +12,7 @@ import numpy as np
 import pytest
 import torch
 
+from raitap.models.base_backend import ModelBackend
 from raitap.robustness.assessors import MarabouAssessor
 from raitap.robustness.assessors.marabou_assessor import _bisect_output_bound
 from raitap.robustness.contracts import (
@@ -20,6 +21,7 @@ from raitap.robustness.contracts import (
     RobustnessVerdict,
 )
 from raitap.robustness.exceptions import AssessorBackendIncompatibilityError
+from raitap.testing import make_fake_backend
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -133,11 +135,18 @@ class _IdentityModel(torch.nn.Module):
         return self.linear(x.flatten(1) if x.ndim > 2 else x)
 
 
-class _OnnxBackend:
+class _OnnxBackend(ModelBackend):
     """Backend stub that pretends to expose a pre-built ONNX file."""
 
-    def __init__(self, onnx_path: str) -> None:
+    def __init__(self, onnx_path: Any) -> None:
         self.onnx_path = onnx_path
+
+    @property
+    def hardware_label(self) -> str:
+        return "test-onnx"
+
+    def __call__(self, inputs: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("test stub: onnx-path resolution only")
 
 
 # ---------------------------------------------------------------------------
@@ -377,7 +386,7 @@ def test_check_backend_compat_accepts_torch_and_onnx(tmp_path: Any) -> None:
     assessor = MarabouAssessor()
     # Either backend type accepted — no raise.
     assessor.check_backend_compat(_OnnxBackend(_onnx_path(tmp_path)))
-    assessor.check_backend_compat(object())
+    assessor.check_backend_compat(make_fake_backend())
     assessor.check_backend_compat(None)
 
 
@@ -559,17 +568,13 @@ def test_verify_sample_returns_none_bounds_when_flag_disabled(
     onnx_path.write_bytes(b"\x00")
     fake_maraboupy.solve_result = ("unsat", {}, _FakeStats(0.0))
 
-    class _Backend:
-        def __init__(self, p: Any) -> None:
-            self.onnx_path = p
-
     assessor = MarabouAssessor(compute_output_bounds=False)
     outcome = assessor.verify_sample(
         model=_IdentityModel(),
         sample=torch.zeros(1, 5),
         target=torch.tensor([0]),
         budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
-        backend=_Backend(onnx_path),
+        backend=_OnnxBackend(onnx_path),
     )
     assert outcome.verdict == RobustnessVerdict.VERIFIED
     assert outcome.lower_bounds is None
@@ -596,17 +601,13 @@ def test_verify_sample_populates_bounds_when_flag_enabled_and_verified(
         fake_bisect,
     )
 
-    class _Backend:
-        def __init__(self, p: Any) -> None:
-            self.onnx_path = p
-
     assessor = MarabouAssessor(compute_output_bounds=True)
     outcome = assessor.verify_sample(
         model=_IdentityModel(),
         sample=torch.zeros(1, 5),
         target=torch.tensor([0]),
         budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
-        backend=_Backend(onnx_path),
+        backend=_OnnxBackend(onnx_path),
     )
     assert outcome.lower_bounds is not None and outcome.upper_bounds is not None
     assert outcome.lower_bounds.shape == (5,)
@@ -635,17 +636,13 @@ def test_verify_sample_skips_bounds_for_falsified_verdict(
 
     monkeypatch.setattr("raitap.robustness.assessors.marabou_assessor._bisect_output_bound", boom)
 
-    class _Backend:
-        def __init__(self, p: Any) -> None:
-            self.onnx_path = p
-
     assessor = MarabouAssessor(compute_output_bounds=True)
     outcome = assessor.verify_sample(
         model=_IdentityModel(),
         sample=torch.zeros(1, 5),
         target=torch.tensor([0]),
         budget=PerturbationBudget(norm=PerturbationNorm.LINF, epsilon=0.05),
-        backend=_Backend(onnx_path),
+        backend=_OnnxBackend(onnx_path),
     )
     assert outcome.verdict == RobustnessVerdict.FALSIFIED
     assert outcome.lower_bounds is None
@@ -668,16 +665,12 @@ def test_assess_propagates_output_bounds_to_result(
         lambda **kw: -1.0 if kw["mode"] == "lower" else 1.0,
     )
 
-    class _Backend:
-        def __init__(self, p: Any) -> None:
-            self.onnx_path = p
-
     assessor = MarabouAssessor(compute_output_bounds=True)
     result = assessor.assess(
         model=_IdentityModel(),
         inputs=torch.zeros(2, 5),
         targets=torch.tensor([0, 0]),
-        backend=_Backend(onnx_path),
+        backend=_OnnxBackend(onnx_path),
     )
     assert result.output_bounds is not None
     lower = result.output_bounds["lower"]

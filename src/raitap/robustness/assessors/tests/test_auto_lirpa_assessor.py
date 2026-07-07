@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 import torch
 
+from raitap.models.base_backend import ModelBackend
 from raitap.robustness.assessors import AutoLiRPAAssessor
 from raitap.robustness.contracts import (
     PerturbationBudget,
@@ -79,15 +80,29 @@ class _IdentityModel(torch.nn.Module):
         return self.linear(x.flatten(1) if x.ndim > 2 else x)
 
 
-class _TorchBackend:
+class _TorchBackend(ModelBackend):
     provides = frozenset({Capability.AUTOGRAD})
 
     def __init__(self, device_type: str = "cpu") -> None:
         self.device = torch.device(device_type)
 
+    @property
+    def hardware_label(self) -> str:
+        return self.device.type if self.device is not None else "cpu"
 
-class _OnnxBackend:
+    def __call__(self, inputs: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+        return inputs
+
+
+class _OnnxBackend(ModelBackend):
     provides = frozenset()
+
+    @property
+    def hardware_label(self) -> str:
+        return "onnx"
+
+    def __call__(self, inputs: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+        return inputs
 
 
 def _linf_budget(eps: float = 0.05) -> PerturbationBudget:

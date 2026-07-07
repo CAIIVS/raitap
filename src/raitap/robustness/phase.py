@@ -34,7 +34,7 @@ class RobustnessPhase(AssessmentPhase):
     name = "robustness"
 
     def is_configured(self, config: AppConfig) -> bool:
-        return bool(getattr(config, "robustness", None))
+        return bool(config.robustness)
 
     def run(self, ctx: PhaseContext) -> PhaseResult | None:
         results = assess_robustness(
@@ -104,7 +104,7 @@ def assess_robustness(
         # (e.g. detection DetectionAdversarialLoss); the family opts out here.
         return []
 
-    assessors = getattr(config, "robustness", None) or {}
+    assessors = config.robustness or {}
     classification_labels = labels if not isinstance(labels, list) else None
     targets = resolve_robustness_targets(
         labels=classification_labels, forward_output=forward_output

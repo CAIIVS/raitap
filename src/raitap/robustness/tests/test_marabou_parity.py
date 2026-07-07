@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 import torch
 
+from raitap.models.base_backend import ModelBackend
 from raitap.robustness.tests.test_e2e_marabou_acas_xu import (
     _load_acas_xu_onnx,
     _run_onnx,
@@ -109,8 +110,15 @@ def test_marabou_verdict_matches_direct_solve(
     )
 
     # raitap path.
-    class _OnnxBackend:
+    class _OnnxBackend(ModelBackend):
         onnx_path = str(model_path)
+
+        @property
+        def hardware_label(self) -> str:
+            return "test-onnx"
+
+        def __call__(self, inputs: object, **kwargs: object) -> object:
+            raise NotImplementedError("test stub: onnx-path resolution only")
 
     assessor = MarabouAssessor(epsilon=eps, timeout_s=120.0)
     assessor.check_backend_compat(_OnnxBackend())
