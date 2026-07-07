@@ -8,7 +8,7 @@ three regressions reviewer @pizzajojo found in PR #119:
   torchattacks' ``PGDL2`` calls ``.view(...)`` and crashes.
 * The image-pair visualiser's perturbation column is RGB-shaped, so ``imshow``
   ignored the diverging cmap and clipped tiny signed deltas to ``[0, 1]``.
-* ``pipeline._run_without_tracking`` raised when transparency was empty even
+* ``pipeline.run_phases`` raised when transparency was empty even
   if robustness was configured, blocking robustness-only runs.
 
 Each test guards one regression.
@@ -26,7 +26,7 @@ from omegaconf import OmegaConf
 
 from raitap.configs import set_output_root
 from raitap.models.base_backend import ModelBackend
-from raitap.pipeline.orchestrator import run_without_tracking as _run_without_tracking
+from raitap.pipeline.orchestrator import run_phases as _run_phases
 from raitap.robustness import RobustnessAssessment, RobustnessResult
 from raitap.testing import make_app_config, make_pixel_linear_classifier
 from raitap.types import Capability
@@ -211,7 +211,7 @@ def test_pipeline_allows_robustness_only_runs(tmp_path: Path) -> None:
     targets = torch.tensor([0, 1])
     model = make_pixel_linear_classifier(hw=8)
 
-    # ``_run_without_tracking`` walks the full pipeline (forward pass, metrics,
+    # ``run_phases`` walks the full pipeline (forward pass, metrics,
     # reporting gates) and reads several ``config.data``/``config.model``
     # fields directly, so this test needs a real ``AppConfig`` shape rather
     # than the lighter ``_make_robustness_config`` namespace the other tests
@@ -242,7 +242,7 @@ def test_pipeline_allows_robustness_only_runs(tmp_path: Path) -> None:
     )
     data_stub.log = MagicMock()  # type: ignore[attr-defined]
 
-    outputs = _run_without_tracking(config, raitap_model, data_stub)  # type: ignore[arg-type]
+    outputs = _run_phases(config, raitap_model, data_stub)  # type: ignore[arg-type]
 
     assert "transparency" not in outputs
     assert len(outputs.robustness) == 1

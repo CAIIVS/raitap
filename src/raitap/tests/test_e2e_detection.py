@@ -153,10 +153,10 @@ def test_detection_pipeline_e2e_via_fasterrcnn_mobilenet(tmp_path: Path) -> None
     set_output_root(config, tmp_path)
 
     # --- run pipeline ------------------------------------------------------
-    from raitap.pipeline.orchestrator import run_without_tracking
+    from raitap.pipeline.orchestrator import run_phases
     from raitap.types import TaskKind
 
-    outputs = run_without_tracking(config, model, data)
+    outputs = run_phases(config, model, data)
 
     assert outputs.forward_output.task_kind is TaskKind.detection
     assert len(outputs.forward_output.as_detection()) == 1

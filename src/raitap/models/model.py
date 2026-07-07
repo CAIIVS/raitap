@@ -204,7 +204,11 @@ def _resolve_shape_override(config: Any) -> tuple[int | None, ...] | None:
         return None
     try:
         metadata = cfg_to_dict(input_metadata)
-    except Exception:
+    except Exception as exc:
+        raitap_log.debug(
+            f"Shape-override metadata parse failed, ignoring input_metadata: {exc}",
+            module=Module.models,
+        )
         return None
     if not isinstance(metadata, dict):
         return None
@@ -378,7 +382,11 @@ def _default_category_names(model_name: str) -> list[str] | None:
 
         default = get_model_weights(model_name).DEFAULT  # type: ignore[attr-defined]
         categories = default.meta.get("categories")
-    except Exception:  # best-effort metadata; never block model load
+    except Exception as exc:  # best-effort metadata; never block model load
+        raitap_log.debug(
+            f"Default category-name resolution failed for {model_name!r}: {exc}",
+            module=Module.models,
+        )
         return None
     if categories is None:
         return None
