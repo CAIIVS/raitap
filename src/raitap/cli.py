@@ -20,58 +20,7 @@ from __future__ import annotations
 
 import sys
 
-_DEMO_FLAG = "--demo"
-_CONFIG_FLAGS = (
-    "--config-name",
-    "-cn",
-    "--config-dir",
-    "-cd",
-    "--config-path",
-    "-cp",
-)
-_HYDRA_INTROSPECTION_FLAGS = (
-    "--help",
-    "-h",
-    "--hydra-help",
-    "--cfg",
-    "--info",
-    "--version",
-)
-
-
-def _handle_demo_flag(argv: list[str]) -> list[str]:
-    """Rewrite ``--demo`` to point Hydra at the bundled ``demo`` config.
-
-    The bundled ``raitap.configs`` directory is registered as the package
-    config_path via :func:`hydra.main` in :mod:`raitap.pipeline.__main__`, so
-    just emitting ``--config-name demo`` is enough — no ``--config-dir`` needed.
-    """
-    if _DEMO_FLAG not in argv:
-        return argv
-    stripped = [arg for arg in argv if arg != _DEMO_FLAG]
-    if not stripped:
-        return argv
-    return [stripped[0], "--config-name", "demo", *stripped[1:]]
-
-
-def _needs_help_frame(argv: list[str]) -> bool:
-    """``True`` when ``raitap`` was invoked with no actionable config selector.
-
-    User passed neither ``--demo`` nor any ``--config-name``/``--config-dir``
-    flag, and didn't request Hydra's own help. In that case we print a
-    pointer instead of silently failing in Hydra's stack.
-    """
-    if not argv:
-        return True
-    if any(arg in _HYDRA_INTROSPECTION_FLAGS for arg in argv):
-        return False
-    if _DEMO_FLAG in argv:
-        return False
-    for arg in argv:
-        for flag in _CONFIG_FLAGS:
-            if arg == flag or arg.startswith(f"{flag}="):
-                return False
-    return True
+from raitap import _cli_argv
 
 
 def _print_help_frame() -> None:
@@ -151,11 +100,11 @@ def main() -> None:
         _print_version()
         return
 
-    if _needs_help_frame(sys.argv[1:]):
+    if _cli_argv.needs_help_frame(sys.argv[1:]):
         _print_help_frame()
         return
 
-    sys.argv = _handle_demo_flag(list(sys.argv))
+    sys.argv = _cli_argv.rewrite_demo(list(sys.argv))
 
     from raitap.deps.bootstrap import maybe_bootstrap
 

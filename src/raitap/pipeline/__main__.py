@@ -10,11 +10,11 @@ from __future__ import annotations
 import logging
 import sys
 import time
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import hydra
 
+from raitap import _cli_argv
 from raitap.pipeline.orchestrator import _run_pipeline
 from raitap.utils.console import (
     print_complete_panel,
@@ -26,10 +26,6 @@ from raitap.utils.errors import RaitapError
 if TYPE_CHECKING:
     from raitap.configs.schema import AppConfig
 
-_CONFIG_NAME_FLAGS = ("--config-name", "-cn")
-_CONFIG_LOCATION_FLAGS = ("--config-path", "-cp", "--config-dir", "-cd")
-_CONFIG_DIR = Path(__file__).resolve().parent.parent / "configs"
-_DEFAULT_CONFIG_NAME = "demo"
 logger = logging.getLogger(__name__)
 
 
@@ -40,35 +36,11 @@ def _format_duration(seconds: float) -> str:
     return f"{hours:d}:{minutes:02d}:{secs:02d}"
 
 
-def _hydra_flag_value(argv: list[str], flags: tuple[str, ...]) -> str | None:
-    for index, arg in enumerate(argv):
-        for flag in flags:
-            if arg == flag:
-                if index + 1 < len(argv):
-                    return argv[index + 1]
-                return None
-            prefix = f"{flag}="
-            if arg.startswith(prefix):
-                return arg.removeprefix(prefix)
-    return None
-
-
-def _has_hydra_flag(argv: list[str], flags: tuple[str, ...]) -> bool:
-    return _hydra_flag_value(argv, flags) is not None
-
-
-def _prepare_cli_argv(argv: list[str]) -> list[str]:
-    config_name = _hydra_flag_value(argv, _CONFIG_NAME_FLAGS)
-    if config_name in {None, "", _DEFAULT_CONFIG_NAME}:
-        return argv
-    if _has_hydra_flag(argv, _CONFIG_LOCATION_FLAGS):
-        return argv
-    if not argv:
-        return argv
-    return [argv[0], "--config-dir", str(Path.cwd()), *argv[1:]]
-
-
-@hydra.main(version_base="1.3", config_path=str(_CONFIG_DIR), config_name=_DEFAULT_CONFIG_NAME)
+@hydra.main(
+    version_base="1.3",
+    config_path=str(_cli_argv.CONFIG_DIR),
+    config_name=_cli_argv.DEFAULT_CONFIG_NAME,
+)
 def _hydra_main(config: AppConfig) -> None:
     setup_logging(level=logging.INFO)
     start_time = time.perf_counter()
@@ -102,7 +74,7 @@ def _dispatch_subcommand(argv: list[str]) -> bool:
 def main() -> None:
     if _dispatch_subcommand(sys.argv[1:]):
         return
-    sys.argv = _prepare_cli_argv(list(sys.argv))
+    sys.argv = _cli_argv.inject_config_dir(list(sys.argv))
     _hydra_main()
 
 
