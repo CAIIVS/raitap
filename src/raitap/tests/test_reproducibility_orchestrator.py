@@ -16,6 +16,7 @@ import torch
 from raitap.pipeline import orchestrator
 from raitap.pipeline.outputs import ForwardOutput, RunOutputs
 from raitap.reproducibility import REPRODUCIBILITY_FILENAME
+from raitap.testing import make_app_config
 from raitap.types import TaskKind
 
 if TYPE_CHECKING:
@@ -59,10 +60,9 @@ def _patch_pipeline(monkeypatch: MonkeyPatch, run_dir: Path, outputs: RunOutputs
 def test_stochastic_run_writes_md_and_warns_with_reporting_off(
     tmp_path: Path, monkeypatch: MonkeyPatch
 ) -> None:
-    config = SimpleNamespace(
+    config = make_app_config(
         experiment_name="repro",
-        model=SimpleNamespace(source="resnet50"),
-        data=SimpleNamespace(),
+        model={"source": "resnet50"},
         seed=None,
     )
     _patch_pipeline(monkeypatch, tmp_path, _outputs(stochastic=True))
@@ -76,10 +76,9 @@ def test_stochastic_run_writes_md_and_warns_with_reporting_off(
 
 
 def test_deterministic_run_emits_nothing(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-    config = SimpleNamespace(
+    config = make_app_config(
         experiment_name="repro",
-        model=SimpleNamespace(source="resnet50"),
-        data=SimpleNamespace(),
+        model={"source": "resnet50"},
         seed=None,
     )
     _patch_pipeline(monkeypatch, tmp_path, _outputs(stochastic=False))
@@ -95,10 +94,9 @@ def test_deterministic_run_emits_nothing(tmp_path: Path, monkeypatch: MonkeyPatc
 def test_seed_config_pins_global_seed(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     calls: list[int] = []
     monkeypatch.setattr(orchestrator, "pin_global_seed", lambda s: calls.append(s))
-    config = SimpleNamespace(
+    config = make_app_config(
         experiment_name="repro",
-        model=SimpleNamespace(source="resnet50"),
-        data=SimpleNamespace(),
+        model={"source": "resnet50"},
         seed=99,
     )
     _patch_pipeline(monkeypatch, tmp_path, _outputs(stochastic=False))

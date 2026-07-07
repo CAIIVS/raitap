@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import sys
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import MagicMock
 
 import pytest
 import torch
+from omegaconf import DictConfig, OmegaConf
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -14,12 +15,12 @@ if TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch
 
     from raitap.configs.schema import AppConfig
-    from raitap.models.base_backend import ModelBackend
     from raitap.transparency.contracts import ExplainerAdapter, InputSpec
 
 
 import raitap.pipeline.orchestrator as run_pipeline
 from raitap import pipeline as run_module
+from raitap.configs.schema import MulticlassClassificationMetricsConfig
 from raitap.data.preprocessing import ResolvedPreprocessing
 from raitap.metrics import metrics_prediction_pair
 
@@ -28,11 +29,13 @@ from raitap.metrics import metrics_prediction_pair
 # another test unbinds them from ``sys.modules`` — so ``monkeypatch.setattr`` with a
 # dotted string path is unreliable. Patching the module object sidesteps that.
 from raitap.metrics import phase as _metrics_phase
+from raitap.models.base_backend import ModelBackend
 from raitap.pipeline import __main__ as run_entry
 from raitap.pipeline import extract_primary_tensor
 from raitap.pipeline.outputs import ForwardOutput as _ForwardOutput
 from raitap.pipeline.phases import forward_pass as run_pipeline_forward
 from raitap.robustness.report import RobustnessPhaseResult
+from raitap.testing import make_app_config
 from raitap.tracking import BaseTracker
 from raitap.transparency import phase as _transparency_phase
 from raitap.transparency.report import TransparencyPhaseResult
@@ -97,7 +100,7 @@ def _fake_run_outputs(
     )
 
 
-class _BackendStub:
+class _BackendStub(ModelBackend):
     def __init__(self, model: torch.nn.Module) -> None:
         self._model = model
 
@@ -115,21 +118,22 @@ class _BackendStub:
     def _prepare_kwargs(self, kwargs: dict[str, object]) -> dict[str, object]:
         return kwargs
 
-    def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
+    def __call__(self, inputs: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+        del kwargs
         return self._model(inputs)
 
     def autograd_module(self) -> torch.nn.Module:
         return self._model
 
 
-def _run_config(**kwargs: object) -> SimpleNamespace:
+def _run_config(**overrides: object) -> DictConfig:
     defaults: dict[str, object] = {
-        "model": SimpleNamespace(source="resnet50"),
-        "data": SimpleNamespace(preprocessing=None),
+        "model": {"source": "resnet50"},
+        "data": {"preprocessing": None},
         "experiment_name": "test",
     }
-    defaults.update(kwargs)
-    return SimpleNamespace(**defaults)
+    defaults.update(overrides)
+    return make_app_config(**defaults)
 
 
 def test_extract_primary_tensor_tensor() -> None:
@@ -176,9 +180,13 @@ def test_metrics_prediction_pair_multiclass_and_vector() -> None:
 
 
 def test_forward_primary_tensor_batches_backend_calls() -> None:
-    class _RecordingBackend:
+    class _RecordingBackend(ModelBackend):
         def __init__(self) -> None:
             self.prepared_batch_sizes: list[int] = []
+
+        @property
+        def hardware_label(self) -> str:
+            return "CPU"
 
         @property
         def task_kind(self) -> _TaskKind:
@@ -188,18 +196,16 @@ def test_forward_primary_tensor_batches_backend_calls() -> None:
             self.prepared_batch_sizes.append(int(inputs.shape[0]))
             return inputs
 
-        def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
+        def __call__(self, inputs: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+            del kwargs
             return inputs.sum(dim=1, keepdim=True)
 
-    config = SimpleNamespace(
-        run=SimpleNamespace(forward_batch_size=2),
-        data=SimpleNamespace(),
-    )
+    config = make_app_config(data={"forward_batch_size": 2})
     backend = _RecordingBackend()
     inputs = torch.arange(10, dtype=torch.float32).reshape(5, 2)
 
     output = run_pipeline_forward.forward_pass(
-        cast("AppConfig", cast("object", config)),
+        cast("AppConfig", config),
         backend,
         inputs,
     )
@@ -453,12 +459,11 @@ def test_print_summary_logs_hydra_resolved_output_dir(
         "raitap.utils.console.metrics_run_enabled", lambda _cfg: False, raising=False
     )
 
-    config = SimpleNamespace(
+    config = make_app_config(
         experiment_name="demo",
-        model=SimpleNamespace(source="resnet50"),
-        data=SimpleNamespace(name="imagenet_samples"),
+        model={"source": "resnet50"},
+        data={"name": "imagenet_samples"},
         transparency={"captum_ig": {}},
-        _output_root="fallback-output",
     )
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
 
@@ -526,9 +531,9 @@ def test_run_resolves_preprocessing_once_for_model_and_data(monkeypatch: MonkeyP
     monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
     monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
 
-    config = SimpleNamespace(
-        model=SimpleNamespace(source="resnet50"),
-        data=SimpleNamespace(preprocessing="model-bundled"),
+    config = make_app_config(
+        model={"source": "resnet50"},
+        data={"preprocessing": "model-bundled"},
         tracking=None,
         experiment_name="test",
     )
@@ -589,7 +594,7 @@ def test_run_invalid_report_sample_selection_fails_before_pipeline_work(
     monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
 
     config = _run_config(
-        reporting=SimpleNamespace(_target_="PDFReporter", sample_selection=["missing.png"]),
+        reporting={"_target_": "PDFReporter", "sample_selection": ["missing.png"]},
         tracking=None,
     )
 
@@ -636,7 +641,7 @@ def test_run_with_tracking_logs_all_outputs(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
     config = _run_config(
-        tracking=SimpleNamespace(_target_="MLFlowTracker", log_model=True),
+        tracking={"_target_": "MLFlowTracker", "log_model": True},
     )
     run_module.run(config)  # type: ignore[arg-type]
 
@@ -681,7 +686,7 @@ def test_run_with_tracking_skips_model_logging_when_disabled(monkeypatch: Monkey
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
     config = _run_config(
-        tracking=SimpleNamespace(_target_="MLFlowTracker", log_model=False),
+        tracking={"_target_": "MLFlowTracker", "log_model": False},
     )
     run_module.run(config)  # type: ignore[arg-type]
 
@@ -724,7 +729,7 @@ def test_run_with_multiple_explainers_uses_subdirs(monkeypatch: MonkeyPatch) -> 
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
     config = _run_config(
-        tracking=SimpleNamespace(_target_="MLFlowTracker", log_model=False),
+        tracking={"_target_": "MLFlowTracker", "log_model": False},
     )
     run_module.run(config)  # type: ignore[arg-type]
 
@@ -757,7 +762,7 @@ def test_run_with_tracking_config_but_no_target_skips_tracking(monkeypatch: Monk
     monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
 
     # tracking config exists but _target_ is None or empty
-    config = _run_config(tracking=SimpleNamespace(_target_=None))
+    config = _run_config(tracking={"_target_": ""})
     result = run_module.run(config)  # type: ignore[arg-type]
 
     assert result is fake_output
@@ -788,11 +793,15 @@ def test_run_without_tracking_allows_metrics_only(monkeypatch: MonkeyPatch) -> N
     data = SimpleNamespace(tensor=torch.randn(2, 4), sample_ids=None, labels=None)
     # A real (non-empty) _target_ is exactly what metrics_run_enabled checks; no
     # transparency/robustness configured -> genuine metrics-only run.
-    config = SimpleNamespace(
+    config = make_app_config(
         transparency={},
         robustness={},
-        metrics=SimpleNamespace(_target_="MulticlassClassificationMetrics", num_classes=None),
+        metrics={"_target_": "MulticlassClassificationMetrics"},
     )
+    # ``num_classes`` deliberately absent here (unlike the typed subclass, where
+    # it is mandatory): exercises the auto-infer branch in
+    # ``ClassificationFamily.metrics_inputs``, which assigns it onto this node.
+    OmegaConf.set_struct(config.metrics, False)
     monkeypatch.setattr(_metrics_phase, "Metrics", lambda _c, _p, _t: SimpleNamespace())
 
     outputs = run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
@@ -816,10 +825,11 @@ def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: M
         metrics_calls.append((cfg, preds, targs))
         return SimpleNamespace()
 
-    config = SimpleNamespace(
+    config = make_app_config(
         transparency={"one": {}},
-        metrics=SimpleNamespace(_target_="MulticlassClassificationMetrics", num_classes=None),
+        metrics={"_target_": "MulticlassClassificationMetrics"},
     )
+    OmegaConf.set_struct(config.metrics, False)
     _patch_prepare_explainer(
         monkeypatch,
         explainer=_CapturingExplainer(explanation, {}),
@@ -849,9 +859,9 @@ def test_run_without_tracking_uses_provided_num_classes(monkeypatch: MonkeyPatch
     data = SimpleNamespace(tensor=torch.randn(1, 4), sample_ids=None, labels=None)
     explanation = _FakeExplainerResult("exp")
 
-    config = SimpleNamespace(
+    config = make_app_config(
         transparency={"one": {}},
-        metrics=SimpleNamespace(_target_="MulticlassClassificationMetrics", num_classes=10),
+        metrics=MulticlassClassificationMetricsConfig(num_classes=10),
     )
     _patch_prepare_explainer(
         monkeypatch,
@@ -875,10 +885,7 @@ def test_run_without_tracking_passes_sample_names_to_explanation(monkeypatch: Mo
     )
     explanation = _FakeExplainerResult("exp")
 
-    config = SimpleNamespace(
-        transparency={"one": {}},
-        metrics=SimpleNamespace(num_classes=None),
-    )
+    config = make_app_config(transparency={"one": {}})
     monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
     captured = _patch_prepare_explainer(
         monkeypatch,
@@ -909,10 +916,7 @@ def test_run_without_tracking_passes_resolved_preprocessing_to_explanation(
         description="test",
     )
 
-    config = SimpleNamespace(
-        transparency={"one": {}},
-        metrics=SimpleNamespace(num_classes=None),
-    )
+    config = make_app_config(transparency={"one": {}})
     monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
     captured = _patch_prepare_explainer(
         monkeypatch,
@@ -946,10 +950,9 @@ def test_run_without_tracking_threads_sample_ids_and_image_metadata_to_explanati
     )
     explanation = _FakeExplainerResult("exp")
 
-    config = SimpleNamespace(
-        data=SimpleNamespace(source=str(image_path)),
+    config = make_app_config(
+        data={"source": str(image_path)},
         transparency={"one": {}},
-        metrics=SimpleNamespace(num_classes=None),
     )
     monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
     captured = _patch_prepare_explainer(
@@ -983,10 +986,9 @@ def test_run_without_tracking_threads_tabular_metadata_to_explanation(
     )
     explanation = _FakeExplainerResult("exp")
 
-    config = SimpleNamespace(
-        data=SimpleNamespace(source=str(csv_path)),
+    config = make_app_config(
+        data={"source": str(csv_path)},
         transparency={"one": {}},
-        metrics=SimpleNamespace(num_classes=None),
     )
     monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
     captured = _patch_prepare_explainer(
@@ -1023,10 +1025,9 @@ def test_run_without_tracking_passes_none_when_inference_cant_determine_kind(
     )
     explanation = _FakeExplainerResult("exp")
 
-    config = SimpleNamespace(
-        data=SimpleNamespace(source=str(empty_dir)),
+    config = make_app_config(
+        data={"source": str(empty_dir)},
         transparency={"one": {}},
-        metrics=SimpleNamespace(num_classes=None),
     )
     monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
     captured = _patch_prepare_explainer(
@@ -1059,13 +1060,12 @@ def test_run_without_tracking_preserves_layout_only_input_metadata(
     )
     explanation = _FakeExplainerResult("exp")
 
-    config = SimpleNamespace(
-        data=SimpleNamespace(
-            source=str(empty_dir),
-            input_metadata={"layout": "(B,T,C)"},
-        ),
+    config = make_app_config(
+        data={
+            "source": str(empty_dir),
+            "input_metadata": {"layout": "(B,T,C)"},
+        },
         transparency={"one": {}},
-        metrics=SimpleNamespace(num_classes=None),
     )
     monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
     captured = _patch_prepare_explainer(
@@ -1094,9 +1094,8 @@ def test_run_without_tracking_resolves_auto_pred_target(monkeypatch: MonkeyPatch
     explanation = _FakeExplainerResult("exp")
     captured_kwargs: dict[str, object] = {}
 
-    config = SimpleNamespace(
+    config = make_app_config(
         transparency={"one": {"call": {"target": "auto_pred"}}},
-        metrics=SimpleNamespace(num_classes=None),
     )
     monkeypatch.setattr(_metrics_phase, "metrics_run_enabled", lambda _cfg: False)
     # Real ``ClassificationFamily.explain`` runs against this prepared object and
