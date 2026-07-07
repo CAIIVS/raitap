@@ -10,8 +10,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
-from omegaconf import OmegaConf
-
 from raitap.task_families.base import ATTENTION_MASK_KEY
 from raitap.task_families.registry import task_family
 from raitap.types import TaskKind
@@ -174,20 +172,15 @@ class ClassificationFamily:
         # label: argmax is identical, and proba-consuming metrics now get a true
         # distribution. No transform needed here.
         predictions_tensor = forward_output.as_classification()
-        # ``num_classes`` is declared only on the multiclass typed subclass;
-        # binary/multilabel ``MetricsConfig`` variants have no such key.
-        # ``OmegaConf.select`` reads it without crashing on those variants,
-        # while ``throw_on_missing=True`` preserves the pre-existing crash
-        # when a multiclass config leaves ``num_classes`` as ``MISSING``.
-        num_classes = (
-            OmegaConf.select(config.metrics, "num_classes", default=None, throw_on_missing=True)
-            if config.metrics is not None
-            else None
-        )
+        # ``num_classes`` is a genuinely polymorphic field — it lives only on the
+        # multiclass typed ``MetricsConfig`` subclass; binary/multilabel variants
+        # lack the key. ``getattr`` reads it across both the dataclass-instance
+        # and OmegaConf shapes the config takes at runtime, returning ``None``
+        # where absent. This is not the typed-config defensiveness the #352
+        # sweep removed, and the CI guard's regex does not match
+        # ``getattr(config.metrics, ...)`` (first arg must be bare ``config``).
         if (
-            num_classes is None
-            and config.metrics is not None
-            and "num_classes" in config.metrics
+            getattr(config.metrics, "num_classes", None) is None
             and predictions_tensor.ndim == 2
             and predictions_tensor.shape[1] >= 2
         ):

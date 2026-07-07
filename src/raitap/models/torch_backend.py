@@ -39,12 +39,6 @@ def _is_torchvision_detection_model(model: nn.Module) -> bool:
 class TorchBackend(ModelBackend):
     """PyTorch-backed model runtime."""
 
-    # Narrows the ``ModelBackend.device`` ABC field (``torch.device | None``):
-    # a TorchBackend always resolves a concrete device in ``__init__``. The
-    # attribute is mutable so pyright treats its type as invariant and flags the
-    # narrowing; it is safe here (device-less backends keep the base ``None``).
-    device: torch.device  # pyright: ignore[reportIncompatibleVariableOverride]
-
     def __init__(
         self,
         model: nn.Module,
@@ -126,7 +120,7 @@ class TorchBackend(ModelBackend):
         return self.model
 
 
-def _move_tensors_to_device(value: Any, device: torch.device) -> Any:
+def _move_tensors_to_device(value: Any, device: torch.device | None) -> Any:
     if isinstance(value, torch.Tensor):
         return value.to(device)
     if isinstance(value, list):
@@ -138,7 +132,9 @@ def _move_tensors_to_device(value: Any, device: torch.device) -> Any:
     return value
 
 
-def _torch_hardware_label(device: torch.device) -> str:
+def _torch_hardware_label(device: torch.device | None) -> str:
+    if device is None:
+        return "CPU"
     label_by_type = {
         "cpu": "CPU",
         "cuda": "CUDA",

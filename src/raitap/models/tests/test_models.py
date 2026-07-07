@@ -538,6 +538,7 @@ class TestLoadModelFromPath:
             model = Model(cfg, allow_unsafe_pickle=True)
 
         assert isinstance(model.backend, TorchBackend)
+        assert model.backend.device is not None
         assert model.backend.device.type == "cuda"
 
         prepared_inputs = model.backend._prepare_inputs(torch.randn(2, 4))
