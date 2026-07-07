@@ -11,6 +11,7 @@ import pytest
 from omegaconf import OmegaConf
 
 from raitap.configs import set_output_root
+from raitap.configs.schema import DataConfig
 from raitap.models.access import explanation_model
 from raitap.models.torch_backend import TorchBackend
 from raitap.transparency import ExplanationResult, VisualisationResult
@@ -96,6 +97,11 @@ def _captum_config() -> AppConfig:
                         }
                     )
                 },
+                # ``resolve_per_image_transform``'s no-``resolved_preprocessing``
+                # fallback reads ``config.data`` directly; a real (defaulted)
+                # ``DataConfig`` keeps that read honest instead of re-adding a
+                # ``getattr`` default here.
+                data=DataConfig(),
             ),
         ),
     )

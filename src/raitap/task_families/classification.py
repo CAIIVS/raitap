@@ -172,6 +172,13 @@ class ClassificationFamily:
         # label: argmax is identical, and proba-consuming metrics now get a true
         # distribution. No transform needed here.
         predictions_tensor = forward_output.as_classification()
+        # ``num_classes`` is a genuinely polymorphic field — it lives only on the
+        # multiclass typed ``MetricsConfig`` subclass; binary/multilabel variants
+        # lack the key. ``getattr`` reads it across both the dataclass-instance
+        # and OmegaConf shapes the config takes at runtime, returning ``None``
+        # where absent. This is not the typed-config defensiveness the #352
+        # sweep removed, and the CI guard's regex does not match
+        # ``getattr(config.metrics, ...)`` (first arg must be bare ``config``).
         if (
             getattr(config.metrics, "num_classes", None) is None
             and predictions_tensor.ndim == 2

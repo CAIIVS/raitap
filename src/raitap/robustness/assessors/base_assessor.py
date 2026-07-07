@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from raitap import raitap_log
 from raitap._adapters import AdapterMixin
 from raitap.configs import resolve_run_dir
+from raitap.models.base_backend import ModelBackend
 from raitap.utils.lazy import lazy_import
 
 if TYPE_CHECKING:
@@ -180,7 +181,7 @@ class EmpiricalAttackAssessor(BaseAssessor, ABC):
         inputs: torch.Tensor,
         targets: torch.Tensor,
         *,
-        backend: object | None = None,
+        backend: ModelBackend | None = None,
         run_dir: str | Path | None = None,
         output_root: str | Path | None = None,
         experiment_name: str | None = None,
@@ -361,7 +362,7 @@ class FormalVerificationAssessor(BaseAssessor, ABC):
         inputs: torch.Tensor,
         targets: torch.Tensor,
         *,
-        backend: object | None = None,
+        backend: ModelBackend | None = None,
         run_dir: str | Path | None = None,
         output_root: str | Path | None = None,
         experiment_name: str | None = None,
@@ -525,7 +526,7 @@ class StatisticalSamplingAssessor(BaseAssessor, ABC):
         inputs: torch.Tensor,
         targets: torch.Tensor,
         *,
-        backend: object | None = None,
+        backend: ModelBackend | None = None,
         run_dir: str | Path | None = None,
         output_root: str | Path | None = None,
         experiment_name: str | None = None,
@@ -679,9 +680,8 @@ def _prepare_inputs_for_forward(
     used by transparency); (2) ``next(model.parameters()).device`` fallback
     for parameter-bearing modules; (3) leave inputs untouched.
     """
-    prepare = getattr(backend, "_prepare_inputs", None)
-    if callable(prepare):
-        prepared = prepare(inputs)
+    if isinstance(backend, ModelBackend):
+        prepared = backend._prepare_inputs(inputs)
         if not isinstance(prepared, torch.Tensor):
             raise TypeError(
                 f"backend._prepare_inputs returned {type(prepared).__name__}, expected Tensor."

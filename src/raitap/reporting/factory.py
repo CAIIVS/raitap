@@ -24,7 +24,7 @@ _REPORTING_PREFIX = "raitap.reporting."
 
 def reporting_enabled(config: AppConfig) -> bool:
     """Check if reporting is enabled in config."""
-    reporting_cfg = getattr(config, "reporting", None)
+    reporting_cfg = config.reporting
     if reporting_cfg is None:
         return False
     target = getattr(reporting_cfg, "_target_", None)

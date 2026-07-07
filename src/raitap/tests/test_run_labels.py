@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 import torch
@@ -11,13 +11,18 @@ import raitap.pipeline.orchestrator as run_pipeline
 # Bind the phase submodules as objects so ``monkeypatch.setattr`` patches the module
 # directly — the lazy adapter ``__getattr__`` on ``raitap.metrics`` / ``raitap.transparency``
 # makes dotted-string monkeypatch targets unreliable once another test unbinds them.
+from raitap.configs.schema import MulticlassClassificationMetricsConfig
 from raitap.metrics import phase as _metrics_phase
 from raitap.metrics import resolve_metric_targets
+from raitap.models.base_backend import ModelBackend
+from raitap.testing import make_app_config
 from raitap.transparency import phase as _transparency_phase
 from raitap.types import Capability, TaskKind
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from omegaconf import DictConfig
 
     from raitap.configs.schema import AppConfig
     from raitap.data import Data
@@ -25,9 +30,13 @@ if TYPE_CHECKING:
     from raitap.transparency.contracts import ExplainerAdapter
 
 
-class _BackendStub:
+class _BackendStub(ModelBackend):
     def __init__(self, output: torch.Tensor) -> None:
         self._output = output
+
+    @property
+    def hardware_label(self) -> str:
+        return "CPU"
 
     @property
     def task_kind(self) -> TaskKind:
@@ -36,18 +45,18 @@ class _BackendStub:
     def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
         return inputs
 
-    def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
-        del inputs
+    def __call__(self, inputs: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+        del inputs, kwargs
         return self._output
 
     def autograd_module(self) -> torch.nn.Module:
         return torch.nn.Identity()
 
 
-def _minimal_run_config() -> SimpleNamespace:
-    return SimpleNamespace(
+def _minimal_run_config() -> DictConfig:
+    return make_app_config(
         transparency={"default": {}},
-        metrics=SimpleNamespace(_target_="MulticlassClassificationMetrics", num_classes=3),
+        metrics=MulticlassClassificationMetricsConfig(num_classes=3),
     )
 
 
@@ -138,7 +147,7 @@ def test_run_without_tracking_passes_ground_truth_labels_to_metrics(
     monkeypatch.setattr(_transparency_phase, "prepare_explainer", _fake_prepare)
 
     outputs = run_pipeline.run_without_tracking(
-        cast("AppConfig", cast("object", config)),
+        cast("AppConfig", config),
         cast("Model", cast("object", model)),
         cast("Data", cast("object", data)),
     )

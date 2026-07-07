@@ -70,6 +70,8 @@ _MARABOUPY_ERROR_MESSAGES: Mapping[str, str] = {
 if TYPE_CHECKING:
     from torch import nn
 
+    from raitap.models.base_backend import ModelBackend
+
 logger = logging.getLogger(__name__)
 
 
@@ -148,7 +150,7 @@ class MarabouAssessor(FormalVerificationAssessor):
     # Backend acceptance
     # ------------------------------------------------------------------
 
-    def check_backend_compat(self, backend: object) -> None:
+    def check_backend_compat(self, backend: ModelBackend | None) -> None:
         # Reset per-assess() state. ``check_backend_compat`` is called by
         # ``FormalVerificationAssessor.assess`` exactly once before the
         # per-sample loop, so it doubles as a per-call setup hook. Any temp

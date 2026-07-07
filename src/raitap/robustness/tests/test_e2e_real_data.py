@@ -24,10 +24,11 @@ import pytest
 import torch
 from omegaconf import OmegaConf
 
+from raitap.configs import set_output_root
 from raitap.models.base_backend import ModelBackend
 from raitap.pipeline.orchestrator import run_without_tracking as _run_without_tracking
 from raitap.robustness import RobustnessAssessment, RobustnessResult
-from raitap.testing import make_pixel_linear_classifier
+from raitap.testing import make_app_config, make_pixel_linear_classifier
 from raitap.types import Capability
 
 if TYPE_CHECKING:
@@ -82,6 +83,13 @@ def _make_robustness_config(tmp_path: Path, assessor_cfg: Any) -> AppConfig:
             _output_root=str(tmp_path),
             transparency={},
             robustness={"pgd": assessor_cfg},
+            # ``resolve_per_image_transform`` reads ``config.model`` directly and
+            # short-circuits to "no preprocessing" on ``None`` (these tests
+            # exercise the attack path, not preprocessing). ``config.data`` must
+            # stay a real object: ``resolve_forward_batch_size`` (pipeline) reads
+            # ``config.data.forward_batch_size`` directly too.
+            model=None,
+            data=SimpleNamespace(forward_batch_size=None),
         ),
     )
 
@@ -203,20 +211,27 @@ def test_pipeline_allows_robustness_only_runs(tmp_path: Path) -> None:
     targets = torch.tensor([0, 1])
     model = make_pixel_linear_classifier(hw=8)
 
-    config = _make_robustness_config(
-        tmp_path,
-        OmegaConf.create(
-            {
-                "_target_": "raitap.robustness.TorchattacksAssessor",
-                "algorithm": "FGSM",
-                "constructor": {"eps": 0.05},
-                "visualisers": [],
-            }
-        ),
+    # ``_run_without_tracking`` walks the full pipeline (forward pass, metrics,
+    # reporting gates) and reads several ``config.data``/``config.model``
+    # fields directly, so this test needs a real ``AppConfig`` shape rather
+    # than the lighter ``_make_robustness_config`` namespace the other tests
+    # in this module use.
+    config = make_app_config(
+        experiment_name="test",
+        robustness={
+            "pgd": OmegaConf.create(
+                {
+                    "_target_": "raitap.robustness.TorchattacksAssessor",
+                    "algorithm": "FGSM",
+                    "constructor": {"eps": 0.05},
+                    "visualisers": [],
+                }
+            )
+        },
+        metrics=None,
+        reporting=None,
     )
-    # Add the bits ``_run_without_tracking`` reads.
-    config.metrics = SimpleNamespace(_target_=None, num_classes=3)  # type: ignore[attr-defined]
-    config.reporting = None  # type: ignore[attr-defined]
+    set_output_root(config, tmp_path)
 
     raitap_model = cast("Model", SimpleNamespace(backend=_BackendStub(model)))
     data_stub = SimpleNamespace(

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -23,6 +23,7 @@ from raitap.transparency.contracts import (
 from raitap.transparency.results import ExplanationResult
 
 if TYPE_CHECKING:
+    from raitap.configs.schema import AppConfig
     from raitap.data import Data
     from raitap.models import Model
 
@@ -141,23 +142,28 @@ def test_run_without_tracking_forward_output_is_cpu_and_detached() -> None:
     """The forward output stored in RunOutputs must always be CPU-resident and detached."""
     import torch.nn as nn
 
+    from raitap.models.base_backend import ModelBackend
     from raitap.pipeline.orchestrator import run_without_tracking as _run_without_tracking
+    from raitap.testing import make_app_config
     from raitap.types import TaskKind
 
     net = nn.Linear(4, 2, bias=False)
 
-    class _Backend:
-        hardware_label = "cpu"
+    class _Backend(ModelBackend):
+        @property
+        def hardware_label(self) -> str:
+            return "cpu"
 
         @property
         def task_kind(self) -> TaskKind:
             return TaskKind.classification
 
-        def _prepare_inputs(self, x: torch.Tensor) -> torch.Tensor:
-            return x
+        def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
+            return inputs
 
-        def __call__(self, x: torch.Tensor) -> torch.Tensor:
-            return net(x)
+        def __call__(self, inputs: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+            del kwargs
+            return net(inputs)
 
         def autograd_module(self) -> torch.nn.Module:
             return net
@@ -166,11 +172,7 @@ def test_run_without_tracking_forward_output_is_cpu_and_detached() -> None:
 
     model = cast("Model", SimpleNamespace(backend=_Backend()))
     data = cast("Data", SimpleNamespace(tensor=torch.randn(2, 4), labels=None, sample_ids=None))
-    # Transparency must be dict-like (supports .items() and [key] access)
-    config = MagicMock()
-    config.transparency = {"explainer1": SimpleNamespace()}
-    config.run.forward_batch_size = None
-    config.data.forward_batch_size = None
+    config = cast("AppConfig", make_app_config(transparency={"explainer1": {}}))
 
     fake_explanation = MagicMock()
     fake_explanation._visualise.return_value = []

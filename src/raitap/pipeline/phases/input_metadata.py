@@ -21,7 +21,7 @@ def input_metadata_for_data(config: AppConfig, data: Data) -> InputSpec | None:
     explicit = getattr(data, "input_metadata", None)
     if isinstance(explicit, InputSpec):
         return explicit
-    config_explicit = getattr(getattr(config, "data", None), "input_metadata", None)
+    config_explicit = config.data.input_metadata
     if isinstance(config_explicit, InputSpec):
         return config_explicit
     metadata = infer_data_input_metadata(config, data)

@@ -98,6 +98,11 @@ def _make_robustness_config(tmp_path: Path, family: str, case: AssessorMatrixCas
                     }
                 )
             },
+            # ``resolve_per_image_transform`` reads ``config.model``/``config.data``
+            # directly; explicit ``None`` (not a missing attribute) tells it there
+            # is no real preprocessing config to resolve.
+            model=None,
+            data=None,
         ),
     )
 

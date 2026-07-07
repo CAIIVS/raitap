@@ -26,10 +26,7 @@ from raitap.types import Capability, TaskKind
 
 def _make_config(batch_size: int = 32) -> Any:
     """Return a minimal config stub accepted by resolve_forward_batch_size."""
-    return SimpleNamespace(
-        run=SimpleNamespace(forward_batch_size=batch_size),
-        data=SimpleNamespace(forward_batch_size=batch_size),
-    )
+    return SimpleNamespace(data=SimpleNamespace(forward_batch_size=batch_size))
 
 
 # ---------------------------------------------------------------------------

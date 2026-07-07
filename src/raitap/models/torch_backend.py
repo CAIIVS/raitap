@@ -120,7 +120,7 @@ class TorchBackend(ModelBackend):
         return self.model
 
 
-def _move_tensors_to_device(value: Any, device: torch.device) -> Any:
+def _move_tensors_to_device(value: Any, device: torch.device | None) -> Any:
     if isinstance(value, torch.Tensor):
         return value.to(device)
     if isinstance(value, list):
@@ -132,7 +132,9 @@ def _move_tensors_to_device(value: Any, device: torch.device) -> Any:
     return value
 
 
-def _torch_hardware_label(device: torch.device) -> str:
+def _torch_hardware_label(device: torch.device | None) -> str:
+    if device is None:
+        return "CPU"
     label_by_type = {
         "cpu": "CPU",
         "cuda": "CUDA",

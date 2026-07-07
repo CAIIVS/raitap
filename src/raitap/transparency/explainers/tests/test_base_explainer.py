@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from raitap.models.access import ExplanationModel
 
 import raitap.transparency.explainers.base_explainer as base_explainer_module
+from raitap.testing import make_fake_backend
 from raitap.transparency.contracts import (
     BaselineMode,
     ExplainerAlgorithmSpec,
@@ -222,6 +223,7 @@ def test_explain_stores_raitap_visualisation_metadata_in_kwargs() -> None:
         model,
         inputs,
         target=7,
+        backend=make_fake_backend(),
         raitap_kwargs=_raitap_kwargs_for(
             inputs,
             sample_names=["ISIC_1", "ISIC_2"],
@@ -246,6 +248,7 @@ def test_explain_builds_semantics_with_sample_ids_separate_from_display_names() 
         model,
         inputs,
         target=7,
+        backend=make_fake_backend(),
         raitap_kwargs={
             "input_metadata": {"kind": "image", "shape": inputs.shape, "layout": "NCHW"},
             "sample_ids": ["stable-1", "stable-2"],
@@ -276,6 +279,7 @@ def test_explain_uses_declared_output_scope() -> None:
     result = explainer.explain(
         model,
         inputs,
+        backend=make_fake_backend(),
         raitap_kwargs=_raitap_kwargs_for(inputs),
     )
 
@@ -293,6 +297,7 @@ def test_explain_uses_optional_batching_and_slices_per_sample_kwargs() -> None:
         inputs,
         target=[0, 1, 2, 3, 4],
         background_data=background,
+        backend=make_fake_backend(),
         raitap_kwargs=_raitap_kwargs_for(inputs, batch_size=2),
     )
 
@@ -302,13 +307,22 @@ def test_explain_uses_optional_batching_and_slices_per_sample_kwargs() -> None:
 
 
 def test_explain_prepares_each_batch_with_backend() -> None:
-    class _PreparingBackend:
+    from raitap.models.base_backend import ModelBackend
+
+    class _PreparingBackend(ModelBackend):
         def __init__(self) -> None:
             self.prepared_batch_sizes: list[int] = []
+
+        @property
+        def hardware_label(self) -> str:
+            return "cpu"
 
         def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
             self.prepared_batch_sizes.append(int(inputs.shape[0]))
             return inputs + 10
+
+        def __call__(self, inputs: Any, **kwargs: Any) -> Any:
+            return inputs
 
     explainer = _BatchRecordingExplainer()
     backend = _PreparingBackend()
@@ -336,6 +350,7 @@ def test_explain_accepts_progress_kwargs_without_forwarding_to_compute() -> None
         model,
         inputs,
         target=7,
+        backend=make_fake_backend(),
         raitap_kwargs=_raitap_kwargs_for(
             inputs,
             batch_size=1,
@@ -368,6 +383,7 @@ def test_explain_enables_progress_wrapping_by_default_for_batched_runs(
         model,
         inputs,
         target=[0, 1, 2, 3, 4],
+        backend=make_fake_backend(),
         raitap_kwargs=_raitap_kwargs_for(inputs, batch_size=2),
     )
 
@@ -397,6 +413,7 @@ def test_explain_allows_disabling_progress_wrapping_explicitly(
         model,
         inputs,
         target=[0, 1, 2, 3, 4],
+        backend=make_fake_backend(),
         raitap_kwargs=_raitap_kwargs_for(inputs, batch_size=2, show_progress=False),
     )
 
@@ -430,6 +447,7 @@ def test_explain_flushes_cuda_cache_between_outer_batches(
         model,
         inputs,
         target=[0, 1, 2, 3, 4],
+        backend=make_fake_backend(),
         raitap_kwargs=_raitap_kwargs_for(inputs, batch_size=2, show_progress=False),
     )
 
@@ -456,6 +474,7 @@ def test_explain_detaches_batched_chunks_before_concatenation(
     result = explainer.explain(
         model,
         inputs,
+        backend=make_fake_backend(),
         raitap_kwargs=_raitap_kwargs_for(inputs, batch_size=2, show_progress=False),
     )
 
@@ -471,7 +490,9 @@ def test_explain_normalises_unbatched_attributions_to_detached_cpu() -> None:
     model = torch.nn.Identity()
     inputs = torch.randn(2, 3)
 
-    result = explainer.explain(model, inputs, raitap_kwargs=_raitap_kwargs_for(inputs))
+    result = explainer.explain(
+        model, inputs, backend=make_fake_backend(), raitap_kwargs=_raitap_kwargs_for(inputs)
+    )
 
     assert result.attributions.device.type == "cpu"
     assert not result.attributions.requires_grad
@@ -483,7 +504,9 @@ def test_explain_accepts_tuple_output_as_structured_payload() -> None:
     model = torch.nn.Identity()
     inputs = torch.randn(2, 3)
 
-    result = explainer.explain(model, inputs, raitap_kwargs=_raitap_kwargs_for(inputs))
+    result = explainer.explain(
+        model, inputs, backend=make_fake_backend(), raitap_kwargs=_raitap_kwargs_for(inputs)
+    )
 
     assert [p.name for p in result.structured_payloads] == ["convergence_delta"]
     payload = result.structured_payloads[0]
@@ -499,6 +522,7 @@ def test_explain_accepts_list_output_in_batched_path() -> None:
     result = explainer.explain(
         model,
         inputs,
+        backend=make_fake_backend(),
         raitap_kwargs=_raitap_kwargs_for(inputs, batch_size=2, show_progress=False),
     )
 
@@ -575,8 +599,8 @@ def test_explain_threads_backend_task_kind_into_infer_output_space() -> None:
 
 
 def test_explain_classification_unchanged_when_backend_has_no_task_kind() -> None:
-    """No backend → task_kind defaults to None → classification path stays
-    untouched (INPUT_FEATURES for an NCHW image input)."""
+    """Backend's ``task_kind`` defaults to classification → classification path
+    stays untouched (INPUT_FEATURES for an NCHW image input)."""
     from raitap.transparency.contracts import ExplanationOutputSpace
 
     explainer = _StrictExplainer()
@@ -586,6 +610,7 @@ def test_explain_classification_unchanged_when_backend_has_no_task_kind() -> Non
     result = explainer.explain(
         model,
         inputs,
+        backend=make_fake_backend(),
         raitap_kwargs=_raitap_kwargs_for(inputs),
     )
     assert result.semantics.output_space.space is ExplanationOutputSpace.INPUT_FEATURES
@@ -632,6 +657,7 @@ def test_explain_attaches_zero_baseline_when_absent(tmp_path: Path) -> None:
         inputs,
         run_dir=tmp_path / "exp",
         target=0,
+        backend=make_fake_backend(),
         raitap_kwargs=_raitap_kwargs_for(inputs),
     )
 
@@ -661,6 +687,7 @@ def test_explain_survives_baseline_documentation_failure(
         inputs,
         run_dir=tmp_path / "exp",
         target=0,
+        backend=make_fake_backend(),
         raitap_kwargs=_raitap_kwargs_for(inputs),
     )
 
@@ -683,6 +710,7 @@ def test_explain_records_configured_baseline_with_provenance(tmp_path: Path) -> 
         target=0,
         baselines=baseline_tensor,
         call_provenance={"baselines": {"source": "zeros_cfg", "n_samples": 1}},
+        backend=make_fake_backend(),
         raitap_kwargs=_raitap_kwargs_for(inputs),
     )
 

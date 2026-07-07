@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import Any
 
 import torch
@@ -10,6 +9,7 @@ from torch import nn
 
 from raitap.models.torch_backend import TorchBackend
 from raitap.pipeline.phases.forward_pass import forward_pass
+from raitap.testing import make_app_config
 
 
 class _MaskAware(nn.Module):
@@ -20,8 +20,8 @@ class _MaskAware(nn.Module):
         return ids.float() @ torch.ones((ids.shape[1], 2))
 
 
-def _config() -> Any:  # a fake AppConfig-shaped object for forward_pass
-    return SimpleNamespace(run=SimpleNamespace(forward_batch_size=2), data=None)
+def _config() -> Any:  # a faithful AppConfig stand-in for forward_pass
+    return make_app_config(data={"forward_batch_size": 2})
 
 
 def test_mask_threads_to_forward() -> None:

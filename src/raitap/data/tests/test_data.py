@@ -47,6 +47,13 @@ def _write_csv(path: Path, rows: int = 4, cols: int = 5) -> None:
     path.write_text(f"{header}\n{data_rows}")
 
 
+def _simple_cfg(source: str, name: str = "isic2018") -> AppConfig:
+    """A minimal real ``AppConfig`` (``model`` uses its schema defaults)."""
+    from raitap.configs.schema import AppConfig, DataConfig
+
+    return AppConfig(data=DataConfig(source=source, name=name))
+
+
 # ---------------------------------------------------------------------------
 # get_source_path
 # ---------------------------------------------------------------------------
@@ -489,14 +496,7 @@ class TestLoadData:
     def test_local_image_file(self, tmp_path: Path) -> None:
         p = tmp_path / "img.png"
         _write_image(p)
-        cfg = cast(
-            "AppConfig",
-            type(
-                "AppConfig",
-                (),
-                {"data": type("DataConfig", (), {"source": str(p), "name": "isic2018"})},
-            )(),
-        )
+        cfg = _simple_cfg(str(p))
         data = Data(cfg)
         assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape == (1, 3, 32, 32)
@@ -504,14 +504,7 @@ class TestLoadData:
     def test_local_image_directory(self, tmp_path: Path) -> None:
         for i in range(2):
             _write_image(tmp_path / f"img{i}.jpg")
-        cfg = cast(
-            "AppConfig",
-            type(
-                "AppConfig",
-                (),
-                {"data": type("DataConfig", (), {"source": str(tmp_path), "name": "isic2018"})},
-            )(),
-        )
+        cfg = _simple_cfg(str(tmp_path))
         data = Data(cfg)
         assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape[0] == 2
@@ -519,14 +512,7 @@ class TestLoadData:
     def test_local_csv_file(self, tmp_path: Path) -> None:
         p = tmp_path / "data.csv"
         _write_csv(p, rows=6, cols=3)
-        cfg = cast(
-            "AppConfig",
-            type(
-                "AppConfig",
-                (),
-                {"data": type("DataConfig", (), {"source": str(p), "name": "isic2018"})},
-            )(),
-        )
+        cfg = _simple_cfg(str(p))
         data = Data(cfg)
         assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape == (6, 3)
@@ -534,14 +520,7 @@ class TestLoadData:
     def test_local_tabular_directory(self, tmp_path: Path) -> None:
         _write_csv(tmp_path / "a.csv", rows=2, cols=3)
         _write_csv(tmp_path / "b.csv", rows=4, cols=3)
-        cfg = cast(
-            "AppConfig",
-            type(
-                "AppConfig",
-                (),
-                {"data": type("DataConfig", (), {"source": str(tmp_path), "name": "isic2018"})},
-            )(),
-        )
+        cfg = _simple_cfg(str(tmp_path))
         data = Data(cfg)
         assert isinstance(data.tensor, torch.Tensor)
         assert data.tensor.shape == (6, 3)
@@ -549,40 +528,19 @@ class TestLoadData:
     def test_mixed_directory_raises(self, tmp_path: Path) -> None:
         _write_image(tmp_path / "img.jpg")
         _write_csv(tmp_path / "data.csv")
-        cfg = cast(
-            "AppConfig",
-            type(
-                "AppConfig",
-                (),
-                {"data": type("DataConfig", (), {"source": str(tmp_path), "name": "isic2018"})},
-            )(),
-        )
+        cfg = _simple_cfg(str(tmp_path))
         with pytest.raises(ValueError, match="both image and tabular"):
             Data(cfg)
 
     def test_empty_directory_raises(self, tmp_path: Path) -> None:
-        cfg = cast(
-            "AppConfig",
-            type(
-                "AppConfig",
-                (),
-                {"data": type("DataConfig", (), {"source": str(tmp_path), "name": "isic2018"})},
-            )(),
-        )
+        cfg = _simple_cfg(str(tmp_path))
         with pytest.raises(FileNotFoundError, match="No supported files"):
             Data(cfg)
 
     def test_unknown_extension_raises(self, tmp_path: Path) -> None:
         p = tmp_path / "data.xyz"
         p.write_text("something")
-        cfg = cast(
-            "AppConfig",
-            type(
-                "AppConfig",
-                (),
-                {"data": type("DataConfig", (), {"source": str(p), "name": "isic2018"})},
-            )(),
-        )
+        cfg = _simple_cfg(str(p))
         with pytest.raises(ValueError, match="Cannot infer data type"):
             Data(cfg)
 
@@ -629,50 +587,19 @@ class TestLoadData:
     def test_tabular_no_data_module_passes_through(self, tmp_path: Path) -> None:
         p = tmp_path / "rows.csv"
         _write_csv(p, rows=2, cols=3)
-        cfg = cast(
-            "AppConfig",
-            type(
-                "AppConfig",
-                (),
-                {"data": type("DataConfig", (), {"source": str(p), "name": "tab"})},
-            )(),
-        )
+        cfg = _simple_cfg(str(p), name="tab")
         data = Data(cfg)
         torch.testing.assert_close(data.tensor, _load_tabular(p))
 
     def test_invalid_source_raises(self) -> None:
-        cfg = cast(
-            "AppConfig",
-            type(
-                "AppConfig",
-                (),
-                {
-                    "data": type(
-                        "DataConfig", (), {"source": "/no/such/path/file.csv", "name": "isic2018"}
-                    )
-                },
-            )(),
-        )
+        cfg = _simple_cfg("/no/such/path/file.csv")
         with pytest.raises(ValueError, match="could not be resolved"):
             Data(cfg)
 
     def test_url_source_loads_csv_via_get_source_path(self, tmp_path: Path) -> None:
         p = tmp_path / "remote.csv"
         _write_csv(p, rows=2, cols=3)
-        cfg = cast(
-            "AppConfig",
-            type(
-                "AppConfig",
-                (),
-                {
-                    "data": type(
-                        "DataConfig",
-                        (),
-                        {"source": "https://example.com/remote.csv", "name": "isic2018"},
-                    )
-                },
-            )(),
-        )
+        cfg = _simple_cfg("https://example.com/remote.csv")
         with patch("raitap.data.data.get_source_path", return_value=p):
             data = Data(cfg)
         assert isinstance(data.tensor, torch.Tensor)
@@ -681,20 +608,7 @@ class TestLoadData:
     def test_url_source_loads_image_via_get_source_path(self, tmp_path: Path) -> None:
         p = tmp_path / "remote.png"
         _write_image(p)
-        cfg = cast(
-            "AppConfig",
-            type(
-                "AppConfig",
-                (),
-                {
-                    "data": type(
-                        "DataConfig",
-                        (),
-                        {"source": "https://example.com/remote.png", "name": "isic2018"},
-                    )
-                },
-            )(),
-        )
+        cfg = _simple_cfg("https://example.com/remote.png")
         with patch("raitap.data.data.get_source_path", return_value=p):
             data = Data(cfg)
         assert isinstance(data.tensor, torch.Tensor)
@@ -742,18 +656,7 @@ class TestDescribeData:
     def test_describe_data_includes_shape_dtype_and_sample_shape(self, tmp_path: Path) -> None:
         img_file = tmp_path / "img.jpg"
         _write_image(img_file, 32, 32)
-        cfg = cast(
-            "AppConfig",
-            type(
-                "AppConfig",
-                (),
-                {
-                    "data": type(
-                        "DataConfig", (), {"source": str(img_file), "name": "imagenet_samples"}
-                    )
-                },
-            )(),
-        )
+        cfg = _simple_cfg(str(img_file), name="imagenet_samples")
         data = Data(cfg)
         data.source = "/tmp/imagenet"
 
@@ -769,14 +672,7 @@ class TestDescribeData:
     def test_describe_data_without_sample_shape_for_1d_input(self, tmp_path: Path) -> None:
         csv_file = tmp_path / "data.csv"
         csv_file.write_text("a\n1\n2\n3\n4\n5\n6\n7\n8")
-        cfg = cast(
-            "AppConfig",
-            type(
-                "AppConfig",
-                (),
-                {"data": type("DataConfig", (), {"source": str(csv_file), "name": "vector_data"})},
-            )(),
-        )
+        cfg = _simple_cfg(str(csv_file), name="vector_data")
         data = Data(cfg)
 
         info = data.describe()

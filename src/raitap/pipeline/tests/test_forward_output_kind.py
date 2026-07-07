@@ -1,34 +1,17 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import Any
 
 import torch
 
 from raitap.pipeline.outputs import ForwardOutput, OutputKind
 from raitap.pipeline.phases.forward_pass import forward_pass
+from raitap.testing import make_app_config, make_fake_backend
 from raitap.types import Capability, TaskKind
 
 
-class _ProbaBackend:
-    provides = frozenset({Capability.TREE_MODEL, Capability.PREDICT_PROBA})
-    task_kind = TaskKind.classification
-    expected_input_shape = None
-
-    def _prepare_inputs(self, inputs: torch.Tensor) -> torch.Tensor:
-        return inputs
-
-    def __call__(self, inputs: torch.Tensor) -> torch.Tensor:
-        n = inputs.shape[0]
-        return torch.full((n, 2), 0.5)
-
-
-class _LogitBackend(_ProbaBackend):
-    provides = frozenset({Capability.AUTOGRAD})
-
-
-def _config() -> Any:  # a fake AppConfig-shaped object for forward_pass
-    return SimpleNamespace(run=SimpleNamespace(forward_batch_size=8), data=None)
+def _config() -> Any:  # a faithful AppConfig stand-in for forward_pass
+    return make_app_config()
 
 
 def test_default_output_kind_is_logits() -> None:
@@ -37,10 +20,14 @@ def test_default_output_kind_is_logits() -> None:
 
 
 def test_forward_pass_stamps_probabilities_for_predict_proba_backend() -> None:
-    out = forward_pass(_config(), _ProbaBackend(), torch.zeros(4, 3))
+    backend = make_fake_backend(
+        provides=frozenset({Capability.TREE_MODEL, Capability.PREDICT_PROBA})
+    )
+    out = forward_pass(_config(), backend, torch.zeros(4, 3))
     assert out.output_kind == OutputKind.PROBABILITIES
 
 
 def test_forward_pass_stamps_logits_for_autograd_backend() -> None:
-    out = forward_pass(_config(), _LogitBackend(), torch.zeros(4, 3))
+    backend = make_fake_backend(provides=frozenset({Capability.AUTOGRAD}))
+    out = forward_pass(_config(), backend, torch.zeros(4, 3))
     assert out.output_kind == OutputKind.LOGITS

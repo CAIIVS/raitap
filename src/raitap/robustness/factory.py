@@ -172,7 +172,7 @@ class RobustnessAssessment:
                 targets,
                 backend=backend,
                 run_dir=resolve_run_dir(config, subdir=f"robustness/{assessor_name}"),
-                experiment_name=str(getattr(config, "experiment_name", "")),
+                experiment_name=str(config.experiment_name),
                 assessor_target=assessor_target,
                 assessor_name=assessor_name,
                 visualisers=visualisers,

@@ -34,14 +34,17 @@ class HTMLReporter(BaseReporter):
         )
         run_dir.mkdir(parents=True, exist_ok=True)
 
+        # HTMLReporter is only instantiated for reporting-enabled configs (see
+        # ``factory.create_report``), so ``self.config.reporting`` is non-None here.
+        assert self.config.reporting is not None
         html_path = run_dir / report_output_filename(
-            getattr(self.config.reporting, "filename", "report"),
+            self.config.reporting.filename,
             ".html",
         )
         metadata = {
-            "experiment_name": getattr(self.config, "experiment_name", None),
-            "model_source": getattr(getattr(self.config, "model", None), "source", None),
-            "data_name": getattr(getattr(self.config, "data", None), "name", None),
+            "experiment_name": self.config.experiment_name,
+            "model_source": self.config.model.source,
+            "data_name": self.config.data.name,
         }
         view = build_view(sections, metadata, version=__about__.__version__)
         env = _jinja_environment()

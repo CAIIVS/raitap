@@ -27,10 +27,13 @@ from collections.abc import Set as AbstractSet  # noqa: TC003
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path  # noqa: TC003
-from typing import Any, ClassVar, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 
 from raitap.reproducibility import Seeding  # noqa: TC001
 from raitap.transparency.contracts import InputSpec, SampleSelection  # noqa: TC001
+
+if TYPE_CHECKING:
+    from raitap.models.base_backend import ModelBackend
 
 ConfiguredRobustnessVisualiser = Any
 RobustnessResult = Any
@@ -239,7 +242,7 @@ class AssessorAdapter(Protocol):
 
     assessment_kind: ClassVar[AssessmentKind]
 
-    def check_backend_compat(self, backend: object) -> None:
+    def check_backend_compat(self, backend: ModelBackend | None) -> None:
         pass
 
     def assess(
@@ -248,7 +251,7 @@ class AssessorAdapter(Protocol):
         inputs: Tensor,
         targets: Tensor,
         *,
-        backend: object | None = None,
+        backend: ModelBackend | None = None,
         run_dir: str | Path | None = None,
         output_root: str | Path | None = None,
         experiment_name: str | None = None,

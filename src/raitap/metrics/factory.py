@@ -32,7 +32,7 @@ _METRICS_PREFIX = "raitap.metrics."
 
 def metrics_run_enabled(config: AppConfig) -> bool:
     """True when ``metrics`` is present and ``_target_`` is a non-empty string."""
-    metrics_cfg = getattr(config, "metrics", None)
+    metrics_cfg = config.metrics
     if metrics_cfg is None:
         return False
     target = getattr(metrics_cfg, "_target_", None)

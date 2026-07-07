@@ -22,7 +22,7 @@ class ReportingSweepCallback(Callback):
             raitap_log.debug("Reporting disabled; skipping merged sweep report.")
             return
 
-        reporting_cfg = getattr(config, "reporting", None)
+        reporting_cfg = config.reporting
         if not bool(getattr(reporting_cfg, "multirun_report", True)):
             # The callback can still be registered for reporting-enabled configs; this flag
             # disables only the merged multirun report, not normal per-run reports.

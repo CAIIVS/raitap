@@ -106,6 +106,13 @@ jobs:
       - name: Ruff Format
         run: uv run ruff format --check .
 
+      - name: Guard against defensive getattr on typed config/backend
+        run: |
+          if grep -rnE 'getattr\((config|cfg|self\.config|self\.cfg|backend|self\.backend|self\._backend)\s*,\s*"[a-zA-Z_][a-zA-Z0-9_]*"\s*,' src/raitap --include='*.py' | grep -v '/tests/'; then
+            echo "::error::Defensive getattr on typed config/backend. AppConfig fields and ModelBackend attrs are declared — read them directly (config.x / backend.x) so a missing field fails loud. See docs/contributor/adr.md."
+            exit 1
+          fi
+
       - name: Pyright
         run: uv run pyright
 

@@ -20,6 +20,8 @@ import numpy as np
 import pytest
 import torch
 
+from raitap.models.base_backend import ModelBackend
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -79,8 +81,15 @@ def test_acas_xu_tiny_eps_verified(acas_xu_fixture: tuple[Path, torch.Tensor, in
 
     model_path, sample, target_class = acas_xu_fixture
 
-    class _OnnxBackend:
+    class _OnnxBackend(ModelBackend):
         onnx_path = str(model_path)
+
+        @property
+        def hardware_label(self) -> str:
+            return "test-onnx"
+
+        def __call__(self, inputs: object, **kwargs: object) -> object:
+            raise NotImplementedError("test stub: onnx-path resolution only")
 
     assessor = MarabouAssessor(epsilon=1e-5, timeout_s=120.0)
     assessor.check_backend_compat(_OnnxBackend())
@@ -104,8 +113,15 @@ def test_acas_xu_huge_eps_falsified(acas_xu_fixture: tuple[Path, torch.Tensor, i
 
     model_path, sample, target_class = acas_xu_fixture
 
-    class _OnnxBackend:
+    class _OnnxBackend(ModelBackend):
         onnx_path = str(model_path)
+
+        @property
+        def hardware_label(self) -> str:
+            return "test-onnx"
+
+        def __call__(self, inputs: object, **kwargs: object) -> object:
+            raise NotImplementedError("test stub: onnx-path resolution only")
 
     huge_eps = 1e6  # whole input domain — adversarial example must exist.
     assessor = MarabouAssessor(epsilon=huge_eps, timeout_s=120.0)

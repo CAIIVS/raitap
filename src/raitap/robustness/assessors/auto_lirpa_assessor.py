@@ -43,6 +43,8 @@ from .base_assessor import FormalVerificationAssessor
 
 if TYPE_CHECKING:
     import torch
+
+    from raitap.models.base_backend import ModelBackend
 else:
     torch = lazy_import("torch")
 
@@ -131,7 +133,7 @@ class AutoLiRPAAssessor(FormalVerificationAssessor):
     # Backend acceptance
     # ------------------------------------------------------------------
 
-    def check_backend_compat(self, backend: object) -> None:
+    def check_backend_compat(self, backend: ModelBackend | None) -> None:
         """Inherit the autograd gate, then warn on Intel XPU.
 
         auto-LiRPA needs the live ``nn.Module`` + autograd, so non-autograd
@@ -140,7 +142,11 @@ class AutoLiRPAAssessor(FormalVerificationAssessor):
         back to a CPU backend themselves.
         """
         super().check_backend_compat(backend)
-        device = getattr(backend, "device", None)
+        if backend is None:
+            # The AUTOGRAD requirement above rejects a missing backend before
+            # reaching here; this only narrows the type for the device check.
+            return
+        device = backend.device
         if getattr(device, "type", None) == "xpu":
             from raitap import raitap_log
 

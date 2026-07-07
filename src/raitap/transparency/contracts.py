@@ -18,7 +18,7 @@ from collections.abc import Set as AbstractSet  # noqa: TC003
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path  # noqa: TC003
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 # Runtime imports (not TYPE_CHECKING): ``Capability`` and ``Seeding`` appear in
 # public ``ExplainerAlgorithmSpec`` / ``ExplanationSemantics`` annotations, so
@@ -26,6 +26,9 @@ from typing import Any, Protocol, runtime_checkable
 # torch-free (a StrEnum and a Literal).
 from raitap.reproducibility import Seeding  # noqa: TC001
 from raitap.types import Capability  # noqa: TC001
+
+if TYPE_CHECKING:
+    from raitap.models.base_backend import ModelBackend
 
 ConfiguredVisualiser = Any
 ExplanationResult = Any
@@ -461,7 +464,7 @@ class ExplainerAdapter(Protocol):
     ``ATTRIBUTIONS`` when absent).
     """  # noqa: E501
 
-    def check_backend_compat(self, backend: object) -> None:
+    def check_backend_compat(self, backend: ModelBackend | None) -> None:
         pass
 
     def explain(

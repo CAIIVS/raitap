@@ -95,9 +95,9 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
         kind="run",
         sections=tuple(sections),
         metadata={
-            "experiment_name": getattr(config, "experiment_name", None),
-            "model_source": getattr(getattr(config, "model", None), "source", None),
-            "data_name": getattr(getattr(config, "data", None), "name", None),
+            "experiment_name": config.experiment_name,
+            "model_source": config.model.source,
+            "data_name": config.data.name,
             "selected_samples": [
                 _selected_sample_manifest_entry(sample) for sample in selected_samples
             ],
@@ -178,9 +178,9 @@ def build_merged_report(
         kind="multirun",
         sections=ordered_sections,
         metadata={
-            "experiment_name": getattr(config, "experiment_name", None),
-            "model_source": getattr(getattr(config, "model", None), "source", None),
-            "data_name": getattr(getattr(config, "data", None), "name", None),
+            "experiment_name": config.experiment_name,
+            "model_source": config.model.source,
+            "data_name": config.data.name,
             "children": [
                 {"job_label": job_label, "override_summary": override_summary}
                 for job_label, override_summary, _manifest in child_manifests
@@ -201,7 +201,7 @@ def _reproducibility_banner(config: AppConfig, outputs: RunOutputs) -> ReportSec
     only channel both the HTML and PDF reporters consume. Prepended so it renders
     first. See issue #251.
     """
-    report = assess_reproducibility(outputs, getattr(config, "seed", None))
+    report = assess_reproducibility(outputs, config.seed)
     caveat = reproducibility_caveat(report)
     if caveat is None:
         return None
@@ -213,15 +213,19 @@ def _reproducibility_banner(config: AppConfig, outputs: RunOutputs) -> ReportSec
 
 
 def _manifest_filename(config: AppConfig) -> str:
+    # Both call sites (``build_report``, ``build_merged_report``) run only when
+    # ``reporting_enabled(config)`` is true, so ``config.reporting`` is guaranteed
+    # non-None here.
+    assert config.reporting is not None
     target = _reporting_target(config)
-    filename = str(getattr(getattr(config, "reporting", None), "filename", "report"))
+    filename = str(config.reporting.filename)
     if target in {"HTMLReporter", "raitap.reporting.HTMLReporter"}:
         return report_output_filename(filename, ".html")
     return report_output_filename(filename, ".pdf")
 
 
 def _reporting_target(config: AppConfig) -> str:
-    reporting = getattr(config, "reporting", None)
+    reporting = config.reporting
     return str(getattr(reporting, "_target_", ""))
 
 

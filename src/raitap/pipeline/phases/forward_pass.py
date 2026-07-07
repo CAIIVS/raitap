@@ -78,9 +78,7 @@ def extract_primary_tensor(model_output: object) -> torch.Tensor:
 
 def resolve_forward_batch_size(config: AppConfig) -> int:
     """Resolve prediction/metrics forward batch size from config, falling back to 32."""
-    configured = getattr(getattr(config, "run", None), "forward_batch_size", None)
-    if configured is None:
-        configured = getattr(getattr(config, "data", None), "forward_batch_size", None)
+    configured = config.data.forward_batch_size
     if configured is None:
         return _DEFAULT_FORWARD_BATCH_SIZE
     if not isinstance(configured, int):
@@ -149,7 +147,7 @@ def forward_pass(
     payload = family.extract_forward(ctx, batch_size=batch_size)
     output_kind = (
         OutputKind.PROBABILITIES
-        if Capability.PREDICT_PROBA in getattr(backend, "provides", frozenset())
+        if Capability.PREDICT_PROBA in backend.provides
         else OutputKind.LOGITS
     )
     return ForwardOutput(
