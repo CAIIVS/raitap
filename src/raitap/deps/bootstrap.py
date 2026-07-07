@@ -70,6 +70,13 @@ class BootstrapCase(Enum):
 # the top-of-file public surface clean — the sentinel re-exec logic in
 # ``maybe_bootstrap`` depends on the enum being importable without dragging
 # in the heavier deps modules. E402 is intentional here.
+from raitap._cli_argv import (  # noqa: E402
+    CONFIG_DIR,
+    CONFIG_LOCATION_FLAGS,
+    CONFIG_NAME_FLAGS,
+    DEFAULT_CONFIG_NAME,
+    find_flag_value,
+)
 from raitap.deps.availability import (  # noqa: E402
     ExtraUnavailableError,
     check_platform_availability,
@@ -107,21 +114,6 @@ def _resolve_pyproject() -> Path:
 
 
 _PYPROJECT = _resolve_pyproject()
-_DEFAULT_CONFIG_DIR = Path(__file__).resolve().parents[1] / "configs"
-_DEFAULT_CONFIG_NAME = "demo"
-
-_CONFIG_DIR_FLAGS = ("--config-dir", "-cd", "--config-path", "-cp")
-_CONFIG_NAME_FLAGS = ("--config-name", "-cn")
-
-
-def _flag_value(argv: list[str], flags: tuple[str, ...]) -> str | None:
-    for i, a in enumerate(argv):
-        for flag in flags:
-            if a == flag and i + 1 < len(argv):
-                return argv[i + 1]
-            if a.startswith(flag + "="):
-                return a[len(flag) + 1 :]
-    return None
 
 
 def _split_error_message(msg: str) -> list[str]:
@@ -201,7 +193,7 @@ def _hydra_overrides(argv: list[str]) -> list[str]:
                 "=" not in a
                 and i + 1 < len(argv)
                 and not argv[i + 1].startswith("-")
-                and any(a == f for f in (*_CONFIG_DIR_FLAGS, *_CONFIG_NAME_FLAGS))
+                and any(a == f for f in (*CONFIG_LOCATION_FLAGS, *CONFIG_NAME_FLAGS))
             )
             i += 2 if two_token else 1
             continue
@@ -579,17 +571,17 @@ def maybe_bootstrap(argv: list[str]) -> list[str]:
 
     _ensure_utf8_stdout()
 
-    explicit_dir = _flag_value(cleaned, _CONFIG_DIR_FLAGS)
-    explicit_name = _flag_value(cleaned, _CONFIG_NAME_FLAGS)
-    # Mirror pipeline/__main__.py:_prepare_cli_argv — when the user picks a
-    # custom ``--config-name`` but no ``--config-dir``, look in the cwd so
-    # external consumer configs resolve without the user having to spell
+    explicit_dir = find_flag_value(cleaned, CONFIG_LOCATION_FLAGS)
+    explicit_name = find_flag_value(cleaned, CONFIG_NAME_FLAGS)
+    # Mirror _cli_argv.inject_config_dir — when the user picks a custom
+    # ``--config-name`` but no ``--config-dir``, look in the cwd so external
+    # consumer configs resolve without the user having to spell
     # ``--config-dir .`` every time.
-    if explicit_dir is None and explicit_name not in (None, _DEFAULT_CONFIG_NAME):
+    if explicit_dir is None and explicit_name not in (None, DEFAULT_CONFIG_NAME):
         config_dir = Path.cwd()
     else:
-        config_dir = Path(explicit_dir or _DEFAULT_CONFIG_DIR)
-    config_name = explicit_name or _DEFAULT_CONFIG_NAME
+        config_dir = Path(explicit_dir or CONFIG_DIR)
+    config_name = explicit_name or DEFAULT_CONFIG_NAME
     overrides = _hydra_overrides(cleaned[1:])
 
     try:
