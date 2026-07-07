@@ -73,7 +73,7 @@ class Model(Trackable):
 
     def _load_model(self, config: AppConfig, *, allow_unsafe_pickle: bool = False) -> ModelBackend:
         source = config.model.source
-        hardware = getattr(config, "hardware", "gpu")
+        hardware = config.hardware
         if not source:
             raise ValueError(
                 "No model specified. Set model.source in your config.\n"
@@ -81,7 +81,7 @@ class Model(Trackable):
                 "  model.source: resnet50                 (built-in demo model)"
             )
 
-        tokenizer = getattr(config.model, "tokenizer", None)
+        tokenizer = config.model.tokenizer
         if tokenizer:
             return load_hf_text_backend(
                 source, tokenizer=tokenizer, device=resolve_torch_device(hardware)
@@ -100,9 +100,7 @@ class Model(Trackable):
 
         name = str(source).lower()
         if _resolve_torchvision_factory(name) is not None:
-            return _load_pretrained(
-                name, hardware=hardware, task_kind=getattr(config.model, "task_kind", None)
-            )
+            return _load_pretrained(name, hardware=hardware, task_kind=config.model.task_kind)
 
         from raitap.models.registration import supported_model_formats
 
@@ -198,7 +196,7 @@ def _resolve_shape_override(config: Any) -> tuple[int | None, ...] | None:
     :func:`raitap.data.metadata.shape_tuple` so semantics stay consistent with
     the rest of the metadata pipeline.
     """
-    data_cfg = getattr(config, "data", None)
+    data_cfg = config.data
     if data_cfg is None:
         return None
     input_metadata = getattr(data_cfg, "input_metadata", None)

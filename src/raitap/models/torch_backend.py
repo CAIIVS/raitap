@@ -39,6 +39,10 @@ def _is_torchvision_detection_model(model: nn.Module) -> bool:
 class TorchBackend(ModelBackend):
     """PyTorch-backed model runtime."""
 
+    # Narrows the ``ModelBackend.device`` ABC field (``torch.device | None``):
+    # a TorchBackend always resolves a concrete device in ``__init__``.
+    device: torch.device
+
     def __init__(
         self,
         model: nn.Module,

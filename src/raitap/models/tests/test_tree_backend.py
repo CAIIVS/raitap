@@ -6,6 +6,7 @@ import torch
 
 from raitap.models.access import EstimatorProvider
 from raitap.models.tree_backend import TabularTreeBackend
+from raitap.testing import make_fake_backend
 from raitap.types import Capability, TaskKind
 
 
@@ -97,11 +98,10 @@ def test_tree_explainer_gates_out_on_torch_backend() -> None:
     explainer = ShapExplainer("TreeExplainer")
     assert explainer.required_capabilities() == frozenset({Capability.TREE_MODEL})
 
-    class _AutogradOnly:
-        provides = frozenset({Capability.AUTOGRAD})
+    backend = make_fake_backend(provides=frozenset({Capability.AUTOGRAD}))
 
     with pytest.raises(BackendIncompatibilityError) as excinfo:
-        explainer.check_backend_compat(_AutogradOnly())
+        explainer.check_backend_compat(backend)
     assert "tree_model" in str(excinfo.value)
 
 
@@ -110,7 +110,8 @@ def test_tree_explainer_passes_on_tree_backend() -> None:
 
     explainer = ShapExplainer("TreeExplainer")
 
-    class _TreeOnly:
-        provides = frozenset({Capability.TREE_MODEL, Capability.PREDICT_PROBA})
+    backend = make_fake_backend(
+        provides=frozenset({Capability.TREE_MODEL, Capability.PREDICT_PROBA})
+    )
 
-    explainer.check_backend_compat(_TreeOnly())  # no raise
+    explainer.check_backend_compat(backend)  # no raise

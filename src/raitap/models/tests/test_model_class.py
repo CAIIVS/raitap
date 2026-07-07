@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
 import pytest
 import torch
 
+from raitap.testing import make_app_config
+
 if TYPE_CHECKING:
     from pathlib import Path
-
-    from raitap.configs.schema import AppConfig
 
 from raitap.models import Model
 from raitap.models.torch_backend import TorchBackend
@@ -25,22 +24,15 @@ def _make_config(
     num_classes: int | None = None,
     pretrained: bool = False,
     hardware: str = "cpu",
-) -> AppConfig:
-    return cast(
-        "AppConfig",
-        SimpleNamespace(
-            model=SimpleNamespace(
-                source=source,
-                arch=arch,
-                num_classes=num_classes,
-                pretrained=pretrained,
-            ),
-            data=SimpleNamespace(
-                preprocessing=None,
-                input_metadata=None,
-            ),
-            hardware=hardware,
-        ),
+) -> Any:  # a faithful AppConfig stand-in for Model.__init__
+    return make_app_config(
+        model={
+            "source": source,
+            "arch": arch,
+            "num_classes": num_classes,
+            "pretrained": pretrained,
+        },
+        hardware=hardware,
     )
 
 

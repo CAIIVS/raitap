@@ -50,6 +50,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
     from types import ModuleType
 
+    from raitap.models.base_backend import ModelBackend
     from raitap.types import Capability
 
 CtxT = TypeVar("CtxT", contravariant=True)
@@ -195,15 +196,17 @@ class AdapterMixin:
         hints = registry.get(getattr(self, "algorithm", ""))
         return getattr(hints, "requires", frozenset())
 
-    def check_backend_compat(self, backend: object) -> None:
+    def check_backend_compat(self, backend: ModelBackend | None) -> None:
         """Default backend gate: every required capability must be provided.
+
+        An absent backend provides nothing (empty capability set).
 
         Override only for a non-capability contract (e.g. ``MarabouAssessor`` uses
         the hook for per-call setup; ``AutoLiRPAAssessor`` adds an XPU warning).
         """
         from raitap.utils.errors import BackendIncompatibilityError
 
-        provided = getattr(backend, "provides", frozenset())
+        provided = backend.provides if backend is not None else frozenset()
         missing = self.required_capabilities() - provided
         if missing:
             raise BackendIncompatibilityError(

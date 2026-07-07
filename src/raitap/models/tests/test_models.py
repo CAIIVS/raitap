@@ -8,6 +8,7 @@ import pytest
 import torch
 import torch.nn as nn
 
+from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
 from raitap.data.preprocessing import resolve_preprocessing
 from raitap.models import Model, runtime
 from raitap.models.base_backend import _adapt_input_shape
@@ -21,8 +22,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     import onnxruntime as ort
-
-    from raitap.configs.schema import AppConfig
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -84,34 +83,18 @@ def _make_config(
     preprocessing: str | None = None,
     model_input_transformation: str | None = None,
 ) -> AppConfig:
-    return cast(
-        "AppConfig",
-        type(
-            "AppConfig",
-            (),
-            {
-                "model": type(
-                    "ModelConfig",
-                    (),
-                    {
-                        "source": source,
-                        "arch": arch,
-                        "num_classes": num_classes,
-                        "pretrained": pretrained,
-                    },
-                )(),
-                "data": type(
-                    "DataConfig",
-                    (),
-                    {
-                        "preprocessing": preprocessing,
-                        "model_input_transformation": model_input_transformation,
-                        "input_metadata": None,
-                    },
-                )(),
-                "hardware": hardware,
-            },
-        )(),
+    # Real schema dataclasses (not a hand-rolled stand-in): every field
+    # ``model.py`` reads directly (``tokenizer``, ``task_kind``, ...) already
+    # has the right default here, and ``hardware`` accepts a plain string
+    # (including invalid values, for ``test_invalid_hardware_raises_value_error``)
+    # since dataclass construction does no enum validation.
+    return AppConfig(
+        model=ModelConfig(source=source, arch=arch, num_classes=num_classes, pretrained=pretrained),
+        data=DataConfig(
+            preprocessing=preprocessing,
+            model_input_transformation=model_input_transformation,
+        ),
+        hardware=cast("Hardware", hardware),
     )
 
 
