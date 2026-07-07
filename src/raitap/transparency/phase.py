@@ -190,7 +190,6 @@ def prepare_explainer(
         check_explainer_visualiser_payload_compat(explainer, explainer_target, viz_list)
         check_explainer_visualiser_semantic_compat(
             explainer,
-            explainer_target,
             viz_list,
             task_kind=backend.task_kind,
         )

@@ -21,8 +21,6 @@ from .contracts import (
     explainer_output_kind,
 )
 from .exceptions import PayloadVisualiserIncompatibilityError, VisualiserIncompatibilityError
-from .explainers.captum_explainer import CaptumExplainer
-from .explainers.shap_explainer import ShapExplainer
 from .results import ConfiguredVisualiser
 from .semantics import explainer_capability
 
@@ -111,14 +109,10 @@ def check_explainer_visualiser_payload_compat(
 
 def check_explainer_visualiser_semantic_compat(
     explainer: object,
-    explainer_target: str,
     visualisers: list[ConfiguredVisualiser],
     *,
     task_kind: TaskKind | None = None,
 ) -> None:
-    if not _requires_registry_semantics(explainer, explainer_target):
-        return
-
     capability = explainer_capability(explainer, task_kind=task_kind)
 
     for configured in visualisers:
@@ -196,18 +190,6 @@ def check_explainer_visualiser_compat(
             algorithm=algorithm,
             compatible_algorithms=sorted(visualiser.compatible_algorithms),
         )
-
-
-def _requires_registry_semantics(explainer: object, explainer_target: str) -> bool:
-    target = explainer_target.lower()
-    class_name = type(explainer).__name__.lower()
-    if "shap" in target or "captum" in target or "shap" in class_name or "captum" in class_name:
-        return True
-    algorithm = str(getattr(explainer, "algorithm", ""))
-    return (
-        algorithm in ShapExplainer.algorithm_registry
-        or algorithm in CaptumExplainer.algorithm_registry
-    )
 
 
 def _enum_frozenset(value: object, enum_type: type[Any]) -> frozenset[Any]:
