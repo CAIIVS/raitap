@@ -6,7 +6,7 @@ import logging
 import os
 from pathlib import Path
 
-from raitap import raitap_log
+from raitap import raitap_log, run
 from raitap.configs import set_output_root
 from raitap.configs.schema import (
     AppConfig,
@@ -16,7 +16,6 @@ from raitap.configs.schema import (
     TrackingConfig,
     TransparencyConfig,
 )
-from raitap.pipeline import run
 
 DEFAULT_TRACKING_URI = "http://127.0.0.1:5000"
 

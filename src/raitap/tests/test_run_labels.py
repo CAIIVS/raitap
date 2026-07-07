@@ -88,7 +88,7 @@ def test_resolve_metric_targets_warns_and_falls_back_on_length_mismatch() -> Non
     assert torch.equal(targets, predictions)
 
 
-def test_run_without_tracking_passes_ground_truth_labels_to_metrics(
+def test_run_phases_passes_ground_truth_labels_to_metrics(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config = _minimal_run_config()
@@ -146,7 +146,7 @@ def test_run_without_tracking_passes_ground_truth_labels_to_metrics(
     monkeypatch.setattr(_metrics_phase, "Metrics", fake_metrics)
     monkeypatch.setattr(_transparency_phase, "prepare_explainer", _fake_prepare)
 
-    outputs = run_pipeline.run_without_tracking(
+    outputs = run_pipeline.run_phases(
         cast("AppConfig", config),
         cast("Model", cast("object", model)),
         cast("Data", cast("object", data)),

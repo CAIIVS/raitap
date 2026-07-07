@@ -1,5 +1,5 @@
 """Pipeline orchestration: ``_run_pipeline`` (full, with tracker context) and
-``run_without_tracking`` (composition helper for tests + embedded callers).
+``run_phases`` (composition helper for tests + embedded callers).
 
 The actual phase work lives under :mod:`raitap.pipeline.phases`."""
 
@@ -95,7 +95,7 @@ def _run_pipeline(
     seed = config.seed
     if seed is not None:
         pin_global_seed(seed)
-    outputs = run_without_tracking(
+    outputs = run_phases(
         config,
         model,
         data,
@@ -147,7 +147,7 @@ def _run_pipeline(
     return outputs
 
 
-def run_without_tracking(
+def run_phases(
     config: AppConfig,
     model: Model,
     data: Data,

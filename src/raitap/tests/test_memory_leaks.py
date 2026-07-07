@@ -134,16 +134,16 @@ def test_resolve_explainer_runtime_kwargs_detaches_target() -> None:
 
 
 # ---------------------------------------------------------------------------
-# _run_without_tracking: RunOutputs.forward_output must be CPU and detached
+# run_phases: RunOutputs.forward_output must be CPU and detached
 # ---------------------------------------------------------------------------
 
 
-def test_run_without_tracking_forward_output_is_cpu_and_detached() -> None:
+def test_run_phases_forward_output_is_cpu_and_detached() -> None:
     """The forward output stored in RunOutputs must always be CPU-resident and detached."""
     import torch.nn as nn
 
     from raitap.models.base_backend import ModelBackend
-    from raitap.pipeline.orchestrator import run_without_tracking as _run_without_tracking
+    from raitap.pipeline.orchestrator import run_phases as _run_phases
     from raitap.testing import make_app_config
     from raitap.types import TaskKind
 
@@ -203,7 +203,7 @@ def test_run_without_tracking_forward_output_is_cpu_and_detached() -> None:
         patch("raitap.metrics.phase.metrics_run_enabled", return_value=False),
         patch("raitap.transparency.phase.prepare_explainer", return_value=fake_prepared),
     ):
-        outputs = _run_without_tracking(config, model, data)
+        outputs = _run_phases(config, model, data)
 
     predictions_tensor = outputs.forward_output.as_classification()
     assert not predictions_tensor.requires_grad, "forward_output tensor must be detached"

@@ -475,7 +475,7 @@ def test_print_summary_logs_hydra_resolved_output_dir(
     assert "hydra-output" in captured.out
 
 
-def test_run_without_tracking_returns_outputs(monkeypatch: MonkeyPatch) -> None:
+def test_run_phases_returns_outputs(monkeypatch: MonkeyPatch) -> None:
     model = SimpleNamespace(
         backend=_BackendStub(torch.nn.Identity()),
         log=MagicMock(),
@@ -491,14 +491,12 @@ def test_run_without_tracking_returns_outputs(monkeypatch: MonkeyPatch) -> None:
 
     monkeypatch.setattr(run_pipeline, "Model", lambda _cfg, **_kwargs: model)
     monkeypatch.setattr(run_pipeline, "Data", lambda _cfg, **_kwargs: data)
-    monkeypatch.setattr(
-        run_pipeline, "run_without_tracking", lambda _c, _m, _d, **_kwargs: fake_output
-    )
+    monkeypatch.setattr(run_pipeline, "run_phases", lambda _c, _m, _d, **_kwargs: fake_output)
     monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
     monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
 
     config = _run_config(tracking=None)
-    result = run_module.run(config)  # type: ignore[arg-type]
+    result = run_pipeline._run_pipeline(config)  # type: ignore[arg-type]
 
     assert result is fake_output
     tracker_factory.assert_not_called()
@@ -522,12 +520,12 @@ def test_run_resolves_preprocessing_once_for_model_and_data(monkeypatch: MonkeyP
     resolve_preprocessing = MagicMock(return_value=resolved_preprocessing)
     model_factory = MagicMock(return_value=model)
     data_factory = MagicMock(return_value=data)
-    run_without_tracking = MagicMock(return_value=fake_output)
+    run_phases = MagicMock(return_value=fake_output)
 
     monkeypatch.setattr(run_pipeline, "resolve_preprocessing", resolve_preprocessing, raising=False)
     monkeypatch.setattr(run_pipeline, "Model", model_factory)
     monkeypatch.setattr(run_pipeline, "Data", data_factory)
-    monkeypatch.setattr(run_pipeline, "run_without_tracking", run_without_tracking)
+    monkeypatch.setattr(run_pipeline, "run_phases", run_phases)
     monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
     monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
 
@@ -537,7 +535,7 @@ def test_run_resolves_preprocessing_once_for_model_and_data(monkeypatch: MonkeyP
         tracking=None,
         experiment_name="test",
     )
-    result = run_module.run(config)  # type: ignore[arg-type]
+    result = run_pipeline._run_pipeline(config)  # type: ignore[arg-type]
 
     assert result is fake_output
     resolve_preprocessing.assert_called_once_with(
@@ -556,7 +554,7 @@ def test_run_resolves_preprocessing_once_for_model_and_data(monkeypatch: MonkeyP
         resolved_preprocessing=resolved_preprocessing,
         task_kind=_TaskKind.classification,
     )
-    run_without_tracking.assert_called_once_with(
+    run_phases.assert_called_once_with(
         config,
         model,
         data,
@@ -587,7 +585,7 @@ def test_run_invalid_report_sample_selection_fails_before_pipeline_work(
 
     monkeypatch.setattr(run_pipeline, "Model", lambda _cfg, **_kwargs: model)
     monkeypatch.setattr(run_pipeline, "Data", lambda _cfg, **_kwargs: data)
-    monkeypatch.setattr(run_pipeline, "run_without_tracking", pipeline_work)
+    monkeypatch.setattr(run_pipeline, "run_phases", pipeline_work)
     monkeypatch.setattr(run_pipeline, "build_report", build_report)
     monkeypatch.setattr(run_pipeline, "create_report", create_report)
     monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
@@ -599,7 +597,7 @@ def test_run_invalid_report_sample_selection_fails_before_pipeline_work(
     )
 
     with pytest.raises(ValueError, match=r"missing[.]png"):
-        run_module.run(config)  # type: ignore[arg-type]
+        run_pipeline._run_pipeline(config)  # type: ignore[arg-type]
 
     pipeline_work.assert_not_called()
     build_report.assert_not_called()
@@ -634,16 +632,14 @@ def test_run_with_tracking_logs_all_outputs(monkeypatch: MonkeyPatch) -> None:
 
     monkeypatch.setattr(run_pipeline, "Model", lambda _cfg, **_kwargs: model)
     monkeypatch.setattr(run_pipeline, "Data", lambda _cfg, **_kwargs: data)
-    monkeypatch.setattr(
-        run_pipeline, "run_without_tracking", lambda _c, _m, _d, **_kwargs: fake_output
-    )
+    monkeypatch.setattr(run_pipeline, "run_phases", lambda _c, _m, _d, **_kwargs: fake_output)
     monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
     config = _run_config(
         tracking={"_target_": "MLFlowTracker", "log_model": True},
     )
-    run_module.run(config)  # type: ignore[arg-type]
+    run_pipeline._run_pipeline(config)  # type: ignore[arg-type]
 
     tracker.log_config.assert_called_once()
     model.log.assert_called_once_with(tracker)
@@ -679,16 +675,14 @@ def test_run_with_tracking_skips_model_logging_when_disabled(monkeypatch: Monkey
 
     monkeypatch.setattr(run_pipeline, "Model", lambda _cfg, **_kwargs: model)
     monkeypatch.setattr(run_pipeline, "Data", lambda _cfg, **_kwargs: data)
-    monkeypatch.setattr(
-        run_pipeline, "run_without_tracking", lambda _c, _m, _d, **_kwargs: fake_output
-    )
+    monkeypatch.setattr(run_pipeline, "run_phases", lambda _c, _m, _d, **_kwargs: fake_output)
     monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
     config = _run_config(
         tracking={"_target_": "MLFlowTracker", "log_model": False},
     )
-    run_module.run(config)  # type: ignore[arg-type]
+    run_pipeline._run_pipeline(config)  # type: ignore[arg-type]
 
     model.log.assert_not_called()
     data.log.assert_called_once_with(tracker)
@@ -722,16 +716,14 @@ def test_run_with_multiple_explainers_uses_subdirs(monkeypatch: MonkeyPatch) -> 
 
     monkeypatch.setattr(run_pipeline, "Model", lambda _cfg, **_kwargs: model)
     monkeypatch.setattr(run_pipeline, "Data", lambda _cfg, **_kwargs: data)
-    monkeypatch.setattr(
-        run_pipeline, "run_without_tracking", lambda _c, _m, _d, **_kwargs: fake_output
-    )
+    monkeypatch.setattr(run_pipeline, "run_phases", lambda _c, _m, _d, **_kwargs: fake_output)
     monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
     config = _run_config(
         tracking={"_target_": "MLFlowTracker", "log_model": False},
     )
-    run_module.run(config)  # type: ignore[arg-type]
+    run_pipeline._run_pipeline(config)  # type: ignore[arg-type]
 
     assert exp1.log_calls == [True]
     assert exp2.log_calls == [True]
@@ -755,21 +747,19 @@ def test_run_with_tracking_config_but_no_target_skips_tracking(monkeypatch: Monk
 
     monkeypatch.setattr(run_pipeline, "Model", lambda _cfg, **_kwargs: model)
     monkeypatch.setattr(run_pipeline, "Data", lambda _cfg, **_kwargs: data)
-    monkeypatch.setattr(
-        run_pipeline, "run_without_tracking", lambda _c, _m, _d, **_kwargs: fake_output
-    )
+    monkeypatch.setattr(run_pipeline, "run_phases", lambda _c, _m, _d, **_kwargs: fake_output)
     monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
     monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
 
     # tracking config exists but _target_ is None or empty
     config = _run_config(tracking={"_target_": ""})
-    result = run_module.run(config)  # type: ignore[arg-type]
+    result = run_pipeline._run_pipeline(config)  # type: ignore[arg-type]
 
     assert result is fake_output
     tracker_factory.assert_not_called()
 
 
-def test_run_without_tracking_raises_if_no_phase_configured() -> None:
+def test_run_phases_raises_if_no_phase_configured() -> None:
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     data = SimpleNamespace(tensor=torch.randn(2, 3), sample_ids=None, labels=None)
     # No _target_ on metrics, empty transparency/robustness -> no phase configured.
@@ -780,10 +770,10 @@ def test_run_without_tracking_raises_if_no_phase_configured() -> None:
     )
 
     with pytest.raises(ValueError, match="No assessment phase configured"):
-        run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
+        run_pipeline.run_phases(config, model, data)  # type: ignore[arg-type]
 
 
-def test_run_without_tracking_allows_metrics_only(monkeypatch: MonkeyPatch) -> None:
+def test_run_phases_allows_metrics_only(monkeypatch: MonkeyPatch) -> None:
     class _Net(torch.nn.Module):
         def forward(self, x: torch.Tensor) -> torch.Tensor:
             del x
@@ -804,12 +794,12 @@ def test_run_without_tracking_allows_metrics_only(monkeypatch: MonkeyPatch) -> N
     OmegaConf.set_struct(config.metrics, False)
     monkeypatch.setattr(_metrics_phase, "Metrics", lambda _c, _p, _t: SimpleNamespace())
 
-    outputs = run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
+    outputs = run_pipeline.run_phases(config, model, data)  # type: ignore[arg-type]
 
     assert set(outputs.phase_results) == {"metrics"}
 
 
-def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: MonkeyPatch) -> None:
+def test_run_phases_infers_num_classes_and_runs_metrics(monkeypatch: MonkeyPatch) -> None:
     class _Net(torch.nn.Module):
         def forward(self, x: torch.Tensor) -> torch.Tensor:
             del x
@@ -837,7 +827,7 @@ def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: M
     )
     monkeypatch.setattr(_metrics_phase, "Metrics", _fake_metrics)
 
-    outputs = run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
+    outputs = run_pipeline.run_phases(config, model, data)  # type: ignore[arg-type]
 
     assert config.metrics.num_classes == 3
     assert "metrics" in outputs
@@ -848,7 +838,7 @@ def test_run_without_tracking_infers_num_classes_and_runs_metrics(monkeypatch: M
     assert explanation.visualise_calls == 1
 
 
-def test_run_without_tracking_uses_provided_num_classes(monkeypatch: MonkeyPatch) -> None:
+def test_run_phases_uses_provided_num_classes(monkeypatch: MonkeyPatch) -> None:
     class _Net(torch.nn.Module):
         def forward(self, x: torch.Tensor) -> torch.Tensor:
             del x
@@ -870,12 +860,12 @@ def test_run_without_tracking_uses_provided_num_classes(monkeypatch: MonkeyPatch
     )
     monkeypatch.setattr(_metrics_phase, "Metrics", lambda _c, _p, _t: SimpleNamespace())
 
-    run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
+    run_pipeline.run_phases(config, model, data)  # type: ignore[arg-type]
 
     assert config.metrics.num_classes == 10
 
 
-def test_run_without_tracking_passes_sample_names_to_explanation(monkeypatch: MonkeyPatch) -> None:
+def test_run_phases_passes_sample_names_to_explanation(monkeypatch: MonkeyPatch) -> None:
     backend = _BackendStub(torch.nn.Identity())
     model = SimpleNamespace(backend=backend)
     data = SimpleNamespace(
@@ -893,7 +883,7 @@ def test_run_without_tracking_passes_sample_names_to_explanation(monkeypatch: Mo
         backend=backend,
     )
 
-    run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
+    run_pipeline.run_phases(config, model, data)  # type: ignore[arg-type]
 
     # ``prepare_explainer`` derives sample_names from ``data.sample_ids``; assert
     # the orchestrator handed it the data carrying those ids.
@@ -901,7 +891,7 @@ def test_run_without_tracking_passes_sample_names_to_explanation(monkeypatch: Mo
     assert cast("list[str]", captured["data"].sample_ids) == ["isic_1", "isic_2"]  # type: ignore[attr-defined]
 
 
-def test_run_without_tracking_passes_resolved_preprocessing_to_explanation(
+def test_run_phases_passes_resolved_preprocessing_to_explanation(
     monkeypatch: MonkeyPatch,
 ) -> None:
     backend = _BackendStub(torch.nn.Identity())
@@ -924,7 +914,7 @@ def test_run_without_tracking_passes_resolved_preprocessing_to_explanation(
         backend=backend,
     )
 
-    run_pipeline.run_without_tracking(
+    run_pipeline.run_phases(
         config,  # type: ignore[arg-type]
         model,  # type: ignore[arg-type]
         data,  # type: ignore[arg-type]
@@ -934,7 +924,7 @@ def test_run_without_tracking_passes_resolved_preprocessing_to_explanation(
     assert captured["resolved_preprocessing"] is resolved_preprocessing
 
 
-def test_run_without_tracking_threads_sample_ids_and_image_metadata_to_explanation(
+def test_run_phases_threads_sample_ids_and_image_metadata_to_explanation(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -961,7 +951,7 @@ def test_run_without_tracking_threads_sample_ids_and_image_metadata_to_explanati
         backend=backend,
     )
 
-    run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
+    run_pipeline.run_phases(config, model, data)  # type: ignore[arg-type]
 
     assert cast("list[str]", captured["data"].sample_ids) == ["stable-1", "stable-2"]  # type: ignore[attr-defined]
     input_metadata = cast("InputSpec", captured["input_metadata"])
@@ -970,7 +960,7 @@ def test_run_without_tracking_threads_sample_ids_and_image_metadata_to_explanati
     assert input_metadata.layout == "NCHW"
 
 
-def test_run_without_tracking_threads_tabular_metadata_to_explanation(
+def test_run_phases_threads_tabular_metadata_to_explanation(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -997,7 +987,7 @@ def test_run_without_tracking_threads_tabular_metadata_to_explanation(
         backend=backend,
     )
 
-    run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
+    run_pipeline.run_phases(config, model, data)  # type: ignore[arg-type]
 
     input_metadata = cast("InputSpec", captured["input_metadata"])
     assert input_metadata.kind == "tabular"
@@ -1005,7 +995,7 @@ def test_run_without_tracking_threads_tabular_metadata_to_explanation(
     assert input_metadata.layout == "(B,F)"
 
 
-def test_run_without_tracking_passes_none_when_inference_cant_determine_kind(
+def test_run_phases_passes_none_when_inference_cant_determine_kind(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -1036,12 +1026,12 @@ def test_run_without_tracking_passes_none_when_inference_cant_determine_kind(
         backend=backend,
     )
 
-    run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
+    run_pipeline.run_phases(config, model, data)  # type: ignore[arg-type]
 
     assert captured["input_metadata"] is None
 
 
-def test_run_without_tracking_preserves_layout_only_input_metadata(
+def test_run_phases_preserves_layout_only_input_metadata(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -1074,7 +1064,7 @@ def test_run_without_tracking_preserves_layout_only_input_metadata(
         backend=backend,
     )
 
-    run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
+    run_pipeline.run_phases(config, model, data)  # type: ignore[arg-type]
 
     spec = captured["input_metadata"]
     assert spec is not None
@@ -1082,7 +1072,7 @@ def test_run_without_tracking_preserves_layout_only_input_metadata(
     assert str(getattr(spec, "layout", None)) == "(B,T,C)"
 
 
-def test_run_without_tracking_resolves_auto_pred_target(monkeypatch: MonkeyPatch) -> None:
+def test_run_phases_resolves_auto_pred_target(monkeypatch: MonkeyPatch) -> None:
     class _Net(torch.nn.Module):
         def forward(self, x: torch.Tensor) -> torch.Tensor:
             del x
@@ -1106,7 +1096,7 @@ def test_run_without_tracking_resolves_auto_pred_target(monkeypatch: MonkeyPatch
         backend=backend,
     )
 
-    run_pipeline.run_without_tracking(config, model, data)  # type: ignore[arg-type]
+    run_pipeline.run_phases(config, model, data)  # type: ignore[arg-type]
 
     target = captured_kwargs["target"]
     assert isinstance(target, torch.Tensor)

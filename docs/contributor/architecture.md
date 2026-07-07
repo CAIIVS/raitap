@@ -94,7 +94,7 @@ src/
     │
     ├── pipeline/                   # the assessment run, split by phase
     │   ├── __main__.py             # @hydra.main entry; composes config (incl. raitap_schema) → orchestrator._run_pipeline()
-    │   ├── orchestrator.py         # _run_pipeline() + run_without_tracking() — runs configured phases; generic tracker loop over phase_results
+    │   ├── orchestrator.py         # _run_pipeline() + run_phases() — runs configured phases; generic tracker loop over phase_results
     │   ├── ui.py                   # print_summary() — the rich panel banner
     │   ├── outputs.py              # RunOutputs (keyed phase_results + .metrics/.transparency/.robustness accessors) + PhaseResult + AdapterResult protocols
     │   └── phases/                 # cross-cutting phase infra only; module-specific work lives in each module's phase.py

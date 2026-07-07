@@ -6,7 +6,7 @@ Each phase class lives in its owning module (``MetricsPhase`` in
 result type + report rendering sit alongside in ``*/report.py``. This module
 only assembles them into :data:`ASSESSMENT_PHASES` — the single list that
 the configured-phase guard and the run loop in
-:func:`raitap.pipeline.orchestrator.run_without_tracking` iterate. Adding a
+:func:`raitap.pipeline.orchestrator.run_phases` iterate. Adding a
 module means writing its phase + result in that module, then adding one import +
 one entry here.
 

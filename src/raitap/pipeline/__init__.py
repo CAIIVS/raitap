@@ -18,6 +18,8 @@ from raitap.pipeline.phases.forward_pass import extract_primary_tensor
 
 if TYPE_CHECKING:
     from raitap.metrics import metrics_prediction_pair, resolve_metric_targets
+    from raitap.pipeline.orchestrator import run_phases
+    from raitap.pipeline.ui import print_summary
 
 register_configs()
 
@@ -28,25 +30,15 @@ def main() -> None:
     _main()
 
 
-def run(*args: Any, **kwargs: Any) -> RunOutputs:
-    from raitap.pipeline.orchestrator import _run_pipeline
-
-    return _run_pipeline(*args, **kwargs)
-
-
-def run_without_tracking(*args: Any, **kwargs: Any) -> RunOutputs:
-    from raitap.pipeline.orchestrator import run_without_tracking as _run_without_tracking
-
-    return _run_without_tracking(*args, **kwargs)
-
-
-def print_summary(*args: Any, **kwargs: Any) -> None:
-    from raitap.pipeline.ui import print_summary as _print_summary
-
-    _print_summary(*args, **kwargs)
-
-
 def __getattr__(name: str) -> Any:
+    if name == "run_phases":
+        from raitap.pipeline.orchestrator import run_phases
+
+        return run_phases
+    if name == "print_summary":
+        from raitap.pipeline.ui import print_summary
+
+        return print_summary
     if name == "metrics_prediction_pair":
         from raitap.metrics import metrics_prediction_pair
 
@@ -66,6 +58,5 @@ __all__ = [
     "metrics_prediction_pair",
     "print_summary",
     "resolve_metric_targets",
-    "run",
-    "run_without_tracking",
+    "run_phases",
 ]

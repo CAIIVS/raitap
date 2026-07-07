@@ -1,4 +1,4 @@
-"""Structured return value from :func:`~raitap.pipeline.run`."""
+"""Structured return value from :func:`~raitap.run`."""
 
 from __future__ import annotations
 

@@ -52,7 +52,7 @@ def _patch_pipeline(monkeypatch: MonkeyPatch, run_dir: Path, outputs: RunOutputs
     monkeypatch.setattr(orchestrator, "Model", lambda *a, **k: fake_model)
     monkeypatch.setattr(orchestrator, "Data", lambda *a, **k: SimpleNamespace())
     monkeypatch.setattr(orchestrator, "_validate_report_sample_selection", lambda *a, **k: None)
-    monkeypatch.setattr(orchestrator, "run_without_tracking", lambda *a, **k: outputs)
+    monkeypatch.setattr(orchestrator, "run_phases", lambda *a, **k: outputs)
     monkeypatch.setattr(orchestrator, "reporting_enabled", lambda config: False)
     monkeypatch.setattr(orchestrator, "resolve_run_dir", lambda config: run_dir)
 
