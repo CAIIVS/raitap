@@ -92,7 +92,7 @@ def _run_pipeline(
         if verbose:
             print_summary(config, model)
 
-    seed = getattr(config, "seed", None)
+    seed = config.seed
     if seed is not None:
         pin_global_seed(seed)
     outputs = run_without_tracking(
@@ -107,7 +107,7 @@ def _run_pipeline(
     # whenever there is something to warn about — independent of reporting (the
     # run dir + console exist regardless); only the report banner (inside
     # build_report) is gated on reporting.
-    repro = assess_reproducibility(outputs, getattr(config, "seed", None))
+    repro = assess_reproducibility(outputs, config.seed)
     # Write the run-level reproducibility artefact when there is something to
     # warn about OR a seed was pinned (record the seed run-wide even if fully
     # reproducible). Not duplicated into per-module metadata.
@@ -128,20 +128,19 @@ def _run_pipeline(
         # warned, which the guard above rules out.
         raitap_log.warn(cast("str", reproducibility_caveat(repro)))
 
-    tracking_config = getattr(config, "tracking", None)
-    has_tracker = bool(tracking_config and getattr(tracking_config, "_target_", None))
-    if not has_tracker:
+    tracking_config = config.tracking
+    if tracking_config is None or not getattr(tracking_config, "_target_", None):
         return outputs
 
     with BaseTracker.create_tracker(config) as tracker:
         tracker.log_config()
-        if getattr(config.tracking, "log_model", False):
+        if tracking_config.log_model:
             model.log(tracker)
         data.log(tracker)
         # Each phase result owns how it logs itself (artifacts + subdirectories).
         for phase_result in outputs.phase_results.values():
             phase_result.log(tracker)
-        reporting_cfg = getattr(config, "reporting", None)
+        reporting_cfg = config.reporting
         if report_generation is not None and reporting_cfg is not None:
             report_generation.log(tracker)
 

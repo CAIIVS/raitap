@@ -31,8 +31,8 @@ if TYPE_CHECKING:
 
 def print_summary(config: AppConfig, model: Model) -> None:
     """Render the assessment-summary banner. Defensive against missing fields."""
-    transparency = getattr(config, "transparency", None) or {}
-    robustness = getattr(config, "robustness", None) or {}
+    transparency = config.transparency or {}
+    robustness = config.robustness or {}
     try:
         from raitap.metrics import metrics_run_enabled
 
