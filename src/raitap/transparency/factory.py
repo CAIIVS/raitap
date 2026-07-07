@@ -16,13 +16,12 @@ from raitap.models.base_backend import ModelBackend
 from .algorithm_allowlist import ensure_algorithm_in_allowlist
 from .contracts import (
     ExplainerAdapter,
+    ExplainerCapability,
     ExplanationOutputSpace,
     MethodFamily,
     explainer_output_kind,
 )
 from .exceptions import PayloadVisualiserIncompatibilityError, VisualiserIncompatibilityError
-from .explainers.captum_explainer import CaptumExplainer
-from .explainers.shap_explainer import ShapExplainer
 from .results import ConfiguredVisualiser
 from .semantics import explainer_capability
 
@@ -111,15 +110,16 @@ def check_explainer_visualiser_payload_compat(
 
 def check_explainer_visualiser_semantic_compat(
     explainer: object,
-    explainer_target: str,
     visualisers: list[ConfiguredVisualiser],
     *,
     task_kind: TaskKind | None = None,
 ) -> None:
-    if not _requires_registry_semantics(explainer, explainer_target):
-        return
-
-    capability = explainer_capability(explainer, task_kind=task_kind)
+    # Resolve the explainer's capability lazily: only a visualiser that
+    # actually declares supported method families / output spaces gives us
+    # something to check. With nothing to check (e.g. no visualisers), we must
+    # not force method-family resolution (reading the explainer's
+    # ``algorithm_registry``) for no reason.
+    capability: ExplainerCapability | None = None
 
     for configured in visualisers:
         visualiser = configured.visualiser
@@ -127,6 +127,16 @@ def check_explainer_visualiser_semantic_compat(
             getattr(type(visualiser), "supported_method_families", frozenset()),
             MethodFamily,
         )
+        supported_output_spaces = _enum_frozenset(
+            getattr(type(visualiser), "supported_output_spaces", frozenset()),
+            ExplanationOutputSpace,
+        )
+        if not supported_method_families and not supported_output_spaces:
+            continue
+
+        if capability is None:
+            capability = explainer_capability(explainer, task_kind=task_kind)
+
         if supported_method_families and not (
             capability.method_families & supported_method_families
         ):
@@ -137,10 +147,6 @@ def check_explainer_visualiser_semantic_compat(
                 f"{sorted(f.value for f in supported_method_families)}."
             )
 
-        supported_output_spaces = _enum_frozenset(
-            getattr(type(visualiser), "supported_output_spaces", frozenset()),
-            ExplanationOutputSpace,
-        )
         if not supported_output_spaces:
             continue
         if capability.candidate_output_spaces & supported_output_spaces:
@@ -196,18 +202,6 @@ def check_explainer_visualiser_compat(
             algorithm=algorithm,
             compatible_algorithms=sorted(visualiser.compatible_algorithms),
         )
-
-
-def _requires_registry_semantics(explainer: object, explainer_target: str) -> bool:
-    target = explainer_target.lower()
-    class_name = type(explainer).__name__.lower()
-    if "shap" in target or "captum" in target or "shap" in class_name or "captum" in class_name:
-        return True
-    algorithm = str(getattr(explainer, "algorithm", ""))
-    return (
-        algorithm in ShapExplainer.algorithm_registry
-        or algorithm in CaptumExplainer.algorithm_registry
-    )
 
 
 def _enum_frozenset(value: object, enum_type: type[Any]) -> frozenset[Any]:

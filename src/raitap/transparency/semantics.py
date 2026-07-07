@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from collections.abc import Set as AbstractSet
 from typing import Any
 
 from raitap.reproducibility import (
@@ -31,44 +30,21 @@ from .contracts import (
 def method_families_for_explainer(explainer: object) -> frozenset[MethodFamily]:
     """Return the explicit method-family mapping for a configured explainer.
 
-    Resolution order:
-
-    1. ``type(explainer).algorithm_registry`` — required class-body ClassVar
-       on every transparency adapter (validated at decoration time by
-       ``@adapters.transparency``'s required kwarg).
-    2. Framework label on the explainer (``framework="shap"`` /
-       ``"captum"``) → matching adapter class's registry.
-    3. Cross-framework algorithm-name lookup (used by minimal test stubs
-       and config-only entry points where only the algorithm string is
-       known).
+    Reads the adapter's own ``algorithm_registry`` ClassVar — a required
+    class-body attribute on every transparency adapter, validated at decoration
+    time by ``@adapters.transparency``. Mirrors ``robustness.hints_for_assessor``.
     """
-
     algorithm = _explainer_algorithm(explainer)
-
-    cls_registry = getattr(type(explainer), "algorithm_registry", None)
-    if isinstance(cls_registry, Mapping) and algorithm in cls_registry:
-        return cls_registry[algorithm].families
-
-    framework = _explainer_framework(explainer)
-    if framework is not None:
-        adapter_cls = _adapter_class_for_framework(framework)
-        if adapter_cls is not None:
-            registry = adapter_cls.algorithm_registry
-            if algorithm in registry:
-                return registry[algorithm].families
-            raise _method_family_error(framework, algorithm)
-
-    # No framework hint: try unique cross-framework match via algorithm name.
-    try:
-        return _method_families_for_algorithm(algorithm)
-    except ValueError:
-        raise _method_family_error(type(explainer).__name__, algorithm) from None
+    registry = getattr(type(explainer), "algorithm_registry", None)
+    if isinstance(registry, Mapping) and algorithm in registry:
+        return registry[algorithm].families
+    raise _method_family_error(type(explainer).__name__, algorithm)
 
 
 def explainer_seeding(explainer: object) -> Seeding:
     """Resolve the configured explainer's RNG classification (issue #339).
 
-    Same 3-tier lookup as :func:`method_families_for_explainer`; never raises.
+    Reads the adapter's own ``algorithm_registry``; never raises.
     Any unresolved case (stubs, unknown algorithm) defaults to ``deterministic`` —
     a missing declaration must never over-claim stochasticity.
     """
@@ -82,59 +58,9 @@ def _hints_for_explainer(explainer: object) -> ExplainerAlgorithmSpec | None:
         algorithm = _explainer_algorithm(explainer)
     except RaitapError:
         return None
-
-    cls_registry = getattr(type(explainer), "algorithm_registry", None)
-    if isinstance(cls_registry, Mapping) and algorithm in cls_registry:
-        return cls_registry[algorithm]
-
-    framework = _explainer_framework(explainer)
-    if framework is not None:
-        adapter_cls = _adapter_class_for_framework(framework)
-        if adapter_cls is not None and algorithm in adapter_cls.algorithm_registry:
-            return adapter_cls.algorithm_registry[algorithm]
-
-    matches = []
-    from raitap.transparency.explainers.captum_explainer import CaptumExplainer
-    from raitap.transparency.explainers.shap_explainer import ShapExplainer
-
-    for adapter_cls in (ShapExplainer, CaptumExplainer):
-        registry = adapter_cls.algorithm_registry
-        if algorithm in registry:
-            matches.append(registry[algorithm])
-    return matches[0] if len(matches) == 1 else None
-
-
-def _adapter_class_for_framework(framework: str) -> type | None:
-    """Map a framework label (``"SHAP"`` / ``"Captum"``) to its adapter class.
-
-    Imported lazily to avoid a circular ``transparency.semantics`` ↔ explainer
-    module dependency at import time.
-    """
-    label = _normalise_framework(framework)
-    # Absolute imports so the ``test_semantics`` shadow-package loader
-    # (which uses a ``_raitap_transparency_semantics_under_test`` package
-    # alias) still finds the canonical adapter classes.
-    if label == "SHAP":
-        from raitap.transparency.explainers.shap_explainer import ShapExplainer
-
-        return ShapExplainer
-    if label == "Captum":
-        from raitap.transparency.explainers.captum_explainer import CaptumExplainer
-
-        return CaptumExplainer
-    return None
-
-
-def _explainer_framework(explainer: object) -> str | None:
-    raw = getattr(explainer, "framework", None) or getattr(explainer, "explainer_framework", None)
-    if raw is not None:
-        return _normalise_framework(str(raw))
-    class_name = type(explainer).__name__
-    module = type(explainer).__module__.lower()
-    if class_name == "ShapExplainer" or "shap" in module:
-        return "SHAP"
-    if class_name == "CaptumExplainer" or "captum" in module:
-        return "Captum"
+    registry = getattr(type(explainer), "algorithm_registry", None)
+    if isinstance(registry, Mapping) and algorithm in registry:
+        return registry[algorithm]
     return None
 
 
@@ -200,7 +126,6 @@ def infer_output_space(
     input_spec: InputSpec,
     attributions: object | None = None,
     explainer: object | None = None,
-    algorithm: str | None = None,
     method_families: frozenset[MethodFamily] | None = None,
     layer_path: str | None = None,
     feature_names: Sequence[str] | None = None,
@@ -228,7 +153,6 @@ def infer_output_space(
     resolved_method_families = _resolve_method_families(
         method_families=method_families,
         explainer=explainer,
-        algorithm=algorithm,
     )
 
     shape = _shape_tuple(getattr(attributions, "shape", None))
@@ -321,67 +245,25 @@ def _resolve_method_families(
     *,
     method_families: frozenset[MethodFamily] | None,
     explainer: object | None,
-    algorithm: str | None,
 ) -> frozenset[MethodFamily]:
     if method_families is not None:
         return method_families
-    if algorithm is not None:
-        return _method_families_for_algorithm(algorithm)
     if explainer is not None:
         return method_families_for_explainer(explainer)
     return frozenset()
 
 
-def _method_families_for_algorithm(algorithm: str) -> frozenset[MethodFamily]:
-    """Cross-framework lookup: scan all known adapter classes for ``algorithm``.
-
-    Used when callers pass an algorithm string without an explainer instance.
-    Ambiguity (algorithm name registered by >1 adapter) is rejected so the
-    caller has to disambiguate via an explicit ``explainer=`` argument.
-    """
-    from raitap.transparency.explainers.captum_explainer import CaptumExplainer
-    from raitap.transparency.explainers.shap_explainer import ShapExplainer
-
-    matches: list[tuple[str, AbstractSet[MethodFamily]]] = []
-    for label, adapter_cls in (("SHAP", ShapExplainer), ("Captum", CaptumExplainer)):
-        registry = adapter_cls.algorithm_registry
-        if algorithm in registry:
-            matches.append((label, registry[algorithm].families))
-
-    if len(matches) == 1:
-        return frozenset(matches[0][1])
-    if not matches:
-        raise _method_family_error("<unknown>", algorithm)
-
-    frameworks = ", ".join(framework for framework, _families in matches)
-    raise ValueError(
-        "method-family inference is ambiguous for algorithm "
-        f"{algorithm}; matched frameworks {frameworks}."
-    )
-
-
-def _normalise_framework(framework: str) -> str:
-    lowered = framework.strip().lower()
-    if lowered == "shap":
-        return "SHAP"
-    if lowered == "captum":
-        return "Captum"
-    return framework
-
-
-def _method_family_error(framework: str, algorithm: str) -> RaitapError:
+def _method_family_error(explainer_name: str, algorithm: str) -> RaitapError:
     if algorithm == "<missing>":
         message = (
-            f"Explainer {framework} has no `algorithm` set. The bundled "
-            f"`transparency/{framework.lower().replace('explainer', '')}.yaml` "
-            "preset only sets `_target_`. Add `transparency.<name>.algorithm: ...` "
-            "(e.g. `GradientExplainer` for SHAP, `IntegratedGradients` for Captum) "
-            "to your config or pass it as a CLI override."
+            f"Explainer {explainer_name} has no `algorithm` set. Add "
+            "`transparency.<name>.algorithm: ...` to your config (e.g. "
+            "`GradientExplainer` for SHAP, `IntegratedGradients` for Captum)."
         )
     else:
         message = (
-            f"method-family inference is not implemented for framework "
-            f"{framework} and algorithm {algorithm}."
+            f"Unknown algorithm {algorithm!r} for explainer {explainer_name}: "
+            "not in its algorithm_registry."
         )
     return RaitapError(
         message,

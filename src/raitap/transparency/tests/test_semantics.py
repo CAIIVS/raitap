@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 from pathlib import Path
-from types import ModuleType, SimpleNamespace
+from types import ModuleType
 from typing import Any
 
 import pytest
@@ -45,7 +45,6 @@ ExplanationScope = contracts.ExplanationScope
 InputKind = contracts.InputKind
 InputSpec = contracts.InputSpec
 MethodFamily = contracts.MethodFamily
-ExplainerAlgorithmSpec = contracts.ExplainerAlgorithmSpec
 ScopeDefinitionStep = contracts.ScopeDefinitionStep
 TensorLayout = contracts.TensorLayout
 from raitap.transparency.explainers.captum_explainer import CaptumExplainer  # noqa: E402
@@ -60,7 +59,8 @@ method_families_for_explainer = semantics.method_families_for_explainer
 
 
 def _explainer(framework: str, algorithm: str) -> object:
-    return SimpleNamespace(framework=framework, algorithm=algorithm)
+    cls = {"shap": ShapExplainer, "captum": CaptumExplainer}[framework]
+    return cls(algorithm=algorithm)
 
 
 def test_shap_method_family_registry_accepts_adr_v1_list() -> None:
@@ -134,9 +134,7 @@ def test_captum_method_family_registry_exactly_matches_adr_v1_list() -> None:
 def test_bare_captum_grad_cam_is_rejected() -> None:
     with pytest.raises(
         Exception,
-        match=(
-            "method-family inference is not implemented for framework Captum and algorithm GradCam"
-        ),
+        match="Unknown algorithm 'GradCam' for explainer CaptumExplainer",
     ):
         method_families_for_explainer(_explainer("captum", "GradCam"))
 
@@ -158,7 +156,7 @@ def test_explainer_capability_uses_local_explainer_output_contract() -> None:
 
 def test_explainer_capability_uses_explainer_declared_output_scope() -> None:
     class GlobalScopeExplainer:
-        framework = "captum"
+        algorithm_registry = CaptumExplainer.algorithm_registry
         algorithm = "LayerGradCam"
         output_scope = ExplanationScope.GLOBAL
 
@@ -251,7 +249,9 @@ def test_infer_output_space_layout_alone_disambiguates(
     # (no ``kind``) to pick an output space — the contract the message
     # advertises.
     spec = InputSpec(kind=None, shape=shape, layout=layout)
-    output_space = infer_output_space(input_spec=spec, algorithm="IntegratedGradients")
+    output_space = infer_output_space(
+        input_spec=spec, method_families=frozenset({MethodFamily.GRADIENT})
+    )
     assert output_space.space is expected_space
 
 
@@ -266,66 +266,3 @@ def test_infer_output_space_uses_cam_method_family_for_image_spatial_maps() -> N
     assert output_space.layout is TensorLayout.BATCH_CHANNEL_HEIGHT_WIDTH
     assert output_space.layer_path == "features.0"
     assert output_space.requires_interpolation is True
-
-
-def test_infer_output_space_uses_algorithm_only_cam_signal() -> None:
-    output_space = infer_output_space(
-        input_spec=InputSpec(kind="image", shape=(2, 3, 8, 8), layout="NCHW"),
-        algorithm="LayerGradCam",
-        layer_path="features.0",
-    )
-
-    assert output_space.space is ExplanationOutputSpace.IMAGE_SPATIAL_MAP
-    assert output_space.requires_interpolation is True
-
-
-def test_infer_output_space_explicit_algorithm_takes_precedence_over_explainer() -> None:
-    output_space = infer_output_space(
-        input_spec=InputSpec(kind="image", shape=(2, 3, 8, 8), layout="NCHW"),
-        explainer=_explainer("captum", "LayerGradCam"),
-        algorithm="IntegratedGradients",
-    )
-
-    assert output_space.space is ExplanationOutputSpace.INPUT_FEATURES
-    assert output_space.requires_interpolation is False
-
-
-def test_infer_output_space_rejects_unknown_algorithm_only_signal() -> None:
-    with pytest.raises(
-        Exception,
-        match=(
-            "method-family inference is not implemented for framework "
-            "<unknown> and algorithm MadeUpExplainer"
-        ),
-    ):
-        infer_output_space(
-            input_spec=InputSpec(kind="image", shape=(2, 3, 8, 8), layout="NCHW"),
-            algorithm="MadeUpExplainer",
-        )
-
-
-def test_infer_output_space_rejects_ambiguous_algorithm_only_signal(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setitem(
-        SHAP_METHOD_FAMILIES,
-        "SharedAlgorithm",
-        ExplainerAlgorithmSpec(frozenset({MethodFamily.SHAPLEY})),
-    )
-    monkeypatch.setitem(
-        CAPTUM_METHOD_FAMILIES,
-        "SharedAlgorithm",
-        ExplainerAlgorithmSpec(frozenset({MethodFamily.GRADIENT})),
-    )
-
-    with pytest.raises(
-        Exception,
-        match=(
-            "method-family inference is ambiguous for algorithm "
-            "SharedAlgorithm; matched frameworks SHAP, Captum"
-        ),
-    ):
-        infer_output_space(
-            input_spec=InputSpec(kind="image", shape=(2, 3, 8, 8), layout="NCHW"),
-            algorithm="SharedAlgorithm",
-        )
