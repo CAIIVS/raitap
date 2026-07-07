@@ -123,7 +123,7 @@ class Data(Trackable):
             )
 
         inputs_cfg = _get_optional_config_value(cfg.data, "inputs")
-        model_cfg_for_text = getattr(cfg, "model", None)
+        model_cfg_for_text = cfg.model
         tokenizer_id = _get_optional_config_value(model_cfg_for_text, "tokenizer")
         if inputs_cfg is not None and tokenizer_id is not None:
             try:
@@ -153,12 +153,9 @@ class Data(Trackable):
         if resolved_preprocessing is not None:
             data_module = resolved_preprocessing.data_module
         else:
-            model_cfg = getattr(cfg, "model", None)
-            if model_cfg is None:
-                data_module = None
-            else:
-                resolved = resolve_preprocessing(model_cfg, cfg.data)
-                data_module = resolved.data_module
+            model_cfg = cfg.model
+            resolved = resolve_preprocessing(model_cfg, cfg.data)
+            data_module = resolved.data_module
         per_image_transform = module_as_per_image_callable(data_module)
 
         is_detection = self.task_kind is TaskKind.detection
@@ -327,7 +324,7 @@ def _resolve_and_parse_labels(
         )
 
     data_source = _get_optional_config_value(cfg.data, "source")
-    model = getattr(cfg, "model", None)
+    model = cfg.model
     class_names = _get_optional_config_value(model, "class_names")
 
     return parser.parse(

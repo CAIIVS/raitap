@@ -57,7 +57,8 @@ def _make_config(
                 source=source,
                 name=name,
                 labels=labels,
-            )
+            ),
+            model=SimpleNamespace(class_names=None),
         ),
     )
 
@@ -561,7 +562,8 @@ class TestLoadDirectoryLabelsViaParser:
                     source=str(img_dir),
                     name="test_dir",
                     labels=DirectoryLabelsConfig(),
-                )
+                ),
+                model=SimpleNamespace(class_names=None),
             ),
         )
         data = Data(cfg)

@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from raitap.configs import cfg_to_dict
 from raitap.data.types import MODALITY_EXTENSIONS, InputModality
 
 from .samples import SAMPLE_SOURCES
+
+if TYPE_CHECKING:
+    from raitap.configs.schema import AppConfig
 
 _IMAGE_EXTENSIONS = MODALITY_EXTENSIONS[InputModality.image]
 _TABULAR_EXTENSIONS = MODALITY_EXTENSIONS[InputModality.tabular]
@@ -22,10 +25,10 @@ class DataInputMetadata:
     metadata: dict[str, Any] | None = None
 
 
-def infer_data_input_metadata(config: object, data: object) -> DataInputMetadata:
+def infer_data_input_metadata(config: AppConfig, data: object) -> DataInputMetadata:
     explicit = getattr(data, "input_metadata", None)
     if explicit is None:
-        explicit = getattr(getattr(config, "data", None), "input_metadata", None)
+        explicit = config.data.input_metadata
     if explicit is not None:
         explicit_mapping = cfg_to_dict(explicit)
         kind = explicit_mapping.get("kind")
@@ -51,10 +54,11 @@ def infer_data_input_metadata(config: object, data: object) -> DataInputMetadata
         return DataInputMetadata(kind="text", shape=shape, layout="TOKENS")
 
     # Fallback for callers with no recorded modality (e.g. direct/test use):
-    # sniff the source path as before.
-    source = str(
-        getattr(data, "source", None) or getattr(getattr(config, "data", None), "source", "")
-    )
+    # sniff the source path as before. ``data`` is a loosely-typed runtime
+    # object here (tests may pass fakes without a ``source`` attribute), so
+    # that half stays defensive; ``config.data.source`` is a real schema
+    # field and always resolves.
+    source = str(getattr(data, "source", None) or config.data.source)
     if is_image_source(source):
         return DataInputMetadata(kind="image", shape=shape, layout="NCHW")
     if is_tabular_source(source):

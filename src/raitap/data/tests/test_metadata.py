@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from raitap.data.metadata import (
     DataInputMetadata,
@@ -14,6 +14,8 @@ from raitap.data.types import InputModality
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from raitap.configs.schema import AppConfig
 
 
 class _FakeTensor:
@@ -29,9 +31,14 @@ def _fake_data(modality: InputModality, source: str) -> SimpleNamespace:
     )
 
 
+def _config_without_explicit_metadata() -> AppConfig:
+    """A config whose ``data`` has no explicit ``input_metadata`` set."""
+    return cast("AppConfig", SimpleNamespace(data=SimpleNamespace(input_metadata=None)))
+
+
 def test_recorded_image_modality_beats_unsniffable_source() -> None:
     data = _fake_data(InputModality.image, "opaque://not-a-path")
-    md = infer_data_input_metadata(SimpleNamespace(data=None), data)
+    md = infer_data_input_metadata(_config_without_explicit_metadata(), data)
     assert md.kind == "image"
     assert md.layout == "NCHW"
     assert md.shape == (2, 3, 8, 8)
@@ -39,7 +46,7 @@ def test_recorded_image_modality_beats_unsniffable_source() -> None:
 
 def test_recorded_tabular_modality_beats_unsniffable_source() -> None:
     data = _fake_data(InputModality.tabular, "opaque://not-a-path")
-    md = infer_data_input_metadata(SimpleNamespace(data=None), data)
+    md = infer_data_input_metadata(_config_without_explicit_metadata(), data)
     assert md.kind == "tabular"
     assert md.layout == "(B,F)"
 
@@ -48,22 +55,25 @@ def test_falls_back_to_source_sniff_when_modality_absent(tmp_path: Path) -> None
     csv = tmp_path / "rows.csv"
     csv.write_text("a,b\n1,2\n", encoding="utf-8")
     data = SimpleNamespace(input_metadata=None, tensor=_FakeTensor(), source=str(csv))
-    md = infer_data_input_metadata(SimpleNamespace(data=None), data)
+    md = infer_data_input_metadata(_config_without_explicit_metadata(), data)
     assert md.kind == "tabular"
     assert md.layout == "(B,F)"
 
 
 def test_infer_data_input_metadata_prefers_explicit_config_metadata() -> None:
-    config = SimpleNamespace(
-        data=SimpleNamespace(
-            input_metadata={
-                "kind": "text",
-                "shape": [2, 5],
-                "layout": "(B,T)",
-                "feature_names": ["token_1", "token_2"],
-                "tokenizer": "demo",
-            }
-        )
+    config = cast(
+        "AppConfig",
+        SimpleNamespace(
+            data=SimpleNamespace(
+                input_metadata={
+                    "kind": "text",
+                    "shape": [2, 5],
+                    "layout": "(B,T)",
+                    "feature_names": ["token_1", "token_2"],
+                    "tokenizer": "demo",
+                }
+            )
+        ),
     )
     data = SimpleNamespace(tensor=SimpleNamespace(shape=(2, 3)), source="ignored.csv")
 
@@ -87,7 +97,10 @@ def test_infer_data_input_metadata_prefers_explicit_config_metadata() -> None:
 def test_infer_data_input_metadata_detects_image_source(tmp_path: Path) -> None:
     image_path = tmp_path / "sample.png"
     image_path.write_bytes(b"not-an-image-for-this-test")
-    config = SimpleNamespace(data=SimpleNamespace(source=str(image_path)))
+    config = cast(
+        "AppConfig",
+        SimpleNamespace(data=SimpleNamespace(source=str(image_path), input_metadata=None)),
+    )
     data = SimpleNamespace(tensor=SimpleNamespace(shape=(1, 3, 8, 8)))
 
     metadata = infer_data_input_metadata(config, data)
@@ -98,7 +111,10 @@ def test_infer_data_input_metadata_detects_image_source(tmp_path: Path) -> None:
 def test_infer_data_input_metadata_detects_tabular_source(tmp_path: Path) -> None:
     csv_path = tmp_path / "features.csv"
     csv_path.write_text("a,b\n1,2\n")
-    config = SimpleNamespace(data=SimpleNamespace(source=str(csv_path)))
+    config = cast(
+        "AppConfig",
+        SimpleNamespace(data=SimpleNamespace(source=str(csv_path), input_metadata=None)),
+    )
     data = SimpleNamespace(tensor=SimpleNamespace(shape=(1, 2)))
 
     metadata = infer_data_input_metadata(config, data)

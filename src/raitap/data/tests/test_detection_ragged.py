@@ -49,7 +49,8 @@ def _make_config(source: str, name: str = "test_det") -> AppConfig:
                 source=source,
                 name=name,
                 labels=None,
-            )
+            ),
+            model=SimpleNamespace(class_names=None),
         ),
     )
 
