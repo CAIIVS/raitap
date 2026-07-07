@@ -40,8 +40,10 @@ class TorchBackend(ModelBackend):
     """PyTorch-backed model runtime."""
 
     # Narrows the ``ModelBackend.device`` ABC field (``torch.device | None``):
-    # a TorchBackend always resolves a concrete device in ``__init__``.
-    device: torch.device
+    # a TorchBackend always resolves a concrete device in ``__init__``. The
+    # attribute is mutable so pyright treats its type as invariant and flags the
+    # narrowing; it is safe here (device-less backends keep the base ``None``).
+    device: torch.device  # pyright: ignore[reportIncompatibleVariableOverride]
 
     def __init__(
         self,
