@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.15.0](https://github.com/CAIIVS/raitap/compare/v0.14.0...v0.15.0) (2026-07-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **misc:** seed-aware reproducibility caveat (3-state seeding + seed config) ([#345](https://github.com/CAIIVS/raitap/issues/345))
+* **data:** pluggable label-parser config (COCO/YOLO/VOC ingestion) ([#342](https://github.com/CAIIVS/raitap/issues/342))
+
+### Features
+
+* **data:** add text input modality with pluggable input parsers and text-classification use case ([#347](https://github.com/CAIIVS/raitap/issues/347)) ([9be19f1](https://github.com/CAIIVS/raitap/commit/9be19f135bcc5a6eba497a609cafe3aec6a5ee39))
+* **data:** pluggable label-parser config (COCO/YOLO/VOC ingestion) ([#342](https://github.com/CAIIVS/raitap/issues/342)) ([aa48cf3](https://github.com/CAIIVS/raitap/commit/aa48cf32828b796aa203dcd677ec0a2c800bf89a))
+* **misc:** seed-aware reproducibility caveat (3-state seeding + seed config) ([#345](https://github.com/CAIIVS/raitap/issues/345)) ([f5ad47a](https://github.com/CAIIVS/raitap/commit/f5ad47a0db4b40fca1c65306c85847f36febec8c))
+* **transparency:** add Quantus explanation-quality grading ([#346](https://github.com/CAIIVS/raitap/issues/346)) ([614db34](https://github.com/CAIIVS/raitap/commit/614db348adccfd1d11ee24e0cc60b70249af4658))
+
+
+### Dependencies
+
+* **actions:** bump actions/cache from 5 to 6 ([#344](https://github.com/CAIIVS/raitap/issues/344)) ([25e08f5](https://github.com/CAIIVS/raitap/commit/25e08f5adcfd2307d88d3272257ff357f74de9fb))
+* **actions:** bump actions/checkout from 6 to 7 ([#334](https://github.com/CAIIVS/raitap/issues/334)) ([f625367](https://github.com/CAIIVS/raitap/commit/f6253671f70166d070f9c4ca23f7e1bb76ab1cab))
+
+
+### Documentation
+
+* add architecture decision records page ([#350](https://github.com/CAIIVS/raitap/issues/350)) ([7a11a8a](https://github.com/CAIIVS/raitap/commit/7a11a8acf97ca353a718357aa0b4c985f6d4d360))
+
+
+### Internal code refactoring
+
+* config access is typed, not defensive ([#353](https://github.com/CAIIVS/raitap/issues/353)) ([f979b4c](https://github.com/CAIIVS/raitap/commit/f979b4c693868158eddb4df6d5ce2993f5998848))
+* **model:** split backend.py into per-backend modules ([#336](https://github.com/CAIIVS/raitap/issues/336)) ([5742a46](https://github.com/CAIIVS/raitap/commit/5742a46babc2a8ac0b80e052f6b2654a0caeec62))
+* pipeline orchestration + cli seams ([#354](https://github.com/CAIIVS/raitap/issues/354)) ([2ad2dac](https://github.com/CAIIVS/raitap/commit/2ad2daccb7a41631417c40dfdf7908e5d3e8808a))
+* **transparency:** resolve method families via own algorithm_registry; drop framework hardcoding ([#355](https://github.com/CAIIVS/raitap/issues/355)) ([b799371](https://github.com/CAIIVS/raitap/commit/b7993712db8fd4f43ec23a0d085c0529fa9c787e))
+
 ## [0.14.0](https://github.com/CAIIVS/raitap/compare/v0.13.2...v0.14.0) (2026-06-09)
 
 
