@@ -25,6 +25,7 @@ from raitap.transparency.contracts import (
     ScopeDefinitionStep,
 )
 from raitap.transparency.explainers.base_explainer import AttributionOnlyExplainer
+from raitap.transparency.explainers.captum_explainer import CaptumExplainer
 from raitap.transparency.results import (
     ConfiguredVisualiser,
     ExplanationResult,
@@ -87,7 +88,7 @@ def _make_explanation(run_dir: Path, *, explainer_name: str | None = "exp") -> E
 
 class _IdentityExplainer(AttributionOnlyExplainer):
     algorithm = "Saliency"
-    explainer_framework = "Captum"
+    algorithm_registry = CaptumExplainer.algorithm_registry
 
     def compute_attributions(
         self,
