@@ -115,6 +115,16 @@ The *why* behind the layout in {doc}`architecture`. Each record has the same fou
 
 **Consequences:** Zero-config for plugin authors. Each plugin loads under its own try/except so one failure logs and continues. The version check reuses the plugin's pip `Requires-Dist` raitap specifier against `raitap.__about__`; a mismatch warns and skips. See {doc}`writing-a-plugin`.
 
+## Config access is typed, not defensive
+
+**Context:** `AppConfig` is a Hydra structured config; every field has a declared type and default, and `ModelBackend` declares `provides` / `task_kind` / `device` on the ABC. Yet prod code read them through `getattr(config, "x", default)` at ~56 sites, driven by tests injecting `SimpleNamespace` fakes that lacked fields. A real missing-field bug returned a silent default instead of failing loud.
+
+**Options:** Keep defensive `getattr`; commit to direct typed access.
+
+**Decision:** Direct attribute access (`config.transparency`, `backend.provides`). Test configs build via `make_app_config` (a real struct-mode `DictConfig`, the same shape Hydra hands prod), never `SimpleNamespace`; backend fakes build via `make_fake_backend`. Where a value is *genuinely* optional (an assessor may run with no backend), handle the `None` explicitly at the call site — `backend.provides if backend is not None else frozenset()` — not with a `getattr` default that also masks a truly missing attribute.
+
+**Consequences:** A missing field fails loud instead of returning a silent default. A CI guard (`Quality Gate`) bans defensive `getattr` on config/backend in `src/**`. Genuinely dynamic reflection (`getattr(obj, variable)`) and explicit `None`-handling stay in scope of normal code — the ban targets only the string-literal-plus-default shape. The type system becomes load-bearing instead of decoration.
+
 ## Cross-cutting principles
 
 The threads that recur across the records above:
