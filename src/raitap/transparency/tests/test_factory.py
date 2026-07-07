@@ -10,6 +10,7 @@ import torch
 from omegaconf import OmegaConf
 
 from raitap.configs.adapter_factory import resolve_call_data_sources
+from raitap.configs.schema import DataConfig
 from raitap.models.base_backend import ModelBackend
 from raitap.transparency import (
     PayloadVisualiserIncompatibilityError,
@@ -111,6 +112,11 @@ def _make_config(tmp_path: Path, transparency_config: Any) -> AppConfig:
             experiment_name="test",
             _output_root=str(tmp_path),
             transparency={"test_explainer": transparency_config},
+            # ``resolve_per_image_transform``'s no-``resolved_preprocessing``
+            # fallback reads ``config.data`` directly; a real (defaulted)
+            # ``DataConfig`` keeps that read honest instead of re-adding a
+            # ``getattr`` default here.
+            data=DataConfig(),
         ),
     )
 
@@ -1194,6 +1200,7 @@ def test_explanation_uses_real_shap_preset_defaults_and_runtime_overrides(
                 experiment_name="test",
                 _output_root=str(tmp_path),
                 transparency={"shap_gradient": _load_transparency_preset("shap_gradient")},
+                data=DataConfig(),
             ),
         ),
     )

@@ -67,7 +67,7 @@ class TransparencyPhase(AssessmentPhase):
     name = "transparency"
 
     def is_configured(self, config: AppConfig) -> bool:
-        return bool(getattr(config, "transparency", None))
+        return bool(config.transparency)
 
     def run(self, ctx: PhaseContext) -> PhaseResult | None:
         output = assess_transparency(
@@ -236,13 +236,11 @@ def prepare_explainer(
         call_provenance=call_provenance,
         base_run_dir=base_run_dir,
         backend=backend,
-        experiment_name=str(getattr(config, "experiment_name", "")),
+        experiment_name=str(config.experiment_name),
         explainer_config=explainer_config,
-        # ``config.model`` is a struct-mode DictConfig; when the YAML omits the
-        # optional ``class_names`` key an unconditional read raises
-        # ``ConfigAttributeError``. Read defensively so the optional field +
-        # backend fallback in ``resolve_category_names`` work as designed (#240).
-        class_names=getattr(config.model, "class_names", None),
+        # ``class_names`` is an optional field (default ``None``); the backend
+        # fallback in ``resolve_category_names`` handles the unset case (#240).
+        class_names=config.model.class_names,
     )
 
 
@@ -264,7 +262,7 @@ def assess_transparency(
     per-adapter ``evaluation`` block is configured, its explanations are graded
     as a post-step (issue #341); otherwise ``evaluations`` stays empty.
     """
-    explainer_names = list((getattr(config, "transparency", None) or {}).keys())
+    explainer_names = list((config.transparency or {}).keys())
     if not explainer_names:
         return TransparencyOutput(explanations=[], evaluations=[])
 
@@ -294,6 +292,6 @@ def assess_transparency(
             ExplainContext(prepared=prepared, forward_output=forward_output, data=data)
         )
         results += expls
-        evaluation_cfg = getattr(config.transparency[name], "evaluation", None)
+        evaluation_cfg = config.transparency[name].evaluation
         evaluations += grade_explanations(evaluation_cfg, expls, prepared)
     return TransparencyOutput(explanations=results, evaluations=evaluations)

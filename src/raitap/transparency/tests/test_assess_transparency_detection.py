@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from raitap.transparency.results import ExplanationResult
 
 from raitap.configs import set_output_root
-from raitap.configs.schema import AppConfig, TransparencyConfig
+from raitap.configs.schema import AppConfig, ModelConfig, TransparencyConfig
 from raitap.models.base_backend import ModelBackend
 from raitap.pipeline.outputs import ForwardOutput
 from raitap.transparency.phase import assess_transparency
@@ -551,25 +551,18 @@ def test_assess_transparency_detection_skips_when_no_explainers(tmp_path: Path) 
 def test_assess_transparency_detection_handles_model_block_without_class_names(
     tmp_path: Path,
 ) -> None:
-    """Regression for #240: a struct-mode ``model:`` block that omits
-    ``class_names`` must not crash the transparency phase.
+    """Regression for #240: a ``model:`` block that omits ``class_names`` in
+    its YAML source (leaving the schema default ``None``) must not crash the
+    transparency phase.
 
-    The real pipeline hands ``config.model`` as a YAML-loaded struct-mode
-    ``DictConfig`` (``object_type=dict``). When the block never declares the
-    optional ``class_names`` key, the unconditional attribute read raised
-    ``ConfigAttributeError`` before ``resolve_category_names`` could fall back
-    to ``backend.category_names``. The read must be defensive so the optional
-    field + backend fallback work as designed.
+    ``class_names`` is a declared, defaulted (``None``) field on
+    ``ModelConfig``, so a schema-typed model block that never sets it reads
+    back as ``None`` directly (no ``getattr`` needed) and
+    ``resolve_category_names`` falls back to ``backend.category_names``.
     """
-    from omegaconf import OmegaConf
-
     config = AppConfig(experiment_name="no-class-names")
     set_output_root(config, tmp_path)
-    # Mirror a YAML-loaded model block: a plain struct-mode DictConfig that
-    # never declares ``class_names`` (object_type=dict, struct=True).
-    model_block = OmegaConf.create({"source": "fasterrcnn_resnet50_fpn_v2"})
-    OmegaConf.set_struct(model_block, True)
-    config.model = model_block  # type: ignore[assignment]
+    config.model = ModelConfig(source="fasterrcnn_resnet50_fpn_v2")
     config.transparency = {
         "ig_det": TransparencyConfig(
             _target_="CaptumExplainer",

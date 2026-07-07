@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     import torch
 
     from raitap.models.access import ExplanationModel
+    from raitap.models.base_backend import ModelBackend
 else:
     torch = lazy_import("torch")
 
@@ -90,7 +91,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
         model: ExplanationModel,
         inputs: torch.Tensor,
         *,
-        backend: object | None = None,
+        backend: ModelBackend | None = None,
         run_dir: str | Path | None = None,
         output_root: str | Path | None = None,
         experiment_name: str | None = None,
@@ -137,7 +138,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
             explainer=self,
             method_families=method_families,
             layer_path=_layer_path_for_explainer(self),
-            task_kind=getattr(backend, "task_kind", None),
+            task_kind=None if backend is None else backend.task_kind,
         )
         _validate_output_space_shape(input_spec=input_spec, output_space=output_space)
         semantics = ExplanationSemantics(
@@ -209,7 +210,7 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
         model: ExplanationModel,
         inputs: torch.Tensor,
         attribution_kwargs: dict[str, Any],
-        backend: object | None,
+        backend: ModelBackend | None,
         *,
         input_spec: object | None = None,
         batch_size: int | None = None,
@@ -274,13 +275,12 @@ class AttributionOnlyExplainer(BaseExplainer, ABC):
         return torch.cat(principal_chunks, dim=0), extras
 
     @staticmethod
-    def _prepare_inputs_for_backend(inputs: torch.Tensor, backend: object | None) -> torch.Tensor:
+    def _prepare_inputs_for_backend(
+        inputs: torch.Tensor, backend: ModelBackend | None
+    ) -> torch.Tensor:
         if backend is None:
             return inputs
-        prepare_inputs = getattr(backend, "_prepare_inputs", None)
-        if not callable(prepare_inputs):
-            return inputs
-        return cast("torch.Tensor", prepare_inputs(inputs))
+        return backend._prepare_inputs(inputs)
 
     @staticmethod
     def _normalise_attributions(attributions: torch.Tensor) -> torch.Tensor:
