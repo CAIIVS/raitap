@@ -199,7 +199,7 @@ def _resolve_shape_override(config: Any) -> tuple[int | None, ...] | None:
     data_cfg = config.data
     if data_cfg is None:
         return None
-    input_metadata = getattr(data_cfg, "input_metadata", None)
+    input_metadata = data_cfg.input_metadata
     if input_metadata is None:
         return None
     try:

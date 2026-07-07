@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import pytest
 import torch
+from omegaconf import OmegaConf
 
-from raitap.pipeline.outputs import OutputKind
+from raitap.configs.schema import BinaryClassificationMetricsConfig
+from raitap.pipeline.outputs import ForwardOutput, OutputKind
 from raitap.task_families.classification import ClassificationFamily
 from raitap.task_families.registry import resolve_task_family
+from raitap.testing import make_app_config
 from raitap.types import TaskKind
 
 
@@ -65,3 +68,25 @@ def test_omitted_output_kind_defaults_to_softmax() -> None:
     assert rows is not None
     expected = float(torch.softmax(logits, dim=1).max())
     assert abs(rows[0].confidence - expected) < 1e-6
+
+
+def test_metrics_inputs_with_binary_config_does_not_crash() -> None:
+    # Regression (issue #352): ``num_classes`` is declared only on
+    # ``MulticlassClassificationMetricsConfig``. A binary config's struct-mode
+    # DictConfig has no such key, so ``metrics_inputs`` must not read it via a
+    # bare attribute access — that raises ``ConfigAttributeError``.
+    family = ClassificationFamily()
+    config = make_app_config()
+    config.metrics = OmegaConf.structured(BinaryClassificationMetricsConfig(threshold=0.5))
+
+    predictions = torch.tensor([[0.2], [0.8], [0.6]])
+    forward_output = ForwardOutput(
+        task_kind=TaskKind.classification,
+        batch_size=3,
+        payload=predictions,
+        output_kind=OutputKind.PROBABILITIES,
+    )
+
+    preds, targs = family.metrics_inputs(config, forward_output, torch.tensor([0, 1, 1]))
+    assert torch.equal(preds, predictions.squeeze(1))
+    assert torch.equal(targs, torch.tensor([0, 1, 1]))
