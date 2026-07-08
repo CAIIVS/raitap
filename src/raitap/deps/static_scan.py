@@ -46,6 +46,20 @@ _ADAPTER_DECORATORS = frozenset(
 )
 _VISUALISER_DECORATORS = frozenset({"transparency_visualiser", "robustness_visualiser"})
 
+# Family decorator -> the Hydra config group it registers under (mirrors each
+# family's ``FamilyConfig(group=...)``). ``transparency_evaluator`` registers
+# with ``family=None`` at runtime (like visualisers) so it lands in
+# ``_TARGET_FQN["_unscoped"]`` — see
+# :mod:`raitap.transparency.evaluation.evaluators.registration`.
+_DECORATOR_GROUP: dict[str, str] = {
+    "transparency_adapter": "transparency",
+    "transparency_evaluator": "_unscoped",
+    "robustness_adapter": "robustness",
+    "metrics_adapter": "metrics",
+    "reporter": "reporting",
+    "tracker": "tracking",
+}
+
 
 def _str_set_literal(node: ast.expr | None) -> frozenset[str]:
     """Harvest a ``{"a", "b"}`` set literal of string constants, else empty."""
@@ -128,6 +142,59 @@ def scan_adapter_extras() -> dict[str, str]:
                     registry_name = kwargs.get("registry_name")
                     if registry_name:
                         found[node.name] = registry_name
+                break
+    return found
+
+
+@lru_cache(maxsize=1)
+def scan_adapter_registry() -> dict[str, dict[str, str]]:
+    """Return ``{group: {registry_name: extra}}`` harvested from raitap's
+    source tree — the import-free counterpart of
+    :data:`raitap._adapters._TARGET_FQN`.
+
+    ``_TARGET_FQN`` maps ``group -> registry_name -> class FQN``, but it is
+    only populated once the adapter's module has been imported (the family
+    decorator fires at class-definition time). :mod:`raitap.deps.inference`
+    resolves a config's ``use: <registry_name>`` key to an extra *before* the
+    matching library is necessarily installed, so it cannot rely on
+    ``_TARGET_FQN`` alone — exactly why :func:`scan_adapter_extras` exists for
+    the legacy ``_target_`` lookup. This scanner mirrors that: the family
+    decorator name (e.g. ``robustness_adapter``) determines the group via
+    :data:`_DECORATOR_GROUP`, and ``extra`` defaults to ``registry_name`` the
+    same way :func:`scan_adapter_extras` and ``_register_core`` do.
+    """
+    import raitap
+
+    root = Path(raitap.__file__).resolve().parent
+    found: dict[str, dict[str, str]] = {}
+    for path in root.rglob("*.py"):
+        if "tests" in path.parts:
+            continue
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except (SyntaxError, OSError, UnicodeDecodeError):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            for deco in node.decorator_list:
+                name = _decorator_name(deco)
+                group = _DECORATOR_GROUP.get(name or "")
+                if group is None:
+                    continue
+                assert isinstance(deco, ast.Call)  # narrowed by _decorator_name
+                kwargs = {
+                    kw.arg: kw.value.value
+                    for kw in deco.keywords
+                    if (
+                        kw.arg is not None
+                        and isinstance(kw.value, ast.Constant)
+                        and isinstance(kw.value.value, str)
+                    )
+                }
+                registry_name = kwargs.get("registry_name")
+                if registry_name:
+                    found.setdefault(group, {})[registry_name] = kwargs.get("extra", registry_name)
                 break
     return found
 

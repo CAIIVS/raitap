@@ -427,7 +427,7 @@ def _config_to_mapping(config: Any) -> Mapping[str, Any]:
     :mod:`raitap.deps.inference` walker can read.
 
     ``dataclasses.asdict`` recurses through nested dataclasses (the hydra-zen
-    builders return dataclass instances) and preserves the ``_target_`` field
+    builders return dataclass instances) and preserves the ``use`` field
     the walker keys on.
     """
     import dataclasses
@@ -460,7 +460,7 @@ def install_raitap_deps(
 
     Args:
         config: An ``AppConfig`` instance (or pre-converted ``Mapping``).
-            The walker reads ``_target_`` strings from ``transparency`` /
+            The walker reads ``use`` registry keys from ``transparency`` /
             ``robustness`` / ``metrics`` / ``reporting`` / ``tracking``
             plus ``model.source`` to pick a backend extra.
         allow_project_edit: Consent to ``uv add`` modifying the caller's

@@ -21,23 +21,23 @@ _LWISE_ASSESSMENT: dict = {
         "num_classes": 7,
     },
     "data": {"name": "ham10000-presentation-balanced"},
-    "metrics": {"_target_": "MulticlassClassificationMetrics", "num_classes": 7},
+    "metrics": {"use": "multiclass_classification", "num_classes": 7},
     "transparency": {
-        "gradcam": {"_target_": "CaptumExplainer", "algorithm": "LayerGradCam"},
-        "saliency": {"_target_": "CaptumExplainer", "algorithm": "Saliency"},
+        "gradcam": {"use": "captum", "algorithm": "LayerGradCam"},
+        "saliency": {"use": "captum", "algorithm": "Saliency"},
     },
     "robustness": {
-        "fgsm": {"_target_": "TorchattacksAssessor", "algorithm": "FGSM"},
-        "pgd": {"_target_": "TorchattacksAssessor", "algorithm": "PGD"},
-        "marabou_linf": {"_target_": "MarabouAssessor", "algorithm": "linf-box"},
+        "fgsm": {"use": "torchattacks", "algorithm": "FGSM"},
+        "pgd": {"use": "torchattacks", "algorithm": "PGD"},
+        "marabou_linf": {"use": "marabou", "algorithm": "linf-box"},
     },
-    "reporting": {"_target_": "HTMLReporter", "filename": "lwise_ham10000_report.pdf"},
+    "reporting": {"use": "html", "filename": "lwise_ham10000_report.pdf"},
 }
 
 
 _LWISE_ASSESSMENT_MLFLOW: dict = {
     **_LWISE_ASSESSMENT,
-    "tracking": {"_target_": "MLFlowTracker"},
+    "tracking": {"use": "mlflow"},
 }
 
 
@@ -74,11 +74,11 @@ def test_lwise_ham10000_with_cuda_picks_torch_cuda() -> None:
 _MARABOU_MNIST_DEMO: dict = {
     "model": {"source": "mlp_mnist.onnx"},
     "data": {"name": "mnist_samples"},
-    "metrics": {"_target_": "MulticlassClassificationMetrics", "num_classes": 7},
+    "metrics": {"use": "multiclass_classification", "num_classes": 7},
     "robustness": {
-        "marabou_linf": {"_target_": "MarabouAssessor", "algorithm": "linf-box"},
+        "marabou_linf": {"use": "marabou", "algorithm": "linf-box"},
     },
-    "reporting": {"_target_": "HTMLReporter"},
+    "reporting": {"use": "html"},
 }
 
 
