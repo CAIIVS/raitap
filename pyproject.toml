@@ -349,6 +349,7 @@ include = [
   "src/raitap/configs/**/*.yaml",
   "src/raitap/configs/**/*.yml",
   "src/raitap/reporting/templates/**/*",
+  "src/raitap/schema/*.json",
   "src/hydra_plugins/**/*.py",
 ]
 exclude = ["src/raitap/**/test_*.py", "src/raitap/**/conftest.py", "src/raitap/tests/_fake_*plugin/**", "src/raitap/configs/zhaw/*.yaml", "src/raitap/configs/zhaw/*.yml"]

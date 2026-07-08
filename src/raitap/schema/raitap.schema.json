@@ -1,0 +1,131 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "data": {
+      "properties": {
+        "inputs": {
+          "properties": {
+            "use": {
+              "enum": [
+                "text_csv",
+                "text_dir",
+                "text_jsonl"
+              ],
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "labels": {
+          "properties": {
+            "use": {
+              "enum": [
+                "coco",
+                "detection_json",
+                "directory",
+                "tabular",
+                "voc",
+                "yolo"
+              ],
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "metrics": {
+      "properties": {
+        "use": {
+          "enum": [
+            "binary_classification",
+            "detection",
+            "multiclass_classification",
+            "multilabel_classification"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "reporting": {
+      "properties": {
+        "use": {
+          "enum": [
+            "html",
+            "pdf"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "robustness": {
+      "additionalProperties": {
+        "properties": {
+          "use": {
+            "enum": [
+              "auto_lirpa",
+              "foolbox",
+              "imagecorruptions",
+              "marabou",
+              "torchattacks"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "type": "object"
+    },
+    "transparency": {
+      "additionalProperties": {
+        "properties": {
+          "use": {
+            "enum": [
+              "captum",
+              "shap"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "type": "object"
+    },
+    "visualiser": {
+      "properties": {
+        "use": {
+          "enum": [
+            "captum_image",
+            "captum_text",
+            "captum_time_series",
+            "corruption_accuracy",
+            "detection_image",
+            "image_pair",
+            "input_thumbnail",
+            "layer_activation",
+            "output_bounds_cohort",
+            "output_bounds_margin_heatmap",
+            "output_bounds_pinned",
+            "output_bounds_width_heatmap",
+            "perturbation_heatmap",
+            "quantus",
+            "shap_bar",
+            "shap_beeswarm",
+            "shap_force",
+            "shap_image",
+            "shap_waterfall",
+            "structured_payload_summary",
+            "tabular_bar_chart",
+            "verdict_summary"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "type": "object"
+}
