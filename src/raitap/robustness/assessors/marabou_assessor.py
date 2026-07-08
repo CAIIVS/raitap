@@ -77,7 +77,7 @@ logger = logging.getLogger(__name__)
 
 @robustness_adapter(
     registry_name="marabou",
-    library="maraboupy",
+    import_name="maraboupy",
     error_patterns=_MARABOUPY_ERROR_MESSAGES,
     algorithm_registry={
         "linf-box": AssessorAlgorithmSpec(

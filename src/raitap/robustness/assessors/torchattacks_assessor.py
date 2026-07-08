@@ -44,7 +44,7 @@ def _jsma_invoker(ctx: AttackInvokeCtx) -> torch.Tensor:
 
 @robustness_adapter(
     registry_name="torchattacks",
-    library="torchattacks",
+    import_name="torchattacks",
     algorithm_registry={
         "FGSM": AssessorAlgorithmSpec(
             AssessmentKind.EMPIRICAL_ATTACK,

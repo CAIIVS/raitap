@@ -116,7 +116,7 @@ class AdapterDecoratorOptions(TypedDict, total=False):
 
     registry_name: Required[str]
     extra: str
-    library: str
+    import_name: str
     # Raw regex strings → friendly messages. Compiled at registration by
     # ``_register_core`` (mirrors ``suppress_warnings``, which also takes raw
     # strings). Pass ``r"..."``; add inline flags like ``(?i)`` if needed.
@@ -137,9 +137,10 @@ class AdapterMixin:
 
     registry_name: str | None = None
     extra: str | None = None
-    # Wrapped third-party library (pip name). Set by ``_register_core``;
-    # drives :meth:`_lazy_import` and :meth:`_rethrow`.
-    library: str | None = None
+    # Wrapped third-party library's import module name (not always the PyPI
+    # dist name). Set by ``_register_core``; drives :meth:`_lazy_import` and
+    # :meth:`_rethrow`.
+    import_name: str | None = None
     # Hydra config group ("transparency" / "robustness" / ...). Set by
     # ``_register_core`` and read by :meth:`_rethrow` to scope error chips.
     _adapter_group: str | None = None
@@ -160,22 +161,22 @@ class AdapterMixin:
         load a specific subpackage (e.g. ``"attr"`` for ``captum.attr``).
         """
         cls = type(self)
-        if not cls.library:
-            raise RuntimeError(f"{cls.__name__} has no ``library`` declared")
-        target = f"{cls.library}.{submodule}" if submodule else cls.library
+        if not cls.import_name:
+            raise RuntimeError(f"{cls.__name__} has no ``import_name`` declared")
+        target = f"{cls.import_name}.{submodule}" if submodule else cls.import_name
         try:
             return importlib.import_module(target)
         except ModuleNotFoundError as exc:
             install_hint = f" (install with `uv sync --extra {cls.extra}`)" if cls.extra else ""
             raise ImportError(
-                f"{cls.__name__} requires the {cls.library!r} package{install_hint}."
+                f"{cls.__name__} requires the {cls.import_name!r} package{install_hint}."
             ) from exc
 
     @contextmanager
     def _rethrow(self, *, base_exc: type[BaseException] = Exception) -> Iterator[None]:
         """Wrap a third-party call so curated error patterns get rewritten.
 
-        Equivalent to ``rethrow(module=Module(<group>), third_party_lib=<library>,
+        Equivalent to ``rethrow(module=Module(<group>), third_party_lib=<import_name>,
         message_map=<error_patterns>)`` but pulls all three from the adapter's
         own class declaration (set by the family decorator at registration time).
         """
@@ -185,7 +186,7 @@ class AdapterMixin:
         cls = type(self)
         with rethrow(
             module=Module(cls._adapter_group) if cls._adapter_group else Module.utils,
-            third_party_lib=cls.library,
+            third_party_lib=cls.import_name,
             message_map=cls.error_patterns or {},
             base_exc=base_exc,
         ):
@@ -299,7 +300,7 @@ def _register_core(
     extra = common.get("extra")
     if extra is None and family is not None:
         extra = registry_name
-    library = common.get("library")
+    import_name = common.get("import_name")
     error_patterns = common.get("error_patterns")
     suppress_warnings = common.get("suppress_warnings")
     schema_override = common.get("schema")
@@ -307,8 +308,8 @@ def _register_core(
     cls.registry_name = registry_name
     if extra is not None:
         cls.extra = extra
-    if library is not None:
-        cls.library = library
+    if import_name is not None:
+        cls.import_name = import_name
     if error_patterns is not None:
         compiled: dict[re.Pattern[str], str] = {}
         for pattern, message in error_patterns.items():
@@ -367,8 +368,8 @@ def _register_core(
 
     if extra:
         ADAPTER_EXTRAS[cls.__name__] = extra
-    if library and family is not None:
-        THIRD_PARTY_LIBS.setdefault(family.group, set()).add(library)
+    if import_name and family is not None:
+        THIRD_PARTY_LIBS.setdefault(family.group, set()).add(import_name)
     return cls
 
 

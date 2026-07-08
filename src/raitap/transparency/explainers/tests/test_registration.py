@@ -23,7 +23,7 @@ def test_transparency_adapter_registers_and_assigns_classvars() -> None:
     @adapters.transparency(
         registry_name="_stub_xai",
         extra="_stub_extra",
-        library="_stub_lib",
+        import_name="_stub_lib",
         algorithm_registry={"alg": ExplainerAlgorithmSpec({MethodFamily.GRADIENT})},
     )
     class _StubExplainer(AttributionOnlyExplainer):

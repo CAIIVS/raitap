@@ -109,7 +109,7 @@ _FOOLBOX_ERROR_MESSAGES: dict[str, str] = {
 
 @robustness_adapter(
     registry_name="foolbox",
-    library="foolbox",
+    import_name="foolbox",
     budget_kwarg_source="call_kwargs",
     error_patterns=_FOOLBOX_ERROR_MESSAGES,
     algorithm_registry={

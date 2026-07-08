@@ -84,7 +84,7 @@ _AUTO_LIRPA_ERROR_MESSAGES: Mapping[str, str] = {
 @robustness_adapter(
     registry_name="auto_lirpa",
     extra="auto-lirpa",
-    library="auto_LiRPA",
+    import_name="auto_LiRPA",
     error_patterns=_AUTO_LIRPA_ERROR_MESSAGES,
     # auto-LiRPA uses ``torch.jit.script`` internally; torch 2.x emits a
     # DeprecationWarning we can't fix upstream. Silence — not actionable.

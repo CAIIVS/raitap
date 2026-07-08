@@ -49,7 +49,7 @@ class _DummyVisualiser:
 
 def test_register_core_with_family_populates_builders_and_extras() -> None:
     """_register_core should run the same mechanics as __init_subclass__: hydra-zen
-    builder in _BUILDERS, ADAPTER_EXTRAS entry, library tracked in THIRD_PARTY_LIBS."""
+    builder in _BUILDERS, ADAPTER_EXTRAS entry, import_name tracked in THIRD_PARTY_LIBS."""
     from raitap._adapters import (
         _BUILDERS,
         ADAPTER_EXTRAS,
@@ -68,7 +68,7 @@ def test_register_core_with_family_populates_builders_and_extras() -> None:
         family=fc,
         registry_name="dummy",
         extra="dummy-extra",
-        library="dummy-lib",
+        import_name="dummy-lib",
     )
     assert "_test_family" in _BUILDERS
     assert "dummy" in _BUILDERS["_test_family"]

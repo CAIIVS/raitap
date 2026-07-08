@@ -20,7 +20,7 @@ def test_robustness_adapter_registers_under_robustness_group() -> None:
     @adapters.robustness(
         registry_name="_stub_attack",
         extra="_stub_extra",
-        library="_stub_lib",
+        import_name="_stub_lib",
         algorithm_registry={
             "_stub_alg": AssessorAlgorithmSpec(
                 AssessmentKind.EMPIRICAL_ATTACK,

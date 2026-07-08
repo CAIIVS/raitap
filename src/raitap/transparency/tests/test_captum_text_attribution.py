@@ -76,7 +76,7 @@ def test_default_invoker_pops_attention_mask_into_additional_forward_args() -> N
 
     ctx = AttributionInvokeCtx(
         explainer=explainer,
-        library=_FakeCaptumAttr,
+        import_name=_FakeCaptumAttr,
         model=model,
         inputs=inputs,
         input_spec=None,
@@ -104,7 +104,7 @@ def test_default_invoker_merges_mask_with_caller_additional_forward_args() -> No
 
     ctx = AttributionInvokeCtx(
         explainer=explainer,
-        library=_FakeCaptumAttr,
+        import_name=_FakeCaptumAttr,
         model=model,
         inputs=torch.randn(2, 4),
         input_spec=None,
@@ -130,7 +130,7 @@ def test_default_invoker_omits_additional_forward_args_when_no_mask() -> None:
 
     ctx = AttributionInvokeCtx(
         explainer=explainer,
-        library=_FakeCaptumAttr,
+        import_name=_FakeCaptumAttr,
         model=model,
         inputs=inputs,
         input_spec=None,

@@ -2,7 +2,7 @@
 
 Registers ``family=None`` (like visualisers): no hydra config group, instantiated
 via ``_target_`` nested under ``transparency.<name>.evaluation``. ``extra`` and
-``library`` MUST be passed explicitly (no family default).
+``import_name`` MUST be passed explicitly (no family default).
 """
 
 from __future__ import annotations
