@@ -9,6 +9,13 @@ autocomplete ``use:`` for ``transparency``, ``robustness``, ``metrics``,
 ``reporting``, ``tracking``, ``data.labels``, ``data.inputs`` and
 visualiser entries.
 
+.. note::
+   The ``tracking`` group is currently omitted from the generated schema: the
+   ``mlflow`` tracker registration is silently dropped during ``register_configs``
+   (a circular import via ``raitap.configs`` that ``raitap.tracking.__init__``
+   swallows). Pre-existing, tracked as a follow-up; the schema regains
+   ``tracking`` autocomplete once that registration is order-hardened.
+
 Nested-style families (``transparency``, ``robustness``) allow multiple
 named entries per group (``cfg.transparency.<name>.use``), so their group
 schema wraps the ``use`` enum in ``additionalProperties``. Flat-style
