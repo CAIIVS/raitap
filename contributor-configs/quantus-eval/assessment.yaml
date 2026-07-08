@@ -49,7 +49,7 @@ metrics:
 
 transparency:
   integrated_gradients:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: IntegratedGradients
     call:
       target: auto_pred
@@ -60,7 +60,7 @@ transparency:
         layout: NCHW
       show_sample_names: true
     visualisers:
-      - _target_: CaptumImageVisualiser
+      - use: captum_image
         constructor:
           method: blended_heat_map
           sign: absolute_value
@@ -69,13 +69,13 @@ transparency:
         call:
           max_samples: 4
     evaluation:
-      _target_: raitap.transparency.QuantusEvaluator
+      use: quantus
       metrics: [faithfulness_correlation, sparseness]
       constructor:
         faithfulness_correlation: {nr_runs: 10, subset_size: 32}
 
 reporting:
-  _target_: HTMLReporter
+  use: html
   filename: quantus_eval_report
   include_config: true
   include_metadata: true

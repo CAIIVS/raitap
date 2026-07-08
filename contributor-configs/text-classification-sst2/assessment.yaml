@@ -47,7 +47,7 @@ metrics:
 
 transparency:
   token_ig:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: LayerIntegratedGradients
     constructor:
       # LayerIntegratedGradients attributes wrt. the embedding layer output.
@@ -61,10 +61,10 @@ transparency:
         kind: text
         layout: TOKENS
     visualisers:
-      - _target_: CaptumTextVisualiser
+      - use: captum_text
 
 reporting:
-  _target_: HTMLReporter
+  use: html
   filename: text_classification_sst2_report
   include_config: true
   include_metadata: true

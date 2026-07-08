@@ -40,7 +40,7 @@ data:
     source: ${hydra:runtime.cwd}/contributor-configs/fasterrcnn-udacity/labels/udacity-boxes.json
 
 metrics:
-  _target_: DetectionMetrics
+  use: detection
 
 transparency:
   # One per-box Integrated Gradients run. ``call.target`` must be 0 — the
@@ -48,7 +48,7 @@ transparency:
   # is rejected (see docs/modules/transparency/configuration.md "Detection
   # knobs"). ``max_boxes: 3`` keeps the K-loop small enough for CPU CI.
   detection_ig:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: IntegratedGradients
     call:
       target: 0
@@ -65,10 +65,10 @@ transparency:
         layout: NCHW
       show_sample_names: true
     visualisers:
-      - _target_: DetectionImageVisualiser
+      - use: detection_image
 
 reporting:
-  _target_: HTMLReporter
+  use: html
   filename: fasterrcnn_udacity_report
   # Force all 4 samples into the local-detail section (default cap is 3).
   sample_selection: [0, 1, 2, 3]

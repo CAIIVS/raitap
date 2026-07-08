@@ -36,20 +36,20 @@ metrics:
 robustness:
   # Average-case: ImageNet-C common corruption at a fixed severity.
   gaussian_noise:
-    _target_: ImageCorruptionsAssessor
+    use: imagecorruptions
     algorithm: gaussian_noise   # any of the 15 ImageNet-C corruptions
     constructor:
       severity: 3               # 1..5
     visualisers:
-      - _target_: CorruptionAccuracyVisualiser
+      - use: corruption_accuracy
   # Worst-case: bounded PGD adversarial attack (torchattacks).
   pgd:
-    _target_: TorchattacksAssessor
+    use: torchattacks
     algorithm: PGD
     constructor:
       eps: 0.03
       alpha: 0.008
       steps: 10
     visualisers:
-      - _target_: ImagePairVisualiser
-      - _target_: PerturbationHeatmapVisualiser
+      - use: image_pair
+      - use: perturbation_heatmap

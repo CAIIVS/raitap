@@ -30,12 +30,12 @@ data:
     column: label
 
 metrics:
-  _target_: MulticlassClassificationMetrics
+  use: multiclass_classification
   num_classes: 7
 
 transparency:
   gradcam_localisation:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: LayerGradCam
     constructor:
       layer_path: 1.layer4.2.conv3
@@ -49,7 +49,7 @@ transparency:
         layout: NCHW
       show_sample_names: true
     visualisers:
-      - _target_: CaptumImageVisualiser
+      - use: captum_image
         constructor:
           method: heat_map
           sign: positive
@@ -60,7 +60,7 @@ transparency:
           max_samples: 4
 
   saliency_evidence:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: Saliency
     call:
       target: auto_pred
@@ -72,7 +72,7 @@ transparency:
         layout: NCHW
       show_sample_names: true
     visualisers:
-      - _target_: CaptumImageVisualiser
+      - use: captum_image
         constructor:
           method: blended_heat_map
           sign: positive
@@ -81,7 +81,7 @@ transparency:
           title: "Positive lesion evidence"
         call:
           max_samples: 4
-      - _target_: CaptumImageVisualiser
+      - use: captum_image
         constructor:
           method: masked_image
           sign: positive
@@ -92,7 +92,7 @@ transparency:
           max_samples: 4
 
   occlusion_check:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: Occlusion
     call:
       target: auto_pred
@@ -106,7 +106,7 @@ transparency:
         layout: NCHW
       show_sample_names: true
     visualisers:
-      - _target_: CaptumImageVisualiser
+      - use: captum_image
         constructor:
           method: heat_map
           sign: absolute_value
@@ -117,7 +117,7 @@ transparency:
           max_samples: 4
 
   integrated_evidence_detail:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: IntegratedGradients
     call:
       target: auto_pred
@@ -130,7 +130,7 @@ transparency:
         layout: NCHW
       show_sample_names: true
     visualisers:
-      - _target_: CaptumImageVisualiser
+      - use: captum_image
         constructor:
           method: blended_heat_map
           sign: absolute_value
@@ -142,7 +142,7 @@ transparency:
 
 robustness:
   fgsm_linf_fast:
-    _target_: TorchattacksAssessor
+    use: torchattacks
     algorithm: FGSM
     constructor:
       eps: 0.03
@@ -153,15 +153,15 @@ robustness:
         layout: NCHW
       show_sample_names: true
     visualisers:
-      - _target_: ImagePairVisualiser
+      - use: image_pair
         constructor:
           max_samples: 4
-      - _target_: PerturbationHeatmapVisualiser
+      - use: perturbation_heatmap
         constructor:
           max_samples: 4
 
   pgd_linf_small:
-    _target_: TorchattacksAssessor
+    use: torchattacks
     algorithm: PGD
     constructor:
       eps: 0.03
@@ -174,25 +174,25 @@ robustness:
         layout: NCHW
       show_sample_names: true
     visualisers:
-      - _target_: ImagePairVisualiser
+      - use: image_pair
         constructor:
           max_samples: 4
-      - _target_: PerturbationHeatmapVisualiser
+      - use: perturbation_heatmap
         constructor:
           max_samples: 4
   marabou_linf:
-    _target_: MarabouAssessor
+    use: marabou
     algorithm: linf-box
     constructor:
       epsilon: 0.05
       norm: Linf
       timeout_s: 300
     visualisers:
-      - _target_: VerdictSummaryVisualiser
+      - use: verdict_summary
 
 
 reporting:
-  _target_: HTMLReporter
+  use: html
   filename: lwise_ham10000_report.pdf
   include_config: true
   include_metadata: true

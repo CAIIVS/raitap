@@ -28,7 +28,7 @@ data:
 
 transparency:
   treeshap:
-    _target_: ShapExplainer
+    use: shap
     algorithm: TreeExplainer
     call:
       # Binary XGBoost SHAP returns stacked (B, F, 2); pick the positive class.
@@ -39,12 +39,12 @@ transparency:
         layout: "(B,F)"
       show_sample_names: true
     visualisers:
-      - _target_: ShapBarVisualiser
+      - use: shap_bar
         constructor:
           feature_names: [f0, f1, f2, f3, f4, f5]
 
 reporting:
-  _target_: HTMLReporter
+  use: html
   filename: tree_xgboost_shap_report
   include_config: true
   include_metadata: true
