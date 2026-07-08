@@ -80,7 +80,9 @@ def test_grade_rejects_dotted_target_config(tmp_path: Path) -> None:
     result = _make_result(tmp_path, target=0, space=ExplanationOutputSpace.IMAGE_SPATIAL_MAP)
 
     with pytest.raises(UnsafeConfigTargetError):
-        step_mod.grade_explanations(cfg, [result], _StubPrepared())
+        # cfg is a deliberately-malformed raw dict (a `_target_` payload); the
+        # runtime rejects it before any typing matters.
+        step_mod.grade_explanations(cfg, [result], _StubPrepared())  # type: ignore[arg-type]
 
 
 def test_grade_instantiates_and_runs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
