@@ -8,6 +8,16 @@ myst:
 
 # Supported libraries
 
+## Adapter reference
+
+Every `use:` key registered for the transparency module, generated from the
+adapter registry.
+
+```{include} ../_generated_adapters.md
+:start-after: <!-- raitap-adapters:transparency:start -->
+:end-before: <!-- raitap-adapters:transparency:end -->
+```
+
 ## `constructor`, `call`, and `raitap` keys
 
 Explainers support three config buckets:

@@ -16,6 +16,16 @@ The current metrics module relies on:
 
 To tweak specific options via the RAITAP config, you might need to refer to the underlying library's documentation.
 
+## Adapter reference
+
+Every `use:` key registered for the metrics module, generated from the
+adapter registry.
+
+```{include} ../_generated_adapters.md
+:start-after: <!-- raitap-adapters:metrics:start -->
+:end-before: <!-- raitap-adapters:metrics:end -->
+```
+
 ## Classification metrics
 
 `BinaryClassificationMetrics`, `MulticlassClassificationMetrics`, and `MultilabelClassificationMetrics` are the task-specific adapters for classification models. They each wrap the following TorchMetrics classes (instantiated for the matching task):
