@@ -66,7 +66,7 @@ if TYPE_CHECKING:
 
 @adapters.transparency(
     registry_name="superxai",      # CLI `+transparency=superxai` / Python `from raitap.transparency import superxai`
-    library="superxai-lib",        # real name of your PyPI package; drives `self._lazy_import()` (defaults to registry_name)
+    import_name="superxai",        # importable module name of the wrapped library; drives `self._lazy_import()`
     error_patterns={               # rewrite cryptic upstream errors at call sites
         r"some library footgun": "Do X instead.", # nicer error messages to avoid deep stack traces in RAITAP
     },
@@ -102,7 +102,7 @@ class SuperXAIExplainer(AttributionOnlyExplainer):
             )
 ```
 
-Decorator kwargs (`library`, `algorithm_registry`, `error_patterns`,
+Decorator kwargs (`import_name`, `algorithm_registry`, `error_patterns`,
 `suppress_warnings`, ...) are documented in {doc}`adding/adding-an-adapter`.
 
 `AdapterDecoratorOptions` is exported for typing, in case you want additional custom logic on top of

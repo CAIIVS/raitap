@@ -34,7 +34,7 @@ This keeps the boundary clear for users: `call` is what Captum or SHAP sees, whi
 :yaml:
 transparency:
   my_first_explainer:
-    _target_: "ShapExplainer"
+    use: shap
     algorithm: "GradientExplainer"
     constructor:
       local_smoothing: 0.0
@@ -45,7 +45,7 @@ transparency:
         source: imagenet_samples
       batch_size: 1
     visualisers:
-      - _target_: "ShapImageVisualiser"
+      - use: shap_image
         call:
           max_samples: 1
 
@@ -111,7 +111,7 @@ documented in {doc}`../../contributor/modules/transparency`.
 :yaml:
 transparency:
   my_captum_explainer:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: IntegratedGradients
     constructor: {}
     call:
@@ -157,7 +157,7 @@ wrapped method with `constructor.base_algorithm`; pass the noise knobs under
 :yaml:
 transparency:
   my_smoothgrad:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: NoiseTunnel
     constructor:
       base_algorithm: IntegratedGradients
@@ -213,7 +213,7 @@ validated.
 :yaml:
 transparency:
   my_shap_explainer:
-    _target_: ShapExplainer
+    use: shap
     algorithm: GradientExplainer
     constructor: {}
     call:
@@ -263,15 +263,15 @@ Tabular SHAP values from `TreeExplainer` route to the tabular visualisers (`Shap
 :yaml:
 transparency:
   my_tree_explainer:
-    _target_: ShapExplainer
+    use: shap
     algorithm: TreeExplainer
     raitap:
       input_metadata:
         kind: tabular
         feature_names: [feature_a, feature_b, feature_c]
     visualisers:
-      - _target_: ShapBarVisualiser
-      - _target_: ShapBeeswarmVisualiser
+      - use: shap_bar
+      - use: shap_beeswarm
 
 :python:
 from raitap.transparency import shap, shap_bar, shap_beeswarm
@@ -373,7 +373,7 @@ differently.
 :yaml:
 transparency:
   my_shap_explainer:
-    _target_: "ShapExplainer"
+    use: shap
     algorithm: "GradientExplainer"
     constructor:
       local_smoothing: 0.0
@@ -386,12 +386,12 @@ transparency:
       batch_size: 1
     visualisers:
       # Minimal configuration
-      - _target_: "ShapImageVisualiser"
+      - use: shap_image
         constructor:
           max_samples: 1
 
       # Full configuration with all options
-      - _target_: "ShapImageVisualiser"
+      - use: shap_image
         constructor:
           max_samples: 2
           title: "Tumour attribution"

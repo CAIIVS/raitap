@@ -14,11 +14,11 @@ Each visualiser renders one figure per call. All of them are declared per-explai
 :yaml:
 transparency:
   captum_ig:
-    _target_: "CaptumExplainer"
+    use: captum
     algorithm: "IntegratedGradients"
     visualisers:
-      - _target_: "CaptumImageVisualiser"
-      - _target_: "TabularBarChartVisualiser"
+      - use: captum_image
+      - use: tabular_bar_chart
 
 :python:
 from raitap.transparency import captum, captum_image, tabular_bar_chart
@@ -207,14 +207,14 @@ the factory rejects mismatches at YAML parse time. See
 ```yaml
 transparency:
   my_layer_conductance:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: LayerConductance
     constructor:
       layer_path: layer4.2.conv3   # dotted path to the target layer
     call:
       target: 0
     visualisers:
-      - _target_: LayerActivationVisualiser
+      - use: layer_activation
 ```
 :::::
 
@@ -228,13 +228,13 @@ transparency:
 ```yaml
 transparency:
   ig:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: IntegratedGradients
     call:
       target: 0
       return_convergence_delta: true   # emits the convergence_delta payload
     visualisers:
-      - _target_: StructuredPayloadSummaryVisualiser
+      - use: structured_payload_summary
 ```
 :::::
 
@@ -276,7 +276,7 @@ transparency:
 ```yaml
 transparency:
   my_ig_explainer:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: IntegratedGradients
     call:
       target: 0                  # required — wrapper exposes one scalar channel
@@ -286,7 +286,7 @@ transparency:
         max_boxes: 5             # default; cap K per sample
         iou_threshold: 0.5       # default; used by reference_match target
     visualisers:
-      - _target_: DetectionImageVisualiser
+      - use: detection_image
         # all optional; omit for the default figure. Allowed values per kwarg
         # are in the table above.
         method: blended_heat_map

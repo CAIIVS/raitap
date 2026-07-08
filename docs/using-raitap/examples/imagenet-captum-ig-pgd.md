@@ -42,7 +42,7 @@ metrics:
 
 transparency:
   default:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: IntegratedGradients
     call:
       target: 0
@@ -50,18 +50,18 @@ transparency:
       baseline:
         source: ./data/baseline
     visualisers:
-      - _target_: CaptumImageVisualiser
+      - use: captum_image
 
 robustness:
   pgd:
-    _target_: TorchattacksAssessor
+    use: torchattacks
     algorithm: PGD
     constructor:
       eps: 0.03
       alpha: 0.005
       steps: 10
     visualisers:
-      - _target_: ImagePairVisualiser
+      - use: image_pair
 
 :python:
 from raitap import AppConfig, Hardware, run

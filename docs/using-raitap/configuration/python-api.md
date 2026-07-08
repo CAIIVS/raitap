@@ -80,7 +80,7 @@ run(cfg, auto_install_deps=True)
 
 | YAML pattern                                                     | Python builder                                                                                                                                                                                                       |
 | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `_target_: CaptumExplainer` + `algorithm: IntegratedGradients`   | `captum(algorithm="IntegratedGradients", ...)` (the `_target_` is baked in)                                                                                                                                          |
+| `use: captum` + `algorithm: IntegratedGradients`   | `captum(algorithm="IntegratedGradients", ...)` (the `use` key is baked in)                                                                                                                                          |
 | `defaults: [raitap_schema, _self_]`                              | Not needed — `AppConfig` already *is* the schema. The defaults entry is a Hydra-only construct.                                                                                                                      |
 | Group/name selection (`transparency: captum` + dict key in YAML) | Use the dict key on the Python side too: `transparency={"my_run": captum(algorithm=...)}`.                                                                                                                           |
 | List of visualisers                                              | One builder per visualiser (`captum_image`, `image_pair`, …): flat constructor kwargs, optional `call={...}` for render-time options. `visualisers=[captum_image(max_samples=4, call={"show_sample_names": True})]`. |
@@ -128,7 +128,7 @@ Library-forwarded kwargs (unchecked at schema time):
 | `outputs.transparency` | `list[ExplanationResult]`   | one per explainer; `[]` if not run.            |
 | `outputs.robustness`   | `list[RobustnessResult]`    | one per assessor; `[]` if not run.             |
 
-Every per-adapter result (`ExplanationResult`, `RobustnessResult`) shares one envelope — the `AdapterResult` contract: `.name` (the config key, e.g. `"ig"`), `.adapter_target` (the `_target_` class), `.algorithm`, `.semantics`, `.run_dir`, and `.visualisations` (the figures that result owns) — plus its own domain payload (`.attributions` / `.verdicts` / …).
+Every per-adapter result (`ExplanationResult`, `RobustnessResult`) shares one envelope — the `AdapterResult` contract: `.name` (the config key, e.g. `"ig"`), `.adapter_target` (the resolved adapter class FQN), `.algorithm`, `.semantics`, `.run_dir`, and `.visualisations` (the figures that result owns) — plus its own domain payload (`.attributions` / `.verdicts` / …).
 
 **Mapping access** reaches the underlying `PhaseResult` wrapper for any (incl. future) phase: `outputs.get(name)`, `outputs[name]`, `name in outputs`.
 

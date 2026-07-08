@@ -49,7 +49,7 @@ myst:
 :yaml:
 transparency:
   my_ig_explainer:
-    _target_: "CaptumExplainer"
+    use: captum
     algorithm: "IntegratedGradients"
     call:
       target: 0
@@ -59,7 +59,7 @@ transparency:
         max_boxes: 5
         iou_threshold: 0.5
     visualisers:
-      - _target_: "DetectionImageVisualiser"
+      - use: detection_image
 
 :cli: transparency.my_ig_explainer.raitap.detection.max_boxes=3
 

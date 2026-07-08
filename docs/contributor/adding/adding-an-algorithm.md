@@ -27,7 +27,7 @@ from raitap import adapters
 
 @adapters.transparency(
     registry_name="captum",
-    library="captum",
+    import_name="captum",
     algorithm_registry={
         "IntegratedGradients": ExplainerAlgorithmSpec(
             {MethodFamily.GRADIENT},
@@ -52,7 +52,7 @@ from raitap import adapters
 
 @adapters.robustness(
     registry_name="torchattacks",
-    library="torchattacks",
+    import_name="torchattacks",
     algorithm_registry={
         # ... existing entries ...
         "NewAttack": AssessorAlgorithmSpec(

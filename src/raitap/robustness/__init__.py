@@ -10,10 +10,10 @@ module distinguishes two complementary methods:
 
 Public Surface
 --------------
-Assessor classes (``_target_`` values; live under ``raitap.robustness.assessors.``):
+Assessor classes (selected via ``use:`` values; live under ``raitap.robustness.assessors.``):
     TorchattacksAssessor, FoolboxAssessor
 
-Visualiser classes (``_target_`` values; live under ``raitap.robustness.visualisers.``):
+Visualiser classes (selected via ``use:`` values; live under ``raitap.robustness.visualisers.``):
     ImagePairVisualiser, PerturbationHeatmapVisualiser
 
 Module layout (for contributors):

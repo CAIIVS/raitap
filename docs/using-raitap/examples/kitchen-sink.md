@@ -38,7 +38,7 @@ data:
 
 transparency:
   captum_ig:
-    _target_: "CaptumExplainer"
+    use: captum
     algorithm: "IntegratedGradients"
     constructor: {}
     call:
@@ -48,7 +48,7 @@ transparency:
         source: "./data/baselines"
         n_samples: 8
     visualisers:
-      - _target_: "CaptumImageVisualiser"
+      - use: captum_image
         constructor:
           method: "blended_heat_map"
           sign: "all"
@@ -59,7 +59,7 @@ transparency:
           max_samples: 4
           show_sample_names: true
   shap_gradient:
-    _target_: "ShapExplainer"
+    use: shap
     algorithm: "GradientExplainer"
     constructor:
       local_smoothing: 0.0
@@ -73,24 +73,24 @@ transparency:
       batch_size: 1
       progress_desc: "SHAP batches"
     visualisers:
-      - _target_: "ShapImageVisualiser"
+      - use: shap_image
         constructor:
           max_samples: 2
 
 robustness:
   pgd:
-    _target_: "TorchattacksAssessor"
+    use: torchattacks
     algorithm: "PGD"
     constructor:
       eps: 0.03
       alpha: 0.0078
       steps: 10
     visualisers:
-      - _target_: "ImagePairVisualiser"
+      - use: image_pair
         constructor:
           max_samples: 4
   linf_pgd:
-    _target_: "FoolboxAssessor"
+    use: foolbox
     algorithm: "LinfPGD"
     constructor:
       rel_stepsize: 0.025
@@ -98,22 +98,22 @@ robustness:
     call:
       eps: 0.03
     visualisers:
-      - _target_: "PerturbationHeatmapVisualiser"
+      - use: perturbation_heatmap
 
 metrics:
-  _target_: "MulticlassClassificationMetrics"
+  use: multiclass_classification
   num_classes: 7
   average: "macro"
   ignore_index: null
 
 tracking:
-  _target_: "MLFlowTracker"
+  use: mlflow
   output_forwarding_url: "http://127.0.0.1:5001"
   log_model: false
   open_when_done: true
 
 reporting:
-  _target_: "HTMLReporter"
+  use: html
   filename: "report"
   multirun_report: true
   show_original_per_explainer: false

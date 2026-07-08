@@ -13,7 +13,7 @@ myst:
   Inside the `transparency` key, you can configure one or more explainers. See {ref}`modules-transparency-configuration-examples` for the config shape.
 
   See {doc}`frameworks-and-libraries` for the backend behaviour behind
-  `_target_`, `algorithm`, and visualiser compatibility.
+  `use`, `algorithm`, and visualiser compatibility.
 
   RAITAP has two separate batch-size controls because predictions and
   explanations are different workload stages:
@@ -25,10 +25,10 @@ myst:
     Occlusion often need a much smaller attribution batch size than the
     prediction batch size.
 
-:option: _target_
-:allowed: "CaptumExplainer", "ShapExplainer"
+:option: use
+:allowed: "captum", "shap"
 :default: null
-:description: Hydra target for the explainer class.
+:description: Selects the explainer implementation.
 
 :option: algorithm
 :allowed: See {doc}`frameworks-and-libraries`
@@ -130,7 +130,7 @@ myst:
 :allowed: list[dict]
 :default: []
 :description: Visualiser definitions. Each entry must include at least
-  `_target_`. Each visualiser can also define its own `constructor` and `call`
+  `use`. Each visualiser can also define its own `constructor` and `call`
   blocks. Use `visualisers[].call.show_sample_names` for per-visualiser sample
   name overrides; use `raitap.show_sample_names` for the shared explainer-level
   default.
@@ -141,7 +141,7 @@ myst:
 :description: Optional Quantus-backed explanation-quality grading for this
   explainer. Requires the `quantus` extra (`uv sync --extra quantus`); it is
   not pulled in by the `transparency` umbrella extra. Set
-  `evaluation._target_: raitap.transparency.QuantusEvaluator` to enable it.
+  `evaluation.use: quantus` to enable it.
   Grading runs as a post-step after the explainer produces its attributions;
   scores land on `TransparencyPhaseResult.evaluations`. See {doc}`output`.
 
@@ -184,7 +184,7 @@ myst:
 :yaml:
 transparency:
   my_first_explainer:
-    _target_: "CaptumExplainer"
+    use: captum
     algorithm: "IntegratedGradients"
     call:
       target: 0
@@ -195,16 +195,16 @@ transparency:
         kind: image
         layout: NCHW
     visualisers:
-      - _target_: "CaptumImageVisualiser"
+      - use: captum_image
         call:
           max_samples: 1
     evaluation:
-      _target_: "QuantusEvaluator"
+      use: quantus
       metrics: [faithfulness_correlation, sparseness]
       constructor:
         faithfulness_correlation: {nr_runs: 10, subset_size: 32}
   my_second_explainer:
-    _target_: "ShapExplainer"
+    use: shap
     algorithm: "KernelExplainer"
     call:
       target: 0
@@ -218,7 +218,7 @@ transparency:
         layout: "(B,F)"
         feature_names: [age, income, score]
     visualisers:
-      - _target_: "ShapBarVisualiser"
+      - use: shap_bar
 
 :cli: transparency.captum_ig.algorithm=GradientShap
 

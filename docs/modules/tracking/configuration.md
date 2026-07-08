@@ -9,10 +9,10 @@ myst:
 ```{config-page}
 :intro: This page describes how to configure the tracking module that forwards the pipeline's output to a tracking backend.
 
-:option: _target_
-:allowed: "MLFlowTracker"
-:default: "MLFlowTracker"
-:description: Hydra target for the tracking backend implementation.
+:option: use
+:allowed: "mlflow"
+:default: "mlflow"
+:description: Selects the tracking backend implementation (`mlflow` -> `MLFlowTracker`).
 
 :option: output_forwarding_url
 :allowed: string, null
@@ -53,7 +53,7 @@ myst:
 
 :yaml:
 tracking:
-  _target_: "MLFlowTracker"
+  use: mlflow
   output_forwarding_url: "http://127.0.0.1:5001"
   log_model: true
 

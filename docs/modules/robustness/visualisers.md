@@ -14,10 +14,10 @@ Each visualiser renders one figure per call. All of them are declared per-assess
 :yaml:
 robustness:
   marabou:
-    _target_: "MarabouAssessor"
+    use: marabou
     visualisers:
-      - _target_: "OutputBoundsCohortVisualiser"
-      - _target_: "OutputBoundsMarginHeatmapVisualiser"
+      - use: output_bounds_cohort
+      - use: output_bounds_margin_heatmap
 
 :python:
 from raitap.robustness import marabou, output_bounds_cohort, output_bounds_margin_heatmap

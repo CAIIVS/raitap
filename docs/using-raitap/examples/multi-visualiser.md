@@ -42,17 +42,17 @@ metrics:
 
 transparency:
   default:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: IntegratedGradients
     call:
       target: 0
     visualisers:
-      - _target_: CaptumImageVisualiser
+      - use: captum_image
         constructor:
           method: blended_heat_map
           sign: all
           title: Integrated gradients (blended)
-      - _target_: CaptumImageVisualiser
+      - use: captum_image
         constructor:
           method: heat_map
           sign: absolute_value

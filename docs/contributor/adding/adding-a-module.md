@@ -125,7 +125,7 @@ Add a dataclass for the per-adapter config + a field on `AppConfig`:
 ```python
 @dataclass
 class FairnessConfig:
-    _target_: str = MISSING
+    use: str = MISSING
     # Overridden by the fairness config-group YAML (fairness=demographic_parity / ...).
 
 # inside AppConfig:
@@ -147,7 +147,7 @@ all in your module:
 
 **a. The phase work** (`fairness/phase.py`): mirror `transparency/phase.py` / `robustness/phase.py`.
 
-Your `FairnessResult` must satisfy the **`AdapterResult`** contract (`raitap.pipeline.outputs`): `name` (config key), `adapter_target` (the `_target_`), `algorithm`, `semantics` (load-bearing: RAITAP's thesis requires every result to carry it), `run_dir`, and `visualisations` (a `list` it owns, populated by its own `_visualise()`). There is no parallel phase-level visualisation list.
+Your `FairnessResult` must satisfy the **`AdapterResult`** contract (`raitap.pipeline.outputs`): `name` (config key), `adapter_target` (the resolved adapter class FQN), `algorithm`, `semantics` (load-bearing: RAITAP's thesis requires every result to carry it), `run_dir`, and `visualisations` (a `list` it owns, populated by its own `_visualise()`). There is no parallel phase-level visualisation list.
 
 Use the shared `run_adapters` helper. It runs the loop, calls each result's `_visualise()` (so you cannot forget the ownership contract), and collects the results:
 

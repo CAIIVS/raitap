@@ -38,6 +38,32 @@ config = AppConfig() # includes the schema
 # ...your options on `config`, see below
 ```
 
+#### Editor autocomplete for `use:` keys
+
+Generate a JSON Schema from your installed RAITAP (including any plugins) and
+point your editor at it for `use:` autocomplete + validation:
+
+```{install-tabs}
+:uv:
+uv run raitap config-schema -o raitap.schema.json
+
+:pip:
+raitap config-schema -o raitap.schema.json
+```
+
+Add this line at the top of your config YAML (most editors with the YAML
+Language Server extension pick it up automatically):
+
+```yaml
+# yaml-language-server: $schema=./raitap.schema.json
+defaults:
+  - raitap_schema
+  - _self_
+```
+
+Re-run `config-schema` after installing or removing a plugin so the schema's
+`use:` enums stay in sync.
+
 Then, you can add your own options. You may find useful to refer to:
 
 - the {doc}`global-config-options`
@@ -126,14 +152,14 @@ metrics:
 
 robustness:
   pgd:
-    _target_: TorchattacksAssessor
+    use: torchattacks
     algorithm: PGD
     constructor:
       eps: 0.03
       alpha: 0.005
       steps: 10
     visualisers:
-      - _target_: ImagePairVisualiser
+      - use: image_pair
 
 :python:
 from raitap import AppConfig
@@ -176,10 +202,10 @@ Or override all nested values at once:
 
 ```{install-tabs}
 :uv:
-uv run raitap --config-name assessment "transparency.captum_saliency.visualisers=[{_target_: CaptumImageVisualiser, call: {show_sample_names: true}}]"
+uv run raitap --config-name assessment "transparency.captum_saliency.visualisers=[{use: captum_image, call: {show_sample_names: true}}]"
 
 :pip:
-raitap --config-name assessment "transparency.captum_saliency.visualisers=[{_target_: CaptumImageVisualiser, call: {show_sample_names: true}}]"
+raitap --config-name assessment "transparency.captum_saliency.visualisers=[{use: captum_image, call: {show_sample_names: true}}]"
 ```
 
 (composing-yaml-files)=
@@ -203,7 +229,7 @@ defaults:
 experiment_name: "my-exp"
 hardware: cpu
 
-# Bundled `transparency/shap.yaml` only sets `_target_: ShapExplainer` and
+# Bundled `transparency/shap.yaml` only sets `use: shap` and
 # nests it under `transparency.shap`. The explainer's required fields
 # (`algorithm`, `call`, `visualisers`) still need to be supplied here:
 transparency:
@@ -212,7 +238,7 @@ transparency:
     call:
       target: 0
     visualisers:
-      - _target_: ShapImageVisualiser
+      - use: shap_image
 
 # Inline model + data — RAITAP does not ship `data=` or `model=` presets, so
 # define them in your own config (or reference your own group files).
@@ -273,7 +299,7 @@ Hydra can execute multiple runs from a single command using `--multirun`.
 This is useful when you want to compare several presets or override values in one go.
 
 The bundled `+transparency=captum` / `+transparency=shap` stubs only set
-`_target_` and nest under `transparency.captum` / `transparency.shap`; the
+`use` and nest under `transparency.captum` / `transparency.shap`; the
 sweep below pairs each with the matching `algorithm` override.
 
 ```{install-tabs}

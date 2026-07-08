@@ -2,9 +2,12 @@
 
 Importing this package fires the ``@label_parser`` decorator on every
 in-tree parser module, registering them with the hydra-zen store. Each
-concrete parser is re-exported here so the short ``_target_`` form (a bare
-class name resolved against ``raitap.data.label_parsers.``) instantiates,
-mirroring how ``raitap.metrics`` re-exports its metric computers.
+concrete parser is re-exported here for direct Python-side access (e.g.
+``from raitap.data.label_parsers import CocoLabelParser``), mirroring how
+``raitap.metrics`` re-exports its metric computers. YAML selection goes
+through ``use: <registry_name>`` (e.g. ``use: coco``), resolved against the
+trusted registry (:mod:`raitap.configs.registry_resolve`) independently of
+this package's namespace.
 """
 
 from __future__ import annotations

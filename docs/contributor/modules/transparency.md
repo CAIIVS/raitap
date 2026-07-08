@@ -306,9 +306,9 @@ library exceptions carry the raitap adapter-family context.
 
 `@transparency_evaluator` (`evaluators/registration.py`) registers with
 `family=None`, the same pattern `@visualisers.transparency` uses: no Hydra
-config group, no schema dataclass, resolved purely by `_target_` nested under
-`transparency.<name>.evaluation`. `extra` and `library` must be passed
-explicitly (`extra="quantus"`, `library="quantus"`) since there is no family
+config group, no schema dataclass, resolved purely by `use:` nested under
+`transparency.<name>.evaluation`. `extra` and `import_name` must be passed
+explicitly (`extra="quantus"`, `import_name="quantus"`) since there is no family
 default to fall back on.
 
 `QuantusEvaluator.__init__` takes `call` and `raitap` via `**kwargs` rather
@@ -422,4 +422,4 @@ builds one `EvaluationContext` per `ExplanationResult`, and calls
 - `src/raitap/transparency/evaluation/step.py`: `grade_explanations`, the transparency-phase post-step.
 - `src/raitap/transparency/evaluation/evaluators/quantus_evaluator.py`: `QuantusEvaluator` + the metric `_REGISTRY`.
 
-**Name resolution.** Bare class names in YAML `_target_` keys (e.g. `_target_: CaptumExplainer`) are resolved through the `@adapters.transparency` / `@visualisers.transparency` decorators and `raitap._adapters.lookup("transparency", name)`, not via the legacy class-kwarg path. To make a new class addressable by bare name, decorate it; that's the only requirement.
+**Name resolution.** YAML `use: <registry_name>` keys (e.g. `use: captum`) are resolved through the `@adapters.transparency` / `@visualisers.transparency` decorators, which populate the closed registry `raitap._adapters._TARGET_FQN`; `raitap.configs.registry_resolve.resolve_target_fqn` looks the key up against it. To make a new class addressable by `use:`, decorate it; that's the only requirement.

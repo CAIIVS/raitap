@@ -82,7 +82,7 @@ referenceable by name in `data.source`. Registration lives in
     ```python
     @dataclass
     class MyFormatLabelsConfig(LabelsConfig):
-        _target_: str = "MyFormatLabelParser"
+        use: str = "my_format"
         source: str = MISSING
         id_strategy: IdStrategy = IdStrategy.auto
         # add only fields this variant uses
