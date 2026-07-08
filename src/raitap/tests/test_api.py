@@ -65,18 +65,18 @@ def _demo_app_config() -> AppConfig:
         metrics=MulticlassClassificationMetricsConfig(num_classes=1000),
         transparency={
             "default": TransparencyConfig(
-                _target_="CaptumExplainer",
+                use="captum",
                 algorithm="IntegratedGradients",
                 call={"target": 0},
-                visualisers=[{"_target_": "CaptumImageVisualiser"}],
+                visualisers=[{"use": "captum_image"}],
             )
         },
         robustness={
             "pgd": RobustnessConfig(
-                _target_="TorchattacksAssessor",
+                use="torchattacks",
                 algorithm="PGD",
                 constructor={"eps": 0.03, "alpha": 0.005, "steps": 10},
-                visualisers=[{"_target_": "ImagePairVisualiser"}],
+                visualisers=[{"use": "image_pair"}],
             )
         },
         # ``reporting`` left ``None`` so the smoke test stays fast and writes
@@ -93,7 +93,8 @@ def test_api_surface_exports_what_docs_will_reference() -> None:
 
     # Hydra-zen builders are exposed under ``raitap.api`` as dataclass *types*
     # (calling them with kwargs yields a config instance the orchestrator can
-    # instantiate). Each builder must expose ``_target_`` so Hydra can resolve it.
+    # instantiate). Each builder must expose ``use`` so the registry resolver
+    # can pick the concrete adapter.
     for name, builder in [
         ("captum", captum),
         ("shap", shap),
@@ -104,18 +105,19 @@ def test_api_surface_exports_what_docs_will_reference() -> None:
         assert isinstance(builder, type), f"{name} should be a dataclass type"
         assert dataclasses.is_dataclass(builder), f"{name} should be a dataclass"
         field_names = {f.name for f in dataclasses.fields(builder)}
-        assert "_target_" in field_names, f"{name} should carry a ``_target_`` field"
+        assert "use" in field_names, f"{name} should carry a ``use`` field"
 
     # ``instantiate`` re-exported so users don't have to pip install hydra-zen.
     assert callable(instantiate)
 
 
 def test_classification_metrics_builder_instantiates_round_trip() -> None:
-    """Sanity: the builder produces a config that Hydra can instantiate."""
+    """Sanity: the builder produces a config the metrics factory can resolve."""
     from raitap.metrics.classification_metrics import MulticlassClassificationMetrics
+    from raitap.metrics.factory import create_metric
 
     cfg = classification_metrics(num_classes=3)
-    instance = instantiate(cfg)
+    instance, _resolved_target = create_metric(cfg)
     assert isinstance(instance, MulticlassClassificationMetrics)
 
 
@@ -131,7 +133,7 @@ def test_explainer_builders_accept_schema_fields() -> None:
     captum_cfg = captum(
         algorithm="IntegratedGradients",
         call={"target": 0},
-        visualisers=[{"_target_": "CaptumImageVisualiser"}],
+        visualisers=[{"use": "captum_image"}],
     )
     assert captum_cfg.algorithm == "IntegratedGradients"
     assert captum_cfg.call == {"target": 0}
@@ -150,7 +152,7 @@ def test_assessor_builders_accept_schema_fields() -> None:
     torchattacks_cfg = torchattacks(
         algorithm="PGD",
         constructor={"eps": 0.03, "alpha": 0.005, "steps": 10},
-        visualisers=[{"_target_": "ImagePairVisualiser"}],
+        visualisers=[{"use": "image_pair"}],
     )
     assert torchattacks_cfg.algorithm == "PGD"
     assert torchattacks_cfg.constructor == {"eps": 0.03, "alpha": 0.005, "steps": 10}
@@ -274,7 +276,7 @@ def test_run_parity_with_yaml_demo(_demo_run: RunOutputs) -> None:
     outputs as the YAML path is enough to catch drift in either direction.
     """
     with initialize_config_dir(version_base="1.3", config_dir=str(_configs_dir())):
-        yaml_cfg = compose(config_name="demo", overrides=["reporting._target_=null"])
+        yaml_cfg = compose(config_name="demo", overrides=["reporting.use=null"])
 
     yaml_outputs = run(cast("AppConfig", yaml_cfg), verbose=False)
 

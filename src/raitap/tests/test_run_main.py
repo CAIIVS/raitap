@@ -364,8 +364,7 @@ def test_hydra_main_composes_default_config(monkeypatch: MonkeyPatch, tmp_path: 
     cfg = cast("AppConfig", captured["config"])
     assert cfg.model.source == "vit_b_32"
     assert cfg.metrics is not None
-    expected = "raitap.metrics.classification_metrics.MulticlassClassificationMetrics"
-    assert cfg.metrics._target_ == expected
+    assert cfg.metrics.use == "multiclass_classification"
     assert cfg.transparency
 
 
@@ -440,8 +439,7 @@ def test_hydra_main_loads_custom_config_name_from_cwd_and_keeps_packaged_default
     assert cfg.hardware == "cpu"
     assert cfg.model.source == "vit_b_32"
     assert cfg.metrics is not None
-    expected = "raitap.metrics.classification_metrics.MulticlassClassificationMetrics"
-    assert cfg.metrics._target_ == expected
+    assert cfg.metrics.use == "multiclass_classification"
     assert cfg.transparency
 
 
@@ -592,7 +590,7 @@ def test_run_invalid_report_sample_selection_fails_before_pipeline_work(
     monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
 
     config = _run_config(
-        reporting={"_target_": "PDFReporter", "sample_selection": ["missing.png"]},
+        reporting={"use": "pdf", "sample_selection": ["missing.png"]},
         tracking=None,
     )
 
@@ -807,11 +805,11 @@ def test_run_with_tracking_config_target_raises(monkeypatch: MonkeyPatch) -> Non
 def test_run_phases_raises_if_no_phase_configured() -> None:
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     data = SimpleNamespace(tensor=torch.randn(2, 3), sample_ids=None, labels=None)
-    # No _target_ on metrics, empty transparency/robustness -> no phase configured.
+    # No `use` on metrics, empty transparency/robustness -> no phase configured.
     config = SimpleNamespace(
         transparency={},
         robustness={},
-        metrics=SimpleNamespace(_target_=None, num_classes=None),
+        metrics=SimpleNamespace(use=None, num_classes=None),
     )
 
     with pytest.raises(ValueError, match="No assessment phase configured"):
@@ -826,12 +824,12 @@ def test_run_phases_allows_metrics_only(monkeypatch: MonkeyPatch) -> None:
 
     model = SimpleNamespace(backend=_BackendStub(_Net()))
     data = SimpleNamespace(tensor=torch.randn(2, 4), sample_ids=None, labels=None)
-    # A real (non-empty) _target_ is exactly what metrics_run_enabled checks; no
+    # A real (non-empty) `use` is exactly what metrics_run_enabled checks; no
     # transparency/robustness configured -> genuine metrics-only run.
     config = make_app_config(
         transparency={},
         robustness={},
-        metrics={"_target_": "MulticlassClassificationMetrics"},
+        metrics={"use": "multiclass_classification"},
     )
     # ``num_classes`` deliberately absent here (unlike the typed subclass, where
     # it is mandatory): exercises the auto-infer branch in
@@ -862,7 +860,7 @@ def test_run_phases_infers_num_classes_and_runs_metrics(monkeypatch: MonkeyPatch
 
     config = make_app_config(
         transparency={"one": {}},
-        metrics={"_target_": "MulticlassClassificationMetrics"},
+        metrics={"use": "multiclass_classification"},
     )
     OmegaConf.set_struct(config.metrics, False)
     _patch_prepare_explainer(
