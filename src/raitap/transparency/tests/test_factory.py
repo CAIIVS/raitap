@@ -1754,7 +1754,7 @@ def test_create_visualisers_rejects_config_target_as_security_surface() -> None:
 
 def test_create_visualisers_rejects_unknown_use_key() -> None:
     config = OmegaConf.create({"visualisers": [{"use": "does_not_exist"}]})
-    with pytest.raises(ValueError, match=r"Unknown _unscoped key 'does_not_exist'\. Valid keys:"):
+    with pytest.raises(ValueError, match=r"Unknown visualiser key 'does_not_exist'\. Valid keys:"):
         create_visualisers(config)
 
 

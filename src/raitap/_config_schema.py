@@ -33,11 +33,30 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-# Families whose Hydra package style is "nested" (:class:`raitap._adapters.
-# FamilyConfig`, ``package_style="nested"``) — multiple named entries share
-# the group. Every other group (including ``data/labels`` / ``data/inputs``)
-# is "flat": one config per group.
-_NESTED_GROUPS = frozenset({"transparency", "robustness"})
+# Fallback only: used when a group is missing from
+# :data:`raitap._adapters._GROUP_PACKAGE_STYLE` (e.g. no adapter of that
+# family has registered yet, or the "_unscoped"/data groups, which carry no
+# ``FamilyConfig``). The live map is the source of truth — see
+# :func:`_group_is_nested`.
+_NESTED_GROUPS_FALLBACK = frozenset({"transparency", "robustness"})
+
+
+def _group_is_nested(group: str) -> bool:
+    """True when ``group``'s Hydra package style is "nested" (multiple named
+    entries share the group, e.g. ``cfg.transparency.<name>.use``).
+
+    Reads :data:`raitap._adapters._GROUP_PACKAGE_STYLE`, populated by each
+    family decorator from its own :class:`~raitap._adapters.FamilyConfig`
+    (the real source of truth), falling back to the historical hardcoded set
+    only when the group isn't recorded there (e.g. ``"_unscoped"``, ``data/*``,
+    or a family with no adapters registered yet).
+    """
+    from raitap._adapters import _GROUP_PACKAGE_STYLE
+
+    style = _GROUP_PACKAGE_STYLE.get(group)
+    if style is not None:
+        return style == "nested"
+    return group in _NESTED_GROUPS_FALLBACK
 
 
 def _use_enum_schema(registry_names: Iterable[str]) -> dict[str, Any]:
@@ -92,7 +111,7 @@ def build_config_schema() -> dict[str, Any]:
         if group == "_unscoped":
             properties["visualiser"] = _group_schema(registry_names, nested=False)
             continue
-        schema = _group_schema(registry_names, nested=group in _NESTED_GROUPS)
+        schema = _group_schema(registry_names, nested=_group_is_nested(group))
         _set_nested_property(properties, group.split("/"), schema)
 
     return {

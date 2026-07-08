@@ -11,7 +11,7 @@ from hydra.utils import instantiate
 
 from raitap import raitap_log
 from raitap.configs import cfg_to_dict, resolve_run_dir
-from raitap.configs.registry_resolve import reject_config_target, resolve_target_fqn
+from raitap.configs.registry_resolve import stamp_target_from_use, use_key_enabled
 from raitap.reporting.sections import Reportable, ReportGroup, ReportSection
 from raitap.reporting.staging import _copy_asset
 from raitap.tracking.base_tracker import BaseTracker, Trackable
@@ -34,24 +34,15 @@ def metrics_run_enabled(config: AppConfig) -> bool:
     metrics_cfg = config.metrics
     if metrics_cfg is None:
         return False
-    metrics_dict = cfg_to_dict(metrics_cfg)
-    # Reject a `_target_`-carrying block loudly instead of silently reading it
-    # as "not configured" — this guard gates non-schema-checked config blocks.
-    reject_config_target(metrics_dict)
-    use = metrics_dict.get("use")
-    if use is None:
-        return False
-    return bool(str(use).strip())
+    return use_key_enabled(cfg_to_dict(metrics_cfg))
 
 
 def create_metric(metrics_config: Any) -> tuple[BaseMetricComputer, str]:
     """Instantiate a metric computer from config (``use: <registry key>`` + kwargs)."""
     metrics_cfg = cfg_to_dict(metrics_config)
-    reject_config_target(metrics_cfg)
     use = str(metrics_cfg.get("use", ""))
-    resolved_target = resolve_target_fqn("metrics", use)
-    metrics_cfg["_target_"] = resolved_target
-    metrics_cfg.pop("use", None)
+    stamp_target_from_use(metrics_cfg, group="metrics")
+    resolved_target = metrics_cfg["_target_"]
 
     try:
         metric = instantiate(metrics_cfg)

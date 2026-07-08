@@ -39,6 +39,24 @@ def reject_config_target(cfg: Any) -> None:
             reject_config_target(item)
 
 
+def use_key_enabled(cfg: Any) -> bool:
+    """True when ``cfg`` (already ``cfg_to_dict``'d) carries a non-empty ``use``.
+
+    Shared by :func:`raitap.metrics.factory.metrics_run_enabled` and
+    :func:`raitap.reporting.factory.reporting_enabled`, which both gate an
+    optional config block on "is `use` set to a non-empty string", after
+    rejecting a ``_target_``-carrying block loudly instead of silently reading
+    it as "not configured". Callers keep their own ``None``-config
+    short-circuit (this helper assumes a non-``None`` config was already
+    turned into a dict).
+    """
+    reject_config_target(cfg)
+    use = cfg.get("use")
+    if use is None:
+        return False
+    return bool(str(use).strip())
+
+
 def resolve_target_fqn(group: str, use: str) -> str:
     from raitap._adapters import _TARGET_FQN
 
@@ -47,9 +65,30 @@ def resolve_target_fqn(group: str, use: str) -> str:
         return group_map[use]
     except KeyError:
         valid = ", ".join(sorted(group_map))
+        error_group = "visualiser" if group == "_unscoped" else group
         raise ValueError(
-            f"Unknown {group} key {use!r}. Valid keys: {valid or '(none registered)'}."
+            f"Unknown {error_group} key {use!r}. Valid keys: {valid or '(none registered)'}."
         ) from None
+
+
+def stamp_target_from_use(cfg: dict[str, Any], *, group: str) -> None:
+    """Reject ``_target_``, resolve ``cfg["use"]`` against ``group``, and stamp
+    the resolved FQN back onto ``cfg`` as ``_target_`` (popping ``use``).
+
+    Mutates ``cfg`` in place. Shared by
+    :func:`raitap.metrics.factory.create_metric`,
+    :func:`raitap.transparency.evaluation.step.grade_explanations`, and
+    :func:`raitap.data._parser_factory.create_parser`, which all resolve a
+    ``use:``-keyed config to a vetted ``_target_`` before handing it to
+    ``hydra.utils.instantiate``. Callers keep their own post-instantiate
+    tails (return shape, error wording) — this helper only covers the shared
+    reject-resolve-stamp-pop core. Preserves the security ordering: ``cfg``
+    is rejected for a smuggled ``_target_`` *before* ``use`` is resolved.
+    """
+    reject_config_target(cfg)
+    use = str(cfg.get("use", ""))
+    cfg["_target_"] = resolve_target_fqn(group, use)
+    cfg.pop("use", None)
 
 
 def instantiate_partial_from_use(

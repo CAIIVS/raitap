@@ -8,7 +8,7 @@ from hydra.utils import instantiate
 
 from raitap import raitap_log
 from raitap.configs import cfg_to_dict
-from raitap.configs.registry_resolve import instantiate_partial_from_use, reject_config_target
+from raitap.configs.registry_resolve import instantiate_partial_from_use, use_key_enabled
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 
 if TYPE_CHECKING:
@@ -24,14 +24,7 @@ def reporting_enabled(config: AppConfig) -> bool:
     """Check if reporting is enabled in config."""
     if config.reporting is None:
         return False
-    reporting_cfg = cfg_to_dict(config.reporting)
-    # Reject a `_target_`-carrying block loudly instead of silently reading it
-    # as "disabled" — this guard gates non-schema-checked callback configs.
-    reject_config_target(reporting_cfg)
-    use = reporting_cfg.get("use")
-    if use is None:
-        return False
-    return bool(str(use).strip())
+    return use_key_enabled(cfg_to_dict(config.reporting))
 
 
 @dataclass

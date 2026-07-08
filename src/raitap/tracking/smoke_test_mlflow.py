@@ -104,6 +104,7 @@ def main() -> int:
             num_classes=1000,
         ),
         tracking=TrackingConfig(
+            use="mlflow",
             output_forwarding_url=tracking_uri,
             log_model=args.log_model,
         ),

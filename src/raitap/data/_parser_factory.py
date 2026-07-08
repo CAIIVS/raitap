@@ -8,18 +8,15 @@ from hydra.utils import instantiate
 
 from raitap import raitap_log
 from raitap.configs import cfg_to_dict
-from raitap.configs.registry_resolve import reject_config_target, resolve_target_fqn
+from raitap.configs.registry_resolve import stamp_target_from_use
 
 
 def create_parser(config: Any, *, group: str, kind: str) -> Any:
     """Instantiate a parser from a ``use:``-keyed config, resolved via the
     trusted registry seam (``raitap.configs.registry_resolve``)."""
     cfg = cfg_to_dict(config)
-    reject_config_target(cfg)
-    use = cfg.get("use", "")
-    fqn = resolve_target_fqn(group, use)
-    cfg["_target_"] = fqn
-    cfg.pop("use", None)
+    stamp_target_from_use(cfg, group=group)
+    fqn = cfg["_target_"]
     try:
         return instantiate(cfg)
     except Exception as e:

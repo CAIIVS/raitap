@@ -191,7 +191,10 @@ def scan_adapter_registry() -> dict[str, dict[str, str]]:
     the legacy ``_target_`` lookup. This scanner mirrors that: the family
     decorator name (e.g. ``robustness_adapter``) determines the group via
     :data:`_DECORATOR_GROUP`, and ``extra`` defaults to ``registry_name`` the
-    same way :func:`scan_adapter_extras` and ``_register_core`` do.
+    same way :func:`scan_adapter_extras` and ``_register_core`` do — except for
+    the ``"_unscoped"`` group (``transparency_evaluator``, ``family=None`` at
+    runtime), where ``_register_core`` gives no auto-extra at all: only an
+    explicit ``extra=`` kwarg counts, else the extra is left empty.
     """
     import raitap
 
@@ -203,8 +206,10 @@ def scan_adapter_registry() -> dict[str, dict[str, str]]:
             continue
         kwargs = _string_kwargs(deco)
         registry_name = kwargs.get("registry_name")
-        if registry_name:
-            found.setdefault(group, {})[registry_name] = kwargs.get("extra", registry_name)
+        if not registry_name:
+            continue
+        default_extra = "" if group == "_unscoped" else registry_name
+        found.setdefault(group, {})[registry_name] = kwargs.get("extra", default_extra)
     return found
 
 

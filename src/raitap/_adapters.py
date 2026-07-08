@@ -87,6 +87,11 @@ _BUILDERS: dict[str, dict[str, Any]] = {}
 # (:func:`raitap.configs.registry_resolve.resolve_target_fqn`). Group
 # ``"_unscoped"`` holds visualisers, which have no Hydra config group.
 _TARGET_FQN: dict[str, dict[str, str]] = {}
+# group -> FamilyConfig.package_style ("nested" | "flat"). The source of truth
+# for whether a group's Hydra config holds multiple named entries
+# (``cfg.<group>.<name>``) or a single one (``cfg.<group>``) — read by
+# :mod:`raitap._config_schema` instead of hardcoding the group set there.
+_GROUP_PACKAGE_STYLE: dict[str, str] = {}
 # adapter class name -> uv extra (consumed by raitap.deps.inference)
 ADAPTER_EXTRAS: dict[str, str] = {}
 # group -> set of wrapped third-party library names; used by
@@ -357,6 +362,7 @@ def _register_core(
             cls._adapter_group = family.group
             fqn = _class_fqn(cls)
             _TARGET_FQN.setdefault(family.group, {})[registry_name] = fqn
+            _GROUP_PACKAGE_STYLE[family.group] = family.package_style
             schema = schema_override or family.schema
             builder = _use_node(schema, registry_name, cls.__name__)
             # Hydra groups use ``/`` for nesting; OmegaConf packages use ``.``.
