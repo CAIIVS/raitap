@@ -135,15 +135,15 @@ def test_evaluate_skips_metric_that_raises(tmp_path: Path, monkeypatch: pytest.M
 def test_instantiates_from_evaluation_config() -> None:
     from hydra.utils import instantiate
 
+    from raitap.configs.registry_resolve import resolve_target_fqn
     from raitap.configs.schema import EvaluationConfig
+    from raitap.configs.utils import cfg_to_dict
 
-    ev = instantiate(
-        EvaluationConfig(
-            _target_="raitap.transparency.QuantusEvaluator",
-            metrics=["sparseness"],
-            raitap={"softmax": True},
-        )
+    cfg = cfg_to_dict(
+        EvaluationConfig(use="quantus", metrics=["sparseness"], raitap={"softmax": True})
     )
+    cfg["_target_"] = resolve_target_fqn("_unscoped", cfg.pop("use"))
+    ev = instantiate(cfg)
     assert type(ev).__name__ == "QuantusEvaluator"
     assert ev.metrics == ["sparseness"]
     assert ev.softmax is True
