@@ -24,7 +24,7 @@ result = explain(config, model, inputs, target=0)
 ```
 CLI / Config
   └── explain()              # factory.py — single entry point
-        ├── Hydra instantiate(_target_)
+        ├── registry resolve (use key -> vetted FQN)
         │     ├── CaptumExplainer / ShapExplainer
         │     └── CaptumImageVisualiser / ShapImageVisualiser / …
         └── outputs/<date>/<time>/
@@ -66,14 +66,15 @@ Visualiser compatibility with specific algorithms is declared via the `compatibl
 
 ### Config (`configs/transparency/`)
 
-Selection is done by `_target_` key — Hydra instantiates the class directly:
+Selection is done by the `use:` key — the factory resolves it to a vetted class
+through the closed registry (never an importable dotted path):
 
 ```yaml
 # configs/transparency/captum.yaml
-_target_: CaptumExplainer
+use: captum
 algorithm: IntegratedGradients
 visualisers:
-  - _target_: CaptumImageVisualiser
+  - use: captum_image
 ```
 
 Explainer config is split into three buckets:
