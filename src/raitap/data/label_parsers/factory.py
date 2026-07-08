@@ -9,4 +9,4 @@ from raitap.data.label_parsers.base import LabelParser  # noqa: TC001  runtime-r
 
 
 def create_label_parser(labels_config: Any) -> LabelParser:
-    return create_parser(labels_config, prefix="raitap.data.label_parsers.", kind="label parser")
+    return create_parser(labels_config, group="data/labels", kind="label parser")
