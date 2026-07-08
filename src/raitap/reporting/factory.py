@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING, Any
 from hydra.utils import instantiate
 
 from raitap import raitap_log
-from raitap.configs import cfg_to_dict, resolve_target
+from raitap.configs import cfg_to_dict
+from raitap.configs.registry_resolve import reject_config_target, resolve_target_fqn
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 
 if TYPE_CHECKING:
@@ -19,18 +20,18 @@ if TYPE_CHECKING:
     from .builder import BuiltReport
 
 
-_REPORTING_PREFIX = "raitap.reporting."
-
-
 def reporting_enabled(config: AppConfig) -> bool:
     """Check if reporting is enabled in config."""
-    reporting_cfg = config.reporting
-    if reporting_cfg is None:
+    if config.reporting is None:
         return False
-    target = getattr(reporting_cfg, "_target_", None)
-    if target is None:
+    reporting_cfg = cfg_to_dict(config.reporting)
+    # Reject a `_target_`-carrying block loudly instead of silently reading it
+    # as "disabled" — this guard gates non-schema-checked callback configs.
+    reject_config_target(reporting_cfg)
+    use = reporting_cfg.get("use")
+    if use is None:
         return False
-    return bool(str(target).strip())
+    return bool(str(use).strip())
 
 
 @dataclass
@@ -60,17 +61,18 @@ def create_report(
 ) -> ReportGeneration:
     """Factory function to create and generate report."""
     reporting_config = cfg_to_dict(config.reporting)
-    target_path = str(reporting_config.get("_target_", ""))
-    resolved_target = resolve_target(target_path, _REPORTING_PREFIX)
+    reject_config_target(reporting_config)
+    use = str(reporting_config.get("use", ""))
+    resolved_target = resolve_target_fqn("reporting", use)
 
     try:
         reporter_class = instantiate({"_target_": resolved_target, "_partial_": True})
         reporter = reporter_class(config)
     except Exception as error:
-        raitap_log.exception("Reporter instantiation failed for target %r", target_path)
+        raitap_log.exception("Reporter instantiation failed for target %r", use)
         raise ValueError(
-            f"Could not instantiate reporter {target_path!r}.\n"
-            "Check that _target_ points to a valid BaseReporter implementation."
+            f"Could not instantiate reporter {use!r}.\n"
+            "Check that `use` points to a registered reporting adapter."
         ) from error
 
     report_path = reporter.generate(report.sections, report_dir=report.report_dir)
