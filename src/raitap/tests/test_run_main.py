@@ -637,7 +637,7 @@ def test_run_with_tracking_logs_all_outputs(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
     config = _run_config(
-        tracking={"_target_": "MLFlowTracker", "log_model": True},
+        tracking={"use": "mlflow", "log_model": True},
     )
     run_pipeline._run_pipeline(config)  # type: ignore[arg-type]
 
@@ -680,7 +680,7 @@ def test_run_with_tracking_skips_model_logging_when_disabled(monkeypatch: Monkey
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
     config = _run_config(
-        tracking={"_target_": "MLFlowTracker", "log_model": False},
+        tracking={"use": "mlflow", "log_model": False},
     )
     run_pipeline._run_pipeline(config)  # type: ignore[arg-type]
 
@@ -721,7 +721,7 @@ def test_run_with_multiple_explainers_uses_subdirs(monkeypatch: MonkeyPatch) -> 
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
     config = _run_config(
-        tracking={"_target_": "MLFlowTracker", "log_model": False},
+        tracking={"use": "mlflow", "log_model": False},
     )
     run_pipeline._run_pipeline(config)  # type: ignore[arg-type]
 
@@ -731,7 +731,7 @@ def test_run_with_multiple_explainers_uses_subdirs(monkeypatch: MonkeyPatch) -> 
     assert vis2.log_calls == [True]
 
 
-def test_run_with_tracking_config_but_no_target_skips_tracking(monkeypatch: MonkeyPatch) -> None:
+def test_run_with_tracking_config_but_no_use_skips_tracking(monkeypatch: MonkeyPatch) -> None:
     model = SimpleNamespace(
         backend=_BackendStub(torch.nn.Identity()),
         log=MagicMock(),
@@ -751,11 +751,56 @@ def test_run_with_tracking_config_but_no_target_skips_tracking(monkeypatch: Monk
     monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
     monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
 
-    # tracking config exists but _target_ is None or empty
-    config = _run_config(tracking={"_target_": ""})
+    # tracking config exists but `use` is empty
+    config = _run_config(tracking={"use": ""})
     result = run_pipeline._run_pipeline(config)  # type: ignore[arg-type]
 
     assert result is fake_output
+    tracker_factory.assert_not_called()
+
+
+def test_run_with_tracking_config_target_raises(monkeypatch: MonkeyPatch) -> None:
+    """A `_target_`-carrying tracking block must raise loudly, not be silently
+    read as "tracking disabled" (issue #301).
+
+    ``make_app_config``'s struct-mode ``TrackingConfig`` schema rejects an
+    undeclared ``_target_`` key at construction time, before the orchestrator
+    guard would ever see it — so this uses a plain (unvalidated) ``AppConfig``
+    dataclass instance, mirroring how a non-schema-checked source (e.g. a
+    hand-built dict) would reach the guard.
+    """
+    from raitap.configs.registry_resolve import UnsafeConfigTargetError
+    from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
+
+    model = SimpleNamespace(
+        backend=_BackendStub(torch.nn.Identity()),
+        log=MagicMock(),
+    )
+    data = SimpleNamespace(tensor=torch.randn(2, 3))
+    fake_output = _fake_run_outputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=_fo(torch.tensor([0, 0])),
+    )
+    tracker_factory = MagicMock()
+
+    monkeypatch.setattr(run_pipeline, "Model", lambda _cfg, **_kwargs: model)
+    monkeypatch.setattr(run_pipeline, "Data", lambda _cfg, **_kwargs: data)
+    monkeypatch.setattr(run_pipeline, "run_phases", lambda _c, _m, _d, **_kwargs: fake_output)
+    monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
+    monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
+
+    config = AppConfig(
+        experiment_name="test",
+        model=ModelConfig(source="resnet50"),
+        data=DataConfig(preprocessing=None),
+    )
+    config.tracking = {"_target_": "os.system", "log_model": False}  # type: ignore[assignment]
+
+    with pytest.raises(UnsafeConfigTargetError):
+        run_pipeline._run_pipeline(config)  # type: ignore[arg-type]
+
     tracker_factory.assert_not_called()
 
 

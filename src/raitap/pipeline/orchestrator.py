@@ -8,7 +8,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from raitap import raitap_log
-from raitap.configs import resolve_run_dir
+from raitap.configs import cfg_to_dict, resolve_run_dir
+from raitap.configs.registry_resolve import reject_config_target
 from raitap.data import Data
 from raitap.data.preprocessing import resolve_preprocessing
 from raitap.models import Model
@@ -175,7 +176,13 @@ def _run_pipeline(
         raitap_log.warn(cast("str", reproducibility_caveat(repro)))
 
     tracking_config = config.tracking
-    if tracking_config is None or not getattr(tracking_config, "_target_", None):
+    if tracking_config is None:
+        return outputs
+    tracking_cfg = cfg_to_dict(tracking_config)
+    # Reject a `_target_`-carrying block loudly instead of silently reading it
+    # as "tracking disabled" (mirrors reporting_enabled's guard, issue #301).
+    reject_config_target(tracking_cfg)
+    if not tracking_cfg.get("use"):
         return outputs
     _log_run_to_tracker(
         config, model, data, outputs, report_generation, log_model=tracking_config.log_model

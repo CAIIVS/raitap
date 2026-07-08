@@ -13,15 +13,16 @@ if TYPE_CHECKING:
 
     from raitap.configs.schema import AppConfig
 
+from raitap.configs.registry_resolve import UnsafeConfigTargetError
 from raitap.tracking import BaseTracker
 
 
-def _make_config(tracker_target: str = "MLFlowTracker") -> AppConfig:
+def _make_config(use: str = "mlflow") -> AppConfig:
     return cast(
         "AppConfig",
         SimpleNamespace(
             tracking=SimpleNamespace(
-                _target_=tracker_target,
+                use=use,
                 output_forwarding_url="http://127.0.0.1:5000",
                 log_model=False,
                 open_when_done=False,
@@ -34,7 +35,7 @@ def _make_config(tracker_target: str = "MLFlowTracker") -> AppConfig:
 
 class TestCreateTracker:
     def test_create_tracker_instantiates_from_config(self) -> None:
-        config = _make_config("raitap.tracking.MLFlowTracker")
+        config = _make_config("mlflow")
 
         with patch("raitap.tracking.base_tracker.instantiate") as mock_instantiate:
             mock_class = MagicMock()
@@ -47,8 +48,8 @@ class TestCreateTracker:
             assert tracker is mock_instance
             mock_class.assert_called_once_with(config)
 
-    def test_create_tracker_resolves_short_target_names(self) -> None:
-        config = _make_config("MLFlowTracker")
+    def test_create_tracker_resolves_use_key_to_full_fqn(self) -> None:
+        config = _make_config("mlflow")
 
         with patch("raitap.tracking.base_tracker.instantiate") as mock_instantiate:
             mock_class = MagicMock()
@@ -60,15 +61,37 @@ class TestCreateTracker:
 
             call_args = mock_instantiate.call_args[0][0]
             assert "raitap.tracking." in call_args["_target_"]
+            assert call_args["_partial_"] is True
 
     def test_create_tracker_raises_on_invalid_target(self) -> None:
-        config = _make_config("NonExistentTracker")
+        config = _make_config("mlflow")
 
         with patch("raitap.tracking.base_tracker.instantiate") as mock_instantiate:
             mock_instantiate.side_effect = Exception("Cannot instantiate")
 
             with pytest.raises(ValueError, match="Could not instantiate tracker"):
                 _ = BaseTracker.create_tracker(config)
+
+    def test_create_tracker_raises_on_unknown_use(self) -> None:
+        config = _make_config("does_not_exist")
+
+        with pytest.raises(ValueError, match="Unknown tracking key"):
+            BaseTracker.create_tracker(config)
+
+    def test_create_tracker_rejects_config_target(self) -> None:
+        """A `_target_`-carrying block must raise loudly instead of being
+        resolved as an arbitrary callable (issue #301)."""
+        config = cast(
+            "AppConfig",
+            SimpleNamespace(
+                tracking=SimpleNamespace(_target_="os.system", log_model=False),
+                experiment_name="test_experiment",
+                _output_root=".",
+            ),
+        )
+
+        with pytest.raises(UnsafeConfigTargetError):
+            BaseTracker.create_tracker(config)
 
 
 class MockTracker(BaseTracker):

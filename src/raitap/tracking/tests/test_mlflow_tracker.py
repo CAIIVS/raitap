@@ -36,7 +36,7 @@ def _make_config(
         "AppConfig",
         SimpleNamespace(
             tracking=SimpleNamespace(
-                _target_="MLFlowTracker",
+                use="mlflow",
                 output_forwarding_url=url,
                 backend_store_uri=backend_store_uri,
                 default_artifact_root=default_artifact_root,

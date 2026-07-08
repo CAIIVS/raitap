@@ -129,7 +129,7 @@ def _mlflow_summary_params(config_dict: dict[str, Any]) -> dict[str, str]:
     Walks the normalised config from :func:`~raitap.configs.factory_utils.cfg_to_dict`
     instead of hard-coding brittle ``.get`` chains. Transparency is a mapping of
     explainer name → explainer config; each explainer contributes
-    ``transparency.<name>.algorithm`` and ``transparency.<name>._target_``.
+    ``transparency.<name>.algorithm`` and ``transparency.<name>.use``.
     """
     out: dict[str, str] = {}
 
@@ -166,7 +166,7 @@ def _mlflow_summary_params(config_dict: dict[str, Any]) -> dict[str, str]:
                 continue
             prefix = f"transparency.{name}"
             put(f"{prefix}.algorithm", explainer.get("algorithm"))
-            put(f"{prefix}._target_", explainer.get("_target_"))
+            put(f"{prefix}.use", explainer.get("use"))
 
     return out
 
