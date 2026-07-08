@@ -85,21 +85,21 @@ def _load_transparency_preset(name: str) -> Any:
     """Return an inline SHAP-gradient transparency config for legacy tests.
 
     The bundled ``shap_gradient`` preset was removed when shipped configs were
-    pared down to ``_target_``-only stubs. Tests that previously loaded the
+    pared down to ``use:``-only stubs. Tests that previously loaded the
     YAML now consume this inlined equivalent — the YAML structure is
     intentionally preserved so the assertions still match the original
     composition.
     """
     del name
     return {
-        "_target_": "ShapExplainer",
+        "use": "shap",
         "algorithm": "GradientExplainer",
         "constructor": {"local_smoothing": 0.0},
         "call": {"target": 0, "nsamples": 10},
         "raitap": {"batch_size": 1, "progress_desc": "SHAP batches"},
         "visualisers": [
             {
-                "_target_": "ShapImageVisualiser",
+                "use": "shap_image",
                 "constructor": {"max_samples": 1},
             },
         ],
@@ -247,10 +247,10 @@ def test_explanation_returns_explanation_result(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
                 "call": {"target": 0},
-                "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+                "visualisers": [{"use": "captum_image"}],
             }
         ),
     )
@@ -284,7 +284,7 @@ def test_explanation_rejects_model_without_backend(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
                 "call": {"target": 0},
                 "visualisers": [],
@@ -326,9 +326,9 @@ def test_explanation_validates_visualisers_before_compute(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.ShapExplainer",
+                "use": "shap",
                 "algorithm": "KernelExplainer",
-                "visualisers": [{"_target_": "raitap.transparency.ShapImageVisualiser"}],
+                "visualisers": [{"use": "shap_image"}],
             }
         ),
     )
@@ -375,10 +375,10 @@ def test_payload_kind_wildcard_visualiser_passes(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
                 "call": {"target": 0},
-                "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+                "visualisers": [{"use": "captum_image"}],
             }
         ),
     )
@@ -428,10 +428,10 @@ def test_payload_kind_mismatch_raises(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
                 "call": {"target": 0},
-                "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+                "visualisers": [{"use": "captum_image"}],
             }
         ),
     )
@@ -471,7 +471,7 @@ def test_explanation_passes_sample_ids_display_names_and_input_metadata(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
                 "raitap": {"sample_names": ["configured-name"], "show_sample_names": True},
                 "visualisers": [],
@@ -558,9 +558,9 @@ def test_explanation_rejects_method_family_mismatch_before_compute(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
-                "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+                "visualisers": [{"use": "captum_image"}],
             }
         ),
     )
@@ -633,9 +633,9 @@ def test_explanation_rejects_candidate_output_space_mismatch_before_compute(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
-                "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+                "visualisers": [{"use": "captum_image"}],
             }
         ),
     )
@@ -706,9 +706,9 @@ def test_explanation_allows_any_supported_candidate_output_space_before_compute(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
-                "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+                "visualisers": [{"use": "captum_image"}],
             }
         ),
     )
@@ -735,7 +735,7 @@ def test_explanation_allows_any_supported_candidate_output_space_before_compute(
     assert explainer.explain_called is True
 
 
-def test_create_explainer_resolves_short_target_and_strips_visualisers(
+def test_create_explainer_resolves_use_key_and_strips_visualisers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured_cfg: dict[str, Any] = {}
@@ -756,25 +756,26 @@ def test_create_explainer_resolves_short_target_and_strips_visualisers(
 
     config = OmegaConf.create(
         {
-            "_target_": "CaptumExplainer",
+            "use": "captum",
             "algorithm": "Saliency",
-            "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+            "visualisers": [{"use": "captum_image"}],
         }
     )
     monkeypatch.setattr("raitap.transparency.factory.instantiate", _fake_instantiate)
 
     created, resolved_target = create_explainer(config)
 
+    expected_fqn = "raitap.transparency.explainers.captum_explainer.CaptumExplainer"
     assert created is explainer
-    assert resolved_target == "raitap.transparency.CaptumExplainer"
-    assert captured_cfg["_target_"] == "raitap.transparency.CaptumExplainer"
+    assert resolved_target == expected_fqn
+    assert captured_cfg["_target_"] == expected_fqn
     assert "visualisers" not in captured_cfg
 
 
 def test_create_explainer_wraps_instantiation_errors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    config = OmegaConf.create({"_target_": "NoSuchExplainer"})
+    config = OmegaConf.create({"use": "captum"})
 
     def _raise(_: dict[str, Any]) -> None:
         raise RuntimeError("boom")
@@ -800,7 +801,7 @@ def test_explainer_inherits_check_backend_compat_from_mixin(
         "raitap.transparency.factory.instantiate",
         lambda _cfg: stub,
     )
-    config = OmegaConf.create({"_target_": "CaptumExplainer", "algorithm": "Saliency"})
+    config = OmegaConf.create({"use": "captum", "algorithm": "Saliency"})
     explainer, _ = create_explainer(config)
     assert callable(explainer.check_backend_compat)
 
@@ -808,7 +809,7 @@ def test_explainer_inherits_check_backend_compat_from_mixin(
 def test_create_explainer_rejects_unknown_top_level_keys() -> None:
     config = OmegaConf.create(
         {
-            "_target_": "CaptumExplainer",
+            "use": "captum",
             "algorithm": "Saliency",
             "multiply_by_inputs": True,
             "visualisers": [],
@@ -816,6 +817,34 @@ def test_create_explainer_rejects_unknown_top_level_keys() -> None:
     )
     with pytest.raises(ValueError, match="Unknown transparency explainer config keys"):
         create_explainer(config)
+
+
+def test_create_explainer_rejects_config_target_as_security_surface() -> None:
+    """``_target_`` in a config block is arbitrary-callable RCE surface (#301);
+    it must never reach ``hydra.utils.instantiate``, even nested under an
+    innocuous-looking key like ``constructor``."""
+    from raitap.configs.registry_resolve import UnsafeConfigTargetError
+
+    config = OmegaConf.create(
+        {
+            "use": "captum",
+            "algorithm": "Saliency",
+            "_target_": "os.system",
+        }
+    )
+    with pytest.raises(UnsafeConfigTargetError, match="_target_"):
+        create_explainer(config)
+
+
+def test_create_explainer_rejects_unknown_use_key() -> None:
+    config = OmegaConf.create({"use": "does_not_exist", "algorithm": "Saliency"})
+    with pytest.raises(
+        ValueError, match=r"Unknown transparency key 'does_not_exist'\. Valid keys:"
+    ) as excinfo:
+        create_explainer(config)
+    # Every registered transparency explainer key must be listed.
+    assert "captum" in str(excinfo.value)
+    assert "shap" in str(excinfo.value)
 
 
 def test_create_explainer_warns_on_unknown_raitap_keys(
@@ -835,7 +864,7 @@ def test_create_explainer_warns_on_unknown_raitap_keys(
     )
     config = OmegaConf.create(
         {
-            "_target_": "CaptumExplainer",
+            "use": "captum",
             "algorithm": "Saliency",
             "raitap": {"bacth_size": 2},
         }
@@ -862,7 +891,7 @@ def test_create_explainer_rejects_misplaced_raitap_call_keys(
     )
     config = OmegaConf.create(
         {
-            "_target_": "CaptumExplainer",
+            "use": "captum",
             "algorithm": "Saliency",
             "call": {
                 "batch_size": 2,
@@ -900,7 +929,7 @@ def test_create_explainer_rejects_call_show_progress(
     )
     config = OmegaConf.create(
         {
-            "_target_": "CaptumExplainer",
+            "use": "captum",
             "algorithm": "KernelShap",
             "call": {"show_progress": True},
         }
@@ -916,7 +945,7 @@ def test_create_explainer_rejects_call_show_progress(
 def test_create_explainer_rejects_removed_max_batch_size_raitap_key() -> None:
     config = OmegaConf.create(
         {
-            "_target_": "CaptumExplainer",
+            "use": "captum",
             "algorithm": "Saliency",
             "raitap": {"max_batch_size": 2},
         }
@@ -948,7 +977,7 @@ def test_create_explainer_forwards_constructor_to_instantiate(
 
     config = OmegaConf.create(
         {
-            "_target_": "CaptumExplainer",
+            "use": "captum",
             "algorithm": "Saliency",
             "constructor": {"multiply_by_inputs": True},
             "call": {"target": 0},
@@ -974,7 +1003,7 @@ def test_create_explainer_and_visualisers_from_real_shap_preset() -> None:
 
     assert type(explainer).__name__ == "ShapExplainer"
     assert cast("Any", explainer).algorithm == "GradientExplainer"
-    assert resolved_target == "raitap.transparency.ShapExplainer"
+    assert resolved_target == "raitap.transparency.explainers.shap_explainer.ShapExplainer"
     assert len(visualisers) == 1
     assert type(visualisers[0].visualiser).__name__ == "ShapImageVisualiser"
     assert visualisers[0].call_kwargs == {}
@@ -1012,10 +1041,10 @@ def test_explanation_merges_call_before_run_kwargs(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
                 "call": {"target": 0, "baselines": "from_yaml"},
-                "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+                "visualisers": [{"use": "captum_image"}],
             }
         ),
     )
@@ -1078,11 +1107,11 @@ def test_explanation_routes_raitap_baseline_to_adapter_kwarg(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "IntegratedGradients",
                 "call": {"target": 0},
                 "raitap": {"baseline": "ROUTED"},
-                "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+                "visualisers": [{"use": "captum_image"}],
             }
         ),
     )
@@ -1143,11 +1172,11 @@ def test_raitap_baseline_wins_over_runtime_kwarg(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "IntegratedGradients",
                 "call": {"target": 0},
                 "raitap": {"baseline": "ROUTED"},
-                "visualisers": [{"_target_": "raitap.transparency.CaptumImageVisualiser"}],
+                "visualisers": [{"use": "captum_image"}],
             }
         ),
     )
@@ -1273,7 +1302,7 @@ def test_explanation_injects_runtime_sample_names_into_raitap_kwargs(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
                 "raitap": {"show_sample_names": True},
                 "visualisers": [],
@@ -1329,7 +1358,7 @@ def test_explanation_runtime_sample_names_override_raitap_config(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
                 "raitap": {
                     "sample_names": ["from_config_1", "from_config_2"],
@@ -1387,7 +1416,7 @@ def test_explanation_warns_on_unknown_raitap_keys(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
                 "raitap": {"bacth_size": 2},
                 "visualisers": [],
@@ -1433,7 +1462,7 @@ def test_explanation_rejects_misplaced_raitap_call_keys(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
                 "call": {"sample_names": ["cfg_a", "cfg_b", "cfg_c", "cfg_d"]},
                 "visualisers": [],
@@ -1482,10 +1511,10 @@ def test_explanation_clears_parsed_config_cache_on_visualiser_compat_failure(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.ShapExplainer",
+                "use": "shap",
                 "algorithm": "KernelExplainer",
                 "raitap": {"sample_names": ["cfg_a", "cfg_b"]},
-                "visualisers": [{"_target_": "raitap.transparency.ShapImageVisualiser"}],
+                "visualisers": [{"use": "shap_image"}],
             }
         ),
     )
@@ -1529,7 +1558,7 @@ def test_explanation_rejects_removed_max_batch_size_raitap_key(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
                 "raitap": {"max_batch_size": 2},
                 "visualisers": [],
@@ -1591,7 +1620,7 @@ def test_explanation_prepares_runtime_tensor_kwargs_with_backend(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
                 "visualisers": [],
             }
@@ -1662,20 +1691,19 @@ def test_shap_explainer_allows_kernel_explainer_on_non_autograd_backend() -> Non
     explainer.check_backend_compat(_BackendStub(torch.nn.Identity(), autograd=False))
 
 
-def test_create_visualisers_accepts_flat_constructor_kwargs() -> None:
-    """Flat hydra-zen builder shape: kwargs outside the ``{_target_, constructor,
-    call}`` envelope are folded into ``constructor``. This is what
-    ``captum_image(method="heat_map")`` expands to.
+def test_create_visualisers_accepts_programmatic_builder_shape() -> None:
+    """A visualiser built via the registered builder function (e.g.
+    ``raitap.transparency.captum_image(constructor={"method": "heat_map"})``)
+    round-trips through OmegaConf as a plain ``{use, constructor, call, raitap}``
+    dict — the *only* shape ``instantiate_visualisers`` needs to understand.
+    There is no separate ``hydra_zen.funcs.zen_processing`` wrapper shape any
+    more (Phase B replaced hydra-zen ``builds()`` visualiser builders with the
+    plain ``_VisualiserUseBase`` dataclass).
     """
+    from raitap.transparency import captum_image
+
     config = OmegaConf.create(
-        {
-            "visualisers": [
-                {
-                    "_target_": "raitap.transparency.CaptumImageVisualiser",
-                    "method": "heat_map",
-                }
-            ],
-        }
+        {"visualisers": [captum_image(constructor={"method": "heat_map"})]},
     )
     visualisers = create_visualisers(config)
     assert len(visualisers) == 1
@@ -1695,7 +1723,7 @@ def test_create_visualisers_splits_constructor_and_call(monkeypatch: pytest.Monk
         {
             "visualisers": [
                 {
-                    "_target_": "raitap.transparency.CaptumImageVisualiser",
+                    "use": "captum_image",
                     "constructor": {"method": "heat_map", "sign": "positive"},
                     "call": {"max_samples": 3},
                 }
@@ -1712,6 +1740,22 @@ def test_create_visualisers_splits_constructor_and_call(monkeypatch: pytest.Monk
     assert captured_vis["sign"] == "positive"
     assert "call" not in captured_vis
     assert "constructor" not in captured_vis
+
+
+def test_create_visualisers_rejects_config_target_as_security_surface() -> None:
+    from raitap.configs.registry_resolve import UnsafeConfigTargetError
+
+    config = OmegaConf.create(
+        {"visualisers": [{"use": "captum_image", "_target_": "os.system"}]},
+    )
+    with pytest.raises(UnsafeConfigTargetError, match="_target_"):
+        create_visualisers(config)
+
+
+def test_create_visualisers_rejects_unknown_use_key() -> None:
+    config = OmegaConf.create({"visualisers": [{"use": "does_not_exist"}]})
+    with pytest.raises(ValueError, match=r"Unknown _unscoped key 'does_not_exist'\. Valid keys:"):
+        create_visualisers(config)
 
 
 # ---------------------------------------------------------------------------
@@ -1817,7 +1861,7 @@ class TestResolveCallDataSources:
             tmp_path,
             OmegaConf.create(
                 {
-                    "_target_": "raitap.transparency.ShapExplainer",
+                    "use": "shap",
                     "algorithm": "GradientExplainer",
                     "call": {
                         "target": 0,
@@ -1889,7 +1933,7 @@ class TestResolveCallDataSources:
             tmp_path,
             OmegaConf.create(
                 {
-                    "_target_": "raitap.transparency.ShapExplainer",
+                    "use": "shap",
                     "algorithm": "GradientExplainer",
                     "call": {
                         "target": 0,
@@ -1989,7 +2033,7 @@ def test_explanation_raises_when_runtime_sample_names_longer_than_batch(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
                 "visualisers": [],
             }
@@ -2027,7 +2071,7 @@ def test_explanation_raises_when_runtime_sample_names_shorter_than_batch(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
                 "visualisers": [],
             }
@@ -2061,7 +2105,7 @@ def test_explanation_raises_when_yaml_sample_names_mismatch(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
                 "raitap": {"sample_names": ["x", "y"]},
                 "visualisers": [],
@@ -2095,7 +2139,7 @@ def test_explanation_does_not_raise_when_sample_names_is_none(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
                 "visualisers": [],
             }
@@ -2128,7 +2172,7 @@ def test_explanation_does_not_raise_when_sample_names_length_matches(
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.transparency.CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
                 "visualisers": [],
             }

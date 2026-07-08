@@ -67,12 +67,12 @@ def test_gaussian_noise_e2e(tmp_path: Path) -> None:
             robustness={
                 "avg": OmegaConf.create(
                     {
-                        "_target_": "raitap.robustness.ImageCorruptionsAssessor",
+                        "use": "imagecorruptions",
                         "algorithm": "gaussian_noise",
                         "constructor": {"severity": 3},
                         "call": {},
                         "raitap": {"ci_method": "wilson", "ci_level": 0.95},
-                        "visualisers": [{"_target_": "CorruptionAccuracyVisualiser"}],
+                        "visualisers": [{"use": "corruption_accuracy"}],
                     }
                 )
             },

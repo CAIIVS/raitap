@@ -38,11 +38,11 @@ def test_assess_transparency_resolves_family_and_calls_explain(tmp_path: Path) -
     set_output_root(config, tmp_path)
     config.transparency = {
         "ig_det": TransparencyConfig(
-            _target_="CaptumExplainer",
+            use="captum",
             algorithm="IntegratedGradients",
             call={"target": 0},
             raitap={"detection": {"score_threshold": 0.5, "max_boxes": 5}},
-            visualisers=[{"_target_": "DetectionImageVisualiser"}],
+            visualisers=[{"use": "detection_image"}],
         )
     }
 

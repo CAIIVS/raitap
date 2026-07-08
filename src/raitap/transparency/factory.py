@@ -28,20 +28,17 @@ from .semantics import explainer_capability
 if TYPE_CHECKING:
     from raitap.types import TaskKind
 
-_TRANSPARENCY_PREFIX = "raitap.transparency."
-
 _SCHEMA = AdapterSchema(
     domain="transparency",
     entity="explainer",
     subdict_namespace="Transparency",
-    target_prefix=_TRANSPARENCY_PREFIX,
-    visualiser_prefix=_TRANSPARENCY_PREFIX,
+    registry_group="transparency",
     top_level_keys=frozenset(
         # ``evaluation`` is the optional Quantus explanation-quality block
         # (issue #341); it is consumed by the transparency phase post-step, not
         # by the explainer adapter, but must be an allowed top-level key so a
         # config carrying it (or the default ``evaluation: None``) parses.
-        {"_target_", "algorithm", "visualisers", "constructor", "call", "raitap", "evaluation"}
+        {"use", "algorithm", "visualisers", "constructor", "call", "raitap", "evaluation"}
     ),
     raitap_keys=frozenset(
         {
@@ -169,7 +166,7 @@ def create_explainer(explainer_config: Any) -> tuple[ExplainerAdapter, str]:
         protocol=ExplainerAdapter,
         schema=_SCHEMA,
         instantiate_error_hint=(
-            "Check that _target_ points to a valid ExplainerAdapter implementation "
+            "Check that use: points to a valid ExplainerAdapter implementation "
             "(e.g. AttributionOnlyExplainer or FullExplainer subclass)."
         ),
         type_error_hint=("Configured explainers must have a callable explain() method."),

@@ -33,18 +33,12 @@ if TYPE_CHECKING:
 
     from .results import RobustnessResult
 
-_ROBUSTNESS_PREFIX = "raitap.robustness.assessors."
-_VISUALISER_PREFIX = "raitap.robustness.visualisers."
-
 _SCHEMA = AdapterSchema(
     domain="robustness",
     entity="assessor",
     subdict_namespace="Robustness",
-    target_prefix=_ROBUSTNESS_PREFIX,
-    visualiser_prefix=_VISUALISER_PREFIX,
-    top_level_keys=frozenset(
-        {"_target_", "algorithm", "constructor", "call", "raitap", "visualisers"}
-    ),
+    registry_group="robustness",
+    top_level_keys=frozenset({"use", "algorithm", "constructor", "call", "raitap", "visualisers"}),
     raitap_keys=frozenset(
         {
             "batch_size",
@@ -192,7 +186,7 @@ def create_assessor(assessor_config: Any) -> tuple[AssessorAdapter, str]:
         protocol=AssessorAdapter,
         schema=_SCHEMA,
         instantiate_error_hint=(
-            "Check that _target_ points to a valid AssessorAdapter implementation "
+            "Check that use: points to a valid AssessorAdapter implementation "
             "(e.g. EmpiricalAttackAssessor or FormalVerificationAssessor subclass)."
         ),
         type_error_hint=(
