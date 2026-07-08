@@ -179,22 +179,6 @@ class DataConfig:
 
 
 @dataclass
-class VisualiserConfig:
-    """Schema base for visualiser list entries.
-
-    Used as ``builds_bases=`` for hydra-zen visualiser builders so they accept
-    a ``call=`` kwarg alongside their flat init kwargs. The adapter factory
-    accepts either this flat shape (``image_pair(max_samples=4, call={...})``)
-    or the historical YAML shape (``{"use": ..., "constructor": {...},
-    "call": {...}}``).
-    """
-
-    use: str = MISSING
-    call: dict[str, Any] = field(default_factory=dict)
-    raitap: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
 class EvaluationConfig:
     # Hydra use: selects an evaluator (e.g. "quantus" -> raitap.transparency.QuantusEvaluator).
     use: str = MISSING

@@ -50,7 +50,7 @@ from hydra_zen import ZenStore
 from raitap.types import TaskKind
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Callable, Iterator, Sequence
     from types import ModuleType
 
     from raitap.models.base_backend import ModelBackend
@@ -77,7 +77,11 @@ class Invoker(Protocol[CtxT, ResultT]):
 store = ZenStore(overwrite_ok=True)
 
 # group -> name -> hydra-zen-generated dataclass builder
-_BUILDERS: dict[str, dict[str, type]] = {}
+# group -> name -> config-layer builder. Schema-backed families store a
+# ``use:``-node dataclass *type*; visualisers ("_unscoped") store a callable
+# factory (:func:`_make_visualiser_builder`) that folds flat kwargs into
+# ``constructor``. Both are consumed by the lazy module ``__getattr__``.
+_BUILDERS: dict[str, dict[str, Any]] = {}
 # group -> registry_name -> adapter class FQN. The sole trusted seam a
 # ``use: <registry_name>`` config key is resolved against
 # (:func:`raitap.configs.registry_resolve.resolve_target_fqn`). Group
@@ -269,7 +273,30 @@ class _VisualiserUseBase:
     raitap: dict[str, Any] = dataclasses.field(default_factory=dict)
 
 
-_VISUALISER_USE_SCHEMA = _VisualiserUseBase
+def _make_visualiser_builder(registry_name: str) -> Callable[..., _VisualiserUseBase]:
+    """Programmatic visualiser builder returned by the lazy module ``__getattr__``.
+
+    Accepts the visualiser's own ``__init__`` kwargs FLAT
+    (``captum_image(method="heat_map", sign="all")``) plus the reserved
+    ``constructor`` / ``call`` / ``raitap`` blocks, and returns a ``use:``-node.
+    Flat kwargs fold into ``constructor`` — this restores the pre-#301
+    ergonomic (the old ``builds(populate_full_signature=True)`` surface) while
+    keeping the config layer free of ``_target_``. The YAML side mirrors this in
+    :func:`raitap.configs.adapter_factory.instantiate_visualisers`.
+    """
+
+    def build(**kwargs: Any) -> _VisualiserUseBase:
+        constructor = dict(kwargs.pop("constructor", None) or {})
+        call = dict(kwargs.pop("call", None) or {})
+        raitap = dict(kwargs.pop("raitap", None) or {})
+        kwargs.pop("use", None)
+        constructor.update(kwargs)  # remaining flat kwargs are __init__ args
+        return _VisualiserUseBase(
+            use=registry_name, constructor=constructor, call=call, raitap=raitap
+        )
+
+    build.__name__ = registry_name
+    return build
 
 
 def _register_core(
@@ -284,8 +311,8 @@ def _register_core(
     family-required class-body attributes (e.g. ``algorithm_registry`` when
     ``family.has_algorithm_registry``), records the class FQN in
     :data:`_TARGET_FQN`, builds a ``use:``-node dataclass (:func:`_use_node`)
-    for schema-backed families or the generic visualiser shape
-    (:data:`_VISUALISER_USE_SCHEMA`), and registers under
+    for schema-backed families, or a flat-kwarg visualiser builder
+    (:func:`_make_visualiser_builder`), and registers under
     ``_BUILDERS[family.group][registry_name]`` (or ``_BUILDERS["_unscoped"]``
     when ``family is None``).
     """
@@ -359,8 +386,9 @@ def _register_core(
         else:
             fqn = _class_fqn(cls)
             _TARGET_FQN.setdefault("_unscoped", {})[registry_name] = fqn
-            builder = _use_node(_VISUALISER_USE_SCHEMA, registry_name, cls.__name__)
-            _BUILDERS.setdefault("_unscoped", {})[registry_name] = builder
+            _BUILDERS.setdefault("_unscoped", {})[registry_name] = _make_visualiser_builder(
+                registry_name
+            )
     except (ModuleNotFoundError, TypeError):
         # Test fixtures defining inline classes without an importable qualname
         # — hydra-zen rejects them and we silently skip.

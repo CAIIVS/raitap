@@ -337,10 +337,21 @@ def instantiate_visualisers(
         entry = _visualiser_entry_to_dict(visualiser_config)
         reject_config_target(entry)
         use = str(entry.get("use", ""))
-        _validate_visualiser_entry_keys(entry, use_hint=use or "?")
-
+        # Flat form: ``- use: captum_image`` with ``method: heat_map`` at the entry
+        # top level (no ``constructor:`` sub-block) lifts those kwargs into the
+        # constructor — mirrors the programmatic ``captum_image(method="heat_map")``
+        # builder. An explicit ``constructor:`` (or an all-reserved-keys entry)
+        # validates strictly. ``reject_config_target`` already ran above, so a
+        # nested ``_target_`` in a flat kwarg is still rejected.
+        if "constructor" in entry or set(entry).issubset(_VISUALISER_ENTRY_KEYS):
+            _validate_visualiser_entry_keys(entry, use_hint=use or "?")
+            constructor_source: Any = entry.get("constructor")
+        else:
+            constructor_source = {
+                k: v for k, v in entry.items() if k not in {"use", "call", "raitap"}
+            }
         constructor_plain = _subdict(
-            entry.get("constructor"), label=f"visualiser constructor ({use})", schema=schema
+            constructor_source, label=f"visualiser constructor ({use})", schema=schema
         )
         call_plain = _subdict(entry.get("call"), label=f"visualiser call ({use})", schema=schema)
 
