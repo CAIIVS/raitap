@@ -15,6 +15,18 @@ library like any 1st party RAITAP adapter.
 In the following guide, we will imagine you want to make your "SuperXAI" library usable to RAITAP
 users seamlessly.
 
+## Runnable reference
+
+`example-plugin/` in the RAITAP repo is a real, installable plugin following every step below. Copy
+it as a starting point instead of typing the SuperXAI snippets from scratch:
+
+```bash
+uv pip install ./example-plugin
+python -c "from raitap.robustness import identity_attack; print(identity_attack)"
+```
+
+See `example-plugin/README.md` for install, discovery, and `use:` usage (YAML and Python).
+
 ## Supported modules
 
 Plugins can register:
