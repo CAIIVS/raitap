@@ -72,34 +72,34 @@ class ModelConfig:
 
 @dataclass
 class LabelsConfig:
-    _target_: str = MISSING
+    use: str = MISSING
 
 
 @dataclass
 class InputsConfig:
-    _target_: str = MISSING
+    use: str = MISSING
 
 
 @dataclass
 class TextCsvInputsConfig(InputsConfig):
-    _target_: str = "TextCsvInputParser"
+    use: str = "text_csv"
     text_column: str = MISSING
 
 
 @dataclass
 class TextJsonlInputsConfig(InputsConfig):
-    _target_: str = "TextJsonlInputParser"
+    use: str = "text_jsonl"
     text_field: str = "text"
 
 
 @dataclass
 class TextDirInputsConfig(InputsConfig):
-    _target_: str = "TextDirInputParser"
+    use: str = "text_dir"
 
 
 @dataclass
 class TabularLabelsConfig(LabelsConfig):
-    _target_: str = "TabularLabelParser"
+    use: str = "tabular"
     source: str = MISSING
     id_column: str | None = None
     column: str | None = None
@@ -109,26 +109,26 @@ class TabularLabelsConfig(LabelsConfig):
 
 @dataclass
 class DirectoryLabelsConfig(LabelsConfig):
-    _target_: str = "DirectoryLabelParser"
+    use: str = "directory"
 
 
 @dataclass
 class CocoLabelsConfig(LabelsConfig):
-    _target_: str = "CocoLabelParser"
+    use: str = "coco"
     source: str = MISSING
     id_strategy: IdStrategy = IdStrategy.auto
 
 
 @dataclass
 class YoloLabelsConfig(LabelsConfig):
-    _target_: str = "YoloLabelParser"
+    use: str = "yolo"
     source: str = MISSING
     id_strategy: IdStrategy = IdStrategy.auto
 
 
 @dataclass
 class VocLabelsConfig(LabelsConfig):
-    _target_: str = "VocLabelParser"
+    use: str = "voc"
     source: str = MISSING
     id_strategy: IdStrategy = IdStrategy.auto
     class_names: list[str] | None = None
@@ -136,7 +136,7 @@ class VocLabelsConfig(LabelsConfig):
 
 @dataclass
 class DetectionJsonLabelsConfig(LabelsConfig):
-    _target_: str = "DetectionJsonLabelParser"
+    use: str = "detection_json"
     source: str = MISSING
     id_strategy: IdStrategy = IdStrategy.auto
 
@@ -185,19 +185,19 @@ class VisualiserConfig:
     Used as ``builds_bases=`` for hydra-zen visualiser builders so they accept
     a ``call=`` kwarg alongside their flat init kwargs. The adapter factory
     accepts either this flat shape (``image_pair(max_samples=4, call={...})``)
-    or the historical YAML shape (``{"_target_": ..., "constructor": {...},
+    or the historical YAML shape (``{"use": ..., "constructor": {...},
     "call": {...}}``).
     """
 
-    _target_: str = MISSING
+    use: str = MISSING
     call: dict[str, Any] = field(default_factory=dict)
     raitap: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class EvaluationConfig:
-    # Hydra _target_: points to an evaluator (e.g. raitap.transparency.QuantusEvaluator).
-    _target_: str = MISSING
+    # Hydra use: selects an evaluator (e.g. "quantus" -> raitap.transparency.QuantusEvaluator).
+    use: str = MISSING
     # Names of the Quantus metrics to compute (e.g. "sparseness", "faithfulness_correlation").
     metrics: list[str] = field(default_factory=list)
     # Constructor kwargs forwarded to the underlying Quantus metric classes.
@@ -211,12 +211,12 @@ class EvaluationConfig:
 
 @dataclass
 class TransparencyConfig:
-    # Hydra _target_: points to an ExplainerAdapter
-    # (e.g. AttributionOnlyExplainer or FullExplainer subclass)
+    # Hydra use: selects an ExplainerAdapter registry key
+    # (e.g. "captum" -> AttributionOnlyExplainer or "shap" -> FullExplainer subclass)
     # Overridden by the transparency config-group YAML (transparency=captum / shap).
     # MISSING by default so omission fails validation loudly rather than
     # silently selecting a library.
-    _target_: str = MISSING
+    use: str = MISSING
     algorithm: str = MISSING
     # Constructor kwargs for the explainer / underlying library method (e.g. Captum
     # ``IntegratedGradients(model, **kwargs)``, SHAP ``GradientExplainer(model, data, **kwargs)``).
@@ -234,21 +234,21 @@ class TransparencyConfig:
     # RAITAP-owned runtime options such as batch_size, progress bars, and
     # sample-name metadata. These keys are not forwarded to the explainability library.
     raitap: dict[str, Any] = field(default_factory=dict)
-    # Each entry needs at least ``_target_``; ``constructor`` / ``call`` are optional
+    # Each entry needs at least ``use``; ``constructor`` / ``call`` are optional
     # (same split as explainer). Default is minimal: Captum explainer + image visualiser.
-    visualisers: list[Any] = field(default_factory=lambda: [{"_target_": "CaptumImageVisualiser"}])
+    visualisers: list[Any] = field(default_factory=lambda: [{"use": "captum_image"}])
     # Optional Quantus-backed explanation-quality evaluation block. Left unset
-    # (``None``) by default; set ``evaluation._target_`` to enable it.
+    # (``None``) by default; set ``evaluation.use`` to enable it.
     evaluation: EvaluationConfig | None = None
 
 
 @dataclass
 class RobustnessConfig:
-    # Hydra _target_: points to a BaseAssessor subclass
-    # (e.g. EmpiricalAttackAssessor or FormalVerificationAssessor implementation).
+    # Hydra use: selects a BaseAssessor subclass registry key
+    # (e.g. "torchattacks" -> EmpiricalAttackAssessor or "marabou" -> FormalVerificationAssessor).
     # Overridden by the robustness config-group YAML
     # (robustness=torchattacks / foolbox / marabou).
-    _target_: str = MISSING
+    use: str = MISSING
     algorithm: str = MISSING
     # Constructor kwargs forwarded to the assessor's ``__init__``. For torchattacks
     # adapters this is where attack hyperparameters live (eps, alpha, steps), since
@@ -262,14 +262,14 @@ class RobustnessConfig:
     # RAITAP-owned runtime options such as batch_size, progress bars, and
     # sample-name metadata. Not forwarded to the underlying library.
     raitap: dict[str, Any] = field(default_factory=dict)
-    # Each entry needs at least ``_target_``; ``constructor`` / ``call`` are optional.
+    # Each entry needs at least ``use``; ``constructor`` / ``call`` are optional.
     # Default is the empirical image-pair visualiser.
-    visualisers: list[Any] = field(default_factory=lambda: [{"_target_": "ImagePairVisualiser"}])
+    visualisers: list[Any] = field(default_factory=lambda: [{"use": "image_pair"}])
 
 
 @dataclass
 class MetricsConfig:
-    _target_: str = MISSING
+    use: str = MISSING
 
 
 @dataclass
@@ -282,14 +282,14 @@ class IoUConfig:
 
 @dataclass
 class BinaryClassificationMetricsConfig(MetricsConfig):
-    _target_: str = "BinaryClassificationMetrics"
+    use: str = "binary_classification"
     ignore_index: int | None = None
     threshold: float = 0.5
 
 
 @dataclass
 class MulticlassClassificationMetricsConfig(MetricsConfig):
-    _target_: str = "MulticlassClassificationMetrics"
+    use: str = "multiclass_classification"
     num_classes: int = MISSING
     average: ClassificationAverage = "macro"
     ignore_index: int | None = None
@@ -297,7 +297,7 @@ class MulticlassClassificationMetricsConfig(MetricsConfig):
 
 @dataclass
 class MultilabelClassificationMetricsConfig(MetricsConfig):
-    _target_: str = "MultilabelClassificationMetrics"
+    use: str = "multilabel_classification"
     num_labels: int = MISSING
     average: ClassificationAverage = "macro"
     ignore_index: int | None = None
@@ -306,7 +306,7 @@ class MultilabelClassificationMetricsConfig(MetricsConfig):
 
 @dataclass
 class DetectionMetricsConfig(MetricsConfig):
-    _target_: str = "DetectionMetrics"
+    use: str = "detection"
     box_format: BoxFormat = "xyxy"
     iou: IoUConfig = field(default_factory=IoUConfig)
     class_metrics: bool = False
@@ -317,7 +317,7 @@ class DetectionMetricsConfig(MetricsConfig):
 
 @dataclass
 class TrackingConfig:
-    _target_: str = MISSING
+    use: str = MISSING
     output_forwarding_url: str | None = None
     backend_store_uri: str | None = None
     default_artifact_root: str | None = None
@@ -330,7 +330,7 @@ class ReportingConfig:
     """Configuration for report generation."""
 
     # ``None`` disables reporting entirely (used by ``reporting/disabled.yaml``).
-    _target_: str | None = MISSING
+    use: str | None = MISSING
     filename: str = "report"
     sample_selection: list[int | str] | None = None
     include_config: bool = True
