@@ -12,6 +12,37 @@ def test_reject_config_target_allows_clean_cfg() -> None:
     rr.reject_config_target({"use": "captum", "algorithm": "IntegratedGradients"})  # no raise
 
 
+def test_reject_config_target_raises_on_nested_target_in_dict() -> None:
+    cfg = {
+        "use": "captum",
+        "constructor": {
+            "baseline": {"_target_": "os.system", "_args_": ["id"]},
+        },
+    }
+    with pytest.raises(rr.UnsafeConfigTargetError, match="use:"):
+        rr.reject_config_target(cfg)
+
+
+def test_reject_config_target_raises_on_target_nested_in_list() -> None:
+    cfg = {
+        "use": "captum",
+        "visualisers": [{"use": "clean"}, {"_target_": "os.system"}],
+    }
+    with pytest.raises(rr.UnsafeConfigTargetError, match="use:"):
+        rr.reject_config_target(cfg)
+
+
+def test_reject_config_target_allows_clean_deeply_nested_cfg() -> None:
+    cfg = {
+        "use": "captum",
+        "constructor": {
+            "baseline": {"use": "zeros", "shape": [1, 2, 3]},
+        },
+        "visualisers": [{"use": "clean"}, {"use": "another", "options": {"a": 1}}],
+    }
+    rr.reject_config_target(cfg)  # no raise
+
+
 def test_resolve_target_fqn_returns_registered_fqn(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "raitap._adapters._TARGET_FQN",

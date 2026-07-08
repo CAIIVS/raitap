@@ -8,6 +8,7 @@ config layer is what closes the arbitrary-callable RCE surface (issue #301).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 
@@ -15,12 +16,23 @@ class UnsafeConfigTargetError(ValueError):
     """A config carried a ``_target_`` key, which is no longer accepted."""
 
 
-def reject_config_target(cfg: dict[str, Any]) -> None:
-    if "_target_" in cfg:
-        raise UnsafeConfigTargetError(
-            "`_target_` is no longer accepted in configs (arbitrary-callable "
-            "security surface). Select an implementation with `use: <key>`."
-        )
+def reject_config_target(cfg: Any) -> None:
+    """Reject a ``_target_`` key at any depth in ``cfg``.
+
+    ``hydra.utils.instantiate`` recurses, so a nested ``_target_`` (e.g. inside a
+    ``constructor`` value) is as dangerous as a top-level one. Scan the whole tree.
+    """
+    if isinstance(cfg, Mapping):
+        if "_target_" in cfg:
+            raise UnsafeConfigTargetError(
+                "`_target_` is no longer accepted in configs (arbitrary-callable "
+                "security surface). Select an implementation with `use: <key>`."
+            )
+        for value in cfg.values():
+            reject_config_target(value)
+    elif isinstance(cfg, (list, tuple)):
+        for item in cfg:
+            reject_config_target(item)
 
 
 def resolve_target_fqn(group: str, use: str) -> str:
