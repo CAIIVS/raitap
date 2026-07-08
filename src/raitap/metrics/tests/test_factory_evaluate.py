@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 from raitap.configs import set_output_root
+from raitap.configs.registry_resolve import UnsafeConfigTargetError
 from raitap.configs.schema import (
     AppConfig,
     MetricsConfig,
@@ -18,16 +19,27 @@ from raitap.configs.schema import (
 )
 from raitap.metrics import MetricsEvaluation, evaluate, metrics_run_enabled
 from raitap.metrics.base_metric_computer import BaseMetricComputer, MetricResult
+from raitap.metrics.factory import create_metric
 
 
-def test_metrics_run_enabled_respects_empty_target(tmp_path: Path) -> None:
+def test_metrics_run_enabled_respects_empty_use(tmp_path: Path) -> None:
     cfg = AppConfig(experiment_name="t")
     set_output_root(cfg, tmp_path)
     assert not metrics_run_enabled(cfg)  # metrics is None by default
-    cfg.metrics = MetricsConfig(_target_="")
+    cfg.metrics = MetricsConfig(use="")
     assert not metrics_run_enabled(cfg)
-    cfg.metrics = MetricsConfig(_target_="MulticlassClassificationMetrics")
+    cfg.metrics = MetricsConfig(use="multiclass_classification")
     assert metrics_run_enabled(cfg)
+
+
+def test_metrics_run_enabled_rejects_config_target(tmp_path: Path) -> None:
+    """A `_target_`-carrying block must raise loudly, not read as "not configured"."""
+    cfg = AppConfig(experiment_name="t")
+    set_output_root(cfg, tmp_path)
+    cfg.metrics = {"_target_": "os.system"}  # type: ignore[assignment]
+
+    with pytest.raises(UnsafeConfigTargetError):
+        metrics_run_enabled(cfg)
 
 
 def _config(tmp_path: Path) -> AppConfig:
@@ -56,16 +68,29 @@ def test_evaluate_writes_outputs(tmp_path: Path) -> None:
     metadata = json.loads((run_dir / "metadata.json").read_text(encoding="utf-8"))
 
     assert "accuracy" in metrics
-    assert metadata["target"] == "raitap.metrics.MulticlassClassificationMetrics"
+    expected_target = "raitap.metrics.classification_metrics.MulticlassClassificationMetrics"
+    assert metadata["target"] == expected_target
+    assert "use" not in metadata["metric_config"]
+    assert "_target_" not in metadata["metric_config"]
 
 
-def test_evaluate_bad_target_raises(tmp_path: Path) -> None:
+def test_evaluate_bad_use_raises(tmp_path: Path) -> None:
     cfg = _config(tmp_path)
     assert cfg.metrics is not None
-    cfg.metrics._target_ = "DoesNotExist"
+    cfg.metrics.use = "does_not_exist"
 
-    with pytest.raises(ValueError, match="Could not instantiate metric"):
+    with pytest.raises(ValueError, match="Unknown metrics key"):
         evaluate(cfg, torch.tensor([0]), torch.tensor([0]))
+
+
+def test_create_metric_rejects_config_target() -> None:
+    with pytest.raises(UnsafeConfigTargetError):
+        create_metric({"_target_": "os.system", "use": "multiclass_classification"})
+
+
+def test_create_metric_rejects_unknown_use() -> None:
+    with pytest.raises(ValueError, match="Unknown metrics key"):
+        create_metric({"use": "does_not_exist"})
 
 
 def test_evaluate_writes_under_metrics_subdirectory(tmp_path: Path) -> None:
@@ -167,7 +192,7 @@ def test_evaluate_metrics_dispatches_detection_metrics_on_forward_output(
 
     result = evaluate_metrics(cfg, forward, labels)
     assert result is not None
-    assert result.resolved_target == "raitap.metrics.DetectionMetrics"
+    assert result.resolved_target == "raitap.metrics.detection_metrics.DetectionMetrics"
 
 
 def test_evaluate_metrics_skips_detection_without_labels(tmp_path: Path) -> None:

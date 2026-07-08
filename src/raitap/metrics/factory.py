@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 from hydra.utils import instantiate
 
 from raitap import raitap_log
-from raitap.configs import cfg_to_dict, resolve_run_dir, resolve_target
+from raitap.configs import cfg_to_dict, resolve_run_dir
+from raitap.configs.registry_resolve import reject_config_target, resolve_target_fqn
 from raitap.reporting.sections import Reportable, ReportGroup, ReportSection
 from raitap.reporting.staging import _copy_asset
 from raitap.tracking.base_tracker import BaseTracker, Trackable
@@ -27,34 +28,38 @@ if TYPE_CHECKING:
 from .base_metric_computer import BaseMetricComputer, MetricResult, scalar_metrics_for_tracking
 from .visualizers import MetricsVisualizer
 
-_METRICS_PREFIX = "raitap.metrics."
-
 
 def metrics_run_enabled(config: AppConfig) -> bool:
-    """True when ``metrics`` is present and ``_target_`` is a non-empty string."""
+    """True when ``metrics`` is present and ``use`` is a non-empty string."""
     metrics_cfg = config.metrics
     if metrics_cfg is None:
         return False
-    target = getattr(metrics_cfg, "_target_", None)
-    if target is None:
+    metrics_dict = cfg_to_dict(metrics_cfg)
+    # Reject a `_target_`-carrying block loudly instead of silently reading it
+    # as "not configured" — this guard gates non-schema-checked config blocks.
+    reject_config_target(metrics_dict)
+    use = metrics_dict.get("use")
+    if use is None:
         return False
-    return bool(str(target).strip())
+    return bool(str(use).strip())
 
 
 def create_metric(metrics_config: Any) -> tuple[BaseMetricComputer, str]:
-    """Instantiate a metric computer from Hydra-style config (``_target_`` + kwargs)."""
+    """Instantiate a metric computer from config (``use: <registry key>`` + kwargs)."""
     metrics_cfg = cfg_to_dict(metrics_config)
-    target_path: str = metrics_cfg.get("_target_", "")
-    resolved_target = resolve_target(target_path, _METRICS_PREFIX)
+    reject_config_target(metrics_cfg)
+    use = str(metrics_cfg.get("use", ""))
+    resolved_target = resolve_target_fqn("metrics", use)
     metrics_cfg["_target_"] = resolved_target
+    metrics_cfg.pop("use", None)
 
     try:
         metric = instantiate(metrics_cfg)
     except Exception as e:
-        raitap_log.exception("Metric instantiation failed for target %r", target_path)
+        raitap_log.exception("Metric instantiation failed for target %r", resolved_target)
         raise ValueError(
-            f"Could not instantiate metric {target_path!r}.\n"
-            "Check that _target_ points to a valid MetricComputer implementation."
+            f"Could not instantiate metric {use!r}.\n"
+            "Check that `use` points to a registered metrics adapter."
         ) from e
 
     return metric, resolved_target
@@ -147,7 +152,9 @@ class Metrics:
             "experiment_name": config.experiment_name,
             "target": resolved_target,
             "metric_config": {
-                k: to_json_serialisable(v) for k, v in metrics_cfg.items() if k != "_target_"
+                k: to_json_serialisable(v)
+                for k, v in metrics_cfg.items()
+                if k not in ("_target_", "use")
             },
         }
         (run_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
