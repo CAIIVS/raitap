@@ -8,7 +8,7 @@ from hydra.utils import instantiate
 
 from raitap import raitap_log
 from raitap.configs import cfg_to_dict
-from raitap.configs.registry_resolve import reject_config_target, resolve_target_fqn
+from raitap.configs.registry_resolve import instantiate_partial_from_use, reject_config_target
 from raitap.tracking.base_tracker import BaseTracker, Trackable
 
 if TYPE_CHECKING:
@@ -61,19 +61,13 @@ def create_report(
 ) -> ReportGeneration:
     """Factory function to create and generate report."""
     reporting_config = cfg_to_dict(config.reporting)
-    reject_config_target(reporting_config)
-    use = str(reporting_config.get("use", ""))
-    resolved_target = resolve_target_fqn("reporting", use)
-
-    try:
-        reporter_class = instantiate({"_target_": resolved_target, "_partial_": True})
-        reporter = reporter_class(config)
-    except Exception as error:
-        raitap_log.exception("Reporter instantiation failed for target %r", use)
-        raise ValueError(
-            f"Could not instantiate reporter {use!r}.\n"
-            "Check that `use` points to a registered reporting adapter."
-        ) from error
+    reporter = instantiate_partial_from_use(
+        reporting_config,
+        group="reporting",
+        entity="reporter",
+        config=config,
+        instantiate_fn=instantiate,
+    )
 
     report_path = reporter.generate(report.sections, report_dir=report.report_dir)
     manifest_path = report_path.parent / "report_manifest.json"

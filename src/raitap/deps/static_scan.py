@@ -27,8 +27,12 @@ from __future__ import annotations
 import ast
 from functools import lru_cache
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from raitap.types import ResolvedHardware
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 # In-tree adapters decorate with the bare family decorator imported directly
 # from its ``registration`` module (e.g. ``@metrics_adapter(...)``). The public
@@ -99,16 +103,37 @@ def _decorator_name(deco: ast.expr) -> str | None:
     return None
 
 
-@lru_cache(maxsize=1)
-def scan_adapter_extras() -> dict[str, str]:
-    """Return ``{class_name: extra}`` harvested from raitap's source tree."""
-    import raitap
+def _string_kwargs(call: ast.Call) -> dict[str, str]:
+    """Harvest the string-constant keyword arguments of a decorator call, e.g.
+    ``extra="captum"`` -> ``{"extra": "captum"}``. Non-string / non-constant
+    keyword values (and ``**kwargs`` spreads) are skipped."""
+    return {
+        kw.arg: kw.value.value
+        for kw in call.keywords
+        if (
+            kw.arg is not None
+            and isinstance(kw.value, ast.Constant)
+            and isinstance(kw.value.value, str)
+        )
+    }
 
-    root = Path(raitap.__file__).resolve().parent
-    found: dict[str, str] = {}
+
+def _iter_decorated_classes(root: Path) -> Iterator[tuple[ast.ClassDef, ast.Call, str]]:
+    """Yield ``(class_node, decorator_call, decorator_name)`` for every
+    decorated class under ``root``, skipping ``tests`` directories and
+    unparseable files.
+
+    Only a class's first decorator is considered, and only if it resolves to a
+    ``Call`` with a bare name (see :func:`_decorator_name`) — every
+    family/backend decorator in-tree decorates its class exactly once, so this
+    matches actual usage while staying import-free (no module in ``root`` is
+    imported, so this works even when the wrapped third-party library isn't
+    installed).
+    """
     for path in root.rglob("*.py"):
-        # Tests can legitimately declare ``@<family>_adapter(..., extra="…")`` —
-        # they are not real adapters and should not pollute the map.
+        # Tests can legitimately declare adapter/backend-shaped decorators for
+        # fixture purposes — they are not real adapters and must not pollute
+        # any map built on top of this generator.
         if "tests" in path.parts:
             continue
         try:
@@ -120,29 +145,34 @@ def scan_adapter_extras() -> dict[str, str]:
                 continue
             for deco in node.decorator_list:
                 name = _decorator_name(deco)
-                if name not in _ADAPTER_DECORATORS and name not in _VISUALISER_DECORATORS:
+                if name is None:
                     continue
                 assert isinstance(deco, ast.Call)  # narrowed by _decorator_name
-                kwargs = {
-                    kw.arg: kw.value.value
-                    for kw in deco.keywords
-                    if (
-                        kw.arg is not None
-                        and isinstance(kw.value, ast.Constant)
-                        and isinstance(kw.value.value, str)
-                    )
-                }
-                # ``extra`` defaults to ``registry_name`` at runtime for every
-                # schema-backed adapter decorator; visualiser decorators don't
-                # get an auto-extra — they ship with their parent adapter's extra.
-                explicit_extra = kwargs.get("extra")
-                if explicit_extra:
-                    found[node.name] = explicit_extra
-                elif name in _ADAPTER_DECORATORS:
-                    registry_name = kwargs.get("registry_name")
-                    if registry_name:
-                        found[node.name] = registry_name
+                yield node, deco, name
                 break
+
+
+@lru_cache(maxsize=1)
+def scan_adapter_extras() -> dict[str, str]:
+    """Return ``{class_name: extra}`` harvested from raitap's source tree."""
+    import raitap
+
+    root = Path(raitap.__file__).resolve().parent
+    found: dict[str, str] = {}
+    for class_node, deco, name in _iter_decorated_classes(root):
+        if name not in _ADAPTER_DECORATORS and name not in _VISUALISER_DECORATORS:
+            continue
+        kwargs = _string_kwargs(deco)
+        # ``extra`` defaults to ``registry_name`` at runtime for every
+        # schema-backed adapter decorator; visualiser decorators don't
+        # get an auto-extra — they ship with their parent adapter's extra.
+        explicit_extra = kwargs.get("extra")
+        if explicit_extra:
+            found[class_node.name] = explicit_extra
+        elif name in _ADAPTER_DECORATORS:
+            registry_name = kwargs.get("registry_name")
+            if registry_name:
+                found[class_node.name] = registry_name
     return found
 
 
@@ -167,35 +197,14 @@ def scan_adapter_registry() -> dict[str, dict[str, str]]:
 
     root = Path(raitap.__file__).resolve().parent
     found: dict[str, dict[str, str]] = {}
-    for path in root.rglob("*.py"):
-        if "tests" in path.parts:
+    for _class_node, deco, name in _iter_decorated_classes(root):
+        group = _DECORATOR_GROUP.get(name)
+        if group is None:
             continue
-        try:
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-        except (SyntaxError, OSError, UnicodeDecodeError):
-            continue
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.ClassDef):
-                continue
-            for deco in node.decorator_list:
-                name = _decorator_name(deco)
-                group = _DECORATOR_GROUP.get(name or "")
-                if group is None:
-                    continue
-                assert isinstance(deco, ast.Call)  # narrowed by _decorator_name
-                kwargs = {
-                    kw.arg: kw.value.value
-                    for kw in deco.keywords
-                    if (
-                        kw.arg is not None
-                        and isinstance(kw.value, ast.Constant)
-                        and isinstance(kw.value.value, str)
-                    )
-                }
-                registry_name = kwargs.get("registry_name")
-                if registry_name:
-                    found.setdefault(group, {})[registry_name] = kwargs.get("extra", registry_name)
-                break
+        kwargs = _string_kwargs(deco)
+        registry_name = kwargs.get("registry_name")
+        if registry_name:
+            found.setdefault(group, {})[registry_name] = kwargs.get("extra", registry_name)
     return found
 
 
@@ -216,30 +225,18 @@ def scan_backend_extras() -> dict[str, tuple[str, frozenset[ResolvedHardware]]]:
 
     root = Path(raitap.__file__).resolve().parent
     found: dict[str, tuple[str, frozenset[ResolvedHardware]]] = {}
-    for path in root.rglob("*.py"):
-        if "tests" in path.parts:
+    for _class_node, deco, name in _iter_decorated_classes(root):
+        if name != "register":
             continue
-        try:
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-        except (SyntaxError, OSError, UnicodeDecodeError):
+        by_arg = {kw.arg: kw.value for kw in deco.keywords if kw.arg is not None}
+        # ``provides=`` disambiguates the backend @register from any other
+        # decorator that happens to be named ``register``.
+        if "provides" not in by_arg:
             continue
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.ClassDef):
-                continue
-            for deco in node.decorator_list:
-                if _decorator_name(deco) != "register":
-                    continue
-                assert isinstance(deco, ast.Call)  # narrowed by _decorator_name
-                by_arg = {kw.arg: kw.value for kw in deco.keywords if kw.arg is not None}
-                # ``provides=`` disambiguates the backend @register from any other
-                # decorator that happens to be named ``register``.
-                if "provides" not in by_arg:
-                    continue
-                extra_node = by_arg.get("extra")
-                if not (isinstance(extra_node, ast.Constant) and isinstance(extra_node.value, str)):
-                    continue  # file-backed backend without extra -> torch fallback
-                supported = _resolved_hardware_set_literal(by_arg.get("supported_hardware"))
-                for ext in _str_set_literal(by_arg.get("extensions")):
-                    found[ext.lower()] = (extra_node.value, supported)
-                break
+        extra_node = by_arg.get("extra")
+        if not (isinstance(extra_node, ast.Constant) and isinstance(extra_node.value, str)):
+            continue  # file-backed backend without extra -> torch fallback
+        supported = _resolved_hardware_set_literal(by_arg.get("supported_hardware"))
+        for ext in _str_set_literal(by_arg.get("extensions")):
+            found[ext.lower()] = (extra_node.value, supported)
     return found
