@@ -82,7 +82,13 @@ def test_runtime_target_fqn_subset_of_scan_adapter_registry() -> None:
     for group, names in _TARGET_FQN.items():
         if group not in relevant_groups:
             continue
-        for registry_name in names:
+        for registry_name, fqn in names.items():
+            # Sibling tests register stub adapters (e.g. ``_stub_metric``) into
+            # the runtime registry; the AST scanner intentionally skips ``tests``
+            # dirs, so those never appear in ``scanned``. Guard only in-tree
+            # adapters — the drift this test protects against.
+            if ".tests." in fqn:
+                continue
             assert registry_name in scanned.get(group, {}), (
                 f"AST scanner missed {group}/{registry_name!r}."
             )
