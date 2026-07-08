@@ -93,15 +93,18 @@ _COMPOSED_TARGET = "raitap.data.label_parsers.directory.DirectoryLabelParser"
 
 
 def test_integration_compose_data_labels_directory() -> None:
-    """Composing +data/labels=directory lands cfg.data.labels._target_ at the FQN."""
+    """Composing +data/labels=directory lands cfg.data.labels.use, resolvable to the FQN."""
     from hydra import compose, initialize
     from hydra.core.global_hydra import GlobalHydra
+
+    from raitap.configs.registry_resolve import resolve_target_fqn
 
     _register_labels_group()
     GlobalHydra.instance().clear()
     with initialize(version_base=None, config_path=None):
         cfg = compose(config_name="raitap_schema", overrides=["+data/labels=directory"])
-    assert cfg.data.labels._target_ == _COMPOSED_TARGET
+    assert cfg.data.labels.use == "directory"
+    assert resolve_target_fqn("data/labels", cfg.data.labels.use) == _COMPOSED_TARGET
 
 
 # --- Task 4: TabularLabelParser ---

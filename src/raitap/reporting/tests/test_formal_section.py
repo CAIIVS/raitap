@@ -76,7 +76,7 @@ def _formal_result(run_dir: Path) -> RobustnessResult:
 def test_build_report_renders_robustness_certification_section(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="marabou_test")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     run_dir = tmp_path / "robustness" / "marabou_linf"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -104,7 +104,7 @@ def test_build_report_includes_per_class_bound_rows_for_formal_results(
 ) -> None:
     config = AppConfig(experiment_name="marabou_test")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     run_dir = tmp_path / "robustness" / "marabou_linf"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -146,7 +146,7 @@ def test_build_report_excludes_rows_with_only_lower_bound(tmp_path: Path) -> Non
     """A row with all-NaN upper must NOT count toward output_bounds_samples."""
     config = AppConfig(experiment_name="marabou_test")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     run_dir = tmp_path / "robustness" / "marabou_linf"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -187,7 +187,7 @@ def test_build_report_skips_bound_rows_for_empirical_attack_results(
 ) -> None:
     config = AppConfig(experiment_name="ea_test")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
     run_dir = tmp_path / "robustness" / "ea"
     run_dir.mkdir(parents=True, exist_ok=True)
 

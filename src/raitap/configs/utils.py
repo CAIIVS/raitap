@@ -48,12 +48,6 @@ def cfg_to_dict(cfg: Any) -> dict:
     return dict(cfg)
 
 
-def resolve_target(target: str, prefix: str) -> str:
-    if not target:
-        return target
-    return target if "." in target else f"{prefix}{target}"
-
-
 def set_output_root(config: Any, output_root: str | Path) -> None:
     if isinstance(config, DictConfig):
         # OmegaConf structured configs reject keys outside the schema; flip

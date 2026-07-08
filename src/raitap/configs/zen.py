@@ -7,7 +7,7 @@ enough — those packages re-export their leaf adapters, firing the decorators.
 
 A handful of bundled Hydra group entries need shapes the decorators can't
 produce (``# @package _global_`` callback injection for reporting multirun,
-``_target_: null`` for the ``disabled`` reporting variant). Those live
+``use: null`` for the ``disabled`` reporting variant). Those live
 below as direct :class:`hydra.core.config_store.ConfigStore` writes.
 """
 
@@ -19,8 +19,6 @@ from hydra.core.config_store import ConfigStore
 
 from raitap._adapters import store
 
-_HTML_REPORTER_TARGET = "HTMLReporter"
-_PDF_REPORTER_TARGET = "PDFReporter"
 _REPORTING_SWEEP_CALLBACK_TARGET = "raitap.reporting.hydra_callback.ReportingSweepCallback"
 
 
@@ -72,13 +70,13 @@ def register_zen_groups() -> None:
     # Reporting variants that the mixin can't model:
     # - ``html`` / ``pdf`` need ``# @package _global_`` to inject the multirun
     #   callback alongside the ``reporting`` node.
-    # - ``disabled`` carries ``_target_: null`` + ``multirun_report: false``.
+    # - ``disabled`` carries ``use: null`` + ``multirun_report: false``.
     cs.store(
         group="reporting",
         name="html",
         package="_global_",
         node={
-            "reporting": {"_target_": _HTML_REPORTER_TARGET},
+            "reporting": {"use": "html"},
             "hydra": _callback_block(),
         },
     )
@@ -87,7 +85,7 @@ def register_zen_groups() -> None:
         name="pdf",
         package="_global_",
         node={
-            "reporting": {"_target_": _PDF_REPORTER_TARGET},
+            "reporting": {"use": "pdf"},
             "hydra": _callback_block(),
         },
     )
@@ -97,7 +95,7 @@ def register_zen_groups() -> None:
     reporting_disabled_node = make_dataclass(
         "_ReportingDisabledNode",
         [
-            ("_target_", str | None, field(default=None)),
+            ("use", str | None, field(default=None)),
             ("multirun_report", bool, field(default=False)),
         ],
         bases=(ReportingConfig,),

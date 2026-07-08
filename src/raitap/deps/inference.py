@@ -2,15 +2,17 @@
 
 The walker operates on a plain ``dict``/``Mapping`` — callers compose the
 Hydra config (or load YAML) and pass it in. Adapter blocks are recognised by
-the presence of ``_target_``; bare class names and fully-qualified paths are
-both accepted (the class name is taken from the last dotted segment).
+the presence of a ``use: <registry_name>`` key, resolved to a class FQN via
+:data:`raitap._adapters._TARGET_FQN` (bare class names and fully-qualified
+paths are both accepted by the FQN->extra lookup; the class name is taken
+from the last dotted segment).
 
 Outputs:
     - ``set[str]`` of extras (deduplicated; the CLI sorts at print/render time)
     - mapping from each extra name to a short human-readable origin phrase
       (used by :mod:`raitap.deps.conflicts` to build error messages)
 
-Unknown adapter ``_target_`` values raise :class:`UnknownAdapterTargetError`
+Unknown adapter ``use`` values raise :class:`UnknownAdapterTargetError`
 rather than emitting a possibly wrong command.
 """
 
@@ -26,7 +28,7 @@ if TYPE_CHECKING:
 
 
 class UnknownAdapterTargetError(RuntimeError):
-    """Raised when a ``_target_`` class is not in the adapter→extra map."""
+    """Raised when a ``use`` registry key is not in the adapter→extra map."""
 
 
 # ``ADAPTER_EXTRAS`` is populated by ``AdapterMixin.__init_subclass__`` once an
@@ -39,7 +41,11 @@ class UnknownAdapterTargetError(RuntimeError):
 # Adding a new adapter therefore remains a single-file change — the AST scan
 # picks the new ``extra=`` kwarg up automatically.
 from raitap._adapters import ADAPTER_EXTRAS  # noqa: E402
-from raitap.deps.static_scan import scan_adapter_extras, scan_backend_extras  # noqa: E402
+from raitap.deps.static_scan import (  # noqa: E402
+    scan_adapter_extras,
+    scan_adapter_registry,
+    scan_backend_extras,
+)
 
 
 def _class_name(target: str) -> str:
@@ -125,6 +131,40 @@ def _extra_for_target(target: str) -> str:
     )
 
 
+def _extra_for_use(group: str, use: str) -> str:
+    """Resolve a ``use: <registry_name>`` config key to its uv extra.
+
+    Looks the key up in :data:`raitap._adapters._TARGET_FQN` (the sole trusted
+    seam a ``use`` key is resolved against at runtime — see
+    :mod:`raitap.configs.registry_resolve`) and reuses :func:`_extra_for_target`
+    on the resulting class FQN. ``_TARGET_FQN`` is only populated once the
+    matching adapter module has been imported though, so falls back to
+    :func:`raitap.deps.static_scan.scan_adapter_registry` (the import-free
+    ``(group, registry_name) -> extra`` scan) exactly like
+    :func:`_extra_for_target` falls back to ``scan_adapter_extras`` — this is
+    what keeps the partial-extras-venv bootstrap working before the very
+    libraries it is about to install are importable.
+    """
+    from raitap._adapters import _TARGET_FQN
+
+    fqn = _TARGET_FQN.get(group, {}).get(use)
+    if fqn is not None:
+        return _extra_for_target(fqn)
+
+    scanned_group = scan_adapter_registry().get(group, {})
+    extra = scanned_group.get(use)
+    if extra is not None:
+        return extra
+
+    known = {**scanned_group, **_TARGET_FQN.get(group, {})}
+    match = difflib.get_close_matches(use, known, n=1)
+    suggestion = f" Did you mean '{match[0]}'?" if match else ""
+    known_list = ", ".join(sorted(known)) if known else "(none)"
+    raise UnknownAdapterTargetError(
+        f"Unknown {group} adapter key '{use}'.{suggestion}\nKnown {group} keys: {known_list}."
+    )
+
+
 def _add(extras: dict[str, str], name: str, origin: str) -> None:
     if name not in extras:
         extras[name] = origin
@@ -142,27 +182,29 @@ def _walk_section(
         for adapter_name, adapter_cfg in section.items():
             if not isinstance(adapter_cfg, Mapping):
                 continue
-            target = adapter_cfg.get("_target_")
-            if isinstance(target, str):
+            use = adapter_cfg.get("use")
+            if isinstance(use, str):
                 _add(
                     extras,
-                    _extra_for_target(target),
-                    f"{section_key}.{adapter_name}._target_={target}",
+                    _extra_for_use(section_key, use),
+                    f"{section_key}.{adapter_name}.use={use}",
                 )
             evaluation = adapter_cfg.get("evaluation")
             if isinstance(evaluation, Mapping):
-                eval_target = evaluation.get("_target_")
-                if isinstance(eval_target, str):
+                eval_use = evaluation.get("use")
+                if isinstance(eval_use, str):
+                    # Evaluators register family=None, alongside visualisers,
+                    # under the "_unscoped" group (no dedicated Hydra group).
                     _add(
                         extras,
-                        _extra_for_target(eval_target),
-                        f"{section_key}.{adapter_name}.evaluation._target_={eval_target}",
+                        _extra_for_use("_unscoped", eval_use),
+                        f"{section_key}.{adapter_name}.evaluation.use={eval_use}",
                     )
         return
     if isinstance(section, Mapping):
-        target = section.get("_target_")
-        if isinstance(target, str):
-            _add(extras, _extra_for_target(target), f"{section_key}._target_={target}")
+        use = section.get("use")
+        if isinstance(use, str):
+            _add(extras, _extra_for_use(section_key, use), f"{section_key}.use={use}")
 
 
 def _walk_launcher(extras: dict[str, str], cfg: Mapping[str, Any]) -> None:

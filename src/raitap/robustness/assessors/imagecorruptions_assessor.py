@@ -47,7 +47,7 @@ _CORRUPTIONS: dict[str, frozenset[str]] = {
 
 @robustness_adapter(
     registry_name="imagecorruptions",
-    library="imagecorruptions",
+    import_name="imagecorruptions",
     algorithm_registry={
         name: AssessorAlgorithmSpec(
             AssessmentKind.STATISTICAL_SAMPLING,

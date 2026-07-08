@@ -56,7 +56,7 @@ raise ValueError(
 )
 ```
 
-For wrapped third-party calls (captum / shap / foolbox / torchattacks), use the adapter's `self._rethrow()` helper. It pulls `library`, the family group, and the `error_patterns` map straight from the adapter's `@adapters.<family>(...)` decoration — no kwargs needed at the call site:
+For wrapped third-party calls (captum / shap / foolbox / torchattacks), use the adapter's `self._rethrow()` helper. It pulls `import_name`, the family group, and the `error_patterns` map straight from the adapter's `@adapters.<family>(...)` decoration — no kwargs needed at the call site:
 
 ```python
 # src/raitap/transparency/explainers/shap_explainer.py
@@ -64,7 +64,7 @@ from raitap import adapters
 
 @adapters.transparency(
     registry_name="shap",
-    library="shap",
+    import_name="shap",
     error_patterns={
         r"BackwardHookFunctionBackward is a view": (
             "DeepExplainer can fail on PyTorch models that use SiLU "
@@ -108,7 +108,7 @@ from raitap import adapters
 
 @adapters.transparency(
     registry_name="captum",
-    library="captum",
+    import_name="captum",
     suppress_warnings=[
         # Captum emits this on every run when inputs don't already require
         # gradients. Auto-fixes the issue → pure noise. Scope module=captum
@@ -125,7 +125,7 @@ Always scope `module=` to the wrapped library so unrelated UserWarnings with the
 ## Where the infrastructure lives
 
 - `src/raitap/utils/log.py` — `_RaitapLog` class + `raitap_log` singleton. Owns the thread-local diagnostic queue bridging `warnings.formatwarning` to the rich handler.
-- `src/raitap/utils/diagnostics.py` — `Module` enum + frame-walking classifier + third-party library detection. The library set is auto-populated by `_register_core` from each `@register_*_adapter(..., library="...")` decoration and stored at `raitap._adapters.THIRD_PARTY_LIBS` (grouped by adapter family).
+- `src/raitap/utils/diagnostics.py` — `Module` enum + frame-walking classifier + third-party library detection. The library set is auto-populated by `_register_core` from each `@register_*_adapter(..., import_name="...")` decoration and stored at `raitap._adapters.THIRD_PARTY_LIBS` (grouped by adapter family).
 - `src/raitap/utils/errors.py` — `RaitapError` / `AdapterError`, traceback-walking diagnostic resolver, `rethrow` context manager.
 - `src/raitap/utils/colour.py` — two-shade palette + Rich `Theme`. Edit here when adding/rebalancing colours.
 - `src/raitap/utils/console.py` — `RichHandler` subclass + `print_failure_panel`. Calls `logging.captureWarnings(True)` so external sinks see warnings.

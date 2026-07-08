@@ -76,11 +76,7 @@ def tiny_model() -> torch.nn.Module:
 
 
 def _make_robustness_config(tmp_path: Path, family: str, case: AssessorMatrixCase) -> AppConfig:
-    target = (
-        "raitap.robustness.TorchattacksAssessor"
-        if family == "torchattacks"
-        else "raitap.robustness.FoolboxAssessor"
-    )
+    # ``family`` is already the registry ``use:`` key ("torchattacks" / "foolbox").
     return cast(
         "AppConfig",
         SimpleNamespace(
@@ -90,7 +86,7 @@ def _make_robustness_config(tmp_path: Path, family: str, case: AssessorMatrixCas
             robustness={
                 "matrix": OmegaConf.create(
                     {
-                        "_target_": target,
+                        "use": family,
                         "algorithm": case.algorithm,
                         "constructor": dict(case.constructor_kwargs),
                         "call": dict(case.call_kwargs),

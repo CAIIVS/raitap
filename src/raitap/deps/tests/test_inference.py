@@ -110,7 +110,7 @@ def test_captum_explainer_block_adds_extra() -> None:
     cfg = {
         "model": {"source": "x.pt"},
         "transparency": {
-            "ig": {"_target_": "CaptumExplainer", "algorithm": "IntegratedGradients"},
+            "ig": {"use": "captum", "algorithm": "IntegratedGradients"},
         },
     }
     extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
@@ -120,9 +120,7 @@ def test_captum_explainer_block_adds_extra() -> None:
 def test_shap_explainer_block_adds_extra() -> None:
     cfg = {
         "model": {"source": "x.pt"},
-        "transparency": {
-            "shap_block": {"_target_": "ShapExplainer", "algorithm": "GradientExplainer"}
-        },
+        "transparency": {"shap_block": {"use": "shap", "algorithm": "GradientExplainer"}},
     }
     extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
     assert "shap" in extras
@@ -132,9 +130,9 @@ def test_robustness_extras() -> None:
     cfg = {
         "model": {"source": "x.pt"},
         "robustness": {
-            "ta": {"_target_": "TorchattacksAssessor", "algorithm": "PGD"},
-            "fb": {"_target_": "FoolboxAssessor", "algorithm": "LinfPGD"},
-            "mb": {"_target_": "MarabouAssessor", "algorithm": "linf-box"},
+            "ta": {"use": "torchattacks", "algorithm": "PGD"},
+            "fb": {"use": "foolbox", "algorithm": "LinfPGD"},
+            "mb": {"use": "marabou", "algorithm": "linf-box"},
         },
     }
     extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
@@ -144,7 +142,7 @@ def test_robustness_extras() -> None:
 def test_reporting_html_uses_html_extra() -> None:
     cfg = {
         "model": {"source": "x.pt"},
-        "reporting": {"_target_": "HTMLReporter", "filename": "r"},
+        "reporting": {"use": "html", "filename": "r"},
     }
     extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
     assert "html" in extras
@@ -154,7 +152,7 @@ def test_reporting_html_uses_html_extra() -> None:
 def test_reporting_pdf_uses_pdf_extra() -> None:
     cfg = {
         "model": {"source": "x.pt"},
-        "reporting": {"_target_": "PDFReporter", "filename": "r"},
+        "reporting": {"use": "pdf", "filename": "r"},
     }
     extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
     assert "pdf" in extras
@@ -162,7 +160,7 @@ def test_reporting_pdf_uses_pdf_extra() -> None:
 
 
 def test_reporting_disabled() -> None:
-    cfg = {"model": {"source": "x.pt"}, "reporting": {"_target_": None}}
+    cfg = {"model": {"source": "x.pt"}, "reporting": {"use": None}}
     extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
     assert "pdf" not in extras and "html" not in extras
 
@@ -170,7 +168,7 @@ def test_reporting_disabled() -> None:
 def test_tracking_mlflow() -> None:
     cfg = {
         "model": {"source": "x.pt"},
-        "tracking": {"_target_": "MLFlowTracker"},
+        "tracking": {"use": "mlflow"},
     }
     extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
     assert "mlflow" in extras
@@ -179,44 +177,44 @@ def test_tracking_mlflow() -> None:
 def test_metrics_block_adds_extra() -> None:
     cfg = {
         "model": {"source": "x.pt"},
-        "metrics": {"_target_": "MulticlassClassificationMetrics", "num_classes": 3},
+        "metrics": {"use": "multiclass_classification", "num_classes": 3},
     }
     extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
     assert "metrics" in extras
 
 
-def test_unknown_target_raises() -> None:
+def test_unknown_use_raises() -> None:
     cfg = {
         "model": {"source": "x.pt"},
-        "transparency": {"bad": {"_target_": "TotallyMadeUpAdapter"}},
+        "transparency": {"bad": {"use": "totally_made_up"}},
     }
     with pytest.raises(UnknownAdapterTargetError):
         infer_extras(cfg, hardware=ResolvedHardware.cpu)
 
 
-def test_unknown_target_message_lists_known_adapters() -> None:
+def test_unknown_use_message_lists_known_keys() -> None:
     cfg = {
         "model": {"source": "x.pt"},
-        "transparency": {"bad": {"_target_": "djd"}},
+        "transparency": {"bad": {"use": "djd"}},
     }
     with pytest.raises(UnknownAdapterTargetError) as excinfo:
         infer_extras(cfg, hardware=ResolvedHardware.cpu)
     msg = str(excinfo.value)
-    # End-user-facing: names the bad target and enumerates valid ones.
+    # End-user-facing: names the bad key and enumerates valid ones.
     assert "djd" in msg
-    assert "Known adapters:" in msg
-    assert "CaptumExplainer" in msg
+    assert "transparency" in msg
+    assert "captum" in msg
 
 
-def test_unknown_target_message_suggests_close_match() -> None:
+def test_unknown_use_message_suggests_close_match() -> None:
     cfg = {
         "model": {"source": "x.pt"},
-        # One-char typo of a real adapter -> difflib should suggest it.
-        "transparency": {"bad": {"_target_": "CaptumExplaner"}},
+        # One-char typo of a real registry key -> difflib should suggest it.
+        "transparency": {"bad": {"use": "captm"}},
     }
     with pytest.raises(UnknownAdapterTargetError) as excinfo:
         infer_extras(cfg, hardware=ResolvedHardware.cpu)
-    assert "Did you mean 'CaptumExplainer'?" in str(excinfo.value)
+    assert "Did you mean 'captum'?" in str(excinfo.value)
 
 
 def test_visualisers_do_not_contribute() -> None:
@@ -224,8 +222,8 @@ def test_visualisers_do_not_contribute() -> None:
         "model": {"source": "x.pt"},
         "transparency": {
             "ig": {
-                "_target_": "CaptumExplainer",
-                "visualisers": [{"_target_": "CaptumImageVisualiser"}],
+                "use": "captum",
+                "visualisers": [{"use": "captum_image"}],
             }
         },
     }
@@ -246,15 +244,17 @@ def test_launcher_extra() -> None:
     assert "launcher" in extras
 
 
-def test_fully_qualified_target_still_resolves() -> None:
-    cfg = {
-        "model": {"source": "x.pt"},
-        "transparency": {
-            "ig": {"_target_": "raitap.transparency.explainers.captum_explainer.CaptumExplainer"}
-        },
-    }
-    extras, _ = infer_extras(cfg, hardware=ResolvedHardware.cpu)
-    assert "captum" in extras
+def test_extra_for_target_accepts_fully_qualified_fqn() -> None:
+    # ``_extra_for_target`` still takes a bare class name or a fully-qualified
+    # path (it strips to the last dotted segment) — the walker feeds it the
+    # FQN resolved from the ``use`` registry key, not a raw config string, but
+    # the helper itself stays permissive.
+    from raitap.deps.inference import _extra_for_target
+
+    assert (
+        _extra_for_target("raitap.transparency.explainers.captum_explainer.CaptumExplainer")
+        == "captum"
+    )
 
 
 def test_mapping_table_lists_all_known_targets() -> None:

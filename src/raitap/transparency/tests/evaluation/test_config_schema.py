@@ -11,6 +11,6 @@ def test_transparency_config_has_optional_evaluation() -> None:
 
 
 def test_evaluation_config_shape() -> None:
-    cfg = EvaluationConfig(_target_="raitap.transparency.QuantusEvaluator", metrics=["sparseness"])
+    cfg = EvaluationConfig(use="quantus", metrics=["sparseness"])
     assert cfg.metrics == ["sparseness"]
     assert cfg.constructor == {}

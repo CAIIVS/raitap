@@ -94,16 +94,17 @@ def main() -> int:
         ),
         transparency={
             "smoke_captum": TransparencyConfig(
-                _target_="CaptumExplainer",
+                use="captum",
                 algorithm="IntegratedGradients",
                 call={"target": "auto_pred"},
-                visualisers=[{"_target_": "CaptumImageVisualiser"}],
+                visualisers=[{"use": "captum_image"}],
             )
         },
         metrics=MulticlassClassificationMetricsConfig(
             num_classes=1000,
         ),
         tracking=TrackingConfig(
+            use="mlflow",
             output_forwarding_url=tracking_uri,
             log_model=args.log_model,
         ),

@@ -9,12 +9,12 @@ Explainer classes expose `explainer.explain(model, inputs, **kwargs)`, which
 returns an `ExplanationResult`. Each explanation can then render one
 or more visualisations via `explanation.visualise(**kwargs)`.
 
-Explainer classes (used as ``_target_`` values)
------------------------------------------------
+Explainer classes (selected via ``use:`` values, e.g. ``use: captum``)
+-----------------------------------------------------------------------
 CaptumExplainer, ShapExplainer
 
-Visualiser classes (used as ``_target_`` values in visualisers list)
---------------------------------------------------------------------
+Visualiser classes (selected via ``use:`` values in visualisers list)
+-----------------------------------------------------------------------
 CaptumImageVisualiser, CaptumTimeSeriesVisualiser, CaptumTextVisualiser
 ShapBarVisualiser, ShapBeeswarmVisualiser, ShapWaterfallVisualiser,
 ShapForceVisualiser, ShapImageVisualiser
@@ -91,7 +91,7 @@ try:
     # Evaluation classes — Quantus-backed explanation-quality metrics
     from .evaluation import QuantusEvaluator, ScoreBarVisualiser
 
-    # Explainer classes — public _target_ surface
+    # Explainer classes — public `use:` surface
     from .explainers import (
         AttributionOnlyExplainer,
         BaseExplainer,
@@ -108,7 +108,7 @@ try:
     # Result objects
     from .results import ConfiguredVisualiser, ExplanationResult, VisualisationResult
 
-    # Visualiser classes — public _target_ surface
+    # Visualiser classes — public `use:` surface
     from .visualisers import (
         CaptumImageVisualiser,
         CaptumTextVisualiser,

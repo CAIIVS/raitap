@@ -19,7 +19,7 @@ def test_reporter_registers_under_reporting_group() -> None:
     @adapters.reporter(
         registry_name="_stub_reporter",
         extra="_stub_extra",
-        library="_stub_lib",
+        import_name="_stub_lib",
     )
     class _StubReporter(BaseReporter):
         def __init__(self, config: object = None) -> None:

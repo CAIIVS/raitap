@@ -88,12 +88,10 @@ def _captum_config() -> AppConfig:
                 transparency={
                     "test_explainer": OmegaConf.create(
                         {
-                            "_target_": "raitap.transparency.CaptumExplainer",
+                            "use": "captum",
                             "algorithm": "IntegratedGradients",
                             "call": {"target": 0},
-                            "visualisers": [
-                                {"_target_": "raitap.transparency.CaptumImageVisualiser"}
-                            ],
+                            "visualisers": [{"use": "captum_image"}],
                         }
                     )
                 },

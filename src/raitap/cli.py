@@ -7,8 +7,8 @@ before the bootstrap can sync it — defeating the auto-install flow.
 
 Order of operations:
 
-1. Handle non-Hydra subcommands (``raitap tracking stop``) — these do not
-   need the heavy deps.
+1. Handle non-Hydra subcommands (``raitap tracking stop``, ``raitap
+   config-schema``) — these do not need the heavy deps.
 2. Resolve ``--demo`` to the bundled :mod:`raitap.configs.demo` config.
 3. :func:`raitap.deps.bootstrap.maybe_bootstrap` — re-exec via ``uv run``
    when needed, exit otherwise.
@@ -85,6 +85,47 @@ def _print_version() -> None:
         print("raitap (version unknown — not installed as a distribution)")
 
 
+def _run_config_schema_command(argv: list[str]) -> None:
+    """Handle ``raitap config-schema [-o/--output PATH]``.
+
+    Dumps :func:`raitap._config_schema.build_config_schema` (a JSON Schema
+    whose per-group ``use`` enums mirror the live adapter registry) after
+    :func:`raitap._adapters.discover_third_party_adapters` so installed
+    plugins are included. Deliberately cheap — no torch import anywhere on
+    this path — so it runs before the deps bootstrap and needs no extras.
+    """
+    import argparse
+    import json
+    from pathlib import Path
+
+    parser = argparse.ArgumentParser(
+        prog="raitap config-schema",
+        description="Dump the JSON Schema generated from the live adapter registry.",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        default=None,
+        help="Write the schema to this file instead of stdout.",
+    )
+    args = parser.parse_args(argv)
+
+    from raitap._adapters import discover_third_party_adapters
+    from raitap._config_schema import build_config_schema
+
+    discover_third_party_adapters()
+    schema = build_config_schema()
+    text = json.dumps(schema, indent=2, sort_keys=True) + "\n"
+
+    output: Path | None = args.output
+    if output is None:
+        print(text, end="")
+    else:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(text)
+
+
 def main() -> None:
     if sys.argv[1:2] == ["tracking", "stop"]:
         import logging
@@ -94,6 +135,10 @@ def main() -> None:
 
         setup_logging(level=logging.INFO)
         run_stop_command()
+        return
+
+    if sys.argv[1:2] == ["config-schema"]:
+        _run_config_schema_command(sys.argv[2:])
         return
 
     if sys.argv[1:2] in (["--version"], ["-V"]):

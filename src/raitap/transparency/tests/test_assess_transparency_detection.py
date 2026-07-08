@@ -92,11 +92,11 @@ def test_assess_transparency_routes_detection_kind_to_explain_detection(
     set_output_root(config, tmp_path)
     config.transparency = {
         "ig_det": TransparencyConfig(
-            _target_="CaptumExplainer",
+            use="captum",
             algorithm="IntegratedGradients",
             call={"target": 0},
             raitap={"detection": {"score_threshold": 0.5, "max_boxes": 5}},
-            visualisers=[{"_target_": "DetectionImageVisualiser"}],
+            visualisers=[{"use": "detection_image"}],
         )
     }
 
@@ -208,11 +208,11 @@ def test_detection_transparency_renders_class_name_end_to_end(tmp_path: Path) ->
     )
     config.transparency = {
         "ig_det": TransparencyConfig(
-            _target_="CaptumExplainer",
+            use="captum",
             algorithm="IntegratedGradients",
             call={"target": 0},
             raitap={"detection": {"score_threshold": 0.5, "max_boxes": 5}},
-            visualisers=[{"_target_": "DetectionImageVisualiser"}],
+            visualisers=[{"use": "detection_image"}],
         )
     }
 
@@ -350,11 +350,11 @@ def test_detection_transparency_matches_ground_truth_end_to_end(tmp_path: Path) 
     config.model.class_names = ["__background__"] + [f"c{i}" for i in range(1, 91)]
     config.transparency = {
         "ig_det": TransparencyConfig(
-            _target_="CaptumExplainer",
+            use="captum",
             algorithm="IntegratedGradients",
             call={"target": 0},
             raitap={"detection": {"score_threshold": 0.5, "max_boxes": 5, "iou_threshold": 0.5}},
-            visualisers=[{"_target_": "DetectionImageVisualiser"}],
+            visualisers=[{"use": "detection_image"}],
         )
     }
 
@@ -565,11 +565,11 @@ def test_assess_transparency_detection_handles_model_block_without_class_names(
     config.model = ModelConfig(source="fasterrcnn_resnet50_fpn_v2")
     config.transparency = {
         "ig_det": TransparencyConfig(
-            _target_="CaptumExplainer",
+            use="captum",
             algorithm="IntegratedGradients",
             call={"target": 0},
             raitap={"detection": {"score_threshold": 0.5, "max_boxes": 5}},
-            visualisers=[{"_target_": "DetectionImageVisualiser"}],
+            visualisers=[{"use": "detection_image"}],
         )
     }
 

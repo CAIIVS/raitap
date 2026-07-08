@@ -9,11 +9,11 @@ myst:
 ```{config-page}
 :intro: This page describes how to configure the reporting module that generates reports from pipeline outputs.
 
-:option: _target_
-:allowed: "HTMLReporter", "PDFReporter", null
+:option: use
+:allowed: "html", "pdf", null
 :default: null
-:description: Hydra target for the reporting backend implementation. Set to null to disable reporting.
-  The default `reporting=html` config selects `HTMLReporter`;
+:description: Selects the reporting backend implementation. Set to null to disable reporting.
+  The default `reporting=html` config selects `use: html` (`HTMLReporter`);
   use `reporting=pdf` for the PDF renderer.
 
 :option: filename
@@ -98,7 +98,7 @@ myst:
 
 :yaml:
 reporting:
-  _target_: "HTMLReporter"
+  use: html
   filename: "experiment_report"
   sample_selection:
     - "ISIC_0024306.jpg"

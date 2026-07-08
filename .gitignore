@@ -100,3 +100,6 @@ contributor-configs/*/images/
 /metrics/
 /reports/
 /transparency/
+
+# Generated at docs build by docs/_ext/raitap_adapters.py (issue #301)
+docs/modules/_generated_adapters.md

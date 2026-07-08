@@ -128,7 +128,7 @@ def test_detection_pipeline_e2e_via_fasterrcnn_mobilenet(tmp_path: Path) -> None
     )
 
     transparency_cfg = TransparencyConfig(
-        _target_="CaptumExplainer",
+        use="captum",
         algorithm="IntegratedGradients",
         # ``n_steps=4`` + ``internal_batch_size=1`` keep IG memory bounded so
         # the test fits comfortably on the GitHub-hosted runner (~7 GB RAM).
@@ -142,7 +142,7 @@ def test_detection_pipeline_e2e_via_fasterrcnn_mobilenet(tmp_path: Path) -> None
             },
             "batch_size": 1,
         },
-        visualisers=[{"_target_": "DetectionImageVisualiser"}],
+        visualisers=[{"use": "detection_image"}],
     )
 
     config = AppConfig(
@@ -163,7 +163,7 @@ def test_detection_pipeline_e2e_via_fasterrcnn_mobilenet(tmp_path: Path) -> None
 
     assert outputs.metrics is not None
     metrics_evaluation = cast("MetricsEvaluation", outputs.phase_results["metrics"])
-    assert metrics_evaluation.resolved_target == "raitap.metrics.DetectionMetrics"
+    assert metrics_evaluation.resolved_target == "raitap.metrics.detection_metrics.DetectionMetrics"
 
     # At least one detection should pass score_threshold=0.5 in dashcam frames
     # with a COCO-pretrained Faster R-CNN.

@@ -18,12 +18,12 @@ def test_summary_params_includes_explainers_and_per_explainer_fields() -> None:
         "data": {"name": "isic2018", "source": "/data"},
         "transparency": {
             "captum_ig": {
-                "_target_": "CaptumExplainer",
+                "use": "captum",
                 "algorithm": "IntegratedGradients",
                 "visualisers": [],
             },
             "captum_saliency": {
-                "_target_": "CaptumExplainer",
+                "use": "captum",
                 "algorithm": "Saliency",
                 "visualisers": [],
             },
@@ -37,7 +37,7 @@ def test_summary_params_includes_explainers_and_per_explainer_fields() -> None:
     assert params["data.source"] == "/data"
     assert params["transparency.explainers"] == "captum_ig,captum_saliency"
     assert params["transparency.captum_ig.algorithm"] == "IntegratedGradients"
-    assert params["transparency.captum_ig._target_"] == "CaptumExplainer"
+    assert params["transparency.captum_ig.use"] == "captum"
     assert params["transparency.captum_saliency.algorithm"] == "Saliency"
 
 
@@ -58,7 +58,7 @@ def test_summary_params_ignores_non_dict_explainer_entries() -> None:
         "experiment_name": "x",
         "model": {},
         "data": {},
-        "transparency": {"bad": "not-a-dict", "ok": {"algorithm": "IG", "_target_": "T"}},
+        "transparency": {"bad": "not-a-dict", "ok": {"algorithm": "IG", "use": "captum"}},
     }
     params = _mlflow_summary_params(cfg)
 

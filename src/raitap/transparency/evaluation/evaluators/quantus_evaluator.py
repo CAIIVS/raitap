@@ -138,7 +138,7 @@ def _coerce_scores(raw: Any) -> list[float]:
 
 @transparency_evaluator(
     registry_name="quantus",
-    library="quantus",
+    import_name="quantus",
     extra="quantus",
     algorithm_registry=_REGISTRY,
 )

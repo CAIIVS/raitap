@@ -104,7 +104,7 @@ def test_torchattacks_pgdl2_handles_non_contiguous_input(tmp_path: Path) -> None
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.robustness.TorchattacksAssessor",
+                "use": "torchattacks",
                 "algorithm": "PGDL2",
                 "constructor": {"eps": 0.1, "alpha": 0.02, "steps": 3},
                 "visualisers": [],
@@ -136,11 +136,11 @@ def test_image_pair_visualiser_diff_uses_diverging_cmap(tmp_path: Path) -> None:
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.robustness.TorchattacksAssessor",
+                "use": "torchattacks",
                 "algorithm": "FGSM",
                 "constructor": {"eps": 0.05},
                 "visualisers": [
-                    {"_target_": "raitap.robustness.ImagePairVisualiser"},
+                    {"use": "image_pair"},
                 ],
             }
         ),
@@ -186,7 +186,7 @@ def test_assess_rejects_empty_batch(tmp_path: Path) -> None:
         tmp_path,
         OmegaConf.create(
             {
-                "_target_": "raitap.robustness.TorchattacksAssessor",
+                "use": "torchattacks",
                 "algorithm": "FGSM",
                 "constructor": {"eps": 0.05},
                 "visualisers": [],
@@ -221,7 +221,7 @@ def test_pipeline_allows_robustness_only_runs(tmp_path: Path) -> None:
         robustness={
             "pgd": OmegaConf.create(
                 {
-                    "_target_": "raitap.robustness.TorchattacksAssessor",
+                    "use": "torchattacks",
                     "algorithm": "FGSM",
                     "constructor": {"eps": 0.05},
                     "visualisers": [],

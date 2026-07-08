@@ -178,7 +178,7 @@ def _shap_modern_invoker(ctx: AttributionInvokeCtx) -> tuple[torch.Tensor, torch
 
 @transparency_adapter(
     registry_name="shap",
-    library="shap",
+    import_name="shap",
     error_patterns={
         (
             r"Output \d+ of BackwardHookFunctionBackward is a view "

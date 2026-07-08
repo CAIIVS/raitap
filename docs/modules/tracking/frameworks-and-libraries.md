@@ -34,7 +34,7 @@ uv run raitap tracking stop
 ```{config-tabs}
 :yaml:
 tracking:
-  _target_: MLFlowTracker
+  use: mlflow
   output_forwarding_url: http://127.0.0.1:5001
   log_model: true
   open_when_done: false

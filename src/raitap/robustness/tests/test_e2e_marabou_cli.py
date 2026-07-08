@@ -122,7 +122,7 @@ def _write_tabular_config(target_path: Path, fixture_dir: Path) -> None:
 
             robustness:
               marabou_linf:
-                _target_: MarabouAssessor
+                use: marabou
                 algorithm: linf-box
                 constructor:
                   epsilon: 0.001
@@ -151,7 +151,7 @@ def _write_image_config(
     fixture_str = fixture_dir.as_posix()
     reporting_block = (
         "reporting:\n"
-        "              _target_: HTMLReporter\n"
+        "              use: html\n"
         "              filename: report\n"
         "              include_config: false\n"
         "              include_metadata: false\n"
@@ -192,7 +192,7 @@ def _write_image_config(
 
             robustness:
               marabou_linf:
-                _target_: MarabouAssessor
+                use: marabou
                 algorithm: linf-box
                 constructor:
                   epsilon: 0.001

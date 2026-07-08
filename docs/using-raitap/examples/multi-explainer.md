@@ -42,19 +42,19 @@ metrics:
 
 transparency:
   ig:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: IntegratedGradients
     call:
       target: 0
     visualisers:
-      - _target_: CaptumImageVisualiser
+      - use: captum_image
   saliency:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: Saliency
     call:
       target: 0
     visualisers:
-      - _target_: CaptumImageVisualiser
+      - use: captum_image
 
 :python:
 from raitap import AppConfig, Hardware, run

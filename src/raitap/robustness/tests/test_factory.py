@@ -73,7 +73,7 @@ def _make_minimal_config(*, visualisers: list[Any] | None = None, tmp_path: Any 
         robustness={
             "pgd": OmegaConf.create(
                 {
-                    "_target_": "raitap.robustness.TorchattacksAssessor",
+                    "use": "torchattacks",
                     "algorithm": "PGD",
                     "constructor": {"eps": 0.03, "alpha": 0.01, "steps": 1},
                     "call": {},
@@ -93,7 +93,7 @@ def _make_yaml_names_config(*, sample_names: list[str], tmp_path: Any = None) ->
         robustness={
             "pgd": OmegaConf.create(
                 {
-                    "_target_": "raitap.robustness.TorchattacksAssessor",
+                    "use": "torchattacks",
                     "algorithm": "PGD",
                     "constructor": {"eps": 0.03, "alpha": 0.01, "steps": 1},
                     "call": {},
@@ -109,7 +109,7 @@ def test_parse_validates_top_level_keys() -> None:
     with pytest.raises(ValueError, match="Unknown robustness assessor config keys"):
         _parse_assessor_config(
             {
-                "_target_": "TorchattacksAssessor",
+                "use": "torchattacks",
                 "algorithm": "PGD",
                 "wibble": True,  # unknown key
             }
@@ -121,7 +121,7 @@ def test_parse_rejects_misplaced_raitap_keys() -> None:
     with pytest.raises(ValueError) as excinfo:
         _parse_assessor_config(
             {
-                "_target_": "TorchattacksAssessor",
+                "use": "torchattacks",
                 "algorithm": "PGD",
                 "call": {"eps": 0.03, "batch_size": 8},
             }
@@ -129,6 +129,33 @@ def test_parse_rejects_misplaced_raitap_keys() -> None:
     text = str(excinfo.value)
     assert "RAITAP-owned keys under 'call:'" in text
     assert "batch_size" in text
+
+
+def test_parse_rejects_config_target_as_security_surface() -> None:
+    """``_target_`` in a config block is arbitrary-callable RCE surface (#301);
+    it must never reach ``hydra.utils.instantiate``."""
+    from raitap.configs.registry_resolve import UnsafeConfigTargetError
+
+    with pytest.raises(UnsafeConfigTargetError, match="_target_"):
+        _parse_assessor_config(
+            {
+                "use": "torchattacks",
+                "algorithm": "PGD",
+                "_target_": "os.system",
+            }
+        )
+
+
+def test_create_assessor_rejects_unknown_use_key() -> None:
+    from raitap.robustness.factory import create_assessor
+
+    config = OmegaConf.create({"use": "does_not_exist", "algorithm": "PGD"})
+    with pytest.raises(
+        ValueError, match=r"Unknown robustness key 'does_not_exist'\. Valid keys:"
+    ) as excinfo:
+        create_assessor(config)
+    assert "torchattacks" in str(excinfo.value)
+    assert "foolbox" in str(excinfo.value)
 
 
 def test_resolve_call_data_sources_passes_through_non_source_dicts() -> None:
@@ -196,7 +223,7 @@ def test_robustness_uses_model_resolved_preprocessing_for_call_data(
         robustness={
             "pgd": OmegaConf.create(
                 {
-                    "_target_": "TorchattacksAssessor",
+                    "use": "torchattacks",
                     "algorithm": "PGD",
                     "call": {
                         "target_labels": [0, 1],

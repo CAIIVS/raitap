@@ -93,7 +93,7 @@ def _noise_tunnel_invoker(ctx: AttributionInvokeCtx) -> torch.Tensor:
 
 @transparency_adapter(
     registry_name="captum",
-    library="captum",
+    import_name="captum",
     # Captum emits the ``required_grads`` UserWarning on every run when inputs
     # don't already require gradients; it auto-fixes the issue so the warning
     # is pure noise. Scope ``module=`` to captum so unrelated UserWarnings

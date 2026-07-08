@@ -7,9 +7,8 @@ from hydra.utils import instantiate
 
 from raitap import raitap_log
 from raitap._adapters import AdapterMixin
-from raitap.configs import cfg_to_dict, resolve_target
-
-_TRACKING_PREFIX = "raitap.tracking."
+from raitap.configs import cfg_to_dict
+from raitap.configs.registry_resolve import instantiate_partial_from_use
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -54,20 +53,13 @@ class BaseTracker(ABC, AdapterMixin):
     @staticmethod
     def create_tracker(config: AppConfig) -> BaseTracker:
         tracking_config = cfg_to_dict(config.tracking)
-        target_path = str(tracking_config.get("_target_", ""))
-        resolved_target = resolve_target(target_path, _TRACKING_PREFIX)
-
-        try:
-            tracker_class = instantiate({"_target_": resolved_target, "_partial_": True})
-            tracker = tracker_class(config)
-        except Exception as error:
-            raitap_log.exception("Tracker instantiation failed for target %r", target_path)
-            raise ValueError(
-                f"Could not instantiate tracker {target_path!r}.\n"
-                "Check that _target_ points to a valid TrackerProtocol implementation."
-            ) from error
-
-        return tracker
+        return instantiate_partial_from_use(
+            tracking_config,
+            group="tracking",
+            entity="tracker",
+            config=config,
+            instantiate_fn=instantiate,
+        )
 
     def __enter__(self):
         return self

@@ -16,7 +16,7 @@ Public surface:
 - :func:`docs_url` — module-driven docs URL for a diagnostic
 
 Third-party library detection lives here, but the *list* of wrapped libraries
-does not: each ``@register_*_adapter(..., library="...")`` decoration auto-
+does not: each ``@register_*_adapter(..., import_name="...")`` decoration auto-
 populates :data:`raitap._adapters.THIRD_PARTY_LIBS` at module-load time,
 keyed by adapter family. :func:`_third_party_libs` aggregates the dict
 lazily after importing every family root. Adding a new wrapped library is
@@ -95,7 +95,7 @@ def _third_party_libs() -> frozenset[str]:
 
     Reads :data:`raitap._adapters.THIRD_PARTY_LIBS`, which
     :func:`raitap._adapters._register_core` populates from each
-    ``@register_*_adapter(..., library="...")`` decoration.
+    ``@register_*_adapter(..., import_name="...")`` decoration.
     :func:`raitap.configs.register_configs` is invoked first (idempotent) so
     every in-tree family is imported and third-party plugins are discovered —
     firing those decorations without ``utils`` hardcoding which packages exist.

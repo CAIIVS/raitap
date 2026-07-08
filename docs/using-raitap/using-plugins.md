@@ -33,14 +33,16 @@ That's it. Every installed plugin is discovered automatically.
 
 ## 2. Use it
 
-Reference the adapter by its `registry_name` (here, `superxai`), exactly like a
-built-in adapter.
+Reference the adapter by its `registry_name` (here, `superxai`) via the same
+`use:` selector as a built-in adapter. There is no `_target_` escape hatch:
+config never carries a class path, so a plugin adapter is exactly as safe to
+select as a first-party one.
 
 ```{config-tabs}
 :yaml:
 transparency:
   my_run:
-    _target_: "raitap_superxai.SuperXAIExplainer"   # full import path — plugin classes live outside raitap.*
+    use: superxai
     algorithm: supertreeshap
 
 :python:
@@ -49,11 +51,12 @@ from raitap.transparency import superxai
 transparency = {"my_run": superxai(algorithm="supertreeshap")}
 ```
 
-In YAML, use the plugin class's **full import path** (`raitap_superxai.SuperXAIExplainer`):
-a bare `_target_: SuperXAIExplainer` only resolves for built-in adapters. The
-Python form needs no path — `superxai` already carries it. The
-`+transparency=superxai` CLI shorthand also works **if** the plugin ships a
-matching preset.
+`use: superxai` resolves through the same trusted registry as every built-in
+key, populated by the plugin's `@adapters.transparency(registry_name="superxai", ...)`
+decoration on discovery. See {doc}`../contributor/writing-a-plugin` for the
+adapter-author side. The `+transparency=superxai` CLI shorthand also works: it
+is generated automatically the moment the plugin registers, no extra config
+file needed on the plugin side.
 
 ## If a plugin doesn't show up
 

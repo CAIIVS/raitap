@@ -376,7 +376,7 @@ def _make_robustness_result(
 def test_build_report_orders_sections_and_ranks_samples(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="demo")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     metrics_image = _write_test_image(tmp_path / "metrics.png")
     explanation = ExplanationResult(
@@ -482,7 +482,7 @@ def test_copy_asset_rejects_path_like_target_names(tmp_path: Path) -> None:
 def test_build_report_skips_global_section_for_local_only_outputs(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="local_only")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     explanation = ExplanationResult(
         attributions=torch.rand(3, 1, 4, 4),
@@ -545,7 +545,7 @@ def _repro_outputs(explanation: Any) -> RunOutputs:
 def test_build_report_prepends_reproducibility_banner_when_stochastic(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="repro")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     outputs = _repro_outputs(_explanation_with_stochastic(tmp_path, seeding="global_rng"))
 
@@ -559,7 +559,7 @@ def test_build_report_prepends_reproducibility_banner_when_stochastic(tmp_path: 
 def test_build_report_no_banner_when_all_deterministic(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="repro")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     outputs = _repro_outputs(_explanation_with_stochastic(tmp_path, seeding="deterministic"))
 
@@ -571,7 +571,7 @@ def test_build_report_no_banner_when_all_deterministic(tmp_path: Path) -> None:
 def test_build_report_no_banner_when_global_rng_covered_by_seed(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="repro")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
     config.seed = 42
 
     outputs = _repro_outputs(_explanation_with_stochastic(tmp_path, seeding="global_rng"))
@@ -584,7 +584,7 @@ def test_build_report_no_banner_when_global_rng_covered_by_seed(tmp_path: Path) 
 def test_build_report_banner_present_for_global_rng_when_seed_unset(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="repro")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
     config.seed = None
 
     outputs = _repro_outputs(_explanation_with_stochastic(tmp_path, seeding="global_rng"))
@@ -599,7 +599,7 @@ def test_build_report_places_aggregated_visualisations_between_global_and_local(
 ) -> None:
     config = AppConfig(experiment_name="aggregated")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     metrics_image = _write_test_image(tmp_path / "metrics.png")
     explanation = ExplanationResult(
@@ -646,7 +646,7 @@ def test_build_report_places_aggregated_visualisations_between_global_and_local(
 def test_build_report_local_assets_are_staged_and_closed(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="local_assets")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     visualiser = _LocalImageVisualiser()
     explanation = ExplanationResult(
@@ -701,7 +701,7 @@ def test_build_report_compact_local_thumbnail_titles_are_stripped(
 ) -> None:
     config = AppConfig(experiment_name="compact_thumbnail_titles")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     thumbnail_figures: list[Figure] = []
 
@@ -751,7 +751,7 @@ def test_build_report_compact_mode_omits_repeated_original_for_capable_visualise
 ) -> None:
     config = AppConfig(experiment_name="compact")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     compact_visualiser = _EmbeddedOriginalVisualiser()
     masked_visualiser = _MaskedLikeVisualiser()
@@ -798,7 +798,7 @@ def test_build_report_local_explainer_group_includes_curated_transparency_rows(
 ) -> None:
     config = AppConfig(experiment_name="transparency_rows")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     heatmap_visualiser = _LocalImageVisualiser(
         title="Grad-CAM lesion localisation",
@@ -900,7 +900,7 @@ def test_build_report_show_original_per_explainer_uses_verbose_local_layout(
     config = AppConfig(experiment_name="legacy_originals")
     set_output_root(config, tmp_path)
     config.reporting = ReportingConfig(
-        _target_="PDFReporter",
+        use="pdf",
         filename="report.pdf",
         show_original_per_explainer=True,
     )
@@ -943,7 +943,7 @@ def test_build_report_thumbnail_uses_first_compatible_explanation_in_order(
 ) -> None:
     config = AppConfig(experiment_name="thumbnail_fallback")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     image_visualiser = _EmbeddedOriginalVisualiser()
     tabular_visualiser = _EmbeddedOriginalVisualiser()
@@ -1002,7 +1002,7 @@ def test_build_report_thumbnail_falls_back_to_later_explanation_after_runtime_er
 ) -> None:
     config = AppConfig(experiment_name="thumbnail_multi_fallback")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     original_visualise = InputThumbnailVisualiser.visualise
     call_count = {"n": 0}
@@ -1066,7 +1066,7 @@ def test_build_report_thumbnail_failure_falls_back_for_that_sample_only(
 ) -> None:
     config = AppConfig(experiment_name="thumbnail_fallback")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     visualiser = _EmbeddedOriginalVisualiser()
     explanation = ExplanationResult(
@@ -1105,7 +1105,7 @@ def test_build_report_thumbnail_runtime_failure_logs_traceback_and_falls_back(
 ) -> None:
     config = AppConfig(experiment_name="thumbnail_runtime_fallback")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     def _raise_runtime_error(*_args: Any, **_kwargs: Any) -> Figure:
         raise RuntimeError("thumbnail render failed")
@@ -1156,7 +1156,7 @@ def test_build_report_thumbnail_programmer_error_is_not_swallowed(
 ) -> None:
     config = AppConfig(experiment_name="thumbnail_programmer_error")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     def _raise_type_error(*_args: Any, **_kwargs: Any) -> Figure:
         raise TypeError("programmer error")
@@ -1230,7 +1230,7 @@ def test_build_report_html_explicit_selection_uses_compact_local_layout(
     tmp_path: Path,
 ) -> None:
     config, outputs = _explicit_selection_case(tmp_path)
-    config.reporting = ReportingConfig(_target_="HTMLReporter", filename="report")
+    config.reporting = ReportingConfig(use="html", filename="report")
     config.reporting.sample_selection = [
         "case_gamma.png",
         "case_alpha.png",
@@ -1363,7 +1363,7 @@ def test_report_sample_selection_entry_type_documents_supported_values() -> None
 def test_build_report_skips_local_groups_when_no_local_visualisations(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="no_local")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     class _GlobalOnlyVisualiser(_LocalImageVisualiser):
         produces_scope = ExplanationScope.GLOBAL
@@ -1440,7 +1440,7 @@ def test_build_report_compact_robustness_omits_non_owner_perturbation_panel(
 ) -> None:
     config = AppConfig(experiment_name="robustness_compact")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     result = _make_robustness_result(
         tmp_path,
@@ -1477,7 +1477,7 @@ def test_build_report_compact_robustness_skips_redundant_single_facet_visualiser
 ) -> None:
     config = AppConfig(experiment_name="robustness_compact_skip")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     owner = _PerturbationRecordingVisualiser()
     redundant = _PerturbationRecordingVisualiser()
@@ -1512,7 +1512,7 @@ def test_build_report_compact_robustness_propagates_visualiser_errors(
 ) -> None:
     config = AppConfig(experiment_name="robustness_compact_error")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     result = _make_robustness_result(
         tmp_path,
@@ -1538,7 +1538,7 @@ def test_build_report_compact_robustness_renders_selected_samples_per_assessor(
 ) -> None:
     config = AppConfig(experiment_name="robustness_compact_samples")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     result = _make_robustness_result(
         tmp_path,
@@ -1615,7 +1615,7 @@ def test_build_report_compact_robustness_renders_selected_samples_per_assessor(
 def test_build_report_robustness_single_pair_keeps_all_panels(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="robustness_single_pair")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     result = _make_robustness_result(
         tmp_path,
@@ -1640,7 +1640,7 @@ def test_build_report_verbose_robustness_reuses_existing_visualisations_without_
     config = AppConfig(experiment_name="robustness_legacy")
     set_output_root(config, tmp_path)
     config.reporting = ReportingConfig(
-        _target_="PDFReporter",
+        use="pdf",
         filename="report.pdf",
         show_redundant_robustness_panels=True,
     )
@@ -1678,7 +1678,7 @@ def test_build_report_robustness_redundant_single_facet_without_kwarg_support_is
 ) -> None:
     config = AppConfig(experiment_name="robustness_redundant_strict_visualiser")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     result = _make_robustness_result(
         tmp_path,
@@ -1703,7 +1703,7 @@ def test_build_report_robustness_redundant_single_facet_without_kwarg_support_is
 def test_report_manifest_round_trip_preserves_relative_images(tmp_path: Path) -> None:
     config = AppConfig(experiment_name="demo")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     explanation = ExplanationResult(
         attributions=torch.rand(2, 1, 4, 4),
@@ -1781,7 +1781,7 @@ def test_create_report_writes_manifest_next_to_generated_report(
 ) -> None:
     config = AppConfig(experiment_name="demo")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
     built_report = ReportSection.from_groups(
         "Metrics",
         [ReportGroup(heading="Performance Metrics", table_rows=(("accuracy", "0.9"),))],
@@ -1819,7 +1819,7 @@ def test_create_report_writes_html_archive_with_manifest_and_assets(
 ) -> None:
     config = AppConfig(experiment_name="demo")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="HTMLReporter", filename="report.html")
+    config.reporting = ReportingConfig(use="html", filename="report.html")
     built_report = ReportSection.from_groups(
         "Metrics",
         [ReportGroup(heading="Performance Metrics", table_rows=(("accuracy", "0.9"),))],
@@ -1859,7 +1859,7 @@ def test_create_report_writes_html_archive_with_manifest_and_assets(
 def test_create_report_does_not_archive_pdf_report(tmp_path: Path, monkeypatch: Any) -> None:
     config = AppConfig(experiment_name="demo")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
     built_report = ReportSection.from_groups(
         "Metrics",
         [ReportGroup(heading="Performance Metrics", table_rows=(("accuracy", "0.9"),))],
@@ -1890,6 +1890,64 @@ def test_create_report_does_not_archive_pdf_report(tmp_path: Path, monkeypatch: 
     assert not generated.report_path.with_suffix(".zip").exists()
 
 
+def test_create_report_resolves_html_via_use_key(tmp_path: Path) -> None:
+    """``use: html`` resolves to the real ``HTMLReporter`` through the trusted
+    registry, without stubbing ``instantiate`` (issue #301)."""
+    config = AppConfig(experiment_name="demo")
+    set_output_root(config, tmp_path)
+    config.reporting = ReportingConfig(use="html", filename="report.html")
+    built_report = ReportSection.from_groups(
+        "Metrics",
+        [ReportGroup(heading="Performance Metrics", table_rows=(("accuracy", "0.9"),))],
+    )
+    report = ReportManifest(kind="run", sections=(built_report,), filename="report.html")
+    built = BuiltReport(
+        report_dir=tmp_path / "builder-reports",
+        sections=(built_report,),
+        manifest=report,
+    )
+
+    generated = create_report(config, built)
+
+    assert type(generated.reporter).__name__ == "HTMLReporter"
+
+
+def test_create_report_rejects_target_key(tmp_path: Path) -> None:
+    """A config carrying ``_target_`` must be rejected before any resolution
+    is attempted — closes the arbitrary-callable RCE surface (issue #301)."""
+    from raitap.configs.registry_resolve import UnsafeConfigTargetError
+
+    config = AppConfig(experiment_name="demo")
+    set_output_root(config, tmp_path)
+    config.reporting = {"_target_": "os.system", "filename": "report"}  # type: ignore[assignment]
+    built_report = ReportSection.from_groups(
+        "Metrics",
+        [ReportGroup(heading="Performance Metrics", table_rows=(("accuracy", "0.9"),))],
+    )
+    report = ReportManifest(kind="run", sections=(built_report,), filename="report")
+    built = BuiltReport(
+        report_dir=tmp_path / "builder-reports",
+        sections=(built_report,),
+        manifest=report,
+    )
+
+    with pytest.raises(UnsafeConfigTargetError):
+        create_report(config, built)
+
+
+def test_reporting_enabled_rejects_target_key() -> None:
+    """The ``reporting_enabled`` guard must also reject a ``_target_`` block
+    loudly rather than silently reporting it as disabled — this guard gates
+    non-schema-checked callback configs (issue #301)."""
+    from raitap.configs.registry_resolve import UnsafeConfigTargetError
+    from raitap.reporting.factory import reporting_enabled
+
+    config = AppConfig(experiment_name="demo")
+    config.reporting = {"_target_": "os.system", "command": "id"}  # type: ignore[assignment]
+    with pytest.raises(UnsafeConfigTargetError):
+        reporting_enabled(config)
+
+
 @pytest.mark.parametrize(
     ("configured_filename", "expected_html_name", "expected_pdf_name"),
     [
@@ -1914,7 +1972,7 @@ def test_build_report_manifest_filename_matches_selected_reporter(
     html_config = AppConfig(experiment_name="demo")
     set_output_root(html_config, tmp_path / "html")
     html_config.reporting = ReportingConfig(
-        _target_="raitap.reporting.HTMLReporter",
+        use="html",
         filename=configured_filename,
     )
     html_report = build_report(html_config, outputs)
@@ -1924,7 +1982,7 @@ def test_build_report_manifest_filename_matches_selected_reporter(
     pdf_config = AppConfig(experiment_name="demo")
     set_output_root(pdf_config, tmp_path / "pdf")
     pdf_config.reporting = ReportingConfig(
-        _target_="raitap.reporting.PDFReporter",
+        use="pdf",
         filename=configured_filename,
     )
     pdf_report = build_report(pdf_config, outputs)
@@ -1953,7 +2011,7 @@ def test_reporting_sweep_callback_builds_merged_report_from_child_manifests(
     callback = ReportingSweepCallback()
     config = make_app_config(
         experiment_name="demo",
-        reporting={"_target_": "PDFReporter", "filename": "report.pdf"},
+        reporting={"use": "pdf", "filename": "report.pdf"},
     )
     # ``hydra`` is a Hydra runtime node, not an ``AppConfig`` field; attach it
     # outside the struct schema, matching the shape Hydra hands callbacks.
@@ -2002,7 +2060,7 @@ def test_build_merged_report_deduplicates_identical_metrics_only(tmp_path: Path)
     report = build_merged_report(
         AppConfig(
             experiment_name="demo",
-            reporting=ReportingConfig(_target_="PDFReporter", filename="report.pdf"),
+            reporting=ReportingConfig(use="pdf", filename="report.pdf"),
         ),
         sweep_dir=sweep_dir,
         child_manifests=child_manifests,
@@ -2039,7 +2097,7 @@ def test_build_merged_report_preserves_present_section_order_with_aggregated(
     report = build_merged_report(
         AppConfig(
             experiment_name="demo",
-            reporting=ReportingConfig(_target_="PDFReporter", filename="report.pdf"),
+            reporting=ReportingConfig(use="pdf", filename="report.pdf"),
         ),
         sweep_dir=sweep_dir,
         child_manifests=child_manifests,
@@ -2070,7 +2128,7 @@ def test_build_merged_report_keeps_empty_metrics_groups(tmp_path: Path) -> None:
     report = build_merged_report(
         AppConfig(
             experiment_name="demo",
-            reporting=ReportingConfig(_target_="PDFReporter", filename="report.pdf"),
+            reporting=ReportingConfig(use="pdf", filename="report.pdf"),
         ),
         sweep_dir=sweep_dir,
         child_manifests=child_manifests,
@@ -2085,24 +2143,24 @@ def test_build_merged_report_keeps_empty_metrics_groups(tmp_path: Path) -> None:
 
 
 def test_reporting_configs_compose_multirun_report_controls() -> None:
-    """Bundled reporting presets resolve the right ``_target_`` and wire the
+    """Bundled reporting presets resolve the right ``use`` key and wire the
     multirun-aggregation Hydra callback.
 
-    The presets ship as minimal ``_target_``-only stubs (plus the
+    The presets ship as minimal ``use``-only stubs (plus the
     ``reporting_sweep`` callback for non-disabled presets). All other
     ReportingConfig fields come from the user's config or CLI overrides;
     this test only verifies what's actually shipped + the callback wiring.
     """
     pdf_cfg = _compose_raitap_config(["+reporting=pdf"])
-    assert pdf_cfg.reporting._target_ == "PDFReporter"
+    assert pdf_cfg.reporting.use == "pdf"
     assert pdf_cfg.hydra.callbacks.reporting_sweep._target_.endswith("ReportingSweepCallback")
 
     html_cfg = _compose_raitap_config(["+reporting=html"])
-    assert html_cfg.reporting._target_ == "HTMLReporter"
+    assert html_cfg.reporting.use == "html"
     assert html_cfg.hydra.callbacks.reporting_sweep._target_.endswith("ReportingSweepCallback")
 
     disabled_cfg = _compose_raitap_config(["+reporting=disabled"])
-    assert disabled_cfg.reporting._target_ is None
+    assert disabled_cfg.reporting.use is None
     assert disabled_cfg.reporting.multirun_report is False
 
 
@@ -2125,7 +2183,7 @@ def test_reporting_sweep_callback_skips_when_multirun_report_disabled(
         {
             "experiment_name": "demo",
             "reporting": {
-                "_target_": "PDFReporter",
+                "use": "pdf",
                 "filename": "report.pdf",
                 "multirun_report": False,
             },
@@ -2156,7 +2214,7 @@ def test_reporting_sweep_callback_skips_when_reporting_disabled(
     config = OmegaConf.create(
         {
             "experiment_name": "demo",
-            "reporting": {"_target_": None, "multirun_report": False},
+            "reporting": {"use": None, "multirun_report": False},
             "hydra": {"sweep": {"dir": str(sweep_dir)}},
         }
     )
@@ -2192,7 +2250,7 @@ def _explicit_selection_case(
     ]
     config = AppConfig(experiment_name="explicit_selection")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
     explanation = ExplanationResult(
         attributions=torch.rand(len(ids), 1, 4, 4),
         inputs=torch.rand(len(ids), 1, 4, 4),
@@ -2292,7 +2350,7 @@ def test_build_report_sampling_result_renders_without_error(tmp_path: Path) -> N
 
     config = AppConfig(experiment_name="sampling_test")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     semantics = RobustnessSemantics(
         assessment_kind=AssessmentKind.STATISTICAL_SAMPLING,
@@ -2347,7 +2405,7 @@ def test_build_report_assessor_scope_figure_recorded_in_metadata(tmp_path: Path)
 
     config = AppConfig(experiment_name="sampling_scope")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     semantics = RobustnessSemantics(
         assessment_kind=AssessmentKind.STATISTICAL_SAMPLING,
@@ -2533,7 +2591,7 @@ def test_build_report_attaches_baseline_image_once_per_explanation(tmp_path: Pat
 
     config = AppConfig(experiment_name="bl")
     set_output_root(config, tmp_path)
-    config.reporting = ReportingConfig(_target_="PDFReporter", filename="report.pdf")
+    config.reporting = ReportingConfig(use="pdf", filename="report.pdf")
 
     run_dir = tmp_path / "transparency" / "exp"
     run_dir.mkdir(parents=True)
@@ -2816,7 +2874,7 @@ def test_build_report_handles_reporting_block_without_sample_selection(
     # Build a struct-mode reporting block carrying every ReportingConfig field
     # EXCEPT ``sample_selection`` — isolates the failure to the line-51 read.
     reporting_dict = OmegaConf.to_container(
-        OmegaConf.structured(ReportingConfig(_target_="PDFReporter", filename="report.pdf")),
+        OmegaConf.structured(ReportingConfig(use="pdf", filename="report.pdf")),
         resolve=True,
     )
     assert isinstance(reporting_dict, dict)

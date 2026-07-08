@@ -47,7 +47,7 @@ transparency:
   # ScalarDetectionWrapper exposes a single scalar channel per box, so
   # `auto_pred` is rejected. `max_boxes` caps the K-loop for CPU runs.
   detection_ig:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: IntegratedGradients
     call:
       target: 0
@@ -60,7 +60,7 @@ transparency:
         max_boxes: 3
         iou_threshold: 0.5
     visualisers:
-      - _target_: DetectionImageVisualiser
+      - use: detection_image
 
 :python:
 from raitap import AppConfig, Hardware, run

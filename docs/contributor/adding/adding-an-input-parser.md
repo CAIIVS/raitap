@@ -56,14 +56,14 @@ In `src/raitap/configs/schema.py`, subclass `InputsConfig`:
 ```python
 @dataclass
 class PdfInputsConfig(InputsConfig):
-    _target_: str = "PdfInputParser"
+    use: str = "pdf"
     # add only the format fields this variant actually uses, e.g. a page
     # range. Never add a ``source`` field here — the source path is always
     # ``data.source``, passed into ``parse(source=...)`` at call time.
 ```
 
-`_target_` must match the class name from step 2 (resolved against
-`raitap.data.input_parsers.` by the factory, see step 4).
+`use` must match the `registry_name` from step 2 (resolved through the closed
+registry the `@input_parser` decorator populates, see step 4).
 
 ## 2. Write the parser class
 
@@ -135,8 +135,9 @@ data:
 ```
 
 `create_input_parser` (`src/raitap/data/input_parsers/factory.py`) resolves
-`_target_` against `raitap.data.input_parsers.` at call time, the same
-dispatch `create_label_parser` uses for `data/labels`.
+the `use` key against the closed registry (`raitap.configs.registry_resolve.
+resolve_target_fqn`) at call time, the same dispatch `create_label_parser`
+uses for `data/labels`.
 
 ## 5. Add tests
 

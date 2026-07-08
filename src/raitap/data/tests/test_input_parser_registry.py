@@ -1,3 +1,5 @@
+import pytest
+
 from raitap.configs.schema import InputsConfig
 from raitap.data.input_parsers.base import InputParser
 from raitap.data.input_parsers.registration import input_parser
@@ -34,7 +36,7 @@ def _register_inputs_group() -> None:
 
 
 def test_integration_compose_data_inputs_dummy() -> None:
-    """Composing +data/inputs=dummy_compose lands cfg.data.inputs at the FQN.
+    """Composing +data/inputs=dummy_compose lands cfg.data.inputs.use, resolvable to the FQN.
 
     Regression for the Critical review finding: ``DataConfig`` was missing an
     ``inputs`` field, so composing any ``data/inputs`` variant raised
@@ -43,11 +45,14 @@ def test_integration_compose_data_inputs_dummy() -> None:
     from hydra import compose, initialize
     from hydra.core.global_hydra import GlobalHydra
 
+    from raitap.configs.registry_resolve import resolve_target_fqn
+
     _register_inputs_group()
     GlobalHydra.instance().clear()
     with initialize(version_base=None, config_path=None):
         cfg = compose(config_name="raitap_schema", overrides=["+data/inputs=dummy_compose"])
-    assert cfg.data.inputs._target_ == _COMPOSED_TARGET
+    assert cfg.data.inputs.use == "dummy_compose"
+    assert resolve_target_fqn("data/inputs", cfg.data.inputs.use) == _COMPOSED_TARGET
 
 
 def test_decorated_parser_satisfies_protocol_and_registers() -> None:
@@ -66,6 +71,14 @@ def test_decorated_parser_satisfies_protocol_and_registers() -> None:
 
 def test_create_label_parser_still_works_after_factory_refactor() -> None:
     """Regression: the shared-core refactor of label_parsers/factory.py must
-    preserve existing label-parser instantiation behaviour."""
-    parser = create_label_parser({"_target_": "TabularLabelParser", "source": "x"})
+    preserve existing label-parser instantiation behaviour, now via ``use:``."""
+    parser = create_label_parser({"use": "tabular", "source": "x"})
     assert isinstance(parser, TabularLabelParser)
+
+
+def test_create_label_parser_rejects_target_key() -> None:
+    """A ``_target_`` key in the config is rejected (issue #301 RCE surface)."""
+    from raitap.configs.registry_resolve import UnsafeConfigTargetError
+
+    with pytest.raises(UnsafeConfigTargetError):
+        create_label_parser({"_target_": "TabularLabelParser", "source": "x"})

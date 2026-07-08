@@ -60,7 +60,7 @@ def test_assess_robustness_detection_returns_empty_and_skips_robustness_assessme
     # short-circuit — we need to reach the task-kind check.
     config.robustness = {
         "fgsm": RobustnessConfig(
-            _target_="EmpiricalAttackAssessor",
+            use="torchattacks",
             algorithm="FGSM",
         )
     }

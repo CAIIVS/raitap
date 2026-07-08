@@ -49,7 +49,7 @@ class _DummyVisualiser:
 
 def test_register_core_with_family_populates_builders_and_extras() -> None:
     """_register_core should run the same mechanics as __init_subclass__: hydra-zen
-    builder in _BUILDERS, ADAPTER_EXTRAS entry, library tracked in THIRD_PARTY_LIBS."""
+    builder in _BUILDERS, ADAPTER_EXTRAS entry, import_name tracked in THIRD_PARTY_LIBS."""
     from raitap._adapters import (
         _BUILDERS,
         ADAPTER_EXTRAS,
@@ -68,7 +68,7 @@ def test_register_core_with_family_populates_builders_and_extras() -> None:
         family=fc,
         registry_name="dummy",
         extra="dummy-extra",
-        library="dummy-lib",
+        import_name="dummy-lib",
     )
     assert "_test_family" in _BUILDERS
     assert "dummy" in _BUILDERS["_test_family"]
@@ -87,3 +87,13 @@ def test_register_core_without_family_uses_unscoped_pool() -> None:
         registry_name="dummy_visualiser",
     )
     assert "dummy_visualiser" in _BUILDERS["_unscoped"]
+
+
+def test_registration_records_target_fqn_and_use_node() -> None:
+    import raitap.transparency  # noqa: F401 — fire discovery  # pyright: ignore[reportUnusedImport]
+    from raitap._adapters import _BUILDERS, _TARGET_FQN
+
+    assert _TARGET_FQN["transparency"]["captum"].endswith("CaptumExplainer")
+    node = _BUILDERS["transparency"]["captum"]
+    assert node.use == "captum"
+    assert not hasattr(node, "_target_")

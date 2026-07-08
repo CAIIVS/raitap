@@ -8,7 +8,7 @@ myst:
 
 # Contributing to the tracking module
 
-Tracking is a backend plugin selected via the top-level `tracking._target_` field. The current built-in backend is `MLFlowTracker`.
+Tracking is a backend plugin selected via the top-level `tracking.use` field. The current built-in backend is `MLFlowTracker` (`use: mlflow`).
 
 ## `BaseTracker` interface
 

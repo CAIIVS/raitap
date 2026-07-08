@@ -6,9 +6,13 @@ tracker, visualiser) is registered via its family decorator (e.g.
 ``@visualisers.transparency``). The decorator delegates to
 :func:`_register_core` which:
 
-* generates the hydra-zen builder (``builds(...)``)
-* registers it with Hydra's ``ConfigStore`` (when the family owns a top-level
-  config group such as ``transparency`` / ``robustness`` / ``metrics``)
+* computes the adapter class's FQN and records it in :data:`_TARGET_FQN`
+  (``group -> registry_name -> FQN``) — the only trusted place a class FQN is
+  looked up from a ``use:`` config key (see :mod:`raitap.configs.registry_resolve`)
+* builds a ``use:``-node dataclass (schema fields plus a ``use: <registry_name>``
+  field, no ``_target_``) and registers it with Hydra's ``ConfigStore`` (when
+  the family owns a top-level config group such as ``transparency`` /
+  ``robustness`` / ``metrics``)
 * exposes the builder under ``raitap.<module>.<registry_name>`` (lazy
   ``__getattr__`` on each module looks it up in :data:`_BUILDERS`)
 * records the ``extra`` dependency for :mod:`raitap.deps.inference`
@@ -22,7 +26,6 @@ from __future__ import annotations
 
 import dataclasses
 import importlib
-import inspect
 import os
 import pkgutil
 import re
@@ -42,12 +45,12 @@ from typing import (
     Unpack,
 )
 
-from hydra_zen import ZenStore, builds
+from hydra_zen import ZenStore
 
 from raitap.types import TaskKind
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Callable, Iterator, Sequence
     from types import ModuleType
 
     from raitap.models.base_backend import ModelBackend
@@ -74,7 +77,21 @@ class Invoker(Protocol[CtxT, ResultT]):
 store = ZenStore(overwrite_ok=True)
 
 # group -> name -> hydra-zen-generated dataclass builder
-_BUILDERS: dict[str, dict[str, type]] = {}
+# group -> name -> config-layer builder. Schema-backed families store a
+# ``use:``-node dataclass *type*; visualisers ("_unscoped") store a callable
+# factory (:func:`_make_visualiser_builder`) that folds flat kwargs into
+# ``constructor``. Both are consumed by the lazy module ``__getattr__``.
+_BUILDERS: dict[str, dict[str, Any]] = {}
+# group -> registry_name -> adapter class FQN. The sole trusted seam a
+# ``use: <registry_name>`` config key is resolved against
+# (:func:`raitap.configs.registry_resolve.resolve_target_fqn`). Group
+# ``"_unscoped"`` holds visualisers, which have no Hydra config group.
+_TARGET_FQN: dict[str, dict[str, str]] = {}
+# group -> FamilyConfig.package_style ("nested" | "flat"). The source of truth
+# for whether a group's Hydra config holds multiple named entries
+# (``cfg.<group>.<name>``) or a single one (``cfg.<group>``) — read by
+# :mod:`raitap._config_schema` instead of hardcoding the group set there.
+_GROUP_PACKAGE_STYLE: dict[str, str] = {}
 # adapter class name -> uv extra (consumed by raitap.deps.inference)
 ADAPTER_EXTRAS: dict[str, str] = {}
 # group -> set of wrapped third-party library names; used by
@@ -108,7 +125,7 @@ class AdapterDecoratorOptions(TypedDict, total=False):
 
     registry_name: Required[str]
     extra: str
-    library: str
+    import_name: str
     # Raw regex strings → friendly messages. Compiled at registration by
     # ``_register_core`` (mirrors ``suppress_warnings``, which also takes raw
     # strings). Pass ``r"..."``; add inline flags like ``(?i)`` if needed.
@@ -129,9 +146,10 @@ class AdapterMixin:
 
     registry_name: str | None = None
     extra: str | None = None
-    # Wrapped third-party library (pip name). Set by ``_register_core``;
-    # drives :meth:`_lazy_import` and :meth:`_rethrow`.
-    library: str | None = None
+    # Wrapped third-party library's import module name (not always the PyPI
+    # dist name). Set by ``_register_core``; drives :meth:`_lazy_import` and
+    # :meth:`_rethrow`.
+    import_name: str | None = None
     # Hydra config group ("transparency" / "robustness" / ...). Set by
     # ``_register_core`` and read by :meth:`_rethrow` to scope error chips.
     _adapter_group: str | None = None
@@ -152,22 +170,22 @@ class AdapterMixin:
         load a specific subpackage (e.g. ``"attr"`` for ``captum.attr``).
         """
         cls = type(self)
-        if not cls.library:
-            raise RuntimeError(f"{cls.__name__} has no ``library`` declared")
-        target = f"{cls.library}.{submodule}" if submodule else cls.library
+        if not cls.import_name:
+            raise RuntimeError(f"{cls.__name__} has no ``import_name`` declared")
+        target = f"{cls.import_name}.{submodule}" if submodule else cls.import_name
         try:
             return importlib.import_module(target)
         except ModuleNotFoundError as exc:
             install_hint = f" (install with `uv sync --extra {cls.extra}`)" if cls.extra else ""
             raise ImportError(
-                f"{cls.__name__} requires the {cls.library!r} package{install_hint}."
+                f"{cls.__name__} requires the {cls.import_name!r} package{install_hint}."
             ) from exc
 
     @contextmanager
     def _rethrow(self, *, base_exc: type[BaseException] = Exception) -> Iterator[None]:
         """Wrap a third-party call so curated error patterns get rewritten.
 
-        Equivalent to ``rethrow(module=Module(<group>), third_party_lib=<library>,
+        Equivalent to ``rethrow(module=Module(<group>), third_party_lib=<import_name>,
         message_map=<error_patterns>)`` but pulls all three from the adapter's
         own class declaration (set by the family decorator at registration time).
         """
@@ -177,7 +195,7 @@ class AdapterMixin:
         cls = type(self)
         with rethrow(
             module=Module(cls._adapter_group) if cls._adapter_group else Module.utils,
-            third_party_lib=cls.library,
+            third_party_lib=cls.import_name,
             message_map=cls.error_patterns or {},
             base_exc=base_exc,
         ):
@@ -216,40 +234,74 @@ class AdapterMixin:
             )
 
 
-def _build_schema_adapter(cls: type, schema: type) -> type:
-    """Pick a hydra-zen builder shape based on whether ``cls.__init__`` can
-    accept the schema's field kwargs.
+def _class_fqn(cls: type) -> str:
+    """Fully-qualified ``module.ClassName`` for ``cls``.
 
-    * ``**kwargs`` in init (Captum, torchattacks, …) → ``builds(cls, builds_bases=schema)``
-      lifts every schema field onto the resulting dataclass and forwards them
-      to the wrapped class at instantiate-time.
-    * Narrow init (``MLFlowTracker(config: AppConfig)``, ``HTMLReporter(config)``)
-      → schema-subclass with only ``_target_`` set; the wrapped class reads the
-      remaining fields off the composed config blob itself.
+    CI's ``pythonpath = ["src"]`` plus ``src/__init__.py`` makes ``src`` an
+    importable package too, so the same class can carry ``__module__ ==
+    "src.raitap.…"`` when discovered by pytest before any ``raitap.*`` import
+    canonicalises it. Strip the prefix so downstream ``instantiate()`` resolves
+    the same module identity ``isinstance`` checks see.
     """
-    sig = inspect.signature(cls.__init__)
-    has_var_kw = any(p.kind == p.VAR_KEYWORD for p in sig.parameters.values())
-    init_params = {p for p in sig.parameters if p != "self"}
-    schema_fields = {f.name for f in dataclasses.fields(schema) if f.name != "_target_"}
-    accepts_schema = has_var_kw or schema_fields.issubset(init_params)
-
-    if accepts_schema:
-        return builds(cls, builds_bases=(schema,))
-
-    # CI's ``pythonpath = ["src"]`` plus ``src/__init__.py`` makes ``src`` an
-    # importable package too, so the same class can carry ``__module__ ==
-    # "src.raitap.…"`` when discovered by pytest before any ``raitap.*`` import
-    # canonicalises it. Strip the prefix so ``instantiate()`` resolves the
-    # same module identity ``isinstance`` checks see.
     module = cls.__module__
     if module.startswith("src."):
         module = module[len("src.") :]
-    fqn = f"{module}.{cls.__name__}"
+    return f"{module}.{cls.__name__}"
+
+
+def _use_node(schema: type, registry_name: str, cls_name: str) -> type:
+    """Build a config-layer dataclass: ``schema`` fields plus a ``use:`` field
+    defaulting to ``registry_name``. Never carries ``_target_`` — the real
+    class FQN lives only in :data:`_TARGET_FQN`, resolved by
+    :mod:`raitap.configs.registry_resolve` at instantiate-time.
+    """
     return dataclasses.make_dataclass(
-        f"_{cls.__name__}Conf",
-        [("_target_", str, dataclasses.field(default=fqn))],
+        f"_{cls_name}UseConf",
+        [("use", str, dataclasses.field(default=registry_name))],
         bases=(schema,),
     )
+
+
+@dataclass
+class _VisualiserUseBase:
+    """Minimal ``use:``-node schema for visualisers (family=None).
+
+    Visualisers previously got a hydra-zen ``builds(cls, populate_full_signature=True,
+    zen_meta={"call": {}, "raitap": {}})`` builder; this is the equivalent
+    ``use:``-based shape: a bare ``use`` selector plus the three generic
+    pass-through blocks (``constructor`` / ``call`` / ``raitap``).
+    """
+
+    use: str = ""
+    constructor: dict[str, Any] = dataclasses.field(default_factory=dict)
+    call: dict[str, Any] = dataclasses.field(default_factory=dict)
+    raitap: dict[str, Any] = dataclasses.field(default_factory=dict)
+
+
+def _make_visualiser_builder(registry_name: str) -> Callable[..., _VisualiserUseBase]:
+    """Programmatic visualiser builder returned by the lazy module ``__getattr__``.
+
+    Accepts the visualiser's own ``__init__`` kwargs FLAT
+    (``captum_image(method="heat_map", sign="all")``) plus the reserved
+    ``constructor`` / ``call`` / ``raitap`` blocks, and returns a ``use:``-node.
+    Flat kwargs fold into ``constructor`` — this restores the pre-#301
+    ergonomic (the old ``builds(populate_full_signature=True)`` surface) while
+    keeping the config layer free of ``_target_``. The YAML side mirrors this in
+    :func:`raitap.configs.adapter_factory.instantiate_visualisers`.
+    """
+
+    def build(**kwargs: Any) -> _VisualiserUseBase:
+        constructor = dict(kwargs.pop("constructor", None) or {})
+        call = dict(kwargs.pop("call", None) or {})
+        raitap = dict(kwargs.pop("raitap", None) or {})
+        kwargs.pop("use", None)
+        constructor.update(kwargs)  # remaining flat kwargs are __init__ args
+        return _VisualiserUseBase(
+            use=registry_name, constructor=constructor, call=call, raitap=raitap
+        )
+
+    build.__name__ = registry_name
+    return build
 
 
 def _register_core(
@@ -262,9 +314,10 @@ def _register_core(
 
     Sets identity attrs on ``cls``, installs warning filters, validates
     family-required class-body attributes (e.g. ``algorithm_registry`` when
-    ``family.has_algorithm_registry``), builds the hydra-zen builder
-    (``_build_schema_adapter`` for schema-backed families, signature-based
-    ``builds(...)`` for visualisers), and registers under
+    ``family.has_algorithm_registry``), records the class FQN in
+    :data:`_TARGET_FQN`, builds a ``use:``-node dataclass (:func:`_use_node`)
+    for schema-backed families, or a flat-kwarg visualiser builder
+    (:func:`_make_visualiser_builder`), and registers under
     ``_BUILDERS[family.group][registry_name]`` (or ``_BUILDERS["_unscoped"]``
     when ``family is None``).
     """
@@ -279,7 +332,7 @@ def _register_core(
     extra = common.get("extra")
     if extra is None and family is not None:
         extra = registry_name
-    library = common.get("library")
+    import_name = common.get("import_name")
     error_patterns = common.get("error_patterns")
     suppress_warnings = common.get("suppress_warnings")
     schema_override = common.get("schema")
@@ -287,8 +340,8 @@ def _register_core(
     cls.registry_name = registry_name
     if extra is not None:
         cls.extra = extra
-    if library is not None:
-        cls.library = library
+    if import_name is not None:
+        cls.import_name = import_name
     if error_patterns is not None:
         compiled: dict[re.Pattern[str], str] = {}
         for pattern, message in error_patterns.items():
@@ -307,7 +360,11 @@ def _register_core(
     try:
         if family is not None:
             cls._adapter_group = family.group
-            builder = _build_schema_adapter(cls, schema_override or family.schema)
+            fqn = _class_fqn(cls)
+            _TARGET_FQN.setdefault(family.group, {})[registry_name] = fqn
+            _GROUP_PACKAGE_STYLE[family.group] = family.package_style
+            schema = schema_override or family.schema
+            builder = _use_node(schema, registry_name, cls.__name__)
             # Hydra groups use ``/`` for nesting; OmegaConf packages use ``.``.
             # A nested group like ``data/labels`` must target package
             # ``data.labels`` so the composed node lands at ``cfg.data.labels``.
@@ -317,15 +374,27 @@ def _register_core(
                 if family.package_style == "nested"
                 else package_base
             )
-            store(builder, group=family.group, name=registry_name, package=package)
+            # ``to_config=lambda x: x`` stores ``builder`` verbatim. ZenStore's
+            # default ``to_config`` would otherwise run it through
+            # ``hydra_zen.builds()`` again (dataclass *types* get
+            # ``populate_full_signature=True, builds_bases=(target,)``),
+            # which stamps a fresh ``_target_`` pointing at ``builder`` itself
+            # — reopening exactly the arbitrary-``_target_`` surface this
+            # rename closes.
+            store(
+                builder,
+                group=family.group,
+                name=registry_name,
+                package=package,
+                to_config=lambda x: x,
+            )
             _BUILDERS.setdefault(family.group, {})[registry_name] = builder
         else:
-            builder = builds(
-                cls,
-                populate_full_signature=True,
-                zen_meta={"call": {}, "raitap": {}},
+            fqn = _class_fqn(cls)
+            _TARGET_FQN.setdefault("_unscoped", {})[registry_name] = fqn
+            _BUILDERS.setdefault("_unscoped", {})[registry_name] = _make_visualiser_builder(
+                registry_name
             )
-            _BUILDERS.setdefault("_unscoped", {})[registry_name] = builder
     except (ModuleNotFoundError, TypeError):
         # Test fixtures defining inline classes without an importable qualname
         # — hydra-zen rejects them and we silently skip.
@@ -333,8 +402,8 @@ def _register_core(
 
     if extra:
         ADAPTER_EXTRAS[cls.__name__] = extra
-    if library and family is not None:
-        THIRD_PARTY_LIBS.setdefault(family.group, set()).add(library)
+    if import_name and family is not None:
+        THIRD_PARTY_LIBS.setdefault(family.group, set()).add(import_name)
     return cls
 
 

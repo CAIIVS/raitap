@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING
 
 from hydra.utils import instantiate
 
+from raitap.configs.registry_resolve import stamp_target_from_use
+from raitap.configs.utils import cfg_to_dict
 from raitap.transparency.evaluation.semantics import EvaluationContext
 
 if TYPE_CHECKING:
@@ -39,7 +41,9 @@ def grade_explanations(
     """
     if evaluation_cfg is None or not explanations:
         return []
-    evaluator = instantiate(evaluation_cfg)
+    cfg = cfg_to_dict(evaluation_cfg)
+    stamp_target_from_use(cfg, group="_unscoped")
+    evaluator = instantiate(cfg)
     backend = prepared.backend  # type: ignore[attr-defined]
     model = backend.autograd_module()
     if hasattr(model, "eval"):

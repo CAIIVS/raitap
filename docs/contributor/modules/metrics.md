@@ -8,7 +8,7 @@ myst:
 
 # Contributing to the metrics module
 
-Metric computers wrap evaluation libraries (torchmetrics, faster-coco-eval, ...) behind a unified interface driven by Hydra `_target_` instantiation.
+Metric computers wrap evaluation libraries (torchmetrics, faster-coco-eval, ...) behind a unified interface, selected via a `use: <registry_name>` config key resolved to the adapter class through the trusted registry (`raitap.configs.registry_resolve`).
 
 ## `BaseMetricComputer` interface
 

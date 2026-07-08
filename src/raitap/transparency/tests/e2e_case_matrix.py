@@ -105,9 +105,34 @@ def _framework_target_suffix(case: MatrixCase) -> str:
     return "ShapExplainer"
 
 
-def _explainer_target(case: MatrixCase) -> str:
-    class_name = _framework_target_suffix(case)
-    return f"raitap.transparency.{class_name}"
+def _explainer_use_key(case: MatrixCase) -> str:
+    """``use:`` registry key for the case's framework (``"captum"`` / ``"shap"``)."""
+    return case.framework
+
+
+#: ``registry_name`` for each visualiser class used across the matrix
+#: (mirrors each class's ``@transparency_visualiser(registry_name=...)``
+#: decorator — see ``raitap.transparency.visualisers.*``).
+_VISUALISER_USE_KEYS: dict[str, str] = {
+    "CaptumImageVisualiser": "captum_image",
+    "CaptumTimeSeriesVisualiser": "captum_time_series",
+    "ShapBarVisualiser": "shap_bar",
+    "ShapBeeswarmVisualiser": "shap_beeswarm",
+    "ShapForceVisualiser": "shap_force",
+    "ShapImageVisualiser": "shap_image",
+    "ShapWaterfallVisualiser": "shap_waterfall",
+    "TabularBarChartVisualiser": "tabular_bar_chart",
+}
+
+
+def _visualiser_use_key(cls: type[BaseVisualiser]) -> str:
+    try:
+        return _VISUALISER_USE_KEYS[cls.__name__]
+    except KeyError:
+        raise ValueError(
+            f"No use: registry key mapped for visualiser class {cls.__name__!r}. "
+            "Add it to _VISUALISER_USE_KEYS."
+        ) from None
 
 
 def _resolve_target_mode(
@@ -218,9 +243,7 @@ def _build_factory_config(case: MatrixCase, tmp_path: Path) -> AppConfig:
 
     visualisers: list[dict[str, object]] = []
     if case.visualiser_cls is not None:
-        visualiser_entry: dict[str, object] = {
-            "_target_": f"raitap.transparency.{case.visualiser_cls.__name__}"
-        }
+        visualiser_entry: dict[str, object] = {"use": _visualiser_use_key(case.visualiser_cls)}
         if case.visualiser_kwargs:
             visualiser_entry["constructor"] = dict(case.visualiser_kwargs)
         visualisers.append(visualiser_entry)
@@ -240,7 +263,7 @@ def _build_factory_config(case: MatrixCase, tmp_path: Path) -> AppConfig:
                 transparency={
                     explainer_name: OmegaConf.create(
                         {
-                            "_target_": _explainer_target(case),
+                            "use": _explainer_use_key(case),
                             "algorithm": case.algorithm,
                             "constructor": dict(case.explainer_init_kwargs),
                             "call": call_kwargs,

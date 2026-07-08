@@ -33,7 +33,7 @@ metrics:
 
 transparency:
   smoothgrad_over_saliency:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: NoiseTunnel
     constructor:
       base_algorithm: Saliency
@@ -49,7 +49,7 @@ transparency:
         layout: NCHW
       show_sample_names: true
     visualisers:
-      - _target_: CaptumImageVisualiser
+      - use: captum_image
         constructor:
           method: blended_heat_map
           sign: absolute_value
@@ -60,7 +60,7 @@ transparency:
           max_samples: 4
 
   saliency_baseline:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: Saliency
     call:
       target: auto_pred
@@ -72,7 +72,7 @@ transparency:
         layout: NCHW
       show_sample_names: true
     visualisers:
-      - _target_: CaptumImageVisualiser
+      - use: captum_image
         constructor:
           method: blended_heat_map
           sign: absolute_value
@@ -83,7 +83,7 @@ transparency:
           max_samples: 4
 
 reporting:
-  _target_: HTMLReporter
+  use: html
   filename: noisetunnel_smoothgrad_report
   include_config: true
   include_metadata: true

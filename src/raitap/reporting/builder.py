@@ -77,10 +77,7 @@ def build_report(config: AppConfig, outputs: RunOutputs) -> BuiltReport:
         show_redundant_robustness_panels=bool(
             getattr(reporting_cfg, "show_redundant_robustness_panels", False)
         ),
-        explicit_selection=(
-            explicit_samples is not None
-            and _reporting_target(config) in {"PDFReporter", "raitap.reporting.PDFReporter"}
-        ),
+        explicit_selection=(explicit_samples is not None and _reporting_target(config) == "pdf"),
     )
 
     sections: list[ReportSection] = []
@@ -219,14 +216,14 @@ def _manifest_filename(config: AppConfig) -> str:
     assert config.reporting is not None
     target = _reporting_target(config)
     filename = str(config.reporting.filename)
-    if target in {"HTMLReporter", "raitap.reporting.HTMLReporter"}:
+    if target == "html":
         return report_output_filename(filename, ".html")
     return report_output_filename(filename, ".pdf")
 
 
 def _reporting_target(config: AppConfig) -> str:
     reporting = config.reporting
-    return str(getattr(reporting, "_target_", ""))
+    return str(getattr(reporting, "use", ""))
 
 
 def _selected_sample_manifest_entry(sample: SelectedSample) -> dict[str, object]:

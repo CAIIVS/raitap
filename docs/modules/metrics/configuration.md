@@ -8,7 +8,7 @@ myst:
 
 # Configuration
 
-The `metrics` block scores model predictions. The `_target_` field is the
+The `metrics` block scores model predictions. The `use` field is the
 discriminator: it selects one of four adapters, each with its own set of valid
 keys.
 
@@ -22,7 +22,7 @@ keys.
   related summaries via torchmetrics).
 
 The previous unified `ClassificationMetrics` target with a `task: binary | multiclass | multilabel`
-field has been removed. Pick the task-specific adapter directly via `_target_`;
+field has been removed. Pick the task-specific adapter directly via `use`;
 each adapter only accepts the keys documented for its section below.
 
 See {doc}`frameworks-and-libraries` for the backend behaviour behind each
@@ -34,9 +34,9 @@ adapter.
 :slug: binary
 :intro: Configures `BinaryClassificationMetrics` for two-class problems.
 
-:option: _target_
-:allowed: "BinaryClassificationMetrics"
-:default: "BinaryClassificationMetrics"
+:option: use
+:allowed: "binary_classification"
+:default: "binary_classification"
 :description: Selects the binary-classification adapter.
 
 :option: ignore_index
@@ -52,7 +52,7 @@ adapter.
 
 :yaml:
 metrics:
-  _target_: "BinaryClassificationMetrics"
+  use: binary_classification
 
 :cli: +metrics=binary_classification +metrics.threshold=0.6
 
@@ -69,9 +69,9 @@ metrics = binary_classification()
 :intro: Configures `MulticlassClassificationMetrics` for single-label
   multiclass problems.
 
-:option: _target_
-:allowed: "MulticlassClassificationMetrics"
-:default: "MulticlassClassificationMetrics"
+:option: use
+:allowed: "multiclass_classification"
+:default: "multiclass_classification"
 :description: Selects the multiclass-classification adapter.
 
 :option: num_classes
@@ -92,7 +92,7 @@ metrics = binary_classification()
 
 :yaml:
 metrics:
-  _target_: "MulticlassClassificationMetrics"
+  use: multiclass_classification
   num_classes: 7
 
 :cli: +metrics=multiclass_classification +metrics.num_classes=7
@@ -110,9 +110,9 @@ metrics = multiclass_classification(num_classes=7)
 :intro: Configures `MultilabelClassificationMetrics` for multilabel problems
   (independent per-label decisions).
 
-:option: _target_
-:allowed: "MultilabelClassificationMetrics"
-:default: "MultilabelClassificationMetrics"
+:option: use
+:allowed: "multilabel_classification"
+:default: "multilabel_classification"
 :description: Selects the multilabel-classification adapter.
 
 :option: num_labels
@@ -138,7 +138,7 @@ metrics = multiclass_classification(num_classes=7)
 
 :yaml:
 metrics:
-  _target_: "MultilabelClassificationMetrics"
+  use: multilabel_classification
   num_labels: 5
 
 :cli: +metrics=multilabel_classification +metrics.num_labels=5
@@ -157,9 +157,9 @@ metrics = multilabel_classification(num_labels=5)
   `MeanAveragePrecision`. The IoU-related knobs are grouped under the nested
   `iou:` block.
 
-:option: _target_
-:allowed: "DetectionMetrics"
-:default: "DetectionMetrics"
+:option: use
+:allowed: "detection"
+:default: "detection"
 :description: Selects the object-detection adapter.
 
 :option: box_format
@@ -216,7 +216,7 @@ metrics = multilabel_classification(num_labels=5)
 
 :yaml:
 metrics:
-  _target_: "DetectionMetrics"
+  use: detection
   iou:
     thresholds: [0.5, 0.75]
   class_metrics: true

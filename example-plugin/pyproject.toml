@@ -1,0 +1,16 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "raitap-example-plugin"
+version = "0.0.1"
+description = "Runnable reference plugin for RAITAP's entry-point adapter system."
+requires-python = ">=3.11"
+dependencies = ["raitap"]
+
+[project.entry-points."raitap.adapters"]
+example = "raitap_example_plugin"
+
+[tool.hatch.build.targets.wheel]
+packages = ["raitap_example_plugin"]

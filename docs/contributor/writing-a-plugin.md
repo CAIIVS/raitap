@@ -15,6 +15,18 @@ library like any 1st party RAITAP adapter.
 In the following guide, we will imagine you want to make your "SuperXAI" library usable to RAITAP
 users seamlessly.
 
+## Runnable reference
+
+`example-plugin/` in the RAITAP repo is a real, installable plugin following every step below. Copy
+it as a starting point instead of typing the SuperXAI snippets from scratch:
+
+```bash
+uv pip install ./example-plugin
+python -c "from raitap.robustness import identity_attack; print(identity_attack)"
+```
+
+See `example-plugin/README.md` for install, discovery, and `use:` usage (YAML and Python).
+
 ## Supported modules
 
 Plugins can register:
@@ -66,7 +78,7 @@ if TYPE_CHECKING:
 
 @adapters.transparency(
     registry_name="superxai",      # CLI `+transparency=superxai` / Python `from raitap.transparency import superxai`
-    library="superxai-lib",        # real name of your PyPI package; drives `self._lazy_import()` (defaults to registry_name)
+    import_name="superxai",        # importable module name of the wrapped library; drives `self._lazy_import()`
     error_patterns={               # rewrite cryptic upstream errors at call sites
         r"some library footgun": "Do X instead.", # nicer error messages to avoid deep stack traces in RAITAP
     },
@@ -102,7 +114,7 @@ class SuperXAIExplainer(AttributionOnlyExplainer):
             )
 ```
 
-Decorator kwargs (`library`, `algorithm_registry`, `error_patterns`,
+Decorator kwargs (`import_name`, `algorithm_registry`, `error_patterns`,
 `suppress_warnings`, ...) are documented in {doc}`adding/adding-an-adapter`.
 
 `AdapterDecoratorOptions` is exported for typing, in case you want additional custom logic on top of

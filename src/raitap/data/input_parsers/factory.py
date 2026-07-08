@@ -9,4 +9,4 @@ from raitap.data.input_parsers.base import InputParser  # noqa: TC001  runtime-r
 
 
 def create_input_parser(inputs_config: Any) -> InputParser:
-    return create_parser(inputs_config, prefix="raitap.data.input_parsers.", kind="input parser")
+    return create_parser(inputs_config, group="data/inputs", kind="input parser")

@@ -17,5 +17,9 @@ from raitap.robustness.semantics import AssessorAlgorithmSpec
     },
 )
 class FakeAttackAssessor(EmpiricalAttackAssessor):
+    def __init__(self, algorithm: str, **init_kwargs):
+        self.algorithm = algorithm
+        self.init_kwargs = init_kwargs
+
     def _default_invoke(self, ctx: AttackInvokeCtx):  # noqa: ANN202
         return ctx.inputs

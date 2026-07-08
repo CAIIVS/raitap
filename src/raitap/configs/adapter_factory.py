@@ -3,7 +3,7 @@
 Both :mod:`raitap.robustness` and :mod:`raitap.transparency` configure their
 adapters with the same YAML shape::
 
-    _target_: raitap.<module>.<Adapter>
+    use: <registry_name>
     algorithm: <name>
     constructor: { ... }      # __init__ kwargs
     call: { ... }              # per-call library kwargs
@@ -42,7 +42,8 @@ if TYPE_CHECKING:
     import torch
 
 from raitap import raitap_log
-from raitap.configs.utils import cfg_to_dict, resolve_target
+from raitap.configs.registry_resolve import reject_config_target, resolve_target_fqn
+from raitap.configs.utils import cfg_to_dict
 from raitap.data.data import load_tensor_from_source
 from raitap.data.preprocessing import (
     ResolvedPreprocessing,
@@ -63,7 +64,10 @@ __all__ = [
 
 
 _DATA_SOURCE_KEYS = frozenset({"source", "n_samples"})
-_VISUALISER_ENTRY_KEYS = frozenset({"_target_", "constructor", "call"})
+# ``raitap`` is included because :class:`raitap._adapters._VisualiserUseBase`
+# always carries a ``raitap`` field (default ``{}``); every builder-produced
+# visualiser entry has the key even though visualisers don't consume it.
+_VISUALISER_ENTRY_KEYS = frozenset({"use", "constructor", "call", "raitap"})
 
 
 @dataclass(frozen=True)
@@ -77,11 +81,10 @@ class AdapterSchema:
             e.g. ``"assessor"`` or ``"explainer"``.
         subdict_namespace: title-cased label used in subdict-type errors,
             e.g. ``"Robustness"``.
-        target_prefix: prefix prepended to bare ``_target_`` values
-            (matching :func:`raitap.configs.resolve_target`).
-        visualiser_prefix: prefix for visualiser ``_target_`` values. Often
-            equals ``target_prefix`` (transparency) or differs (robustness
-            uses a separate ``visualisers.`` namespace).
+        registry_group: the :data:`raitap._adapters._TARGET_FQN` group this
+            adapter's ``use:`` key is resolved against (``"transparency"`` /
+            ``"robustness"``). Visualisers are resolved separately under the
+            fixed ``"_unscoped"`` group.
         top_level_keys: allowed keys directly under the adapter config block.
         raitap_keys: allowed keys under the ``raitap:`` sub-block.
         removed_raitap_keys: keys that were valid in older versions but now
@@ -93,8 +96,7 @@ class AdapterSchema:
     domain: str
     entity: str
     subdict_namespace: str
-    target_prefix: str
-    visualiser_prefix: str
+    registry_group: str
     top_level_keys: frozenset[str]
     raitap_keys: frozenset[str]
     top_level_error_hint: str
@@ -106,8 +108,7 @@ class ParsedAdapterConfig:
     """Result of :func:`parse_adapter_config` — fully normalised + validated."""
 
     raw: dict[str, Any]
-    target_path: str
-    resolved_target: str
+    use: str
     algorithm: Any
     constructor: dict[str, Any]
     call: dict[str, Any]
@@ -178,12 +179,12 @@ def _validate_top_level_keys(raw: dict[str, Any], schema: AdapterSchema) -> None
     )
 
 
-def _validate_visualiser_entry_keys(entry: dict[str, Any], *, target_hint: str) -> None:
+def _validate_visualiser_entry_keys(entry: dict[str, Any], *, use_hint: str) -> None:
     unknown = set(entry) - _VISUALISER_ENTRY_KEYS
     if unknown:
         sorted_unknown = ", ".join(sorted(unknown))
         raise ValueError(
-            f"Unknown keys in visualiser config {target_hint!r}: {sorted_unknown}. "
+            f"Unknown keys in visualiser config {use_hint!r}: {sorted_unknown}. "
             "Use 'constructor' for __init__ kwargs and 'call' for visualise() kwargs."
         )
 
@@ -229,21 +230,20 @@ def _reject_misplaced_raitap_call_keys(
 def parse_adapter_config(adapter_config: Any, schema: AdapterSchema) -> ParsedAdapterConfig:
     """Parse + validate an adapter config block. Returns a frozen container."""
     raw = raw_config_dict(adapter_config)
+    reject_config_target(raw)
     _validate_top_level_keys(raw, schema)
 
-    target_path = str(raw.get("_target_", ""))
-    resolved_target = resolve_target(target_path, schema.target_prefix)
+    use = str(raw.get("use", ""))
     constructor_plain = _subdict(raw.get("constructor"), label="constructor", schema=schema)
     call_plain = _subdict(raw.get("call"), label="call", schema=schema)
     raitap_plain = _subdict(raw.get("raitap"), label="raitap", schema=schema)
-    entity_name = resolved_target or target_path or "?"
+    entity_name = use or "?"
     _validate_raitap_keys(raitap_plain, entity_name=entity_name, schema=schema)
     _reject_misplaced_raitap_call_keys(call_plain, entity_name=entity_name, schema=schema)
 
     return ParsedAdapterConfig(
         raw=raw,
-        target_path=target_path,
-        resolved_target=resolved_target,
+        use=use,
         algorithm=raw.get("algorithm"),
         constructor=constructor_plain,
         call=call_plain,
@@ -278,10 +278,11 @@ def instantiate_adapter(
     overridden so per-domain factories can wire in test doubles or monkey-
     patchable module-level bindings.
     """
+    fqn = resolve_target_fqn(schema.registry_group, parsed.use)
     instantiate_cfg: dict[str, Any] = {
         **parsed.constructor,
         "algorithm": parsed.algorithm,
-        "_target_": parsed.resolved_target,
+        "_target_": fqn,
     }
 
     fn = instantiate_fn if instantiate_fn is not None else instantiate
@@ -293,7 +294,7 @@ def instantiate_adapter(
         missing_key = getattr(error, "full_key", None) or "a required field"
         raise ValueError(
             f"Your {schema.entity} config is missing the required `{missing_key}` "
-            f"field for `{parsed.target_path}`. Set it in the YAML entry — e.g. "
+            f"field for `{parsed.use}`. Set it in the YAML entry — e.g. "
             f"`{missing_key}: <value>` — or pass it as a keyword argument when "
             f"building the config in Python."
         ) from error
@@ -301,20 +302,19 @@ def instantiate_adapter(
         raitap_log.exception(
             "%s instantiation failed for target %r",
             schema.entity.capitalize(),
-            parsed.target_path,
+            parsed.use,
         )
         raise ValueError(
-            f"Could not instantiate {schema.entity} {parsed.target_path!r}.\n"
-            f"{instantiate_error_hint}"
+            f"Could not instantiate {schema.entity} {parsed.use!r}.\n{instantiate_error_hint}"
         ) from error
 
     if not isinstance(adapter, protocol):
         raise ValueError(
-            f"Instantiated {schema.entity} {parsed.target_path!r} does not implement "
+            f"Instantiated {schema.entity} {parsed.use!r} does not implement "
             f"{protocol.__name__}. {type_error_hint}"
         )
 
-    return cast("A", adapter), parsed.resolved_target
+    return cast("A", adapter), fqn
 
 
 def instantiate_visualisers(
@@ -335,52 +335,35 @@ def instantiate_visualisers(
 
     for visualiser_config in raw.get("visualisers", []):
         entry = _visualiser_entry_to_dict(visualiser_config)
-        raw_target = str(entry.get("_target_", ""))
-
-        # Three shapes accepted:
-        #   1. Hydra-zen builder with ``zen_meta`` (call/raitap as metadata):
-        #      ``_target_`` is the zen-processing wrapper; the real class is
-        #      under ``_zen_target``. Let hydra-zen's ``instantiate`` handle
-        #      everything (target resolution, kwarg filtering, etc.).
-        #   2. YAML dict: ``{_target_, constructor: {...}, call: {...}}``.
-        #   3. Flat hydra-zen builder (no zen_meta): ``_target_`` is the real
-        #      class FQN, every other key is a constructor kwarg.
-        if raw_target == "hydra_zen.funcs.zen_processing":
-            visualiser_target = str(entry.get("_zen_target", ""))
-            call_plain = _subdict(
-                entry.get("call"),
-                label=f"visualiser call ({visualiser_target})",
-                schema=schema,
-            )
-            instantiate_cfg: dict[str, Any] = entry
+        reject_config_target(entry)
+        use = str(entry.get("use", ""))
+        # Flat form: ``- use: captum_image`` with ``method: heat_map`` at the entry
+        # top level (no ``constructor:`` sub-block) lifts those kwargs into the
+        # constructor — mirrors the programmatic ``captum_image(method="heat_map")``
+        # builder. An explicit ``constructor:`` (or an all-reserved-keys entry)
+        # validates strictly. ``reject_config_target`` already ran above, so a
+        # nested ``_target_`` in a flat kwarg is still rejected.
+        if "constructor" in entry or set(entry).issubset(_VISUALISER_ENTRY_KEYS):
+            _validate_visualiser_entry_keys(entry, use_hint=use or "?")
+            constructor_source: Any = entry.get("constructor")
         else:
-            visualiser_target = raw_target
-            if "constructor" in entry or set(entry).issubset(_VISUALISER_ENTRY_KEYS):
-                _validate_visualiser_entry_keys(entry, target_hint=visualiser_target or "?")
-                constructor_source: Any = entry.get("constructor")
-            else:
-                constructor_source = {
-                    k: v for k, v in entry.items() if k not in {"_target_", "call", "raitap"}
-                }
-            constructor_plain = _subdict(
-                constructor_source,
-                label=f"visualiser constructor ({visualiser_target})",
-                schema=schema,
-            )
-            call_plain = _subdict(
-                entry.get("call"),
-                label=f"visualiser call ({visualiser_target})",
-                schema=schema,
-            )
-            resolved_target = resolve_target(visualiser_target, schema.visualiser_prefix)
-            instantiate_cfg = {**constructor_plain, "_target_": resolved_target}
+            constructor_source = {
+                k: v for k, v in entry.items() if k not in {"use", "call", "raitap"}
+            }
+        constructor_plain = _subdict(
+            constructor_source, label=f"visualiser constructor ({use})", schema=schema
+        )
+        call_plain = _subdict(entry.get("call"), label=f"visualiser call ({use})", schema=schema)
+
+        fqn = resolve_target_fqn("_unscoped", use)
+        instantiate_cfg: dict[str, Any] = {**constructor_plain, "_target_": fqn}
 
         fn = instantiate_fn if instantiate_fn is not None else instantiate
         try:
             visualiser = fn(instantiate_cfg)
         except Exception as error:
-            raitap_log.exception("Visualiser instantiation failed for target %r", visualiser_target)
-            raise ValueError(f"Could not instantiate visualiser {visualiser_target!r}.") from error
+            raitap_log.exception("Visualiser instantiation failed for target %r", use)
+            raise ValueError(f"Could not instantiate visualiser {use!r}.") from error
 
         out.append(wrap(visualiser, call_plain))
 

@@ -14,12 +14,12 @@ myst:
   See {ref}`modules-robustness-configuration-examples` for the config shape.
 
   See {doc}`frameworks-and-libraries` for the backend behaviour behind
-  `_target_`, `algorithm`, and visualiser compatibility.
+  `use`, `algorithm`, and visualiser compatibility.
 
-:option: _target_
-:allowed: "TorchattacksAssessor", "FoolboxAssessor", "ImageCorruptionsAssessor"
+:option: use
+:allowed: "torchattacks", "foolbox", "imagecorruptions"
 :default: null
-:description: Hydra target for the assessor class.
+:description: Selects the assessor implementation.
 
 :option: algorithm
 :allowed: See {doc}`frameworks-and-libraries`
@@ -111,9 +111,9 @@ myst:
 
 :option: visualisers
 :allowed: list[dict]
-:default: [ImagePairVisualiser]
+:default: [{use: image_pair}]
 :description: Visualiser definitions. Each entry must include at least
-  `_target_`. Each visualiser can also define its own `constructor` and `call`
+  `use`. Each visualiser can also define its own `constructor` and `call`
   blocks. Visualisers declare which `AssessmentKind` (`empirical_attack` /
   `formal_verification` / `statistical_sampling`) they support; the factory
   rejects mismatches at parse time.
@@ -121,16 +121,16 @@ myst:
 :yaml:
 robustness:
   pgd:
-    _target_: "TorchattacksAssessor"
+    use: torchattacks
     algorithm: "PGD"
     constructor:
       eps: 0.03
       alpha: 0.0078
       steps: 10
     visualisers:
-      - _target_: "ImagePairVisualiser"
+      - use: image_pair
   linf_pgd:
-    _target_: "FoolboxAssessor"
+    use: foolbox
     algorithm: "LinfPGD"
     constructor:
       rel_stepsize: 0.025
@@ -138,10 +138,10 @@ robustness:
     call:
       eps: 0.03
     visualisers:
-      - _target_: "ImagePairVisualiser"
-      - _target_: "PerturbationHeatmapVisualiser"
+      - use: image_pair
+      - use: perturbation_heatmap
   avg:
-    _target_: "ImageCorruptionsAssessor"
+    use: imagecorruptions
     algorithm: "gaussian_noise"   # one of the 15 ImageNet-C corruptions
     constructor:
       severity: 3                 # 1..5
@@ -149,7 +149,7 @@ robustness:
       ci_method: "wilson"         # or clopper_pearson
       ci_level: 0.95
     visualisers:
-      - _target_: "CorruptionAccuracyVisualiser"
+      - use: corruption_accuracy
 
 :cli: +robustness=torchattacks robustness.torchattacks.algorithm=PGD robustness.torchattacks.constructor.eps=0.05
 

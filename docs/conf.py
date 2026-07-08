@@ -18,6 +18,7 @@ extensions = [
     "config_options",
     "config_tabs",
     "install_tabs",
+    "raitap_adapters",
     "recipe",
     "visualiser_card",
     "myst_parser",

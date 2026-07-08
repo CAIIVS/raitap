@@ -1,0 +1,8 @@
+# Fragment: the `robustness:` block to add to your own assessment.yaml once
+# `raitap-example-plugin` is installed. Not runnable standalone — it needs a
+# `model:` / `data:` section like any other RAITAP assessment.yaml (see
+# `example/assessment.yaml` in the raitap repo for a complete one).
+robustness:
+  identity_check:
+    use: identity_attack
+    algorithm: identity

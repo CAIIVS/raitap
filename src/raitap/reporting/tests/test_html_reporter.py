@@ -276,7 +276,7 @@ def test_html_reporter_omits_reproducibility_banner_for_deterministic_run(tmp_pa
 def _config(*, filename: str = "report.pdf") -> AppConfig:
     config = AppConfig(experiment_name="html-report-test")
     config.reporting = ReportingConfig(
-        _target_="raitap.reporting.HTMLReporter",
+        use="html",
         filename=filename,
     )
     return config

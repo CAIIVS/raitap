@@ -29,7 +29,7 @@ def mock_config(tmp_path: Path) -> AppConfig:
     cfg = AppConfig(experiment_name="test_experiment")
     set_output_root(cfg, tmp_path)
     cfg.reporting = ReportingConfig(
-        _target_="PDFReporter",
+        use="pdf",
         filename="test.pdf",
     )
     return cfg

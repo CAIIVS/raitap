@@ -39,7 +39,7 @@ _REGISTRY = {
 # is exercised end-to-end by the deps inference tests.
 @transparency_evaluator(
     registry_name="dummy_eval",
-    library="quantus",
+    import_name="quantus",
     algorithm_registry=_REGISTRY,
 )
 class DummyEval(BaseEvaluator):
@@ -49,7 +49,7 @@ class DummyEval(BaseEvaluator):
 
 def test_decorator_sets_registry_and_identity() -> None:
     assert DummyEval.registry_name == "dummy_eval"
-    assert DummyEval.library == "quantus"
+    assert DummyEval.import_name == "quantus"
     assert "sparseness" in DummyEval.algorithm_registry
 
 

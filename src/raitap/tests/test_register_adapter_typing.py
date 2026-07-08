@@ -45,8 +45,8 @@ def _pyright_errors(source: str, tmp_path: Path) -> list[str]:
 def test_missing_registry_name_is_pyright_error_for_every_family_decorator(
     tmp_path: Path,
 ) -> None:
-    _tr_call = "adapters.transparency(algorithm_registry={}, extra='x', library='x')"
-    _ro_call = "adapters.robustness(algorithm_registry={}, extra='x', library='x')"
+    _tr_call = "adapters.transparency(algorithm_registry={}, extra='x', import_name='x')"
+    _ro_call = "adapters.robustness(algorithm_registry={}, extra='x', import_name='x')"
     for decorator_import, decorator_call, expected in [
         ("from raitap import adapters", _tr_call, "registry_name"),
         ("from raitap import adapters", _ro_call, "registry_name"),

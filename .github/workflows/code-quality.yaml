@@ -116,6 +116,11 @@ jobs:
       - name: Pyright
         run: uv run pyright
 
+      - name: Config schema freshness
+        run: |
+          uv run raitap config-schema -o /tmp/raitap.schema.json
+          git diff --exit-code --no-index -- src/raitap/schema/raitap.schema.json /tmp/raitap.schema.json
+
       - name: Pytest on 3.13 (with coverage)
         run: uv run pytest -m "not e2e and not cuda" -v --cov=src/raitap --cov-report=term-missing --cov-report=html
 

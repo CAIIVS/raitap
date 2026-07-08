@@ -28,25 +28,25 @@ metrics:
 
 transparency:
   my_integrated_gradients_explainer:
-    _target_: CaptumExplainer
+    use: captum
     algorithm: IntegratedGradients
     call:
       target: 0
       internal_batch_size: 8   # chunk IG steps so CPU peak RAM stays bounded
     visualisers:
-      - _target_: CaptumImageVisualiser
+      - use: captum_image
 
 robustness:
   my_pgd_attacker:
-    _target_: TorchattacksAssessor
+    use: torchattacks
     algorithm: PGD
     constructor:
       eps: 0.03
       alpha: 0.005
       steps: 10
     visualisers:
-      - _target_: ImagePairVisualiser
+      - use: image_pair
 
 reporting:
-  _target_: HTMLReporter
+  use: html
   filename: demo_report

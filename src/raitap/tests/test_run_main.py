@@ -364,8 +364,7 @@ def test_hydra_main_composes_default_config(monkeypatch: MonkeyPatch, tmp_path: 
     cfg = cast("AppConfig", captured["config"])
     assert cfg.model.source == "vit_b_32"
     assert cfg.metrics is not None
-    expected = "raitap.metrics.classification_metrics.MulticlassClassificationMetrics"
-    assert cfg.metrics._target_ == expected
+    assert cfg.metrics.use == "multiclass_classification"
     assert cfg.transparency
 
 
@@ -440,8 +439,7 @@ def test_hydra_main_loads_custom_config_name_from_cwd_and_keeps_packaged_default
     assert cfg.hardware == "cpu"
     assert cfg.model.source == "vit_b_32"
     assert cfg.metrics is not None
-    expected = "raitap.metrics.classification_metrics.MulticlassClassificationMetrics"
-    assert cfg.metrics._target_ == expected
+    assert cfg.metrics.use == "multiclass_classification"
     assert cfg.transparency
 
 
@@ -592,7 +590,7 @@ def test_run_invalid_report_sample_selection_fails_before_pipeline_work(
     monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
 
     config = _run_config(
-        reporting={"_target_": "PDFReporter", "sample_selection": ["missing.png"]},
+        reporting={"use": "pdf", "sample_selection": ["missing.png"]},
         tracking=None,
     )
 
@@ -637,7 +635,7 @@ def test_run_with_tracking_logs_all_outputs(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
     config = _run_config(
-        tracking={"_target_": "MLFlowTracker", "log_model": True},
+        tracking={"use": "mlflow", "log_model": True},
     )
     run_pipeline._run_pipeline(config)  # type: ignore[arg-type]
 
@@ -680,7 +678,7 @@ def test_run_with_tracking_skips_model_logging_when_disabled(monkeypatch: Monkey
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
     config = _run_config(
-        tracking={"_target_": "MLFlowTracker", "log_model": False},
+        tracking={"use": "mlflow", "log_model": False},
     )
     run_pipeline._run_pipeline(config)  # type: ignore[arg-type]
 
@@ -721,7 +719,7 @@ def test_run_with_multiple_explainers_uses_subdirs(monkeypatch: MonkeyPatch) -> 
     monkeypatch.setattr(BaseTracker, "create_tracker", lambda _cfg: _TrackerContext())
 
     config = _run_config(
-        tracking={"_target_": "MLFlowTracker", "log_model": False},
+        tracking={"use": "mlflow", "log_model": False},
     )
     run_pipeline._run_pipeline(config)  # type: ignore[arg-type]
 
@@ -731,7 +729,7 @@ def test_run_with_multiple_explainers_uses_subdirs(monkeypatch: MonkeyPatch) -> 
     assert vis2.log_calls == [True]
 
 
-def test_run_with_tracking_config_but_no_target_skips_tracking(monkeypatch: MonkeyPatch) -> None:
+def test_run_with_tracking_config_but_no_use_skips_tracking(monkeypatch: MonkeyPatch) -> None:
     model = SimpleNamespace(
         backend=_BackendStub(torch.nn.Identity()),
         log=MagicMock(),
@@ -751,22 +749,67 @@ def test_run_with_tracking_config_but_no_target_skips_tracking(monkeypatch: Monk
     monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
     monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
 
-    # tracking config exists but _target_ is None or empty
-    config = _run_config(tracking={"_target_": ""})
+    # tracking config exists but `use` is empty
+    config = _run_config(tracking={"use": ""})
     result = run_pipeline._run_pipeline(config)  # type: ignore[arg-type]
 
     assert result is fake_output
     tracker_factory.assert_not_called()
 
 
+def test_run_with_tracking_config_target_raises(monkeypatch: MonkeyPatch) -> None:
+    """A `_target_`-carrying tracking block must raise loudly, not be silently
+    read as "tracking disabled" (issue #301).
+
+    ``make_app_config``'s struct-mode ``TrackingConfig`` schema rejects an
+    undeclared ``_target_`` key at construction time, before the orchestrator
+    guard would ever see it — so this uses a plain (unvalidated) ``AppConfig``
+    dataclass instance, mirroring how a non-schema-checked source (e.g. a
+    hand-built dict) would reach the guard.
+    """
+    from raitap.configs.registry_resolve import UnsafeConfigTargetError
+    from raitap.configs.schema import AppConfig, DataConfig, ModelConfig
+
+    model = SimpleNamespace(
+        backend=_BackendStub(torch.nn.Identity()),
+        log=MagicMock(),
+    )
+    data = SimpleNamespace(tensor=torch.randn(2, 3))
+    fake_output = _fake_run_outputs(
+        explanations=[],
+        visualisations=[],
+        metrics=None,
+        forward_output=_fo(torch.tensor([0, 0])),
+    )
+    tracker_factory = MagicMock()
+
+    monkeypatch.setattr(run_pipeline, "Model", lambda _cfg, **_kwargs: model)
+    monkeypatch.setattr(run_pipeline, "Data", lambda _cfg, **_kwargs: data)
+    monkeypatch.setattr(run_pipeline, "run_phases", lambda _c, _m, _d, **_kwargs: fake_output)
+    monkeypatch.setattr(run_pipeline, "print_summary", lambda _cfg, _model: None)
+    monkeypatch.setattr(BaseTracker, "create_tracker", tracker_factory)
+
+    config = AppConfig(
+        experiment_name="test",
+        model=ModelConfig(source="resnet50"),
+        data=DataConfig(preprocessing=None),
+    )
+    config.tracking = {"_target_": "os.system", "log_model": False}  # type: ignore[assignment]
+
+    with pytest.raises(UnsafeConfigTargetError):
+        run_pipeline._run_pipeline(config)  # type: ignore[arg-type]
+
+    tracker_factory.assert_not_called()
+
+
 def test_run_phases_raises_if_no_phase_configured() -> None:
     model = SimpleNamespace(backend=_BackendStub(torch.nn.Identity()))
     data = SimpleNamespace(tensor=torch.randn(2, 3), sample_ids=None, labels=None)
-    # No _target_ on metrics, empty transparency/robustness -> no phase configured.
+    # No `use` on metrics, empty transparency/robustness -> no phase configured.
     config = SimpleNamespace(
         transparency={},
         robustness={},
-        metrics=SimpleNamespace(_target_=None, num_classes=None),
+        metrics=SimpleNamespace(use=None, num_classes=None),
     )
 
     with pytest.raises(ValueError, match="No assessment phase configured"):
@@ -781,12 +824,12 @@ def test_run_phases_allows_metrics_only(monkeypatch: MonkeyPatch) -> None:
 
     model = SimpleNamespace(backend=_BackendStub(_Net()))
     data = SimpleNamespace(tensor=torch.randn(2, 4), sample_ids=None, labels=None)
-    # A real (non-empty) _target_ is exactly what metrics_run_enabled checks; no
+    # A real (non-empty) `use` is exactly what metrics_run_enabled checks; no
     # transparency/robustness configured -> genuine metrics-only run.
     config = make_app_config(
         transparency={},
         robustness={},
-        metrics={"_target_": "MulticlassClassificationMetrics"},
+        metrics={"use": "multiclass_classification"},
     )
     # ``num_classes`` deliberately absent here (unlike the typed subclass, where
     # it is mandatory): exercises the auto-infer branch in
@@ -817,7 +860,7 @@ def test_run_phases_infers_num_classes_and_runs_metrics(monkeypatch: MonkeyPatch
 
     config = make_app_config(
         transparency={"one": {}},
-        metrics={"_target_": "MulticlassClassificationMetrics"},
+        metrics={"use": "multiclass_classification"},
     )
     OmegaConf.set_struct(config.metrics, False)
     _patch_prepare_explainer(

@@ -8,6 +8,16 @@ myst:
 
 # Supported libraries
 
+## Adapter reference
+
+Every `use:` key registered for the robustness module, generated from the
+adapter registry.
+
+```{include} ../_generated_adapters.md
+:start-after: <!-- raitap-adapters:robustness:start -->
+:end-before: <!-- raitap-adapters:robustness:end -->
+```
+
 ## `constructor`, `call`, and `raitap` keys
 
 Assessors support three config buckets:

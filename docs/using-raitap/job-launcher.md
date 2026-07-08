@@ -57,13 +57,13 @@ transparency:
     call:
       target: 0
     visualisers:
-      - _target_: CaptumImageVisualiser
+      - use: captum_image
   shap:
     algorithm: GradientExplainer
     call:
       target: 0
     visualisers:
-      - _target_: ShapImageVisualiser
+      - use: shap_image
 
 data:
   source: my_dataset
