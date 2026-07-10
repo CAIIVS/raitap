@@ -1028,10 +1028,10 @@ requires-dist = [
     { name = "numba", marker = "extra == 'foolbox'", specifier = ">=0.59" },
     { name = "numpy", specifier = ">=2.4.2" },
     { name = "omegaconf", specifier = ">=2.3,<2.4" },
-    { name = "onnx", marker = "sys_platform != 'darwin' and extra == 'onnx-intel'", specifier = ">=1.21.0" },
-    { name = "onnx", marker = "extra == 'marabou'", specifier = ">=1.15" },
-    { name = "onnx", marker = "extra == 'onnx-cpu'", specifier = ">=1.21.0" },
-    { name = "onnx", marker = "extra == 'onnx-cuda'", specifier = ">=1.21.0" },
+    { name = "onnx", marker = "sys_platform != 'darwin' and extra == 'onnx-intel'", specifier = ">=1.22.0" },
+    { name = "onnx", marker = "extra == 'marabou'", specifier = ">=1.22.0" },
+    { name = "onnx", marker = "extra == 'onnx-cpu'", specifier = ">=1.22.0" },
+    { name = "onnx", marker = "extra == 'onnx-cuda'", specifier = ">=1.22.0" },
     { name = "onnxruntime", marker = "extra == 'onnx-cpu'", specifier = ">=1.24.4" },
     { name = "onnxruntime-gpu", marker = "extra == 'onnx-cuda'", specifier = ">=1.24.4" },
     { name = "onnxruntime-openvino", marker = "sys_platform != 'darwin' and extra == 'onnx-intel'", specifier = ">=1.24.1" },
@@ -1041,6 +1041,7 @@ requires-dist = [
     { name = "pandas", specifier = ">=2.0.0" },
     { name = "pandas-stubs", specifier = "~=3.0.0" },
     { name = "pillow", specifier = ">=12.2.0" },
+    { name = "quantus", marker = "extra == 'quantus'", specifier = ">=0.5.3" },
     { name = "raitap", extras = ["mlflow"], marker = "extra == 'tracking'" },
     { name = "raitap", extras = ["pdf", "html"], marker = "extra == 'reporting'" },
     { name = "raitap", extras = ["shap", "captum"], marker = "extra == 'transparency'" },
@@ -1063,11 +1064,12 @@ requires-dist = [
     { name = "torchvision", marker = "extra == 'onnx-cuda'", specifier = ">=0.20.0,<0.24.0", index = "https://download.pytorch.org/whl/cu126", conflict = { package = "raitap", extra = "onnx-cuda" } },
     { name = "torchvision", marker = "extra == 'torch-cpu'", specifier = ">=0.20.0,<0.24.0", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "raitap", extra = "torch-cpu" } },
     { name = "torchvision", marker = "extra == 'torch-cuda'", specifier = ">=0.20.0,<0.24.0", index = "https://download.pytorch.org/whl/cu126", conflict = { package = "raitap", extra = "torch-cuda" } },
+    { name = "transformers", marker = "extra == 'text'", specifier = ">=4.40" },
     { name = "triton-xpu", marker = "python_full_version < '3.14' and sys_platform != 'darwin' and extra == 'onnx-intel'", specifier = ">=3.0.0", index = "https://download.pytorch.org/whl/xpu", conflict = { package = "raitap", extra = "onnx-intel" } },
     { name = "triton-xpu", marker = "python_full_version < '3.14' and sys_platform != 'darwin' and extra == 'torch-intel'", specifier = ">=3.0.0", index = "https://download.pytorch.org/whl/xpu", conflict = { package = "raitap", extra = "torch-intel" } },
     { name = "xgboost", marker = "extra == 'xgboost'", specifier = ">=2.0" },
 ]
-provides-extras = ["torch-cpu", "torch-cuda", "torch-intel", "onnx-cpu", "onnx-cuda", "onnx-intel", "shap", "captum", "transparency", "xgboost", "torchattacks", "foolbox", "imagecorruptions", "marabou", "auto-lirpa", "robustness", "launcher", "mlflow", "tracking", "metrics", "pdf", "html", "reporting"]
+provides-extras = ["torch-cpu", "torch-cuda", "torch-intel", "onnx-cpu", "onnx-cuda", "onnx-intel", "shap", "captum", "quantus", "transparency", "xgboost", "text", "torchattacks", "foolbox", "imagecorruptions", "marabou", "auto-lirpa", "robustness", "launcher", "mlflow", "tracking", "metrics", "pdf", "html", "reporting"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1371,14 +1373,14 @@ dependencies = [
     { name = "pyelftools" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.7.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:a16b1d00e94ad87d62af3512e390348b8656419598004100c56028bf494f086b", upload-time = "2026-05-12T19:07:53Z" },
-    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.7.1-cp311-cp311-win_amd64.whl", hash = "sha256:ad5b147d04ee0d40f3d4d32f85f5aa3a3beb6cd5799ca026d3d7f4afa3d9e24f", upload-time = "2026-05-12T19:08:27Z" },
-    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.7.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:4e46e71e077cf483404a4c17ce40d71c5f0e13a81459139d4346ca427b1dd455", upload-time = "2026-05-12T19:09:05Z" },
-    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.7.1-cp312-cp312-win_amd64.whl", hash = "sha256:d9482063af2a308543f23333e32edd738ea87cbb33ade68afda9ae0fd704ccd9", upload-time = "2026-05-12T19:09:38Z" },
-    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.7.1-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:4fdaed1bafc51d3a2834656a3420a6686a74ea226508765a49bf15d58ff3a930", upload-time = "2026-05-12T19:10:15Z" },
-    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.7.1-cp313-cp313-win_amd64.whl", hash = "sha256:5d4d67f0deb1e851c01b293e602b8dcddad26ca2be61221cee3dc0e1aa0cdefd", upload-time = "2026-05-12T19:10:50Z" },
-    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.7.1-cp313-cp313t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:c90fc043261382dc35320cf9bdd02a894b10e85cb9b549d3efc00369d0d39e96", upload-time = "2026-05-12T19:11:39Z" },
-    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.7.1-cp313-cp313t-win_amd64.whl", hash = "sha256:23a33a716b512c7377f66dae980071dfdd7aa9b0fa98a4af5af8231c5336721b", upload-time = "2026-05-12T19:12:20Z" },
+    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.7.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:55574a68d275b85cd4d5cbf185084bae019ebf09c3f43b0bd2831b14935ec8e7", upload-time = "2026-06-17T16:51:05Z" },
+    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.7.1-cp311-cp311-win_amd64.whl", hash = "sha256:8f4a63de73e3d632098f93c8f0bd77244958a47d7c5f728b8ff35f8a91fdb983", upload-time = "2026-06-17T16:51:42Z" },
+    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.7.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:a31c058c5c2e78ebe490a2e69f2f50caec6b1307ac096e944f116fdc06819d9a", upload-time = "2026-06-17T16:52:20Z" },
+    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.7.1-cp312-cp312-win_amd64.whl", hash = "sha256:6589ece3adc2b1ab88d90ff1267afc25df5c7b868f0b633e732cac70df36cbde", upload-time = "2026-06-17T16:53:02Z" },
+    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.7.1-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e701a31efa0334775f357c98716f3821775aa944219f7888e13c2dfe2daabe2a", upload-time = "2026-06-17T16:53:46Z" },
+    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.7.1-cp313-cp313-win_amd64.whl", hash = "sha256:2fdf001a9b0575e8b1827127259bb9b13bf36e659882be74c2dfab46597d3e7a", upload-time = "2026-06-17T16:54:33Z" },
+    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.7.1-cp313-cp313t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:c90fc043261382dc35320cf9bdd02a894b10e85cb9b549d3efc00369d0d39e96", upload-time = "2026-06-17T16:55:17Z" },
+    { url = "https://download-r2.pytorch.org/whl/triton_xpu-3.7.1-cp313-cp313t-win_amd64.whl", hash = "sha256:23a33a716b512c7377f66dae980071dfdd7aa9b0fa98a4af5af8231c5336721b", upload-time = "2026-06-17T16:56:03Z" },
 ]
 
 [[package]]
