@@ -83,8 +83,8 @@ Source = "https://github.com/CAIIVS/raitap/"
 
 [project.optional-dependencies]
 # Backend module
-torch-cpu = ["torch>=2.8.0,<2.9.0", "torchvision>=0.20.0,<0.24.0"]
-torch-cuda = ["torch>=2.8.0,<2.9.0", "torchvision>=0.20.0,<0.24.0"]
+torch-cpu = ["torch>=2.13.0,<2.14.0", "torchvision>=0.20.0,<0.24.0"]
+torch-cuda = ["torch>=2.13.0,<2.14.0", "torchvision>=0.20.0,<0.24.0"]
 torch-intel = [
   # Intel XPU stays on torch>=2.10.0 (unchanged from main): the only torch in the
   # 2.8 window on the xpu index is 2.8.0+xpu, whose pinned pytorch-triton-xpu==3.4.0
@@ -102,13 +102,13 @@ torch-intel = [
 onnx-cpu = [
   "onnx>=1.21.0",
   "onnxruntime>=1.24.4",
-  "torch>=2.8.0,<2.9.0",
+  "torch>=2.13.0,<2.14.0",
   "torchvision>=0.20.0,<0.24.0",
 ]
 onnx-cuda = [
   "onnx>=1.21.0",
   "onnxruntime-gpu>=1.24.4",
-  "torch>=2.8.0,<2.9.0",
+  "torch>=2.13.0,<2.14.0",
   "torchvision>=0.20.0,<0.24.0",
 ]
 onnx-intel = [
@@ -138,7 +138,7 @@ transparency = ["raitap[shap,captum]"]
 # compute. Bundled here and routed to the CPU index in [tool.uv.sources] (like
 # onnx-cpu bundles torch); XGBoost runs on CPU here, so the CPU build suffices and
 # this extra stays hardware-variant-free.
-xgboost = ["xgboost>=2.0", "scikit-learn>=1.3", "torch>=2.8.0,<2.9.0"]
+xgboost = ["xgboost>=2.0", "scikit-learn>=1.3", "torch>=2.13.0,<2.14.0"]
 
 # Text model backend (HuggingFace) — AutoModelForSequenceClassification +
 # AutoTokenizer loading for the text input modality. Does not bundle torch:
