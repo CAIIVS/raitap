@@ -100,19 +100,19 @@ torch-intel = [
 ]
 # TODO remove bundled torch deps once ONNX no longer relies on torch tensors internally
 onnx-cpu = [
-  "onnx>=1.21.0",
+  "onnx>=1.22.0",
   "onnxruntime>=1.24.4",
   "torch>=2.8.0,<2.9.0",
   "torchvision>=0.20.0,<0.24.0",
 ]
 onnx-cuda = [
-  "onnx>=1.21.0",
+  "onnx>=1.22.0",
   "onnxruntime-gpu>=1.24.4",
   "torch>=2.8.0,<2.9.0",
   "torchvision>=0.20.0,<0.24.0",
 ]
 onnx-intel = [
-  "onnx>=1.21.0; sys_platform != 'darwin'",
+  "onnx>=1.22.0; sys_platform != 'darwin'",
   "onnxruntime-openvino>=1.24.1; sys_platform != 'darwin'",
   "openvino>=2025.1.0; sys_platform == 'win32'",
   # Intel XPU stays on torch>=2.10.0 — see the torch-intel comment above.
@@ -158,7 +158,7 @@ imagecorruptions = ["imagecorruptions>=1.1.2"]
 # installing Marabou adds a non-trivial native dep empirical-only users don't need.
 marabou = [
     "maraboupy>=2.0.0,<3.0; python_full_version < '3.12' and sys_platform != 'win32'",
-    "onnx>=1.15",
+    "onnx>=1.22.0",
 ]
 # auto-LiRPA certified-robustness adapter (sound, incomplete bound propagation).
 # Resolved from GitHub master via [tool.uv.sources] below — auto-LiRPA has no
